@@ -2176,6 +2176,9 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   // (systems/materialsBag.js): what they hold of a material, how many more fit, the units minted into them (the bag
   // first) and taken out of them with their undo. A Butcher's meat and a Provisioner's provisions keep their makers'
   // words as a withdrawal's always did (profMint's), and every change asks the one checkpoint (saveSoon, below).
+  // BOOT-TDZ (2026-11-05): made BEFORE carryHands and profBook - the offline professions book is built in the boot walk and
+  // takes it; declared below them it read an uninitialised binding ("boot failed: Cannot access 'jo' before initialization").
+  const saveSoon = createSaveSoon();
   const carryOpts = (key) => ({ slowRot: key === 'food:meat' && profBook?.track('hunting')?.specs?.[100] === 'butcher', noRot: profBook?.track('cooking')?.specs?.[100] === 'provisioner' });
   const carryHands = {
     held: (key) => bagHeldOf(playerEntity, key, { counter: false }), heldAll: (key) => bagHeldOf(playerEntity, key),   // AUDIT TOWN-ECON 2 PRICE-2: a counter's pieces no service unit - a station's alone
@@ -2359,7 +2362,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   /** PROF-SAVE (systems/online/onlineCheckpoint.js createSaveSoon): every professions act below that changes the save - the
    *  pack, the home's things, the purse or the Bank's accounts, on the service's answer - asks ONE checkpoint on the next
    *  task, as a trade saves at once; the checkpoint (onlineCheckpoint) is handed in once it is built (REALM P0.5). */
-  const saveSoon = createSaveSoon();
+  // BOOT-TDZ: `saveSoon` is made above (before carryHands), where the offline profBook reads it during the boot walk.
   // DAEDRIC-SMELT (bible/06-Systems/Professions-Arc.md section 53): AND THE BOOK'S HANDS ON THE PACK'S DEADLANDS EMBERS - the
   // pack's half of the Daedric smelt (systems/sigil/sigilBroker.js emberHands, the Broker's own law), each take saved
   carryHands.embers = emberHands(playerEntity, saveSoon.changed);

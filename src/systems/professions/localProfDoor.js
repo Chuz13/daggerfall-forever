@@ -13,6 +13,8 @@ import {
   rankOfXp,
   harvestXp,
   smeltRecipe,
+  smeltXp,
+  materialOf,
   FISH_KEY,
   herbKey,
   hideOfFoe,
@@ -54,7 +56,7 @@ import {
 /** Generate 16-hex-digit provenance ID. */
 function mintProvenance() {
   const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
+  globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -440,7 +442,8 @@ export function createLocalProfDoor(playerEntity, deps) {
       spendStores(rec, inputs);
       const outStore = addToStore(rec, r.out, countNum, 'own');
       const prof = trackOf(r.xp ?? r.more?.profession ?? 'smithing');
-      const xp = (r.tier ?? 1) * 20 * countNum;
+      const tier = materialOf(r.out, () => null)?.tier ?? 1;
+      const xp = smeltXp(tier, countNum, ensureTrack(rec, prof).rank);
       const t = addXp(rec, prof, xp);
       saveRecord(rec);
       saveSoon?.changed?.();
@@ -478,7 +481,7 @@ export function createLocalProfDoor(playerEntity, deps) {
       const updatedTrack = addXp(rec, prof, gainedXp);
       const pid = mintProvenance();
       const qSteps = qualitySteps(r, { clean: clean === true, heartwood: heartwood === true });
-      const finalQuality = Math.min(5, Math.max(1, (r.quality ?? 2) + qSteps));
+      const finalQuality = Math.min(5, Math.max(1, 2 + qSteps));
       saveRecord(rec);
       saveSoon?.changed?.();
       const spentStores = inputs.map((inp) => rec.stores[inp.key] ?? { material: inp.key, own: 0, bought: 0 });
