@@ -8,6 +8,7 @@
 
 import { registerModSaveData } from '../modSaveData.js';
 import { LivingTamrielConfig, PRESENCE, resetLivingConfig } from './livingConfig.js';
+import { tickAllRegions } from './regionState.js';
 
 export const LIVING_TAMRIEL_VENDOR = 'livingTamriel';
 export const LIVING_TAMRIEL_SAVE_VERSION = 1;
@@ -175,7 +176,7 @@ export function onLivingWorldTick(nowMinutes) {
   if (daysPassed > 0) {
     const cappedDays = Math.min(daysPassed, 3); // Max 3 days catch-up simulation
     for (let day = 0; day < cappedDays; day++) {
-      // Step all active modular subsystems here (hooked in subsequent LT tasks)
+      tickAllRegions();
     }
     _state.lastWorldTickMinute = current;
   }
