@@ -134,7 +134,7 @@ export const NAVAL_WIRE_GONE = 8;
 /** How long a volley stays in the word, so every receiver's frame catches it (ms). */
 export const NAVAL_VOLLEY_KEEP_MS = 1500;
 /** AUDIT NAV1 (online #15): the Ships at sea a word says nothing of - the Features row's own default (systems/features.js). */
-export const TRAFFIC_DEFAULT = 'some';
+export const TRAFFIC_DEFAULT = 'many';
 /** One blow frame's ceiling on each damage (a whole broadside of heavy guns, holed, and some). */
 export const NAVAL_HIT_MAX = 400;
 /** The states on the wire, by code. */

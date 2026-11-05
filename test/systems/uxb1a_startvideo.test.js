@@ -18,8 +18,8 @@ import { introPage } from '../introDom.mjs';
 
 const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
 
-test('UXB1-A: the switch is a port pref, OFF by default, and the player\'s own online', () => {
-  assert.equal(PREF_DEFAULTS.skipStartVideo, false, 'disabled by default - the film is how the game introduces itself');
+test('UXB1-A: the switch is a port pref, ON by default, and the player\'s own online', () => {
+  assert.equal(PREF_DEFAULTS.skipStartVideo, true);
   assert.ok(ONLINE_PLAYERS_OWN_PREFS.includes('skipStartVideo'), 'nothing the room agrees on reads it');
   assert.ok(!('skipStartVideo' in ONLINE_FORCED_PREFS));
   assert.equal(onlineForcedPref('skipStartVideo', '?online=1'), undefined);

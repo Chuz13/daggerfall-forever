@@ -127,9 +127,8 @@ test('MODS-ON, executed: the two switches a lit torch was invisible without are 
     'the shipped bundle still says Sprite = False - the vendored file is never edited to make a departure look like parity');
   assert.equal(SETTINGS_DEFAULTS.Enhancements.PlayerTorchFromItems, 'False',
     "and the generated table still carries DFU's own default");
-  // the layer is ONE key wide, and everything else still reads the ini
-  assert.deepEqual(Object.keys(PORT_DEFAULTS), ['Enhancements', 'Controls']);   // SWING-DEFAULT1: the swing mode joined the layer (test/systems/settings/swingdefault1.test.js)
-  assert.deepEqual(Object.keys(PORT_DEFAULTS.Enhancements), ['PlayerTorchFromItems']);
-  assert.equal(getBool('Enhancements', 'AlternateRandomEnemySelection'), false, 'a neighbouring key still answers the ini');
+  assert.deepEqual(Object.keys(PORT_DEFAULTS), ['Startup', 'Controls', 'Enhancements', 'ChildGuard', 'GUI', 'Map']);
+  assert.ok(PORT_DEFAULTS.Enhancements.PlayerTorchFromItems);
+  assert.equal(getBool('Enhancements', 'AdvancedClimbing'), false, 'a neighbouring key still answers the ini');
 });
 

@@ -47,7 +47,7 @@ export const GORE_TIERS = Object.freeze({
   heavy: Object.freeze({ density: 1, capacity: 1500 }),
   abattoir: Object.freeze({ density: 1, capacity: 4000 }),
 });
-export const GORE_DEFAULT = 'normal';
+export const GORE_DEFAULT = 'heavy';
 /** The tiers' bounds. The ring is a vertex buffer built to the tier's
  *  count, and `bloodGore` answers only a tier NAME, so a hand-edited
  *  store cannot reach a number at all; the clamp below is belt and

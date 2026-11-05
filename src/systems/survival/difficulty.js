@@ -106,7 +106,7 @@
 export const SURVIVAL_OFF = 'off';
 /** The tiers in the Features bar's order. */
 export const SURVIVAL_TIER_IDS = Object.freeze([SURVIVAL_OFF, 'boons', 'casual', 'hard']);   // SURV-BOONS: the gentlest first after Off
-export const SURVIVAL_DEFAULT = 'boons';   // BOONS-DEFAULT (2026-10-13, Mac: "make boons the default") - Casual until then
+export const SURVIVAL_DEFAULT = 'casual';   // BOONS-DEFAULT (2026-10-13, Mac: "make boons the default") - Casual until then
 
 /** AUDIT SURV-TIERS: what each tier is STORED as on the prefs shelf -
  *  the values the Features row's segments write (systems/features.js

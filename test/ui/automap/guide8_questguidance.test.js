@@ -47,7 +47,7 @@ test('GUIDE8: the tier - Exact only on the enhanced skin and only when asked for
     setPref(GUIDANCE_PREF, 'something else');
     assert.equal(guidanceTier(), 'journal');
   } finally { setUiSkin(skin); setPref(GUIDANCE_PREF, pref); }
-  assert.equal(FEATURE_PREF_DEFAULTS.questGuidance, 'journal', 'off by default');
+  assert.equal(FEATURE_PREF_DEFAULTS.questGuidance, 'exact', 'exact by default');
 });
 
 test('GUIDE8: the marks - every standing, unhidden stand and every live quest foe, named, the followed quest\'s said', () => {
@@ -257,14 +257,14 @@ test('GUIDE8: the strip lists a quest\'s floor before it is walked, and marks it
   assert.match(sheet, /you: youSheet\(\), exit: exitSheet\(\), seen: c\?\.seen \?\? null, quest: questSheets\(\),/);
 });
 
-test('GUIDE8: the Features row - Enhanced, Journal or Exact, Journal by default and on All off', () => {
+test('GUIDE8: the Features row - Enhanced, Journal or Exact, Exact by default', () => {
   const f = FEATURES.find((x) => x.id === 'quest-guidance');
   assert.ok(f);
   assert.deepEqual(f.kinds, ['enhanced']);
   assert.equal(f.control.key, GUIDANCE_PREF);
   assert.deepEqual(f.control.tiers.map(([v]) => v), ['journal', 'town', 'exact']);
   assert.deepEqual(f.control.tiers.map(([v]) => v), [...GUIDANCE_TIERS], 'the row\'s tiers are the law\'s');
-  assert.equal(f.control.initial, 'journal');
+  assert.equal(f.control.initial, 'exact');
   assert.equal(f.control.classic, 'journal');
   assert.equal(f.control.online, 'player');
   assert.match(f.note, /spoil/);

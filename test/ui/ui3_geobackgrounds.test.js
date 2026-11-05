@@ -18,8 +18,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 const RACE = 'SCBG00I0.IMG';
 
-test('UI3: OFF (the shipped default) - the RACE\'s background, whatever the context says', () => {
+test('UI3: OFF - the RACE\'s background, whatever the context says', () => {
   resetToDefaults();
+  setValue('GUI', 'EnableGeographicBackgrounds', false);
   for (const where of [{}, { inTown: true }, { inDungeon: true }, { inGraveyard: true }, { region: 23 }]) {
     assert.equal(paperDollBackground(RACE, where), RACE, JSON.stringify(where));
   }
@@ -57,9 +58,9 @@ test('UI3: the region table is DFU\'s 62 - one per Daggerfall region - and an ou
 
 test('UI3: the setting is read live, is LIVE, and the loader asks it rather than the caller\'s context word', () => {
   resetToDefaults();
-  assert.equal(paperDollBackground(RACE, { region: 23, inTown: true }), RACE);
-  setValue('GUI', 'EnableGeographicBackgrounds', true);
-  assert.equal(paperDollBackground(RACE, { region: 23, inTown: true }), 'SCBG04I0.IMG', 'read live');
+  assert.equal(paperDollBackground(RACE, { region: 23, inTown: true }), 'SCBG04I0.IMG');
+  setValue('GUI', 'EnableGeographicBackgrounds', false);
+  assert.equal(paperDollBackground(RACE, { region: 23, inTown: true }), RACE, 'read live');
   resetToDefaults();
   assert.equal(LIVE['GUI/EnableGeographicBackgrounds'], 'src/ui/paperDoll.js');
   const doll = read('src/ui/paperDoll.js');

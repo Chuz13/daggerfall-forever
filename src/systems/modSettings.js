@@ -1586,7 +1586,7 @@ export const MOD_SETTINGS = Object.freeze({
         },
       }),
       shipPorts: Object.freeze({
-        default: false,
+        default: true,
         get description() {
           return t(
             'mods.roleplayRealism.shipPorts.description',
@@ -3712,7 +3712,7 @@ export const MOD_SETTINGS = Object.freeze({
         ),
       }), // L10N4: the class skins' names read when they are read, as the mod's are
       'Graphics.OnHorse': Object.freeze({
-        default: 0,
+        default: 1,
         min: 0,
         max: 4,
         get description() {
@@ -3734,7 +3734,7 @@ export const MOD_SETTINGS = Object.freeze({
       // LAYERED_OWN). The look carries the body as `lg` (net/remotePlayers.js composeLook, wire.js validLook), so other
       // players see it too.
       'Graphics.LayeredGear': Object.freeze({
-        default: 3,
+        default: 2,
         min: 0,
         max: 3,
         get description() {
@@ -4388,7 +4388,7 @@ export const MOD_SETTINGS = Object.freeze({
         },
       }),
       attributePoints: Object.freeze({
-        default: 12,
+        default: 5,
         min: 0,
         max: 60,
         get description() {
@@ -4399,7 +4399,7 @@ export const MOD_SETTINGS = Object.freeze({
         },
       }),
       maxUpdatableAttribute: Object.freeze({
-        default: 3,
+        default: 5,
         min: 2,
         max: 8,
         get description() {
@@ -4419,7 +4419,7 @@ export const MOD_SETTINGS = Object.freeze({
         },
       }),
       luckIncreaseCost: Object.freeze({
-        default: 4,
+        default: 1,
         min: 1,
         max: 20,
         get description() {
@@ -4428,7 +4428,7 @@ export const MOD_SETTINGS = Object.freeze({
       }),
       // The port's own, for Daggerfall's third tier of chosen skills.
       primarySkillsImpact: Object.freeze({
-        default: 8,
+        default: 7,
         min: 0,
         max: 100,
         get description() {
@@ -4439,7 +4439,7 @@ export const MOD_SETTINGS = Object.freeze({
         },
       }),
       majorSkillsImpact: Object.freeze({
-        default: 8,
+        default: 7,
         min: 0,
         max: 100,
         get description() {
@@ -6513,7 +6513,7 @@ export const MOD_SETTINGS = Object.freeze({
         description: 'Chance, in percent, that you have siblings.',
       }),
       'Legacy.Model': Object.freeze({
-        default: 0,
+        default: 2,
         options: Object.freeze(['Enduring', 'Bloodline', 'Dynasty']),
         description:
           'The kind of family a character made before this mod gets. Enduring: a death costs years. Bloodline: a death is final. Dynasty: no death cost, no permadeath.',

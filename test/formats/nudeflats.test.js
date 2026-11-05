@@ -36,14 +36,14 @@ test('NUDE-FLATS: the Temple of Kynareth\'s two draw clothed while Show Nudity i
   assert.deepEqual(drawnFlat(210, 3, false), [210, 3]);
 });
 
-test('NUDE-FLATS: the switch is Show Nudity itself - ChildGuard/PlayerNudity, off as it ships', () => {
+test('NUDE-FLATS: the switch is Show Nudity itself - ChildGuard/PlayerNudity', () => {
   try {
     resetToDefaults();
-    assert.equal(showNudity(), false, 'ships False');
-    assert.deepEqual(drawnFlat(184, 11), [184, 29], 'the default draws the stand-in');
-    setValue('ChildGuard', 'PlayerNudity', true);
-    assert.equal(showNudity(), true);
-    assert.deepEqual(drawnFlat(184, 11), [184, 11], 'on: the figure as Daggerfall drew it');
+    assert.equal(showNudity(), true, 'ships True by port default');
+    assert.deepEqual(drawnFlat(184, 11), [184, 11], 'the default: the figure as Daggerfall drew it');
+    setValue('ChildGuard', 'PlayerNudity', false);
+    assert.equal(showNudity(), false);
+    assert.deepEqual(drawnFlat(184, 11), [184, 29], 'off: draws the stand-in');
   } finally { resetToDefaults(); }
 });
 

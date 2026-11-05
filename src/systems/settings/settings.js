@@ -379,8 +379,24 @@ export function tierOf(key) {
 // REPAIR-EASE (2026-09-30, Mac: "instant repair on by default"): InstantRepairs. DFU ships False - a smith keeps
 // the item for days. The port's default hands it back at once; a player's own False still stands.
 export const PORT_DEFAULTS = Object.freeze({
-  Enhancements: Object.freeze({ PlayerTorchFromItems: 'True' }),
-  Controls: Object.freeze({ WeaponSwingMode: '2', AllowMagicRepairs: 'True', InstantRepairs: 'True' }),
+  Startup: Object.freeze({ StartInDungeon: 'False' }),
+  Controls: Object.freeze({
+    WeaponSwingMode: '2',
+    AllowMagicRepairs: 'True',
+    InstantRepairs: 'True',
+    BowDrawback: 'True',
+  }),
+  Enhancements: Object.freeze({
+    PlayerTorchFromItems: 'True',
+    LoiterLimitInHours: '12',
+    AlternateRandomEnemySelection: 'True',
+  }),
+  ChildGuard: Object.freeze({ PlayerNudity: 'True' }),
+  GUI: Object.freeze({
+    ShowQuestJournalClocksAsCountdown: 'True',
+    EnableGeographicBackgrounds: 'True',
+  }),
+  Map: Object.freeze({ AutomapAlwaysMaxOutSliceLevel: 'True' }),
 });
 
 /** The default in effect: the port's, else the vendored ini's. Every

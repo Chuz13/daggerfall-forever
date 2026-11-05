@@ -6,9 +6,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { TEXT_FONTS, TEXT_STACKS, KEEP_SELECTORS, DYSLEXIC_DIR, cleanFamily, wordStack, textFontCss } from '../../../src/ui/textFont.js';
 import { PREF_DEFAULTS } from '../../../src/systems/uiPrefs.js';
 
-test('TEXT-FONT choices: the five the player asked for, the game\'s own the default', () => {
+test('TEXT-FONT choices: the five the player asked for, sans the default', () => {
   assert.deepEqual(Object.keys(TEXT_FONTS), ['game', 'sans', 'mono', 'dyslexic', 'system']);
-  assert.equal(PREF_DEFAULTS.textFont, 'game');
+  assert.equal(PREF_DEFAULTS.textFont, 'sans');
   assert.equal(PREF_DEFAULTS.textFontSystem, '');
   assert.ok(!('nameFont' in PREF_DEFAULTS), 'names follow the words\' face - the colour sets them apart');
   assert.match(TEXT_STACKS.sans, /sans-serif$/);

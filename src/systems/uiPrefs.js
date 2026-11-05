@@ -64,12 +64,12 @@ export const PREF_DEFAULTS = Object.freeze({
   // OFFLINE-PROFESSIONS: whether gathering nodes and crafting professions are active in offline single-player.
   offlineProfessions: true,
   // UNIFIED-BANK: whether bank accounts are unified across all regions into a single global account.
-  unifiedBank: false,
+  unifiedBank: true,
   // CITY-247: optional 24/7 city infrastructure keeping shops, guild halls, banks, and gates open day and night.
-  city247: false,
+  city247: true,
   // SHOP-HIDE (2026-10-30, the owner: "a settings toggle that disables the shop interface ingame. Off by default"): on, the
   // pause screen draws no shop gem and the shop's window never opens; the account's Aurum and what it holds are untouched.
-  shopHidden: false,
+  shopHidden: true,
   // HUD-MOVE (2026-10-01, Mac: "make chat, hp mana stamina bar segment and all the element moveable and add a reset UI
   // and lock UI in the settings (lock should be on by default)"): the Enhanced Plus HUD's own layout. `hudLocked` is the
   // lock (on: nothing moves, the HUD is pointer-transparent as ever); `hudLayout` is { id: { x, y } }, each piece's
@@ -97,7 +97,7 @@ export const PREF_DEFAULTS = Object.freeze({
   // PLUS-ONLY (2026-09-26): `enhancedPlus`, the switch between it and plain Enhanced (PLUS-DEFAULT turned it on), is
   // RETIRED - plain Enhanced is gone and Plus is simply the enhanced skin. A stored value is read by nothing.
   // PLUS2: Enhanced Plus's colours - a ui/enhanced/enhancedFrame.js PLUS_THEMES id; 'slate' is the kit as it ships.
-  plusTheme: 'slate',
+  plusTheme: 'iron',
   plusCursor: true, // PLUS6: the gauntlet cursor - off gives the system pointer back
   plusItemHover: true, // PLUS7: the inventory's hover card - off keeps the right-click menu, drops the card
   // GRIM1 (2026-10-09): THE DFO GRIMOIRE DRESS over the enhanced skin ('none' or 'grimoire' - ui/grimoireDress.js), and
@@ -112,7 +112,7 @@ export const PREF_DEFAULTS = Object.freeze({
   grimoireDial: 'classic', // DIAL-PACK (2026-10-12): the Tab dial's doors - Daggerfall's own art ('classic') or the pack's paintings ('pack')
   // TEXT-FONT (2026-10-11): the face the enhanced skin's words are written in ('game' | 'sans' | 'mono' | 'dyslexic' |
   // 'system', ui/textFont.js) and the installed font 'system' names.
-  textFont: 'game',
+  textFont: 'sans',
   textFontSystem: '',
   // CHAT-LANG (2026-10-11): the language channel this player chose ('' none, else a net/wire.js CHAT_LANGS code - /lang).
   // CHAT-COLOURS: each channel's lines in its own colour (World white, Region green, Guild purple, Local grey ...). PING1:
@@ -251,7 +251,7 @@ export const PREF_DEFAULTS = Object.freeze({
   // it every time is tedious. Disabled by default, of course.'): open straight onto the menu - no INTRO2 film at the
   // front door, and on the classic skin no ANIM0001 splash before the title (main.js). ?nointro and ?novideo do the
   // same for one visit. Off by default: the film is how the game introduces itself.
-  skipStartVideo: false,
+  skipStartVideo: true,
   // AUTO-UPDATE (2026-10-30, the owner: "turn off the automatic updates by default"): a new version saves and restarts the
   // game after a minute's warning (ui/updateScreen.js) only with this on; off, the player is told and updates when ready.
   autoUpdates: false,

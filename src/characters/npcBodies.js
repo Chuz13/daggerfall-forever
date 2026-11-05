@@ -43,7 +43,7 @@ export const WATCH_BODY_TIERS = Object.freeze({
   all: Object.freeze({ max: 8, range: 60, skinBudget: 4, spareMax: 4 }),
 });
 /** The tier a player who never chose stands under. */
-export const NPC_BODIES_DEFAULT = 'near';
+export const NPC_BODIES_DEFAULT = 'off';
 
 /** MWNPC11 (bible/04-Characters/Morrowind-NPCs.md section 16): EVERY NPC LANE'S ONE FRAME, by the same tier - the most
  *  bodies standing (stepped, skinned on their cadence, drawn) across every population's lane, nearest first, and the

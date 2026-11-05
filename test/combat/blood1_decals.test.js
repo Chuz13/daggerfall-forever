@@ -3673,7 +3673,7 @@ test('BLOOD2g: the gore dial - one tier sets the amount and the count, the row n
   assert.deepEqual(GORE_TIERS.light, { density: 0.5, capacity: 300 }, 'Light halves the amount');
   assert.ok(GORE_TIERS.heavy.capacity > GORE_TIERS.normal.capacity && GORE_TIERS.abattoir.capacity > GORE_TIERS.heavy.capacity, 'more, and more');
   assert.equal(GORE_TIERS.abattoir.capacity, BLOOD_CAPACITY_MAX, 'the ceiling');
-  assert.equal(GORE_DEFAULT, 'normal');
+  assert.equal(GORE_DEFAULT, 'heavy');
   // the row: a tiered prefs row over the same key, every tier named, the default among them
   const row = E_FEATURES.find((f) => f.id === 'blood');   // FT18: the gore dial is the one blood row's bar
   assert.ok(row && row.group === 'combat' && row.kinds.includes('enhanced'));

@@ -190,7 +190,7 @@ test('MWNPC4c PeerBodies plays the reactions off the pose: a new hit count a rec
 
 test('MWNPC4d the lane: the NPCs as synthetic peers under the tier\'s caps - Off stands none, an unknown tier the default, a tier change a new lane; their ids never a peer\'s; the pose off the actor; an actor with no look or feet not offered', async () => {
   assert.equal(NPC_BODY_TIERS.off, null);
-  assert.equal(NPC_BODIES_DEFAULT, 'near');
+  assert.equal(NPC_BODIES_DEFAULT, 'off');
   assert.ok(NPC_BODY_TIERS.all.max > NPC_BODY_TIERS.near.max && NPC_BODY_TIERS.all.range > NPC_BODY_TIERS.near.range);
   assert.equal(npcPeerId('foe', 7), 'npc:foe:7');
   assert.deepEqual(npcShown({ feet: [1, 2, 3], yaw: 0.5, moving: true, running: true, drawn: true, swings: 4, strike: 2, casts: 1, castRange: 3, hits: 2, dead: 1 }),

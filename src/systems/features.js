@@ -1425,7 +1425,7 @@ export const FEATURES = Object.freeze([
     get note() { return t('features.mwPlayerBody.note', 'With Morrowind data, your character is drawn in 3D: hands and weapons in first person, full body in third person, and a 3D figure in the inventory. Off keeps classic 2D sprites and the paperdoll.'); },
     get effect() { return t('features.effect.atOnce', 'Takes effect at once.'); },
     kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({ store: 'prefs', key: 'mwPlayerBody', initial: true, online: 'player' }),
+    control: Object.freeze({ store: 'prefs', key: 'mwPlayerBody', initial: false, online: 'player' }),
   }),
   // MW-ITEM-ICONS: 3D rendered item icons in inventory and quickslots
   Object.freeze({
@@ -1435,7 +1435,7 @@ export const FEATURES = Object.freeze([
     get note() { return t('features.mwItemIcons.note', 'With Morrowind data, items in your inventory and quickslots are shown as rendered 3D ground meshes. Off shows classic 2D item sprites.'); },
     get effect() { return t('features.effect.atOnce', 'Takes effect at once.'); },
     kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({ store: 'prefs', key: 'mwItemIcons', initial: true, online: 'player' }),
+    control: Object.freeze({ store: 'prefs', key: 'mwItemIcons', initial: false, online: 'player' }),
   }),
   // MW-FOE-BODIES: Mobs & Foes in Morrowind bodies
   Object.freeze({
@@ -1445,7 +1445,7 @@ export const FEATURES = Object.freeze([
     note: 'With the Morrowind body, monsters and humanoid foes get Morrowind bodies too, nearest first. Near shows up to 24; All shows up to 48 but costs more.',
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({ store: 'prefs', key: 'mwFoeBodies', initial: 'near', online: 'player', tiers: Object.freeze([['off', 'Off'], ['near', 'Near'], ['all', 'All']]) }),
+    control: Object.freeze({ store: 'prefs', key: 'mwFoeBodies', initial: 'off', online: 'player', tiers: Object.freeze([['off', 'Off'], ['near', 'Near'], ['all', 'All']]) }),
   }),
   // MWNPC5b (2026-10-09, Mac: "I wanna do everything and ensure that performance isnt affected"): THE PEOPLE IN
   // MORROWIND BODIES - the NPC lanes (characters/npcBodies.js) under ONE frame budget (MWNPC11, NPC_FRAME_TIERS): Off, the
@@ -1460,7 +1460,7 @@ export const FEATURES = Object.freeze([
     note: 'With the Morrowind body, the people around you get Morrowind bodies too, nearest first. Near shows up to 24; All shows up to 48 but costs more.',
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({ store: 'prefs', key: 'mwNpcBodies', initial: 'near', online: 'player', tiers: Object.freeze([['off', 'Off'], ['near', 'Near'], ['all', 'All']]) }),
+    control: Object.freeze({ store: 'prefs', key: 'mwNpcBodies', initial: 'off', online: 'player', tiers: Object.freeze([['off', 'Off'], ['near', 'Near'], ['all', 'All']]) }),
   }),
   // NPC-MARKS (2026-10-21, the owner: "vendors and quests npcs are hard to find due to everyone looking the same. Could we
   // make a bobbing icon above their character for morrowind specifically?"): a bobbing mark over a Morrowind body whose
@@ -1725,7 +1725,7 @@ export const FEATURES = Object.freeze([
       + 'which can spoil the search.',
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({ store: 'prefs', key: 'questGuidance', initial: 'journal', online: 'player', classic: 'journal', tiers: Object.freeze([['journal', 'Journal'], ['town', 'Town'], ['exact', 'Exact']]) }),   // systems/quest/questGuidance.js GUIDANCE_PREF, GUIDANCE_TIERS
+    control: Object.freeze({ store: 'prefs', key: 'questGuidance', initial: 'exact', online: 'player', classic: 'journal', tiers: Object.freeze([['journal', 'Journal'], ['town', 'Town'], ['exact', 'Exact']]) }),   // systems/quest/questGuidance.js GUIDANCE_PREF, GUIDANCE_TIERS
   }),
   // SENSE1 (2026-10-05, the delve arc - bible/03-World/Delve-Arc.md): THE LOOK ROUND. Asking for Info mode underground
   // lights what is near, in sight, and named by the plaque (systems/dungeon/dungeonSense.js, read by scenes/dungeonContext.js
@@ -1853,7 +1853,7 @@ export const FEATURES = Object.freeze([
     // are PARTS, each its own in the drawer. ONLINE THEY ARE THE PLAYER'S: a mark is a local picture with no
     // gameplay in it, so every player answers for themselves.
     control: Object.freeze({
-      store: 'prefs', key: 'blood-gore', initial: 'normal', online: 'player', lane: 'blood',   // BLOOD2g: combat/blood/bloodSwitch.js GORE_TIERS
+      store: 'prefs', key: 'blood-gore', initial: 'heavy', online: 'player', lane: 'blood',   // BLOOD2g: combat/blood/bloodSwitch.js GORE_TIERS
       also: Object.freeze([
         Object.freeze({ store: 'prefs', key: 'blood-marks', initial: true, online: 'player' }),
         Object.freeze({ store: 'prefs', key: 'blood-overkill', initial: true, online: 'player' }),
@@ -1917,7 +1917,7 @@ export const FEATURES = Object.freeze([
     // TEMP-UI (2026-10-12, the owner: "add a temperature widget to the UI"): THE TEMPERATURE PLATE IS A PART - shown by
     // default beside the compass (ui/enhanced/enhancedHud.js), a picture with no gameplay in it, so each player's own online.
     control: Object.freeze({
-      store: 'prefs', key: 'survival', initial: 'boons', online: 'player',   // BOONS-DEFAULT: difficulty.js SURVIVAL_DEFAULT
+      store: 'prefs', key: 'survival', initial: 'casual', online: 'player',   // BOONS-DEFAULT: difficulty.js SURVIVAL_DEFAULT
       tiers: Object.freeze([tier(false, OFF), tier('boons', () => t('features.mod.climatesCalories.boons', 'Boons')), tier('casual', () => t('features.mod.climatesCalories.casual', 'Casual')), tier('hard', () => t('features.mod.climatesCalories.hard', 'Hard'))]),
       also: Object.freeze([Object.freeze({ store: 'prefs', key: 'survivalTempHud', initial: true, online: 'player' })]),
       parts: Object.freeze([Object.freeze({ key: 'survivalTempHud', get label() { return t('features.mod.climatesCalories.tempHud', 'Temperature on the HUD'); } })]),
@@ -1940,7 +1940,7 @@ export const FEATURES = Object.freeze([
     control: Object.freeze({
       store: 'prefs', key: 'naval', initial: true, online: true,   // scenes/world.js navalOn: the host stands down and empties the sea
       also: Object.freeze([
-        Object.freeze({ store: 'prefs', key: 'naval-ships', initial: 'some', online: 'player' }),   // systems/naval/navalDirector.js DENSITY
+        Object.freeze({ store: 'prefs', key: 'naval-ships', initial: 'many', online: 'player' }),   // systems/naval/navalDirector.js DENSITY
         Object.freeze({ store: 'prefs', key: 'naval-boarders', initial: true, online: 'player' }),   // navalHost.js: a pirate's grapple on MY boat
         Object.freeze({ store: 'prefs', key: 'naval-raid-prize', initial: true, online: 'player' }),   // navalHost.js leaveShipGate: the voyage raiders' hold
         Object.freeze({ store: 'prefs', key: 'naval-aim-camera', initial: true, online: 'player' }),   // navalHost.js aimEye: the broadside camera (AUDIT NAV1)

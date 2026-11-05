@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import '../chargenDom.mjs';
 import { PREF_DEFAULTS, getPref, setPref } from '../../src/systems/uiPrefs.js';
+import { FORK_FLAGS } from '../../src/config/forkFlags.js';
 import { mountEnhancedMenu } from '../../src/ui/enhanced/enhancedMenu.js';
 
 console.warn = () => {};
@@ -20,15 +21,21 @@ const gemShown = () => {
   return n;
 };
 
-test('SHOP-HIDE: off as the game ships - the gem on the pause screen; on, no gem and so no shop; off again, the gem back (mutants: on by default, the pref unread)', () => {
-  assert.equal(PREF_DEFAULTS.shopHidden, false, 'off by default');
-  setPref('shopHidden', false);
-  assert.equal(gemShown(), 1, 'the shop\'s gem');
-  setPref('shopHidden', true);
-  assert.equal(getPref('shopHidden'), true);
-  assert.equal(gemShown(), 0, 'hidden: no gem, no door to the shop');
-  setPref('shopHidden', false);
-  assert.equal(gemShown(), 1, 'and back');
+test('SHOP-HIDE: on as the game ships - hidden by default; off, the gem on the pause screen; on again, no gem (mutants: the pref unread)', () => {
+  const origShop = FORK_FLAGS.ENABLE_SHOP;
+  try {
+    FORK_FLAGS.ENABLE_SHOP = true;
+    assert.equal(PREF_DEFAULTS.shopHidden, true, 'on by default');
+    setPref('shopHidden', false);
+    assert.equal(gemShown(), 1, 'the shop\'s gem');
+    setPref('shopHidden', true);
+    assert.equal(getPref('shopHidden'), true);
+    assert.equal(gemShown(), 0, 'hidden: no gem, no door to the shop');
+    setPref('shopHidden', false);
+    assert.equal(gemShown(), 1, 'and back');
+  } finally {
+    FORK_FLAGS.ENABLE_SHOP = origShop;
+  }
 });
 
 test('SHOP-HIDE: its row on the Interface tab under Shop, its words through the text core (mutants: the row unplaced)', async () => {
