@@ -2006,6 +2006,7 @@ const normWords = (s) => String(s).toLowerCase().replace(/[\u2018\u2019]/g, "'")
 /** ORG2: every word of the query in the item's text. */
 function itemMatches(item, pool, q) {
   if (!FORK_FLAGS.ENABLE_ARMORY && item === 'feat:armory-others') return false;
+  if (!FORK_FLAGS.ENABLE_ONLINE_PLAY && item === 'card:peerSprites') return false;
   const text = normWords(itemText(item, pool));
   return normWords(q).split(/\s+/).filter(Boolean).every((w) => text.includes(w));
 }
@@ -2017,6 +2018,7 @@ const drawsHere = (key, pause) => (pause ? tierOf(key) === 'live' : drawsFlat(ke
  *  collects it), a port row this device does not have, or a row the filter leaves out. */
 function itemNodes(item, ctx) {
   if (!FORK_FLAGS.ENABLE_ARMORY && item === 'feat:armory-others') return [];
+  if (!FORK_FLAGS.ENABLE_ONLINE_PLAY && item === 'card:peerSprites') return [];
   const { pool, pause, fold = null, any = false } = ctx;
   if (optFilter !== 'all') {
     if (optFilter === 'changed' ? !itemChanged(item, pool) : !itemKinds(item).includes(optFilter)) return [];
@@ -5634,7 +5636,7 @@ function statsSpecials(detail, m) {
 const signedRep = (v) => el('span', `v${v > 0 ? ' won' : v < 0 ? ' bad' : ''}`, v > 0 ? `+${v}` : String(v));
 
 function statsStanding(detail) {
-  statsVillainy(detail, { el, meter: pxMeter }, undefined, String(hooks.playerId?.() ?? hooks.playerName?.() ?? ''));   // PVP-VILLAIN: the villain meter, the page's top
+  statsVillainy(FORK_FLAGS.ENABLE_ONLINE_PLAY ? detail : null, { el, meter: pxMeter }, undefined, String(hooks.playerId?.() ?? hooks.playerName?.() ?? ''));   // PVP-VILLAIN: the villain meter, the page's top
   detail.append(pxDivider(t('pause.standing.reputation', 'Reputation')));
   const reps = playerEntity.sGroupReputations ?? [];
   const groupNames = socialGroupNames();

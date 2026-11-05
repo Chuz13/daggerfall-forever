@@ -24,6 +24,7 @@ import {
 import { eventActions, mouseCode, isDomControlTarget, neverTheFocus } from '../ui/input.js'; // PVP-KEY: the flag's key is the registry's
 import { overlayOpen } from '../ui/enhanced/enhancedOverlays.js'; // AUDIT PVP-KEY B1: a window up has the keys
 import { actionKeyWord } from '../ui/quickslotTags.js';
+import { FORK_FLAGS } from '../config/forkFlags.js';
 
 /** PVP-KEY: the flag's action in the bindings registry (systems/inputActions.js). */
 export const PVP_FLAG_ACTION = 'PvpFlag';
@@ -206,7 +207,8 @@ export function createPvpFlagHost(
   /** AUDIT PVP-KEY B1: the world has the key - no window up (a game window, the pause, the Tab dial) and no window's own
    *  control in focus. A letter bound to the flag was typed into the game's text boxes as a flag. */
   const inGame = (el) => !windowUp() && !isDomControlTarget(el) && !el?.closest?.('[data-dom-focus]');
-  if (doc) {
+  const liveHost = FORK_FLAGS.ENABLE_ONLINE_PLAY || !!online();
+  if (doc && liveHost) {
     doc.addEventListener('keydown', (e) => {
       const el = /** @type {any} */ (e.target);
       if (e.repeat || el?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? '')) return;

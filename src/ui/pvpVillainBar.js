@@ -41,6 +41,7 @@ export function statsVillainy(
   heard = pvpVillainy(),
   who = '',
 ) {
+  if (!detail) return;
   const n = villainyKept(who, heard) ?? heard ?? 0;
   const row = el('div', 'px-mrow px-villainy');
   const top = el('div', 'px-mtop');
