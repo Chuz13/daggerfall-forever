@@ -28400,6 +28400,17 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       if (!ok) hudFade.clearFade();
       return ok ? `Teleported to ${hit.name} (${hit.px}, ${hit.py})` : `Failed to teleport to ${hit.name}`;
     },
+    tele2pixel: async (px, py) => {
+      const x = Number(px);
+      const y = Number(py);
+      if (Number.isNaN(x) || Number.isNaN(y)) return 'Invalid pixel coordinates.';
+      const name = locationIndex.get(`${x},${y}`)?.name ?? `${x}, ${y}`;
+      const pick = { pixel: { x, y }, name };
+      hudFade.smashHUDToBlack();
+      const ok = await teleportTo(pick, { zoneFree: true });
+      if (!ok) hudFade.clearFade();
+      return ok ? `Teleported to ${name} (${x}, ${y})` : `Failed to teleport to (${x}, ${y})`;
+    },
     spawnFoe: async (mobileType, count = 1) => {
       const p = player?.pos ? [...player.pos] : [0, 0, 0];
       const yaw = cam?.yaw ?? 0;

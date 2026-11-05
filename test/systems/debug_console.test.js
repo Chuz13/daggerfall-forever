@@ -75,6 +75,41 @@ test('Debug Console: tele2loc teleports to named location', async () => {
   assert.equal(resMissing, 'Usage: tele2loc <locationName>');
 });
 
+test('Debug Console: /tp and tp support pixel coordinates and location names', async () => {
+  let targetPixel = null;
+  let targetLoc = null;
+  setDebugSceneContext({
+    tele2pixel: async (x, y) => {
+      targetPixel = [x, y];
+      return `Teleported to 171, 169 (${x}, ${y})`;
+    },
+    tele2loc: async (name) => {
+      targetLoc = name;
+      return `Teleported to ${name} (100, 200)`;
+    },
+  });
+
+  // Numeric pixel teleport with /tp
+  const res1 = await executeConsoleLine('/tp 171 169');
+  assert.deepEqual(targetPixel, [171, 169]);
+  assert.equal(res1, 'Teleported to 171, 169 (171, 169)');
+
+  // Numeric pixel teleport without slash
+  targetPixel = null;
+  const res2 = await executeConsoleLine('tp 100 195');
+  assert.deepEqual(targetPixel, [100, 195]);
+  assert.equal(res2, 'Teleported to 171, 169 (100, 195)');
+
+  // Named location teleport with /tp
+  const res3 = await executeConsoleLine('/tp Privateer\'s Hold');
+  assert.equal(targetLoc, 'Privateer\'s Hold');
+  assert.equal(res3, 'Teleported to Privateer\'s Hold (100, 200)');
+
+  // Empty usage
+  const resEmpty = await executeConsoleLine('/tp');
+  assert.equal(resEmpty, 'Usage: tp <x> <y> | tp <locationName>');
+});
+
 test('Debug Console: killall destroys hostile mobs', () => {
   let killed = false;
   setDebugSceneContext({

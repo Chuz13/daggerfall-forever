@@ -268,6 +268,35 @@ registerCommand(
   }
 );
 
+async function handleTpCommand(args = []) {
+  if (!args || !args.length) return 'Usage: tp <x> <y> | tp <locationName>';
+  const ctx = getDebugSceneContext();
+  if (!ctx) return 'Teleport is only available in world mode.';
+  // Check if two numeric arguments: map pixel coordinates (e.g. 171 169)
+  if (args.length === 2 && !Number.isNaN(Number(args[0])) && !Number.isNaN(Number(args[1]))) {
+    if (!ctx.tele2pixel) return 'Map pixel teleport is unavailable in current scene.';
+    return await ctx.tele2pixel(Number(args[0]), Number(args[1]));
+  }
+  // Otherwise treat as location name (e.g. Privateer's Hold)
+  const locName = args.join(' ').trim();
+  if (!ctx.tele2loc) return 'tele2loc is only available in world mode.';
+  return await ctx.tele2loc(locName);
+}
+
+registerCommand(
+  'tp',
+  'Teleport to map pixel (tp <x> <y>) or named location (tp <locationName>)',
+  'tp <x> <y> | tp <locationName>',
+  handleTpCommand
+);
+
+registerCommand(
+  '/tp',
+  'Teleport to map pixel (/tp <x> <y>) or named location (/tp <locationName>)',
+  '/tp <x> <y> | /tp <locationName>',
+  handleTpCommand
+);
+
 registerCommand(
   'kill',
   'Kill player character (suicide / self-kill)',
@@ -428,8 +457,12 @@ export const consoleInputHistory = new ConsoleInputHistory();
  *  and the line joins the history. Returns the answer so the port's
  *  door can hand it to a caller that is not a text window. */
 export function executeConsoleLine(input) {
-  const parts = String(input).split(' ');
-  const command = parts[0];
+  const trimmed = String(input).trim();
+  const parts = trimmed.split(' ');
+  const rawCommand = parts[0];
+  const command = !hasConsoleCommand(rawCommand) && rawCommand.startsWith('/')
+    ? rawCommand.slice(1)
+    : rawCommand;
   const args = parts.slice(1);
   consoleLog(`> ${input}`);
   const answer = executeConsoleCommand(command, args);
