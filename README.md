@@ -142,3 +142,8 @@ Oh folks, I'm a gamedev producer, I know roadmaps shift. So this is a living one
 * **Challengers (own system)** — Apr 2027  
   Encounters with NPC heroes that have heard about your deeds and want to challenge you. Like Revenants, they have perks and traits. Depending on your skills and stats, outcomes of meetings might differ (peaceful, combat, fleeing, etc.).
 * **Continuous polishing & mod integration** *(with authors' consent, toggleable via settings)*
+
+## Credits
+Based on DFO which is based on DFU which is based on Daggerfall. It's a fan non-commercial project.
+Additional spell icons:
+J. W. Bjerk (eleazzaar) -- www.jwbjerk.com/art 
