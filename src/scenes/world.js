@@ -859,6 +859,7 @@ import { INSIGNIA, insigniaRefusal } from '../net/insignia.js';   // WB9g
 import { createFirmamentBook, setFirmamentBook } from '../net/firmament/firmamentBook.js';   // FIRM1: the Firmament - this device's tree and purses
 import { setFirmamentTree, setFirmamentOnline, setFirmamentOffline } from '../systems/firmamentLive.js';   // FIRM1: the tree in force, online alone
 import { isOfflineFirmamentActive, createOfflineFirmamentBook, initOfflineRenown, onOfflineFoeKilled, onOfflineQuestEnded } from '../systems/offlineFirmament.js';
+import { isOfflineProfessionsActive, createOfflineProfBook } from '../systems/offlineProfessions.js';
 import { starsFor } from '../net/firmament/firmamentLaw.js';   // FIRM1: the Stars a Renown level brings, said with it
 import { withoutFirmament } from '../systems/firmamentPowers.js';   // FIRM1: a strike or a spell at a player - a duel's, a siege's, the Wrothgarian zone's - is rolled with the sky off
 import { accountTokenMinter, storedSession, muteAccount, serviceBase, accountRefusalText, accountDuels, accountWild, accountRenown, accountRoll, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountCards, accountBoard, accountProf, accountRaids, accountMarket, accountWrits, accountSeats, accountSerpents, accountSds, accountLamp, accountFirmament, nameWhyText } from '../net/accountClient.js';   // NAME-AS: nameWhyText, why my character's name stood aside   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4's beat knocks through the tab's heartbeat (SCALE4c), not from here
@@ -2193,13 +2194,23 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     unstamp: (id) => { if (playerEntity.bagTakes && Object.hasOwn(playerEntity.bagTakes, id)) { delete playerEntity.bagTakes[id]; saveSoon.changed(); } },
     stamps: () => Object.entries(bagTakesOf(playerEntity)).map(([id, t]) => ({ id, ...t })),
     flush: async () => {
+      if (!params.has('online')) { saveSoon?.changed?.(); return true; }
       try { const r = await onlineCheckpointLanded(); return r === true || r?.ok === true; } catch { return false; }
     },
   };
   const profBook = params.has('online')
     ? createProfBook({ door: accountProf({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
       character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, carry: carryHands, turnMs: dayTurnMs() })   // DAY-TURN: its day's reads turn at this page's moment past midnight
-    : null;
+    : (isOfflineProfessionsActive()
+      ? createOfflineProfBook({
+          playerEntity,
+          carry: carryHands,
+          maps,
+          now: () => Math.floor(worldMinutes() * 60 * 1000),
+          nowMinutes: () => worldMinutes(),
+          saveSoon,
+        })
+      : null);
   // FIRM1 (bible/06-Systems/Firmament.md): THE FIRMAMENT'S BOOK - the character's passive tree and its purses as the account
   // service keeps them (net/firmament/firmamentBook.js); what it hears is the tree in force (systems/firmamentLive.js), and the window
   // (ui/firmamentWindow.js) reads the page's book where any door opens it. Online only: offline there is no sky.

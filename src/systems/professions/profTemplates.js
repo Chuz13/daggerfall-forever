@@ -64,6 +64,7 @@ import { REPAIR_KIT_TEMPLATE, STONE_DECOR, DISHES } from '../../net/recipeLaw.js
 import { SURVIVAL_TEMPLATES } from '../survival/items.js'; // PROF9: C&C's food rows the dishes stand on
 import { TEMPLATE as CC, FOOD, registerFoods } from '../survival/food.js';
 import { isOnlinePage } from '../online/onlineLane.js';
+import { isOfflineProfessionsActive } from '../offlineProfessions.js';
 import { BAG_ROW } from '../../net/bagLaw.js'; // BAG1: the Materials Bag (600)
 import { TROPHY_ROW } from '../../net/trophyLaw.js'; // HUNTERS-MARK: the Mounted Trophy (601)
 
@@ -380,7 +381,7 @@ registerCustomTemplates([BAG_ROW]);
 /** The knife's share of GetCustomItemsForGroup: DFU's miscellany, ONLINE ONLY (law 6's exception, for 603 - PROF0 15's
  *  row), so a General Store or a Pawn Shop shelves it by DFU's own custom-item loop, as Foraging's tools. */
 export const knifeCustomItemsForGroup = (group) =>
-  group === PROF_ITEM_GROUP && isOnlinePage() ? [SKINNING_KNIFE.templateIndex] : [];
+  group === PROF_ITEM_GROUP && (isOnlinePage() || isOfflineProfessionsActive()) ? [SKINNING_KNIFE.templateIndex] : [];
 registerCustomItemsForGroup(knifeCustomItemsForGroup);
 
 // ─── PROF9: THE DISHES (PROF0 4.8, 9.3: 685-688; section 35) ──────────

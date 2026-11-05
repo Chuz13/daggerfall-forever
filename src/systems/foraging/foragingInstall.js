@@ -65,6 +65,7 @@ import { hudText, popupMessage } from '../notify.js';
 import { addItem } from '../inventory.js';
 import { lowerCondition } from '../equip.js';
 import { isOnlinePage } from '../online/onlineLane.js';
+import { isOfflineProfessionsActive } from '../offlineProfessions.js';
 import { liveStat, maxFatigue, FATIGUE_MULTIPLIER } from '../statMods.js';
 import { survivalOn } from '../survival/switch.js';
 import { createSurvivalItem } from '../survival/items.js';
@@ -87,7 +88,7 @@ export const foragingOn = () => modSetting(FORAGING_VENDOR, 'Enabled') === true;
 export const foragingCustomItemsForGroup = (group) => {
   if (group !== FORAGING_GROUP) return [];
   if (foragingOn()) return FORAGING_TEMPLATES.map((t) => t.index);
-  return isOnlinePage() ? [...TOOL_TEMPLATES] : [];
+  return isOnlinePage() || isOfflineProfessionsActive() ? [...TOOL_TEMPLATES] : [];
 };
 registerCustomItemsForGroup(foragingCustomItemsForGroup);
 

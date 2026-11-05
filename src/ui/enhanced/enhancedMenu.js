@@ -3303,6 +3303,8 @@ function portRowsGame({ pause = false } = {}) {
   const rows = [row, techniqueMotionRow(), reflexesRow({ pause })];
   rows.push(prefRow('offlineFirmament', t('features.offlineFirmament.title', 'Firmament (Offline)'),
     t('features.offlineFirmament.note', 'Enables the Firmament constellation passive tree and Renown progression while playing offline.')));
+  rows.push(prefRow('offlineProfessions', t('features.offlineProfessions.title', 'Professions & Gathering (Offline)'),
+    t('features.offlineProfessions.note', 'Enables gathering nodes (mining, herbs, logging, hunting, fishing) and crafting professions offline.')));
   rows.push(prefRow('offlineHousing', t('features.offlineHousing.title', 'Player Housing (Offline)'),
     t('features.offlineHousing.note', 'Buy and sell homes at the front door across all towns and hamlets, as in online DFO. Off restores classic bank housing.')));
   rows.push(prefRow('unifiedBank', t('features.unifiedBank.title', 'Unified Bank'),

@@ -61,6 +61,8 @@ export const PREF_DEFAULTS = Object.freeze({
   offlineHousing: true,
   // OFFLINE-FIRMAMENT: whether the Firmament passive star tree and Renown progression are active in offline single-player.
   offlineFirmament: true,
+  // OFFLINE-PROFESSIONS: whether gathering nodes and crafting professions are active in offline single-player.
+  offlineProfessions: true,
   // UNIFIED-BANK: whether bank accounts are unified across all regions into a single global account.
   unifiedBank: false,
   // CITY-247: optional 24/7 city infrastructure keeping shops, guild halls, banks, and gates open day and night.

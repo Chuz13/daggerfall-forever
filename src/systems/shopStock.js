@@ -71,6 +71,7 @@ import { findFactionByTypeAndRegion } from './talk/talk.js'; // S41: PersistentF
 import { MERCHANTS_FACTION_ID } from './guild/guilds.js'; // S41: FactionIDs.The_Merchants, one home
 import { turnOnConditionFlag, turnOffConditionFlag, REGION_FLAGS, REGION_COUNT } from './region/regionConditions.js'; // S42: the store S41's flag was waiting on
 import { isOnlinePage } from './online/onlineLane.js'; // REALM P0.4: online, a shop pays at most half what it asks
+import { isOfflineProfessionsActive } from './offlineProfessions.js';
 import { BAG_TEMPLATE, isBagItem } from '../net/bagLaw.js'; // BAG1: the Materials Bag, at every General Store online
 import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE } from './comeSailAway/comeSailAwayItems.js'; // SHIPYARDS: a ship's parts and deed, which no shop buys - a port's shipyard does
 
@@ -509,7 +510,7 @@ export function stockShopShelf(
     // the horse and the cart were. AUDIT2 H8 had put it on the first shelf alone, and BAG1 left it off a shelf stocked by a
     // character who carried one - but online a shelf's stock is the room's for the day, so one bag-owner's open hid it
     // from everyone, and the first shelf is just the first model the building lists
-    if (isOnlinePage()) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
+    if (isOnlinePage() || isOfflineProfessionsActive()) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
     // SURV2: the provisions shelf - rations, bread, fruit, skins, fire
     // kits, and camping gear and a skillet in a better shop. Minted by
     // their own module (their templates are the port's), after the
