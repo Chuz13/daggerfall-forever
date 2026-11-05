@@ -193,6 +193,24 @@ export const CREDITS = Object.freeze({
       },
       vendor: Object.freeze(['class-skins']),
     }),
+    Object.freeze({
+      title: 'Additional Spell Icons',
+      author: 'J. W. Bjerk (eleazzaar)',
+      get what() {
+        return t(
+          'credits.spellIcons.what',
+          'Additional spell icons for the spell maker and spellbook.',
+        );
+      },
+      get terms() {
+        return t(
+          'credits.spellIcons.terms',
+          'Creative Commons Attribution 3.0 (CC-BY 3.0) / GPL.',
+        );
+      },
+      vendor: Object.freeze(['spell-icons-eleazzaar']),
+      link: 'http://www.jwbjerk.com/art',
+    }),
   ]),
   mods: Object.freeze([
     Object.freeze({

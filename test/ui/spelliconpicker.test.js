@@ -15,7 +15,11 @@ import {
   ICON_PICKER_PANEL_SIZE, ICON_PICKER_SCROLL_PANEL, ICON_PICKER_SCROLLER,
   ICONS_PER_ROW, ICON_PICKER_ICON_SIZE, ICON_SPACING, CLASSIC_ICONS_HEADER,
 } from '../../src/ui/spell/spellIconPickerWindow.js';
-import { SPELL_ICON_COUNT } from '../../src/ui/spell/spellIcons.js';
+import {
+  SPELL_ICON_COUNT,
+  CLASSIC_SPELL_ICON_COUNT,
+  EXTRA_SPELL_ICON_COUNT,
+} from '../../src/ui/spell/spellIcons.js';
 import { SpellbookWindow } from '../../src/ui/spellbookWindow.js';
 import { SpellMakerWindow, SPELL_MAKER_RECTS } from '../../src/ui/spell/spellMakerWindow.js';
 import { DEFAULT_SPELL_ICON } from '../../src/systems/spell/spellMaker.js';
@@ -43,7 +47,7 @@ test('MC1 layout: one header then 69 classic icons, 12 per row at 22 spacing', (
   assert.deepEqual([...ICON_PICKER_PANEL_SIZE], [274, 180]);
   assert.deepEqual([...ICON_PICKER_SCROLL_PANEL], [2, 2, 262, 176]);
   assert.deepEqual([...ICON_PICKER_SCROLLER], [265, 2, 8, 176]);
-  const { items, scrollSteps } = buildIconPickerLayout();
+  const { items, scrollSteps } = buildIconPickerLayout(CLASSIC_SPELL_ICON_COUNT, 0);
   assert.equal(items[0].type, 'header');
   // AddHeaderLabel: the label sits at (xpos, ypos + 4) and the F116
   // convention reads `classicIcons` = "Classic" from the pinned CSV
@@ -51,8 +55,9 @@ test('MC1 layout: one header then 69 classic icons, 12 per row at 22 spacing', (
   assert.equal(CLASSIC_ICONS_HEADER, 'Classic');
   assert.deepEqual([items[0].x, items[0].y], [2, 6]);
   const icons = items.filter((it) => it.type === 'icon');
-  assert.equal(icons.length, SPELL_ICON_COUNT);
-  assert.equal(SPELL_ICON_COUNT, 69);
+  assert.equal(icons.length, CLASSIC_SPELL_ICON_COUNT);
+  assert.equal(CLASSIC_SPELL_ICON_COUNT, 69);
+  assert.equal(SPELL_ICON_COUNT, 508);
   // the first icon row starts one spacing below the header
   assert.deepEqual([icons[0].x, icons[0].y], [2, 24]);
   assert.deepEqual([icons[11].x, icons[11].y], [2 + 11 * 22, 24], 'twelfth icon ends the row');
@@ -60,10 +65,15 @@ test('MC1 layout: one header then 69 classic icons, 12 per row at 22 spacing', (
   assert.deepEqual([icons[68].x, icons[68].y], [2 + 8 * 22, 24 + 5 * 22], 'the 69th sits ninth on row six');
   // ScrollSteps = final ypos / spacing + 1 (integer division): 134/22+1
   assert.equal(scrollSteps, 7);
+
+  // Full layout with extra icons
+  const full = buildIconPickerLayout();
+  assert.equal(full.items.filter((it) => it.type === 'icon').length, SPELL_ICON_COUNT);
+  assert.equal(full.items.filter((it) => it.type === 'header').length, 2);
 });
 
 test('MC1 layout: ScrollSteps <= DisplayUnits for classic-only content, so the scroll clamp is zero', () => {
-  const w = new SpellIconPickerWindow();
+  const w = new SpellIconPickerWindow({ extraCount: 0 });
   assert.equal(w.displayUnits, Math.trunc(176 / 22));   // scroller.DisplayUnits = InteriorHeight / iconSpacing = 8
   w.wheel(1); w.wheel(1);
   assert.equal(w.scrollIndex, 0, 'VerticalScrollBar clamps to max(0, total - display) = 0 (:187-199)');
@@ -142,7 +152,7 @@ test('MC1 close: a click on an icon closes WITH it; a miss keeps the window up; 
 // ---------------------------------------------------------------
 
 test('MC1 clip: an item draws only when its adjusted top-left point is inside the panel', () => {
-  const { items } = buildIconPickerLayout();
+  const { items } = buildIconPickerLayout(CLASSIC_SPELL_ICON_COUNT, 0);
   assert.equal(visibleIconPickerItems(items, 0).length, items.length, 'everything fits unscrolled');
   const up1 = visibleIconPickerItems(items, 1);
   assert.equal(up1.some((it) => it.type === 'header'), false, 'the header scrolls off first (y 6 - 22 < 2)');

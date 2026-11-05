@@ -108,6 +108,7 @@ const PUBLIC_ALLOWLIST = new Map([
   ['public/art/thunderlock-icon.png', "OURS - the owner's own Thunderlock list picture (THUNDERLOCK-ART2, 2026-10-24), 88x31, its pixels unchanged (palette to RGBA); no ARENA2 pixel in it"],
   ['public/art/gun-icon.png', "OURS - thunderlock-icon.png (the owner's own) trimmed to what it draws, by tools/gunIcons.mjs (THUNDERLOCK-ART2; it was gun-paperdoll.png with the fist's gap healed); no ARENA2 pixel in it"],
   ['public/art/gun-icon-gilded.png', 'OURS - gun-icon.png laid on a gold-leaf ramp by tools/gunIcons.mjs (the Hourlock\'s list picture); no ARENA2 pixel in it'],
+  ['public/art/spell-icons-eleazzaar.png', "THIRD-PARTY - J. W. Bjerk (eleazzaar) Painterly Spell Icons (CC-BY 3.0 / GPL); no ARENA2 pixel in it"],
   ['public/art/gun-paperdoll-gilded.png', 'OURS - gun-paperdoll.png laid on a gold-leaf ramp by tools/gunIcons.mjs (the Hourlock\'s doll layer); no ARENA2 pixel in it'],
   ['public/sfx/SOURCES.md', 'documentation - where every sound in this folder came from, with its license'],
   ['public/sfx/spell-heal.wav', "IMPACTFX HEAL-FILE: the owner's chosen heal sound (02_Heal_02.wav, 2026-10-05), softened; 22050Hz 16-bit mono - SOURCE/LICENSE TO BE CONFIRMED in public/sfx/SOURCES.md"],

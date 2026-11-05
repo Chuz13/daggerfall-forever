@@ -13,7 +13,12 @@
 import { inventoryItemImage } from '../../systems/item/itemTemplates.js';
 import { itemLongName } from '../../systems/item/itemInfo.js'; // RF6: the one resolver - the name every other enhanced list reads
 import { requestIcon, requestFittedPicture } from '../textureCanvas.js';
-import { SPELL_ICON_COUNT, SPELL_ICON_ROW_COUNT } from '../spell/spellIcons.js';
+import {
+  CLASSIC_SPELL_ICON_COUNT,
+  EXTRA_SPELL_ICON_ROW_COUNT,
+  SPELL_ICON_COUNT,
+  SPELL_ICON_ROW_COUNT,
+} from '../spell/spellIcons.js';
 import { screenDpr } from '../iconFit.js'; // UI2: a spell's icon fitted to its slot
 
 /** An item's icon as a data URL (null until it has loaded), and its name. */
@@ -41,6 +46,19 @@ function loadSheet(name) {
   if (sheets.has(name)) return sheets.get(name);
   const p = (async () => {
     try {
+      if (name.endsWith('.png') || name.endsWith('.PNG')) {
+        const { APP_ROOT } = await import('../../systems/appRoot.js');
+        const root = APP_ROOT ?? globalThis.document?.baseURI ?? 'http://localhost/';
+        const src = new URL(`art/${name}`, root).href;
+        const img = new Image();
+        img.src = src;
+        await img.decode();
+        const cv = document.createElement('canvas');
+        cv.width = img.width;
+        cv.height = img.height;
+        cv.getContext('2d').drawImage(img, 0, 0);
+        return cv;
+      }
       const [{ ImgFile }, { DFPalette }, { getBytes }, { bitmapToColor32 }] = await Promise.all([
         import('../../formats/imgFile.js'),
         import('../../formats/dfPalette.js'),
@@ -106,7 +124,11 @@ export function sheetCutUrl(name, [x, y, w, h], scale = 2, onReady = null) {
 function spellIconRect(index) {
   if (!Number.isInteger(index) || index < 0 || index >= SPELL_ICON_COUNT) return null;
   const d = 16;
-  return [(index % SPELL_ICON_ROW_COUNT) * d, Math.trunc(index / SPELL_ICON_ROW_COUNT) * d, d, d];
+  if (index < CLASSIC_SPELL_ICON_COUNT) {
+    return [(index % SPELL_ICON_ROW_COUNT) * d, Math.trunc(index / SPELL_ICON_ROW_COUNT) * d, d, d];
+  }
+  const extra = index - CLASSIC_SPELL_ICON_COUNT;
+  return [(extra % EXTRA_SPELL_ICON_ROW_COUNT) * d, Math.trunc(extra / EXTRA_SPELL_ICON_ROW_COUNT) * d, d, d];
 }
 
 /** UI2: spell icon `index` FITTED to a slot's box (ui/iconFit.js) - `{ src, w, h, smooth }`, or null while the sheet
@@ -115,7 +137,8 @@ function spellIconRect(index) {
 export function spellIconPicture(index, { box, dpr = screenDpr(), onReady = null } = /** @type {any} */ ({})) {
   const rect = spellIconRect(index);
   if (!rect) return null;
-  return requestFittedPicture(`spellicon${index}`, (wake) => sheetCutUrl('ICON00I0.IMG', rect, 1, wake), {
+  const sheet = index < CLASSIC_SPELL_ICON_COUNT ? 'ICON00I0.IMG' : 'spell-icons-eleazzaar.png';
+  return requestFittedPicture(`spellicon${index}`, (wake) => sheetCutUrl(sheet, rect, 1, wake), {
     box,
     dpr,
     trim: false,
@@ -123,11 +146,13 @@ export function spellIconPicture(index, { box, dpr = screenDpr(), onReady = null
   });
 }
 
-/** Spell icon `index` from ICON00I0 (20 to a row, square - the classic
- *  sheet's own 16px). */
+/** Spell icon `index` from ICON00I0 (or the extra atlas). */
 export function spellIconUrl(index) {
-  const rect = spellIconRect(index | 0);
-  return rect ? sheetCutUrl('ICON00I0.IMG', rect, 2) : null;
+  const i = index | 0;
+  const rect = spellIconRect(i);
+  if (!rect) return null;
+  const sheet = i < CLASSIC_SPELL_ICON_COUNT ? 'ICON00I0.IMG' : 'spell-icons-eleazzaar.png';
+  return sheetCutUrl(sheet, rect, 2);
 }
 
 /** Paint a raw { width, height, colors } frame into `cv`, once per frame object. */

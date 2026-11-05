@@ -202,7 +202,9 @@ export function cycleAllowed(index, dir, flags) {
 
 export const MAX_EFFECTS_PER_SPELL = 3; // maxEffectsPerSpell (SpellMakerWindow:131)
 export const DEFAULT_SPELL_ICON = 1; // defaultSpellIcon (:132)
-export const SPELL_ICON_COUNT = 69; // SpellIconCollection.SpellIconCount
+export const CLASSIC_SPELL_ICON_COUNT = 69; // classicSpellIconsCount
+export const EXTRA_SPELL_ICON_COUNT = 439; // Additional spell icons (eleazzaar)
+export const SPELL_ICON_COUNT = CLASSIC_SPELL_ICON_COUNT + EXTRA_SPELL_ICON_COUNT; // Total selectable spell icons (508)
 export const MAX_SPELL_NAME = 31; // TextBox.MaxCharacters default
 
 /** The spinner ranges, inclusive (EffectSettingsEditorWindow's

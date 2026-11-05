@@ -31,12 +31,18 @@ import { loadImg, drawImgCrop } from '../native/nativePanel.js';
 // systems/spell/spellMaker.js, where S1's SetIcon wrap reads it. This is
 // the same DFU member, so it is imported and re-exported rather than
 // written a second time.
-import { SPELL_ICON_COUNT } from '../../systems/spell/spellMaker.js';
+import {
+  CLASSIC_SPELL_ICON_COUNT,
+  EXTRA_SPELL_ICON_COUNT,
+  SPELL_ICON_COUNT,
+} from '../../systems/spell/spellMaker.js';
 import { localizedStrings } from '../../systems/textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
+import { APP_ROOT } from '../../systems/appRoot.js';
 
 /** classicSpellIconsRowCount / classicSpellIconsCount (:36-37). */
 export const SPELL_ICON_ROW_COUNT = 20;
-export { SPELL_ICON_COUNT };
+export const EXTRA_SPELL_ICON_ROW_COUNT = 20;
+export { CLASSIC_SPELL_ICON_COUNT, EXTRA_SPELL_ICON_COUNT, SPELL_ICON_COUNT };
 /** spellTargetIconsCount / spellElementIconsCount (:38-39) and the
  *  three sizes LoadClassicSpellTargetAndElementIcons reads with
  *  (:443-445) over the 40x80 sheet (:40). */
@@ -48,13 +54,40 @@ export const ICON_H = 16;
 export const MASK_SHEET = Object.freeze({ w: 40, h: 80 });
 
 let _art = null;
-/** Both sheets, uploaded once. Missing art leaves the collection
+
+export async function loadExtraSpellIcons(deps) {
+  if (!deps?.renderer || typeof fetch === 'undefined') return null;
+  try {
+    const root = APP_ROOT ?? globalThis.document?.baseURI ?? 'http://localhost/';
+    const url = new URL('art/spell-icons-eleazzaar.png', root).href;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const [{ toScreenOrder }, { decodePng }] = await Promise.all([
+      import('../../formats/color32Order.js'),
+      import('../../systems/textureReplacement.js'),
+    ]);
+    const decoded = await decodePng(bytes);
+    const px = toScreenOrder(decoded);
+    const tex = deps.renderer.uploadTexture('img', 'spell-icons-eleazzaar', px, { alpha: true });
+    return { tex, w: decoded.width, h: decoded.height };
+  } catch (e) {
+    console.warn('[spellbook] extra spell icons unavailable:', e?.message ?? e);
+    return null;
+  }
+}
+
+/** Both classic sheets, plus extra atlas, uploaded once. Missing art leaves the collection
  *  empty rather than throwing - a window without icons still draws
  *  its list, which is how the HUD's own art gate behaves. */
 export async function preloadSpellIcons(deps) {
   if (_art) return _art;
-  const [icons, mask] = await Promise.all([loadImg(deps, 'ICON00I0.IMG'), loadImg(deps, 'MASK04I0.IMG')]);
-  _art = { icons, mask };
+  const [icons, mask, extra] = await Promise.all([
+    loadImg(deps, 'ICON00I0.IMG'),
+    loadImg(deps, 'MASK04I0.IMG'),
+    loadExtraSpellIcons(deps).catch(() => null),
+  ]);
+  _art = { icons, mask, extra };
   return _art;
 }
 export const spellIconsLoaded = () => !!_art;
@@ -67,24 +100,23 @@ export function _setSpellIconsForTests(art) {
  *  assumed - a replacement atlas is allowed to be bigger. */
 export const spellIconDim = () => (_art ? Math.trunc(_art.icons.w / SPELL_ICON_ROW_COUNT) : ICON_H);
 
-/** The source rect of spell icon `index` on ICON00I0, TOP-DOWN, or
- *  NULL when the index is off the sheet.
- *
- *  DFU walks the atlas from its top-left in Unity's bottom-up space
- *  (srcY starts at height - dim and DECREASES per row, :419-433),
- *  which is row-major from the top in ours.
- *
- *  The null matters: GetSpellIcon (:151-157) answers null outside
- *  [0, Count) and the panel then shows its black background. The
- *  `index % count` WRAP belongs to SpellMakerWindow.SetIcon, which
- *  clamps at MINT time - systems/spell/spellMaker.js:"for (let i = 0; i < 5; i++)" already does it -
- *  not to the collection, so a record carrying a bad icon byte reads
- *  as a black square here rather than as some other spell's icon. */
+export function extraSpellIconRect(extraIndex) {
+  const i = extraIndex | 0;
+  if (i < 0 || i >= EXTRA_SPELL_ICON_COUNT) return null;
+  const dim = _art?.extra ? Math.trunc(_art.extra.w / EXTRA_SPELL_ICON_ROW_COUNT) : ICON_H;
+  return [(i % EXTRA_SPELL_ICON_ROW_COUNT) * dim, Math.trunc(i / EXTRA_SPELL_ICON_ROW_COUNT) * dim, dim, dim];
+}
+
+/** The source rect of spell icon `index` on ICON00I0 (or the extra atlas), TOP-DOWN, or
+ *  NULL when the index is off the sheet. */
 export function spellIconRect(index) {
   const i = index | 0;
   if (i < 0 || i >= SPELL_ICON_COUNT) return null;
-  const dim = spellIconDim();
-  return [(i % SPELL_ICON_ROW_COUNT) * dim, Math.trunc(i / SPELL_ICON_ROW_COUNT) * dim, dim, dim];
+  if (i < CLASSIC_SPELL_ICON_COUNT) {
+    const dim = spellIconDim();
+    return [(i % SPELL_ICON_ROW_COUNT) * dim, Math.trunc(i / SPELL_ICON_ROW_COUNT) * dim, dim, dim];
+  }
+  return extraSpellIconRect(i - CLASSIC_SPELL_ICON_COUNT);
 }
 
 /** The five target icons stack down the LEFT of MASK04I0 (:459-465). */
@@ -104,10 +136,22 @@ export function elementIconRect(elementType) {
  *  to the panel it owns (BackgroundLayout.StretchToFill), so the
  *  destination size is the caller's. */
 export function drawSpellIcon(renderer, m, index, dst) {
-  const src = _art ? spellIconRect(index) : null;
-  if (!src) return false; // GetSpellIcon's null - the panel stays black
-  drawImgCrop(renderer, _art.icons, m, src, dst);
-  return true;
+  const i = index | 0;
+  if (!_art) return false;
+  if (i >= 0 && i < CLASSIC_SPELL_ICON_COUNT) {
+    const src = spellIconRect(i);
+    if (!src) return false;
+    drawImgCrop(renderer, _art.icons, m, src, dst);
+    return true;
+  }
+  if (i >= CLASSIC_SPELL_ICON_COUNT && i < SPELL_ICON_COUNT) {
+    const sheet = _art.extra ?? _art.icons;
+    const src = extraSpellIconRect(i - CLASSIC_SPELL_ICON_COUNT);
+    if (!src) return false;
+    drawImgCrop(renderer, sheet, m, src, dst);
+    return true;
+  }
+  return false;
 }
 
 export function drawTargetIcon(renderer, m, targetType, dst) {
