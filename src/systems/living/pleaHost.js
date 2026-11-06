@@ -112,7 +112,7 @@ export function evaluatePleaEncounter({
  * @param {number} [params.goldOffered=0]
  * @param {number} [params.nowMinutes=0]
  * @param {() => number} [params.rng=Math.random]
- * @returns {{ outcome: string, messageKey: string, repDelta: number, goldSpent: number }}
+ * @returns {{ outcome: string, messageKey: string, repDelta: number, goldSpent: number, potionUsed?: boolean, blessed?: boolean, spawnMugger?: boolean }}
  */
 export function resolvePleaResponse({
   plea,
@@ -129,35 +129,68 @@ export function resolvePleaResponse({
   }
 
   if (response === 'HELP') {
-    if (goldOffered < plea.requiredGold) {
+    let potionUsed = false;
+    if (plea.type === PLEA_TYPE.PLAGUE_CURE && Array.isArray(playerEntity?.items)) {
+      const pIdx = playerEntity.items.findIndex(
+        (it) => it && (it.group === 'Potions' || /potion|cure|heal|remedy|elixir/i.test(String(it.shortName || it.name || ''))),
+      );
+      if (pIdx >= 0) {
+        playerEntity.items.splice(pIdx, 1);
+        potionUsed = true;
+      }
+    }
+
+    if (!potionUsed && goldOffered < plea.requiredGold) {
       return {
         outcome: PLEA_OUTCOME.INSUFFICIENT_FUNDS,
         messageKey: plea.messageKey,
         repDelta: 0,
         goldSpent: 0,
+        potionUsed: false,
+        blessed: false,
+        spawnMugger: false,
       };
     }
 
-    // Award regional reputation on charitable aid
+    // Award regional reputation, lower regional tension, and bless player vitals
     root.subsystems.pleas.lastPleaMinute = nowMinutes;
-    if (playerEntity?.regionalReputations && typeof playerEntity.regionalReputations === 'object') {
+    if (playerEntity && typeof playerEntity === 'object') {
+      if (!playerEntity.regionalReputations || typeof playerEntity.regionalReputations !== 'object') {
+        playerEntity.regionalReputations = {};
+      }
       playerEntity.regionalReputations[regionIndex] =
         (playerEntity.regionalReputations[regionIndex] || 0) + 3;
+      if (typeof playerEntity.health === 'number' && typeof playerEntity.maxHealth === 'number') {
+        playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + 15);
+      }
+    }
+    const regState = getRegionState(regionIndex);
+    if (regState && typeof regState.tension === 'number') {
+      regState.tension = Math.max(0, regState.tension - 4);
     }
 
     return {
       outcome: PLEA_OUTCOME.HELPED,
       messageKey: 'living.plea.helped',
       repDelta: 3,
-      goldSpent: plea.requiredGold,
+      goldSpent: potionUsed ? 0 : plea.requiredGold,
+      potionUsed,
+      blessed: true,
+      spawnMugger: false,
     };
   }
 
   if (response === 'REFUSE_POLITE') {
     root.subsystems.pleas.lastPleaMinute = nowMinutes;
-    const etVal = skillValue(playerEntity, SKILLS.Etiquette) || 30;
-    const pers = liveStat(playerEntity, 'personality') || 50;
-    const luck = liveStat(playerEntity, 'luck') || 50;
+    const etVal =
+      skillValue(playerEntity, SKILLS.Etiquette) ||
+      Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
+    const pers =
+      liveStat(playerEntity, 'personality') ||
+      Number(playerEntity?.stats?.Personality ?? playerEntity?.stats?.personality ?? 50);
+    const luck =
+      liveStat(playerEntity, 'luck') ||
+      Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
 
     const total = etVal + Math.trunc(pers / 3);
     const roll = rng() * 100;
@@ -168,6 +201,9 @@ export function resolvePleaResponse({
         messageKey: 'living.plea.parted',
         repDelta: 0,
         goldSpent: 0,
+        potionUsed: false,
+        blessed: false,
+        spawnMugger: false,
       };
     }
 
@@ -179,6 +215,9 @@ export function resolvePleaResponse({
         messageKey: 'living.plea.parted',
         repDelta: 0,
         goldSpent: 0,
+        potionUsed: false,
+        blessed: false,
+        spawnMugger: false,
       };
     }
 
@@ -187,15 +226,26 @@ export function resolvePleaResponse({
       messageKey: 'living.plea.rebuffed',
       repDelta: 0,
       goldSpent: 0,
+      potionUsed: false,
+      blessed: false,
+      spawnMugger: false,
     };
   }
 
   // REFUSE_RUDE:
   root.subsystems.pleas.lastPleaMinute = nowMinutes;
+  if (playerEntity?.regionalReputations && typeof playerEntity.regionalReputations === 'object') {
+    playerEntity.regionalReputations[regionIndex] =
+      (playerEntity.regionalReputations[regionIndex] || 0) - 2;
+  }
+  const spawnMugger = rng() < 0.40;
   return {
     outcome: PLEA_OUTCOME.REBUFFED,
     messageKey: 'living.plea.rebuffed',
-    repDelta: 0,
+    repDelta: -2,
     goldSpent: 0,
+    potionUsed: false,
+    blessed: false,
+    spawnMugger,
   };
 }

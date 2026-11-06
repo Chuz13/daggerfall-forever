@@ -33,7 +33,9 @@ import { expandMacros } from '../systems/talk/talkSession.js';   // MACRO1: the 
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
 import { enterDungeonAutomap, exitDungeonAutomap, detachedAutomapRecord, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, automapWaySteps, capsuleCentreFromEye, SCAN_INTERVAL_S, recordTeleporterConnection, teleporterConnection, registerAutomapConsoleCommands } from '../systems/automap/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
 import { automapKeyOf } from '../systems/automap/automap.js';   // TESA8: a dungeon's automap key by its location - a lair past the Bay its own
-import { isDungeonInCooldown, claimFallenAdventurerRemains } from '../systems/living/adventurerSim.js';
+import { isDungeonInCooldown, claimFallenAdventurerRemains, getDungeonActiveAdventurer } from '../systems/living/adventurerSim.js';
+import { CLASS_TO_MOBILE_TYPE, buildDungeonAdventurerChoiceSpec } from '../systems/living/livingWorldSpawner.js';
+import { ChoiceWindow } from '../ui/talkWindow.js';
 import { automapWaterLevel, ELEMENT_NAMES } from '../systems/automap/automapModel.js';   // ROAD-C c2/S1
 import { signalAutomapReset } from '../ui/automap/automapWindow.js';   // A1: the M window; ROAD-C c2/S5: its native art + the reset signal
 // EM3: the skin fork. The classic skin keeps DFU's 3D panel whole; the
@@ -1945,6 +1947,41 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (f.ai) { f.ai.detected = false; f.ai.target = null; }   // found resting: it hunts nobody yet
     standDungeonBand(f, bandMembers(r, effectiveLevel(playerEntity)));
     return f;
+  }
+  let _livingDungeonAdv = null;
+  async function standDungeonLivingAdventurer() {
+    if (!foeDeps || !collider || !_dungeonId) return null;
+    const hit = getDungeonActiveAdventurer(_dungeonId, _dungeonRegion);
+    if (!hit?.adv) return null;
+    const far = dungeonEnd();
+    if (!far) return null;
+    const sp = spotAbout([far.x, far.y, far.z], 4) ?? { x: far.x, y: far.y, z: far.z };
+    const mobileType = CLASS_TO_MOBILE_TYPE[hit.adv.className] ?? 144;
+    const f = await spawnLooseFoe(mobileType, [sp.x, sp.y, sp.z], { level: hit.adv.level || effectiveLevel(playerEntity) }).catch(() => null);
+    if (!f) return null;
+    if (f.entity) f.entity.name = `${hit.adv.name} (${hit.adv.className})`;
+    if (f.ai) { f.ai.isHostile = false; f.ai.detected = false; f.ai.target = null; }
+    _livingDungeonAdv = { foe: f, adv: hit.adv, intercepted: hit.intercepted, interacted: false };
+    return f;
+  }
+  function tickDungeonLivingAdventurer(playerFeet) {
+    if (!_livingDungeonAdv || _livingDungeonAdv.interacted || !playerFeet) return;
+    const f = _livingDungeonAdv.foe;
+    if (!f || f.dead || !f.ai?.feet) return;
+    const d = Math.hypot(playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]);
+    if (d <= 12) {
+      _livingDungeonAdv.interacted = true;
+      const spec = buildDungeonAdventurerChoiceSpec({
+        adv: _livingDungeonAdv.adv,
+        intercepted: _livingDungeonAdv.intercepted,
+        locationId: _dungeonId,
+        regionIndex: _dungeonRegion,
+        playerEntity,
+        foeRecord: f,
+        say: (l) => hudText.add(l),
+      });
+      pushDungeonWindow(new ChoiceWindow({ lines: spec.lines, options: spec.options }));
+    }
   }
   /** RVN6's band, underground (scenes/exteriorFoes.js standBand's law): placed about it, loose (the dungeon's save
    *  carries no loose foe, nor its master), ordinary, marked, in its camp, named. `portal`: RVN4's rank 5. */
@@ -7548,7 +7585,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // RVN7d (bible/12-Enhanced-AI/Feud-Arc.md 18.4): a revenant at home - asked once, the first frame I stand here (the
     // layout stood, every seam this host builds made); LAIR-WALK: once the navmesh a walk is measured on has landed, when
     // one is coming - LAIR_WALK_WAIT_MS at most
-    if (playerFeet && !_lairAsked && (!enhancedNav.requested || enhancedNav.settled || Date.now() - (_lairWaitFrom ??= Date.now()) > LAIR_WALK_WAIT_MS)) { _lairAsked = true; standLairRevenant().catch(() => null); }
+    if (playerFeet && !_lairAsked && (!enhancedNav.requested || enhancedNav.settled || Date.now() - (_lairWaitFrom ??= Date.now()) > LAIR_WALK_WAIT_MS)) { _lairAsked = true; standLairRevenant().catch(() => null); standDungeonLivingAdventurer().catch(() => null); }
+    tickDungeonLivingAdventurer(playerFeet);
     // B1: QuestResourceBehaviour.Update every frame the object lives
     // (dead included - a corpse's component still runs in DFU, and the
     // kill credit lands the update AFTER health hit zero).

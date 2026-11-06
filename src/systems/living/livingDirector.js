@@ -72,6 +72,8 @@ export function newLivingSaveData() {
       adventurers: {},
       travel: { lastInterruptMinute: -999999 },
       pleas: { lastPleaMinute: -999999 },
+      nemesis: { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false },
+      checkpoints: { passesByRegion: {} },
     },
   };
 }
@@ -106,6 +108,16 @@ export function getLivingSaveData() {
       },
       pleas: {
         lastPleaMinute: Number(_state.subsystems.pleas?.lastPleaMinute) || -999999,
+      },
+      nemesis: {
+        encounters: Number(_state.subsystems.nemesis?.encounters) || 0,
+        escapedCount: Number(_state.subsystems.nemesis?.escapedCount) || 0,
+        lastNemesisName: _state.subsystems.nemesis?.lastNemesisName ?? null,
+        lastArchetype: _state.subsystems.nemesis?.lastArchetype ?? null,
+        hasGrudge: Boolean(_state.subsystems.nemesis?.hasGrudge),
+      },
+      checkpoints: {
+        passesByRegion: { ...(_state.subsystems.checkpoints?.passesByRegion || {}) },
       },
     },
   };
@@ -162,6 +174,20 @@ export function restoreLivingSaveData(data) {
       if (data.subsystems.pleas && typeof data.subsystems.pleas === 'object') {
         _state.subsystems.pleas = {
           lastPleaMinute: Number(data.subsystems.pleas.lastPleaMinute) || -999999,
+        };
+      }
+      if (data.subsystems.nemesis && typeof data.subsystems.nemesis === 'object') {
+        _state.subsystems.nemesis = {
+          encounters: Number(data.subsystems.nemesis.encounters) || 0,
+          escapedCount: Number(data.subsystems.nemesis.escapedCount) || 0,
+          lastNemesisName: data.subsystems.nemesis.lastNemesisName ?? null,
+          lastArchetype: data.subsystems.nemesis.lastArchetype ?? null,
+          hasGrudge: Boolean(data.subsystems.nemesis.hasGrudge),
+        };
+      }
+      if (data.subsystems.checkpoints && typeof data.subsystems.checkpoints === 'object') {
+        _state.subsystems.checkpoints = {
+          passesByRegion: { ...(data.subsystems.checkpoints.passesByRegion || {}) },
         };
       }
     }

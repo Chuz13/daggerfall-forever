@@ -8,6 +8,7 @@
 
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import { getLivingDirectorState } from './livingDirector.js';
 import { GUILD_GROUPS } from '../../formats/factionFile.js';
 import { SKILLS, skillValue } from '../skills.js';
 import { dice100 } from '../../combat/formulas.js';
@@ -20,6 +21,36 @@ export const CHECKPOINT_OUTCOME = Object.freeze({
   REFUSED: 'REFUSED',               // Access denied; turned back
   HOSTILE: 'HOSTILE',               // Forced entry / attacked guards
 });
+
+export const CHECKPOINT_PASS_DURATION_MINUTES = 1440; // 24 in-game hours
+
+/**
+ * Grants a 24-hour wartime transit pass for a specific region.
+ * @param {number} regionIndex
+ * @param {number} [nowMinutes=0]
+ */
+export function grantRegionalCheckpointPass(regionIndex, nowMinutes = 0) {
+  const root = getLivingDirectorState();
+  if (!root.subsystems.checkpoints) {
+    root.subsystems.checkpoints = { passesByRegion: {} };
+  }
+  if (!root.subsystems.checkpoints.passesByRegion) {
+    root.subsystems.checkpoints.passesByRegion = {};
+  }
+  root.subsystems.checkpoints.passesByRegion[regionIndex] = nowMinutes + CHECKPOINT_PASS_DURATION_MINUTES;
+}
+
+/**
+ * Checks whether the player currently holds a valid transit pass in `regionIndex`.
+ * @param {number} regionIndex
+ * @param {number} [nowMinutes=0]
+ * @returns {boolean}
+ */
+export function hasRegionalCheckpointPass(regionIndex, nowMinutes = 0) {
+  const root = getLivingDirectorState();
+  const until = Number(root?.subsystems?.checkpoints?.passesByRegion?.[regionIndex] ?? -1);
+  return until > 0 && nowMinutes <= until;
+}
 
 /**
  * Checks whether a roadside checkpoint should spawn along this route.
@@ -82,6 +113,7 @@ export function evaluateCheckpointEncounter({
  * @param {number} [params.tollGoldRequired=50]
  * @param {number} [params.tollPaid=0]
  * @param {number} [params.regionIndex=0]
+ * @param {number} [params.nowMinutes=0]
  * @param {() => number} [params.rng=Math.random]
  * @returns {{ outcome: string, message: string }}
  */
@@ -91,14 +123,23 @@ export function resolveCheckpointInteraction({
   tollGoldRequired = 50,
   tollPaid = 0,
   regionIndex = 0,
+  nowMinutes = 0,
   rng = Math.random,
 }) {
+  if (hasRegionalCheckpointPass(regionIndex, nowMinutes)) {
+    return {
+      outcome: CHECKPOINT_OUTCOME.PASSED_FREE,
+      message: 'The guard inspects your stamped provincial transit pass and waves you through.',
+    };
+  }
+
   const isKnight = Boolean(playerEntity?.guildMemberships?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0);
   const rep = Number(playerEntity?.regionalReputations?.[regionIndex] || 0);
-  const luck = Number(playerEntity?.stats?.Luck ?? 50);
+  const luck = Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
 
   if (method === 'knight') {
     if (isKnight) {
+      grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.PASSED_FREE,
         message: 'The watchmen present arms and step aside. "Hail, noble Knight! The road is yours; pass freely."',
@@ -112,6 +153,7 @@ export function resolveCheckpointInteraction({
 
   if (method === 'reputation') {
     if (rep >= 15) {
+      grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.PASSED_FREE,
         message: 'The guard captain nods respectfully. "Your good deeds in this province are well known. Pass through, citizen."',
@@ -125,6 +167,7 @@ export function resolveCheckpointInteraction({
 
   if (method === 'toll') {
     if (tollPaid >= tollGoldRequired) {
+      grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.TOLL_PAID,
         message: 'The guard stamps your pass and pockets the gold. "Your papers are in order. Move along, traveller."',
@@ -139,16 +182,20 @@ export function resolveCheckpointInteraction({
   if (method === 'etiquette' || method === 'streetwise') {
     const isEtiquette = method === 'etiquette';
     const skillId = isEtiquette ? SKILLS.Etiquette : SKILLS.Streetwise;
-    const skillVal = Number(skillValue(playerEntity, skillId) || 30);
+    const fallbackSkill = isEtiquette
+      ? Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30)
+      : Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
+    const skillVal = Number(skillValue(playerEntity, skillId) || fallbackSkill || 30);
     const statVal = isEtiquette
-      ? Number(playerEntity?.stats?.Personality ?? 50)
-      : Number(playerEntity?.stats?.Intelligence ?? 50);
+      ? Number(playerEntity?.stats?.Personality ?? playerEntity?.stats?.personality ?? 50)
+      : Number(playerEntity?.stats?.Intelligence ?? playerEntity?.stats?.intelligence ?? 50);
 
     const difficulty = isEtiquette ? 55 : 50;
     const roll = Math.floor(rng() * 100);
     const score = Math.floor(skillVal * 0.7 + statVal * 0.3);
 
     if (roll + score >= difficulty + 50) {
+      grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.PASSED_DIPLOMACY,
         message: isEtiquette
@@ -162,6 +209,7 @@ export function resolveCheckpointInteraction({
     const luckThreshold = LivingTamrielConfig.luckRerollThreshold || 5;
 
     if (delta <= luckThreshold && dice100(Math.trunc(luck / 2), rng())) {
+      grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.LUCK_SAVED,
         message: 'By blind fortune, a courier horn sounds in the distance, distracting the guards and waving you through!',

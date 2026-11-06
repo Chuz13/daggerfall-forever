@@ -20,6 +20,7 @@ import { SKILLS, skillValue } from '../skills.js';
 import { liveStat } from '../statMods.js';
 import { dice100 } from '../../combat/formulas.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import { getLivingDirectorState } from './livingDirector.js';
 import { LEVEL_CAP } from '../levelCap.js';
 import { GUILD_GROUPS } from '../../formats/factionFile.js';
 
@@ -263,7 +264,7 @@ export function createNemesisHunter(playerLevel, nameOrOptions) {
  * @param {Object} nemesis Nemesis entity record
  * @param {'etiquette'|'streetwise'|'taunt'|'duel'} approach Chosen dialogue tactic
  * @param {() => number} [rng]
- * @returns {{ resolution: string, message: string }}
+ * @returns {{ resolution: string, message: string, bribeGold?: number }}
  */
 export function resolveNemesisConfrontation(
   player,
@@ -317,13 +318,18 @@ export function resolveNemesisConfrontation(
 
     if (roll + totalScore >= difficulty + 50) {
       if (nemesis.archetype === NEMESIS_ARCHETYPES.CHAOTIC_MARAUDER) {
+        recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.INTIMIDATED);
         return {
           resolution: NEMESIS_RESOLUTION.INTIMIDATED,
+          bribeGold: 0,
           message: `${nemesis.name} blanches at your cold stare and backs away into the shadows.`,
         };
       }
+      const bribeGold = Math.max(50, (nemesis.level || 1) * 40);
+      recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.BRIBED);
       return {
         resolution: NEMESIS_RESOLUTION.BRIBED,
+        bribeGold,
         message: `${nemesis.name} smirks and accepts your pouch. "Good business doing business with you. I'll tell the employer you perished in the bay."`,
       };
     }
@@ -365,8 +371,49 @@ export function resolveNemesisConfrontation(
   }
 
   // Fallback on failed checks: Combat
+  recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.DUEL);
   return {
     resolution: NEMESIS_RESOLUTION.DUEL,
+    bribeGold: 0,
     message: `${nemesis.name} draws steel with a cold grin. "Nice try, but your head is worth too much in gold. En garde!"`,
   };
+}
+
+/**
+ * Records a Nemesis confrontation outcome into the persistent LivingDirector state
+ * so recurring rivals remember past escapes, bribes, and defeats.
+ *
+ * @param {any} nemesis
+ * @param {string} resolution
+ */
+export function recordNemesisMemory(nemesis, resolution) {
+  if (!nemesis) return;
+  const root = getLivingDirectorState();
+  if (!root.subsystems.nemesis) {
+    root.subsystems.nemesis = { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
+  }
+  const mem = root.subsystems.nemesis;
+  mem.encounters = (mem.encounters || 0) + 1;
+  mem.lastNemesisName = nemesis.name || mem.lastNemesisName;
+  mem.lastArchetype = nemesis.archetype || mem.lastArchetype;
+  if (
+    resolution === NEMESIS_RESOLUTION.PACIFIED ||
+    resolution === NEMESIS_RESOLUTION.BRIBED ||
+    resolution === NEMESIS_RESOLUTION.INTIMIDATED ||
+    resolution === NEMESIS_RESOLUTION.LUCK_SAVED
+  ) {
+    mem.escapedCount = (mem.escapedCount || 0) + 1;
+    nemesis.escapedCount = (nemesis.escapedCount || 0) + 1;
+  } else {
+    mem.hasGrudge = true;
+    nemesis.hasMemoryOfDefeat = true;
+  }
+}
+
+/**
+ * Returns the persistent Nemesis encounter memory from LivingDirector.
+ */
+export function getNemesisMemory() {
+  const root = getLivingDirectorState();
+  return root?.subsystems?.nemesis || { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
 }

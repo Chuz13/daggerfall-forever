@@ -18,7 +18,12 @@ import {
   ensureAdventurerPool,
   isDungeonInCooldown,
   claimFallenAdventurerRemains,
+  getDungeonActiveAdventurer,
+  getAdventurerSimRegistry,
 } from '../../src/systems/living/adventurerSim.js';
+import { hasRegionalCheckpointPass } from '../../src/systems/living/roadCheckpointHost.js';
+import { getNemesisMemory, resolveNemesisConfrontation, createNemesisHunter, NEMESIS_ARCHETYPES } from '../../src/systems/living/nemesisHost.js';
+import { resolvePleaResponse, PLEA_TYPE } from '../../src/systems/living/pleaHost.js';
 import {
   getRegionCrisisLines,
   getSettlementEntryNotification,
@@ -45,6 +50,7 @@ import {
   rollLivingChunkCampRoster,
   buildLivingSiteBlueprint,
   createLivingSceneHost,
+  buildDungeonAdventurerChoiceSpec,
 } from '../../src/systems/living/livingWorldSpawner.js';
 
 describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
@@ -412,5 +418,123 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
 
     host.clear();
     assert.equal(host.shown(), null);
+  });
+
+  it('Step 6 (Stage 4): Potion/Blessing Pleas, 24h Checkpoint Passes, Nemesis Bribe & Memory, and In-Dungeon Rival / Quest Interception ChoiceWindow', () => {
+    const player = {
+      level: 10,
+      health: 50,
+      maxHealth: 100,
+      goldPieces: 1000,
+      items: [{ group: 'Potions', shortName: 'Potion of Healing' }],
+      skills: { Etiquette: 80, Streetwise: 85 },
+      stats: { Personality: 75, Luck: 70 },
+      regionalReputations: { 17: 0 },
+    };
+
+    // 1. Plea consumes healing potion instead of gold, blesses player health (+15), and lowers regional tension
+    const reg17 = getRegionState(17);
+    reg17.tension = 40;
+    const pleaRes = resolvePleaResponse({
+      plea: { type: PLEA_TYPE.PLAGUE_CURE, requiredGold: 35, messageKey: 'living.plea.plague' },
+      playerEntity: player,
+      regionIndex: 17,
+      response: 'HELP',
+      goldOffered: player.goldPieces,
+      nowMinutes: 2000,
+    });
+    assert.equal(pleaRes.potionUsed, true, 'should consume healing potion from inventory');
+    assert.equal(pleaRes.goldSpent, 0, 'no gold spent when potion is used');
+    assert.equal(player.items.length, 0, 'potion removed from player inventory');
+    assert.equal(player.health, 65, 'player blessed with +15 health');
+    assert.equal(player.regionalReputations[17], 3, '+3 regional reputation');
+    assert.equal(reg17.tension, 36, 'regional tension lowered by 4');
+
+    // Rude refusal triggers spawnMugger when rng < 0.40
+    const rudeRes = resolvePleaResponse({
+      plea: { type: PLEA_TYPE.FAMINE_BREAD, requiredGold: 15, messageKey: 'living.plea.famine' },
+      playerEntity: player,
+      regionIndex: 17,
+      response: 'REFUSE_RUDE',
+      nowMinutes: 3000,
+      rng: () => 0.1,
+    });
+    assert.equal(rudeRes.spawnMugger, true);
+    assert.equal(player.regionalReputations[17], 1, '-2 regional reputation on rude refusal');
+
+    // 2. Nemesis Streetwise bribe & persistent memory in SaveData
+    const nemesis = createNemesisHunter(8, { archetype: NEMESIS_ARCHETYPES.BOUNTY_HUNTER, rng: () => 0.2 });
+    const bribeRes = resolveNemesisConfrontation(player, nemesis, 'streetwise', () => 0.8);
+    assert.equal(bribeRes.resolution, 'BRIBED');
+    assert.ok(bribeRes.bribeGold >= 50);
+    const nemMem = getNemesisMemory();
+    assert.equal(nemMem.encounters, 1);
+    assert.equal(nemMem.escapedCount, 1);
+    assert.equal(nemMem.lastNemesisName, nemesis.name);
+    assert.equal(getLivingSaveData().subsystems.nemesis.escapedCount, 1);
+
+    // 3. In-Dungeon Delving Rival Adventurer -> Etiquette turns rival into PlayerAlly in the dungeon!
+    const pool = ensureAdventurerPool();
+    const delver = pool.find((a) => a.currentRegion === 17);
+    delver.status = 'DELVING';
+    delver.targetLocationId = 'dungeon_17_4';
+    delver.trait = 'HONORABLE';
+
+    const activeHit = getDungeonActiveAdventurer(8004, 17); // 8004 % 10 === 4 -> dungeon_17_4
+    assert.ok(activeHit && activeHit.adv.id === delver.id);
+    assert.equal(activeHit.intercepted, null);
+
+    const foeRecord = {
+      entity: { name: delver.name, team: 'Enemy', mobileTeam: 'Enemy', items: [] },
+      ai: { isHostile: false, detected: false },
+    };
+    const delverSpec = buildDungeonAdventurerChoiceSpec({
+      adv: activeHit.adv,
+      intercepted: null,
+      locationId: 8004,
+      regionIndex: 17,
+      playerEntity: player,
+      foeRecord,
+      rng: () => 0.1,
+    });
+    // Option 2: Appeal to Etiquette -> becomes PlayerAlly in the dungeon
+    delverSpec.options[1].action();
+    assert.equal(foeRecord.entity.team, 'PlayerAlly', 'convinced dungeon rival should join PlayerAlly team');
+
+    // 4. In-Dungeon Intercepted Quest Rival -> Buyout reclaims quest trophy into player.items!
+    const reg = getAdventurerSimRegistry();
+    reg.interceptedQuests['dungeon_17_4'] = {
+      questId: 8004,
+      locationId: 'dungeon_17_4',
+      adventurerId: delver.id,
+      adventurerName: delver.name,
+      adventurerClass: delver.className,
+      adventurerLevel: 5,
+      adventurerTrait: 'MERCENARY',
+      recovered: false,
+      claimedByAdventurer: true,
+    };
+
+    const interceptedHit = getDungeonActiveAdventurer(8004, 17);
+    assert.ok(interceptedHit && interceptedHit.intercepted);
+
+    const interceptSpec = buildDungeonAdventurerChoiceSpec({
+      adv: interceptedHit.adv,
+      intercepted: interceptedHit.intercepted,
+      locationId: 8004,
+      regionIndex: 17,
+      playerEntity: player,
+      foeRecord,
+      rng: () => 0.2,
+    });
+    const goldBeforeBuyout = player.goldPieces;
+    // Option 2: Buyout with gold
+    interceptSpec.options[1].action();
+    assert.ok(player.goldPieces < goldBeforeBuyout, 'buying out intercepted quest should deduct gold');
+    assert.equal(reg.interceptedQuests['dungeon_17_4'].recovered, true, 'intercepted quest marked recovered');
+    assert.ok(
+      player.items.some((it) => it.group === 'QuestItems'),
+      'reclaimed quest trophy added to player inventory',
+    );
   });
 });

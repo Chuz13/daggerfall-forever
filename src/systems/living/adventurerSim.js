@@ -548,7 +548,9 @@ export function resolveAdventurerEncounter({
   }
 
   if (action === 'INTIMIDATE') {
-    const sw = skillValue(playerEntity, SKILLS.Streetwise);
+    const sw =
+      skillValue(playerEntity, SKILLS.Streetwise) ||
+      Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
     const difficulty = Math.min(95, adv.level * 3 + 30);
     const roll = dice100(rng);
     const margin = sw - difficulty;
@@ -568,7 +570,9 @@ export function resolveAdventurerEncounter({
   }
 
   if (action === 'APPEAL_ETIQUETTE') {
-    const et = skillValue(playerEntity, SKILLS.Etiquette);
+    const et =
+      skillValue(playerEntity, SKILLS.Etiquette) ||
+      Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
     const bonus = adv.trait === 'HONORABLE' ? 20 : 0;
     const difficulty = Math.min(95, adv.level * 3 + 25 - bonus);
     const roll = dice100(rng);
@@ -596,10 +600,75 @@ export function resolveAdventurerEncounter({
 }
 
 /**
+ * Resolves a dungeon locationId or numeric mapId + regionIndex into the matching interceptedQuests record.
+ * @param {string|number} locationId
+ * @param {number|null} [regionIndex=null]
+ * @returns {{ key: string, record: any }|null}
+ */
+export function findInterceptedQuestAt(locationId, regionIndex = null) {
+  const reg = getAdventurerSimRegistry();
+  if (!reg.interceptedQuests) return null;
+  if (reg.interceptedQuests[locationId] && !reg.interceptedQuests[locationId].recovered) {
+    return { key: String(locationId), record: reg.interceptedQuests[locationId] };
+  }
+  if (regionIndex != null && Number.isFinite(Number(locationId))) {
+    const slotKey = `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`;
+    if (reg.interceptedQuests[slotKey] && !reg.interceptedQuests[slotKey].recovered) {
+      return { key: slotKey, record: reg.interceptedQuests[slotKey] };
+    }
+  }
+  return null;
+}
+
+/**
+ * Returns an active living adventurer delving inside this dungeon (or one who intercepted
+ * a quest here) so `dungeonContext.js` can physically spawn them in the dungeon hall.
+ *
+ * @param {string|number} locationId
+ * @param {number|null} [regionIndex=null]
+ * @returns {{ adv: any, intercepted: any|null, slotKey: string }|null}
+ */
+export function getDungeonActiveAdventurer(locationId, regionIndex = null) {
+  if (Number(LivingTamrielConfig.adventurers) <= PRESENCE.OFF) return null;
+  const reg = getAdventurerSimRegistry();
+  const slotKey =
+    regionIndex != null && Number.isFinite(Number(locationId))
+      ? `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`
+      : String(locationId);
+
+  const interceptedHit = findInterceptedQuestAt(locationId, regionIndex);
+  if (interceptedHit) {
+    const rec = interceptedHit.record;
+    const poolAdv = (reg.pool || []).find((a) => a.id === rec.adventurerId && a.status !== ADVENTURER_STATUS.DEAD);
+    const adv = poolAdv || {
+      id: rec.adventurerId ?? 900,
+      name: rec.adventurerName || 'Valen the Swift',
+      className: rec.adventurerClass || 'Rogue',
+      level: rec.adventurerLevel || 8,
+      trait: rec.adventurerTrait || 'ARROGANT',
+      gearTier: Math.min(9, Math.floor((rec.adventurerLevel || 8) / 5) + 1),
+      currentRegion: regionIndex ?? 0,
+    };
+    return { adv, intercepted: rec, slotKey: interceptedHit.key };
+  }
+
+  const delvingAdv = (reg.pool || []).find(
+    (a) =>
+      a.status === ADVENTURER_STATUS.DELVING &&
+      (String(a.targetLocationId) === String(locationId) || String(a.targetLocationId) === slotKey),
+  );
+  if (delvingAdv) {
+    return { adv: delvingAdv, intercepted: null, slotKey };
+  }
+  return null;
+}
+
+/**
  * Confronts an adventurer who intercepted a non-main quest to reclaim the objective.
  *
  * @param {Object} params
  * @param {string|number} params.locationId
+ * @param {number|null} [params.regionIndex=null]
  * @param {any} params.playerEntity
  * @param {string} params.method - 'DUEL' | 'BUYOUT' | 'APPEAL' | 'FORFEIT'
  * @param {number} [params.goldOffered=0]
@@ -608,16 +677,17 @@ export function resolveAdventurerEncounter({
  */
 export function confrontInterceptingAdventurer({
   locationId,
+  regionIndex = null,
   playerEntity,
   method,
   goldOffered = 0,
   rng = Math.random,
 }) {
-  const reg = getAdventurerSimRegistry();
-  const record = reg.interceptedQuests?.[locationId];
+  const hit = findInterceptedQuestAt(locationId, regionIndex);
+  const record = hit?.record;
   if (!record || record.recovered) return null;
 
-  const playerLuck = Number(playerEntity?.stats?.Luck ?? 50);
+  const playerLuck = Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
 
   if (method === 'FORFEIT') {
     record.forfeited = true;
@@ -649,7 +719,9 @@ export function confrontInterceptingAdventurer({
   }
 
   if (method === 'BUYOUT') {
-    const sw = skillValue(playerEntity, SKILLS.Streetwise);
+    const sw =
+      skillValue(playerEntity, SKILLS.Streetwise) ||
+      Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
     const baseDemand = Math.max(100, record.adventurerLevel * 35);
     const discount = Math.min(0.40, sw * 0.004); // Up to 40% discount with high streetwise
     const requiredGold = Math.floor(baseDemand * (1 - discount));
@@ -673,7 +745,9 @@ export function confrontInterceptingAdventurer({
   }
 
   if (method === 'APPEAL') {
-    const et = skillValue(playerEntity, SKILLS.Etiquette);
+    const et =
+      skillValue(playerEntity, SKILLS.Etiquette) ||
+      Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
     const bonus = record.adventurerTrait === 'HONORABLE' ? 25 : 0;
     const difficulty = Math.min(90, record.adventurerLevel * 3 + 20 - bonus);
     const roll = dice100(rng);

@@ -37,6 +37,7 @@ import {
   determineNemesisArchetype,
   createNemesisHunter,
   resolveNemesisConfrontation,
+  getNemesisMemory,
   NEMESIS_RESOLUTION,
 } from './nemesisHost.js';
 import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME } from './pleaHost.js';
@@ -44,7 +45,10 @@ import {
   getAdventurerSimRegistry,
   evaluateAdventurerTension,
   resolveAdventurerEncounter,
+  confrontInterceptingAdventurer,
+  getDungeonActiveAdventurer,
   DUEL_OUTCOME,
+  RECLAIM_OUTCOME,
   ADVENTURER_STATUS,
 } from './adventurerSim.js';
 import { LIVING_WORDS } from './livingWords.js';
@@ -891,6 +895,7 @@ export function createLivingSceneHost(deps) {
                 method: player?.guildMemberships?.[10]?.rank > 0 ? 'knight' : 'reputation',
                 tollGoldRequired: tollGold,
                 regionIndex: regIdx,
+                nowMinutes: nowMin,
                 rng,
               });
               deps.say(res.message, 5);
@@ -910,6 +915,7 @@ export function createLivingSceneHost(deps) {
                 tollGoldRequired: tollGold,
                 tollPaid: haveGold,
                 regionIndex: regIdx,
+                nowMinutes: nowMin,
                 rng,
               });
               if (res.outcome === CHECKPOINT_OUTCOME.TOLL_PAID && player) {
@@ -929,6 +935,7 @@ export function createLivingSceneHost(deps) {
                 method: 'etiquette',
                 tollGoldRequired: tollGold,
                 regionIndex: regIdx,
+                nowMinutes: nowMin,
                 rng,
               });
               deps.say(res.message, 5);
@@ -946,6 +953,7 @@ export function createLivingSceneHost(deps) {
                 method: 'force',
                 tollGoldRequired: tollGold,
                 regionIndex: regIdx,
+                nowMinutes: nowMin,
                 rng,
               });
               setSiteHostile(s, true);
@@ -1004,8 +1012,11 @@ export function createLivingSceneHost(deps) {
             action: () => {
               const res = resolveNemesisConfrontation(player, nemesis, 'streetwise', rng);
               deps.say(res.message, 5);
-              if (
-                res.resolution === NEMESIS_RESOLUTION.BRIBED ||
+              if (res.resolution === NEMESIS_RESOLUTION.BRIBED && player) {
+                const bribeCost = Number(res.bribeGold || Math.max(50, (nemesis.level || 1) * 40));
+                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) - bribeCost);
+                setSiteHostile(s, false);
+              } else if (
                 res.resolution === NEMESIS_RESOLUTION.INTIMIDATED ||
                 res.resolution === NEMESIS_RESOLUTION.LUCK_SAVED
               ) {
@@ -1151,6 +1162,25 @@ export function createLivingSceneHost(deps) {
                 nowMinutes: nowMin,
                 rng,
               });
+              if (res.spawnMugger) {
+                Promise.resolve(
+                  deps.spawn(MOBILE_TYPES.Rogue, [...s.blueprint.center], {
+                    yaw: 0,
+                    level: Math.max(1, Number(player?.level ?? 1)),
+                    allied: false,
+                    loose: true,
+                    transient: true,
+                    managed: true,
+                  }),
+                )
+                  .then((rec) => {
+                    if (!rec) return;
+                    if (rec.entity) rec.entity.name = 'Desperate Cutpurse';
+                    if (rec.ai) rec.ai.isHostile = true;
+                    s.foes.push(rec);
+                  })
+                  .catch(() => {});
+              }
               deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
             },
           },
@@ -1245,7 +1275,67 @@ export function createLivingSceneHost(deps) {
       }
     }
 
-    if (inTown) return;
+    if (inTown) {
+      if (nowMin - lastSpawnMinute < 30) return;
+      const rep = Number(player?.regionalReputations?.[regIdx] ?? 0);
+      const nemMem = getNemesisMemory();
+      const angle = rng() * Math.PI * 2;
+      if (
+        shouldDispatchNemesis(player, {
+          legalReputation: rep,
+          playerLevel: Number(player?.level ?? 1),
+          isCrisis: regState?.crisis !== CRISIS_TYPE.PEACE,
+          hasGrudge: Boolean(nemMem?.hasGrudge),
+          playerGold: Number(player?.goldPieces ?? 0),
+        }) &&
+        rng() < 0.20
+      ) {
+        lastSpawnMinute = nowMin;
+        const site = standSite(
+          buildLivingSiteBlueprint({
+            kind: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+            centerX: feet[0] + Math.sin(angle) * 11,
+            centerZ: feet[2] + Math.cos(angle) * 11,
+            heightAt: deps.heightAt,
+            regionIndex: regIdx,
+            playerEntity: player,
+            nowMinutes: nowMin,
+            rng,
+          }),
+        );
+        triggerSiteInteraction(site);
+        return;
+      }
+
+      if (regState?.crisis !== CRISIS_TYPE.PEACE) {
+        const pleaEval = evaluatePleaEncounter({
+          regionIndex: regIdx,
+          nowMinutes: nowMin,
+          playerEntity: player,
+          rng,
+        });
+        if (pleaEval.shouldPlea) {
+          lastSpawnMinute = nowMin;
+          const kind =
+            regState?.crisis === CRISIS_TYPE.PLAGUE
+              ? LIVING_SITE_KINDS.QUARANTINE_TENT
+              : LIVING_SITE_KINDS.TRAVELER_REST;
+          standSite(
+            buildLivingSiteBlueprint({
+              kind,
+              centerX: feet[0] + Math.sin(angle) * 12,
+              centerZ: feet[2] + Math.cos(angle) * 12,
+              heightAt: deps.heightAt,
+              regionIndex: regIdx,
+              playerEntity: player,
+              nowMinutes: nowMin,
+              rng,
+            }),
+          );
+        }
+      }
+      return;
+    }
 
     // Cooldown between outdoor 3D site spawns (at least 30 game minutes)
     if (nowMin - lastSpawnMinute < 30) return;
@@ -1507,5 +1597,219 @@ export function createLivingSceneHost(deps) {
       releaseSite();
       checkTimer = 0;
     },
+  };
+}
+
+/**
+ * Builds an interactive ChoiceWindow specification for a rival adventurer encountered
+ * inside a dungeon (either reclaiming an intercepted non-main quest objective or
+ * parleying/duelling/allying with a delving rival).
+ *
+ * @param {{
+ *   adv: any,
+ *   intercepted?: any|null,
+ *   locationId: string|number,
+ *   regionIndex?: number|null,
+ *   playerEntity: any,
+ *   foeRecord?: any,
+ *   say?: (msg: string) => void,
+ *   rng?: () => number,
+ * }} params
+ */
+export function buildDungeonAdventurerChoiceSpec({
+  adv,
+  intercepted = null,
+  locationId,
+  regionIndex = null,
+  playerEntity,
+  foeRecord = null,
+  say = () => {},
+  rng = Math.random,
+}) {
+  if (intercepted) {
+    const buyoutGold = Math.max(100, (adv.level || 5) * 35);
+    return {
+      lines: [
+        LIVING_WORDS.adventurerQuestIntercepted(),
+        `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, buyoutGold)}"`,
+      ],
+      options: [
+        {
+          code: 'Digit1',
+          label: `1. ${LIVING_WORDS.adventurerDuelChallenge()}`,
+          action: () => {
+            confrontInterceptingAdventurer({
+              locationId,
+              regionIndex,
+              playerEntity,
+              method: 'DUEL',
+              rng,
+            });
+            if (foeRecord?.ai) {
+              foeRecord.ai.isHostile = true;
+              foeRecord.ai.detected = true;
+            }
+            if (foeRecord?.entity) {
+              foeRecord.entity.items = foeRecord.entity.items || [];
+              foeRecord.entity.items.push({
+                group: 'QuestItems',
+                shortName: `${adv.name}'s Claimed Quest Trophy`,
+                value: buyoutGold,
+              });
+            }
+            say(LIVING_WORDS.adventurerDuelChallenge());
+          },
+        },
+        {
+          code: 'Digit2',
+          label: `2. ${LIVING_WORDS.nemesisOptionStreetwise()} (${buyoutGold}g)`,
+          action: () => {
+            const haveGold = Number(playerEntity?.goldPieces ?? 0);
+            const res = confrontInterceptingAdventurer({
+              locationId,
+              regionIndex,
+              playerEntity,
+              method: 'BUYOUT',
+              goldOffered: haveGold,
+              rng,
+            });
+            if (res?.outcome === RECLAIM_OUTCOME.BOUGHT_BACK && playerEntity) {
+              playerEntity.goldPieces = Math.max(0, haveGold - (res.goldCost ?? buyoutGold));
+              playerEntity.items = playerEntity.items || [];
+              playerEntity.items.push({
+                group: 'QuestItems',
+                shortName: `Reclaimed Quest Trophy`,
+                value: buyoutGold,
+              });
+              if (foeRecord?.ai) foeRecord.ai.isHostile = false;
+              say(LIVING_WORDS.adventurerReclaimSuccess());
+            } else {
+              say(LIVING_WORDS.adventurerReclaimFailed());
+            }
+          },
+        },
+        {
+          code: 'Digit3',
+          label: `3. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
+          action: () => {
+            const res = confrontInterceptingAdventurer({
+              locationId,
+              regionIndex,
+              playerEntity,
+              method: 'APPEAL',
+              rng,
+            });
+            if (res?.recovered && playerEntity) {
+              playerEntity.items = playerEntity.items || [];
+              playerEntity.items.push({
+                group: 'QuestItems',
+                shortName: `Reclaimed Quest Trophy`,
+                value: buyoutGold,
+              });
+              if (foeRecord?.ai) foeRecord.ai.isHostile = false;
+              say(LIVING_WORDS.adventurerReclaimSuccess());
+            } else {
+              if (foeRecord?.ai) {
+                foeRecord.ai.isHostile = true;
+                foeRecord.ai.detected = true;
+              }
+              say(LIVING_WORDS.adventurerReclaimFailed());
+            }
+          },
+        },
+        {
+          code: 'Digit4',
+          label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
+          action: () => {
+            confrontInterceptingAdventurer({
+              locationId,
+              regionIndex,
+              playerEntity,
+              method: 'FORFEIT',
+              rng,
+            });
+            say(LIVING_WORDS.adventurerReclaimFailed());
+          },
+        },
+      ],
+    };
+  }
+
+  const tension = evaluateAdventurerTension(adv, playerEntity);
+  const wager = tension.wagerGold ?? 50;
+  return {
+    lines: [
+      `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, wager)}"`,
+    ],
+    options: [
+      {
+        code: 'Digit1',
+        label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
+        action: () => {
+          const res = resolveAdventurerEncounter({
+            adv,
+            playerEntity,
+            action: 'ACCEPT_DARE',
+            wagerGold: wager,
+            rng,
+          });
+          if (playerEntity && res.goldDelta) {
+            playerEntity.goldPieces = Math.max(0, Number(playerEntity.goldPieces ?? 0) + res.goldDelta);
+          }
+          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)));
+        },
+      },
+      {
+        code: 'Digit2',
+        label: `2. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
+        action: () => {
+          const res = resolveAdventurerEncounter({
+            adv,
+            playerEntity,
+            action: 'APPEAL_ETIQUETTE',
+            wagerGold: wager,
+            rng,
+          });
+          if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
+            if (foeRecord?.entity) {
+              foeRecord.entity.team = 'PlayerAlly';
+              foeRecord.entity.mobileTeam = 'PlayerAlly';
+            }
+            if (foeRecord?.ai) {
+              foeRecord.ai.isHostile = false;
+            }
+          } else if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW && foeRecord?.ai) {
+            foeRecord.ai.isHostile = true;
+            foeRecord.ai.detected = true;
+          }
+          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0));
+        },
+      },
+      {
+        code: 'Digit3',
+        label: `3. ${LIVING_WORDS.adventurerOptionIntimidate()}`,
+        action: () => {
+          const res = resolveAdventurerEncounter({
+            adv,
+            playerEntity,
+            action: 'INTIMIDATE',
+            wagerGold: wager,
+            rng,
+          });
+          if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW && foeRecord?.ai) {
+            foeRecord.ai.isHostile = true;
+            foeRecord.ai.detected = true;
+          }
+          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0));
+        },
+      },
+      {
+        code: 'Digit4',
+        label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
+        action: () => {
+          say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0));
+        },
+      },
+    ],
   };
 }
