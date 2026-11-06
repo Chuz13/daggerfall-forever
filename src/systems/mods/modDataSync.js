@@ -271,6 +271,56 @@ export function getMaterialSwingSpeedMultiplier(materialIndex, strength = 50) {
 }
 
 /**
+ * Calculate weapon condition loss multiplier (e.g. 1.5 = breaks 50% faster, 0.3 = 70% more durable).
+ * @param {number} materialIndex
+ * @returns {number}
+ */
+export function getMaterialConditionLossMultiplier(materialIndex) {
+  const cfg = getMaterialConfig(materialIndex);
+  return cfg?.conditionLossMultiplier ?? 1.0;
+}
+
+/**
+ * Calculate attack swing fatigue cost multiplier (e.g. 0.8 = 20% less fatigue cost).
+ * @param {number} materialIndex
+ * @returns {number}
+ */
+export function getMaterialFatigueCostMultiplier(materialIndex) {
+  const cfg = getMaterialConfig(materialIndex);
+  return cfg?.fatigueCostMultiplier ?? 1.0;
+}
+
+/**
+ * Get chance to sunder/damage enemy armor (0.0 to 1.0).
+ * @param {number} materialIndex
+ * @returns {number}
+ */
+export function getMaterialSunderArmorChance(materialIndex) {
+  const cfg = getMaterialConfig(materialIndex);
+  return cfg?.sunderArmorChance ?? 0.0;
+}
+
+/**
+ * Get stamina drain amount applied on successful hit.
+ * @param {number} materialIndex
+ * @returns {number}
+ */
+export function getMaterialStaminaDrain(materialIndex) {
+  const cfg = getMaterialConfig(materialIndex);
+  return cfg?.staminaDrainOnHit ?? 0;
+}
+
+/**
+ * Whether weapon inflicts holy burn DoT on undead.
+ * @param {number} materialIndex
+ * @returns {boolean}
+ */
+export function getMaterialHolyBurn(materialIndex) {
+  const cfg = getMaterialConfig(materialIndex);
+  return !!cfg?.holyBurn;
+}
+
+/**
  * Reset data sync state (for test isolation).
  */
 export function _resetModDataSync() {

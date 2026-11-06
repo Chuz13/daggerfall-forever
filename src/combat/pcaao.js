@@ -119,7 +119,7 @@ import {
   silverDoubles, // RVN2: a Silver-scarred revenant's double gone, in this core as in the stock's
 } from './formulas.js';
 import { meanerMonstersOn } from './pcaaoMeanerMonsters.js';
-import { getMaterialDamageMultiplier } from '../systems/mods/modDataSync.js';
+import { getMaterialDamageMultiplier, getMaterialArmorPenetration, getMaterialConditionLossMultiplier } from '../systems/mods/modDataSync.js';
 import {
   RR_VENDOR,
   rrAdjustWeaponHitChanceMod,
@@ -822,7 +822,8 @@ export function pcaaoApplyConditionDamageThroughWeaponDamage(
   let amount = int((10 * damage) / 50);
   if (amount === 0 && dice100(40, rolls())) amount = 1;
   if (missileWep) amount = pcaaoSpecificWeaponConditionDamage(item, amount, wepEqualize);
-  wear(item, owner, amount, modules, say, rolls);
+  const lossMult = item?.group === 'Weapons' && item.material !== undefined ? getMaterialConditionLossMultiplier(item.material) : 1.0;
+  wear(item, owner, Math.round(amount * lossMult), modules, say, rolls);
 }
 /** ApplyConditionDamageThroughUnarmedDamage: a fist wears only
  *  armour - a shield half of it, a piece all of it. */
@@ -1848,6 +1849,12 @@ export function pcaaoAttackDamage(
       naturalDamResist,
       modules,
     );
+    const pen = getMaterialArmorPenetration(weapon?.material);
+    if (pen > 0) {
+      damage = Math.max(1, Math.round(damage * (1 + pen * 0.4)));
+    } else if (pen < 0) {
+      damage = Math.max(1, Math.round(damage * (1 + pen * 0.3)));
+    }
   }
   damage = shared(damage);
   // WEAR-VANILLA, the module off: FormulaHelper's DamageEquipment (formulas.js damageEquipment, Roleplay Realism's slot

@@ -33,6 +33,7 @@ import { championOf } from '../systems/champions.js';   // LOOT7: the champions'
 import { isGoldPieces, ARROW_TEMPLATE } from '../systems/inventory.js';   // PLAIN-LOOT: a plain foe's gold all of it; PARTY-LOOT: a shaft is never counted under the cap
 import { bonusShare, rollBonusSupplies, ROOM_BASE_QUARTERS } from '../systems/roomLoot.js';   // PARTY-LOOT: a player's own layer over a room's shared base
 import { wildFoeLoot } from '../systems/wild/wildZone.js';   // WILD1: the open zone's gold (wildLootAfter)
+import { getMaterialFatigueCostMultiplier } from '../systems/mods/modDataSync.js';
 import { liveStat, FATIGUE_DRAIN_SCALE } from '../systems/statMods.js';   // RF2: the player's live luck for the roll   // AUDIT 58: ItemHelper's EquipItem half - a foe's equip table is what DamageEquipment's struck side reads
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { swingSoundFor, hitSoundFor, ENEMY_HIT_VOLUME, SOUND } from '../systems/soundClips.js';
@@ -300,6 +301,16 @@ export const SWING_WEAPON_FATIGUE_LOSS = 11;
  *  swing CHARGES here - DFU's 11 above, on the port's exertion scale
  *  (statMods FATIGUE_DRAIN_SCALE), truncated as the minute's drain is. */
 export const SWING_FATIGUE_COST = Math.trunc(SWING_WEAPON_FATIGUE_LOSS * FATIGUE_DRAIN_SCALE);
+
+/**
+ * Calculate fatigue cost for a swing with weapon taking material modifiers into account.
+ * @param {any} [weapon]
+ * @returns {number}
+ */
+export function swingFatigueCost(weapon = null) {
+  const mult = weapon?.material !== undefined ? getMaterialFatigueCostMultiplier(weapon.material) : 1.0;
+  return Math.max(1, Math.round(SWING_FATIGUE_COST * mult));
+}
 
 /** The tally half of the same block: the weapon's own skill (or
  *  HandToHand for a bare-handed/werecreature swing) AND CriticalStrike,

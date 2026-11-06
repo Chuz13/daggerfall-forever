@@ -134,7 +134,7 @@ import { playerArrowHitFoe } from '../combat/arrowFlight.js';   // AUDIT 39 (#64
 import { techniquePierces, shaftSequence, stickable, stickArrow, syncStuckArrowDraws, ARROW_MODEL_ID } from '../combat/arrowFlight.js';   // STUCK-ARROWS: a player's shaft that meets the walls stays there, a pile of this host's, drawn in dynamicDraws   // TECH1: a piercing technique shaft flies on (bible/05-Combat/Weapon-Techniques.md)
 import {
   hasBowAttack, isBowWeapon, backstabChanceOf,
-  tallySwingSkills, zeroDamageHitSound, SWING_FATIGUE_COST,
+  tallySwingSkills, zeroDamageHitSound, SWING_FATIGUE_COST, swingFatigueCost,
   CORPSE_ACTIVATION_DISTANCE,
   enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt,   // C2-slice (combat-9/17)
   tickEnemySound, playEnemyClip,   // AUDIT 24 (wave 41): EnemySounds through the host's devices
@@ -7810,7 +7810,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // fatigue whatever it hits, and a BOW always takes the tally
           // arm (`!hitEnemy && WeaponType != Bow` is false for a bow),
           // so Archery AND CriticalStrike count a use per loose.
-          drainFatigue(SWING_FATIGUE_COST);
+          drainFatigue(swingFatigueCost(playerWeapon.weapon));
           tallySwingSkills(playerEntity, playerWeapon.weapon, playerWeapon.blowWeight);
           continue;
         }
@@ -7819,7 +7819,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // when the swing connected. swingWeaponFatigueLoss (11) was
         // ported as a constant and applied by nobody, and
         // CriticalStrike was tallied nowhere in the port at all.
-        drainFatigue(SWING_FATIGUE_COST);
+        drainFatigue(swingFatigueCost(playerWeapon.weapon));
         if (hitEnemy) tallySwingSkills(playerEntity, playerWeapon.weapon, playerWeapon.blowWeight);
         // AUDIT 23 (C9) - WeaponManager.cs:423-424: the swing sound
         // fires at the HIT FRAME of a swing that hit no enemy (never

@@ -47,7 +47,7 @@ import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's In
 import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what the target takes - a leaf, for the brain that registers into it imports the motor that imports this file
 import { ENEMY_GROUPS, enemyEntityGroup, _resetEnemyGroups } from './enemyGroups.js';   // AUDIT DEX C3: the group switch and its mod door, a leaf
 import { emitModEvent } from '../systems/mods/modEventBus.js';
-import { getMaterialDamageMultiplier, getMaterialArmorPenetration } from '../systems/mods/modDataSync.js';
+import { getMaterialDamageMultiplier, getMaterialArmorPenetration, getMaterialConditionLossMultiplier } from '../systems/mods/modDataSync.js';
 
 // ---- Dice100.cs verbatim ----
 export const dice100 = (chance, roll01 = Math.random()) => Math.floor(roll01 * 100) < chance;   // Random.Range(0,100) < chance
@@ -491,6 +491,10 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
   if (damage < 1) damage = 0;
   damage += bonusOrPenaltyByEnemyType(attacker, target);
   damage = Math.round(damage * getMaterialDamageMultiplier(weapon?.material, target));
+  const pen = getMaterialArmorPenetration(weapon?.material);
+  if (pen !== 0 && target && (target.armorValues || target.armor)) {
+    damage = Math.max(1, Math.round(damage * (1 + pen * 0.4)));
+  }
   damage = weaponBlowMods(weapon, damage, attacker, target, info);   // SIGIL1: the port's own over the whole blow - the online sigil, my blow at a foe - before the hook, so a bow's draw scales it too (SET2: `info` - the host's word that the foe had not noticed me)
   // "Mod hook for adjusting final damage. (no-op by default)" - the
   // stock's last line (AUDIT PCO1: Roleplay Realism's archery lands here)
@@ -585,7 +589,8 @@ export function damageEquipment(attacker, target, damage, weapon, struckBodyPart
     if (_overrides.get('applyConditionDamageThroughPhysicalHit')?.(item, owner, damage, { say, rolls }) === true) return;
     let amount = Math.trunc((10 * damage + 50) / 100);
     if (amount === 0 && dice100(20, rolls())) amount = 1;
-    lowerCondition(item, dfuBlowWear(amount, rolls), owner, say);   // BALANCE1: DFU's amount, on the port's wear scale; WEAR-TWICE: twice it, WEAR-ONE: once again
+    const lossMult = item?.group === 'Weapons' && item.material !== undefined ? getMaterialConditionLossMultiplier(item.material) : 1.0;
+    lowerCondition(item, dfuBlowWear(Math.round(amount * lossMult), rolls), owner, say);   // BALANCE1: DFU's amount, on the port's wear scale; WEAR-TWICE: twice it, WEAR-ONE: once again
   };
   hit(weapon, attacker);
   const slots = equipTableOf(target);

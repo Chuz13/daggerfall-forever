@@ -1,10 +1,33 @@
 function init(api) {
+  /** @type {Array<{ target: any, ticks: number }>} */
+  const activeBurns = [];
+
+  // 1. Process active holy burns on each world tick
+  api.events.on('worldTick', () => {
+    for (let i = activeBurns.length - 1; i >= 0; i--) {
+      const burn = activeBurns[i];
+      if (!burn.target || burn.target.dead || (burn.target.health ?? 0) <= 0) {
+        activeBurns.splice(i, 1);
+        continue;
+      }
+
+      burn.target.health = Math.max(0, (burn.target.health ?? 0) - 3);
+      burn.ticks--;
+      api.ui.notify('Holy flame purges the abomination! (-3 HP)');
+
+      if (burn.ticks <= 0) {
+        activeBurns.splice(i, 1);
+      }
+    }
+  });
+
+  // 2. Process attack resolutions
   api.events.on('combatAttackResolved', (evt) => {
     const { attacker, target, weapon, damage, hit } = evt;
     if (!attacker?.isPlayer) return;
     if (!weapon) return;
 
-    // 9 = Daedric material
+    // 9 = Daedric material (Curse)
     if (weapon.material === 9) {
       if (!hit) {
         api.player.damageFatigue(15);
@@ -19,17 +42,43 @@ function init(api) {
       }
     }
 
-    // 2 = Silver material
-    if (weapon.material === 2 && hit && damage > 0) {
+    // 2 = Silver material (Holy Burn DoT)
+    if (weapon.material === 2 && hit && damage > 0 && target) {
       const isUndead =
-        target?.careerIndex !== undefined &&
+        target.careerIndex !== undefined &&
         (target.affinity === 'Undead' || target.isUndead || target.careerIndex >= 19);
       if (isUndead) {
-        api.ui.notify('Silver purges the creature!');
+        api.ui.notify('Silver purges the creature with holy fire!');
+        activeBurns.push({ target, ticks: 3 });
       }
+    }
+
+    // 6 = Adamantium material (Sunder Armor chance: 20%)
+    if (weapon.material === 6 && hit && damage > 0 && target) {
+      if (Math.random() < 0.2) {
+        const slots = target.equip?.slots ?? {};
+        const armors = Object.values(slots).filter((it) => it && it.group === 'Armor');
+        if (armors.length > 0) {
+          const piece = armors[Math.floor(Math.random() * armors.length)];
+          if (piece && piece.condition !== undefined) {
+            piece.condition = Math.max(0, piece.condition - 25);
+            api.ui.notify('Adamantium crushed enemy armor!');
+          }
+        }
+      }
+    }
+
+    // 7 = Ebony material (Stamina siphon: drain 10 fatigue and restore to player)
+    if (weapon.material === 7 && hit && damage > 0 && target) {
+      if (target.fatigue !== undefined && target.fatigue > 0) {
+        target.fatigue = Math.max(0, target.fatigue - 10);
+      }
+      api.player.restoreFatigue(10);
+      api.ui.notify('Ebony siphons stamina!');
     }
   });
 
+  // 3. Process wall clank
   api.events.on('weaponWallClank', () => {
     api.ui.notify('Your weapon struck the stone wall! Watch your swings in narrow corridors.');
   });

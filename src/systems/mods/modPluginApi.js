@@ -71,6 +71,15 @@ export function createModApi(modId) {
         _playerRef.fatigue = Math.max(0, (_playerRef.fatigue ?? 0) - amount);
       },
       /**
+       * Restore player fatigue points.
+       * @param {number} amount
+       */
+      restoreFatigue: (amount) => {
+        if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
+        const max = _playerRef.maxFatigue ?? 100;
+        _playerRef.fatigue = Math.min(max, (_playerRef.fatigue ?? 0) + amount);
+      },
+      /**
        * Reduce player health points.
        * @param {number} amount
        */
