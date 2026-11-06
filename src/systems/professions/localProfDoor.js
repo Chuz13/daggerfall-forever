@@ -38,6 +38,8 @@ import {
   veinGem,
   haulFinds,
 } from '../../net/nodeLaw.js';
+import { firmamentStats } from '../firmamentLive.js';
+import { yieldPct, xpPct, scaleQty, scaleXp } from '../../net/firmament/firmamentLaw.js';
 import {
   recipeById,
   recipeInputs,
@@ -351,10 +353,17 @@ export function createLocalProfDoor(playerEntity, deps) {
         rec.hauls = (rec.hauls || 0) + 1;
       }
 
+      // Apply firmament yield bonus
+      const firm = firmamentStats();
+      const fYield = yieldPct(firm, profession);
+      if (fYield) qty = scaleQty(qty, fYield, Math.random());
+
       // Update track & XP
       const prof = trackOf(profession);
       const curTrack = ensureTrack(rec, prof);
-      const xp = harvestXp(tier, curTrack.rank, body.act?.clean === true);
+      const fXp = xpPct(firm, profession);
+      const baseXp = harvestXp(tier, curTrack.rank, body.act?.clean === true);
+      const xp = fXp ? scaleXp(baseXp, fXp) : baseXp;
       const updatedTrack = addXp(rec, prof, xp);
 
       // Mark node taken
@@ -443,7 +452,10 @@ export function createLocalProfDoor(playerEntity, deps) {
       const outStore = addToStore(rec, r.out, countNum, 'own');
       const prof = trackOf(r.xp ?? r.more?.profession ?? 'smithing');
       const tier = materialOf(r.out, () => null)?.tier ?? 1;
-      const xp = smeltXp(tier, countNum, ensureTrack(rec, prof).rank);
+      const firm = firmamentStats();
+      const fXp = xpPct(firm, prof);
+      const baseXp = smeltXp(tier, countNum, ensureTrack(rec, prof).rank);
+      const xp = fXp ? scaleXp(baseXp, fXp) : baseXp;
       const t = addXp(rec, prof, xp);
       saveRecord(rec);
       saveSoon?.changed?.();
@@ -478,6 +490,9 @@ export function createLocalProfDoor(playerEntity, deps) {
         gainedXp += FIRST_MAKE_FLOOR;
         rec.made.crafts.push(recipe);
       }
+      const firm = firmamentStats();
+      const fXp = xpPct(firm, prof);
+      if (fXp) gainedXp = scaleXp(gainedXp, fXp);
       const updatedTrack = addXp(rec, prof, gainedXp);
       const pid = mintProvenance();
       const qSteps = qualitySteps(r, { clean: clean === true, heartwood: heartwood === true });
@@ -522,6 +537,9 @@ export function createLocalProfDoor(playerEntity, deps) {
         gainedXp += FIRST_MAKE_FLOOR;
         rec.made.brews.push(potion);
       }
+      const firm = firmamentStats();
+      const fXp = xpPct(firm, prof);
+      if (fXp) gainedXp = scaleXp(gainedXp, fXp);
       const updatedTrack = addXp(rec, prof, gainedXp);
       saveRecord(rec);
       saveSoon?.changed?.();

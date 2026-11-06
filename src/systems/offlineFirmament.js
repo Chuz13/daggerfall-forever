@@ -28,6 +28,7 @@ import { appStorage } from './appStorage.js';
 import { characterIdOf } from './characterId.js';
 import {
   starsFor,
+  craftPointsFor,
   unpackTree,
   packTree,
   treeFault,
@@ -35,6 +36,11 @@ import {
   REFUND_FREE_BELOW_RENOWN,
   REFUND_SILVER_PER_STAR,
 } from '../net/firmament/firmamentLaw.js';
+import {
+  loadOfflineRecord as loadOfflineProfRecord,
+  getActiveOfflineRecord as getActiveProfRecord,
+} from './offlineProfessions.js';
+import { PROFESSIONS, rankOfXp } from '../net/professionLaw.js';
 import { createFirmamentBook, setFirmamentBook } from '../net/firmament/firmamentBook.js';
 import { setFirmamentTree, setFirmamentOffline } from './firmamentLive.js';
 import {
@@ -113,6 +119,42 @@ export function getActiveOfflineRecord() {
   return _activeRecord;
 }
 
+export function syncActiveCharId() {
+  const curId = characterIdOf(_activePlayerEntity);
+  if (curId && curId !== _activeCharId) {
+    if (_activeRecord) {
+      saveOfflineRecord(curId, _activeRecord);
+    }
+    _activeCharId = curId;
+  }
+  return _activeCharId;
+}
+
+export function getActiveRecord(character = null) {
+  syncActiveCharId();
+  if (_activeRecord && (!character || character === _activeCharId)) {
+    return _activeRecord;
+  }
+  const loaded = loadOfflineRecord(character || _activeCharId);
+  if (character === _activeCharId) {
+    _activeRecord = loaded;
+  }
+  return loaded;
+}
+
+export function offlineProfRanks(charId) {
+  const profRec = getActiveProfRecord() || (charId ? loadOfflineProfRecord(charId) : null);
+  const tracks = profRec?.tracks ?? {};
+  /** @type {Record<string, number>} */
+  const ranks = {};
+  for (const p of PROFESSIONS) {
+    const tr = tracks[p.id];
+    const rank = Number.isSafeInteger(tr?.rank) ? tr.rank : (tr?.xp != null ? rankOfXp(tr.xp) : 0);
+    ranks[p.id] = rank;
+  }
+  return ranks;
+}
+
 /**
  * Create a Firmament Book for offline play, backed by local disk/appStorage and save data.
  * @param {{ entity: any, wallet?: (() => any) | null }} o
@@ -126,65 +168,79 @@ export function createOfflineFirmamentBook({ entity, wallet = null }) {
   const door = {
     account: () => 'offline',
     state: async (character) => {
-      const rec = loadOfflineRecord(character);
+      const rec = getActiveRecord(character);
       const renown = Math.max(1, renownForXp(rec.xp));
       const stars = starsFor(renown);
+      const ranks = offlineProfRanks(character);
+      const craft = craftPointsFor(Object.values(ranks));
       return {
         ok: true,
         data: {
           tree: rec.tree || '',
           renown,
           stars,
-          craft: 0,
-          ranks: {},
+          craft,
+          ranks,
           refund: {
-            freeBelow: REFUND_FREE_BELOW_RENOWN,
-            perStar: REFUND_SILVER_PER_STAR,
+            freeBelow: 999,
+            perStar: 0,
             respecGold: FIRM_RESPEC_GOLD,
           },
         },
       };
     },
     set: async (character, packedTree, rid) => {
-      const rec = loadOfflineRecord(character);
+      const rec = getActiveRecord(character);
       const renown = Math.max(1, renownForXp(rec.xp));
       const stars = starsFor(renown);
+      const ranks = offlineProfRanks(character);
+      const craft = craftPointsFor(Object.values(ranks));
       const unpacked = unpackTree(packedTree);
-      const fault = treeFault(unpacked, stars, 0);
+      const fault = treeFault(unpacked, stars, craft);
       if (fault) return { ok: false, error: fault };
       rec.tree = packedTree;
       saveOfflineRecord(character, rec);
       _activeRecord = rec;
+      setFirmamentTree(unpacked);
+      if (_activePlayerEntity) {
+        computeEntityMods(_activePlayerEntity);
+      }
       return {
         ok: true,
         data: {
           tree: packedTree,
           renown,
           stars,
-          craft: 0,
-          ranks: {},
+          craft,
+          ranks,
           refund: {
-            freeBelow: REFUND_FREE_BELOW_RENOWN,
-            perStar: REFUND_SILVER_PER_STAR,
+            freeBelow: 999,
+            perStar: 0,
             respecGold: FIRM_RESPEC_GOLD,
           },
         },
       };
     },
     respec: async (character, rid, at, region) => {
-      const rec = loadOfflineRecord(character);
+      const rec = getActiveRecord(character);
       rec.tree = '';
       saveOfflineRecord(character, rec);
       _activeRecord = rec;
+      setFirmamentTree(null);
+      if (_activePlayerEntity) {
+        computeEntityMods(_activePlayerEntity);
+      }
       const renown = Math.max(1, renownForXp(rec.xp));
+      const ranks = offlineProfRanks(character);
+      const craft = craftPointsFor(Object.values(ranks));
       return {
         ok: true,
         data: {
           tree: '',
           renown,
           stars: starsFor(renown),
-          craft: 0,
-          ranks: {},
+          craft,
+          ranks,
         },
       };
     },
@@ -249,6 +305,7 @@ export function initOfflineRenown({ playerEntity, firmBook, say = null }) {
  * @param {number} amount
  */
 export function addOfflineRenownXp(amount) {
+  syncActiveCharId();
   if (!_activeRecord || !_activeCharId || amount <= 0) return 0;
   const oldXp = _activeRecord.xp;
   const newXp = oldXp + amount;
@@ -307,6 +364,8 @@ registerModSaveData(OFFLINE_FIRMAMENT_VENDOR, {
   },
   restoreSaveData: (data) => {
     if (!data || typeof data !== 'object') return;
+    const charId = characterIdOf(_activePlayerEntity);
+    if (charId) _activeCharId = charId;
     const xp = Number.isFinite(data.xp) && data.xp >= 0 ? Math.trunc(data.xp) : 0;
     const renown = Math.max(1, renownForXp(xp));
     const tree = typeof data.tree === 'string' ? data.tree : '';
@@ -328,11 +387,16 @@ registerModSaveData(OFFLINE_FIRMAMENT_VENDOR, {
     _activeFirmBook?.read?.().catch(() => {});
   },
   newGame: () => {
+    const charId = characterIdOf(_activePlayerEntity);
+    if (charId) _activeCharId = charId;
     _activeRecord = { xp: 0, renown: 1, tree: '', said: 1 };
     if (_activeCharId) {
       saveOfflineRecord(_activeCharId, _activeRecord);
     }
     setFirmamentTree(null);
+    if (isOfflineFirmamentActive()) {
+      setFirmamentOffline(true);
+    }
   },
 });
 
