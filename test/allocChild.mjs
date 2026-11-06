@@ -26,5 +26,5 @@ export const ALLOC_CHILD_ARGS = Object.freeze([
   '--min-semi-space-size=64',
   '--max-semi-space-size=64',
   '--allow-natives-syntax',
-  '--import', fileURLToPath(new URL('./allocSettle.mjs', import.meta.url)),
+  '--import', new URL('./allocSettle.mjs', import.meta.url).href,
 ]);

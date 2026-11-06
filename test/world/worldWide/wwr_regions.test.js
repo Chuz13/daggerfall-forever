@@ -126,11 +126,17 @@ test('WW-R the stores a region keeps: the law\'s, the banks\' and the houses\' t
   assert.equal(padded.length, 71);
   assert.equal(padded[17].accountGold, 500);
   assert.deepEqual(padded[64], blankAccount(64));
+  const { setPref, PREF_DEFAULTS } = await import('../../../src/systems/uiPrefs.js');
+  setPref('unifiedBank', false);
   const { snapshotPlayer, restorePlayer } = await import('../../../src/systems/save/save.js');
   const e = { name: 'Rin', stats: {}, skills: [], skillUses: [], items: [], spells: [], activeEffects: [], level: 1, bankAccounts: createBankAccounts(62), houses: createHouses(62) };
   e.bankAccounts[3].accountGold = 77;
   const back = { stats: {}, items: [] };
-  restorePlayer(back, snapshotPlayer(e, {}));
+  try {
+    restorePlayer(back, snapshotPlayer(e, {}));
+  } finally {
+    setPref('unifiedBank', PREF_DEFAULTS.unifiedBank);
+  }
   assert.deepEqual([back.bankAccounts.length, back.houses.length, back.bankAccounts[3].accountGold, back.bankAccounts[70].regionIndex, back.houses[70].regionIndex], [71, 71, 77, 70, 70]);
   const law = createRelations();
   assert.equal(law.report({ crime: CRIMES.Theft, region: 64, at: 1, witnesses: ['a'] }), true);

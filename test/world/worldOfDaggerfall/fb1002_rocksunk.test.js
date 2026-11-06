@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { isWodShrub, WOD_BUSH_MODEL, WOD_ROCK_SITES, objectMatrix } from '../../../src/world/worldOfDaggerfall/wodLocationObjects.js';
 import { WodWorld } from '../../../src/world/worldOfDaggerfall/worldOfDaggerfall.js';
@@ -18,7 +19,7 @@ import { LocationSession } from '../../../src/world/worldOfDaggerfall/wodLocatio
 import { transformedAabb } from '../../../src/render/frustum.js';
 import { hostText } from '../../hostText.mjs';   // HOST-SPLIT 2: the world host whole
 
-const V = new URL('../../../vendor/world-of-daggerfall/', import.meta.url).pathname;
+const V = fileURLToPath(new URL('../../../vendor/world-of-daggerfall/', import.meta.url));
 const src = (p) => readFileSync(new URL(`../../../${p}`, import.meta.url), 'utf8');
 const packOf = (r) => { try { return new Uint8Array(readFileSync(join(V, 'Locations', `${r}.bin`))); } catch { return null; } };
 const prefabTexts = () => new Map(readdirSync(join(V, 'LocationPrefab')).map((f) => [f.replace('.txt', ''), readFileSync(join(V, 'LocationPrefab', f), 'utf8')]));

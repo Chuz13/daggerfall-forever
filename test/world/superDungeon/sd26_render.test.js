@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { ALLOC_CHILD_ARGS } from '../../allocChild.mjs';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { realmArt } from '../../../src/world/superDungeon/sdRealmArt.js';
 import { hallArt } from '../../../src/world/superDungeon/sdHallArt.js';
 import { stepsArt } from '../../../src/world/superDungeon/sdStepsArt.js';
@@ -209,7 +209,7 @@ test('AUDIT SD IV (R5): THE ARM\'S HOUR FOG AND TRILIGHT MAKE NOTHING, on both l
   const lighting = line('if (isSdRealm(dungeonLoc)) { const _rl = realmLighting();'), fog = line('if (isSdRealm(dungeonLoc)) { applyFog(renderer, dungeonFog(');
   const kept = [line('const _hourFog = {'), line('const _hourTri = {'), line('const _courtEquator = '), line('const courtEquatorOf = ')].join('\n');
   // the light handed is the light it always was: dungeonFog / dungeonTrilight with nothing kept
-  const url = (p) => pathToFileURL(new URL(`../../../${p}`, import.meta.url).pathname).href;
+  const url = (p) => pathToFileURL(fileURLToPath(new URL(`../../../${p}`, import.meta.url))).href;
   const run = (lane) => {
     const got = {}, renderer = { lightingLane: lane ? {} : null, setLighting: (a, s, c, tri) => { got.equator = [...a]; got.tri = JSON.parse(JSON.stringify(tri)); }, setMoonlight() {}, setFog: (...a) => { got.fog = [...a.slice(0, 4), [...a[4]]]; }, setSceneGrade() {} };
     return { renderer, got };

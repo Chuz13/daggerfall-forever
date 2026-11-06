@@ -148,7 +148,7 @@ test('FD1: both exterior hosts take the exemption; the underground hosts do not'
       if (!e.name.endsWith('.js')) continue;
       const src = readFileSync(p, 'utf8');
       if (/\bapplyFallLanding\s*\(/.test(src) && !/export function applyFallLanding/.test(src)) {
-        callers.set(relative(SRC, p), src);
+        callers.set(relative(SRC, p).replace(/\\/g, '/'), src);
       }
     }
   };

@@ -2,6 +2,7 @@
 // and Beautiful Cities' and Villages' packs on the door for the city's other layout. Null without ARENA2.
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { MapsFile } from '../src/formats/mapsFile.js';
 import { BlocksFile } from '../src/formats/blocksFile.js';
@@ -16,7 +17,7 @@ import { _resetLayoutPins } from '../src/systems/layoutPins.js';
 
 export const ARENA2 = process.env.ARENA2_PATH ?? '';
 export const HAS_ARENA2 = !!ARENA2 && existsSync(join(ARENA2, 'MAPS.BSA'));
-export const ROOT = new URL('..', import.meta.url).pathname;
+export const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const vendorBytes = (rel) => new Uint8Array(readFileSync(join(ROOT, 'vendor/daggerfall-arena', rel)));
 const bytes = (f) => new Uint8Array(readFileSync(join(ARENA2, f)));
 
