@@ -1,0 +1,13 @@
+{
+  "id": "weapons-reforged",
+  "name": "Weapons Reforged",
+  "version": "1.0.0",
+  "author": "Antigravity",
+  "description": "Non-linear weapon and material progression: silver purges undead, elven speeds strikes, adamantium crushes armor, and daedric curses the wielder.",
+  "enabled": true,
+  "data": {
+    "materials": "materials.json",
+    "combat": "combat.json"
+  },
+  "entry": "plugin.js"
+}

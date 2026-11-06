@@ -18,6 +18,8 @@ export const WEAPON_STATES = [
   'StrikeUp',
 ];
 
+import { getMaterialSwingSpeedMultiplier } from '../systems/mods/modDataSync.js';
+
 // FormulaHelper.cs verbatim
 export const CLASSIC_FRAME_UPDATE = 980; // const int classicFrameUpdate
 export const CLASSIC_UPDATE_INTERVAL = 0.0625; // GameManager.classicUpdateInterval (classic 16Hz); bow anim tick
@@ -30,10 +32,11 @@ export function getMeleeWeaponAnimTime(liveSpeed, ctx = null) {
   // viewers) keeps DFU's line - which DFU never asks for a foe at all (characters/enemy/enemyAttack.js).
   if (ctx?.entity) {
     const w = _swingReader?.(ctx) ?? null;
+    const matSpeed = w?.material !== undefined && w?.material >= 0 ? getMaterialSwingSpeedMultiplier(w.material, w.strength) : 1;
     return paced(
       swingFrameSeconds(liveSpeed, {
         heft: w ? swingHeft(w.weight, w.strength) : 1,
-        handling: swingHandling(ctx.weaponType, !!w?.twoHanded, !!w?.shortBlade), // BAL10: a short blade handles as a dagger
+        handling: (swingHandling(ctx.weaponType, !!w?.twoHanded, !!w?.shortBlade)) / (matSpeed > 0 ? matSpeed : 1), // BAL10: a short blade handles as a dagger
       }),
       ctx,
       w,

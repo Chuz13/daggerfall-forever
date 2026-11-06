@@ -119,6 +119,7 @@ import {
   silverDoubles, // RVN2: a Silver-scarred revenant's double gone, in this core as in the stock's
 } from './formulas.js';
 import { meanerMonstersOn } from './pcaaoMeanerMonsters.js';
+import { getMaterialDamageMultiplier } from '../systems/mods/modDataSync.js';
 import {
   RR_VENDOR,
   rrAdjustWeaponHitChanceMod,
@@ -596,6 +597,7 @@ export function pcaaoWeaponAttackDamage(
   damage += materialModifier(weapon);
   if (damage < 1) damage = 0;
   if (damage >= 1) damage += pcaaoBonusOrPenaltyByEnemyType(attacker, target, rolls);
+  damage = Math.round(damage * getMaterialDamageMultiplier(weapon?.material, target));
   damage = weaponBlowMods(weapon, damage, attacker, target, info); // SET2: the stock's place for them (formulas.js weaponAttackDamage) - before the mod hook
   if (modules.rolePlayRealismArchery) damage = rrAdjustWeaponAttackDamage(damage, weaponAnimTime, weapon);
   return damage;

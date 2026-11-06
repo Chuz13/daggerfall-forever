@@ -10,6 +10,20 @@ import { deepMerge } from './jsonMerge.js';
 import { POTION_RECIPES } from '../potionRecipes.js';
 import { overridePotionRecipes } from '../potions.js';
 import { isPlate, isChain, isLeather } from '../armorMaterials.js';
+import { ENEMY_GROUPS, enemyEntityGroup } from '../../combat/enemyGroups.js';
+
+export const MATERIAL_NAMES = Object.freeze([
+  'Iron',
+  'Steel',
+  'Silver',
+  'Elven',
+  'Dwarven',
+  'Mithril',
+  'Adamantium',
+  'Ebony',
+  'Orcish',
+  'Daedric',
+]);
 
 /**
  * Default vanilla combat fatigue multipliers.
@@ -20,7 +34,24 @@ const DEFAULT_COMBAT_CONFIG = {
   lightArmorFatigueMultiplier: 1.0,
 };
 
+/**
+ * Default materials configuration (1.0 / 0.0 = vanilla behavior).
+ */
+const DEFAULT_MATERIALS_CONFIG = {
+  Iron: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Steel: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Silver: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, vsUndeadMultiplier: 1.0, vsWerecreatureMultiplier: 1.0 },
+  Elven: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Dwarven: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, vsConstructMultiplier: 1.0 },
+  Mithril: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Adamantium: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Ebony: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, minStrength: 0, lowStrengthSpeedPenalty: 1.0 },
+  Orcish: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Daedric: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+};
+
 let _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
+let _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
 let _synced = false;
 
 /**
@@ -28,6 +59,7 @@ let _synced = false;
  */
 export function syncModData() {
   _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
+  _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
   const activeMods = getActiveMods();
 
   // 1. Sync Combat Overrides
@@ -71,6 +103,22 @@ export function syncModData() {
 
   if (customPotionsAdded) {
     overridePotionRecipes(aggregatedPotions);
+  }
+
+  // 3. Sync Materials Overrides
+  for (const mod of activeMods) {
+    const materialsFile = mod.manifest?.data?.materials;
+    if (materialsFile) {
+      const raw = readModFile(mod.id, materialsFile);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          _currentMaterialsConfig = deepMerge(_currentMaterialsConfig, parsed);
+        } catch (e) {
+          console.error(`[ModDataSync] Failed to parse materials data in mod ${mod.id}:`, e);
+        }
+      }
+    }
   }
 
   _synced = true;
@@ -132,10 +180,102 @@ export function getModCombatConfig() {
 }
 
 /**
+ * Get the active materials configuration.
+ */
+export function getModMaterialsConfig() {
+  if (!_synced) syncModData();
+  return { ..._currentMaterialsConfig };
+}
+
+/**
+ * Get configuration object for a specific material by index (0..9) or name.
+ * @param {number|string} material
+ */
+export function getMaterialConfig(material) {
+  if (!_synced) syncModData();
+  const name = typeof material === 'number' ? MATERIAL_NAMES[material] : material;
+  return _currentMaterialsConfig[name] ?? null;
+}
+
+/**
+ * Calculate damage multiplier for a material against a specific target.
+ * @param {number} materialIndex
+ * @param {any} target
+ * @returns {number} Multiplier (1.0 = normal)
+ */
+export function getMaterialDamageMultiplier(materialIndex, target) {
+  const cfg = getMaterialConfig(materialIndex);
+  if (!cfg) return 1.0;
+
+  let mult = cfg.damageMultiplier ?? 1.0;
+
+  if (target) {
+    const isUndead =
+      target.careerIndex !== undefined &&
+      (enemyEntityGroup(target.careerIndex) === ENEMY_GROUPS.Undead ||
+        target.affinity === 'Undead' ||
+        target.isUndead);
+
+    if (isUndead && cfg.vsUndeadMultiplier) {
+      mult *= cfg.vsUndeadMultiplier;
+    }
+
+    const isWerecreature =
+      target.isWerecreature ||
+      (target.careerIndex !== undefined && enemyEntityGroup(target.careerIndex) === ENEMY_GROUPS.Animals && target.minMetalToHit >= 2);
+
+    if (isWerecreature && cfg.vsWerecreatureMultiplier) {
+      mult *= cfg.vsWerecreatureMultiplier;
+    }
+
+    const isConstruct =
+      target.isConstruct ||
+      target.careerIndex === 17 || // Iron Golem
+      target.careerIndex === 18;  // Centurion
+
+    if (isConstruct && cfg.vsConstructMultiplier) {
+      mult *= cfg.vsConstructMultiplier;
+    }
+  }
+
+  return mult;
+}
+
+/**
+ * Calculate armor penetration fraction (0.0 to 1.0) for a material.
+ * @param {number} materialIndex
+ * @returns {number}
+ */
+export function getMaterialArmorPenetration(materialIndex) {
+  const cfg = getMaterialConfig(materialIndex);
+  return cfg?.armorPenetration ?? 0.0;
+}
+
+/**
+ * Calculate swing speed multiplier (e.g. 1.2 = 20% faster, 0.75 = 25% slower).
+ * @param {number} materialIndex
+ * @param {number} [strength=50]
+ * @returns {number}
+ */
+export function getMaterialSwingSpeedMultiplier(materialIndex, strength = 50) {
+  const cfg = getMaterialConfig(materialIndex);
+  if (!cfg) return 1.0;
+
+  let speedMult = cfg.swingSpeedMultiplier ?? 1.0;
+
+  if (cfg.minStrength && strength < cfg.minStrength) {
+    speedMult *= cfg.lowStrengthSpeedPenalty ?? 0.8;
+  }
+
+  return speedMult;
+}
+
+/**
  * Reset data sync state (for test isolation).
  */
 export function _resetModDataSync() {
   _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
+  _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
   _synced = false;
   overridePotionRecipes(null);
 }

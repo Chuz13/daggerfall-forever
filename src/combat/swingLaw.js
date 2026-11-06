@@ -21,7 +21,7 @@ import { techniqueFamily } from './technique/techniqueRoster.js'; // BAL10, MART
  * BAL10 / MARTIAL2: and the FAMILY the swing is made with (combat/technique/techniqueRoster.js techniqueFamily - the
  * skill it swings with; 'handToHand' bare, null for the beast's claws), and whether that is a short blade (the dagger's
  * handling, characters/weaponStates.js SWING_SHORT_BLADE).
- * @returns {{weaponType: number, weight: number, strength: number, twoHanded: boolean, family: string|null, shortBlade: boolean}|null}
+ * @returns {{weaponType: number, weight: number, strength: number, twoHanded: boolean, family: string|null, shortBlade: boolean, material?: number}|null}
  */
 export function readSwing(ctx) {
   const entity = ctx?.entity;
@@ -37,6 +37,7 @@ export function readSwing(ctx) {
     twoHanded: !bare && getItemHands(item) === ITEM_HANDS.Both,
     family,
     shortBlade: family === 'shortBlade',
+    material: item?.material ?? -1,
   };
 }
 

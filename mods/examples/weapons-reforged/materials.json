@@ -1,0 +1,32 @@
+{
+  "Silver": {
+    "vsUndeadMultiplier": 2.0,
+    "vsWerecreatureMultiplier": 2.0,
+    "conditionLossMultiplier": 1.5,
+    "holyBurn": true
+  },
+  "Elven": {
+    "swingSpeedMultiplier": 1.2,
+    "fatigueCostMultiplier": 0.8,
+    "armorPenetration": -0.1
+  },
+  "Dwarven": {
+    "vsConstructMultiplier": 1.35,
+    "conditionLossMultiplier": 0.3
+  },
+  "Adamantium": {
+    "armorPenetration": 0.35,
+    "sunderArmorChance": 0.2
+  },
+  "Ebony": {
+    "minStrength": 70,
+    "lowStrengthSpeedPenalty": 0.75,
+    "staminaDrainOnHit": 10
+  },
+  "Daedric": {
+    "damageMultiplier": 1.15,
+    "curseOnMissFatigue": 15,
+    "curseBackfireHealth": 5,
+    "backfireHealthThreshold": 0.25
+  }
+}

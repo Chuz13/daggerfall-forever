@@ -104,6 +104,7 @@ import { widgetMetalName } from './weaponWidgetAssets.js';
 import { getItemHands } from '../../systems/equip.js';
 import { ITEM_HANDS } from '../../characters/equipTable.js';
 import { mirrorRect } from '../twoHands/handsLaw.js'; // TWO-HANDS: a hand of a pair on the left of the screen, drawn whole in the mirror
+import { emitModEvent } from '../../systems/mods/modEventBus.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const inverseLerp = (a, b, v) => (a === b ? 0 : clamp((v - a) / (b - a), 0, 1));
@@ -549,6 +550,11 @@ export function createWeaponWidget({
     const point = envHit(reach);
     if (!point) return false;
     if (w.s.playMissVFXEnvironment) doThud(point);
+    try {
+      emitModEvent('weaponWallClank', { point, weaponState: w.weaponState });
+    } catch {
+      /* a listener is not the clank's problem */
+    }
     return true;
   }
 

@@ -46,6 +46,8 @@ import { breakNormalPowerConcealment } from '../systems/concealment.js';   // wa
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language (an import-free leaf)
 import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what the target takes - a leaf, for the brain that registers into it imports the motor that imports this file
 import { ENEMY_GROUPS, enemyEntityGroup, _resetEnemyGroups } from './enemyGroups.js';   // AUDIT DEX C3: the group switch and its mod door, a leaf
+import { emitModEvent } from '../systems/mods/modEventBus.js';
+import { getMaterialDamageMultiplier, getMaterialArmorPenetration } from '../systems/mods/modDataSync.js';
 
 // ---- Dice100.cs verbatim ----
 export const dice100 = (chance, roll01 = Math.random()) => Math.floor(roll01 * 100) < chance;   // Random.Range(0,100) < chance
@@ -488,6 +490,7 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
   damage += WEAPON_MATERIAL_MODIFIER[weapon.material] ?? 0;   // half of the in-game display, per the source comment
   if (damage < 1) damage = 0;
   damage += bonusOrPenaltyByEnemyType(attacker, target);
+  damage = Math.round(damage * getMaterialDamageMultiplier(weapon?.material, target));
   damage = weaponBlowMods(weapon, damage, attacker, target, info);   // SIGIL1: the port's own over the whole blow - the online sigil, my blow at a foe - before the hook, so a bow's draw scales it too (SET2: `info` - the host's word that the foe had not noticed me)
   // "Mod hook for adjusting final damage. (no-op by default)" - the
   // stock's last line (AUDIT PCO1: Roleplay Realism's archery lands here)
@@ -630,6 +633,11 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     // ARENA-FIX 9/10: every resolution, whoever swung - the arena's judges count the misses and its crowd hears the
     // critical strikes (scenes/arena/arenaBouts.js attackResolved)
     if (_resolutionListeners.size) for (const fn of _resolutionListeners.values()) { try { fn({ ...notes, damage, attacker, target, weapon }); } catch { /* a listener is not the blow's problem */ } }
+    try {
+      emitModEvent('combatAttackResolved', { ...notes, damage, attacker, target, weapon });
+    } catch {
+      /* a mod is not the blow's problem */
+    }
     return damage;
   };
   // PCO1: THE REGISTERED CORE. FormulaHelper.CalculateAttackDamage is
