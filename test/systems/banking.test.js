@@ -19,6 +19,9 @@ import {
 import { GOLD_PIECE_WEIGHT_KG, letterOfCredit, LETTER_OF_CREDIT_TEMPLATE } from '../../src/systems/inventory.js';
 import { goldAmount, deductGold, addGold, CRIMES } from '../../src/systems/court.js';
 import { DAYS_PER_YEAR, MINUTES_PER_DAY } from '../../src/systems/gameDate.js';
+import { setPref } from '../../src/systems/uiPrefs.js';
+
+setPref('unifiedBank', false);
 
 const R = TRANSACTION_RESULT;
 

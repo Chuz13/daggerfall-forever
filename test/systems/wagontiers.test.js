@@ -233,7 +233,7 @@ test('WAGON-TIERS THE ONE ACCESSOR AND THE FOUR HOSTS: no module but the switch 
   const files = [];
   const walk = (dir) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (statSync(p).isDirectory()) walk(p); else if (f.endsWith('.js')) files.push(p); } };
   walk(SRC);
-  const rel = (p) => p.slice(SRC.length);
+  const rel = (p) => p.slice(SRC.length).replace(/\\/g, '/');
   assert.deepEqual(files.filter((p) => /getPref\((WAGON_UPKEEP_PREF|'wagonUpkeep')\)/.test(readFileSync(p, 'utf8'))).map(rel), ['systems/upkeep/upkeepSwitch.js'], 'one reader of the key');
   assert.deepEqual(files.filter((p) => /\bwagonUpkeepOn\b/.test(readFileSync(p, 'utf8'))).map(rel), [], 'the boolean switch is gone');
   for (const host of ['world.js', 'exterior.js']) {

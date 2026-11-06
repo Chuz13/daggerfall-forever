@@ -389,6 +389,11 @@ export function tradeCost(
   const sold = (item, c, stack) => {
     if (!live) return;
     const now = counterValueOf(item);
+    if (Number.isInteger(item[COUNTER_PAID_MARK])) {
+      resale ??= { cost: 0, paid: 0 };
+      resale.cost += c;
+      resale.paid += item[COUNTER_PAID_MARK] * stack;
+    }
     // AUDIT TOWN-ECON 2 PRICE-2: a gem a counter sold, set in the piece - its share of the sale held to what it cost
     for (const [i, paid] of Array.isArray(item.socketBought) ? item.socketBought : []) {
       const w = gemWorthOf(socketsOf(item)[i]);
