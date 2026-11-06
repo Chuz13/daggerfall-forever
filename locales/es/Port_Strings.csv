@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Política de privacidad"
 account.agree.terms,"Condiciones del servicio"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"La ley"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Cargar está desactivado durante el juego en línea."
 pause.master.activate,"Activar Habilidades maestras"
-pause.master.askBody,"""Las mazmorras peligrosas enviarán enemigos más fuertes,"
+pause.master.askBody,"Las mazmorras peligrosas enviarán enemigos más fuertes,
+y los puntos por encima de 100 se ganan despacio.
+Puedes desactivarlo aquí cuando quieras."
 pause.master.askTitle,"¿Activar Habilidades maestras?"
 pause.master.chosen,"{used} de {max} elegidas"
 pause.master.master,"Maestra"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Reemplazar…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"un conjunto de {n}"
 shop.aurum.balance,"Tu Aurum: {n, number}"
 shop.aurum.bonus,"{pct}% más de Aurum"

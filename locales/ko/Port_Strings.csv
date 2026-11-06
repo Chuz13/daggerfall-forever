@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"개인정보 처리방침"
 account.agree.terms,"서비스 약관"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"법"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"온라인 플레이 중에는 불러오기를 할 수 없습니다."
 pause.master.activate,"마스터 기술 활성화"
-pause.master.askBody,"""위험한 던전에서 더 강한 적이 나오고,"
+pause.master.askBody,"위험한 던전에서 더 강한 적이 나오고,
+100을 넘는 점수는 얻기가 느립니다.
+여기서 언제든 끌 수 있습니다."
 pause.master.askTitle,"마스터 기술을 활성화할까요?"
 pause.master.chosen,"{max}개 중 {used}개 선택"
 pause.master.master,"마스터"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"교체…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"{n}개 세트"
 shop.aurum.balance,"내 Aurum: {n, number}"
 shop.aurum.bonus,"Aurum {pct}% 추가"

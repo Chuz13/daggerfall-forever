@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Privatlivspolitikken"
 account.agree.terms,"Servicevilkårene"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"Loven"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Indlæsning er slået fra under onlinespil."
 pause.master.activate,"Aktiver Mesterfærdigheder"
-pause.master.askBody,"""Farlige fangehuller sender stærkere fjender,"
+pause.master.askBody,"Farlige fangehuller sender stærkere fjender,
+og point over 100 er langsomme at optjene.
+Du kan slå det fra her når som helst."
 pause.master.askTitle,"Aktiver Mesterfærdigheder?"
 pause.master.chosen,"{used} af {max} valgt"
 pause.master.master,"Mester"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Erstat…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"et sæt med {n}"
 shop.aurum.balance,"Dit Aurum: {n, number}"
 shop.aurum.bonus,"{pct}% mere Aurum"

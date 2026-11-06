@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Zásady ochrany osobních údajů"
 account.agree.terms,"Podmínky služby"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"Zákon"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Načítání je během online hry vypnuté."
 pause.master.activate,"Aktivovat Mistrovské dovednosti"
-pause.master.askBody,"""Nebezpečné kobky pošlou silnější nepřátele"
+pause.master.askBody,"Nebezpečné kobky pošlou silnější nepřátele
+a body nad 100 se získávají pomalu.
+Zde to můžeš kdykoli vypnout."
 pause.master.askTitle,"Aktivovat Mistrovské dovednosti?"
 pause.master.chosen,"Zvoleno {used} z {max}"
 pause.master.master,"Mistr"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Nahradit…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"sada {n} kusů"
 shop.aurum.balance,"Tvoje Aurum: {n, number}"
 shop.aurum.bonus,"O {pct}% více Aurum"

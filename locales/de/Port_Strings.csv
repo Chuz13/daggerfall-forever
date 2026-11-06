@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Datenschutzerklärung"
 account.agree.terms,"Nutzungsbedingungen"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"Das Gesetz"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Laden ist im Online-Spiel deaktiviert."
 pause.master.activate,"Meisterfertigkeiten aktivieren"
-pause.master.askBody,"""Gefährliche Verliese schicken stärkere Gegner,"
+pause.master.askBody,"Gefährliche Verliese schicken stärkere Gegner,
+und Punkte über 100 werden nur langsam verdient.
+Du kannst es hier jederzeit ausschalten."
 pause.master.askTitle,"Meisterfertigkeiten aktivieren?"
 pause.master.chosen,"{used} von {max} gewählt"
 pause.master.master,"Meister"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Ersetzen…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"ein Set aus {n}"
 shop.aurum.balance,"Dein Aurum: {n, number}"
 shop.aurum.bonus,"{pct} % mehr Aurum"

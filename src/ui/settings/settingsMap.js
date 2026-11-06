@@ -145,7 +145,7 @@ export const CATEGORIES = Object.freeze([
       'Effects/ColorBoostDungeonFalloff',
     ]),
   ]),
-  tab('living', () => t('settings.tab.living', 'Living Tamriel'), [
+  tab('living', () => t('settings.tab.living', 'Living Tamriel (Experimental, pre-alpha)'), [
     sec('living-politics', () => t('settings.sec.livingPolitics', 'Politics, Economy & Cities'), [
       'feat:living-political',
       'feat:living-quarantine',

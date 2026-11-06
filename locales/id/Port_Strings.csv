@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Kebijakan Privasi"
 account.agree.terms,"Ketentuan Layanan"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"Hukum"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Memuat dinonaktifkan selama bermain daring."
 pause.master.activate,"Aktifkan Keahlian Master"
-pause.master.askBody,"""Ruang bawah tanah yang berbahaya akan mengirim musuh lebih kuat,"
+pause.master.askBody,"Ruang bawah tanah yang berbahaya akan mengirim musuh lebih kuat,
+dan poin di atas 100 lambat didapat.
+Kamu bisa mematikannya di sini kapan saja."
 pause.master.askTitle,"Aktifkan Keahlian Master?"
 pause.master.chosen,"{used} dari {max} dipilih"
 pause.master.master,"Master"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Ganti…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"satu set berisi {n}"
 shop.aurum.balance,"Aurum-mu: {n, number}"
 shop.aurum.bonus,"{pct}% Aurum lebih banyak"

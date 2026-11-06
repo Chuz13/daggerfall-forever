@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Politique de confidentialité"
 account.agree.terms,"Conditions d’utilisation"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"La loi"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Le chargement est désactivé pendant le jeu en ligne."
 pause.master.activate,"Activer les compétences de maître"
-pause.master.askBody,"""Les donjons dangereux enverront des ennemis plus forts,"
+pause.master.askBody,"Les donjons dangereux enverront des ennemis plus forts,
+et les points au-delà de 100 sont lents à gagner.
+Vous pouvez désactiver cette option ici à tout moment."
 pause.master.askTitle,"Activer les compétences de maître ?"
 pause.master.chosen,"{used} sur {max} choisies"
 pause.master.master,"Maître"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Remplacer…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"un ensemble de {n}"
 shop.aurum.balance,"Votre Aurum : {n, number}"
 shop.aurum.bonus,"{pct} % d’Aurum en plus"

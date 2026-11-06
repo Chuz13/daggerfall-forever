@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Политика за поверителност"
 account.agree.terms,"Условия за ползване"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"Законът"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Зареждането е изключено по време на онлайн игра."
 pause.master.activate,"Включи Майсторските умения"
-pause.master.askBody,"""Опасните подземия ще пращат по-силни врагове,"
+pause.master.askBody,"Опасните подземия ще пращат по-силни врагове,
+а точките над 100 се печелят бавно.
+Можете да го изключите тук по всяко време."
 pause.master.askTitle,"Да се включат ли Майсторските умения?"
 pause.master.chosen,"Избрани {used} от {max}"
 pause.master.master,"Майстор"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Замяна…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"комплект от {n}"
 shop.aurum.balance,"Вашият Aurum: {n, number}"
 shop.aurum.bonus,"{pct}% повече Aurum"

@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Politica de confidențialitate"
 account.agree.terms,"Termenii și condițiile"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"Legea"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Încărcarea este dezactivată în jocul online."
 pause.master.activate,"Activează abilitățile de maestru"
-pause.master.askBody,"""Temnițele periculoase vor trimite dușmani mai puternici,"
+pause.master.askBody,"Temnițele periculoase vor trimite dușmani mai puternici,
+iar punctele de peste 100 se câștigă greu.
+Poți dezactiva asta aici oricând."
 pause.master.askTitle,"Activezi abilitățile de maestru?"
 pause.master.chosen,"{used} din {max} alese"
 pause.master.master,"Maestru"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Înlocuiește…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"un set de {n}"
 shop.aurum.balance,"Aurumul tău: {n, number}"
 shop.aurum.bonus,"Cu {pct}% mai mult Aurum"

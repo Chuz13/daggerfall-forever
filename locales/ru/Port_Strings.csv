@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Политика конфиденциальности"
 account.agree.terms,"Условия использования"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"Закон"
 pause.law.wordNote,"{word} — {note}"
 pause.loadOnlineLocked,"Загрузка недоступна во время сетевой игры."
 pause.master.activate,"Включить навыки мастера"
-pause.master.askBody,"""В опасных подземельях будут враги сильнее,"
+pause.master.askBody,"В опасных подземельях будут враги сильнее,
+а очки сверх 100 набираются медленно.
+Отключить можно здесь в любой момент."
 pause.master.askTitle,"Включить навыки мастера?"
 pause.master.chosen,"Выбрано {used} из {max}"
 pause.master.master,"Мастер"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Заменить…"
 settings.sec.livingPolitics,"Политика, экономика и города"
 settings.sec.livingRivals,"Соперники, искатели приключений и немезиды"
 settings.sec.livingTravel,"Дороги, дикие земли и открытое море"
-settings.tab.living,"Живой Тамриэль"
+settings.tab.living,"Живой Тамриэль (Experimental, pre-alpha)"
 shop.armory.setOf,"набор из {n}"
 shop.aurum.balance,"Ваш Aurum: {n, number}"
 shop.aurum.bonus,"На {pct}% больше Aurum"

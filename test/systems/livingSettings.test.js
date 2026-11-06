@@ -12,7 +12,7 @@ const rd = (relPath) => readFileSync(new URL('../../' + relPath, import.meta.url
 test('LT-07: Living Tamriel is a top-level settings tab alongside Graphics with 3 structured sections', () => {
   const livingTab = CATEGORIES.find((c) => c.id === 'living');
   assert.ok(livingTab, 'Living Tamriel tab must exist in CATEGORIES');
-  assert.equal(livingTab.title, 'Living Tamriel');
+  assert.equal(livingTab.title, 'Living Tamriel (Experimental, pre-alpha)');
 
   // Verify tab order: Graphics is first, Living Tamriel is second
   assert.equal(CATEGORIES[0].id, 'graphics');

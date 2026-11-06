@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Privacy Policy"
 account.agree.terms,"Terms of Service"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"The law"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Loading is disabled during online play."
 pause.master.activate,"Activate Master Skills"
-pause.master.askBody,"""Dangerous dungeons will send stronger enemies,"
+pause.master.askBody,"Dangerous dungeons will send stronger enemies,
+and points past 100 are slow to earn.
+You can turn it off here at any time."
 pause.master.askTitle,"Activate Master Skills?"
 pause.master.chosen,"{used} of {max} chosen"
 pause.master.master,"Master"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Replace…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"a set of {n}"
 shop.aurum.balance,"Your Aurum: {n, number}"
 shop.aurum.bonus,"{pct}% more Aurum"

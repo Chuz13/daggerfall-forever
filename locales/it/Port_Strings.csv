@@ -1,4 +1,4 @@
-key,text
+Key,Value
 account.agree.privacy,"Informativa sulla privacy"
 account.agree.terms,"Termini di servizio"
 account.aura.aetherium,"Aetherium Coil"
@@ -6143,7 +6143,9 @@ pause.law.title,"La legge"
 pause.law.wordNote,"{word} - {note}"
 pause.loadOnlineLocked,"Il caricamento è disattivato durante il gioco online."
 pause.master.activate,"Attiva le abilità maestre"
-pause.master.askBody,"""I dungeon pericolosi manderanno nemici più forti,"
+pause.master.askBody,"I dungeon pericolosi manderanno nemici più forti,
+e i punti oltre 100 si guadagnano lentamente.
+Puoi disattivarle qui in qualsiasi momento."
 pause.master.askTitle,"Attivare le abilità maestre?"
 pause.master.chosen,"{used} di {max} scelte"
 pause.master.master,"Maestro"
@@ -8462,7 +8464,7 @@ settings.pack.replace,"Sostituisci…"
 settings.sec.livingPolitics,"Politics, Economy & Cities"
 settings.sec.livingRivals,"Rivals, Adventurers & Nemeses"
 settings.sec.livingTravel,"Roads, Wilderness & High Seas"
-settings.tab.living,"Living Tamriel"
+settings.tab.living,"Living Tamriel (Experimental, pre-alpha)"
 shop.armory.setOf,"un set di {n}"
 shop.aurum.balance,"Il tuo Aurum: {n, number}"
 shop.aurum.bonus,"{pct}% di Aurum in più"
