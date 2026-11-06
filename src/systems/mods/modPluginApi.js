@@ -67,7 +67,7 @@ export function createModApi(modId) {
        * @param {number} amount
        */
       damageFatigue: (amount) => {
-        if (!_playerRef || amount <= 0) return;
+        if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
         _playerRef.fatigue = Math.max(0, (_playerRef.fatigue ?? 0) - amount);
       },
       /**
@@ -75,7 +75,7 @@ export function createModApi(modId) {
        * @param {number} amount
        */
       damageHealth: (amount) => {
-        if (!_playerRef || amount <= 0) return;
+        if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
         _playerRef.health = Math.max(0, (_playerRef.health ?? 0) - amount);
       },
       /**
@@ -83,7 +83,7 @@ export function createModApi(modId) {
        * @param {number} amount
        */
       heal: (amount) => {
-        if (!_playerRef || amount <= 0) return;
+        if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
         const max = _playerRef.maxHealth ?? 100;
         _playerRef.health = Math.min(max, (_playerRef.health ?? 0) + amount);
       },

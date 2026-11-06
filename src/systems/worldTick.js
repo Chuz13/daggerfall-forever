@@ -27,8 +27,10 @@ import { tickActiveEffects } from './effects.js';
 import { skillValue, tallyMovementSkill, SKILLS } from './skills.js';   // MOVE-REAL: the motion tallies' own door
 import { timeScale } from './timeScale.js';   // RPT1026-PROGRESS: a journey's acceleration, which trains at the real clock
 import { FATIGUE_LOSS, FATIGUE_DRAIN_SCALE, killIfAnyLiveStatZero } from './statMods.js';
-import { getModArmorFatigueScale } from './mods/modDataSync.js';
+import { getModArmorFatigueScale, syncModData } from './mods/modDataSync.js';
+import { loadActiveModPlugins } from './mods/modPluginLoader.js';
 import { emitModEvent } from './mods/modEventBus.js';
+import { setModApiContext } from './mods/modPluginApi.js';
 import { decayEnemyAlert } from './encounters.js';   // PlayerEntity.Update:380-384, the 8-hour alert decay
 import { dice100, setPlayerStruckHook } from '../combat/formulas.js';
 import { installPcaao } from '../combat/pcaao.js';   // PCO1: the mod's RegisterOverride, once, for every host
@@ -102,6 +104,8 @@ setPlayerStruckHook((attacker, target, damage) => onPlayerStruckByEnemy(attacker
 installMeanerMonsters();   // MM1: before the overhaul, as DFU Awakes the dependency first
 installPcaao();
 installUnleveledLoot();   // UL1: after everything it would override (its manifest orders it after Roleplay Realism)
+syncModData();
+loadActiveModPlugins();
 installSurvivalIcons();   // SURV2: the mod's spoiled-food and waterskin icons ride the texture pipeline as the port's own art
 installSurvivalLoot({ enabled: corpseFoodOn });   // SURV2: an animal's corpse carries meat, a humanoid's sometimes a meal (after UL1, which walks the gold); off with the one switch - offline (CORPSE-FOOD: online the body's food is the room's)
 // AUDIT-THUNDERLOCK F1: the port's own weapon was DEAD. Its module
@@ -991,6 +995,7 @@ function tickPlayerMinutesOnce({
   // LIVED1: online the answer is the character's own clock as it stands -
   // a raise from inside this tick has already moved it, and nothing writes
   // it back.
+  setModApiContext({ player: entity, world: { gameMinutes: next, isInterior: inside } });
   emitModEvent('worldTick', { entity, gameMinutes: next, lastMinutes, nowMinutes, activity, sinks });
 
   if (_sharedClock) return { classicMinutes: ownMinutes(), rounds, magicRoundWindow, felt };

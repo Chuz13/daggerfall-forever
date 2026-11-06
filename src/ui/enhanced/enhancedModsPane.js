@@ -9,6 +9,7 @@
 // - Full localization through textManager `t()`
 
 import {
+  discoverMods,
   getDiscoveredMods,
   setModEnabled,
   getModLoadOrder,
@@ -53,7 +54,14 @@ export function drawModsPane(body, rerender) {
       alert(t('menu.mods.webFolderNotice', 'Mods folder is located in your application data directory.'));
     }
   };
-  topActs.append(openFolderBtn);
+  const rescanBtn = el('button', 'act', t('menu.mods.rescan', 'Rescan'));
+  rescanBtn.type = 'button';
+  rescanBtn.onclick = () => {
+    discoverMods();
+    syncModData();
+    if (typeof rerender === 'function') rerender();
+  };
+  topActs.append(openFolderBtn, rescanBtn);
   topCard.append(topActs);
   body.append(topCard);
 
@@ -138,6 +146,11 @@ export function drawModsPane(body, rerender) {
     }
     if (mod.manifest?.description) {
       card.append(el('p', null, mod.manifest.description));
+    }
+    if (mod.error) {
+      const errLine = el('p', 'meta', `${t('menu.mods.error', 'Error')}: ${mod.error}`);
+      errLine.style.color = '#ff6b6b';
+      card.append(errLine);
     }
 
     // Load Order controls (Move Up / Down)
