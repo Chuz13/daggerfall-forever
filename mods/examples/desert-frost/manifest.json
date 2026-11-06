@@ -1,0 +1,9 @@
+{
+  "id": "desert-frost",
+  "name": "Desert Frost (Cold Nights)",
+  "version": "1.0.0",
+  "author": "DFF Modding Community",
+  "description": "Exposes player to cold during desert and mountain nights, causing fatigue loss unless warmed.",
+  "enabled": true,
+  "entry": "plugin.js"
+}

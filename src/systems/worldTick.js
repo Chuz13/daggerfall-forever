@@ -28,6 +28,7 @@ import { skillValue, tallyMovementSkill, SKILLS } from './skills.js';   // MOVE-
 import { timeScale } from './timeScale.js';   // RPT1026-PROGRESS: a journey's acceleration, which trains at the real clock
 import { FATIGUE_LOSS, FATIGUE_DRAIN_SCALE, killIfAnyLiveStatZero } from './statMods.js';
 import { getModArmorFatigueScale } from './mods/modDataSync.js';
+import { emitModEvent } from './mods/modEventBus.js';
 import { decayEnemyAlert } from './encounters.js';   // PlayerEntity.Update:380-384, the 8-hour alert decay
 import { dice100, setPlayerStruckHook } from '../combat/formulas.js';
 import { installPcaao } from '../combat/pcaao.js';   // PCO1: the mod's RegisterOverride, once, for every host
@@ -990,6 +991,8 @@ function tickPlayerMinutesOnce({
   // LIVED1: online the answer is the character's own clock as it stands -
   // a raise from inside this tick has already moved it, and nothing writes
   // it back.
+  emitModEvent('worldTick', { entity, gameMinutes: next, lastMinutes, nowMinutes, activity, sinks });
+
   if (_sharedClock) return { classicMinutes: ownMinutes(), rounds, magicRoundWindow, felt };
   const jumped = worldMinutes() - clockAtEntry;
   return { classicMinutes: jumped > 0 ? next + jumped : next, rounds, magicRoundWindow, felt };
