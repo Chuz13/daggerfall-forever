@@ -123,6 +123,15 @@ const ROWS = [
   // caster reveals reach party mates in the same dungeon (systems/party/partyMap.js). Duration alone, and CRAFTABLE: a copy
   // made offline is a harmless buff (no party, nothing shared); sold ready-made at the spell shop online.
   [46, 255, 'Shared Cartography', '', [D]],
+  // NECROMANCY-SUITE (DFF Dark Arts):
+  // 47,255: Animate Dead (Mysticism) - reanimates fallen corpses into skeletons or zombies
+  [47, 255, 'Animate Dead', '', [C, M]],
+  // 48,255: Corpse Explosion (Destruction) - detonates a corpse or minion for area damage
+  [48, 255, 'Corpse Explosion', '', [M]],
+  // 49,255: Life Tap (Restoration) - siphons health and fatigue from a target to the caster
+  [49, 255, 'Life Tap', '', [M]],
+  // 51,255: Bone Armor (Alteration) - binds bone splinters into a protective damage shield
+  [51, 255, 'Bone Armor', '', [D, M]],
   [30, 255, 'Water Breathing', '', [D]],
   [31, 255, 'Water Walking', '', [D]],
   [33, 0, 'Pacify', 'Animal', [C]],

@@ -269,3 +269,4 @@ export function _resetCorpseRegistryForTests() {
   _corpses.clear();
   _nextId = 1;
 }
+

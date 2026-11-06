@@ -247,3 +247,4 @@ test('Lichdom: mutual exclusivity with existing curses and cure', () => {
   assert.equal(isLich(mortal), false);
   assert.equal(mortal.racialOverride, null);
 });
+

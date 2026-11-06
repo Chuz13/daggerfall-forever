@@ -158,3 +158,4 @@ export function initUndeadCompanionAdapter() {
 export function _resetUndeadCapacityForTests() {
   _activeMinions.length = 0;
 }
+

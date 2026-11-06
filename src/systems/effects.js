@@ -164,6 +164,8 @@ export const BUFF_KINDS = Object.freeze({
   // its rounds on a re-cast as every row here does (STACK-CAP); the entry's PRESENCE is the share -
   // systems/party/partyMap.js reads it, and a caster in no party (offline, solo) holds a buff that does nothing at all.
   '46,255': 'sharedCartography',
+  // NECROMANCY: Bone Armor (51,255) - defensive bone plating duration buff
+  '51,255': 'boneArmor',
 });
 
 /** DaggerfallEntity.IsInvisible / IsBlending / IsAShade, verbatim:
@@ -259,6 +261,9 @@ export const MAGIC_ONLY_KEYS = new Set([
   '33,2', '33,3', '35,255', '39,0', '39,1', '39,2', '40,255',
   '43,255', '44,255',
   '46,255',   // PARTY-MAP: Shared Cartography, the port's own - a self-buff, Magic as every buff here
+  '47,255',   // NECROMANCY: Animate Dead (Mysticism)
+  '49,255',   // NECROMANCY: Life Tap (Restoration)
+  '51,255',   // NECROMANCY: Bone Armor (Alteration)
 ]);
 
 /** THE BUFF LANDING ALERTS - every line DFU speaks on the frame a
@@ -281,6 +286,7 @@ export const BUFF_START_TEXT = localizedTable({
   shadeNormal: ['youAreAShade', 'You are a shade.'], shadeTrue: ['youAreAShade', 'You are a shade.'],
   silenced: ['youAreSilenced', 'You are silenced.'],   // Silence.cs:91-95
   sharedCartography: () => 'Your map is shared with your party.',   // PARTY-MAP: the port's own line
+  boneArmor: () => 'Plates of bone coalesce around your flesh.',    // NECROMANCY: Bone Armor buff alert
 });
 /** The name this table shipped under, kept live for its importers. */
 export const CONCEALMENT_START_TEXT = BUFF_START_TEXT;
