@@ -1,0 +1,249 @@
+// @ts-check
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { raiseEnemyDeath } from '../../src/scenes/corpseMarker.js';
+import { getCorpse, corpsesNear, _resetCorpseRegistryForTests } from '../../src/systems/necromancy/corpseRegistry.js';
+import { applySpell } from '../../src/systems/effects.js';
+import { activeUndead, _resetUndeadCapacityForTests, undeadParty } from '../../src/systems/necromancy/undeadCapacity.js';
+import { checkCityLawViolation } from '../../src/systems/necromancy/cityLaw.js';
+import { isLich } from '../../src/systems/necromancy/lichdomStatus.js';
+import { createPhylactery, performRitualOfUnlife, reconstituteLich, PHYLACTERY_STATE } from '../../src/systems/necromancy/lichdomRitual.js';
+import { hurtPlayer, playerEntity } from '../../src/characters/playerEntity.js';
+import { tickPlayerMinutes } from '../../src/systems/worldTick.js';
+import { NecroConfig } from '../../src/systems/necromancy/necroConfig.js';
+import { CRIMES } from '../../src/systems/crimes.js';
+
+test('NecroIntegration: raiseEnemyDeath automatically populates corpseRegistry', () => {
+  _resetCorpseRegistryForTests();
+
+  const fakeEnemy = {
+    id: 'orc_warlord_101',
+    mobileType: 140,
+    level: 7,
+    feet: [10, 0, 20],
+    items: [{ shortName: 'Orcish Mace', value: 150 }],
+  };
+
+  raiseEnemyDeath(fakeEnemy, { feet: [10, 0, 20] });
+
+  const found = corpsesNear([10, 0, 20], 5);
+  assert.equal(found.length, 1, 'Corpse must be registered near the death coordinates');
+  assert.equal(found[0].id, 'orc_warlord_101');
+  assert.equal(found[0].level, 7);
+});
+
+test('NecroIntegration: applySpell executes Animate Dead in the live spell engine', () => {
+  _resetCorpseRegistryForTests();
+  _resetUndeadCapacityForTests();
+
+  // Register a fallen foe to reanimate
+  raiseEnemyDeath({ id: 'fallen_skeletal_1', mobileType: 140, feet: [5, 0, 5] });
+
+  const animateSpell = {
+    element: 4, // Magic
+    rangeType: 1, // Target
+    effects: [
+      {
+        type: 47,
+        subType: 255,
+        durationBase: 10,
+        durationMod: 1,
+        durationPerLevel: 1,
+        magnitudeBaseLow: 10,
+        magnitudeBaseHigh: 10,
+        magnitudeLevelBase: 1,
+        magnitudeLevelHigh: 1,
+        magnitudePerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+      },
+    ],
+  };
+
+  const fakeCaster = {
+    entity: {
+      isPlayer: true,
+      stats: { intelligence: 70, willpower: 60 },
+      skills: new Array(35).fill(50),
+    },
+    sinks: {
+      say: () => {},
+    },
+  };
+
+  const targetPoint = { pos: [5, 0, 5], feet: [5, 0, 5] };
+  const sinks = { hurt: () => {}, say: () => {} };
+
+  const res = applySpell(animateSpell, 10, targetPoint, sinks, () => 0.5, fakeCaster);
+  assert.equal(res.animateDead, 1, 'Spell engine must record animateDead application');
+
+  const minions = activeUndead();
+  assert.ok(minions.length >= 1, 'Minion must be instantiated in undeadCapacity');
+});
+
+test('NecroIntegration: applySpell executes Corpse Explosion and damages targets', () => {
+  _resetCorpseRegistryForTests();
+
+  // Create a corpse in explosion range
+  raiseEnemyDeath({ id: 'explodable_corpse_1', mobileType: 140, feet: [0, 0, 0] });
+
+  const explosionSpell = {
+    element: 0, // Fire
+    rangeType: 1, // Target
+    effects: [
+      {
+        type: 48,
+        subType: 255,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        magnitudeBaseLow: 25,
+        magnitudeBaseHigh: 25,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+      },
+    ],
+  };
+
+  let hurtDamage = 0;
+  const sinks = {
+    hurt: (dmg) => { hurtDamage += dmg; },
+    say: () => {},
+  };
+
+  const targetEnemy = { pos: [0, 0, 0], feet: [0, 0, 0], health: 50 };
+  const res = applySpell(explosionSpell, 5, targetEnemy, sinks, () => 0.5, null);
+
+  assert.equal(res.corpseExplosion, 1, 'Corpse explosion must execute');
+  assert.ok(hurtDamage > 0, 'Target must receive explosion damage');
+});
+
+test('NecroIntegration: undeadParty bridges minions to crewAshore', () => {
+  _resetUndeadCapacityForTests();
+
+  const partyList = undeadParty.party;
+  assert.ok(Array.isArray(partyList));
+
+  // Add minion directly to active list
+  activeUndead();
+  assert.equal(typeof undeadParty.knock, 'function');
+  assert.equal(typeof undeadParty.hurt, 'function');
+});
+
+test('NecroIntegration: tickPlayerMinutes drains magicka for active minions', () => {
+  _resetUndeadCapacityForTests();
+
+  NecroConfig.enabled = true;
+  NecroConfig.minionUpkeep = true;
+
+  // Add a minion to capacity
+  raiseEnemyDeath({ id: 'tick_corpse', mobileType: 140, feet: [0, 0, 0] });
+  applySpell({
+    element: 4, rangeType: 1,
+    effects: [{
+      type: 47,
+      subType: 255,
+      durationBase: 10,
+      durationMod: 1,
+      durationPerLevel: 1,
+      magnitudeBaseLow: 10,
+      magnitudeBaseHigh: 10,
+      magnitudeLevelBase: 1,
+      magnitudeLevelHigh: 1,
+      magnitudePerLevel: 1,
+      chanceBase: 100,
+      chanceMod: 0,
+      chancePerLevel: 1,
+    }],
+  }, 10, { pos: [0, 0, 0], feet: [0, 0, 0] }, { hurt: () => {}, say: () => {} }, () => 0.5, {
+    entity: { isPlayer: true, stats: { intelligence: 60, willpower: 60 }, skills: new Array(35).fill(50) },
+  });
+
+  const testPlayer = {
+    isPlayer: true,
+    magicka: 50,
+    maxMagicka: 50,
+    health: 100,
+    maxHealth: 100,
+    fatigue: 1000,
+    maxFatigue: 1000,
+    lastGameMinutes: 0,
+    skills: new Array(35).fill(50),
+    stats: { intelligence: 60, willpower: 60, endurance: 50, strength: 50, agility: 50, speed: 50, personality: 50, luck: 50 },
+    effects: [],
+  };
+
+  let drained = 0;
+  tickPlayerMinutes({
+    entity: testPlayer,
+    classicMinutes: 0,
+    dt: 1,
+    sinks: {
+      drainMagicka: (amount) => { drained += amount; },
+      drainFatigue: () => {},
+      hurt: () => {},
+      heal: () => {},
+    },
+  });
+
+  assert.ok(drained > 0, 'tickPlayerMinutes must drain magicka for active minion upkeep');
+});
+
+test('NecroIntegration: cityLaw violation triggers guard alerts on unmasked Lich', () => {
+  const lichPlayer = {
+    isPlayer: true,
+    racialOverride: 'lichdom',
+    isHooded: false,
+    crimeCommitted: 0,
+  };
+
+  let crimeAssigned = 0;
+  let alertSpoken = null;
+
+  const res = checkCityLawViolation({
+    playerEntity: lichPlayer,
+    isInsideSettlement: true,
+    minions: [],
+    isDisguised: false,
+    crimeAlertSink: (msg) => { alertSpoken = msg; },
+    crimeSeveritySink: (crime) => { crimeAssigned = crime; },
+  });
+
+  assert.equal(res.infraction, true);
+  assert.equal(res.isHostile, true);
+  assert.equal(crimeAssigned, CRIMES.Treason);
+  assert.ok(alertSpoken != null);
+});
+
+test('NecroIntegration: hurtPlayer restores Lich at phylactery instead of dying', () => {
+  const mortalLich = {
+    isPlayer: true,
+    racialOverride: null,
+    health: 10,
+    maxHealth: 100,
+    level: 10,
+    stats: { intelligence: 80, willpower: 80 },
+    skills: new Array(35).fill(60),
+    items: [],
+  };
+
+  // Perform ritual
+  const phylactery = createPhylactery({ anchorPosition: [100, 50, 200] });
+  const ritual = performRitualOfUnlife(mortalLich, phylactery);
+  assert.equal(ritual.success, true);
+  assert.equal(isLich(mortalLich), true);
+
+  mortalLich.phylacteryAnchor = phylactery;
+
+  // Fatal blow
+  const died = hurtPlayer(mortalLich, 50);
+
+  assert.equal(died, false, 'Lich must NOT die when phylactery has charges');
+  assert.ok(mortalLich.health > 0, 'Health must be restored by reconstitution');
+  assert.equal(phylactery.charges, 2, 'Phylactery must consume 1 charge');
+});

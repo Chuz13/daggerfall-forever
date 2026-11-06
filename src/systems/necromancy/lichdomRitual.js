@@ -167,3 +167,5 @@ export function handleLichMortalFall(playerEntity, phylactery) {
   };
 }
 
+export const reconstituteLich = handleLichMortalFall;
+

@@ -227,11 +227,21 @@ export function savingThrow(element, effectFlags, target, modifier = 0, rolls = 
  *  Range(baseLow, baseHigh+1) + Range(levelBase, levelHigh+1) x
  *  floor(casterLevel / perLevel). */
 export function rollMagnitude(effect, casterLevel, rolls = Math.random) {
-  const range = (lo, hi) => lo + Math.floor(rolls() * (hi + 1 - lo));
-  const base = range(effect.magnitudeBaseLow, effect.magnitudeBaseHigh);
-  const plus = range(effect.magnitudeLevelBase, effect.magnitudeLevelHigh);
-  const per = Math.max(1, effect.magnitudePerLevel);
-  return base + plus * Math.floor(casterLevel / per);
+  const range = (lo, hi) => {
+    const l = Number.isFinite(lo) ? lo : 0;
+    const h = Number.isFinite(hi) ? hi : l;
+    return l + Math.floor(rolls() * (h + 1 - l));
+  };
+  const baseLow = effect.magnitudeBaseLow ?? effect.magnitudeBase ?? 0;
+  const baseHigh = effect.magnitudeBaseHigh ?? effect.magnitudeBase ?? baseLow;
+  const base = range(baseLow, baseHigh);
+
+  const levelLow = effect.magnitudeLevelBase ?? effect.magnitudePlus ?? 0;
+  const levelHigh = effect.magnitudeLevelHigh ?? effect.magnitudePlus ?? levelLow;
+  const plus = range(levelLow, levelHigh);
+
+  const per = Math.max(1, effect.magnitudePerLevel ?? 1);
+  return base + plus * Math.floor((casterLevel ?? 1) / per);
 }
 
 /** The classic damage-health pair: (4,0) Damage Health and (1,0)

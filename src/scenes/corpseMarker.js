@@ -67,6 +67,8 @@ import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemy/enemyBasics.
 import { FlatAnim, isAnimatedFlat } from '../render/flatAnimation.js'; // AUDIT DEX B3: a corpse of more than one frame animates, as DFU's billboard does
 import { localizedText, getLocalizedEnemyName } from '../systems/textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the enemy's name
 import { silverFindAt } from '../systems/silverFinds.js'; // SILVER-FINDS: a body opened holds silver now and then
+import { registerCorpse } from '../systems/necromancy/corpseRegistry.js';
+import { FORK_FLAGS } from '../config/forkFlags.js';
 
 /** ItemTemplates Arrow - the auto-pickup arm keys on it. */
 export const ARROW_TEMPLATE_INDEX = 131;
@@ -183,6 +185,21 @@ export function raiseEnemyDeath(entity, opts = {}) {
   }
   capFoeLoot(entity); // FOE-CAP: after EVERY handler's find - a plain foe's body never carries more than its cap
 }
+
+// NECROMANCY: Register fallen foes in the real-time corpse lifecycle registry
+registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY) return;
+  const pos = entity.feet ?? entity.pos ?? opts?.feet ?? [0, 0, 0];
+  registerCorpse({
+    id: entity.id ?? `corpse_${Math.random().toString(36).slice(2, 9)}`,
+    entityType: entity.mobileType ?? entity.career ?? 'humanoid',
+    level: entity.level ?? 1,
+    position: [pos[0] ?? 0, pos[1] ?? 0, pos[2] ?? 0],
+    sceneKey: opts?.sceneKey ?? 'world',
+    deathTimestamp: Date.now() / 1000,
+    lootItems: entity.items ?? [],
+  });
+});
 
 /**
  * DEX5 (bible/04-Characters/Enemy-Expansion.md section 11): A MOD'S CORPSE PREFAB. DFU stands a corpse's billboard

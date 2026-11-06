@@ -22,6 +22,9 @@ import { SKILL_COUNT, SKILLS_RECENTLY_RAISED_WORDS } from '../systems/skills.js'
 import { SOCIAL_GROUP_COUNT } from '../formats/factionFile.js';   // AUDIT 65 SL-4: PlayerEntity.cs:128's socialGroupCount = 11
 import { pageHas } from '../systems/pageQuery.js';   // AUDIT ANTICHEAT A1: the probe gate's one parse a search
 import { openGuardCeiling, closeGuardCeiling } from '../systems/powerCeiling.js';   // POWER-CEILING: the guards composed, held to one share kept
+import { isLich } from '../systems/necromancy/lichdomStatus.js';
+import { reconstituteLich } from '../systems/necromancy/lichdomRitual.js';
+import { FORK_FLAGS } from '../config/forkFlags.js';
 
 export const playerEntity = {
   isPlayer: true,
@@ -466,6 +469,14 @@ export function hurtPlayer(entity, dmg, { bypassShield = false, spare = null } =
   // `instanceof DeathScreen` guard in its presenter, which made the guard
   // load-bearing and every future presenter's problem.
   if (wasAlive && entity.health === 0) {
+    if (FORK_FLAGS.ENABLE_NECROMANCY && isLich(entity)) {
+      const anchor = entity.phylacteryAnchor;
+      const re = reconstituteLich(entity, anchor);
+      if (re.reconstituted) {
+        surfacePlayer();
+        return false;
+      }
+    }
     // F117: `(int)(MaxHealth * 0.1f)` - SetHealth restores a tenth
     // instead of raising OnDeath when a guild answers AvoidDeath.
     // Consulted on the TRANSITION only, like the presenter: once dead,

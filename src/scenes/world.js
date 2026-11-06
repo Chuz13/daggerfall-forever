@@ -724,6 +724,9 @@ import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './naval/navalCrew.js';  
 import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' sleeping hours
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
+import { undeadParty, initUndeadCompanionAdapter } from '../systems/necromancy/undeadCapacity.js';
+import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush } from '../systems/necromancy/witchHunters.js';
+import { NecroConfig } from '../systems/necromancy/necroConfig.js';
 import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength, sendRevenantAway, forgetSwornMember, swornFightStep, swornFightWon, devotedWithYou } from '../systems/revenant/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
 import { registerCompanionCount, registerCompanionRoster, companionsWithYou, COMPANION_SLOTS } from '../systems/companionSlots.js';   // COMPANION-SLOTS: the crew's hands ashore counted with the sworn
 import { PERSONALITIES } from '../systems/revenant/revenantPersonality.js';   // REVENANT-COMPANION: the party card's word for one
@@ -10010,6 +10013,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   });
   // COMPANION-SLOTS: the crew's hands ashore take the player's side's slots with the sworn
   registerCompanionCount('crew', () => (navalOn() ? naval?.companions?.party?.length ?? 0 : 0));
+  initUndeadCompanionAdapter();
   // REVENANT-COMPANION (2026-10-02, Mac: "Spare should allow you to free the enemy, which then adds them as a companion
   // ... Reuse the crew companion system"): THE SWORN, stood by the crew's own layer - every place, every door, the
   // heel, the catch-up, health and spells carried - from their records (systems/revenant/revenantCompanions.js). Never gated on
@@ -10041,6 +10045,14 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     },
     seat: (i) => wagonRiders?.companionSeat(crewCount() + i, hcc.carriesCompanions()) ?? null,   // WAGONS1: the sworn take the seats after the crew's
     seatDraw: (i) => wagonRiders?.companionSeatDrawn(crewCount() + i, hcc.carriesCompanions()) ?? null,   // WAGONS2
+  });
+
+  const undeadAshore = createCrewAshore({
+    party: () => (playerSpawned && FORK_FLAGS.ENABLE_NECROMANCY ? undeadParty : null),
+    place: () => companionPlace({ crew: false }),
+    leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),
+    now: () => Math.floor(playerTicker.ownMinutes),
+    onKnocked: (c) => { c.dead = true; },
   });
   /** REVENANT-COMPANION: a sworn one called to the player's side - it says so as it steps through. */
   const noteRevenantArrival = (id) => _revenantArrivals.add(id);
@@ -10159,6 +10171,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     if (gamePaused()) return;   // the sworn wait out a window too (AUDIT CC-A10's law: no knock, no stand, no catch-up under one)
     while (_revenantBetrayals.length) turnSworn(_revenantBetrayals.shift());   // RVN11c: before the layer's frame - its body lifted, no portal
     try { revenantAshore.frame(); } catch (e) { console.warn('[companions] the sworn', e?.message ?? e); }
+    try { undeadAshore.frame(); } catch (e) { console.warn('[undead] minions', e?.message ?? e); }
     while (_revenantDepartures.length) {   // COMPANION-ROSTER: its parting words, as it goes
       const d = _revenantDepartures.shift();
       const body = d.items ? `It hands you back its pack (${d.items === 1 ? 'one item' : `${d.items} items`}).` : null;
@@ -12614,7 +12627,15 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     restKind: () => (_restFromBed ? 'bed' : camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? 'camp' : 'rough'),   // AUDIT REST-PARTY A3: a bed pressed (a ship's) prices as the bed it is named - it slept rough in Hard: half the night, stiff, two ambush asks a minute   // SURV4: a lit fire near is the sleep; the window alone is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
     // REST1: online the rest point - a bed pressed (a ship's, CSA-J's) or a lit fire in reach; the open road alone is none
     restPoint: () => (_restFromBed ? { kind: 'bed', where: null } : camps.restPointAt(walkMode && playerSpawned ? player.pos : cam.pos)),   // REST6: a fire, or the Bedroll laid
-    onNightSlept: () => camps.spendNightNear(walkMode && playerSpawned ? player.pos : cam.pos),   // REST2: a night at your own camp spends a charge
+    onNightSlept: () => {
+      camps.spendNightNear(walkMode && playerSpawned ? player.pos : cam.pos);
+      if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.witchHunters !== 'off') {
+        const restAmbush = checkRestWitchHunterAmbush(playerEntity, 8);
+        if (restAmbush.ambush) {
+          townTalk.say(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
+        }
+      }
+    },
   });
   // CSA-J (the audit): the press is a bed's - Roleplay Realism's BedActivation is DaggerfallUI's gate less its GiveOffer
   // rung (RoleplayRealism.cs:487-525), so a bed clicked leaves a pending offer where the R key would hand it over
@@ -14248,6 +14269,16 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
             townTalk.say(LIVING_WORDS.travelDilemma());
           } else if (interruption.eventType === TRAVEL_EVENT_TYPE.AMBUSH) {
             townTalk.say(LIVING_WORDS.travelAmbush());
+          }
+        } else if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.witchHunters !== 'off') {
+          const tripHours = Math.max(1, (computed?.minutes ?? 60) / 60);
+          const witchAmbush = checkTravelWitchHunterAmbush(playerEntity, tripHours);
+          if (witchAmbush.ambush) {
+            interruptedEventType = 'witch_hunter_ambush';
+            targetPixelX = Math.round((curPixel.x + pick.pixel.x) / 2);
+            targetPixelY = Math.round((curPixel.y + pick.pixel.y) / 2);
+            travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
+            townTalk.say(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
           }
         }
       }

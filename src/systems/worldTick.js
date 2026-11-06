@@ -40,6 +40,11 @@ import { onLycanthropeHit } from './lycanthropy.js';
 import { onVampireHit } from './vampirism.js';
 import { onPlayerStruckByEnemy } from './artifactEffects.js';   // V3: the Ring of Namira's reflection
 import { onLivingWorldTick } from './living/livingDirector.js';
+import { activeUndead } from './necromancy/undeadCapacity.js';
+import { checkMinionRebellion } from './necromancy/minionController.js';
+import { tickTaintDaily } from './necromancy/necroTaint.js';
+import { NecroConfig } from './necromancy/necroConfig.js';
+import { FORK_FLAGS } from '../config/forkFlags.js';
 
 /**
  * DISC10-D H1: RacialOverrideEffect.OnWeaponHitEntity - THE ONE DISPATCHER,
@@ -713,6 +718,25 @@ function tickPlayerMinutesOnce({
   // normalise loop that follows it. The loop's own commentary is at its body.
   const lastMinutes = Number.isFinite(entity.lastGameMinutes) ? entity.lastGameMinutes : Math.floor(classicMinutes);
   const nowMinutes = Math.floor(next);
+
+  // NECROMANCY: minion upkeep magicka drain, exhaustion rebellion, and taint decay
+  if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.enabled) {
+    const minions = activeUndead();
+    if (minions.length > 0 && NecroConfig.minionUpkeep) {
+      const upkeepCost = minions.reduce((sum, m) => sum + (m.slotCost || 1), 0);
+      if (typeof entity.magicka === 'number' && upkeepCost > 0) {
+        if (sinks && sinks.drainMagicka) {
+          sinks.drainMagicka(upkeepCost);
+        } else {
+          entity.magicka = Math.max(0, entity.magicka - upkeepCost);
+        }
+        if (entity.magicka === 0 && NecroConfig.minionRebellion) {
+          checkMinionRebellion(entity, minions);
+        }
+      }
+    }
+    tickTaintDaily(Math.floor(nowMinutes / 1440), entity);
+  }
   // :521, the tail of the same update - but MONOTONIC, which is DFU's
   // own hard invariant rather than a liberty: PlayerEntity.cs:368-371
   // THROWS when `gameMinutes < lastGameMinutes`, so in DFU this marker

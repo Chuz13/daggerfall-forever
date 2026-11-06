@@ -7,7 +7,7 @@
 // - Bone Armor (51,255) -> Alteration
 
 import { FORK_FLAGS } from '../../config/forkFlags.js';
-import { getCorpse, consumeCorpse, CORPSE_STATE } from './corpseRegistry.js';
+import { getCorpse, consumeCorpse, corpsesNear, CORPSE_STATE } from './corpseRegistry.js';
 import { canAffordUndead } from './undeadCapacity.js';
 import { spawnMinion } from './minionController.js';
 import { skillValue, SKILLS } from '../skills.js';
@@ -124,6 +124,12 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
     return { success: false, reason: 'Necromancy is disabled' };
   }
 
+  // Support single-object signature: castAnimateDead({ casterEntity, targetCorpse, position, ... })
+  if (caster && typeof caster === 'object' && !targetCorpse && ('casterEntity' in caster || 'targetCorpse' in caster)) {
+    targetCorpse = caster.targetCorpse || caster.position;
+    caster = caster.casterEntity;
+  }
+
   const casterEntity = caster?.entity || caster;
 
   // In Abstract mode, can conjure from thin air if no corpse provided
@@ -140,7 +146,14 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
     return { success: true, minion };
   }
 
-  const corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
+  let corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
+  if (!corpse || corpse.consumed || !corpse.corpseState) {
+    const pos = targetCorpse?.pos || targetCorpse?.position || targetCorpse?.feet || (Array.isArray(targetCorpse) ? targetCorpse : null);
+    if (pos) {
+      corpse = corpsesNear(pos, 6)[0] ?? null;
+    }
+  }
+
   if (!corpse || corpse.consumed) {
     return { success: false, reason: 'Target is not a viable corpse' };
   }
@@ -193,7 +206,24 @@ export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDama
     return { success: false, hitCount: 0, damage: 0, reason: 'Necromancy is disabled' };
   }
 
-  const corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
+  // Support single-object signature
+  if (caster && typeof caster === 'object' && !targetCorpse && ('casterEntity' in caster || 'originPosition' in caster)) {
+    const opts = caster;
+    targetCorpse = opts.targetCorpse || opts.originPosition;
+    radius = opts.radius ?? radius;
+    baseDamage = opts.damage ?? opts.baseDamage ?? baseDamage;
+    nearbyFoes = opts.nearbyFoes ?? nearbyFoes;
+    caster = opts.casterEntity;
+  }
+
+  let corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
+  if (!corpse || corpse.consumed || !corpse.corpseState) {
+    const pos = targetCorpse?.pos || targetCorpse?.position || targetCorpse?.feet || (Array.isArray(targetCorpse) ? targetCorpse : null);
+    if (pos) {
+      corpse = corpsesNear(pos, radius)[0] ?? null;
+    }
+  }
+
   if (!corpse || corpse.consumed) {
     return { success: false, hitCount: 0, damage: 0, reason: 'No corpse to detonate' };
   }

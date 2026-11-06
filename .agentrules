@@ -45,6 +45,8 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
    
    Don't add or change unnecessary strings in localization files. 
    
+   When implementing gameplay systems always make sure new functions actually get called - so the player can interact with new systems.
+   
 # Repository Integrity & Destructive Command Restrictions
 1. FORBIDDEN GIT COMMANDS: Never execute destructive git operations:
    - NO `git push --force` or `git push -f`

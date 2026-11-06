@@ -158,6 +158,35 @@ export function activeUndead() {
 }
 
 /**
+ * Unified party bridge for crewAshore 3D follower simulation.
+ */
+export const undeadParty = {
+  get party() {
+    return _activeMinions.filter((m) => !m.dead && m.stance !== 'feign_death').map((m) => {
+      m.key = m.key || m.id;
+      m.boat = 'undead';
+      m.team = 'PlayerAlly';
+      m.mobileTeam = 'PlayerAlly';
+      return m;
+    });
+  },
+  wake: () => {},
+  knock: (boat, name) => {
+    const minion = _activeMinions.find((m) => m.name === name || m.id === name);
+    if (minion) minion.dead = true;
+    return true;
+  },
+  hurt: (boat, name, hp, maxHp) => {
+    const minion = _activeMinions.find((m) => m.name === name || m.id === name);
+    if (minion) {
+      minion.health = hp;
+      minion.maxHealth = maxHp;
+      if (hp <= 0) minion.dead = true;
+    }
+  },
+};
+
+/**
  * Registers this subsystem with DFF's unified companion slots engine.
  */
 export function initUndeadCompanionAdapter() {

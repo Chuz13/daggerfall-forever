@@ -48,6 +48,7 @@ import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify match
 import { breakNormalPowerConcealment, handleAttackFromSource } from './concealment.js';
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
+import { castAnimateDead, castCorpseExplosion } from './necromancy/necromanticSpells.js';
 import { regenShare } from './courtRules.js';   // WBX6 / EVENT-RULES: a made level holds regeneration
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { HEAL_SPELL_POINTS_KEY } from './potionRecipes.js';   // PROF12: Heal-SpellPoints' key, beside the one recipe that names it
@@ -570,7 +571,7 @@ export const isParalyze = (e) => e.type === 0 && classicSub(e) === 255;
  *  floor(casterLevel / perLevel) - NO min-1 clamp (unlike duration);
  *  the per-0 guard is ours. */
 export const chanceValue = (e, casterLevel) =>
-  e.chanceBase + e.chanceMod * Math.floor(casterLevel / Math.max(1, e.chancePerLevel));
+  (e.chanceBase ?? 0) + (e.chanceMod ?? e.chancePlus ?? 0) * Math.floor((casterLevel ?? 1) / Math.max(1, e.chancePerLevel ?? 1));
 
 // S19c: the Cure family (type 3) - chance-only INSTANT effects.
 //   Cure-Disease      (3, 0) -> manager.CureAllDiseases
@@ -1410,7 +1411,18 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     }
     if (e.type === 47 && classicSub(e) === 255) {
       if (!dice100(chanceValue(e, casterLevel), rolls())) { out.chanceFailed = (out.chanceFailed ?? 0) + 1; continue; }
-      ctx.animateDead?.(e, target);
+      if (ctx.animateDead) {
+        ctx.animateDead(e, target);
+      } else {
+        castAnimateDead({
+          casterEntity: caster?.entity ?? target,
+          targetCorpse: target,
+          scene: 'current',
+          position: target?.pos ?? target?.feet ?? [0, 0, 0],
+          spellMagnitude: magnitude(e),
+          say: sinks?.say,
+        });
+      }
       out.animateDead = (out.animateDead ?? 0) + 1;
       pushInstantMarker(target, 'animateDead', e);
       continue;
@@ -1419,7 +1431,19 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       const n = casterDamageScaled(magnitude(e), caster?.entity, target, schoolOf(e));
       out.damage += n;
       if (n > 0 && sinks.hurt) sinks.hurt(n, { element: spell.element ?? null });
-      ctx.corpseExplosion?.(e, target, n);
+      if (ctx.corpseExplosion) {
+        ctx.corpseExplosion(e, target, n);
+      } else {
+        castCorpseExplosion({
+          casterEntity: caster?.entity ?? target,
+          originPosition: target?.pos ?? target?.feet ?? [0, 0, 0],
+          radius: 6,
+          damage: n,
+          scene: 'current',
+          damageSink: sinks?.hurt,
+          say: sinks?.say,
+        });
+      }
       handleAttackFromSource(caster?.entity ?? null);
       out.corpseExplosion = (out.corpseExplosion ?? 0) + 1;
       pushInstantMarker(target, 'corpseExplosion', e);

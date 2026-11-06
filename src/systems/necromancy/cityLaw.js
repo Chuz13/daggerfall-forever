@@ -44,6 +44,8 @@ export function checkSettlementInfraction(
     isInsideSettlement = true,
     regionName = 'Daggerfall',
     isDisguised = false,
+    crimeAlertSink = null,
+    crimeSeveritySink = null,
   } = {},
 ) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY || !isInsideSettlement || !playerEntity) {
@@ -60,12 +62,15 @@ export function checkSettlementInfraction(
   if (isLich(playerEntity) && !isDisguised) {
     const crime = isHammerfell ? CRIMES.High_Treason : CRIMES.Treason;
     setCrimeCommitted(playerEntity, crime);
+    const alertText = isHammerfell
+      ? 'Defiler of ancestors! By Tu\'whacca, strike the unholy fiend down!'
+      : 'A foul Lich walks our streets! Guards, sound the alarm!';
+    if (typeof crimeAlertSink === 'function') crimeAlertSink(alertText);
+    if (typeof crimeSeveritySink === 'function') crimeSeveritySink(crime);
     return {
       infraction: true,
       crime,
-      alertText: isHammerfell
-        ? 'Defiler of ancestors! By Tu\'whacca, strike the unholy fiend down!'
-        : 'A foul Lich walks our streets! Guards, sound the alarm!',
+      alertText,
       isHostile: true,
     };
   }
@@ -79,15 +84,20 @@ export function checkSettlementInfraction(
   if (visibleMinions.length > 0) {
     const crime = isHammerfell ? CRIMES.High_Treason : CRIMES.Criminal_Conspiracy;
     setCrimeCommitted(playerEntity, crime);
+    const alertText = isHammerfell
+      ? 'Desecration! A necromancer and their walking corpses defile our city!'
+      : 'Guards! Necromancy in the city square! Slay the abominations!';
+    if (typeof crimeAlertSink === 'function') crimeAlertSink(alertText);
+    if (typeof crimeSeveritySink === 'function') crimeSeveritySink(crime);
     return {
       infraction: true,
       crime,
-      alertText: isHammerfell
-        ? 'Desecration! A necromancer and their walking corpses defile our city!'
-        : 'Guards! Necromancy in the city square! Slay the abominations!',
+      alertText,
       isHostile: isHammerfell,
     };
   }
 
   return { infraction: false, crime: CRIMES.None, alertText: null, isHostile: false };
 }
+
+export const checkCityLawViolation = (opts) => checkSettlementInfraction(opts.playerEntity, opts);

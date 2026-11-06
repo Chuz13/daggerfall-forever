@@ -443,11 +443,11 @@ export function overridesOf(prefs) {
   out[SHELF_STAMP] = SHELF_REV;
   return out;
 }
-export function getPref(k) {
+export function getPref(k, fallback = undefined) {
   const forced = onlineForcedPref(k); // OL1: online is the enhanced lane, whole - a forced switch reads forced and the shelf is not written
   if (forced !== undefined) return forced;
   if (_prefs === null) loadPrefs();
-  return _prefs[k] ?? PREF_DEFAULTS[k];
+  return _prefs[k] ?? PREF_DEFAULTS[k] ?? fallback;
 }
 const _prefListeners = new Set();
 export function addPrefListener(fn) {

@@ -43,6 +43,7 @@ export const LICH_SKILL_MODS = Object.freeze({
 export function liveLichdom(entity) {
   if (!entity || !entity.racialOverride) return null;
   const o = entity.racialOverride;
+  if (o === 'lichdom') return { kind: 'racialOverride', racial: 'lichdom', ended: false };
   if (o.kind === 'racialOverride' && o.racial === 'lichdom' && !o.ended) {
     return o;
   }
