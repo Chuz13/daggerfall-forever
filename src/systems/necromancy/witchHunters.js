@@ -90,3 +90,32 @@ export function checkWitchHunterAmbush(playerEntity, { isResting = true, rolls =
 
   return { ambush: false, party: [] };
 }
+
+/**
+ * Evaluates whether resting is interrupted by an Arkay ambush.
+ * @param {object} playerEntity
+ * @param {number} [restHours=8]
+ * @param {object|(() => number)} [options]
+ * @returns {{ ambush: boolean, party: Array<object>, message?: string }}
+ */
+export function checkRestWitchHunterAmbush(playerEntity, restHours = 8, options = {}) {
+  const rolls = typeof options === 'function' ? options : (options?.rolls ?? Math.random);
+  return checkWitchHunterAmbush(playerEntity, { isResting: true, rolls });
+}
+
+/**
+ * Evaluates whether fast-travel is interrupted by an Arkay ambush.
+ * @param {object} playerEntity
+ * @param {number} [tripHours=1]
+ * @param {object|(() => number)} [options]
+ * @returns {{ ambush: boolean, party: Array<object>, message?: string }}
+ */
+export function checkTravelWitchHunterAmbush(playerEntity, tripHours = 1, options = {}) {
+  const rolls = typeof options === 'function' ? options : (options?.rolls ?? Math.random);
+  const result = checkWitchHunterAmbush(playerEntity, { isResting: false, rolls });
+  if (result.ambush) {
+    result.message = 'Holy zealots bar your path! "In the name of Arkay, unholy defiler, face righteous judgment!"';
+  }
+  return result;
+}
+

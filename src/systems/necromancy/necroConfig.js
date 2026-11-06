@@ -91,6 +91,13 @@ export const NecroConfig = Object.freeze({
     }
   },
 
+  get witchHunters() {
+    return this.witchHunterFrequency;
+  },
+  set witchHunters(v) {
+    this.witchHunterFrequency = v;
+  },
+
   get capMode() {
     return getPref(PREF_KEYS.CAP_MODE, CAP_MODES.STAT_SCALED);
   },
