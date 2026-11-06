@@ -14253,24 +14253,41 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       }
 
       try {
-        await _teleportToPixel(targetPixelX, targetPixelY, null,
-          { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + travelMinutes,
-            reposition: REPOSITION.DirectionFromStartMarker,
-            travelStart, modEvent: 'travel',
-            resolveArrival: partyArrival ? async (fallback) => {
-              const arrival = await partyLanding.land(pick, fallback);
-              beside = arrival.beside;
-              const resolved = arrival.landing;
-              // Stop/pack a departure helm only after success is certain. Its
-              // own position write is replaced by the validated spawn below.
-              if (csaRuntime) csaCall(() => {
-                const sameOwnedHull = departure.boat && csa.boats.includes(departure.boat)
-                  && resolved.groundKey?.startsWith(`csaBoat:${csaBoatId(departure.boat)}:`);
-                if (sameOwnedHull) csaRuntime.StopSailing();
-                else csaRuntime.OnPreFastTravel();
-              });
-              return resolved;
-            } : null });
+        if (interruptedEventType) {
+          await _teleportToPixel(targetPixelX, targetPixelY, null,
+            { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + travelMinutes,
+              reposition: REPOSITION.DirectionFromStartMarker,
+              travelStart, modEvent: 'travel',
+              resolveArrival: partyArrival ? async (fallback) => {
+                const arrival = await partyLanding.land(pick, fallback);
+                beside = arrival.beside;
+                const resolved = arrival.landing;
+                if (csaRuntime) csaCall(() => {
+                  const sameOwnedHull = departure.boat && csa.boats.includes(departure.boat)
+                    && resolved.groundKey?.startsWith(`csaBoat:${csaBoatId(departure.boat)}:`);
+                  if (sameOwnedHull) csaRuntime.StopSailing();
+                  else csaRuntime.OnPreFastTravel();
+                });
+                return resolved;
+              } : null });
+        } else {
+          await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,
+            { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,
+              reposition: REPOSITION.DirectionFromStartMarker,
+              travelStart, modEvent: 'travel',
+              resolveArrival: partyArrival ? async (fallback) => {
+                const arrival = await partyLanding.land(pick, fallback);
+                beside = arrival.beside;
+                const resolved = arrival.landing;
+                if (csaRuntime) csaCall(() => {
+                  const sameOwnedHull = departure.boat && csa.boats.includes(departure.boat)
+                    && resolved.groundKey?.startsWith(`csaBoat:${csaBoatId(departure.boat)}:`);
+                  if (sameOwnedHull) csaRuntime.StopSailing();
+                  else csaRuntime.OnPreFastTravel();
+                });
+                return resolved;
+              } : null });
+        }
       } catch (error) {
         if (!partyArrival) throw error;
         // Restore the departure in the newly rebuilt origin frame. A guest's

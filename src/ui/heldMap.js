@@ -2145,7 +2145,7 @@ export class HeldMapWindow {
       c.noteInput.onkeydown = null;
       c.noteInput.onblur = null;
       done(v);
-      this._inkAgain();
+      this._inkAgain?.();
     };
     this._noteDone = finish;
     c.note.style.display = '';
@@ -4157,7 +4157,7 @@ export class HeldMapWindow {
       });
       // DISC25-A: the kept ink was laid out against the zones before the sprite loaded - lay it again against the
       // thumbs the key found (the static key does not carry the hands)
-      this._inkAgain();
+      this._inkAgain?.();
     } catch (e) {
       console.warn('[heldmap] the hands would not key', e);
     }
