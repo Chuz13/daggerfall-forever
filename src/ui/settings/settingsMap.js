@@ -143,6 +143,23 @@ export const CATEGORIES = Object.freeze([
       'Effects/ColorBoostDungeonFalloff',
     ]),
   ]),
+  tab('living', 'Living Tamriel', [
+    sec('living-politics', 'Politics, Economy & Cities', [
+      'feat:living-political',
+      'feat:living-quarantine',
+      'feat:living-urban',
+      'feat:living-bounties',
+    ]),
+    sec('living-rivals', 'Rivals, Adventurers & Nemeses', [
+      'feat:living-adventurers',
+      'feat:living-nemesis',
+    ]),
+    sec('living-travel', 'Roads, Wilderness & High Seas', [
+      'feat:living-travel',
+      'feat:living-camps',
+      'feat:living-naval',
+    ]),
+  ]),
   tab('gameplay', 'Gameplay', [
     sec('general', 'General', [
       'Enhancements/LoiterLimitInHours',
@@ -307,7 +324,6 @@ export const CATEGORIES = Object.freeze([
       'Enhancements/NearDeathWarning',
     ]),
     sec('messages', 'Messages & prompts', [
-      'feat:event-board',
       'feat:mod-world-tooltips',
       'feat:mod-ambient-text',
       'GUI/ShowQuestJournalClocksAsCountdown',

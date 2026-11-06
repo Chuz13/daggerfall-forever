@@ -4,7 +4,10 @@
 //
 // Governs presence tiers, encounter frequencies, and system tunables for the
 // modular "Living Tamriel" emergent world framework.
+// Connected to the UI preferences shelf (uiPrefs.js) and settings menu.
 // ═══════════════════════════════════════════════════════════════════════════════
+
+import { getPref, setPref } from '../uiPrefs.js';
 
 /**
  * Four-tier presence model:
@@ -21,20 +24,55 @@ export const PRESENCE = Object.freeze({
 });
 
 /**
+ * Reads a presence tier from uiPrefs, falling back to a default tier if unset.
+ * @param {string} key
+ * @param {number} fallback
+ * @returns {number}
+ */
+function readTierPref(key, fallback) {
+  const v = getPref(key);
+  return Number.isInteger(v) ? v : fallback;
+}
+
+/**
  * Global configuration parameters for Living Tamriel.
  * Designed to be modular, editable via settings, and safely defaults to MID tiers.
  */
 export const LivingTamrielConfig = {
-  // Presence Tiers (0..3)
-  political: PRESENCE.MID,          // Faction tension, regional disasters, city skirmishes
-  adventurers: PRESENCE.MID,        // Dynamic adventurer sim & Nemesis hunters
-  wilderness: PRESENCE.MID,         // Road traffic, ambushes, predator-prey ecology
-  urban: PRESENCE.MID,              // City events, pickpockets, distress calls
-  naval: PRESENCE.MID,              // High-seas multi-ship skirmishes (up to 3v3)
-  travelInterruption: PRESENCE.MID, // Fast travel interception (Things Betwixt style)
-  camps: PRESENCE.MID,              // WoD outpost & campsite spawning with slope snap
-  quarantine: PRESENCE.HIGH,        // Gate lock-down & road cordons during plague
-  bounties: PRESENCE.MID,           // Physical bounty board dynamic sync
+  // Presence Tiers (0..3) backed by UI preferences
+  get political() { return readTierPref('livingPolitical', PRESENCE.MID); },
+  set political(v) { setPref('livingPolitical', Number(v)); },
+
+  get adventurers() { return readTierPref('livingAdventurers', PRESENCE.MID); },
+  set adventurers(v) { setPref('livingAdventurers', Number(v)); },
+
+  get wilderness() { return readTierPref('livingTravel', PRESENCE.MID); },
+  set wilderness(v) { setPref('livingTravel', Number(v)); },
+
+  get urban() { return readTierPref('livingUrban', PRESENCE.MID); },
+  set urban(v) { setPref('livingUrban', Number(v)); },
+
+  get naval() { return readTierPref('livingNaval', PRESENCE.MID); },
+  set naval(v) { setPref('livingNaval', Number(v)); },
+
+  get travelInterruption() { return readTierPref('livingTravel', PRESENCE.MID); },
+  set travelInterruption(v) { setPref('livingTravel', Number(v)); },
+
+  get camps() { return readTierPref('livingCamps', PRESENCE.MID); },
+  set camps(v) { setPref('livingCamps', Number(v)); },
+
+  get quarantine() { return readTierPref('livingQuarantine', PRESENCE.HIGH); },
+  set quarantine(v) { setPref('livingQuarantine', Number(v)); },
+
+  get bounties() { return readTierPref('livingBounties', PRESENCE.MID); },
+  set bounties(v) { setPref('livingBounties', Number(v)); },
+
+  get nemesis() { return readTierPref('livingNemesis', PRESENCE.MID); },
+  set nemesis(v) { setPref('livingNemesis', Number(v)); },
+
+  // Competition toggles
+  get allowQuestCompetition() { return getPref('livingQuestCompetition') === true; },
+  set allowQuestCompetition(v) { setPref('livingQuestCompetition', Boolean(v)); },
 
   // Tunables & Thresholds
   adventurerPoolPerRegion: 13,      // Default 13, configurable up to 30 for stress-tests
@@ -60,15 +98,17 @@ export function isLivingFeatureActive(featureKey) {
  * Resets configuration back to canonical defaults.
  */
 export function resetLivingConfig() {
-  LivingTamrielConfig.political = PRESENCE.MID;
-  LivingTamrielConfig.adventurers = PRESENCE.MID;
-  LivingTamrielConfig.wilderness = PRESENCE.MID;
-  LivingTamrielConfig.urban = PRESENCE.MID;
-  LivingTamrielConfig.naval = PRESENCE.MID;
-  LivingTamrielConfig.travelInterruption = PRESENCE.MID;
-  LivingTamrielConfig.camps = PRESENCE.MID;
-  LivingTamrielConfig.quarantine = PRESENCE.HIGH;
-  LivingTamrielConfig.bounties = PRESENCE.MID;
+  setPref('livingPolitical', PRESENCE.MID);
+  setPref('livingAdventurers', PRESENCE.MID);
+  setPref('livingUrban', PRESENCE.MID);
+  setPref('livingNaval', PRESENCE.MID);
+  setPref('livingTravel', PRESENCE.MID);
+  setPref('livingCamps', PRESENCE.MID);
+  setPref('livingQuarantine', PRESENCE.HIGH);
+  setPref('livingBounties', PRESENCE.MID);
+  setPref('livingNemesis', PRESENCE.MID);
+  setPref('livingQuestCompetition', false);
+
   LivingTamrielConfig.adventurerPoolPerRegion = 13;
   LivingTamrielConfig.navalSpawnDistanceMeters = 250;
   LivingTamrielConfig.bountyWildernessWeight = 0.70;
@@ -77,4 +117,3 @@ export function resetLivingConfig() {
   LivingTamrielConfig.luckRerollThreshold = 5;
   LivingTamrielConfig.travelInterruptionCooldownMinutes = 2880;
 }
-
