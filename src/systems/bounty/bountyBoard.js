@@ -21,6 +21,7 @@
 import { MINUTES_PER_DAY } from '../gameDate.js';
 import { BOUNTY_POSE_MAX, worldPixelOk } from '../../net/wire.js';   // LAIR-WORLD: a town's pixel is the world's, the Bay's and past it
 import { t } from '../textManager.js';   // QUARRY-WORLD: the beasts' words in the player's language
+import { scaledReward, CONTRACT_KIND } from '../living/bountySync.js';
 export { MINUTES_PER_DAY, BOUNTY_POSE_MAX };
 
 /** The per-mod save slot's vendor name (systems/modSaveData.js). */
@@ -185,11 +186,16 @@ export function bountyGold(level, count, mobileType, underground = false, foesLi
     ? BOUNTY_PACK_MIN + 2 * (Math.max(BOUNTY_DUNGEON_PACK_MIN, Math.min(BOUNTY_DUNGEON_PACK_MAX, count | 0)) - BOUNTY_DUNGEON_PACK_MIN)
     : Math.max(BOUNTY_PACK_MIN, Math.min(BOUNTY_PACK_MAX, count | 0));
   const tier = BOUNTY_TIERS.indexOf(bountyTierFor(l));
-  if (tier < BOUNTY_FULL_PURSE.length) return Math.round(BOUNTY_FULL_PURSE[tier] * purseShare(n));
-  const foes = foesList ?? bountyTierFor(l).foes;   // QUARRY-WORLD: the rank among the beasts the posting drew from (bountyQuarry)
-  const rank = Math.max(0, foes.indexOf(mobileType));
-  const strength = foes.length > 1 ? rank / (foes.length - 1) : 1;
-  return 150 + 10 * (n - BOUNTY_PACK_MIN) + Math.round(10 * strength);
+  let baseGold;
+  if (tier < BOUNTY_FULL_PURSE.length) {
+    baseGold = Math.round(BOUNTY_FULL_PURSE[tier] * purseShare(n));
+  } else {
+    const foes = foesList ?? bountyTierFor(l).foes;   // QUARRY-WORLD: the rank among the beasts the posting drew from (bountyQuarry)
+    const rank = Math.max(0, foes.indexOf(mobileType));
+    const strength = foes.length > 1 ? rank / (foes.length - 1) : 1;
+    baseGold = 150 + 10 * (n - BOUNTY_PACK_MIN) + Math.round(10 * strength);
+  }
+  return scaledReward(baseGold, underground ? CONTRACT_KIND.DUNGEON : CONTRACT_KIND.WILDERNESS);
 }
 
 /**

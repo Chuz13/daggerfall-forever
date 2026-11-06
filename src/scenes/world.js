@@ -172,6 +172,8 @@ import { preloadSpellbookArt } from '../ui/spellbookWindow.js';   // U42: the cl
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { worldMinutes, skyMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes, raisedMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
+import { evaluateTravelInterruption, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
+import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain, aimedBlowInfo, playerBlowFrame, setWindupAtMeListener } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -14146,9 +14148,37 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       // pick towards the side the journey came from.
       const travelStart = state.worldCoords(walkMode ? player.pos : cam.pos);
       let beside = null;
+
+      // LIVING TAMRIEL: Fast travel route interruption check
+      let targetPixelX = pick.pixel.x;
+      let targetPixelY = pick.pixel.y;
+      let travelMinutes = computed.minutes;
+      if (!partyArrival) {
+        const curPixel = playerTravelPixel();
+        const regIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(curPixel.x, curPixel.y) ?? 0) : 0;
+        const playerLuck = liveStat(playerEntity, 'luck') || 50;
+        const interruption = evaluateTravelInterruption({
+          regionIndex: regIdx,
+          playerLuck,
+          nowMinutes: worldMinutes(),
+        });
+        if (interruption.shouldInterrupt) {
+          targetPixelX = Math.round((curPixel.x + pick.pixel.x) / 2);
+          targetPixelY = Math.round((curPixel.y + pick.pixel.y) / 2);
+          travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
+          if (interruption.eventType === TRAVEL_EVENT_TYPE.PEACEFUL_CARAVAN) {
+            townTalk.say(LIVING_WORDS.travelCaravan());
+          } else if (interruption.eventType === TRAVEL_EVENT_TYPE.ROAD_DILEMMA) {
+            townTalk.say(LIVING_WORDS.travelDilemma());
+          } else if (interruption.eventType === TRAVEL_EVENT_TYPE.AMBUSH) {
+            townTalk.say(LIVING_WORDS.travelAmbush());
+          }
+        }
+      }
+
       try {
-        await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,
-          { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,
+        await _teleportToPixel(targetPixelX, targetPixelY, null,
+          { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + travelMinutes,
             reposition: REPOSITION.DirectionFromStartMarker,
             travelStart, modEvent: 'travel',
             resolveArrival: partyArrival ? async (fallback) => {

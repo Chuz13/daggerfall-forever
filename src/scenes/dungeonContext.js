@@ -33,6 +33,7 @@ import { expandMacros } from '../systems/talk/talkSession.js';   // MACRO1: the 
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
 import { enterDungeonAutomap, exitDungeonAutomap, detachedAutomapRecord, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, automapWaySteps, capsuleCentreFromEye, SCAN_INTERVAL_S, recordTeleporterConnection, teleporterConnection, registerAutomapConsoleCommands } from '../systems/automap/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
 import { automapKeyOf } from '../systems/automap/automap.js';   // TESA8: a dungeon's automap key by its location - a lair past the Bay its own
+import { isDungeonInCooldown, claimFallenAdventurerRemains } from '../systems/living/adventurerSim.js';
 import { automapWaterLevel, ELEMENT_NAMES } from '../systems/automap/automapModel.js';   // ROAD-C c2/S1
 import { signalAutomapReset } from '../ui/automap/automapWindow.js';   // A1: the M window; ROAD-C c2/S5: its native art + the reset signal
 // EM3: the skin fork. The classic skin keeps DFU's 3D panel whole; the
@@ -1199,7 +1200,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const _hallBeasts = _undercroftHall ? _undercroftHall.beasts.map((b, i) => ({ x: b.x, y: b.y, z: b.z, mobileType: b.mobileType, fixed: true, reaction: 'passive', gender: 'unspecified', spawnDistanceType: 0, loadID: 0x55430100 + i, blockIndex: -1, arenaChained: i })) : null;
   /** @type {number[][] | null} LW6b: the dungeon's resting places, sounded once (restingSpots) */
   let _restingSpots = null;
-  const enemies = dfLocation?.elite || _superTier   // SD4a: a Super dungeon stands the Elite's three at every marker
+  const _dungeonId = dfLocation?.mapTableData?.mapId ?? dfLocation?.dungeon?.recordElement?.header?.locationId;
+  const _livingCooldown = _dungeonId ? isDungeonInCooldown(_dungeonId) : false;
+  const _rawEnemies = dfLocation?.elite || _superTier   // SD4a: a Super dungeon stands the Elite's three at every marker
     ? expandEliteEnemies(_layoutEnemies, {
       copies: ELITE_FOE_MULTIPLIER,
       clearance: (from, dir, dist) => collider.raycast([from[0], from[1] + 0.9, from[2]], dir, dist),
@@ -1208,6 +1211,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       floor: (at) => { const d = collider.raycast([at[0], at[1] + 1, at[2]], [0, -1, 0], 3); return Number.isFinite(d) ? at[1] + 1 - d : null; },
     })
     : (_hallBeasts ? [..._hallBeasts, ...deepFoesOf(_layoutEnemies, _undercroftHall.deep)] : _layoutEnemies);   // UNDERCROFT-DEEP: and the deep cellars' foes, past the hall's reach
+  // LIVING TAMRIEL: If dungeon is in cleared cooldown from virtual adventurers, thin enemy population
+  const enemies = (_livingCooldown && _rawEnemies.length > 2)
+    ? _rawEnemies.filter((_, idx) => idx % 4 === 0)
+    : _rawEnemies;
   if (_superTier) for (const e of enemies) e.superTier = true;   // SD4a: each record says so - its own scale and loot (applyEliteScaling, eliteLootOpts), on every client alike
   if (!_undercroftHall) markDungeonChampions(enemies, dfLocation.dungeon.recordElement.header.locationId);   // ARENA-FIX 4: no champion among the chained beasts   // LOOT7: the layout's champions, a hash of the place and the marker - every client the same, no wire word
   // ELITE FOES: an Elite Dungeon holds 3 or 4 champions among its foes - a pure pick over the list every client builds,
@@ -4039,6 +4046,19 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         if (stopKey && _deepCleared.has(stopKey)) items.length = 0;   // LW14: a pile a company passed, picked over
         lootPiles.push({ pos: [m.x + b.originX, m.y, m.z + b.originZ], record, items, isFixed, batch: null });
         if (stopKey) lootPiles[lootPiles.length - 1].stopKey = stopKey;
+      }
+    }
+    // LIVING TAMRIEL: Inject fallen adventurer remains into boss/final loot pile
+    if (_dungeonId && lootPiles.length > 0) {
+      const remains = claimFallenAdventurerRemains(_dungeonId);
+      if (remains && remains.length > 0) {
+        const finalPile = lootPiles[lootPiles.length - 1];
+        for (const adv of remains) {
+          const advItems = rollPileItems({ level: adv.level || 5 });
+          if (Array.isArray(advItems) && advItems.length > 0) {
+            finalPile.items.push(...advItems);
+          }
+        }
       }
     }
   }
