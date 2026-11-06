@@ -20,7 +20,13 @@ import {
   claimFallenAdventurerRemains,
   getDungeonActiveAdventurer,
   getAdventurerSimRegistry,
+  ROAD_ADVENTURER_SITUATION,
+  WANDERING_OUTCOME,
+  getRoadAdventurerSiteChance,
+  getRoadAdventurerAmbientShare,
+  resolveWanderingAdventurerInteraction,
 } from '../../src/systems/living/adventurerSim.js';
+import { LivingTamrielConfig, PRESENCE } from '../../src/systems/living/livingConfig.js';
 import { hasRegionalCheckpointPass } from '../../src/systems/living/roadCheckpointHost.js';
 import { getNemesisMemory, resolveNemesisConfrontation, createNemesisHunter, NEMESIS_ARCHETYPES } from '../../src/systems/living/nemesisHost.js';
 import { resolvePleaResponse, PLEA_TYPE } from '../../src/systems/living/pleaHost.js';
@@ -536,5 +542,168 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
       player.items.some((it) => it.group === 'QuestItems'),
       'reclaimed quest trophy added to player inventory',
     );
+  });
+
+  it('Step 7: Non-Seeking Wandering Road Adventurers (4-Tier Setting, 4 Situations, 5 Interactions), Stealth Ambush Evade, Urban Skirmish Resolution, and Naval Side Choice', async () => {
+    // 1. 4-tier setting scaling for roadAdventurers
+    LivingTamrielConfig.roadAdventurers = PRESENCE.OFF;
+    assert.equal(getRoadAdventurerSiteChance(LivingTamrielConfig.roadAdventurers), 0);
+    assert.equal(getRoadAdventurerAmbientShare(LivingTamrielConfig.roadAdventurers), 0);
+
+    LivingTamrielConfig.roadAdventurers = PRESENCE.LIGHT;
+    assert.equal(getRoadAdventurerSiteChance(LivingTamrielConfig.roadAdventurers), 0.12);
+    assert.equal(getRoadAdventurerAmbientShare(LivingTamrielConfig.roadAdventurers), 0.06);
+
+    LivingTamrielConfig.roadAdventurers = PRESENCE.MID;
+    assert.equal(getRoadAdventurerSiteChance(LivingTamrielConfig.roadAdventurers), 0.24);
+    assert.equal(getRoadAdventurerAmbientShare(LivingTamrielConfig.roadAdventurers), 0.14);
+
+    LivingTamrielConfig.roadAdventurers = PRESENCE.HIGH;
+    assert.equal(getRoadAdventurerSiteChance(LivingTamrielConfig.roadAdventurers), 0.40);
+    assert.equal(getRoadAdventurerAmbientShare(LivingTamrielConfig.roadAdventurers), 0.25);
+
+    // 2. Blueprint generation for WANDERING_ADVENTURER across situations
+    const player = {
+      level: 8,
+      health: 50,
+      maxHealth: 100,
+      fatigue: 30,
+      maxFatigue: 100,
+      goldPieces: 500,
+      skills: { Etiquette: 75, Streetwise: 80 },
+      stats: { Personality: 70, Luck: 65, Strength: 65, Agility: 65 },
+      regionalReputations: { 17: 0 },
+    };
+
+    // Nighttime -> ROADSIDE_CAMP (tent + campfire + non-hostile adventurer)
+    const campBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+      centerX: 10,
+      centerZ: 20,
+      heightAt: () => 4,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 23 * 60, // Night -> ROADSIDE_CAMP
+      onRoad: true,
+      rng: () => 0.65,
+    });
+    assert.equal(campBp.meta.situation, ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP);
+    assert.ok(campBp.meshes.some((m) => m.modelId === LIVING_MODELS.TENT));
+    assert.ok(campBp.flats.some((f) => f.lightRadius > 0));
+    assert.equal(campBp.actors.length, 1);
+    assert.equal(campBp.actors[0].hostile, false);
+
+    // Daytime skirmish roll -> SKIRMISH_WITH_MONSTERS (allied adventurer + 2 hostile monsters)
+    const skirmishBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+      centerX: 10,
+      centerZ: 20,
+      heightAt: () => 4,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 12 * 60, // Noon
+      onRoad: false,
+      rng: () => 0.15, // < 0.30 -> SKIRMISH_WITH_MONSTERS
+    });
+    assert.equal(skirmishBp.meta.situation, ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS);
+    assert.equal(skirmishBp.actors.length, 3);
+    const advActor = skirmishBp.actors.find((a) => a.role === 'wandering_adventurer');
+    assert.equal(advActor.allied, true);
+    assert.equal(advActor.team, 'PlayerAlly');
+
+    // 3. Wandering Adventurer ChoiceWindow interactions (SHARE_INTEL, RECRUIT_ALLY, EXTORT_SPOILS)
+    const intelRes = resolveWanderingAdventurerInteraction({
+      adv: campBp.meta.adv,
+      situation: ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP,
+      playerEntity: player,
+      action: 'SHARE_INTEL',
+      regionIndex: 17,
+    });
+    assert.equal(intelRes.outcome, WANDERING_OUTCOME.INTEL_SHARED);
+    assert.equal(intelRes.healed, true);
+    assert.equal(player.health, 65, 'sharing camp restores +15 health');
+
+    const spawnedFoes = [];
+    let choiceSpec = null;
+    let playerPos = [0, 4, 0];
+    let afloat = false;
+    const host = createLivingSceneHost({
+      feet: () => playerPos,
+      ready: () => true,
+      clock: () => 12 * 60,
+      regionIndex: () => 17,
+      inLocationRect: () => false,
+      onRoad: () => true,
+      afloat: () => afloat,
+      heightAt: () => 4,
+      playerEntity: () => player,
+      spawn: async (type, feet, opts) => {
+        const rec = {
+          mobileType: type,
+          feet,
+          opts,
+          dead: false,
+          entity: { name: '', team: opts.team, currentHealth: 80 },
+          ai: { isHostile: !opts.allied, detected: false },
+        };
+        spawnedFoes.push(rec);
+        return rec;
+      },
+      remove: (rec) => {
+        rec.dead = true;
+      },
+      inPool: (rec) => !rec.dead,
+      say: () => {},
+      openChoice: (spec) => {
+        choiceSpec = spec;
+      },
+    });
+
+    host.standBlueprint(campBp);
+    await new Promise((r) => setTimeout(r, 5));
+    playerPos = [10, 4, 15];
+    host.frame(1.1);
+    assert.ok(choiceSpec, 'Approaching wandering adventurer opens 5-option ChoiceWindow');
+    assert.equal(choiceSpec.options.length, 5);
+    // Option 2: Recruit ally
+    choiceSpec.options[1].action();
+    const stoodAdv = spawnedFoes.find((f) => f.livingRole === 'wandering_adventurer');
+    assert.equal(stoodAdv.entity.team, 'PlayerAlly', 'recruited road adventurer joins PlayerAlly');
+
+    // 4. Stealth-detected BANDIT_CAMP ambush ChoiceWindow
+    choiceSpec = null;
+    spawnedFoes.length = 0;
+    const stealthBanditBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.BANDIT_CAMP,
+      centerX: 10,
+      centerZ: 20,
+      heightAt: () => 4,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 12 * 60,
+      ambushDetectedByStealth: true,
+    });
+    assert.equal(stealthBanditBp.actors.every((a) => a.hostile === false), true, 'stealth-detected bandits start non-hostile');
+    host.standBlueprint(stealthBanditBp);
+    await new Promise((r) => setTimeout(r, 5));
+    host.frame(1.1);
+    assert.ok(choiceSpec, 'Stealth-detected ambush opens ChoiceWindow');
+    assert.equal(choiceSpec.options.length, 2);
+    // Option 2: Surprise attack reduces bandit HP by 25% and turns them hostile
+    choiceSpec.options[1].action();
+    assert.equal(spawnedFoes[0].entity.currentHealth, 60, 'surprise attack reduces bandit HP from 80 to 60');
+    assert.equal(spawnedFoes[0].ai.isHostile, true);
+
+    // 5. Naval Squadron side choice when afloat
+    host.clear();
+    choiceSpec = null;
+    afloat = true;
+    setRegionCrisis(17, 'WAR', 'MID');
+    host.frame(1.1);
+    assert.ok(choiceSpec, 'Sailing in a crisis region triggers Naval Squadron ChoiceWindow');
+    assert.equal(choiceSpec.options.length, 3);
+    const repBefore = player.regionalReputations[17] || 0;
+    choiceSpec.options[0].action(); // Join Navy
+    assert.ok(player.regionalReputations[17] > repBefore, 'Joining Provincial Navy grants positive regional reputation');
   });
 });

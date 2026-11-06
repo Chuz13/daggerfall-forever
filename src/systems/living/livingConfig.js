@@ -58,6 +58,9 @@ export const LivingTamrielConfig = {
   get adventurers() { return readTierPref('livingAdventurers', PRESENCE.MID); },
   set adventurers(v) { setPref('livingAdventurers', Number(v)); },
 
+  get roadAdventurers() { return readTierPref('livingRoadAdventurers', PRESENCE.MID); },
+  set roadAdventurers(v) { setPref('livingRoadAdventurers', Number(v)); },
+
   get wilderness() {
     const w = parseTierValue(getPref('livingWilderness'));
     if (w !== null) return w;
@@ -120,6 +123,7 @@ export function isLivingFeatureActive(featureKey) {
 export function resetLivingConfig() {
   setPref('livingPolitical', PRESENCE.MID);
   setPref('livingAdventurers', PRESENCE.MID);
+  setPref('livingRoadAdventurers', PRESENCE.MID);
   setPref('livingUrban', PRESENCE.MID);
   setPref('livingNaval', PRESENCE.MID);
   setPref('livingTravel', PRESENCE.MID);

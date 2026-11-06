@@ -771,3 +771,394 @@ export function confrontInterceptingAdventurer({
 
   return null;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WANDERING ROAD & WILDERNESS ADVENTURERS (Non-Seeking Encounters)
+//
+// Adventurers from the regional pool who are NOT hunting the player:
+//   - Traveling along highways between settlements and dungeons
+//   - Camping by the roadside to rest and mend gear
+//   - Clashing with local monsters or highwaymen in real time
+//   - Returning from cleared dungeons with chests of spoils
+// Controlled by the 4-tier setting `LivingTamrielConfig.roadAdventurers` (0..3).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const ROAD_ADVENTURER_SITUATION = Object.freeze({
+  TRAVELING_ON_ROAD: 'TRAVELING_ON_ROAD',
+  ROADSIDE_CAMP: 'ROADSIDE_CAMP',
+  SKIRMISH_WITH_MONSTERS: 'SKIRMISH_WITH_MONSTERS',
+  RETURNING_WITH_SPOILS: 'RETURNING_WITH_SPOILS',
+});
+
+export const WANDERING_OUTCOME = Object.freeze({
+  INTEL_SHARED: 'INTEL_SHARED',
+  RECRUITED_ALLY: 'RECRUITED_ALLY',
+  SPAR_WON: 'SPAR_WON',
+  SPAR_LOST: 'SPAR_LOST',
+  EXTORTED_SPOILS: 'EXTORTED_SPOILS',
+  HOSTILE_DRAW: 'HOSTILE_DRAW',
+  PARTED_PEACEFULLY: 'PARTED_PEACEFULLY',
+  DECLINED: 'DECLINED',
+});
+
+const ADVENTURER_FORENAMES = Object.freeze([
+  'Kaelen', 'Valen', 'Barenziah', 'Gothryd', 'Morgiah', 'Aubk-i',
+  'Cyrus', 'Lhotun', 'Eadwyre', 'Nulfaga', 'Medora', 'Symmachus',
+  'Arctus', 'Dralsi', 'Sorcalin', 'Thulgeg', 'Varnis', 'Elysana',
+]);
+
+/**
+ * Returns a lore-friendly display name for an adventurer while keeping `adv.name` intact.
+ * @param {any} adv
+ * @returns {string}
+ */
+export function getAdventurerDisplayName(adv) {
+  if (!adv) return 'Wandering Adventurer';
+  const raw = String(adv.name || '');
+  if (raw && !/^[A-Za-z]+_\d+$/.test(raw)) {
+    return `${raw} (${adv.className || 'Adventurer'})`;
+  }
+  const idNum = Math.abs(Number(adv.id) || 0);
+  const forename = ADVENTURER_FORENAMES[idNum % ADVENTURER_FORENAMES.length];
+  const cls = adv.className || 'Warrior';
+  return `${forename} the ${cls}`;
+}
+
+/**
+ * Returns the 3D site spawn probability for non-seeking wandering adventurers
+ * based on the 4-tier `LivingTamrielConfig.roadAdventurers` setting (0..3).
+ *
+ * @param {number} [tier]
+ * @returns {number} Probability in [0, 1]
+ */
+export function getRoadAdventurerSiteChance(tier = Number(LivingTamrielConfig.roadAdventurers)) {
+  if (tier <= PRESENCE.OFF) return 0;
+  if (tier === PRESENCE.LIGHT) return 0.12;
+  if (tier === PRESENCE.MID) return 0.24;
+  return 0.40; // HIGH
+}
+
+/**
+ * Returns the ambient road/wilderness encounter replacement share for wandering adventurers
+ * based on the 4-tier `LivingTamrielConfig.roadAdventurers` setting (0..3).
+ *
+ * @param {number} [tier]
+ * @returns {number} Share in [0, 1]
+ */
+export function getRoadAdventurerAmbientShare(tier = Number(LivingTamrielConfig.roadAdventurers)) {
+  if (tier <= PRESENCE.OFF) return 0;
+  if (tier === PRESENCE.LIGHT) return 0.06;
+  if (tier === PRESENCE.MID) return 0.14;
+  return 0.25; // HIGH
+}
+
+/**
+ * Picks a non-seeking adventurer from the regional pool and determines what they
+ * are currently doing in the wilderness or on the road.
+ *
+ * @param {Object} params
+ * @param {number} [params.regionIndex=0]
+ * @param {boolean} [params.onRoad=true]
+ * @param {boolean} [params.isDay=true]
+ * @param {any} [params.playerEntity=null]
+ * @param {() => number} [params.rng=Math.random]
+ * @returns {{
+ *   adv: any,
+ *   displayName: string,
+ *   situation: string,
+ *   hireCost: number,
+ *   tension: { attitude: string, tensionScore: number, challengeType: string, wagerGold: number }
+ * } | null}
+ */
+export function pickWanderingAdventurerEncounter({
+  regionIndex = 0,
+  onRoad = true,
+  isDay = true,
+  playerEntity = null,
+  rng = Math.random,
+} = {}) {
+  const tier = Number(LivingTamrielConfig.roadAdventurers);
+  if (tier <= PRESENCE.OFF) return null;
+
+  const reg = getAdventurerSimRegistry();
+  const pool = Array.isArray(reg.pool) && reg.pool.length > 0 ? reg.pool : ensureAdventurerPool(rng);
+
+  // Prefer adventurers in this region who are TRAVELING or IDLE (not inside a dungeon)
+  const candidates = pool.filter(
+    (a) =>
+      a.status !== ADVENTURER_STATUS.DEAD &&
+      a.currentRegion === regionIndex &&
+      (a.status === ADVENTURER_STATUS.TRAVELING || a.status === ADVENTURER_STATUS.IDLE),
+  );
+  const fallbackCandidates = pool.filter(
+    (a) => a.status !== ADVENTURER_STATUS.DEAD && a.currentRegion === regionIndex,
+  );
+  const list = candidates.length > 0 ? candidates : fallbackCandidates;
+
+  const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
+  const adv =
+    list.length > 0
+      ? list[Math.floor(rng() * list.length)]
+      : {
+          id: 950,
+          name: 'Kaelen',
+          className: 'Ranger',
+          trait: 'HONORABLE',
+          level: playerLevel,
+          gearTier: Math.min(9, Math.floor(playerLevel / 5) + 1),
+          currentRegion: regionIndex,
+          status: onRoad ? ADVENTURER_STATUS.TRAVELING : ADVENTURER_STATUS.IDLE,
+          delveSuccessCount: 1,
+        };
+
+  const roll = rng();
+  /** @type {string} */
+  let situation = ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD;
+  if (roll < 0.30) {
+    situation = ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS;
+  } else if ((adv.delveSuccessCount || 0) > 0 && roll < 0.55) {
+    situation = ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS;
+  } else if (!isDay || !onRoad || adv.status === ADVENTURER_STATUS.IDLE) {
+    situation = ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP;
+  } else {
+    situation = ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD;
+  }
+
+  const tension = evaluateAdventurerTension(adv, playerEntity);
+  const hireCost = Math.max(30, (adv.level || 1) * 15);
+
+  return {
+    adv,
+    displayName: getAdventurerDisplayName(adv),
+    situation,
+    hireCost,
+    tension,
+  };
+}
+
+/**
+ * Resolves a player's interaction with a non-seeking wandering adventurer on the road or in the wilds.
+ *
+ * @param {Object} params
+ * @param {any} params.adv
+ * @param {string} [params.situation='TRAVELING_ON_ROAD']
+ * @param {any} params.playerEntity
+ * @param {'SHARE_INTEL'|'RECRUIT_ALLY'|'WAGER_SPAR'|'EXTORT_SPOILS'|'LEAVE'} params.action
+ * @param {number} [params.regionIndex=0]
+ * @param {() => number} [params.rng=Math.random]
+ * @returns {{
+ *   outcome: string,
+ *   goldDelta: number,
+ *   repDelta: number,
+ *   healed: boolean,
+ *   allied: boolean,
+ *   hostile: boolean,
+ *   spoilsItem: boolean,
+ *   messageKey: string
+ * }}
+ */
+export function resolveWanderingAdventurerInteraction({
+  adv,
+  situation = ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+  playerEntity,
+  action,
+  regionIndex = 0,
+  rng = Math.random,
+}) {
+  const playerLuck = Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
+  const advLevel = Math.max(1, Number(adv?.level ?? 1));
+  const hireCost = Math.max(30, advLevel * 15);
+  const wagerGold = Math.max(25, advLevel * 15);
+
+  const applyRep = (delta) => {
+    if (delta && playerEntity?.regionalReputations && typeof playerEntity.regionalReputations === 'object') {
+      playerEntity.regionalReputations[regionIndex] =
+        Number(playerEntity.regionalReputations[regionIndex] || 0) + delta;
+    }
+  };
+
+  if (action === 'LEAVE') {
+    return {
+      outcome: WANDERING_OUTCOME.PARTED_PEACEFULLY,
+      goldDelta: 0,
+      repDelta: 0,
+      healed: false,
+      allied: false,
+      hostile: false,
+      spoilsItem: false,
+      messageKey: 'living.roadAdv.parted',
+    };
+  }
+
+  if (action === 'SHARE_INTEL') {
+    let goldDelta = 0;
+    let repDelta = 1;
+    let healed = false;
+
+    if (situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS) {
+      // Grateful adventurer shares coin after fighting off roadside beasts/bandits together
+      goldDelta = Math.max(25, advLevel * 12);
+      repDelta = 2;
+      if (playerEntity && typeof playerEntity.goldPieces === 'number') {
+        playerEntity.goldPieces += goldDelta;
+      }
+    } else if (situation === ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP) {
+      // Resting by the adventurer's campfire restores player health
+      healed = true;
+      if (playerEntity && typeof playerEntity.health === 'number') {
+        const maxH = Number(playerEntity.maxHealth || playerEntity.health + 15);
+        playerEntity.health = Math.min(maxH, playerEntity.health + 15);
+      }
+    }
+
+    applyRep(repDelta);
+    return {
+      outcome: WANDERING_OUTCOME.INTEL_SHARED,
+      goldDelta,
+      repDelta,
+      healed,
+      allied: situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS,
+      hostile: false,
+      spoilsItem: false,
+      messageKey: 'living.roadAdv.intelShared',
+    };
+  }
+
+  if (action === 'RECRUIT_ALLY') {
+    const et =
+      skillValue(playerEntity, SKILLS.Etiquette) ||
+      Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
+    const bonus = adv?.trait === 'HONORABLE' ? 20 : adv?.trait === 'CAUTIOUS' ? 10 : 0;
+    const difficulty = Math.min(90, advLevel * 3 + 25 - bonus);
+    const roll = dice100(rng);
+
+    // High Etiquette or Luck convinces an honorable/friendly adventurer to travel with you for free!
+    if (
+      adv?.trait !== 'CUTTHROAT' &&
+      (roll <= et + bonus || (et + bonus - difficulty >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck))
+    ) {
+      return {
+        outcome: WANDERING_OUTCOME.RECRUITED_ALLY,
+        goldDelta: 0,
+        repDelta: 1,
+        healed: false,
+        allied: true,
+        hostile: false,
+        spoilsItem: false,
+        messageKey: 'living.roadAdv.recruited',
+      };
+    }
+
+    // Otherwise, hire with gold retainer
+    const haveGold = Number(playerEntity?.goldPieces ?? 0);
+    if (haveGold >= hireCost && adv?.trait !== 'CUTTHROAT') {
+      if (playerEntity) {
+        playerEntity.goldPieces = Math.max(0, haveGold - hireCost);
+      }
+      return {
+        outcome: WANDERING_OUTCOME.RECRUITED_ALLY,
+        goldDelta: -hireCost,
+        repDelta: 0,
+        healed: false,
+        allied: true,
+        hostile: false,
+        spoilsItem: false,
+        messageKey: 'living.roadAdv.recruited',
+      };
+    }
+
+    return {
+      outcome: WANDERING_OUTCOME.DECLINED,
+      goldDelta: 0,
+      repDelta: 0,
+      healed: false,
+      allied: false,
+      hostile: false,
+      spoilsItem: false,
+      messageKey: 'living.roadAdv.declined',
+    };
+  }
+
+  if (action === 'WAGER_SPAR') {
+    const spar = resolveAdventurerEncounter({
+      adv,
+      playerEntity,
+      action: 'ACCEPT_DARE',
+      wagerGold,
+      rng,
+    });
+    if (playerEntity && spar.goldDelta) {
+      playerEntity.goldPieces = Math.max(0, Number(playerEntity.goldPieces ?? 0) + spar.goldDelta);
+    }
+    const won = spar.outcome === DUEL_OUTCOME.PLAYER_WON || spar.outcome === DUEL_OUTCOME.LUCK_REVERSAL;
+    return {
+      outcome: won ? WANDERING_OUTCOME.SPAR_WON : WANDERING_OUTCOME.SPAR_LOST,
+      goldDelta: spar.goldDelta,
+      repDelta: won ? 1 : 0,
+      healed: false,
+      allied: false,
+      hostile: false,
+      spoilsItem: false,
+      messageKey: spar.messageKey,
+    };
+  }
+
+  if (action === 'EXTORT_SPOILS') {
+    const sw =
+      skillValue(playerEntity, SKILLS.Streetwise) ||
+      Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
+    const traitMod = adv?.trait === 'CAUTIOUS' ? -15 : adv?.trait === 'HONORABLE' || adv?.trait === 'DUELIST' ? 20 : 0;
+    const difficulty = Math.min(95, Math.max(15, advLevel * 3 + 30 + traitMod));
+    const roll = dice100(rng);
+
+    if (roll <= sw) {
+      const extortedGold = Math.max(30, advLevel * 20);
+      if (playerEntity && typeof playerEntity.goldPieces === 'number') {
+        playerEntity.goldPieces += extortedGold;
+      }
+      if (Array.isArray(playerEntity?.items)) {
+        playerEntity.items.push({
+          name: `${getAdventurerDisplayName(adv)}'s Dungeon Spoils`,
+          shortName: 'Dungeon Spoils',
+          value: extortedGold,
+          weight: 1.0,
+        });
+      }
+      applyRep(-2);
+      return {
+        outcome: WANDERING_OUTCOME.EXTORTED_SPOILS,
+        goldDelta: extortedGold,
+        repDelta: -2,
+        healed: false,
+        allied: false,
+        hostile: false,
+        spoilsItem: true,
+        messageKey: 'living.roadAdv.extorted',
+      };
+    }
+
+    applyRep(-1);
+    return {
+      outcome: WANDERING_OUTCOME.HOSTILE_DRAW,
+      goldDelta: 0,
+      repDelta: -1,
+      healed: false,
+      allied: false,
+      hostile: true,
+      spoilsItem: false,
+      messageKey: 'living.adventurer.enviousTaunt',
+    };
+  }
+
+  return {
+    outcome: WANDERING_OUTCOME.PARTED_PEACEFULLY,
+    goldDelta: 0,
+    repDelta: 0,
+    healed: false,
+    allied: false,
+    hostile: false,
+    spoilsItem: false,
+    messageKey: 'living.roadAdv.parted',
+  };
+}
+

@@ -31,7 +31,19 @@ import {
   resolveCheckpointInteraction,
   CHECKPOINT_OUTCOME,
 } from './roadCheckpointHost.js';
-import { shouldSpawnUrbanSkirmish, planUrbanSkirmish, SKIRMISH_TEAMS } from './urbanDirector.js';
+import {
+  shouldSpawnUrbanSkirmish,
+  planUrbanSkirmish,
+  isSkirmishBlowCriminal,
+  SKIRMISH_TEAMS,
+} from './urbanDirector.js';
+import {
+  planSquadronEncounter,
+  shouldPromptSideChoice,
+  resolveSideChoice,
+  NAVAL_CHOICE,
+} from './navalIncidentHost.js';
+import { onContractCompleted } from './bountySync.js';
 import {
   shouldDispatchNemesis,
   determineNemesisArchetype,
@@ -47,6 +59,13 @@ import {
   resolveAdventurerEncounter,
   confrontInterceptingAdventurer,
   getDungeonActiveAdventurer,
+  getRoadAdventurerSiteChance,
+  getRoadAdventurerAmbientShare,
+  pickWanderingAdventurerEncounter,
+  resolveWanderingAdventurerInteraction,
+  getAdventurerDisplayName,
+  ROAD_ADVENTURER_SITUATION,
+  WANDERING_OUTCOME,
   DUEL_OUTCOME,
   RECLAIM_OUTCOME,
   ADVENTURER_STATUS,
@@ -105,6 +124,7 @@ export const LIVING_SITE_KINDS = Object.freeze({
   URBAN_SKIRMISH: 'URBAN_SKIRMISH',
   NEMESIS_AMBUSH: 'NEMESIS_AMBUSH',
   ADVENTURER_MEETING: 'ADVENTURER_MEETING',
+  WANDERING_ADVENTURER: 'WANDERING_ADVENTURER',
 });
 
 /** Distance (m) at which a spawned site is kept before cleanup. */
@@ -384,6 +404,40 @@ export function rollLivingWildernessEncounter(ctx, rolls = Math.random) {
   const adjustedRollMax = Math.max(10, baseRollMax - tensionBonus);
   if (Math.floor(rolls() * adjustedRollMax) !== 0) return null;
 
+  // Check if a non-seeking wandering adventurer appears on the road instead of a monster during peacetime
+  const roadAdvShare = getRoadAdventurerAmbientShare(LivingTamrielConfig.roadAdventurers);
+  if (
+    !ctx.inLocationRect &&
+    ctx.onRoad &&
+    (!regState || regState.crisis === CRISIS_TYPE.PEACE) &&
+    roadAdvShare > 0 &&
+    rolls() < roadAdvShare
+  ) {
+    const wandering = pickWanderingAdventurerEncounter({
+      regionIndex: ctx.regionIndex ?? 0,
+      onRoad: Boolean(ctx.onRoad),
+      isDay,
+      rng: rolls,
+    });
+    if (wandering) {
+      const advType = CLASS_TO_MOBILE_TYPE[wandering.adv.className] ?? MOBILE_TYPES.Ranger;
+      return {
+        mobileType: advType,
+        minDistance: 10,
+        maxDistance: 20,
+        lineOfSightCheck: true,
+        ecologicalTag: `wandering_adventurer_${wandering.situation.toLowerCase()}`,
+        crisisDriven: false,
+        extraCount: 0,
+        isWanderingAdventurer: true,
+        adventurerName: wandering.displayName,
+        adventurerRecord: wandering.adv,
+        situation: wandering.situation,
+        nonHostile: wandering.adv.trait !== 'CUTTHROAT',
+      };
+    }
+  }
+
   const season = seasonValue(dateFromClassicMinutes(skyMin));
   const { pool, crisisDriven, ecologicalTag } = buildEcologicalCandidatePool(
     {
@@ -474,6 +528,8 @@ export function rollLivingChunkCampRoster(ctx, rolls = Math.random) {
  * @param {number} [params.regionIndex=0]
  * @param {any} [params.playerEntity=null]
  * @param {number} [params.nowMinutes=0]
+ * @param {boolean} [params.onRoad=false]
+ * @param {boolean} [params.ambushDetectedByStealth=false]
  * @param {() => number} [params.rng=Math.random]
  */
 export function buildLivingSiteBlueprint({
@@ -484,10 +540,16 @@ export function buildLivingSiteBlueprint({
   regionIndex = 0,
   playerEntity = null,
   nowMinutes = 0,
+  onRoad = false,
+  ambushDetectedByStealth = false,
   rng = Math.random,
 }) {
   const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
   const y0 = snapPropToGround(heightAt, centerX, centerZ, 0);
+  const skyMin = Number.isFinite(nowMinutes) ? Number(nowMinutes) : 720;
+  const timeOfDay = ((skyMin % 1440) + 1440) % 1440;
+  const isDay = timeOfDay >= 360 && timeOfDay <= 1080;
+  const season = seasonValue(dateFromClassicMinutes(skyMin));
 
   /** @type {Array<{ modelId: number, feet: number[], yawDeg: number }>} */
   const meshes = [];
@@ -528,6 +590,7 @@ export function buildLivingSiteBlueprint({
       });
     }
   } else if (kind === LIVING_SITE_KINDS.BANDIT_CAMP) {
+    meta = { ...meta, ambushDetectedByStealth: Boolean(ambushDetectedByStealth) };
     meshes.push(
       { modelId: LIVING_MODELS.TENT, feet: [centerX - 4.0, snapPropToGround(heightAt, centerX - 4.0, centerZ - 2.0), centerZ - 2.0], yawDeg: 45 },
       { modelId: LIVING_MODELS.TENT, feet: [centerX + 4.0, snapPropToGround(heightAt, centerX + 4.0, centerZ - 2.0), centerZ - 2.0], yawDeg: -45 },
@@ -553,7 +616,7 @@ export function buildLivingSiteBlueprint({
         feet: [bx, snapPropToGround(heightAt, bx, bz), bz],
         yaw: Math.atan2(-b.dx, -b.dz),
         allied: false,
-        hostile: true,
+        hostile: !ambushDetectedByStealth,
         role: 'bandit_camp',
       });
     }
@@ -758,6 +821,93 @@ export function buildLivingSiteBlueprint({
       hostile: false,
       role: 'rival_adventurer',
     });
+  } else if (kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER) {
+    const wandering = pickWanderingAdventurerEncounter({
+      regionIndex,
+      onRoad: Boolean(onRoad),
+      isDay,
+      playerEntity,
+      rng,
+    });
+    const adv = wandering.adv;
+    const situation = wandering.situation;
+    meta = { ...meta, ...wandering };
+
+    const advType = CLASS_TO_MOBILE_TYPE[adv.className] ?? MOBILE_TYPES.Warrior;
+
+    if (situation === ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP) {
+      flats.push({ ...LIVING_FLATS.CAMPFIRE, feet: [centerX, y0, centerZ] });
+      meshes.push({
+        modelId: LIVING_MODELS.TENT,
+        feet: [centerX - 3.0, snapPropToGround(heightAt, centerX - 3.0, centerZ - 1.8), centerZ - 1.8],
+        yawDeg: 30,
+      });
+    } else if (situation === ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS) {
+      meshes.push({
+        modelId: LIVING_MODELS.BOXES,
+        feet: [centerX - 1.6, snapPropToGround(heightAt, centerX - 1.6, centerZ - 1.0), centerZ - 1.0],
+        yawDeg: 15,
+      });
+      flats.push(
+        { ...LIVING_FLATS.SACKS, feet: [centerX + 1.4, snapPropToGround(heightAt, centerX + 1.4, centerZ - 0.8), centerZ - 0.8] },
+        { ...LIVING_FLATS.HORSE, feet: [centerX - 2.6, snapPropToGround(heightAt, centerX - 2.6, centerZ + 1.2), centerZ + 1.2] },
+      );
+    } else if (situation === ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD) {
+      flats.push(
+        { ...LIVING_FLATS.HORSE, feet: [centerX - 2.2, snapPropToGround(heightAt, centerX - 2.2, centerZ + 0.8), centerZ + 0.8] },
+        { ...LIVING_FLATS.SACKS, feet: [centerX - 1.2, snapPropToGround(heightAt, centerX - 1.2, centerZ - 0.6), centerZ - 0.6] },
+      );
+    } else if (situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS) {
+      const { pool } = buildEcologicalCandidatePool(
+        {
+          climateIndex: 231,
+          season,
+          isDay,
+          onRoad: false,
+          inLocationRect: false,
+          regionIndex,
+          playerLevel,
+        },
+        rng,
+      );
+      const m1 = pool[Math.floor(rng() * pool.length)] ?? MOBILE_TYPES.Orc;
+      const m2 = pool[Math.floor(rng() * pool.length)] ?? MOBILE_TYPES.GrizzlyBear;
+      actors.push(
+        {
+          mobileType: m1,
+          name: 'Roadside Marauder',
+          level: Math.max(1, playerLevel),
+          feet: [centerX - 2.5, snapPropToGround(heightAt, centerX - 2.5, centerZ - 2.0), centerZ - 2.0],
+          yaw: 0,
+          allied: false,
+          hostile: true,
+          role: 'skirmish_monster',
+        },
+        {
+          mobileType: m2,
+          name: 'Wilderness Stalker',
+          level: Math.max(1, playerLevel),
+          feet: [centerX + 2.5, snapPropToGround(heightAt, centerX + 2.5, centerZ - 2.0), centerZ - 2.0],
+          yaw: 0,
+          allied: false,
+          hostile: true,
+          role: 'skirmish_monster',
+        },
+      );
+    }
+
+    const isFightingMonsters = situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS;
+    actors.push({
+      mobileType: advType,
+      name: wandering.displayName,
+      level: adv.level,
+      feet: [centerX + 1.2, snapPropToGround(heightAt, centerX + 1.2, centerZ + 1.0), centerZ + 1.0],
+      yaw: Math.PI,
+      allied: isFightingMonsters,
+      hostile: false,
+      role: 'wandering_adventurer',
+      team: isFightingMonsters ? 'PlayerAlly' : undefined,
+    });
   }
 
   return {
@@ -781,6 +931,7 @@ export function buildLivingSiteBlueprint({
  *   regionIndex: () => number,
  *   inLocationRect: () => boolean,
  *   onRoad: () => boolean,
+ *   afloat?: () => boolean,
  *   heightAt: (x: number, z: number) => number,
  *   playerEntity: () => any,
  *   spawn: (type: number, feet: number[], opts: any) => Promise<any>,
@@ -1186,6 +1337,158 @@ export function createLivingSceneHost(deps) {
           },
         ],
       });
+    } else if (s.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER) {
+      const adv = s.blueprint.meta?.adv;
+      const situation = s.blueprint.meta?.situation ?? ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD;
+      if (!adv) return;
+      const wager = Math.max(25, (adv.level || 3) * 15);
+      const introLine =
+        situation === ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP
+          ? LIVING_WORDS.roadAdvCamp(adv.name)
+          : situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS
+            ? LIVING_WORDS.roadAdvSkirmish(adv.name)
+            : situation === ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS
+              ? LIVING_WORDS.roadAdvSpoils(adv.name)
+              : LIVING_WORDS.roadAdvTraveling(adv.name);
+
+      deps.openChoice({
+        lines: [
+          introLine,
+          `${adv.name} (${adv.className}, Lv.${adv.level})`,
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: `1. ${LIVING_WORDS.roadAdvOptionIntel()}`,
+            action: () => {
+              resolveWanderingAdventurerInteraction({
+                adv,
+                situation,
+                playerEntity: player,
+                action: 'SHARE_INTEL',
+                regionIndex: regIdx,
+                rng,
+              });
+              deps.say(LIVING_WORDS.roadAdvIntelShared(), 6);
+            },
+          },
+          {
+            code: 'Digit2',
+            label: `2. ${LIVING_WORDS.roadAdvOptionRecruit(wager)}`,
+            action: () => {
+              const res = resolveWanderingAdventurerInteraction({
+                adv,
+                situation,
+                playerEntity: player,
+                action: 'RECRUIT_ALLY',
+                regionIndex: regIdx,
+                rng,
+              });
+              if (res.allied) {
+                for (const f of s.foes) {
+                  if (f?.livingRole === 'wandering_adventurer') {
+                    if (f.entity) {
+                      f.entity.team = 'PlayerAlly';
+                      f.entity.mobileTeam = 'PlayerAlly';
+                    }
+                    if (f.ai) f.ai.isHostile = false;
+                  }
+                }
+                deps.say(LIVING_WORDS.roadAdvRecruited(adv.name), 5);
+              } else {
+                deps.say(LIVING_WORDS.roadAdvDeclined(), 5);
+              }
+            },
+          },
+          {
+            code: 'Digit3',
+            label: `3. ${LIVING_WORDS.roadAdvOptionSpar(wager)}`,
+            action: () => {
+              const res = resolveWanderingAdventurerInteraction({
+                adv,
+                situation,
+                playerEntity: player,
+                action: 'WAGER_SPAR',
+                regionIndex: regIdx,
+                rng,
+              });
+              if (player && res.goldDelta) {
+                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+              }
+              deps.say(
+                LIVING_WORDS.adventurerOutcome(
+                  res.outcome === WANDERING_OUTCOME.SPAR_WON ? DUEL_OUTCOME.PLAYER_WON : DUEL_OUTCOME.PLAYER_LOST,
+                  adv.name,
+                  Math.abs(res.goldDelta),
+                ),
+                5,
+              );
+            },
+          },
+          {
+            code: 'Digit4',
+            label: `4. ${LIVING_WORDS.roadAdvOptionExtort()}`,
+            action: () => {
+              const res = resolveWanderingAdventurerInteraction({
+                adv,
+                situation,
+                playerEntity: player,
+                action: 'EXTORT_SPOILS',
+                regionIndex: regIdx,
+                rng,
+              });
+              if (res.outcome === WANDERING_OUTCOME.EXTORTED_SPOILS && player) {
+                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+                deps.say(LIVING_WORDS.roadAdvExtorted(adv.name), 5);
+              } else if (res.hostile) {
+                for (const f of s.foes) {
+                  if (f?.livingRole === 'wandering_adventurer' && f.ai) {
+                    f.ai.isHostile = true;
+                    f.ai.detected = true;
+                  }
+                }
+                deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
+              }
+            },
+          },
+          {
+            code: 'Digit5',
+            label: `5. ${LIVING_WORDS.adventurerOptionDecline()}`,
+            action: () => {
+              deps.say(LIVING_WORDS.roadAdvParted(), 4);
+            },
+          },
+        ],
+      });
+    } else if (s.kind === LIVING_SITE_KINDS.BANDIT_CAMP && s.blueprint.meta?.ambushDetectedByStealth) {
+      deps.openChoice({
+        lines: [
+          LIVING_WORDS.travelStealthSpotted(),
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: `1. ${LIVING_WORDS.travelStealthEvadeOption()}`,
+            action: () => {
+              setSiteHostile(s, false);
+              deps.say(LIVING_WORDS.travelStealthEvaded(), 5);
+            },
+          },
+          {
+            code: 'Digit2',
+            label: `2. ${LIVING_WORDS.travelStealthSurpriseOption()}`,
+            action: () => {
+              for (const f of s.foes) {
+                if (f?.entity && Number.isFinite(f.entity.currentHealth)) {
+                  f.entity.currentHealth = Math.max(1, Math.floor(f.entity.currentHealth * 0.75));
+                }
+              }
+              setSiteHostile(s, true);
+              deps.say(LIVING_WORDS.travelAmbush(), 4);
+            },
+          },
+        ],
+      });
     }
   }
 
@@ -1416,7 +1719,27 @@ export function createLivingSceneHost(deps) {
       return;
     }
 
-    // 5. Rival Adventurer Camp Meeting
+    // 5. Non-seeking Wandering Road/Wilderness Adventurer
+    const roadAdvSiteChance = getRoadAdventurerSiteChance(LivingTamrielConfig.roadAdventurers);
+    if (roadAdvSiteChance > 0 && rng() < (onRoad ? roadAdvSiteChance * 1.35 : roadAdvSiteChance)) {
+      lastSpawnMinute = nowMin;
+      standSite(
+        buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+          centerX: cx,
+          centerZ: cz,
+          heightAt: deps.heightAt,
+          regionIndex: regIdx,
+          playerEntity: player,
+          nowMinutes: nowMin,
+          onRoad,
+          rng,
+        }),
+      );
+      return;
+    }
+
+    // 6. Rival Adventurer Camp Meeting
     if (Number(LivingTamrielConfig.adventurers) > PRESENCE.OFF && rng() < 0.22) {
       lastSpawnMinute = nowMin;
       standSite(
@@ -1428,13 +1751,14 @@ export function createLivingSceneHost(deps) {
           regionIndex: regIdx,
           playerEntity: player,
           nowMinutes: nowMin,
+          onRoad,
           rng,
         }),
       );
       return;
     }
 
-    // 6. Roadside Bandit Camp or Peaceful Traveler Rest Camp
+    // 7. Roadside Bandit Camp or Peaceful Traveler Rest Camp
     if (Number(LivingTamrielConfig.camps) > PRESENCE.OFF && rng() < 0.35) {
       lastSpawnMinute = nowMin;
       const campKind = rng() < 0.5 ? LIVING_SITE_KINDS.BANDIT_CAMP : LIVING_SITE_KINDS.TRAVELER_REST;
@@ -1447,6 +1771,7 @@ export function createLivingSceneHost(deps) {
           regionIndex: regIdx,
           playerEntity: player,
           nowMinutes: nowMin,
+          onRoad,
           rng,
         }),
       );
@@ -1477,20 +1802,112 @@ export function createLivingSceneHost(deps) {
           return;
         }
         if (
+          stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH &&
+          !stood.orderRestored &&
+          stood.foes.length > 0
+        ) {
+          const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
+          if (rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r))) {
+            stood.orderRestored = true;
+            onContractCompleted(deps.regionIndex());
+            deps.say(LIVING_WORDS.urbanOrderRestored(), 5);
+          }
+        }
+        if (
           !stood.interacted &&
           d <= SITE_INTERACT_DISTANCE_M &&
           (stood.kind === LIVING_SITE_KINDS.CHECKPOINT ||
             stood.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH ||
             stood.kind === LIVING_SITE_KINDS.ADVENTURER_MEETING ||
+            stood.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER ||
             stood.kind === LIVING_SITE_KINDS.TRAVELER_REST ||
-            stood.kind === LIVING_SITE_KINDS.QUARANTINE_TENT)
+            stood.kind === LIVING_SITE_KINDS.QUARANTINE_TENT ||
+            (stood.kind === LIVING_SITE_KINDS.BANDIT_CAMP && stood.blueprint.meta?.ambushDetectedByStealth))
         ) {
           triggerSiteInteraction(stood);
         }
         return;
       }
 
+      // Naval squadron encounters while afloat at sea
+      if (deps.afloat?.()) {
+        if (Number(LivingTamrielConfig.naval) > PRESENCE.OFF) {
+          const nowMin = deps.clock();
+          if (nowMin - lastSpawnMinute >= 45) {
+            const regIdx = deps.regionIndex();
+            const regState = getRegionState(regIdx);
+            const atWar =
+              regState?.crisis === CRISIS_TYPE.WAR || regState?.crisis === CRISIS_TYPE.CIVIL_STRIFE;
+            const squad = planSquadronEncounter({
+              playerX: feet[0],
+              playerZ: feet[2],
+              atWar,
+              rng,
+            });
+            if (squad && shouldPromptSideChoice(35) && deps.openChoice) {
+              lastSpawnMinute = nowMin;
+              const player = deps.playerEntity();
+              deps.openChoice({
+                lines: [
+                  LIVING_WORDS.navalBattleNotice(),
+                ],
+                options: [
+                  {
+                    code: 'Digit1',
+                    label: `1. ${LIVING_WORDS.navalChoiceLaw()}`,
+                    action: () => {
+                      resolveSideChoice(squad, NAVAL_CHOICE.LAW);
+                      if (player) {
+                        player.regionalReputations = player.regionalReputations || {};
+                        player.regionalReputations[regIdx] =
+                          Number(player.regionalReputations[regIdx] ?? 0) + 5;
+                      }
+                      onContractCompleted(regIdx);
+                      deps.say(LIVING_WORDS.navalChoiceLaw(), 5);
+                    },
+                  },
+                  {
+                    code: 'Digit2',
+                    label: `2. ${LIVING_WORDS.navalChoicePirates()}`,
+                    action: () => {
+                      const res = resolveSideChoice(squad, NAVAL_CHOICE.PIRATES);
+                      if (player) {
+                        player.regionalReputations = player.regionalReputations || {};
+                        player.regionalReputations[regIdx] =
+                          Number(player.regionalReputations[regIdx] ?? 0) - (res.underworldRep || 5);
+                      }
+                      deps.say(LIVING_WORDS.navalChoicePirates(), 5);
+                    },
+                  },
+                  {
+                    code: 'Digit3',
+                    label: `3. ${LIVING_WORDS.navalChoiceNeutral()}`,
+                    action: () => {
+                      resolveSideChoice(squad, NAVAL_CHOICE.NEUTRAL);
+                      deps.say(LIVING_WORDS.navalChoiceNeutral(), 4);
+                    },
+                  },
+                ],
+              });
+            }
+          }
+        }
+        return;
+      }
+
       pickAndStandNextSite(feet, deps.clock());
+    },
+
+    /**
+     * Checks whether hitting `foe` during an active urban skirmish is a criminal offense
+     * (true if attacking City Watch; false if attacking Rebel Insurgents).
+     * @param {any} foe
+     */
+    isCriminalTarget(foe) {
+      if (!foe) return false;
+      const team = foe.entity?.team ?? (foe.livingRole === 'skirmish_guard' ? SKIRMISH_TEAMS.CITY_WATCH : null);
+      if (!team) return false;
+      return isSkirmishBlowCriminal('PLAYER', team, true);
     },
 
     /**

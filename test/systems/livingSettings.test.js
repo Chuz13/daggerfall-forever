@@ -21,13 +21,14 @@ test('LT-07: Living Tamriel is a top-level settings tab alongside Graphics with 
   const sectionIds = livingTab.sections.map((s) => s.id);
   assert.deepEqual(sectionIds, ['living-politics', 'living-rivals', 'living-travel']);
 
-  // Verify all 9 features are placed in the living tab
+  // Verify all 10 features are placed in the living tab
   const expectedFeatures = [
     'feat:living-political',
     'feat:living-quarantine',
     'feat:living-urban',
     'feat:living-bounties',
     'feat:living-adventurers',
+    'feat:living-road-adventurers',
     'feat:living-nemesis',
     'feat:living-travel',
     'feat:living-camps',
@@ -43,7 +44,7 @@ test('LT-07: Living Tamriel is a top-level settings tab alongside Graphics with 
 
 test('LT-07: Living Tamriel feature rows have valid controls, 4-tier presence, and quest competition part', () => {
   const livingFeats = FEATURES.filter((f) => f.id.startsWith('living-') && f.id !== 'living-world');
-  assert.equal(livingFeats.length, 9, 'Expected 9 living feature declarations');
+  assert.equal(livingFeats.length, 10, 'Expected 10 living feature declarations');
 
   for (const feat of livingFeats) {
     assert.equal(feat.group, 'world');
@@ -108,6 +109,8 @@ test('LT-07: Localization keys for all living settings are registered in en and 
     'features.livingAdventurers.title',
     'features.livingAdventurers.note',
     'features.livingAdventurers.questComp',
+    'features.livingRoadAdventurers.title',
+    'features.livingRoadAdventurers.note',
     'features.livingNemesis.title',
     'features.livingNemesis.note',
     'features.livingTravel.title',

@@ -172,7 +172,8 @@ import { preloadSpellbookArt } from '../ui/spellbookWindow.js';   // U42: the cl
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { worldMinutes, skyMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes, raisedMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
-import { evaluateTravelInterruption, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
+import { evaluateTravelInterruption, canEvadeAmbushWithStealth, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
+import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification } from '../systems/living/crisisPresenter.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
@@ -3805,13 +3806,30 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
   }));
   let _livingSceneHost = null;
+  setLivingQuestSitesProvider(() => {
+    const out = [];
+    for (const q of questBridge?.machine?.quests?.() ?? []) {
+      if (!q || q.questSuccess || q.isComplete) continue;
+      for (const p of Object.values(q.places ?? {})) {
+        if (p?.mapId != null) {
+          out.push({
+            locationId: p.mapId,
+            regionIndex: p.regionIndex ?? (_musicLoc?.regionIndex ?? 0),
+            isMainQuest: Boolean(q.isMainStory || String(q.questName || '').startsWith('S0000')),
+          });
+        }
+      }
+    }
+    return out;
+  });
   const livingSceneHostOf = () => (_livingSceneHost ??= createLivingSceneHost({
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
-    ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !playerAfloat() && !townTalk.overlayActive,
+    ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !townTalk.overlayActive,
     clock: () => skyMinutes(),
     regionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
     inLocationRect: () => _musicInLocationRect(),
     onRoad: () => _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16) || onTheRoad(),
+    afloat: () => playerAfloat(),
     heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
     playerEntity: () => playerEntity,
     spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, o),
@@ -11525,7 +11543,12 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z), grantKind: hit.revenant ? 'rev' : 'enc',   // LookAt player; GRANT3: a wanderer's grant (a revenant's its own kind)
       ...(hit.revenant ? revenantSpawnOptions(hit.revenant, effectiveLevel(playerEntity)) : {}),   // REVENANT: a returning one - its record, its gender, a class foe's level
-    }).then((f) => { if (f && fast) { if (noticed) wildFoes.alert(f, performance.now() / 1000); else wildFoes.checked(f); } return f; }).catch(() => null);
+    }).then((f) => {
+      if (f && hit.adventurerName && f.entity) f.entity.name = hit.adventurerName;
+      if (f && hit.nonHostile && f.ai) f.ai.isHostile = false;
+      if (f && fast) { if (noticed) wildFoes.alert(f, performance.now() / 1000); else wildFoes.checked(f); }
+      return f;
+    }).catch(() => null);
     if (noticed) journeyMet();   // AUDIT OW5b E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
     return stood;
   };
@@ -14256,6 +14279,11 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
         const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
           ? LIVING_SITE_KINDS.BANDIT_CAMP
           : LIVING_SITE_KINDS.TRAVELER_REST;
+        const stealthSkill = Number(playerEntity?.skills?.stealth ?? playerEntity?.skills?.Stealth ?? 25);
+        const playerLuck = liveStat(playerEntity, 'luck') || 50;
+        const ambushDetectedByStealth =
+          interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH &&
+          canEvadeAmbushWithStealth(stealthSkill, playerLuck);
         livingSceneHostOf().standBlueprint(buildLivingSiteBlueprint({
           kind: interruptKind,
           centerX: pf[0] + Math.sin(cam.yaw) * 14,
@@ -14264,6 +14292,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
           regionIndex: interruptedRegionIdx,
           playerEntity,
           nowMinutes: worldMinutes(),
+          ambushDetectedByStealth,
         }));
       }
       // cautious arrival heals in full; magicka honors NoRegenSpellPoints

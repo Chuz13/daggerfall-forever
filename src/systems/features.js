@@ -2027,6 +2027,15 @@ export const FEATURES = Object.freeze([
     }),
   }),
   Object.freeze({
+    id: 'living-road-adventurers',
+    group: 'world',
+    get title() { return t('features.livingRoadAdventurers.title', 'Wandering road adventurers'); },
+    get note() { return t('features.livingRoadAdventurers.note', 'Spawns non-hostile adventurers travelling highways, camping in the wilds, returning with dungeon spoils, or fighting monsters along the road.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingRoadAdventurers', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
     id: 'living-nemesis',
     group: 'world',
     get title() { return t('features.livingNemesis.title', 'Nemesis rivals'); },

@@ -45,6 +45,17 @@ class LivingDirectorState {
 
 const _state = new LivingDirectorState();
 let _isInitialized = false;
+/** @type {(() => Array<{ mapId: number|string, isMainQuest?: boolean }>) | null} */
+let _questSitesProvider = null;
+
+/**
+ * Registers a callback returning active player quest dungeon locations so
+ * `onLivingWorldTick` can pass them into `tickAdventurerSimulation`.
+ * @param {(() => Array<{ mapId: number|string, isMainQuest?: boolean }>) | null} fn
+ */
+export function setLivingQuestSitesProvider(fn) {
+  _questSitesProvider = typeof fn === 'function' ? fn : null;
+}
 
 /**
  * Returns a fresh, sanitized default save data record.
@@ -57,6 +68,7 @@ export function newLivingSaveData() {
     config: {
       political: LivingTamrielConfig.political,
       adventurers: LivingTamrielConfig.adventurers,
+      roadAdventurers: LivingTamrielConfig.roadAdventurers,
       nemesis: LivingTamrielConfig.nemesis,
       wilderness: LivingTamrielConfig.wilderness,
       urban: LivingTamrielConfig.urban,
@@ -90,6 +102,7 @@ export function getLivingSaveData() {
     config: {
       political: LivingTamrielConfig.political,
       adventurers: LivingTamrielConfig.adventurers,
+      roadAdventurers: LivingTamrielConfig.roadAdventurers,
       nemesis: LivingTamrielConfig.nemesis,
       wilderness: LivingTamrielConfig.wilderness,
       urban: LivingTamrielConfig.urban,
@@ -146,6 +159,7 @@ export function restoreLivingSaveData(data) {
       const clampTier = (v, def) => (typeof v === 'number' && v >= 0 && v <= 3 ? v : def);
       LivingTamrielConfig.political = clampTier(data.config.political, PRESENCE.MID);
       LivingTamrielConfig.adventurers = clampTier(data.config.adventurers, PRESENCE.MID);
+      LivingTamrielConfig.roadAdventurers = clampTier(data.config.roadAdventurers, PRESENCE.MID);
       LivingTamrielConfig.nemesis = clampTier(data.config.nemesis, PRESENCE.MID);
       LivingTamrielConfig.wilderness = clampTier(data.config.wilderness, PRESENCE.MID);
       LivingTamrielConfig.urban = clampTier(data.config.urban, PRESENCE.MID);
@@ -221,9 +235,17 @@ export function onLivingWorldTick(nowMinutes) {
 
   if (daysPassed > 0) {
     const cappedDays = Math.min(daysPassed, 3); // Max 3 days catch-up simulation
+    let activeQuestSites = [];
+    if (_questSitesProvider) {
+      try {
+        activeQuestSites = _questSitesProvider() || [];
+      } catch (_e) {
+        activeQuestSites = [];
+      }
+    }
     for (let day = 0; day < cappedDays; day++) {
       tickAllRegions();
-      tickAdventurerSimulation();
+      tickAdventurerSimulation({ activeQuestSites });
     }
     _state.lastWorldTickMinute = current;
   }

@@ -154,6 +154,7 @@ export const CATEGORIES = Object.freeze([
     ]),
     sec('living-rivals', () => t('settings.sec.livingRivals', 'Rivals, Adventurers & Nemeses'), [
       'feat:living-adventurers',
+      'feat:living-road-adventurers',
       'feat:living-nemesis',
     ]),
     sec('living-travel', () => t('settings.sec.livingTravel', 'Roads, Wilderness & High Seas'), [

@@ -30,6 +30,7 @@ export const CHECKPOINT_PASS_DURATION_MINUTES = 1440; // 24 in-game hours
  * @param {number} [nowMinutes=0]
  */
 export function grantRegionalCheckpointPass(regionIndex, nowMinutes = 0) {
+  if (!(nowMinutes > 0)) return;
   const root = getLivingDirectorState();
   if (!root.subsystems.checkpoints) {
     root.subsystems.checkpoints = { passesByRegion: {} };
@@ -47,6 +48,7 @@ export function grantRegionalCheckpointPass(regionIndex, nowMinutes = 0) {
  * @returns {boolean}
  */
 export function hasRegionalCheckpointPass(regionIndex, nowMinutes = 0) {
+  if (!(nowMinutes > 0)) return false;
   const root = getLivingDirectorState();
   const until = Number(root?.subsystems?.checkpoints?.passesByRegion?.[regionIndex] ?? -1);
   return until > 0 && nowMinutes <= until;

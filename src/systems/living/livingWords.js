@@ -181,6 +181,44 @@ export const LIVING_WORDS = Object.freeze({
   pleaRebuffed: () =>
     t('living.plea.rebuffed', 'Curse your cold heart! May misfortune dog your footsteps!'),
 
+  // Wandering Road & Wilderness Adventurers (Non-Seeking)
+  roadAdvTraveling: (name) =>
+    t('living.roadAdv.traveling', '{name} nods along the highway: "Bound for the next delve. Keep your steel sharp on these roads."', { name }),
+  roadAdvCamp: (name) =>
+    t('living.roadAdv.camp', '{name} tends a roadside campfire: "Rest your feet by the embers, traveler, if you come in peace."', { name }),
+  roadAdvSkirmish: (name) =>
+    t('living.roadAdv.skirmish', '{name} wipes blood from their blade: "Well met! These beasts nearly had the drop on me!"', { name }),
+  roadAdvSpoils: (name) =>
+    t('living.roadAdv.spoils', '{name} guards a heavy chest of dungeon spoils: "Cleared the crypt ahead. A profitable day for bold steel!"', { name }),
+  roadAdvOptionIntel: () =>
+    t('living.roadAdv.optionIntel', 'Trade road news, dungeon intel, and share the camp.'),
+  roadAdvOptionRecruit: (gold) =>
+    t('living.roadAdv.optionRecruit', 'Invite to travel and fight alongside you ({gold}g retainer or Etiquette).', { gold }),
+  roadAdvOptionSpar: (gold) =>
+    t('living.roadAdv.optionSpar', 'Propose a friendly wager match of blades ({gold}g).', { gold }),
+  roadAdvOptionExtort: () =>
+    t('living.roadAdv.optionExtort', 'Intimidate (Streetwise): demand a share of their dungeon spoils.'),
+  roadAdvIntelShared: () =>
+    t('living.roadAdv.intelShared', 'You exchange maps and road warnings over the fire, feeling refreshed for the journey ahead.'),
+  roadAdvRecruited: (name) =>
+    t('living.roadAdv.recruited', '{name} salutes and falls in beside you: "My blade is with you along this road!"', { name }),
+  roadAdvExtorted: (name) =>
+    t('living.roadAdv.extorted', '{name} backs down with a scowl and tosses you a pouch of dungeon spoils.', { name }),
+  roadAdvDeclined: () =>
+    t('living.roadAdv.declined', '"I walk my own path today, wanderer. Perhaps when your purse or renown is heavier."'),
+  roadAdvParted: () =>
+    t('living.roadAdv.parted', 'You exchange a respectful nod and continue along the road.'),
+
+  // Stealth Ambush Detection
+  travelStealthSpotted: () =>
+    t('living.travel.stealthSpotted', 'Your keen stealth spots highwaymen lying in ambush ahead before they notice you!'),
+  travelStealthEvadeOption: () =>
+    t('living.travel.stealthEvadeOption', 'Slip past the ambush undetected through the brush (Stealth).'),
+  travelStealthSurpriseOption: () =>
+    t('living.travel.stealthSurpriseOption', 'Strike first from the shadows! (Surprise bonus)'),
+  travelStealthEvaded: () =>
+    t('living.travel.stealthEvaded', 'You slip silently around the highwaymen without a sound.'),
+
   // Composite helpers for 3D scene interactions (ChoiceWindow)
   urbanSkirmishAlert: () => LIVING_WORDS.urbanSkirmishStart(),
   checkpointOptionKnight: () => LIVING_WORDS.checkpointKnightPass(),
