@@ -393,14 +393,15 @@ export function tradeCost(
       resale ??= { cost: 0, paid: 0 };
       resale.cost += c;
       resale.paid += item[COUNTER_PAID_MARK] * stack;
-    }
-    // AUDIT TOWN-ECON 2 PRICE-2: a gem a counter sold, set in the piece - its share of the sale held to what it cost
-    for (const [i, paid] of Array.isArray(item.socketBought) ? item.socketBought : []) {
-      const w = gemWorthOf(socketsOf(item)[i]);
-      if (paid == null || !(w > 0) || !(now > 0)) continue;
-      resale ??= { cost: 0, paid: 0 };
-      resale.cost += Math.round((c * Math.min(w, now)) / now);
-      resale.paid += paid;
+    } else if (Array.isArray(item.socketBought)) {
+      // AUDIT TOWN-ECON 2 PRICE-2: a gem a counter sold, set in the piece - its share of the sale held to what it cost
+      for (const [i, paid] of item.socketBought) {
+        const w = gemWorthOf(socketsOf(item)[i]);
+        if (paid == null || !(w > 0) || !(now > 0)) continue;
+        resale ??= { cost: 0, paid: 0 };
+        resale.cost += Math.round((c * Math.min(w, now)) / now);
+        resale.paid += paid;
+      }
     }
   };
   for (const item of staged) {
