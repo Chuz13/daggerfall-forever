@@ -419,7 +419,7 @@ const stopPost = () => { postView?.stop(); postView = null; postWatch?.(); postW
  *  (hooks.post), left of the hourglass `glass` (or the profile mark); its count follows the box while the face stands
  *  (the face draws itself only when asked). Answers the envelope, or null where there is no box. */
 function postEnvelope(home, glass) {
-  if (!hooks.post?.()) return null;
+  if (!FORK_FLAGS.ENABLE_ONLINE_PLAY || !hooks.post?.()) return null;
   const envelope = postMark(document, { open: postOpen, count: hooks.post()?.waiting ?? 0, onOpen: () => { postOpen = true; render(); } });
   home.append(envelope);
   postAnchor = anchorPost(envelope, glass, home.querySelector?.('.px-profile'), home);
@@ -442,7 +442,7 @@ const seasonDoor = (fn) => { if (pauseTab === 'growth' && growthAsks()) { closeS
  *  related content and descriptions"): THE LAUREL on the pause face - online, where the hourglass stands (its clock is
  *  the hourglass's), at the end of the row of marks `chain`. Answers the laurel, or null with no clock. */
 function seasonLaurel(home, chain) {
-  if (!hooks.timers?.()) return null;
+  if (!FORK_FLAGS.ENABLE_ONLINE_PLAY || !hooks.timers?.()) return null;
   const laurel = seasonMark(document, { open: seasonOpen, onOpen: () => { seasonOpen = true; seasonFocusIn = true; render(); } });
   home.append(laurel);
   seasonAnchor = anchorSeason(laurel, chain, home.querySelector?.('.px-profile'), home);
@@ -4682,7 +4682,7 @@ function renderHome() {
     // TIMERS1 (Mac: "an enhanced plus button on the pause menu next to the profile icon"): THE HOURGLASS - online only,
     // where the host hands the clock and what it holds (hooks.timers); its window counts every shared moment down
     let mark = null;
-    if (hooks.timers?.()) {
+    if (FORK_FLAGS.ENABLE_ONLINE_PLAY && hooks.timers?.()) {
       mark = timersMark(document, { open: timersOpen, onOpen: () => { timersOpen = true; timersFocusIn = true; render(); } });
       home.append(mark);
       timersAnchor = anchorBeside(mark, home.querySelector?.('.px-profile'), home);   // AUDIT TIMERS1 UI-3: placed again on every resize
@@ -5651,7 +5651,7 @@ function statsStanding(detail) {
   statsLaw(detail, playerEntity);
   statsGuilds(detail, playerEntity);
   if (getPref('standingAll')) statsEveryStanding(detail, playerEntity);   // EVERY-STANDING
-  statsHunt(detail, { el, divider: pxDivider, meter: pxMeter });   // HUNTERS-MARK: the hunter's rank, online
+  if (FORK_FLAGS.ENABLE_ONLINE_PLAY) statsHunt(detail, { el, divider: pxDivider, meter: pxMeter });   // HUNTERS-MARK: the hunter's rank, online
 }
 
 /** FIELD BUGS 2026-10-09e EVERY-STANDING ("Could we have a setting to see our reputation with every guild/kingdoms?" -

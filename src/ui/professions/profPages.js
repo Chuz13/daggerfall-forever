@@ -602,7 +602,7 @@ const miningSurveyorLine = () => t('prof.page.how.miningSurveyor', MINING_SURVEY
 /** AUDIT (2026-10-04): the empty Stores on BAG1's page - a carrying book's harvest goes into the bag or the pack, never
  *  straight into the Stores, so STORES_EMPTY_LINE (an older book's, below) said where its goods go wrongly there. */
 export const STORES_EMPTY_CARRY_LINE = 'Your Stores are empty. What you gather goes into your Materials Bag or pack. Put it in here in any town.';
-export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online goes here. Press the use key at an herb patch, a tree, an ore vein, a boulder or a creature you killed, or in water with a net. You can also use the matching tool from your hotbar or a quick slot. Tools used from your pack gather nothing.';   // TOUCH-HOLD: the knife's Use
+export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather goes here. Press the use key at an herb patch, a tree, an ore vein, a boulder or a creature you killed, or in water with a net. You can also use the matching tool from your hotbar or a quick slot. Tools used from your pack gather nothing.';   // TOUCH-HOLD: the knife's Use
 const storesEmptyLine = () => t('prof.page.stores.empty', STORES_EMPTY_LINE);
 const storesEmptyCarryLine = () => t('prof.page.stores.emptyCarry', STORES_EMPTY_CARRY_LINE);
 /** PROF12: how Alchemy is practised, as the Professions page says it. FB1018D CRAFT-HOWTO: with what the bag and the pack
