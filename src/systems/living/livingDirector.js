@@ -9,6 +9,7 @@
 import { registerModSaveData } from '../modSaveData.js';
 import { LivingTamrielConfig, PRESENCE, resetLivingConfig } from './livingConfig.js';
 import { tickAllRegions } from './regionState.js';
+import { tickAdventurerSimulation } from './adventurerSim.js';
 
 export const LIVING_TAMRIEL_VENDOR = 'livingTamriel';
 export const LIVING_TAMRIEL_SAVE_VERSION = 1;
@@ -177,6 +178,7 @@ export function onLivingWorldTick(nowMinutes) {
     const cappedDays = Math.min(daysPassed, 3); // Max 3 days catch-up simulation
     for (let day = 0; day < cappedDays; day++) {
       tickAllRegions();
+      tickAdventurerSimulation();
     }
     _state.lastWorldTickMinute = current;
   }
