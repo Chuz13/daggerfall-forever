@@ -21,7 +21,7 @@
 import { MINUTES_PER_DAY } from '../gameDate.js';
 import { BOUNTY_POSE_MAX, worldPixelOk } from '../../net/wire.js';   // LAIR-WORLD: a town's pixel is the world's, the Bay's and past it
 import { t } from '../textManager.js';   // QUARRY-WORLD: the beasts' words in the player's language
-import { scaledReward, CONTRACT_KIND } from '../living/bountySync.js';
+import { scaledReward, isLivingBountyScalingActive, CONTRACT_KIND } from '../living/bountySync.js';
 export { MINUTES_PER_DAY, BOUNTY_POSE_MAX };
 
 /** The per-mod save slot's vendor name (systems/modSaveData.js). */
@@ -195,7 +195,9 @@ export function bountyGold(level, count, mobileType, underground = false, foesLi
     const strength = foes.length > 1 ? rank / (foes.length - 1) : 1;
     baseGold = 150 + 10 * (n - BOUNTY_PACK_MIN) + Math.round(10 * strength);
   }
-  return scaledReward(baseGold, underground ? CONTRACT_KIND.DUNGEON : CONTRACT_KIND.WILDERNESS);
+  return isLivingBountyScalingActive()
+    ? scaledReward(baseGold, underground ? CONTRACT_KIND.DUNGEON : CONTRACT_KIND.WILDERNESS)
+    : baseGold;
 }
 
 /**

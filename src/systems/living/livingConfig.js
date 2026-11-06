@@ -46,6 +46,16 @@ function readTierPref(key, fallback) {
   return parsed !== null ? parsed : fallback;
 }
 
+let _bountyScalingEnabled = false;
+
+export function enableLivingBountyScaling(enabled = true) {
+  _bountyScalingEnabled = Boolean(enabled);
+}
+
+export function isLivingBountyScalingEnabled() {
+  return _bountyScalingEnabled && Number(LivingTamrielConfig.bounties) > PRESENCE.OFF;
+}
+
 /**
  * Global configuration parameters for Living Tamriel.
  * Designed to be modular, editable via settings, and safely defaults to MID tiers.
@@ -88,7 +98,10 @@ export const LivingTamrielConfig = {
   set quarantine(v) { setPref('livingQuarantine', Number(v)); },
 
   get bounties() { return readTierPref('livingBounties', PRESENCE.MID); },
-  set bounties(v) { setPref('livingBounties', Number(v)); },
+  set bounties(v) {
+    _bountyScalingEnabled = Number(v) > PRESENCE.OFF;
+    setPref('livingBounties', Number(v));
+  },
 
   get nemesis() { return readTierPref('livingNemesis', PRESENCE.MID); },
   set nemesis(v) { setPref('livingNemesis', Number(v)); },
@@ -121,6 +134,7 @@ export function isLivingFeatureActive(featureKey) {
  * Resets configuration back to canonical defaults.
  */
 export function resetLivingConfig() {
+  _bountyScalingEnabled = true;
   setPref('livingPolitical', PRESENCE.MID);
   setPref('livingAdventurers', PRESENCE.MID);
   setPref('livingRoadAdventurers', PRESENCE.MID);

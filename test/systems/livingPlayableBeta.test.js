@@ -32,7 +32,7 @@ import {
 } from '../../src/systems/living/adventurerSim.js';
 import { LivingTamrielConfig, PRESENCE } from '../../src/systems/living/livingConfig.js';
 import { hasRegionalCheckpointPass } from '../../src/systems/living/roadCheckpointHost.js';
-import { getNemesisMemory, resolveNemesisConfrontation, createNemesisHunter, NEMESIS_ARCHETYPES } from '../../src/systems/living/nemesisHost.js';
+import { getNemesisMemory, resolveNemesisConfrontation, createNemesisHunter, NEMESIS_ARCHETYPES, recordAdventurerGrudge } from '../../src/systems/living/nemesisHost.js';
 import { resolvePleaResponse, PLEA_TYPE } from '../../src/systems/living/pleaHost.js';
 import {
   getRegionCrisisLines,
@@ -44,6 +44,7 @@ import {
   acceptRegionalCrisisContract,
   getActiveCrisisContract,
   completeRegionalCrisisContract,
+  getLivingQuestLogEntries,
 } from '../../src/systems/living/crisisPresenter.js';
 import { getBuildingCrisisFactor } from '../../src/systems/living/regionEconomy.js';
 import { makeCityGate, updateCityGate } from '../../src/world/city/cityGate.js';
@@ -859,5 +860,221 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     playerFeet = [16, 0, 16];
     host.frame(1.1);
     assert.ok(soundsPlayed.includes(LIVING_SOUNDS.HALT), 'Approaching checkpoint plays HALT sound clip');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STEP 9: Post-Beta 1.2 End-to-End Audit Fixes (Quest Log Q Integration,
+  //         Street-Safe Town Plea, Quarantine Healer Cure, Checkpoint 24h Pass,
+  //         Bandit Camp Contract Clear, Exact Single Gold Delta & Grudge -> Nemesis)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  it('Step 9: wires Quest Log (Q) entries, street-safe town pleas, quarantine healer service, 24h checkpoint pass bypass, bandit camp contract completion, and grudge-to-nemesis loop', async () => {
+    // 1. Quest Log (Q) entries for active Crisis Contracts and Intercepted Quests
+    setRegionCrisis(17, 'WAR', 'MID');
+    acceptRegionalCrisisContract(17, 6, 1000);
+    const simReg = getAdventurerSimRegistry();
+    simReg.interceptedQuests['dungeon_17_3'] = {
+      questId: 9003,
+      locationId: 'dungeon_17_3',
+      adventurerId: 12,
+      adventurerName: 'Gortwog',
+      adventurerClass: 'Warrior',
+      adventurerLevel: 7,
+      recovered: false,
+      claimedByAdventurer: true,
+    };
+    const logEntries = getLivingQuestLogEntries(1050);
+    assert.ok(logEntries.some((q) => q.questId === 'living_crisis_17'), 'Active regional crisis contract appears in Quest Log');
+    assert.ok(logEntries.some((q) => String(q.questId).includes('living_intercept_')), 'Unrecovered rival quest interception appears in Quest Log');
+
+    // 2. Street-safe PLEA_ENCOUNTER blueprint (no street-blocking tents/wagons)
+    const pleaBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
+      centerX: 10,
+      centerZ: 10,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: { level: 5 },
+      nowMinutes: 1100,
+    });
+    assert.equal(pleaBp.meshes.length, 0, 'Town street PLEA_ENCOUNTER has zero 3D tents/wagons');
+    assert.equal(pleaBp.actors.length, 1, 'Town street PLEA_ENCOUNTER spawns a single supplicant NPC');
+
+    // 3. QUARANTINE_TENT field physician cure & heal option
+    setRegionCrisis(20, 'PLAGUE', 'MID');
+    const player = {
+      level: 6,
+      health: 20,
+      currentHealth: 20,
+      maxHealth: 100,
+      isDiseased: true,
+      isPoisoned: true,
+      goldPieces: 500,
+      skills: { Etiquette: 75, Streetwise: 80 },
+      stats: { Personality: 70, Luck: 70, Strength: 75, Agility: 75 },
+      regionalReputations: { 17: 0, 20: 0 },
+    };
+
+    let choiceSpec = null;
+    const messages = [];
+    const spawned = [];
+    let playerFeet = [10, 0, 10];
+    let currentReg = 20;
+
+    const host = createLivingSceneHost({
+      feet: () => playerFeet,
+      ready: () => true,
+      clock: () => 1200,
+      regionIndex: () => currentReg,
+      inLocationRect: () => false,
+      onRoad: () => true,
+      afloat: () => false,
+      heightAt: () => 0,
+      playerEntity: () => player,
+      spawn: async (type, feet, opts) => {
+        const rec = {
+          mobileType: type,
+          feet,
+          opts,
+          dead: false,
+          entity: { name: '', team: opts.team, currentHealth: 50 },
+          ai: { isHostile: !opts.allied, detected: false },
+        };
+        spawned.push(rec);
+        return rec;
+      },
+      remove: (rec) => {
+        rec.dead = true;
+      },
+      inPool: (rec) => !rec.dead,
+      say: (msg) => messages.push(msg),
+      openChoice: (spec) => {
+        choiceSpec = spec;
+      },
+    });
+
+    const quarBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.QUARANTINE_TENT,
+      centerX: 12,
+      centerZ: 12,
+      heightAt: () => 0,
+      regionIndex: 20,
+      playerEntity: player,
+      nowMinutes: 1200,
+    });
+    host.standBlueprint(quarBp);
+    await new Promise((r) => setTimeout(r, 5));
+    host.frame(1.1);
+    assert.ok(choiceSpec, 'Quarantine tent opens ChoiceWindow');
+    const cureOption = choiceSpec.options.find((o) => o.label.includes('100g'));
+    assert.ok(cureOption, 'Quarantine tent ChoiceWindow includes Field Physician Cure (100g) option');
+    cureOption.action();
+    assert.equal(player.isDiseased, false, 'Field physician cures disease');
+    assert.equal(player.isPoisoned, false, 'Field physician cures poison');
+    assert.equal(player.health, 100, 'Field physician restores full HP');
+    assert.equal(player.goldPieces, 400, 'Field physician deducts 100g');
+
+    // 4. CHECKPOINT 24h Pass Auto-Bypass when contract is already active
+    currentReg = 17;
+    choiceSpec = null;
+    const cpBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.CHECKPOINT,
+      centerX: 12,
+      centerZ: 12,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 1200,
+    });
+    host.standBlueprint(cpBp);
+    await new Promise((r) => setTimeout(r, 5));
+    host.frame(1.1);
+    assert.ok(choiceSpec, 'First checkpoint visit opens ChoiceWindow');
+    // Pay toll to acquire 24h pass
+    choiceSpec.options[1].action();
+    assert.equal(hasRegionalCheckpointPass(17, 1250), true, 'Paying toll grants 24h regional pass');
+
+    // Second checkpoint in same region with active contract auto-waves player through without modal
+    choiceSpec = null;
+    host.standBlueprint(cpBp);
+    await new Promise((r) => setTimeout(r, 5));
+    host.frame(1.1);
+    assert.equal(choiceSpec, null, 'Second checkpoint with active 24h pass auto-waves player through without modal');
+
+    // 5. BANDIT_CAMP clear completes active Regional Crisis Contract
+    spawned.length = 0;
+    const banditBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.BANDIT_CAMP,
+      centerX: 12,
+      centerZ: 12,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 1250,
+    });
+    host.standBlueprint(banditBp);
+    await new Promise((r) => setTimeout(r, 5));
+    const goldBeforeBandits = player.goldPieces;
+    for (const f of spawned) f.dead = true;
+    host.frame(1.1);
+    assert.ok(player.goldPieces > goldBeforeBandits, 'Clearing BANDIT_CAMP awards active Crisis Contract gold');
+    assert.equal(getActiveCrisisContract(17), null, 'Active Crisis Contract completed by clearing bandit camp');
+
+    // 6. WANDERING_ADVENTURER single gold mutation + Grudge -> Nemesis Avenger + Nemesis defeat bounty
+    const roadBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+      centerX: 12,
+      centerZ: 12,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 1300,
+      onRoad: true,
+      rng: () => 0.9,
+    });
+    roadBp.meta.adv.level = 2; // Ensure player wins wager spar
+    const expectedWager = Math.max(25, roadBp.meta.adv.level * 15);
+    choiceSpec = null;
+    host.standBlueprint(roadBp);
+    await new Promise((r) => setTimeout(r, 5));
+    host.frame(1.1);
+    const goldBeforeSpar = player.goldPieces;
+    choiceSpec.options[2].action(); // Option 3: Wager Spar
+    assert.equal(
+      player.goldPieces - goldBeforeSpar,
+      expectedWager,
+      'Wager spar applies exact single wager delta (no double mutation)',
+    );
+    assert.equal(getNemesisMemory().hasGrudge, true, 'Winning duel records adventurer grudge in Nemesis memory');
+    assert.equal(getNemesisMemory().lastNemesisName, roadBp.meta.adv.name);
+
+    // Spawn NEMESIS_AMBUSH -> uses GRUDGE_AVENGER with the defeated rival's name, and pays bounty when slain
+    spawned.length = 0;
+    const nemBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+      centerX: 12,
+      centerZ: 12,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 1350,
+      rng: () => 0.1,
+    });
+    assert.equal(nemBp.meta.nemesis.archetype, NEMESIS_ARCHETYPES.GRUDGE_AVENGER);
+    assert.equal(nemBp.meta.nemesis.name, roadBp.meta.adv.name);
+
+    host.standBlueprint(nemBp);
+    await new Promise((r) => setTimeout(r, 5));
+    const goldBeforeNemKill = player.goldPieces;
+    for (const f of spawned) {
+      if (f.livingRole === 'nemesis_leader') f.dead = true;
+    }
+    host.frame(1.1);
+    assert.equal(
+      player.goldPieces,
+      goldBeforeNemKill + nemBp.meta.nemesis.contractBounty,
+      'Slaying Nemesis leader awards contractBounty gold',
+    );
+    assert.equal(getNemesisMemory().hasGrudge, false, 'Slaying Nemesis leader clears active grudge');
   });
 });

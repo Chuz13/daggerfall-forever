@@ -356,3 +356,64 @@ export function completeRegionalCrisisContract(regionIndex, playerEntity = null)
   };
 }
 
+/**
+ * Formats active Regional Crisis Contracts and Rival Quest Interceptions as
+ * native `questBridge.questLog` active quest entries so they appear in the
+ * player's Quest Log (`Q`) and Pause Quests tab.
+ *
+ * @param {number} [nowMinutes=0]
+ * @returns {Array<{ id: string, questId: string, name: string, questName: string, clockSeconds: number, messages: Array<Array<{ formatting: string, text: string }>> }>}
+ */
+export function getLivingQuestLogEntries(nowMinutes = 0) {
+  void nowMinutes;
+  const line = (text) => ({ formatting: 'text', text });
+  /** @type {Array<{ id: string, questId: string, name: string, questName: string, clockSeconds: number, messages: Array<Array<{ formatting: string, text: string }>> }>} */
+  const entries = [];
+
+  const reg = getCrisisQuestRegistry();
+  for (const [regKey, c] of Object.entries(reg)) {
+    if (!c || c.status !== 'ACTIVE') continue;
+    const regIdx = Number(c.regionIndex ?? regKey);
+    const regState = getRegionState(regIdx);
+    const daysLeft = Math.max(1, Number(regState?.phaseDaysRemaining || 3));
+    const lines = [
+      c.title,
+      `Region: ${regState?.regionName || `Region ${regIdx}`} (${c.crisis})`,
+      `Target: ${c.targetName} (in regional camps, skirmishes, or dungeons)`,
+      `Reward: ${c.rewardGold} gold pieces and +${c.repDelta || 5} regional renown.`,
+    ];
+    entries.push({
+      id: `LIVING:${c.id}`,
+      questId: `living_crisis_${regIdx}`,
+      name: c.title,
+      questName: 'LIVING_CRISIS',
+      clockSeconds: daysLeft * 86400,
+      messages: [lines.map(line)],
+    });
+  }
+
+  const root = getDirectorState();
+  const intercepted = root?.subsystems?.adventurers?.interceptedQuests;
+  if (intercepted && typeof intercepted === 'object') {
+    for (const [slotKey, iq] of Object.entries(intercepted)) {
+      if (!iq || iq.recovered || iq.forfeited) continue;
+      const lines = [
+        LIVING_WORDS.adventurerQuestIntercepted(),
+        `Rival: ${iq.adventurerName || 'Rival Adventurer'} (${iq.adventurerClass || 'Adventurer'}, Lv.${iq.adventurerLevel || 5})`,
+        `Site: ${iq.locationId || slotKey}`,
+      ];
+      entries.push({
+        id: `LIVING:intercepted_${slotKey}`,
+        questId: `living_intercept_${slotKey}`,
+        name: `Rival Interception: ${iq.adventurerName || 'Rival Adventurer'}`,
+        questName: 'LIVING_RIVAL',
+        clockSeconds: 3 * 86400,
+        messages: [lines.map(line)],
+      });
+    }
+  }
+
+  return entries;
+}
+
+

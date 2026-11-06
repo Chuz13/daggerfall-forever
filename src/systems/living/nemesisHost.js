@@ -273,6 +273,7 @@ export function resolveNemesisConfrontation(
   rng = Math.random,
 ) {
   if (approach === 'duel') {
+    recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.DUEL);
     return {
       resolution: NEMESIS_RESOLUTION.DUEL,
       message: `${nemesis.name} unsheathes cold steel. "Draw your blade; let blood settle this!"`,
@@ -292,6 +293,7 @@ export function resolveNemesisConfrontation(
     const roll = rng() * 100;
 
     if (roll + totalScore >= difficulty + 50) {
+      recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.PACIFIED);
       return {
         resolution: NEMESIS_RESOLUTION.PACIFIED,
         message: `${nemesis.name} lowers their weapon. "A person of honour. This contract is dishonourable — I shall take my leave."`,
@@ -301,6 +303,7 @@ export function resolveNemesisConfrontation(
     // Near failure Luck reroll
     const delta = (difficulty + 50) - (roll + totalScore);
     if (delta <= LivingTamrielConfig.luckRerollThreshold && dice100(Math.trunc(luck / 2), rng())) {
+      recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.LUCK_SAVED);
       return {
         resolution: NEMESIS_RESOLUTION.LUCK_SAVED,
         message: `By blind fortune, a distraction turns ${nemesis.name}'s attention away, breaking their resolve to strike!`,
@@ -337,6 +340,7 @@ export function resolveNemesisConfrontation(
     // Near failure Luck reroll
     const delta = (difficulty + 50) - (roll + totalScore);
     if (delta <= LivingTamrielConfig.luckRerollThreshold && dice100(Math.trunc(luck / 2), rng())) {
+      recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.LUCK_SAVED);
       return {
         resolution: NEMESIS_RESOLUTION.LUCK_SAVED,
         message: `By blind fortune, a distraction turns ${nemesis.name}'s attention away, breaking their resolve to strike!`,
@@ -353,6 +357,7 @@ export function resolveNemesisConfrontation(
     if (roll + totalScore >= difficulty + 40) {
       // Strips minions out of the encounter!
       nemesis.minions = [];
+      recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED);
       return {
         resolution: NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED,
         message: `${nemesis.name} sneers and gestures for their retinue to step back. "Stay out of this, fools! This cur is mine alone!"`,
@@ -363,6 +368,7 @@ export function resolveNemesisConfrontation(
     const delta = (difficulty + 40) - (roll + totalScore);
     if (delta <= LivingTamrielConfig.luckRerollThreshold && dice100(Math.trunc(luck / 2), rng())) {
       nemesis.minions = [];
+      recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED);
       return {
         resolution: NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED,
         message: `${nemesis.name} waves their minions away in frustration. "One on one, coward!"`,
@@ -407,6 +413,33 @@ export function recordNemesisMemory(nemesis, resolution) {
   } else {
     mem.hasGrudge = true;
     nemesis.hasMemoryOfDefeat = true;
+  }
+}
+
+/**
+ * Marks a defeated or humiliated rival adventurer in Nemesis memory so they can
+ * later hunt the player as a `GRUDGE_AVENGER`.
+ *
+ * @param {string|null|undefined} advName
+ */
+export function recordAdventurerGrudge(advName) {
+  if (!advName) return;
+  const root = getLivingDirectorState();
+  if (!root.subsystems.nemesis) {
+    root.subsystems.nemesis = { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
+  }
+  root.subsystems.nemesis.hasGrudge = true;
+  root.subsystems.nemesis.lastNemesisName = String(advName);
+  root.subsystems.nemesis.lastArchetype = NEMESIS_ARCHETYPES.GRUDGE_AVENGER;
+}
+
+/**
+ * Clears an active Nemesis grudge once the Nemesis hunter is slain.
+ */
+export function clearNemesisGrudge() {
+  const root = getLivingDirectorState();
+  if (root?.subsystems?.nemesis) {
+    root.subsystems.nemesis.hasGrudge = false;
   }
 }
 

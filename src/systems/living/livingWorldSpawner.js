@@ -23,12 +23,14 @@ import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
-import { getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import { getRegionState, isRegionInQuarantine, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import { getQuarantineReliefPostInfo } from './quarantineGate.js';
 import { checkCampFootprintSlope, snapPropToGround } from './campInjector.js';
 import {
   shouldSpawnRoadCheckpoint,
   evaluateCheckpointEncounter,
   resolveCheckpointInteraction,
+  hasRegionalCheckpointPass,
   CHECKPOINT_OUTCOME,
 } from './roadCheckpointHost.js';
 import {
@@ -58,6 +60,9 @@ import {
   createNemesisHunter,
   resolveNemesisConfrontation,
   getNemesisMemory,
+  recordAdventurerGrudge,
+  clearNemesisGrudge,
+  NEMESIS_ARCHETYPES,
   NEMESIS_RESOLUTION,
 } from './nemesisHost.js';
 import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME } from './pleaHost.js';
@@ -132,6 +137,7 @@ export const LIVING_SITE_KINDS = Object.freeze({
   BANDIT_CAMP: 'BANDIT_CAMP',
   TRAVELER_REST: 'TRAVELER_REST',
   QUARANTINE_TENT: 'QUARANTINE_TENT',
+  PLEA_ENCOUNTER: 'PLEA_ENCOUNTER',
   URBAN_SKIRMISH: 'URBAN_SKIRMISH',
   NEMESIS_AMBUSH: 'NEMESIS_AMBUSH',
   ADVENTURER_MEETING: 'ADVENTURER_MEETING',
@@ -677,6 +683,18 @@ export function buildLivingSiteBlueprint({
       },
     );
   } else if (kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
+    const pleaCheck = evaluatePleaEncounter({ regionIndex, nowMinutes, playerEntity, rng: () => 0.05 });
+    const reliefInfo = getQuarantineReliefPostInfo(regionIndex) ?? {
+      healerPresent: true,
+      cureCostMultiplier: 2.0,
+      dialogue: LIVING_WORDS.quarantineReliefTent(),
+    };
+    meta = {
+      ...meta,
+      plea: pleaCheck.plea ?? { type: 'PLAGUE_CURE', requiredGold: 35, messageKey: 'living.plea.plague' },
+      reliefInfo,
+    };
+
     meshes.push(
       { modelId: LIVING_MODELS.PAVILION, feet: [centerX, y0, centerZ], yawDeg: 0 },
       { modelId: LIVING_MODELS.BOXES, feet: [centerX + 3.0, snapPropToGround(heightAt, centerX + 3.0, centerZ + 1.5), centerZ + 1.5], yawDeg: 20 },
@@ -709,6 +727,47 @@ export function buildLivingSiteBlueprint({
         role: 'quarantine_healer',
       },
     );
+  } else if (kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER) {
+    const pleaCheck = evaluatePleaEncounter({ regionIndex, nowMinutes, playerEntity, rng: () => 0.05 });
+    const plea = pleaCheck.plea ?? {
+      type: 'ESCORT_REQUEST',
+      requiredGold: 25,
+      messageKey: 'living.plea.escort',
+    };
+    meta = { ...meta, plea };
+
+    flats.push({
+      ...LIVING_FLATS.SACKS,
+      feet: [centerX - 1.0, snapPropToGround(heightAt, centerX - 1.0, centerZ - 0.5), centerZ - 0.5],
+    });
+
+    const supplicantType =
+      plea.type === 'PLAGUE_CURE'
+        ? MOBILE_TYPES.Healer
+        : plea.type === 'FAMINE_BREAD'
+          ? MOBILE_TYPES.Monk
+          : plea.type === 'WAR_REFUGEE'
+            ? MOBILE_TYPES.Bard
+            : MOBILE_TYPES.Ranger;
+    const supplicantName =
+      plea.type === 'PLAGUE_CURE'
+        ? 'Plague-Stricken Citizen'
+        : plea.type === 'FAMINE_BREAD'
+          ? 'Starving Townsfolk'
+          : plea.type === 'WAR_REFUGEE'
+            ? 'Displaced Refugee'
+            : 'Anxious Wayfarer';
+
+    actors.push({
+      mobileType: supplicantType,
+      name: supplicantName,
+      level: Math.max(1, playerLevel - 1),
+      feet: [centerX, y0, centerZ],
+      yaw: Math.PI,
+      allied: false,
+      hostile: false,
+      role: 'plea_supplicant',
+    });
   } else if (kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
     const plan = planUrbanSkirmish({
       centerX,
@@ -766,15 +825,21 @@ export function buildLivingSiteBlueprint({
     const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? 0);
     const regState = getRegionState(regionIndex);
     const isCrisis = regState?.crisis !== CRISIS_TYPE.PEACE;
+    const nemMem = getNemesisMemory();
+    const hasGrudge = Boolean(nemMem?.hasGrudge);
     const archetype = determineNemesisArchetype(playerEntity, {
       legalReputation: rep,
       playerLevel,
       isCrisis,
-      hasGrudge: true,
+      hasGrudge,
       playerGold: Number(playerEntity?.goldPieces ?? 0),
       rng,
     });
-    const nemesis = createNemesisHunter(playerLevel, { archetype, rng });
+    const customName =
+      archetype === NEMESIS_ARCHETYPES.GRUDGE_AVENGER && nemMem?.lastNemesisName
+        ? nemMem.lastNemesisName
+        : undefined;
+    const nemesis = createNemesisHunter(playerLevel, { name: customName, archetype, rng });
     meta = { ...meta, nemesis };
 
     const leaderType = CLASS_TO_MOBILE_TYPE[nemesis.className] ?? MOBILE_TYPES.Assassin;
@@ -1037,6 +1102,7 @@ export function createLivingSceneHost(deps) {
   let checkTimer = 0;
   let lastSpawnMinute = -999999;
   let lastSkirmishRegion = -1;
+  let lastQuarantineRegion = -1;
   let companionFoe = /** @type {any} */ (null);
   let companionId = /** @type {number|string|null} */ (null);
   let companionSpawning = false;
@@ -1174,11 +1240,15 @@ export function createLivingSceneHost(deps) {
     const nowMin = deps.clock();
 
     if (s.kind === LIVING_SITE_KINDS.CHECKPOINT) {
-      deps.playSound?.(LIVING_SOUNDS.HALT);
-      const tollGold = s.blueprint.meta?.tollGold ?? 50;
       const contractOffer = !getActiveCrisisContract(regIdx)
         ? offerRegionalCrisisContract(regIdx, Number(player?.level ?? 1))
         : null;
+      if (hasRegionalCheckpointPass(regIdx, nowMin) && !contractOffer) {
+        deps.say(LIVING_WORDS.checkpointPassed(), 5);
+        return;
+      }
+      deps.playSound?.(LIVING_SOUNDS.HALT);
+      const tollGold = s.blueprint.meta?.tollGold ?? 50;
       const options = [
         {
           code: 'Digit1',
@@ -1365,6 +1435,7 @@ export function createLivingSceneHost(deps) {
             code: 'Digit1',
             label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
             action: () => {
+              deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
               const res = resolveAdventurerEncounter({
                 adv,
                 playerEntity: player,
@@ -1374,6 +1445,10 @@ export function createLivingSceneHost(deps) {
               });
               if (player && res.goldDelta) {
                 player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+              }
+              if (res.outcome === DUEL_OUTCOME.PLAYER_WON) {
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                recordAdventurerGrudge(adv.name);
               }
               deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)), 5);
             },
@@ -1389,7 +1464,23 @@ export function createLivingSceneHost(deps) {
                 wagerGold: wager,
                 rng,
               });
-              if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) setSiteHostile(s, true);
+              if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) {
+                setSiteHostile(s, true);
+              } else if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
+                const comp = recruitAdventurerCompanion(adv, nowMin);
+                companionId = comp.id;
+                deps.onCompanionChanged?.(comp);
+                for (const f of s.foes) {
+                  if (f?.livingRole === 'rival_adventurer') {
+                    if (f.entity) {
+                      f.entity.team = 'PlayerAlly';
+                      f.entity.mobileTeam = 'PlayerAlly';
+                    }
+                    if (f.ai) f.ai.isHostile = false;
+                    companionFoe = f;
+                  }
+                }
+              }
               deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
             },
           },
@@ -1417,13 +1508,21 @@ export function createLivingSceneHost(deps) {
           },
         ],
       });
-    } else if (s.kind === LIVING_SITE_KINDS.TRAVELER_REST || s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
+    } else if (
+      s.kind === LIVING_SITE_KINDS.TRAVELER_REST ||
+      s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT ||
+      s.kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER
+    ) {
       const plea = s.blueprint.meta?.plea ?? {
         type: 'PLAGUE_CURE',
         requiredGold: 35,
         messageKey: 'living.plea.plague',
       };
       const reqGold = plea.requiredGold ?? 25;
+      const reliefInfo =
+        s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT
+          ? s.blueprint.meta?.reliefInfo ?? getQuarantineReliefPostInfo(regIdx)
+          : null;
       const contractOffer = !getActiveCrisisContract(regIdx)
         ? offerRegionalCrisisContract(regIdx, Number(player?.level ?? 1))
         : null;
@@ -1444,6 +1543,7 @@ export function createLivingSceneHost(deps) {
             });
             if (res.outcome === PLEA_OUTCOME.HELPED && player) {
               player.goldPieces = Math.max(0, haveGold - res.goldSpent);
+              deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
             }
             deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
           },
@@ -1498,10 +1598,35 @@ export function createLivingSceneHost(deps) {
           },
         },
       ];
-      if (contractOffer) {
+      if (reliefInfo) {
+        const nextIdx = pleaOptions.length + 1;
+        const cureGold = Number(reliefInfo.cureCostGold ?? 100);
         pleaOptions.push({
-          code: 'Digit4',
-          label: `4. ${LIVING_WORDS.crisisContractOptionAccept(contractOffer.title, contractOffer.rewardGold)}`,
+          code: `Digit${nextIdx}`,
+          label: `${nextIdx}. ${LIVING_WORDS.quarantineReliefTent()} (${cureGold}g)`,
+          action: () => {
+            const haveGold = Number(player?.goldPieces ?? 0);
+            if (haveGold >= cureGold && player) {
+              player.goldPieces = haveGold - cureGold;
+              player.isDiseased = false;
+              player.isPoisoned = false;
+              if (Number.isFinite(player.maxHealth)) {
+                player.health = player.maxHealth;
+                player.currentHealth = player.maxHealth;
+              }
+              deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+              deps.say(LIVING_WORDS.pleaOutcome(PLEA_OUTCOME.HELPED), 5);
+            } else {
+              deps.say(LIVING_WORDS.checkpointRefused(), 4);
+            }
+          },
+        });
+      }
+      if (contractOffer) {
+        const nextIdx = pleaOptions.length + 1;
+        pleaOptions.push({
+          code: `Digit${nextIdx}`,
+          label: `${nextIdx}. ${LIVING_WORDS.crisisContractOptionAccept(contractOffer.title, contractOffer.rewardGold)}`,
           action: () => {
             const accepted = acceptRegionalCrisisContract(regIdx, Number(player?.level ?? 1), nowMin);
             if (accepted) {
@@ -1511,10 +1636,12 @@ export function createLivingSceneHost(deps) {
           },
         });
       }
+      const promptLines = [LIVING_WORDS.pleaPrompt(plea.type, reqGold)];
+      if (reliefInfo) {
+        promptLines.unshift(LIVING_WORDS.quarantineReliefTent());
+      }
       deps.openChoice({
-        lines: [
-          LIVING_WORDS.pleaPrompt(plea.type, reqGold),
-        ],
+        lines: promptLines,
         options: pleaOptions,
       });
     } else if (s.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER) {
@@ -1589,6 +1716,7 @@ export function createLivingSceneHost(deps) {
             code: 'Digit3',
             label: `3. ${LIVING_WORDS.roadAdvOptionSpar(wager)}`,
             action: () => {
+              deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
               const res = resolveWanderingAdventurerInteraction({
                 adv,
                 situation,
@@ -1597,8 +1725,9 @@ export function createLivingSceneHost(deps) {
                 regionIndex: regIdx,
                 rng,
               });
-              if (player && res.goldDelta) {
-                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+              if (res.outcome === WANDERING_OUTCOME.SPAR_WON) {
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                recordAdventurerGrudge(adv.name);
               }
               deps.say(
                 LIVING_WORDS.adventurerOutcome(
@@ -1622,8 +1751,9 @@ export function createLivingSceneHost(deps) {
                 regionIndex: regIdx,
                 rng,
               });
-              if (res.outcome === WANDERING_OUTCOME.EXTORTED_SPOILS && player) {
-                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+              if (res.outcome === WANDERING_OUTCOME.EXTORTED_SPOILS) {
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                recordAdventurerGrudge(adv.name);
                 deps.say(LIVING_WORDS.roadAdvExtorted(adv.name), 5);
               } else if (res.hostile) {
                 for (const f of s.foes) {
@@ -1764,6 +1894,26 @@ export function createLivingSceneHost(deps) {
     }
 
     if (inTown) {
+      if (lastQuarantineRegion !== regIdx && isRegionInQuarantine(regIdx)) {
+        lastQuarantineRegion = regIdx;
+        lastSpawnMinute = nowMin;
+        const qAngle = rng() * Math.PI * 2;
+        standSite(
+          buildLivingSiteBlueprint({
+            kind: LIVING_SITE_KINDS.QUARANTINE_TENT,
+            centerX: feet[0] + Math.sin(qAngle) * 16,
+            centerZ: feet[2] + Math.cos(qAngle) * 16,
+            heightAt: deps.heightAt,
+            regionIndex: regIdx,
+            playerEntity: player,
+            nowMinutes: nowMin,
+            rng,
+          }),
+        );
+        deps.say(`${LIVING_WORDS.quarantineGateClosed()} ${LIVING_WORDS.quarantineReliefTent()}`, 6);
+        return;
+      }
+
       if (nowMin - lastSpawnMinute < 30) return;
       const rep = Number(player?.regionalReputations?.[regIdx] ?? 0);
       const nemMem = getNemesisMemory();
@@ -1795,32 +1945,26 @@ export function createLivingSceneHost(deps) {
         return;
       }
 
-      if (regState?.crisis !== CRISIS_TYPE.PEACE) {
-        const pleaEval = evaluatePleaEncounter({
-          regionIndex: regIdx,
-          nowMinutes: nowMin,
-          playerEntity: player,
-          rng,
-        });
-        if (pleaEval.shouldPlea) {
-          lastSpawnMinute = nowMin;
-          const kind =
-            regState?.crisis === CRISIS_TYPE.PLAGUE
-              ? LIVING_SITE_KINDS.QUARANTINE_TENT
-              : LIVING_SITE_KINDS.TRAVELER_REST;
-          standSite(
-            buildLivingSiteBlueprint({
-              kind,
-              centerX: feet[0] + Math.sin(angle) * 12,
-              centerZ: feet[2] + Math.cos(angle) * 12,
-              heightAt: deps.heightAt,
-              regionIndex: regIdx,
-              playerEntity: player,
-              nowMinutes: nowMin,
-              rng,
-            }),
-          );
-        }
+      const pleaEval = evaluatePleaEncounter({
+        regionIndex: regIdx,
+        nowMinutes: nowMin,
+        playerEntity: player,
+        rng,
+      });
+      if (pleaEval.shouldPlea) {
+        lastSpawnMinute = nowMin;
+        standSite(
+          buildLivingSiteBlueprint({
+            kind: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
+            centerX: feet[0] + Math.sin(angle) * 10,
+            centerZ: feet[2] + Math.cos(angle) * 10,
+            heightAt: deps.heightAt,
+            regionIndex: regIdx,
+            playerEntity: player,
+            nowMinutes: nowMin,
+            rng,
+          }),
+        );
       }
       return;
     }
@@ -1877,12 +2021,13 @@ export function createLivingSceneHost(deps) {
 
     // 4. Nemesis & Retinue Ambush
     const rep = Number(player?.regionalReputations?.[regIdx] ?? 0);
+    const wildNemMem = getNemesisMemory();
     if (
       shouldDispatchNemesis(player, {
         legalReputation: rep,
         playerLevel: Number(player?.level ?? 1),
         isCrisis: regState?.crisis !== CRISIS_TYPE.PEACE,
-        hasGrudge: false,
+        hasGrudge: Boolean(wildNemMem?.hasGrudge),
         playerGold: Number(player?.goldPieces ?? 0),
       }) &&
       rng() < 0.20
@@ -2026,7 +2171,9 @@ export function createLivingSceneHost(deps) {
           !stood.campCleared &&
           stood.foes.length > 0
         ) {
-          const bandits = stood.foes.filter((f) => f?.livingRole === 'camp_bandit');
+          const bandits = stood.foes.filter(
+            (f) => f?.livingRole === 'bandit_camp' || f?.livingRole === 'camp_bandit',
+          );
           if (bandits.length > 0 && bandits.every((b) => b.dead || !deps.inPool(b))) {
             stood.campCleared = true;
             const regIdx = deps.regionIndex();
@@ -2034,7 +2181,35 @@ export function createLivingSceneHost(deps) {
             if (contractRes) {
               deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
               deps.say(contractRes.message, 6);
+            } else {
+              onContractCompleted(regIdx);
             }
+          }
+        }
+        if (
+          stood.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH &&
+          !stood.nemesisDefeated &&
+          stood.foes.length > 0
+        ) {
+          const leaders = stood.foes.filter((f) => f?.livingRole === 'nemesis_leader');
+          if (leaders.length > 0 && leaders.every((l) => l.dead || !deps.inPool(l))) {
+            stood.nemesisDefeated = true;
+            const nemesis = stood.blueprint.meta?.nemesis;
+            const bounty = Number(nemesis?.contractBounty ?? 250);
+            const player = deps.playerEntity();
+            if (player) {
+              player.goldPieces = Number(player.goldPieces ?? 0) + bounty;
+            }
+            clearNemesisGrudge();
+            deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+            deps.say(
+              LIVING_WORDS.adventurerOutcome(
+                DUEL_OUTCOME.PLAYER_WON,
+                nemesis?.name ?? 'Nemesis',
+                bounty,
+              ),
+              6,
+            );
           }
         }
         if (
@@ -2046,6 +2221,7 @@ export function createLivingSceneHost(deps) {
             stood.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER ||
             stood.kind === LIVING_SITE_KINDS.TRAVELER_REST ||
             stood.kind === LIVING_SITE_KINDS.QUARANTINE_TENT ||
+            stood.kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ||
             (stood.kind === LIVING_SITE_KINDS.BANDIT_CAMP && stood.blueprint.meta?.ambushDetectedByStealth))
         ) {
           triggerSiteInteraction(stood);

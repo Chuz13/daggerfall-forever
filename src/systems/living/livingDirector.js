@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { registerModSaveData } from '../modSaveData.js';
-import { LivingTamrielConfig, PRESENCE, resetLivingConfig } from './livingConfig.js';
+import { LivingTamrielConfig, PRESENCE, resetLivingConfig, enableLivingBountyScaling } from './livingConfig.js';
 import { tickAllRegions } from './regionState.js';
 import { tickAdventurerSimulation } from './adventurerSim.js';
 
@@ -29,6 +29,8 @@ class LivingDirectorState {
       adventurers: {},
       travel: { lastInterruptMinute: -999999 },
       pleas: { lastPleaMinute: -999999 },
+      nemesis: { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false },
+      checkpoints: { passesByRegion: {} },
       crisisQuests: {},
     };
   }
@@ -41,6 +43,8 @@ class LivingDirectorState {
     this.subsystems.adventurers = {};
     this.subsystems.travel = { lastInterruptMinute: -999999 };
     this.subsystems.pleas = { lastPleaMinute: -999999 };
+    this.subsystems.nemesis = { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
+    this.subsystems.checkpoints = { passesByRegion: {} };
     this.subsystems.crisisQuests = {};
   }
 }
@@ -147,6 +151,7 @@ export function getLivingSaveData() {
  */
 export function restoreLivingSaveData(data) {
   _state.reset();
+  enableLivingBountyScaling(true);
 
   if (!data || typeof data !== 'object') return;
 
@@ -225,6 +230,7 @@ export function restoreLivingSaveData(data) {
  */
 export function onLivingWorldTick(nowMinutes) {
   if (!Number.isFinite(nowMinutes)) return;
+  enableLivingBountyScaling(true);
 
   const current = Math.floor(nowMinutes);
   if (_state.lastWorldTickMinute <= 0) {

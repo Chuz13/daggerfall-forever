@@ -175,7 +175,7 @@ import { worldMinutes, skyMinutes, setWorldMinutes, setSharedClock, sharedClockO
 import { evaluateTravelInterruption, canEvadeAmbushWithStealth, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
 import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
-import { getSettlementEntryNotification } from '../systems/living/crisisPresenter.js';
+import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain, aimedBlowInfo, playerBlowFrame, setWindupAtMeListener } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
@@ -18294,7 +18294,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     const baseQuestLog = questBridge.questLog.bind(questBridge);
     questBridge.questLog = (o) => {   // AUDIT FB1022d E8: the lens's `{ windows: false }` reaches the walk (questBridge.js)
       const log = baseQuestLog(o);
-      const extra = [...(bountyHost?.questLogEntries?.() ?? []), ...revenantHuntEntries(rumorHere()), ...(legacyHost?.questLogEntries() ?? [])];   // LEGACY4: and the death quests   // RVN7c: and each hunt - a lair heard of, the way there from where I stand
+      const extra = [...(bountyHost?.questLogEntries?.() ?? []), ...revenantHuntEntries(rumorHere()), ...(legacyHost?.questLogEntries() ?? []), ...getLivingQuestLogEntries(skyMinutes())];   // LEGACY4: and the death quests   // RVN7c: and each hunt - a lair heard of, the way there from where I stand   // LIVING-TAMRIEL: active regional crisis contracts & rival quest interceptions
       return extra.length ? { ...log, active: [...(log?.active ?? []), ...extra] } : log;
     };
   }

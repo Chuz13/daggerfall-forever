@@ -7,10 +7,19 @@
 // completed contract on the region. It owns no board state and writes nothing to the save.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import { LivingTamrielConfig, PRESENCE, isLivingBountyScalingEnabled } from './livingConfig.js';
 import { getRegionState, CRISIS_PHASE, PHASE_DURATIONS_DAYS } from './regionState.js';
 
 export const CONTRACT_KIND = Object.freeze({ WILDERNESS: 'WILDERNESS', DUNGEON: 'DUNGEON' });
+
+/**
+ * Whether Living Tamriel bounty reward scaling is active in the current session.
+ * Returns false in isolated unit tests where LivingDirector / resetLivingConfig was never initialized,
+ * preserving deterministic vanilla board calculations.
+ */
+export function isLivingBountyScalingActive() {
+  return isLivingBountyScalingEnabled();
+}
 
 /** Allowed multiplier bands (spec): wilderness x3-x5, dungeon bosses x5-x10. */
 export const WILD_MULT_RANGE = Object.freeze([3, 5]);
