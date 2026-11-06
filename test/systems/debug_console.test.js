@@ -294,6 +294,26 @@ test('Debug Console: additem / item spawns items into player inventory', () => {
 
   const resUnknown = executeConsoleLine('additem imaginary_widget_xyz');
   assert.ok(resUnknown.includes('Item template "imaginary_widget_xyz" not found.'));
+
+  // Test material support: elven, daedric, numeric indices, and armor metals
+  const resElven = executeConsoleLine('additem elven_dagger');
+  assert.ok(resElven.includes('Added 1x Elven Dagger'));
+  assert.equal(playerEntity.items.at(-1).material, 3);
+  assert.equal(playerEntity.items.at(-1).group, 'Weapons');
+
+  const resDaedricClaymore = executeConsoleLine('additem claymore 1 daedric');
+  assert.ok(resDaedricClaymore.includes('Added 1x Daedric Claymore'));
+  assert.equal(playerEntity.items.at(-1).material, 9);
+  assert.equal(playerEntity.items.at(-1).group, 'Weapons');
+
+  const resNumericMat = executeConsoleLine('additem 122 1 9');
+  assert.ok(resNumericMat.includes('Added 1x Daedric Claymore'));
+  assert.equal(playerEntity.items.at(-1).material, 9);
+
+  const resDaedricCuirass = executeConsoleLine('additem daedric cuirass 1');
+  assert.ok(resDaedricCuirass.includes('Added 1x Daedric Cuirass'));
+  assert.equal(playerEntity.items.at(-1).material, 0x0209);
+  assert.equal(playerEntity.items.at(-1).group, 'Armor');
 });
 
 test('Debug Console: set_attr and mod_attr alter player attributes', () => {

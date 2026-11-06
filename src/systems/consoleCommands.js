@@ -46,7 +46,10 @@ import { addGoldPieces, addItem } from './inventory.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { worldMinutes, setWorldMinutes } from './worldTick.js';
 import { setWeather, currentWeather } from './weather/weatherSim.js';
-import { templateByIndex, setItemFields } from './item/itemTemplates.js';
+import { templateByIndex, setItemFields, GROUP_TEMPLATE_INDICES } from './item/itemTemplates.js';
+import { weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';
+import { ARMOR_MATERIAL } from './armorMaterials.js';
+import { MATERIAL_NAMES } from './mods/modDataSync.js';
 import { computeEntityMods } from './entityMods.js';
 import { SKILLS } from './skills.js';
 import { getActiveRecord as getActiveFirmRecord, saveOfflineRecord as saveFirmRecord, addOfflineRenownXp } from './offlineFirmament.js';
@@ -492,10 +495,30 @@ function handleHealCommand() {
 registerCommand('heal', 'Restore player health, fatigue, and magicka to maximum', 'heal', handleHealCommand);
 registerCommand('player_heal', 'Restore player health, fatigue, and magicka to maximum', 'player_heal', handleHealCommand);
 
+export const MATERIAL_ALIASES = new Map([
+  ['iron', 0],
+  ['steel', 1],
+  ['silver', 2],
+  ['elven', 3],
+  ['elf', 3],
+  ['dwarven', 4],
+  ['dwarf', 4],
+  ['mithril', 5],
+  ['adamantium', 6],
+  ['adamantite', 6],
+  ['ebony', 7],
+  ['orcish', 8],
+  ['orc', 8],
+  ['daedric', 9],
+  ['daedra', 9],
+  ['leather', 'leather'],
+  ['chain', 'chain'],
+]);
+
 export function findItemTemplate(query) {
   if (!query) return null;
   const num = parseInt(query, 10);
-  if (!Number.isNaN(num)) {
+  if (!Number.isNaN(num) && String(num) === String(query).trim()) {
     const t = templateByIndex(num);
     if (t) return { template: t, index: num };
   }
@@ -508,29 +531,133 @@ export function findItemTemplate(query) {
       return { template: t, index: i };
     }
   }
+
+  // Material prefix/suffix detection for compound names like "daedric_claymore", "elven dagger", etc.
+  for (const [alias, matVal] of MATERIAL_ALIASES.entries()) {
+    const cleanAlias = alias.replace(/[\s_-]/g, '');
+    if (clean.startsWith(cleanAlias) && clean.length > cleanAlias.length) {
+      const remainder = clean.slice(cleanAlias.length);
+      for (let i = 0; i < 288; i++) {
+        const t = templateByIndex(i);
+        if (!t?.name) continue;
+        const cleanName = t.name.toLowerCase().replace(/[\s_-]/g, '');
+        if (cleanName === remainder || cleanName.includes(remainder)) {
+          return { template: t, index: i, detectedMaterial: matVal };
+        }
+      }
+    }
+    if (clean.endsWith(cleanAlias) && clean.length > cleanAlias.length) {
+      const remainder = clean.slice(0, -cleanAlias.length);
+      for (let i = 0; i < 288; i++) {
+        const t = templateByIndex(i);
+        if (!t?.name) continue;
+        const cleanName = t.name.toLowerCase().replace(/[\s_-]/g, '');
+        if (cleanName === remainder || cleanName.includes(remainder)) {
+          return { template: t, index: i, detectedMaterial: matVal };
+        }
+      }
+    }
+  }
   return null;
 }
 
+const TEMPLATE_TO_GROUP = new Map();
+for (const [groupName, indices] of Object.entries(GROUP_TEMPLATE_INDICES || {})) {
+  for (const idx of indices) {
+    TEMPLATE_TO_GROUP.set(idx, groupName);
+  }
+}
+
 function handleAddItemCommand(args = []) {
-  if (!args || !args.length) return 'Usage: additem <templateIndex|name> [count]';
-  const count = args[1] ? Math.max(1, parseInt(args[1], 10) || 1) : 1;
-  const match = findItemTemplate(args[0]);
-  if (!match) return `Item template "${args[0]}" not found.`;
+  if (!args || !args.length) return 'Usage: additem <templateIndex|name> [count] [material]';
+
+  let rawTokens = [...args];
+  let material = null;
+  let count = 1;
+
+  // 1. Check if first token is a material alias (e.g. ['elven', 'dagger', '2'] or ['daedric', 'claymore'])
+  const firstLower = rawTokens[0].toLowerCase();
+  if (MATERIAL_ALIASES.has(firstLower) && rawTokens.length > 1) {
+    material = MATERIAL_ALIASES.get(firstLower);
+    rawTokens.shift();
+  }
+
+  // 2. Check if last token is a material alias or a 1-digit index 0..9 (e.g. ['claymore', '1', 'daedric'] or ['122', '1', '9'])
+  if (material === null && rawTokens.length > 1) {
+    const lastLower = rawTokens[rawTokens.length - 1].toLowerCase();
+    if (MATERIAL_ALIASES.has(lastLower)) {
+      material = MATERIAL_ALIASES.get(lastLower);
+      rawTokens.pop();
+    } else if (rawTokens.length >= 3 && /^[0-9]$/.test(lastLower)) {
+      material = parseInt(lastLower, 10);
+      rawTokens.pop();
+    }
+  }
+
+  // 3. Check if last token is count (e.g. ['longsword', '2'])
+  if (rawTokens.length > 1 && /^\d+$/.test(rawTokens[rawTokens.length - 1])) {
+    count = Math.max(1, parseInt(rawTokens[rawTokens.length - 1], 10) || 1);
+    rawTokens.pop();
+  }
+
+  // 4. Query is the remaining tokens
+  const query = rawTokens.join(' ');
+  const match = findItemTemplate(query);
+  if (!match) return `Item template "${query || args[0]}" not found.`;
+
+  if (material === null && match.detectedMaterial !== undefined) {
+    material = match.detectedMaterial;
+  }
+
   const t = match.template;
-  const item = setItemFields({
-    group: t.group,
-    templateIndex: match.index,
-    currentCondition: t.hitPoints ?? 100,
-    maxCondition: t.hitPoints ?? 100,
-    stackCount: count,
-  });
+  const group = TEMPLATE_TO_GROUP.get(match.index);
+  let item;
+  let matIndex = typeof material === 'number' ? material : null;
+  if (typeof material === 'string' && MATERIAL_ALIASES.has(material.toLowerCase())) {
+    matIndex = MATERIAL_ALIASES.get(material.toLowerCase());
+  }
+
+  let matName = '';
+  if (group === 'Weapons') {
+    const weaponMat = (typeof matIndex === 'number' && matIndex >= 0 && matIndex <= 9) ? matIndex : 0;
+    item = weaponOfMaterial(match.index, weaponMat);
+    item.stackCount = count;
+    matName = MATERIAL_NAMES[weaponMat] ?? '';
+  } else if (group === 'Armor') {
+    let armorMat = ARMOR_MATERIAL.Iron;
+    if (material === 'leather') {
+      armorMat = ARMOR_MATERIAL.Leather;
+      matName = 'Leather';
+    } else if (material === 'chain') {
+      armorMat = ARMOR_MATERIAL.Chain;
+      matName = 'Chain';
+    } else if (typeof matIndex === 'number' && matIndex >= 0 && matIndex <= 9) {
+      armorMat = ARMOR_MATERIAL.Iron + matIndex;
+      matName = MATERIAL_NAMES[matIndex] ?? '';
+    } else {
+      matName = 'Iron';
+    }
+    item = armorOfMaterial(match.index, armorMat);
+    item.stackCount = count;
+  } else {
+    item = setItemFields({
+      group: group ?? 'MiscItems',
+      templateIndex: match.index,
+      currentCondition: t.hitPoints ?? 100,
+      maxCondition: t.hitPoints ?? 100,
+      stackCount: count,
+    });
+  }
+
   if (!playerEntity.items) playerEntity.items = [];
   addItem(playerEntity.items, item);
   surfacePlayer?.();
-  return `Added ${count}x ${t.name} (Template: ${match.index}) to inventory.`;
+
+  const itemDisplay = (matName && material !== null) ? `${matName} ${t.name}` : t.name;
+  return `Added ${count}x ${itemDisplay} (Template: ${match.index}${matName ? `, Material: ${matName}` : ''}) to inventory.`;
 }
-registerCommand('additem', 'Add item to player inventory: additem <templateIndex|name> [count]', 'additem <templateIndex|name> [count]', handleAddItemCommand);
-registerCommand('item', 'Add item to player inventory: item <templateIndex|name> [count]', 'item <templateIndex|name> [count]', handleAddItemCommand);
+registerCommand('additem', 'Add item to player inventory: additem <templateIndex|name> [count] [material]', 'additem <templateIndex|name> [count] [material]', handleAddItemCommand);
+registerCommand('item', 'Add item to player inventory: item <templateIndex|name> [count] [material]', 'item <templateIndex|name> [count] [material]', handleAddItemCommand);
 
 const VALID_ATTRS = ['strength', 'intelligence', 'willpower', 'agility', 'endurance', 'personality', 'speed', 'luck'];
 
