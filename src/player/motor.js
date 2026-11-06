@@ -456,6 +456,7 @@ import { CLIMB_MOVE_KINDS, CLIMB_MOVE_RISE_MAX, CLIMB_MOVE_TIME_MAX } from '../n
 import { clampToRing } from '../net/duel/duelSession.js';   // AUDIT DUEL1 D4: the ring's one clamp
 import { keepOffBodies } from './bodyClamp.js';   // PROP-BODIES: the flats' bodies, kept out of after the collider's move
 import { MAX_TERRAIN_HEIGHT, STREAMING_TERRAIN_SCALE } from '../world/terrain/terrainSampler.js';   // FALL-KEPT: the world's tallest drop bounds a carried fall
+import { staffNoclip } from '../characters/playerEntity.js';
 
 /** PlayerSpeedChanger.GetWalkSpeed, verbatim (audit 2026-08-16e F1):
  *  drag = 0.5 x (100 - max(30, LiveSpeed)) rides the WALK base only -
@@ -3272,6 +3273,14 @@ export class PlayerMotor {
       // never pulls the capsule DOWN onto what is under it; the snap is AcrobatMotor's anti-bump, PlayerMotor's
       // grounded path alone. With it here a swimmer (or a levitator) passing within a step of anything under it was
       // dragged onto it - a carved sea's floor wall caught a surface swimmer by the knees at the coast (measured).
+      if (staffNoclip?.() || this.noclip) {
+        this.pos[0] += mx * speed * dt;
+        this.pos[1] += my * speed * dt;
+        this.pos[2] += mz * speed * dt;
+        this.groundKey = null;
+        this.grounded = false;
+        return;
+      }
       const r = this.collider.move(this.pos, mx * speed * dt, my * speed * dt, mz * speed * dt, this.height, false);
       this.groundKey = r.grounded ? (r.groundKey ?? null) : null;
       this.grounded = r.grounded;

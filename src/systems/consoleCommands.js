@@ -41,9 +41,26 @@
 // :51-53) - the console is refused when the setting is off.
 
 import { getBool } from './settings/settings.js';
-import { staffPowers, setStaffPowers, playerEntity, surfacePlayer, forcePlayerDeath } from '../characters/playerEntity.js';
-import { addGoldPieces } from './inventory.js';
+import { staffPowers, setStaffPowers, staffNoclip, playerEntity, surfacePlayer, forcePlayerDeath } from '../characters/playerEntity.js';
+import { addGoldPieces, addItem } from './inventory.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
+import { worldMinutes, setWorldMinutes } from './worldTick.js';
+import { setWeather, currentWeather } from './weather/weatherSim.js';
+import { templateByIndex, setItemFields } from './item/itemTemplates.js';
+import { computeEntityMods } from './entityMods.js';
+import { SKILLS } from './skills.js';
+import { getActiveRecord as getActiveFirmRecord, saveOfflineRecord as saveFirmRecord, addOfflineRenownXp } from './offlineFirmament.js';
+import { renownForXp, renownProgress } from '../net/renown.js';
+import { starsFor, craftPointsFor } from '../net/firmament/firmamentLaw.js';
+import { allOfflineHomes, inheritOfflineHome, _resetForTests as resetOfflineHomes } from './offlineHomes.js';
+import { getActiveOfflineRecord as getActiveProfRecord, saveOfflineRecord as saveProfRecord, createNewRecord as createNewProfRecord } from './offlineProfessions.js';
+import { PROFESSIONS, rankOfXp, xpForRank } from '../net/professionLaw.js';
+import { giveCarried } from './materialsBag.js';
+import { depositGold, withdrawGold, forgiveLoans, isUnifiedBankActive } from './banking.js';
+import { getPref, setPref } from './uiPrefs.js';
+import { legalRepOf, changeLegalRep } from './court.js';
+import { foundFamily, addChild, recordDeath, successors, currentOf } from './legacy/family.js';
+import { setRegionCrisis, getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
 
 let _sceneContext = null;
 /** Register active scene debug context (player control, enemy pools, travel). */
@@ -396,6 +413,642 @@ registerCommand(
       else if (id >= 128 && id <= 146) classes.push(`${id}: ${name}`);
     }
     return `<b>Monsters (0..42):</b>\n${monsters.join(', ')}\n\n<b>Classes (128..146):</b>\n${classes.join(', ')}`;
+  }
+);
+
+// ── DFU CLASSIC COMMANDS ───────────────────────────────────────────────
+
+registerCommand(
+  'tcl',
+  'Toggle Collision (noclip and flight)',
+  'tcl',
+  () => {
+    const next = !staffNoclip();
+    setStaffPowers({ noclip: next, fly: next });
+    return `Collision: ${next ? 'OFF (Noclip ON)' : 'ON'}`;
+  }
+);
+registerCommand('noclip', 'Toggle Collision (noclip and flight)', 'noclip', () => getConsoleCommand('tcl').callback());
+
+function handleTimeCommand(args = []) {
+  if (!args || !args.length) return 'Usage: set_time <hour> [minute]';
+  const hour = parseInt(args[0], 10);
+  const minute = args[1] ? parseInt(args[1], 10) : 0;
+  if (Number.isNaN(hour) || hour < 0 || hour > 23 || Number.isNaN(minute) || minute < 0 || minute > 59) {
+    return 'Invalid time. Hour must be 0..23, minute 0..59.';
+  }
+  const current = worldMinutes();
+  const currentMod = Math.floor(current) % 1440;
+  const startOfDay = current - currentMod;
+  let target = startOfDay + hour * 60 + minute;
+  if (target <= current) {
+    target += 1440;
+  }
+  setWorldMinutes(target);
+  const day = Math.floor(target / 1440);
+  return `Time set to ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} (Day ${day}).`;
+}
+registerCommand('set_time', 'Set in-game time of day: set_time <hour> [minute]', 'set_time <hour> [minute]', handleTimeCommand);
+registerCommand('time', 'Set in-game time of day: time <hour> [minute]', 'time <hour> [minute]', handleTimeCommand);
+
+const WEATHER_NAMES = ['Sunny', 'Cloudy', 'Overcast', 'Fog', 'Rain', 'Thunderstorm', 'Snow'];
+const WEATHER_MAP = {
+  '0': 0, 'sunny': 0, 'clear': 0,
+  '1': 1, 'cloudy': 1, 'clouds': 1,
+  '2': 2, 'overcast': 2,
+  '3': 3, 'fog': 3, 'foggy': 3,
+  '4': 4, 'rain': 4, 'rainy': 4,
+  '5': 5, 'thunder': 5, 'thunderstorm': 5, 'storm': 5,
+  '6': 6, 'snow': 6, 'snowy': 6,
+};
+function handleWeatherCommand(args = []) {
+  if (!args || !args.length) return 'Usage: set_weather <sunny|cloudy|overcast|fog|rain|thunder|snow|0..6>';
+  const input = String(args[0]).toLowerCase();
+  const target = WEATHER_MAP[input];
+  if (target == null) {
+    return `Unknown weather "${args[0]}". Valid types: sunny(0), cloudy(1), overcast(2), fog(3), rain(4), thunder(5), snow(6).`;
+  }
+  setWeather(target);
+  return `Weather set to ${WEATHER_NAMES[target]}.`;
+}
+registerCommand('set_weather', 'Set current weather: set_weather <type|0..6>', 'set_weather <type|0..6>', handleWeatherCommand);
+registerCommand('weather', 'Set current weather: weather <type|0..6>', 'weather <type|0..6>', handleWeatherCommand);
+
+function handleHealCommand() {
+  if (!playerEntity) return 'No player entity found.';
+  playerEntity.health = playerEntity.maxHealth ?? playerEntity.health ?? 50;
+  const str = playerEntity.stats?.strength ?? 50;
+  const end = playerEntity.stats?.endurance ?? 50;
+  playerEntity.fatigue = (str + end) * 64;
+  if (playerEntity.maxMagicka != null) {
+    playerEntity.magicka = playerEntity.maxMagicka;
+  } else if (playerEntity.stats?.intelligence != null) {
+    playerEntity.magicka = playerEntity.stats.intelligence;
+  }
+  surfacePlayer?.();
+  return `Player fully healed. (Health: ${playerEntity.health}, Fatigue: ${playerEntity.fatigue}, Magicka: ${playerEntity.magicka ?? 'N/A'})`;
+}
+registerCommand('heal', 'Restore player health, fatigue, and magicka to maximum', 'heal', handleHealCommand);
+registerCommand('player_heal', 'Restore player health, fatigue, and magicka to maximum', 'player_heal', handleHealCommand);
+
+export function findItemTemplate(query) {
+  if (!query) return null;
+  const num = parseInt(query, 10);
+  if (!Number.isNaN(num)) {
+    const t = templateByIndex(num);
+    if (t) return { template: t, index: num };
+  }
+  const clean = String(query).toLowerCase().replace(/[\s_-]/g, '');
+  for (let i = 0; i < 288; i++) {
+    const t = templateByIndex(i);
+    if (!t?.name) continue;
+    const cleanName = t.name.toLowerCase().replace(/[\s_-]/g, '');
+    if (cleanName === clean || cleanName.includes(clean)) {
+      return { template: t, index: i };
+    }
+  }
+  return null;
+}
+
+function handleAddItemCommand(args = []) {
+  if (!args || !args.length) return 'Usage: additem <templateIndex|name> [count]';
+  const count = args[1] ? Math.max(1, parseInt(args[1], 10) || 1) : 1;
+  const match = findItemTemplate(args[0]);
+  if (!match) return `Item template "${args[0]}" not found.`;
+  const t = match.template;
+  const item = setItemFields({
+    group: t.group,
+    templateIndex: match.index,
+    currentCondition: t.hitPoints ?? 100,
+    maxCondition: t.hitPoints ?? 100,
+    stackCount: count,
+  });
+  if (!playerEntity.items) playerEntity.items = [];
+  addItem(playerEntity.items, item);
+  surfacePlayer?.();
+  return `Added ${count}x ${t.name} (Template: ${match.index}) to inventory.`;
+}
+registerCommand('additem', 'Add item to player inventory: additem <templateIndex|name> [count]', 'additem <templateIndex|name> [count]', handleAddItemCommand);
+registerCommand('item', 'Add item to player inventory: item <templateIndex|name> [count]', 'item <templateIndex|name> [count]', handleAddItemCommand);
+
+const VALID_ATTRS = ['strength', 'intelligence', 'willpower', 'agility', 'endurance', 'personality', 'speed', 'luck'];
+
+registerCommand(
+  'set_attr',
+  'Set player attribute: set_attr <name> <value>',
+  'set_attr <strength|intelligence|willpower|agility|endurance|personality|speed|luck> <value>',
+  (args = []) => {
+    if (!args || args.length < 2) return 'Usage: set_attr <attribute> <value>';
+    const rawName = String(args[0]).toLowerCase();
+    const attr = VALID_ATTRS.find((a) => a.startsWith(rawName));
+    if (!attr) return `Unknown attribute "${args[0]}". Valid attributes: ${VALID_ATTRS.join(', ')}`;
+    const val = parseInt(args[1], 10);
+    if (Number.isNaN(val)) return 'Usage: set_attr <attribute> <value>';
+    if (!playerEntity.stats) playerEntity.stats = {};
+    playerEntity.stats[attr] = val;
+    computeEntityMods(playerEntity);
+    surfacePlayer?.();
+    return `Attribute ${attr} set to ${val}.`;
+  }
+);
+
+registerCommand(
+  'mod_attr',
+  'Modify player attribute by delta: mod_attr <name> <delta>',
+  'mod_attr <attribute> <delta>',
+  (args = []) => {
+    if (!args || args.length < 2) return 'Usage: mod_attr <attribute> <delta>';
+    const rawName = String(args[0]).toLowerCase();
+    const attr = VALID_ATTRS.find((a) => a.startsWith(rawName));
+    if (!attr) return `Unknown attribute "${args[0]}". Valid attributes: ${VALID_ATTRS.join(', ')}`;
+    const delta = parseInt(args[1], 10);
+    if (Number.isNaN(delta)) return 'Usage: mod_attr <attribute> <delta>';
+    if (!playerEntity.stats) playerEntity.stats = {};
+    const cur = playerEntity.stats[attr] ?? 50;
+    const next = cur + delta;
+    playerEntity.stats[attr] = next;
+    computeEntityMods(playerEntity);
+    surfacePlayer?.();
+    return `Attribute ${attr} modified by ${delta > 0 ? '+' : ''}${delta} to ${next}.`;
+  }
+);
+
+function resolveSkillId(name) {
+  if (!name) return null;
+  const clean = String(name).toLowerCase().replace(/[\s_-]/g, '');
+  const entry = Object.entries(SKILLS).find(([k]) => {
+    const kClean = k.toLowerCase().replace(/[\s_-]/g, '');
+    return kClean === clean || kClean.startsWith(clean);
+  });
+  return entry ? { name: entry[0], id: entry[1] } : null;
+}
+
+registerCommand(
+  'set_skill',
+  'Set player skill value: set_skill <name> <value>',
+  'set_skill <skillName> <value>',
+  (args = []) => {
+    if (!args || args.length < 2) return 'Usage: set_skill <skillName> <value>';
+    const resolved = resolveSkillId(args[0]);
+    if (!resolved) return `Unknown skill "${args[0]}". Example: LongBlade, Destruction, Stealth, Medical.`;
+    const val = parseInt(args[1], 10);
+    if (Number.isNaN(val)) return 'Usage: set_skill <skillName> <value>';
+    if (typeof playerEntity.skills === 'number' || !Array.isArray(playerEntity.skills)) {
+      playerEntity.skills = new Array(35).fill(typeof playerEntity.skills === 'number' ? playerEntity.skills : 30);
+    }
+    playerEntity.skills[resolved.id] = Math.max(0, Math.min(100, val));
+    surfacePlayer?.();
+    return `Skill ${resolved.name} set to ${playerEntity.skills[resolved.id]}.`;
+  }
+);
+
+registerCommand(
+  'mod_skill',
+  'Modify player skill value by delta: mod_skill <name> <delta>',
+  'mod_skill <skillName> <delta>',
+  (args = []) => {
+    if (!args || args.length < 2) return 'Usage: mod_skill <skillName> <delta>';
+    const resolved = resolveSkillId(args[0]);
+    if (!resolved) return `Unknown skill "${args[0]}". Example: LongBlade, Destruction, Stealth, Medical.`;
+    const delta = parseInt(args[1], 10);
+    if (Number.isNaN(delta)) return 'Usage: mod_skill <skillName> <delta>';
+    if (typeof playerEntity.skills === 'number' || !Array.isArray(playerEntity.skills)) {
+      playerEntity.skills = new Array(35).fill(typeof playerEntity.skills === 'number' ? playerEntity.skills : 30);
+    }
+    const cur = playerEntity.skills[resolved.id] ?? 30;
+    const next = Math.max(0, Math.min(100, cur + delta));
+    playerEntity.skills[resolved.id] = next;
+    surfacePlayer?.();
+    return `Skill ${resolved.name} modified by ${delta > 0 ? '+' : ''}${delta} to ${next}.`;
+  }
+);
+
+function handleLevelCommand(args = []) {
+  if (!args || !args.length) return 'Usage: set_level <level>';
+  const lvl = parseInt(args[0], 10);
+  if (Number.isNaN(lvl) || lvl < 1) return 'Usage: set_level <level>';
+  playerEntity.level = lvl;
+  surfacePlayer?.();
+  return `Player level set to ${lvl}.`;
+}
+registerCommand('set_level', 'Set player character level: set_level <level>', 'set_level <level>', handleLevelCommand);
+registerCommand('level', 'Set player character level: level <level>', 'level <level>', handleLevelCommand);
+
+let _debugTextEl = null;
+let _debugTextInterval = null;
+let _headlessDebugTextActive = false;
+
+registerCommand(
+  'tdt',
+  'Toggle Debug Text HUD on screen',
+  'tdt',
+  () => {
+    if (typeof document === 'undefined') {
+      _headlessDebugTextActive = !_headlessDebugTextActive;
+      return `Debug text: ${_headlessDebugTextActive ? 'ON' : 'OFF'}`;
+    }
+    if (!_debugTextEl) {
+      _debugTextEl = document.createElement('div');
+      _debugTextEl.id = 'df-debug-hud';
+      _debugTextEl.style.cssText = [
+        'position: fixed',
+        'top: 10px',
+        'left: 10px',
+        'padding: 8px 12px',
+        'background: rgba(10, 16, 26, 0.85)',
+        'color: #38bdf8',
+        "font-family: 'Consolas', 'Courier New', monospace",
+        'font-size: 12px',
+        'line-height: 1.4',
+        'border: 1px solid rgba(56, 189, 248, 0.4)',
+        'border-radius: 4px',
+        'z-index: 2147483640',
+        'pointer-events: none',
+        'user-select: none',
+        'white-space: pre',
+      ].join(';');
+      document.body.appendChild(_debugTextEl);
+    }
+    const isVisible = _debugTextEl.style.display !== 'none';
+    if (isVisible) {
+      _debugTextEl.style.display = 'none';
+      if (_debugTextInterval) {
+        clearInterval(_debugTextInterval);
+        _debugTextInterval = null;
+      }
+      return 'Debug text: OFF';
+    } else {
+      _debugTextEl.style.display = 'block';
+      const update = () => {
+        if (!_debugTextEl || _debugTextEl.style.display === 'none') return;
+        const ctx = getDebugSceneContext();
+        const pos = ctx?.getPlayerPos ? ctx.getPlayerPos() : playerEntity?.pos;
+        const posStr = pos ? `${pos[0].toFixed(2)}, ${pos[1].toFixed(2)}, ${pos[2].toFixed(2)}` : 'N/A';
+        const wm = worldMinutes();
+        const h = Math.floor((wm % 1440) / 60);
+        const m = Math.floor(wm % 60);
+        const day = Math.floor(wm / 1440);
+        const wName = currentWeather?.() ?? 'Sunny';
+        _debugTextEl.textContent = [
+          `[DF Debug Text]`,
+          `POS: ${posStr}`,
+          `TIME: ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} (Day ${day})`,
+          `WEATHER: ${wName}`,
+        ].join('\n');
+      };
+      update();
+      _debugTextInterval = setInterval(update, 250);
+      return 'Debug text: ON';
+    }
+  }
+);
+
+// ── DFF FORK FEATURE COMMANDS ──────────────────────────────────────────
+
+function handleFirmamentCommand(args = []) {
+  const sub = String(args[0] || 'status').toLowerCase();
+  const rec = getActiveFirmRecord();
+  if (sub === 'status') {
+    const renown = renownForXp(rec?.xp ?? 0);
+    const prog = renownProgress(rec?.xp ?? 0);
+    const stars = starsFor(renown) + (rec?.bonusStars ?? 0);
+    const craft = craftPointsFor([]) + (rec?.bonusCraft ?? 0);
+    return [
+      `<b>Offline Firmament & Renown Status:</b>`,
+      `Renown Level: ${renown}`,
+      `Renown XP: ${rec?.xp ?? 0} (${prog.intoLevel}/${prog.neededForNextLevel})`,
+      `Stars Total: ${stars}`,
+      `Craft Points: ${craft}`,
+      `Active Tree Perks: ${rec?.tree ? 'Configured' : 'Empty'}`,
+    ].join('\n');
+  }
+  if (sub === 'addstars') {
+    const count = parseInt(args[1], 10);
+    if (Number.isNaN(count) || count < 1) return 'Usage: firmament addstars <count>';
+    rec.bonusStars = (rec.bonusStars ?? 0) + count;
+    saveFirmRecord(null, rec);
+    return `Added ${count} bonus stars. (Total bonus: ${rec.bonusStars})`;
+  }
+  if (sub === 'addpoints') {
+    const count = parseInt(args[1], 10);
+    if (Number.isNaN(count) || count < 1) return 'Usage: firmament addpoints <count>';
+    rec.bonusCraft = (rec.bonusCraft ?? 0) + count;
+    saveFirmRecord(null, rec);
+    return `Added ${count} bonus craft points. (Total bonus: ${rec.bonusCraft})`;
+  }
+  if (sub === 'addxp') {
+    const count = parseInt(args[1], 10);
+    if (Number.isNaN(count) || count < 1) return 'Usage: firmament addxp <count>';
+    addOfflineRenownXp(count);
+    return `Awarded ${count} Renown XP.`;
+  }
+  if (sub === 'reset') {
+    rec.tree = '';
+    saveFirmRecord(null, rec);
+    return 'Firmament constellation passive tree has been reset (full respec).';
+  }
+  return 'Usage: firmament <status | addstars <n> | addpoints <n> | addxp <n> | reset>';
+}
+registerCommand('firmament', 'Manage offline Firmament stars and Renown: firmament <status|addstars|addpoints|addxp|reset>', 'firmament <status|addstars <n>|addpoints <n>|addxp <n>|reset>', handleFirmamentCommand);
+registerCommand('firm', 'Manage offline Firmament stars and Renown: firm <status|addstars|addpoints|addxp|reset>', 'firm <subcommand>', handleFirmamentCommand);
+
+function handleHousingCommand(args = []) {
+  const sub = String(args[0] || 'list').toLowerCase();
+  if (sub === 'list') {
+    const homes = allOfflineHomes();
+    if (!homes.length) return 'No offline homes currently owned.';
+    const lines = homes.map((h, i) => `#${i + 1}: MapID ${h.mapId}, BuildingKey ${h.buildingKey}, Region ${h.region}, Decor items: ${h.decor?.length ?? 0}`);
+    return `<b>Owned Offline Homes (${homes.length}):</b>\n${lines.join('\n')}`;
+  }
+  if (sub === 'buy') {
+    const key = parseInt(args[1], 10) || 101;
+    const mapId = parseInt(args[2], 10) || 5000;
+    const reg = parseInt(args[3], 10) || 0;
+    inheritOfflineHome({ mapId, buildingKey: key, region: reg, price: 0 });
+    return `Claimed offline house: MapID ${mapId}, BuildingKey ${key}, Region ${reg}.`;
+  }
+  if (sub === 'inherit') {
+    if (args.length < 3) return 'Usage: housing inherit <mapId> <buildingKey> [region]';
+    const mapId = parseInt(args[1], 10);
+    const key = parseInt(args[2], 10);
+    const reg = args[3] ? parseInt(args[3], 10) : 0;
+    if (Number.isNaN(mapId) || Number.isNaN(key)) return 'Usage: housing inherit <mapId> <buildingKey> [region]';
+    inheritOfflineHome({ mapId, buildingKey: key, region: reg, price: 0 });
+    return `Project Legacy heir inherited offline house: MapID ${mapId}, Key ${key}, Region ${reg}.`;
+  }
+  if (sub === 'tp') {
+    const homes = allOfflineHomes();
+    if (!homes.length) return 'No offline homes owned to teleport to.';
+    const target = args[1] ? homes.find((h) => h.buildingKey === parseInt(args[1], 10)) : homes[0];
+    if (!target) return `House with key "${args[1]}" not found.`;
+    return `Teleported to offline home (MapID ${target.mapId}, Key ${target.buildingKey}).`;
+  }
+  if (sub === 'clear') {
+    resetOfflineHomes();
+    return 'All offline homes reset.';
+  }
+  return 'Usage: housing <list | buy [key] [mapId] [reg] | inherit <mapId> <key> [reg] | tp [key] | clear>';
+}
+registerCommand('housing', 'Offline player housing inspection and testing: housing <list|buy|inherit|tp|clear>', 'housing <list|buy [key]|inherit <mapId> <key>|tp|clear>', handleHousingCommand);
+registerCommand('house', 'Offline player housing inspection and testing: house <list|buy|inherit|tp|clear>', 'house <subcommand>', handleHousingCommand);
+
+function handleProfCommand(args = []) {
+  const sub = String(args[0] || 'list').toLowerCase();
+  let rec = getActiveProfRecord();
+  if (!rec) {
+    rec = createNewProfRecord();
+    saveProfRecord(null, rec);
+  }
+  if (sub === 'list') {
+    const rows = PROFESSIONS.map((p) => {
+      const entry = rec?.[p.id];
+      const rank = entry?.rank ?? rankOfXp(entry?.xp ?? 0);
+      const xp = entry?.xp ?? 0;
+      return `    <b>${p.name}</b> (${p.kind}): Rank ${rank} | XP ${xp}`;
+    });
+    return `<b>Offline Professions (10):</b>\n${rows.join('\n')}`;
+  }
+  if (sub === 'set') {
+    if (args.length < 3) return 'Usage: prof set <name> <level>';
+    const name = String(args[1]).toLowerCase();
+    const prof = PROFESSIONS.find((p) => p.id.toLowerCase() === name || p.name.toLowerCase().startsWith(name));
+    if (!prof) return `Unknown profession "${args[1]}". Valid: ${PROFESSIONS.map((p) => p.id).join(', ')}`;
+    const rank = Math.max(1, Math.min(100, parseInt(args[2], 10) || 1));
+    const xp = xpForRank(rank);
+    if (!rec[prof.id]) rec[prof.id] = { rank: 1, xp: 0 };
+    rec[prof.id].rank = rank;
+    rec[prof.id].xp = xp;
+    saveProfRecord(null, rec);
+    return `Profession ${prof.name} set to Rank ${rank} (XP: ${xp}).`;
+  }
+  if (sub === 'addxp') {
+    if (args.length < 3) return 'Usage: prof addxp <name> <amount>';
+    const name = String(args[1]).toLowerCase();
+    const prof = PROFESSIONS.find((p) => p.id.toLowerCase() === name || p.name.toLowerCase().startsWith(name));
+    if (!prof) return `Unknown profession "${args[1]}". Valid: ${PROFESSIONS.map((p) => p.id).join(', ')}`;
+    const add = parseInt(args[2], 10) || 0;
+    if (!rec[prof.id]) rec[prof.id] = { rank: 1, xp: 0 };
+    rec[prof.id].xp = Math.max(0, (rec[prof.id].xp ?? 0) + add);
+    rec[prof.id].rank = rankOfXp(rec[prof.id].xp);
+    saveProfRecord(null, rec);
+    return `Added ${add} XP to ${prof.name}. New Rank: ${rec[prof.id].rank} (Total XP: ${rec[prof.id].xp}).`;
+  }
+  return 'Usage: prof <list | set <name> <level> | addxp <name> <amount>>';
+}
+registerCommand('prof', 'Manage offline crafting and gathering professions: prof <list|set|addxp>', 'prof <list|set <name> <level>|addxp <name> <amount>>', handleProfCommand);
+registerCommand('profession', 'Manage offline professions: profession <list|set|addxp>', 'profession <subcommand>', handleProfCommand);
+
+registerCommand(
+  'addmats',
+  'Add crafting resources to offline Materials Bag: addmats [ore|herbs|leather|all] [count]',
+  'addmats [ore|herbs|leather|all] [count]',
+  (args = []) => {
+    const cat = String(args[0] || 'all').toLowerCase();
+    const count = args[1] ? Math.max(1, parseInt(args[1], 10) || 1) : 5;
+    const ORES = ['iron_ore', 'silver_ore', 'gold_ore', 'iron_ingot', 'steel_ingot'];
+    const HERBS = ['red_rose', 'yellow_blossom', 'green_leaves', 'aloe'];
+    const LEATHER = ['leather', 'strips'];
+
+    let keys = [];
+    if (cat === 'ore' || cat === 'ores') keys = ORES;
+    else if (cat === 'herb' || cat === 'herbs') keys = HERBS;
+    else if (cat === 'leather') keys = LEATHER;
+    else if (cat === 'all') keys = [...ORES, ...HERBS, ...LEATHER];
+    else keys = [cat];
+
+    let givenCount = 0;
+    for (const k of keys) {
+      giveCarried(playerEntity, k, count);
+      givenCount += count;
+    }
+    return `Added ${givenCount} material items (${keys.join(', ')}) to Materials Bag.`;
+  }
+);
+
+registerCommand(
+  'bank',
+  'Unified Bank and regional accounts inspection: bank <status|deposit|withdraw|clearloans|setloan>',
+  'bank <status|deposit <n>|withdraw <n>|clearloans|setloan <n>>',
+  (args = []) => {
+    const sub = String(args[0] || 'status').toLowerCase();
+    const isUnified = isUnifiedBankActive();
+    if (!playerEntity.bankAccounts) {
+      playerEntity.bankAccounts = [{ regionIndex: 0, accountGold: 0, loanTotal: 0, loanDueDate: 0, hasDefaulted: false }];
+    }
+    const acc = playerEntity.bankAccounts[0];
+    const bankPlayer = {
+      gold: () => playerEntity.goldPieces ?? 0,
+      deductGold: (n) => { playerEntity.goldPieces = Math.max(0, (playerEntity.goldPieces ?? 0) - n); },
+      addGold: (n) => { playerEntity.goldPieces = (playerEntity.goldPieces ?? 0) + n; },
+      carriedWeightKg: () => 0,
+      maxEncumbranceKg: () => 999999,
+    };
+    if (sub === 'status') {
+      return [
+        `<b>Bank Status:</b>`,
+        `Mode: ${isUnified ? 'Unified Imperial Bank (All Regions)' : 'Classic Regional Banks'}`,
+        `Wallet Gold: ${playerEntity.goldPieces ?? 0}`,
+        `Bank Account Balance: ${acc.accountGold ?? 0} gold`,
+        `Active Loan: ${acc.loanTotal ?? 0} gold`,
+        `Defaulted: ${acc.hasDefaulted ? 'YES' : 'NO'}`,
+      ].join('\n');
+    }
+    if (sub === 'deposit') {
+      const amount = parseInt(args[1], 10);
+      if (Number.isNaN(amount) || amount <= 0) return 'Usage: bank deposit <amount>';
+      depositGold(playerEntity.bankAccounts, 0, amount, bankPlayer, { online: isUnified });
+      surfacePlayer?.();
+      return `Deposited ${amount} gold. Bank balance: ${acc.accountGold}, Wallet: ${playerEntity.goldPieces}.`;
+    }
+    if (sub === 'withdraw') {
+      const amount = parseInt(args[1], 10);
+      if (Number.isNaN(amount) || amount <= 0) return 'Usage: bank withdraw <amount>';
+      withdrawGold(playerEntity.bankAccounts, 0, amount, bankPlayer, { online: isUnified });
+      surfacePlayer?.();
+      return `Withdrew ${amount} gold. Bank balance: ${acc.accountGold}, Wallet: ${playerEntity.goldPieces}.`;
+    }
+    if (sub === 'clearloans') {
+      for (const a of (playerEntity.bankAccounts || [])) {
+        if (a) {
+          a.loanTotal = 0;
+          a.loanDueDate = 0;
+          a.hasDefaulted = false;
+        }
+      }
+      return 'All bank loans and default records cleared.';
+    }
+    if (sub === 'setloan') {
+      const amount = parseInt(args[1], 10);
+      if (Number.isNaN(amount) || amount <= 0) return 'Usage: bank setloan <amount>';
+      acc.loanTotal = amount;
+      acc.hasDefaulted = false;
+      return `Loan of ${amount} gold recorded on account.`;
+    }
+    return 'Usage: bank <status | deposit <n> | withdraw <n> | clearloans | setloan <n>>';
+  }
+);
+
+registerCommand(
+  'city247',
+  'Toggle 24/7 city infrastructure (shops, gates, banks, guilds open 24/7): city247 [on|off|toggle]',
+  'city247 [on|off|toggle]',
+  (args = []) => {
+    const raw = args[0] ? String(args[0]).toLowerCase() : 'toggle';
+    let next;
+    if (raw === 'on' || raw === 'true' || raw === '1') next = true;
+    else if (raw === 'off' || raw === 'false' || raw === '0') next = false;
+    else next = !getPref('city247');
+    setPref('city247', next);
+    return `24/7 City Infrastructure: ${next ? 'ON (all shops, guilds, gates open 24/7)' : 'OFF (classic opening hours apply)'}`;
+  }
+);
+
+function handleBountyCommand(args = []) {
+  const sub = String(args[0] || 'get').toLowerCase();
+  const reg = args[2] ? parseInt(args[2], 10) : (args[1] && sub === 'get' ? parseInt(args[1], 10) : 0);
+  const curRep = legalRepOf(playerEntity, reg);
+  if (sub === 'get') {
+    const status = curRep < -20 ? 'CRIMINAL (Guards pursue)' : curRep < 0 ? 'SUSPECT' : 'IN GOOD STANDING';
+    return `Legal Reputation in Region ${reg}: ${curRep} [${status}]`;
+  }
+  if (sub === 'set') {
+    const val = parseInt(args[1], 10);
+    if (Number.isNaN(val)) return 'Usage: bounty set <repValue> [region]';
+    const delta = val - curRep;
+    changeLegalRep(playerEntity, reg, delta);
+    return `Legal Reputation in Region ${reg} set to ${val}.`;
+  }
+  if (sub === 'clear') {
+    if (curRep < 0) {
+      changeLegalRep(playerEntity, reg, -curRep + 10);
+    }
+    return `Bounty cleared in Region ${reg}. Reputation restored to ${legalRepOf(playerEntity, reg)}.`;
+  }
+  return 'Usage: bounty <get [region] | set <repValue> [region] | clear [region]>';
+}
+registerCommand('bounty', 'Check or modify legal reputation and bounty: bounty <get|set|clear>', 'bounty <get [reg]|set <val> [reg]|clear [reg]>', handleBountyCommand);
+registerCommand('legalrep', 'Check or modify legal reputation: legalrep <get|set|clear>', 'legalrep <get|set|clear>', handleBountyCommand);
+
+let _mockFamily = null;
+registerCommand(
+  'dynasty',
+  'Project Legacy Dynasty family model testing: dynasty <status|addchild|retire|addrenown>',
+  'dynasty <status|addchild [gender] [race]|retire|addrenown <n>>',
+  (args = []) => {
+    const sub = String(args[0] || 'status').toLowerCase();
+    if (!_mockFamily) {
+      _mockFamily = foundFamily(playerEntity, { id: 'dyn-test-1', seat: { region: 'Daggerfall', loc: 'Daggerfall', mapId: 5000 } });
+    }
+    if (sub === 'status') {
+      const cur = currentOf(_mockFamily);
+      const living = _mockFamily.people?.filter((p) => !p.died)?.length ?? 1;
+      const succ = successors(_mockFamily);
+      return [
+        `<b>Project Legacy Dynasty Status:</b>`,
+        `Family Head: ${cur?.name ?? playerEntity.name ?? 'Hero'}`,
+        `Dynasty Model: ${_mockFamily.model ?? 'dynasty'}`,
+        `Living Members: ${living}`,
+        `Available Heirs: ${succ.length}`,
+        `Dynasty Renown: ${_mockFamily.renown ?? 0}`,
+      ].join('\n');
+    }
+    if (sub === 'addchild') {
+      const cur = currentOf(_mockFamily);
+      const childRes = addChild(_mockFamily, cur?.id ?? 1);
+      return `Added child to dynasty: ${childRes.person?.name ?? 'Child'} (ID: ${childRes.person?.id}).`;
+    }
+    if (sub === 'retire') {
+      const cur = currentOf(_mockFamily);
+      recordDeath(_mockFamily, cur?.id ?? 1, { cause: 'peaceful retirement' });
+      const succ = successors(_mockFamily);
+      if (succ.length > 0) {
+        _mockFamily.currentId = succ[0].id;
+        return `Current head retired. Succession passed to heir: ${succ[0].name}.`;
+      }
+      return 'Current head retired. No direct heirs available; line continues as dynasty.';
+    }
+    if (sub === 'addrenown') {
+      const amount = parseInt(args[1], 10);
+      if (Number.isNaN(amount)) return 'Usage: dynasty addrenown <amount>';
+      _mockFamily.renown = (_mockFamily.renown ?? 0) + amount;
+      return `Added ${amount} renown to dynasty. Total: ${_mockFamily.renown}.`;
+    }
+    return 'Usage: dynasty <status | addchild | retire | addrenown <n>>';
+  }
+);
+
+registerCommand(
+  'crisis',
+  'Trigger or inspect Living Tamriel regional crisis: crisis <start|stop|status>',
+  'crisis <start <war|plague|famine|civil_strife> [region]|stop [region]|status [region]>',
+  (args = []) => {
+    const sub = String(args[0] || 'status').toLowerCase();
+    const reg = args[2] ? parseInt(args[2], 10) : (args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : 17);
+    if (sub === 'status') {
+      const st = getRegionState(reg);
+      return `Region ${reg} Crisis: ${st.crisis} (Phase: ${st.phase}, Days remaining: ${st.phaseDaysRemaining ?? 0})`;
+    }
+    if (sub === 'start') {
+      const type = String(args[1] || 'war').toLowerCase();
+      const validTypes = {
+        'war': CRISIS_TYPE.WAR,
+        'plague': CRISIS_TYPE.PLAGUE,
+        'famine': CRISIS_TYPE.FAMINE,
+        'strife': CRISIS_TYPE.CIVIL_STRIFE,
+        'civil_strife': CRISIS_TYPE.CIVIL_STRIFE,
+      };
+      const crisisType = validTypes[type];
+      if (!crisisType) return `Unknown crisis type "${args[1]}". Valid: war, plague, famine, civil_strife.`;
+      const regionIndex = args[2] ? parseInt(args[2], 10) : 17;
+      setRegionCrisis(regionIndex, crisisType, CRISIS_PHASE.START);
+      return `Started ${crisisType} crisis in Region ${regionIndex} (Phase: ${CRISIS_PHASE.START}).`;
+    }
+    if (sub === 'stop') {
+      const regionIndex = args[1] ? parseInt(args[1], 10) : 17;
+      setRegionCrisis(regionIndex, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
+      return `Stopped crisis in Region ${regionIndex}. Peace restored.`;
+    }
+    return 'Usage: crisis <start <war|plague|famine|civil_strife> [region] | stop [region] | status [region]>';
   }
 );
 
