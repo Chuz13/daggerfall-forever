@@ -100,5 +100,21 @@ export const LIVING_WORDS = Object.freeze({
     t('living.nemesis.tauntSuccess', 'The rival sneers and waves their retinue back: \'Stay out of this, fools! This dog is mine alone!\''),
   nemesisIntimidated: () =>
     t('living.nemesis.intimidated', 'The challenger shrinks back before your grim gaze and reconsiders their life choices.'),
+
+  // Plea Encounters (NPCs asking for help)
+  pleaPlague: () =>
+    t('living.plea.plague', 'Merciful traveler! My kin is burning with the plague fever. Do you have a healing remedy to spare?'),
+  pleaFamine: () =>
+    t('living.plea.famine', 'Alms, kind stranger! The granaries are empty and my children weep from hunger. Spare a coin for bread?'),
+  pleaWar: () =>
+    t('living.plea.war', 'The village was put to the torch by marauders! Please, help us with passage far from this bloodshed!'),
+  pleaEscort: () =>
+    t('living.plea.escort', 'The roads crawl with bandits. Might an able blade walk with me to the next crossroads?'),
+  pleaHelped: () =>
+    t('living.plea.helped', 'Blessings of the Divines upon you! Tamriel still knows true virtue.'),
+  pleaParted: () =>
+    t('living.plea.parted', 'May Stendarr watch over your journey nonetheless.'),
+  pleaRebuffed: () =>
+    t('living.plea.rebuffed', 'Curse your cold heart! May misfortune dog your footsteps!'),
 });
 
