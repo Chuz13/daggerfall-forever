@@ -136,6 +136,9 @@ function buildTagMeta() {
 // custom domain (daggerfalljs.dev, U64) without a rebuild.
 export default defineConfig({
   base: './',
+  worker: {
+    format: 'es',
+  },
   build: {
     target: 'es2022',
     // AUDIT DEPS1 (the review): Vite 8 minifies CSS with Lightning CSS -

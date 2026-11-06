@@ -79,6 +79,7 @@ export const TREE_ZOOM_STEP = 1.12;
  * @property {() => {ok:boolean, why?:string}} [moveFamilySeat]   FAMILY-SEAT: the seat moved there
  * @property {() => (string|null)} [choice]   LEGACY-CHOICE: the played character's own answer (`entity.legacyChoice`)
  * @property {() => boolean} [online]   LEGACY-CHOICE: whether the page is the online lane's
+ * @property {() => boolean} [offlineHousing]   whether offline player housing is active (buying at doors)
  */
 let _provider = /** @type {FamilyProvider|null} */ (null);
 /** The host's provider, or null to take the pages down. */
