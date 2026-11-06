@@ -82,5 +82,23 @@ export const LIVING_WORDS = Object.freeze({
     t('living.adventurer.reclaimSuccess', 'You have successfully recovered the quest objective from your rival!'),
   adventurerReclaimFailed: () =>
     t('living.adventurer.reclaimFailed', 'The rival adventurer refused to yield the prize and walked away.'),
+
+  // Nemesis 2.0 (Motives & Reactions)
+  nemesisMotiveBounty: () =>
+    t('living.nemesis.motive.bounty', 'There is a fat bounty on your head, criminal. Dead or alive, I collect!'),
+  nemesisMotiveAssassin: () =>
+    t('living.nemesis.motive.assassin', 'The Dark Brotherhood sends its regards. You were marked for death.'),
+  nemesisMotiveGlory: () =>
+    t('living.nemesis.motive.glory', 'They say you are the fiercest warrior in the land. Let us see if you bleed like one!'),
+  nemesisMotiveGrudge: () =>
+    t('living.nemesis.motive.grudge', 'Remember me?! You humiliated me, and now I have returned to pay the blood debt!'),
+  nemesisMotiveArcane: () =>
+    t('living.nemesis.motive.arcane', 'Such powerful artifacts belong in the hands of a master, not an ignorant amateur!'),
+  nemesisMotiveMarauder: () =>
+    t('living.nemesis.motive.marauder', 'Drop your weapons and empty your purse, traveler! Every coin or your life!'),
+  nemesisTauntSuccess: () =>
+    t('living.nemesis.tauntSuccess', 'The rival sneers and waves their retinue back: \'Stay out of this, fools! This dog is mine alone!\''),
+  nemesisIntimidated: () =>
+    t('living.nemesis.intimidated', 'The challenger shrinks back before your grim gaze and reconsiders their life choices.'),
 });
 

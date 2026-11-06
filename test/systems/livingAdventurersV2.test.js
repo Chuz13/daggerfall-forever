@@ -187,3 +187,4 @@ test('LT-09: Quest competition toggle shields main story while allowing radiant 
   assert.ok(buybackResult.goldCost > 0 && buybackResult.goldCost <= 500);
   assert.equal(reg.interceptedQuests['side_cave_88'].recovered, true);
 });
+
