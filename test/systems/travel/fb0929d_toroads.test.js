@@ -50,22 +50,22 @@ const FIRST_PERSON = 'GeneralOptions.FirstPersonTravel';
 /** Run `fn` on a page whose URL is `search` (the read paths read globalThis.location.search; node has none). */
 const onPage = (search, fn) => { const had = globalThis.location; globalThis.location = { search }; try { return fn(); } finally { if (had === undefined) delete globalThis.location; else globalThis.location = had; } };
 
-test('TO-ROADS THE SWITCH: the port\'s own key beside First-Person Travel - OFF (First-Person Travel stays the mod\'s straight journey), a toggle, its own words, on the tile right after the switch it serves; the vendored modsettings.json does not carry it; online it is the player\'s own (the room owns only the mod\'s switch and its two journey dials - TRAVEL-ONLINE)', () => {
+test('TO-ROADS THE SWITCH: the port\'s own key beside First-Person Travel - ON by default, a toggle, its own words, on the tile right after the switch it serves; the vendored modsettings.json does not carry it; online it is the player\'s own (the room owns only the mod\'s switch and its two journey dials - TRAVEL-ONLINE)', () => {
   const def = MOD_SETTINGS['travel-options'].keys[KEY];
   assert.ok(def, 'declared on Travel Options\' pane');
-  assert.equal(def.default, false, 'OFF - First-Person Travel keeps "the original travel option" (Mac, OW-TOGGLE)');
+  assert.equal(def.default, true, 'ON - First-Person Travel follows roads by default');
   assert.equal(typeof def.default, 'boolean', 'a toggle');
   // PLAIN-TEXT (2026-10-19): the words a player reads, exactly - what it does on and off, and that it takes effect at once
   // (read live, as First-Person Travel is - AUDIT OW5 T1; the tile's "when the world next loads" is the mod's other keys');
   // the note that the switch is the port's own is gone from the pane
-  assert.equal(def.description, 'With First Person Travel on, journeys follow the roads and tracks as Overworld journeys do, and a place with no way there by land can\u2019t be picked. Off, you head straight for your destination. Takes effect at once.');
+  assert.equal(def.description, 'With First Person Travel on, journeys follow the roads and tracks as Overworld journeys do, and a place with no way there by land can’t be picked. Off, you head straight for your destination. Takes effect at once.');
   const shipped = JSON.parse(read('vendor/travel-options/modsettings.json'));
   assert.ok(!shipped.Sections.flatMap((s) => s.Keys.map((k) => `${s.Name}.${k.Name}`)).includes(KEY), 'the author\'s file is untouched');
   const tile = MOD_CURATED['travel-options'];
   assert.equal(tile.indexOf(KEY), tile.indexOf(FIRST_PERSON) + 1, 'on the tile, right after the switch it serves');
   assert.ok(modDials('travel-options').includes(KEY), 'reachable: a dial the drawer draws (TORCH-BIND\'s lesson)');
   _resetModSettings();
-  assert.equal(modSetting(TRAVEL_OPTIONS_VENDOR, KEY), false, 'the shipped store: off');
+  assert.equal(modSetting(TRAVEL_OPTIONS_VENDOR, KEY), true, 'the shipped store: on');
   assert.ok(!ONLINE_PLAYERS_OWN_MODS.includes('travel-options'), 'TRAVEL-ONLINE: the room owns three of Travel Options\' keys');
   assert.equal(onlineForcedModSetting('travel-options', KEY, '?online=1'), undefined, 'and not this one: the room forces nothing here');
   onPage('?online=1', () => {
@@ -151,10 +151,10 @@ const xy = (l) => ({ x: l.x, y: l.y });
  *  Update) and the real settings store. What is stubbed is the world around the block: the boat (none to hand), the
  *  ship's passage (its own law refuses: no port here - SHIP-SAIL's suite), the scene (native units, flat ground), the
  *  party's walk (recorded - TV8's suite runs it), the fast travel (recorded). */
-function host({ firstPerson = false, roads = false, enhanced = true } = {}) {
+function host({ firstPerson = true, roads = true, enhanced = true } = {}) {
   _resetModSettings();
-  if (firstPerson) setModSetting(TRAVEL_OPTIONS_VENDOR, FIRST_PERSON, true);
-  if (roads) setModSetting(TRAVEL_OPTIONS_VENDOR, KEY, true);
+  setModSetting(TRAVEL_OPTIONS_VENDOR, FIRST_PERSON, firstPerson);
+  setModSetting(TRAVEL_OPTIONS_VENDOR, KEY, roads);
   const h = { said: [], talk: [], hud: [], boxed: [], fast: [], party: [], offered: [], enemies: false, me: at(500, 250, 5000, 16384) };   // west of the road's lane: it is JOINED first (OW-ROADSIDE)
   const view = { state: 'off', active: false, enter() { view.state = 'up'; view.active = true; } };
   let to = null;
@@ -215,8 +215,8 @@ function host({ firstPerson = false, roads = false, enhanced = true } = {}) {
 }
 
 test('TO-ROADS REPRODUCED, then fixed (the host\'s own code over the real planner and a real Travel Options): First-Person Travel\'s pick aimed the autopilot straight at the place, through the forest the road goes round; with its roads on the pick is the Overworld\'s own route - joined, then walked leg by leg along the road by the mod\'s own autopilot - the party asked along, the view never raised, and the arrival the mod\'s own box', () => {
-  // THE REPORT, as it stood: First-Person Travel on, its roads off (the default)
-  const off = host({ firstPerson: true });
+  // THE REPORT, as it stood: First-Person Travel on, its roads off
+  const off = host({ firstPerson: true, roads: false });
   assert.deepEqual([off.tvOwnsJourneys(), off.tvRoutesJourneys()], [false, false]);
   off.onTravel(pick(510, 250), WALKED, { minutes: 90 });
   assert.equal(off.to.route, null, 'no route: Travel Options\' own journey');
@@ -336,7 +336,7 @@ test('TO-ROADS, the route\'s REFUSAL is the answer (the host\'s own code): a pla
 
 test('TO-ROADS, both switches both ways (the host\'s own doors over the real settings store): First-Person Travel OFF is OW-ONLY exactly whatever the roads key says - the Overworld\'s route, the view risen with it and the journey stopped when the player brings it down; the classic skin keeps Travel Options exactly; the roads key is read LIVE', () => {
   for (const roads of [false, true]) {
-    const ow = host({ roads });
+    const ow = host({ firstPerson: false, roads });
     assert.deepEqual([ow.tvOwnsJourneys(), ow.tvRoutesJourneys()], [true, true], `First-Person Travel off (roads key ${roads ? 'on' : 'off'}): the Overworld\'s`);
     ow.onTravel(pick(510, 250), WALKED, { minutes: 90 });
     assert.deepEqual(ow.to.route?.legs.map(xy), [{ x: 500, y: 250 }, { x: 500, y: 245 }, { x: 510, y: 245 }, { x: 510, y: 250 }], 'the Overworld\'s route');
@@ -351,7 +351,7 @@ test('TO-ROADS, both switches both ways (the host\'s own doors over the real set
   cl.onTravel(pick(510, 250), WALKED, { minutes: 90 });
   assert.deepEqual([cl.to.route, cl.walk(), cl.said], [null, [{ x: 510, y: 250 }], []], 'the mod\'s own journey, at the place');
   // read live: flipped mid-game, the next pick answers the new way (AUDIT OW5 T1's law for its switch)
-  const h = host({ firstPerson: true });
+  const h = host({ firstPerson: true, roads: false });
   assert.equal(h.tvRoutesJourneys(), false);
   setModSetting(TRAVEL_OPTIONS_VENDOR, KEY, true);
   assert.equal(h.tvRoutesJourneys(), true, 'turned on: routed at once');
@@ -379,7 +379,7 @@ test('TO-ROADS x OW-PATH: the Overworld\'s Path switch on FREE leaves First-Pers
   const legs = (h) => h.to.route.legs.map((l) => [l.x, l.y, l.kind]);
   // the Roads switch's own spot journey, the law a forced route keeps: the planner's grid, bends and all
   setTravelPathMode('roads');
-  const ref = host();
+  const ref = host({ firstPerson: false });
   ref.onTravelToCoords(pick(507, 256), WALKED);
   const bent = legs(ref);
   assert.ok(bent.length > 1 && bent.every((l) => l[2] === 'open'), `a spot the roads do not help, bent on the grid: ${JSON.stringify(bent)}`);
@@ -403,15 +403,15 @@ test('TO-ROADS x OW-PATH: the Overworld\'s Path switch on FREE leaves First-Pers
     byRoad.onTravelToCoords(pick(511, 245), WALKED);
     assert.ok(legs(byRoad).some((l) => l[2] === 'road'), `the spot by the road: ${JSON.stringify(legs(byRoad))}`);
     // the Overworld's own journey (First-Person Travel off) is the switch's: FREE, across country, the road never asked
-    const ow = host();
+    const ow = host({ firstPerson: false });
     ow.onTravel(pick(510, 250), WALKED, { minutes: 90 });
     assert.deepEqual(legs(ow), [[510, 250, 'open']], 'the Overworld\'s journey: free, straight across, pulled taut');
-    const owSpot = host();
+    const owSpot = host({ firstPerson: false });
     owSpot.onTravelToCoords(pick(507, 256), WALKED);
     assert.deepEqual(legs(owSpot), [[507, 256, 'open']], 'and its spot pulled taut');
     // and on ROADS, the two agree
     setTravelPathMode('roads');
-    const same = host();
+    const same = host({ firstPerson: false });
     same.onTravel(pick(510, 250), WALKED, { minutes: 90 });
     assert.deepEqual(legs(same), [[500, 250, 'open'], [500, 245, 'road'], [510, 245, 'road'], [510, 250, 'road']]);
   } finally {

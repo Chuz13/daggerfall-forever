@@ -40,14 +40,14 @@
     "note": "Raising the view over a first-person journey and bringing it down again stops the journey."
   },
   {
-    "name": "OW-TOGGLE-default-on",
+    "name": "OW-TOGGLE-default-off",
     "file": "src/systems/modSettings.js",
-    "old": "      'GeneralOptions.FirstPersonTravel': Object.freeze({\n        default: false,",
-    "new": "      'GeneralOptions.FirstPersonTravel': Object.freeze({\n        default: true,",
+    "old": "      'GeneralOptions.FirstPersonTravel': Object.freeze({\n        default: true,",
+    "new": "      'GeneralOptions.FirstPersonTravel': Object.freeze({\n        default: false,",
     "tests": [
       "test/systems/travel/ow_toggle.test.js"
     ],
-    "note": "Mac: \"Off by default\" - the Overworld's journeys are gone for everyone who never touched the switch."
+    "note": "First person travel on by default."
   },
   {
     "name": "OW-TOGGLE-off-the-tile",

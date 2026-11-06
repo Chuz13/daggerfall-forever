@@ -4668,7 +4668,7 @@ export const MOD_SETTINGS = Object.freeze({
       // pick begins it on the ground, the view does not rise with it and coming down does not stop it
       // (scenes/world.js tvOwnsJourneys, which reads it live - AUDIT OW5 T1). OFF, the default: OW-ONLY.
       'GeneralOptions.FirstPersonTravel': Object.freeze({
-        default: false,
+        default: true,
         get description() {
           return t(
             'mods.travelOptions.GeneralOptions.FirstPersonTravel.description',
@@ -4683,7 +4683,7 @@ export const MOD_SETTINGS = Object.freeze({
       // its refusals (scenes/world.js tvRoutesJourneys) - walked in first person, the view not raised. OFF, the default:
       // First-Person Travel is the mod's own straight journey, the original travel option Mac asked back.
       'GeneralOptions.FirstPersonTravelFollowsRoads': Object.freeze({
-        default: false,
+        default: true,
         get description() {
           return t(
             'mods.travelOptions.GeneralOptions.FirstPersonTravelFollowsRoads.description',

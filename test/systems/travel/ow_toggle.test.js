@@ -24,10 +24,10 @@ const read = (p) => readFileSync(new URL(`../../../${p}`, import.meta.url), 'utf
 const WORLD = read('src/scenes/world.js');
 const KEY = 'GeneralOptions.FirstPersonTravel';
 
-test('OW-TOGGLE THE SWITCH: the port\'s own key on Travel Options\' pane - OFF by default, a toggle, saying it takes effect at once, on the tile; the vendored modsettings.json does not carry it', () => {
+test('OW-TOGGLE THE SWITCH: the port\'s own key on Travel Options\' pane - ON by default, a toggle, saying it takes effect at once, on the tile; the vendored modsettings.json does not carry it', () => {
   const def = MOD_SETTINGS['travel-options'].keys[KEY];
   assert.ok(def, 'declared');
-  assert.equal(def.default, false, 'OFF - the Overworld\'s journeys stay the default (Mac: "Off by default")');
+  assert.equal(def.default, true, 'ON - the first person journeys are default');
   assert.equal(typeof def.default, 'boolean', 'a toggle');
   // PLAIN-TEXT (2026-10-19): the words a player reads, exactly - "Takes effect at once" kept (AUDIT OW5 T1: read live - the
   // tile's "when the world next loads" is the mod's other keys'); the note that the switch is the port's own is gone
@@ -36,7 +36,7 @@ test('OW-TOGGLE THE SWITCH: the port\'s own key on Travel Options\' pane - OFF b
   assert.ok(!shipped.Sections.flatMap((s) => s.Keys.map((k) => `${s.Name}.${k.Name}`)).includes(KEY), 'the author\'s file is untouched');
   assert.ok(MOD_CURATED['travel-options'].includes(KEY) && modDials('travel-options').includes(KEY), 'reachable: on the tile');
   _resetModSettings();
-  assert.equal(modSetting(TRAVEL_OPTIONS_VENDOR, KEY), false, 'the shipped store: off');
+  assert.equal(modSetting(TRAVEL_OPTIONS_VENDOR, KEY), true, 'the shipped store: on');
 });
 
 /** One of world.js's own functions, by name: a one-line declaration, or up to its closing brace at the host's indent. */
@@ -55,9 +55,10 @@ function onLowerSource() {
 }
 
 /** The host's journey doors, mounted over a fake host and the REAL settings store. `firstPerson` is the switch. */
-function rig({ firstPerson = false, enhanced = true } = {}) {
+function rig({ firstPerson = true, enhanced = true } = {}) {
   _resetModSettings();
-  if (firstPerson) setModSetting(TRAVEL_OPTIONS_VENDOR, KEY, true);
+  setModSetting(TRAVEL_OPTIONS_VENDOR, KEY, firstPerson);
+  setModSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravelFollowsRoads', false);
   const calls = [];
   const view = { state: 'off', enter() { calls.push('view up'); view.state = 'up'; } };
   const travelOptions = {
@@ -94,8 +95,8 @@ function rig({ firstPerson = false, enhanced = true } = {}) {
 
 const PICK = { pixel: { x: 207, y: 213 }, name: 'Daggerfall', mapId: 1, regionIndex: 17, locationIndex: 3 };
 
-test('OW-TOGGLE host, OFF (the default): OW-ONLY exactly - the map\'s pick is the Overworld\'s journey, the view rises with it, and brought down it stops', () => {
-  const { host, calls, view, travelOptions } = rig();
+test('OW-TOGGLE host, OFF: OW-ONLY exactly - the map\'s pick is the Overworld\'s journey, the view rises with it, and brought down it stops', () => {
+  const { host, calls, view, travelOptions } = rig({ firstPerson: false });
   assert.equal(host.tvOwnsJourneys(), true, 'the Overworld owns the walked trip');
   assert.equal(host.beginAcceleratedTravel(PICK, { speedCautious: false }, { estimateMinutes: 90 }), true);
   assert.deepEqual(calls, [['travelViewRouteTo', 'Daggerfall']], 'a place: by the roads, in the view - never the mod\'s ground journey');
@@ -107,11 +108,11 @@ test('OW-TOGGLE host, OFF (the default): OW-ONLY exactly - the map\'s pick is th
   host.onLower('button');
   assert.deepEqual(calls, ['pauseTravel'], 'brought down by the player: the journey stops');
   view.state = 'off';
-  assert.equal(rig({ enhanced: false }).host.tvOwnsJourneys(), false, 'the classic skin keeps Travel Options exactly');
+  assert.equal(rig({ enhanced: false, firstPerson: false }).host.tvOwnsJourneys(), false, 'the classic skin keeps Travel Options exactly');
   _resetModSettings();
 });
 
-test('OW-TOGGLE host, ON: Travel Options\' own first-person journey - begun on the ground from the map, resumed by the mod, the view left where the player put it, and coming down stops nothing', () => {
+test('OW-TOGGLE host, ON (the default): Travel Options\' own first-person journey - begun on the ground from the map, resumed by the mod, the view left where the player put it, and coming down stops nothing', () => {
   const { host, calls, view, travelOptions } = rig({ firstPerson: true });
   assert.equal(host.tvOwnsJourneys(), false, 'the switch: the Overworld owns no journey');
   assert.equal(host.beginAcceleratedTravel(PICK, { speedCautious: true }, { estimateMinutes: 90 }), true);
@@ -138,7 +139,7 @@ test('OW-TOGGLE host, ON: Travel Options\' own first-person journey - begun on t
 });
 
 test('OW-TOGGLE host: the switch is read LIVE - flipped mid-game, the next ask answers the new way (AUDIT OW5 T1: read at boot, a save loaded in play kept the old answer)', () => {
-  const { host } = rig();
+  const { host } = rig({ firstPerson: false });
   assert.equal(host.tvOwnsJourneys(), true, 'off: the Overworld\'s');
   setModSetting(TRAVEL_OPTIONS_VENDOR, KEY, true);
   assert.equal(host.tvOwnsJourneys(), false, 'flipped on: first person, at once');

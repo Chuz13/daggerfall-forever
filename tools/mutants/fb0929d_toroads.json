@@ -110,14 +110,14 @@
     "note": "A first-person route crawls at walking pace, held for a view that never rises (AUDIT OW4 J5's hold is the Overworld's journey's alone)."
   },
   {
-    "name": "TO-ROADS-default-on",
+    "name": "TO-ROADS-default-off",
     "file": "src/systems/modSettings.js",
-    "old": "      'GeneralOptions.FirstPersonTravelFollowsRoads': Object.freeze({\n        default: false,",
-    "new": "      'GeneralOptions.FirstPersonTravelFollowsRoads': Object.freeze({\n        default: true,",
+    "old": "      'GeneralOptions.FirstPersonTravelFollowsRoads': Object.freeze({\n        default: true,",
+    "new": "      'GeneralOptions.FirstPersonTravelFollowsRoads': Object.freeze({\n        default: false,",
     "tests": [
       "test/systems/travel/fb0929d_toroads.test.js"
     ],
-    "note": "On by default: First-Person Travel is no longer the original travel option Mac asked back ('Off by default')."
+    "note": "Off by default: First-Person Travel no longer follows roads by default."
   },
   {
     "name": "TO-ROADS-off-the-tile",
