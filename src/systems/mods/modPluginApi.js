@@ -8,6 +8,8 @@
 import { onModEvent, offModEvent } from './modEventBus.js';
 import { registerModSaveData } from '../modSaveData.js';
 import { hudText } from '../notify.js';
+import { hurtPlayer } from '../../characters/playerEntity.js';
+import { FATIGUE_MULTIPLIER } from '../statMods.js';
 
 /** @type {Map<string, Record<string, any>>} */
 const _modStorageStore = new Map();
@@ -68,7 +70,9 @@ export function createModApi(modId) {
        */
       damageFatigue: (amount) => {
         if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
-        _playerRef.fatigue = Math.max(0, (_playerRef.fatigue ?? 0) - amount);
+        const max = _playerRef.maxFatigue ?? 100;
+        const scale = max > 200 ? FATIGUE_MULTIPLIER : 1;
+        _playerRef.fatigue = Math.max(0, (_playerRef.fatigue ?? 0) - amount * scale);
       },
       /**
        * Restore player fatigue points.
@@ -77,7 +81,8 @@ export function createModApi(modId) {
       restoreFatigue: (amount) => {
         if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
         const max = _playerRef.maxFatigue ?? 100;
-        _playerRef.fatigue = Math.min(max, (_playerRef.fatigue ?? 0) + amount);
+        const scale = max > 200 ? FATIGUE_MULTIPLIER : 1;
+        _playerRef.fatigue = Math.min(max, (_playerRef.fatigue ?? 0) + amount * scale);
       },
       /**
        * Reduce player health points.
@@ -85,7 +90,7 @@ export function createModApi(modId) {
        */
       damageHealth: (amount) => {
         if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
-        _playerRef.health = Math.max(0, (_playerRef.health ?? 0) - amount);
+        hurtPlayer(_playerRef, amount);
       },
       /**
        * Restore player health points.
@@ -102,9 +107,19 @@ export function createModApi(modId) {
        * @returns {boolean}
        */
       hasEffect: (effectKey) => {
+        if (effectKey === 'resistFrost' && (_playerRef?.resistances?.frost > 0 || _playerRef?.career?.Frost >= 1)) {
+          return true;
+        }
         const effects = _playerRef?.activeEffects;
         if (!Array.isArray(effects)) return false;
-        return effects.some((e) => e?.key === effectKey || e?.name === effectKey);
+        return effects.some(
+          (e) =>
+            !e?.ended &&
+            (e?.key === effectKey ||
+              e?.name === effectKey ||
+              e?.kind === effectKey ||
+              (effectKey === 'resistFrost' && e?.kind === 'elementalResistance' && e?.element === 1)),
+        );
       },
     },
 

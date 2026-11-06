@@ -1,6 +1,8 @@
 function init(api) {
   /** @type {Array<{ target: any, ticks: number }>} */
   const activeBurns = [];
+  const UNDEAD_CAREERS = new Set([15, 17, 18, 19, 23, 28, 30, 32, 33, 266, 274, 277, 283]);
+  const CONSTRUCT_CAREERS = new Set([22, 35, 36, 37, 38, 284, 286, 289, 290]);
 
   // 1. Process active holy burns on each world tick
   api.events.on('worldTick', () => {
@@ -11,11 +13,16 @@ function init(api) {
         continue;
       }
 
-      burn.target.health = Math.max(0, (burn.target.health ?? 0) - 3);
+      if (typeof burn.target.hurt === 'function') {
+        burn.target.hurt(3);
+      } else {
+        burn.target.health = Math.max(0, (burn.target.health ?? 0) - 3);
+        if (burn.target.health <= 0) burn.target.dead = true;
+      }
       burn.ticks--;
       api.ui.notify('Holy flame purges the abomination! (-3 HP)');
 
-      if (burn.ticks <= 0) {
+      if (burn.ticks <= 0 || burn.target.dead || (burn.target.health ?? 0) <= 0) {
         activeBurns.splice(i, 1);
       }
     }
@@ -45,8 +52,9 @@ function init(api) {
     // 2 = Silver material (Holy Burn DoT)
     if (weapon.material === 2 && hit && damage > 0 && target) {
       const isUndead =
-        target.careerIndex !== undefined &&
-        (target.affinity === 'Undead' || target.isUndead || target.careerIndex >= 19);
+        Boolean(target.isUndead) ||
+        target.affinity === 'Undead' ||
+        (!target.isClass && target.careerIndex !== undefined && UNDEAD_CAREERS.has(target.careerIndex));
       if (isUndead) {
         api.ui.notify('Silver purges the creature with holy fire!');
         activeBurns.push({ target, ticks: 3 });
@@ -60,10 +68,19 @@ function init(api) {
         const armors = Object.values(slots).filter((it) => it && it.group === 'Armor');
         if (armors.length > 0) {
           const piece = armors[Math.floor(Math.random() * armors.length)];
-          if (piece && piece.condition !== undefined) {
-            piece.condition = Math.max(0, piece.condition - 25);
+          if (piece) {
+            if (piece.currentCondition !== undefined) {
+              piece.currentCondition = Math.max(0, piece.currentCondition - 25);
+            }
+            if (piece.condition !== undefined) {
+              piece.condition = Math.max(0, piece.condition - 25);
+            }
             api.ui.notify('Adamantium crushed enemy armor!');
           }
+        } else if (Array.isArray(target.armorValues) && target.armorValues.length > 0) {
+          const idx = Math.floor(Math.random() * target.armorValues.length);
+          target.armorValues[idx] = Math.min(100, (target.armorValues[idx] ?? 0) + 2);
+          api.ui.notify('Adamantium crushed enemy armor!');
         }
       }
     }

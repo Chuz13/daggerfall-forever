@@ -137,7 +137,7 @@ export function getEntityWornArmorClasses(entity) {
   let hasLight = false;
 
   for (const item of Object.values(slots)) {
-    if (!item || item.material === undefined) continue;
+    if (!item || (item.group && item.group !== 'Armor') || item.material === undefined) continue;
     const m = item.material;
     if (isPlate(m)) hasHeavy = true;
     else if (isChain(m)) hasMedium = true;
@@ -210,28 +210,35 @@ export function getMaterialDamageMultiplier(materialIndex, target) {
   let mult = cfg.damageMultiplier ?? 1.0;
 
   if (target) {
+    const isMonsterCareer = !target.isClass && target.careerIndex !== undefined;
     const isUndead =
-      target.careerIndex !== undefined &&
-      (enemyEntityGroup(target.careerIndex) === ENEMY_GROUPS.Undead ||
-        target.affinity === 'Undead' ||
-        target.isUndead);
+      Boolean(target.isUndead) ||
+      target.affinity === 'Undead' ||
+      (isMonsterCareer && enemyEntityGroup(target.careerIndex) === ENEMY_GROUPS.Undead);
 
     if (isUndead && cfg.vsUndeadMultiplier) {
       mult *= cfg.vsUndeadMultiplier;
     }
 
     const isWerecreature =
-      target.isWerecreature ||
-      (target.careerIndex !== undefined && enemyEntityGroup(target.careerIndex) === ENEMY_GROUPS.Animals && target.minMetalToHit >= 2);
+      Boolean(target.isWerecreature) ||
+      (isMonsterCareer &&
+        (target.careerIndex === 9 || target.careerIndex === 14 ||
+          (enemyEntityGroup(target.careerIndex) === ENEMY_GROUPS.Animals && target.minMetalToHit >= 2)));
 
     if (isWerecreature && cfg.vsWerecreatureMultiplier) {
       mult *= cfg.vsWerecreatureMultiplier;
     }
 
     const isConstruct =
-      target.isConstruct ||
-      target.careerIndex === 17 || // Iron Golem
-      target.careerIndex === 18;  // Centurion
+      Boolean(target.isConstruct) ||
+      (isMonsterCareer &&
+        (target.careerIndex === 22 ||
+          (target.careerIndex >= 35 && target.careerIndex <= 38) ||
+          target.careerIndex === 284 ||
+          target.careerIndex === 286 ||
+          target.careerIndex === 289 ||
+          target.careerIndex === 290));
 
     if (isConstruct && cfg.vsConstructMultiplier) {
       mult *= cfg.vsConstructMultiplier;

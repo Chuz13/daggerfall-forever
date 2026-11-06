@@ -492,7 +492,10 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
   damage += bonusOrPenaltyByEnemyType(attacker, target);
   damage = Math.round(damage * getMaterialDamageMultiplier(weapon?.material, target));
   const pen = getMaterialArmorPenetration(weapon?.material);
-  if (pen !== 0 && target && (target.armorValues || target.armor)) {
+  const hasArmor = Array.isArray(target?.armorValues)
+    ? target.armorValues.some((v) => v < 100)
+    : Boolean(target?.armor);
+  if (damage > 0 && pen !== 0 && hasArmor) {
     damage = Math.max(1, Math.round(damage * (1 + pen * 0.4)));
   }
   damage = weaponBlowMods(weapon, damage, attacker, target, info);   // SIGIL1: the port's own over the whole blow - the online sigil, my blow at a foe - before the hook, so a bow's draw scales it too (SET2: `info` - the host's word that the foe had not noticed me)

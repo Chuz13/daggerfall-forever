@@ -16,6 +16,7 @@ import {
   setModLoadOrder,
 } from '../../systems/mods/modRegistry.js';
 import { syncModData } from '../../systems/mods/modDataSync.js';
+import { unloadModPlugins, loadActiveModPlugins } from '../../systems/mods/modPluginLoader.js';
 import { t } from '../../systems/textManager.js';
 
 const el = (tag, cls, txt) => {
@@ -59,6 +60,8 @@ export function drawModsPane(body, rerender) {
   rescanBtn.onclick = () => {
     discoverMods();
     syncModData();
+    unloadModPlugins();
+    void loadActiveModPlugins();
     if (typeof rerender === 'function') rerender();
   };
   topActs.append(openFolderBtn, rescanBtn);
@@ -102,6 +105,8 @@ export function drawModsPane(body, rerender) {
     toggle.onchange = () => {
       setModEnabled(mod.id, toggle.checked);
       syncModData();
+      unloadModPlugins();
+      void loadActiveModPlugins();
       if (typeof rerender === 'function') rerender();
     };
 
@@ -167,6 +172,8 @@ export function drawModsPane(body, rerender) {
         order[index] = temp;
         setModLoadOrder(order);
         syncModData();
+        unloadModPlugins();
+        void loadActiveModPlugins();
         if (typeof rerender === 'function') rerender();
       };
       actRow.append(upBtn);
@@ -182,6 +189,8 @@ export function drawModsPane(body, rerender) {
         order[index] = temp;
         setModLoadOrder(order);
         syncModData();
+        unloadModPlugins();
+        void loadActiveModPlugins();
         if (typeof rerender === 'function') rerender();
       };
       actRow.append(downBtn);

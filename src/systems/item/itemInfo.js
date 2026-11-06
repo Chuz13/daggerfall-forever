@@ -939,7 +939,7 @@ export function itemInfoRows(item, rows, macros = {}) {
  *  rows of half-height text: the port poured the whole record into it
  *  and drew the title off the bottom. */
 export function itemInfoPanelRows(item, rows, macros = {}) {
-  const out = itemInfoRows(item, rows, macros);
+  const out = itemInfoRows(item, rows, macros).filter((r) => !r.text?.startsWith('Special: '));
   if (item?.group !== 'Paintings' || !out.length) return out;
   const last = out[out.length - 1];
   return [{ ...last, text: (last.text ?? '').trim() }];
@@ -1039,6 +1039,7 @@ export function infoPanelShorten(rows) {
  */
 export function weaponMaterialTraitText(item) {
   if (!item || item.group !== 'Weapons' || item.material === undefined || item.material < 0) return null;
+  if (isAmmunition(item) || isHandWraps(item) || item.artifact || !itemIsIdentified(item)) return null;
   const cfg = getMaterialConfig(item.material);
   if (!cfg) return null;
 

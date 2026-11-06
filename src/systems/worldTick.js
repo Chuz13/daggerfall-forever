@@ -995,7 +995,13 @@ function tickPlayerMinutesOnce({
   // LIVED1: online the answer is the character's own clock as it stands -
   // a raise from inside this tick has already moved it, and nothing writes
   // it back.
-  setModApiContext({ player: entity, world: { gameMinutes: next, isInterior: inside } });
+  const climate = survival?.env?.climate;
+  const biome =
+    climate === 224 || climate === 225 ? 'desert'
+    : climate === 226 || climate === 230 ? 'mountain'
+    : climate === 227 || climate === 228 ? 'swamp'
+    : 'temperate';
+  setModApiContext({ player: entity, world: { gameMinutes: next, isInterior: inside, biome } });
   emitModEvent('worldTick', { entity, gameMinutes: next, lastMinutes, nowMinutes, activity, sinks });
 
   if (_sharedClock) return { classicMinutes: ownMinutes(), rounds, magicRoundWindow, felt };

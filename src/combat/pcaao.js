@@ -1827,7 +1827,7 @@ export function pcaaoAttackDamage(
         naturalDamResist,
         modules,
       );
-    else if (weaponAttack)
+    else if (weaponAttack) {
       damage = pcaaoArmorDamageReductionWithWeapon(
         attacker,
         target,
@@ -1837,6 +1837,13 @@ export function pcaaoAttackDamage(
         naturalDamResist,
         modules,
       );
+      const pen = getMaterialArmorPenetration(weapon?.material);
+      if (damage > 0 && pen > 0) {
+        damage = Math.max(1, Math.round(damage * (1 + pen * 0.4)));
+      } else if (damage > 0 && pen < 0) {
+        damage = Math.max(1, Math.round(damage * (1 + pen * 0.3)));
+      }
+    }
   } else if (unarmedAttack) {
     damage = pcaaoArmorDamageReductionWithUnarmed(attacker, target, damage, struckBodyPart, naturalDamResist, modules);
   } else if (weaponAttack) {
@@ -1850,9 +1857,9 @@ export function pcaaoAttackDamage(
       modules,
     );
     const pen = getMaterialArmorPenetration(weapon?.material);
-    if (pen > 0) {
+    if (damage > 0 && pen > 0) {
       damage = Math.max(1, Math.round(damage * (1 + pen * 0.4)));
-    } else if (pen < 0) {
+    } else if (damage > 0 && pen < 0) {
       damage = Math.max(1, Math.round(damage * (1 + pen * 0.3)));
     }
   }
