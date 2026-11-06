@@ -20,6 +20,7 @@ import { emitModEvent, _resetModEventBus } from '../../src/systems/mods/modEvent
 import { setModApiContext, _resetModPluginApi } from '../../src/systems/mods/modPluginApi.js';
 import { loadActiveModPlugins, _resetModPluginLoader } from '../../src/systems/mods/modPluginLoader.js';
 import { WEAPON_MATERIALS } from '../../src/characters/weapons.js';
+import { weaponMaterialTraitText } from '../../src/systems/item/itemInfo.js';
 
 const SAMPLE_MATERIALS_JSON = JSON.stringify({
   Silver: {
@@ -180,6 +181,29 @@ test('weapons-reforged: materials data sync and multipliers calculation', () => 
 
   // 6. Adamantium sunder armor chance
   assert.equal(getMaterialSunderArmorChance(WEAPON_MATERIALS.Adamantium), 0.2);
+
+  // 7. UI Traits verification
+  const silverTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Silver });
+  assert.ok(silverTrait?.includes('+100% vs Undead'));
+  assert.ok(silverTrait?.includes('Holy Burn'));
+
+  const adamantiumTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Adamantium });
+  assert.ok(adamantiumTrait?.includes('35% Armor Piercing'));
+  assert.ok(adamantiumTrait?.includes('Sunder Armor'));
+
+  const elvenTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Elven });
+  assert.ok(elvenTrait?.includes('+20% Speed'));
+  assert.ok(elvenTrait?.includes('-20% Fatigue'));
+
+  const ebonyTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Ebony });
+  assert.ok(ebonyTrait?.includes('Heavy (STR 70)'));
+  assert.ok(ebonyTrait?.includes('Stamina Siphon'));
+
+  const daedricTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Daedric });
+  assert.ok(daedricTrait?.includes('Cursed Blade'));
+
+  // Vanilla / non-weapon check
+  assert.equal(weaponMaterialTraitText({ group: 'Armor', material: WEAPON_MATERIALS.Iron }), null);
 
   // Cleanup
   _resetModRegistry();

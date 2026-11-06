@@ -53,6 +53,7 @@ import { isStarglass, STARGLASS_TEXT } from '../starfall/starglass.js';   // AUD
 import { isLockpick, LOCKPICK_TEXT } from '../lockpick/lockpickItem.js';   // LOCKPICK: the Lockpick's card
 import { isWeirKey } from '../eliteGates/weirKey.js'; import { EG_TEXT } from '../../net/eliteGates/egLaw.js';   // AUDIT EG V (c, L8-6): the Weir Key's card and its line (Elite-Gates.md section 5)
 import { isIliacCard, isCardBinder, iliacCardName, iliacCardLines, BINDER_CARD_LINES, isCardPack, CARD_PACK_LINES } from '../iliac/iliacItems.js';   // CARDS8: a card's name and lines, the binder's
+import { getMaterialConfig } from '../mods/modDataSync.js';
 import { isSurvivalItem, isCampingEquipment, isCampfireKit, isSkillet } from '../survival/items.js';   // SURV5: the survival items' own info box
 import { isFood, foodOf, foodStage, foodSatiety, isWaterskin, waterIn, WATERSKIN_CAPACITY_KG, STAGE_WORDS, FOOD_STAGE } from '../survival/food.js';   // ROAD-U: the identity DFU reads off the item's own record
 import { localizedText, localizedTable, formatText, t } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; RPT1026-CLIENT: and the Weir Key's account line
@@ -917,9 +918,14 @@ export function itemInfoRows(item, rows, macros = {}) {
       painting = paintingMacros(info, readVariant);
     }
   }
-  return (record ?? rows(itemInfoTextId(item)) ?? [])
+  const out = (record ?? rows(itemInfoTextId(item)) ?? [])
     .map((r) => ({ ...r, text: expandItemInfo(r.text, item, { ...macros, painting }) }))
     .filter((r) => r.text.trim() !== '');
+  if (item?.group === 'Weapons') {
+    const trait = weaponMaterialTraitText(item);
+    if (trait) out.push({ text: `Special: ${trait}`, center: true });
+  }
+  return out;
 }
 
 /** ROAD-A7: UpdateItemInfoPanel's own read (DaggerfallInventoryWindow
@@ -1026,6 +1032,51 @@ export function infoPanelShorten(rows) {
  *
  * @returns {{label: string, text: string}[]}
  */
+/**
+ * Summarize active weapon material traits into a readable line.
+ * @param {any} item
+ * @returns {string|null}
+ */
+export function weaponMaterialTraitText(item) {
+  if (!item || item.group !== 'Weapons' || item.material === undefined || item.material < 0) return null;
+  const cfg = getMaterialConfig(item.material);
+  if (!cfg) return null;
+
+  const traits = [];
+  if (cfg.vsUndeadMultiplier && cfg.vsUndeadMultiplier > 1) {
+    traits.push(`+${Math.round((cfg.vsUndeadMultiplier - 1) * 100)}% vs Undead`);
+  }
+  if (cfg.vsConstructMultiplier && cfg.vsConstructMultiplier > 1) {
+    traits.push(`+${Math.round((cfg.vsConstructMultiplier - 1) * 100)}% vs Constructs`);
+  }
+  if (cfg.armorPenetration && cfg.armorPenetration > 0) {
+    traits.push(`${Math.round(cfg.armorPenetration * 100)}% Armor Piercing`);
+  }
+  if (cfg.swingSpeedMultiplier && cfg.swingSpeedMultiplier > 1) {
+    traits.push(`+${Math.round((cfg.swingSpeedMultiplier - 1) * 100)}% Speed`);
+  }
+  if (cfg.fatigueCostMultiplier && cfg.fatigueCostMultiplier < 1) {
+    traits.push(`-${Math.round((1 - cfg.fatigueCostMultiplier) * 100)}% Fatigue`);
+  }
+  if (cfg.minStrength && cfg.minStrength > 0) {
+    traits.push(`Heavy (STR ${cfg.minStrength})`);
+  }
+  if (cfg.staminaDrainOnHit) {
+    traits.push('Stamina Siphon');
+  }
+  if (cfg.sunderArmorChance) {
+    traits.push('Sunder Armor');
+  }
+  if (cfg.holyBurn) {
+    traits.push('Holy Burn');
+  }
+  if (cfg.curseOnMissFatigue) {
+    traits.push('Cursed Blade');
+  }
+
+  return traits.length > 0 ? traits.join(', ') : null;
+}
+
 export function itemStatRows(item) {
   if (!item) return [];
   const rows = [];
@@ -1034,15 +1085,9 @@ export function itemStatRows(item) {
   push('Armour', itemArmourLine(item));
   push('Type', itemArmorTypeLine(item));   // ARMOR-TYPE: Leather, Chain or Plate
   push('Hands', itemHandsLine(item));
-  // The material PREFIX is the name's (itemNameParts), so a Daedric
-  // Dagger does not read "Daedric Dagger / Material Daedric"; this row
-  // is for the groups whose name does not carry it. AUDIT 68
-  // S27-statrows-material-leak: and it is THE SAME material the card's
-  // sub-line reads - '' for an unidentified piece below Rare, an
-  // artifact, an arrow, a helm or shield under HelmAndShieldMaterialDisplay.
-  // MAT-SHOW: a Rare or better piece of armour or a weapon says its metal
-  // here even while the long name keeps the prefix off. push drops an empty.
   push('Material', itemNameParts(item).material);
+  const trait = weaponMaterialTraitText(item);
+  if (trait) push('Special', trait);
   const survival = isSurvivalItem(item) || isRestItem(item) || isPortalStone(item) || isPortalBook(item) || isWalletItem(item) || isIliacCard(item) || isCardBinder(item) || isCardPack(item) || isOatsItem(item) || isWagonKitItem(item) || isLockpick(item);   // AUDIT LOCKPICK B2: and the Lockpick's lines   // STEED1/WAGONS4: the oats' and the kit's lines   // AUDIT CARDS-6 A5: and the pack's; CARDS8   // REST6: the seven's lines too; PORTAL1: and the Portal Stone's; WALLET1: and the wallet's
   if (survival) for (const t of survivalInfoTokens(item).slice(2)) push('', t.text);
   else if ((item.maxCondition ?? 0) > 0) push('Condition', `${conditionWord(item)} (${conditionPercentage(item)}%)`);
