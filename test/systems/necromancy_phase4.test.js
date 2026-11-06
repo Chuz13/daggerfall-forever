@@ -139,3 +139,4 @@ test('NecroConfig: Abstract Corpse Mode allows conjuring without corpse', () => 
   assert.equal(res.success, true);
   assert.equal(res.minion?.type, 'skeleton');
 });
+

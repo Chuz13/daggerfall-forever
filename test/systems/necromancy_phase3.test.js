@@ -152,3 +152,4 @@ test('CityLaw: revealed Lich triggers high treason, disguised Lich passes', () =
   assert.equal(redguardRes.isHostile, true);
   assert.ok(redguardRes.alertText?.includes('Tu\'whacca'));
 });
+

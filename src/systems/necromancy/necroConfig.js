@@ -123,3 +123,4 @@ export function resetNecroConfig() {
   setPref(PREF_KEYS.CAP_MODE, CAP_MODES.STAT_SCALED);
   setPref(PREF_KEYS.FIXED_CAP, 4);
 }
+

@@ -103,3 +103,4 @@ export function _resetTaintForTests() {
   _playerTaint = 0;
   _lastDecayDay = 0;
 }
+
