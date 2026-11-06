@@ -71,6 +71,11 @@ import { onLivingWorldTick } from './living/livingDirector.js';
  * @param {number|null} [o.mobileType] MobileEnemy.ID - the city watch is an innocent
  */
 export function playerWeaponHitEntity(player, target, { nowMinutes = Math.floor(ownMinutes()), isCivilian = false, mobileType = null } = {}) {   // LIVED1: the feeding and the kill stamp the character's own clock
+  const isKill = (target?.health ?? 1) <= 0;
+  emitModEvent('combat:playerHit', { player, target, isCivilian, mobileType, isKill, nowMinutes });
+  if (isKill) {
+    emitModEvent('combat:enemyKill', { player, target, isCivilian, mobileType, nowMinutes });
+  }
   if (!player?.racialOverride) return;   // `if (racialOverride != null)` (WeaponManager.cs:632-634)
   onVampireHit(player, nowMinutes);
   onLycanthropeHit(player, target, { nowMinutes, isCivilian, mobileType: mobileType ?? target?.mobileType ?? null });
@@ -85,6 +90,7 @@ export function playerWeaponHitEntity(player, target, { nowMinutes = Math.floor(
  * the blow itself, and feeding twice for one blow is no law of DFU's.
  */
 export function playerWeaponKillReported(player, { nowMinutes = Math.floor(ownMinutes()), isCivilian = false, mobileType = null } = {}) {
+  emitModEvent('combat:enemyKill', { player, target: { health: 0, mobileType }, isCivilian, mobileType, nowMinutes });
   if (!player?.racialOverride) return;
   onLycanthropeHit(player, { health: 0 }, { nowMinutes, isCivilian, mobileType });
 }

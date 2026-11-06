@@ -1,0 +1,9 @@
+{
+  "id": "blood-tithe",
+  "name": "Blood-Tithe (Кровавая дань)",
+  "version": "1.0.0",
+  "author": "DFF Modding Team",
+  "description": "Подвиг воина: после 5 добиваний в ближнем бою открывает перк поглощения жизненных сил врага (+15 HP, +30 SP).",
+  "entry": "plugin.js"
+}
+

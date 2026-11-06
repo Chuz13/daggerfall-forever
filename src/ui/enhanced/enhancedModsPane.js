@@ -17,6 +17,7 @@ import {
 } from '../../systems/mods/modRegistry.js';
 import { syncModData } from '../../systems/mods/modDataSync.js';
 import { unloadModPlugins, loadActiveModPlugins } from '../../systems/mods/modPluginLoader.js';
+import { getModPerks } from '../../systems/mods/modPluginApi.js';
 import { t } from '../../systems/textManager.js';
 
 const el = (tag, cls, txt) => {
@@ -156,6 +157,32 @@ export function drawModsPane(body, rerender) {
       const errLine = el('p', 'meta', `${t('menu.mods.error', 'Error')}: ${mod.error}`);
       errLine.style.color = '#ff6b6b';
       card.append(errLine);
+    }
+
+    // Perks / Milestones registered by mod
+    const perks = getModPerks(mod.id);
+    if (perks && perks.length > 0) {
+      const perksBox = el('div', 'mod-perks-box');
+      perksBox.style.marginTop = '8px';
+      perksBox.style.padding = '6px 10px';
+      perksBox.style.background = 'rgba(0,0,0,0.3)';
+      perksBox.style.borderRadius = '4px';
+      perksBox.style.border = '1px solid rgba(255,255,255,0.08)';
+
+      const title = el('div', 'meta', 'Perks / Подвиги:');
+      title.style.fontWeight = 'bold';
+      title.style.marginBottom = '4px';
+      title.style.color = '#e0c068';
+      perksBox.append(title);
+
+      perks.forEach((p) => {
+        const item = el('div', 'mod-perk-item');
+        item.style.fontSize = '12px';
+        item.style.color = '#ccc';
+        item.textContent = `★ ${p.name}: ${p.desc}`;
+        perksBox.append(item);
+      });
+      card.append(perksBox);
     }
 
     // Load Order controls (Move Up / Down)

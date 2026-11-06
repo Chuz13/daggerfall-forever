@@ -5,14 +5,34 @@
 // Gives plugins access to events, player state, HUD notifications, and
 // save-game persistence through src/systems/modSaveData.js.
 
-import { onModEvent, offModEvent } from './modEventBus.js';
+import { onModEvent, offModEvent, emitModEvent } from './modEventBus.js';
 import { registerModSaveData } from '../modSaveData.js';
 import { hudText } from '../notify.js';
 import { hurtPlayer } from '../../characters/playerEntity.js';
 import { FATIGUE_MULTIPLIER } from '../statMods.js';
+import { SOUND } from '../soundClips.js';
+import * as audio from '../audio.js';
 
 /** @type {Map<string, Record<string, any>>} */
 const _modStorageStore = new Map();
+
+/** @type {Map<string, Map<string, { id: string, name: string, desc: string, icon?: string }>>} */
+const _registeredPerks = new Map();
+
+export function getModPerks(modId) {
+  const perks = _registeredPerks.get(modId);
+  return perks ? Array.from(perks.values()) : [];
+}
+
+export function getAllRegisteredPerks() {
+  const all = [];
+  for (const [modId, perks] of _registeredPerks.entries()) {
+    for (const perk of perks.values()) {
+      all.push({ modId, ...perk });
+    }
+  }
+  return all;
+}
 
 /**
  * Global game state accessors wired by runtime scene hosts.
@@ -148,6 +168,75 @@ export function createModApi(modId) {
       },
     },
 
+    perks: {
+      /**
+       * Register a perk definition for this mod.
+       * @param {{ id: string, name: string, desc: string, icon?: string }} def
+       */
+      register: (def) => {
+        if (!def?.id || !def?.name) return;
+        let map = _registeredPerks.get(modId);
+        if (!map) {
+          map = new Map();
+          _registeredPerks.set(modId, map);
+        }
+        map.set(def.id, {
+          id: String(def.id),
+          name: String(def.name),
+          desc: String(def.desc ?? ''),
+          icon: def.icon ? String(def.icon) : undefined,
+        });
+      },
+
+      /**
+       * Check if player has unlocked this perk.
+       * @param {string} perkId
+       * @returns {boolean}
+       */
+      has: (perkId) => {
+        const store = _modStorageStore.get(modId) ?? {};
+        const unlocked = store._unlockedPerks;
+        return Array.isArray(unlocked) && unlocked.includes(perkId);
+      },
+
+      /**
+       * Unlock a perk for the player.
+       * @param {string} perkId
+       * @returns {boolean}
+       */
+      unlock: (perkId) => {
+        let store = _modStorageStore.get(modId);
+        if (!store) {
+          store = {};
+          _modStorageStore.set(modId, store);
+        }
+        const unlocked = Array.isArray(store._unlockedPerks) ? [...store._unlockedPerks] : [];
+        if (!unlocked.includes(perkId)) {
+          unlocked.push(perkId);
+          store._unlockedPerks = unlocked;
+          try {
+            audio?.play2d?.(SOUND.ArenaFanfareLevelUp, 0.8);
+          } catch {}
+          emitModEvent('perk:unlocked', { modId, perkId });
+          return true;
+        }
+        return false;
+      },
+
+      /**
+       * List all registered perks for this mod along with unlock state.
+       */
+      getAll: () => {
+        const list = getModPerks(modId);
+        const store = _modStorageStore.get(modId) ?? {};
+        const unlocked = Array.isArray(store._unlockedPerks) ? store._unlockedPerks : [];
+        return list.map((p) => ({
+          ...p,
+          unlocked: unlocked.includes(p.id),
+        }));
+      },
+    },
+
     storage: {
       /**
        * Retrieve a value from the mod's persistent save data.
@@ -180,6 +269,7 @@ export function createModApi(modId) {
  */
 export function _resetModPluginApi() {
   _modStorageStore.clear();
+  _registeredPerks.clear();
   _playerRef = null;
   _worldRef = null;
 }
