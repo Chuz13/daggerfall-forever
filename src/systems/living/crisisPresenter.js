@@ -11,7 +11,9 @@
 
 import { RSC, TOKEN_TEXT } from '../../formats/textRsc.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import { getDirectorState } from './livingDirector.js';
 import { getRegionState, isRegionInQuarantine, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import { onContractCompleted } from './bountySync.js';
 import { LIVING_WORDS } from './livingWords.js';
 
 /**
@@ -193,3 +195,164 @@ export function getRegionCrisisBulletinTokens(regionIndex) {
     { formatting: RSC.NewLine, text: '', x: 0, y: 0 },
   ];
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REGIONAL CRISIS RADIANT CONTRACTS (Post-Beta 1.1)
+//
+// Procedural micro-contracts tied to a region's active crisis:
+//  - WAR: Eliminate the Deserter Warlord / Saboteur Commander
+//  - PLAGUE: Recover Stolen Plague Remedies from Quarantine Smugglers
+//  - FAMINE: Seize Hoarded Black-Market Grain Cache
+//  - CIVIL_STRIFE: Suppress Insurgent Ringleader Cell
+// Completing a contract awards gold, +5 regional reputation, and calls
+// `onContractCompleted(regionIndex)` to ease regional crisis tension.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const CRISIS_QUEST_TYPE = Object.freeze({
+  WAR_DESERTER_LEADER: 'WAR_DESERTER_LEADER',
+  PLAGUE_SMUGGLED_CURE: 'PLAGUE_SMUGGLED_CURE',
+  FAMINE_HOARDER_CACHE: 'FAMINE_HOARDER_CACHE',
+  STRIFE_AGITATOR_CELL: 'STRIFE_AGITATOR_CELL',
+});
+
+function getCrisisQuestRegistry() {
+  const dir = getDirectorState();
+  if (!dir.subsystems.crisisQuests) {
+    dir.subsystems.crisisQuests = {};
+  }
+  return dir.subsystems.crisisQuests;
+}
+
+/**
+ * Generates an available regional crisis contract offer if the region is in crisis.
+ *
+ * @param {number|null|undefined} regionIndex
+ * @param {number} [playerLevel=1]
+ * @returns {{
+ *   id: string,
+ *   regionIndex: number,
+ *   crisis: string,
+ *   questType: string,
+ *   title: string,
+ *   targetName: string,
+ *   rewardGold: number,
+ *   repDelta: number,
+ *   status: string
+ * } | null}
+ */
+export function offerRegionalCrisisContract(regionIndex, playerLevel = 1) {
+  if (regionIndex == null || !Number.isInteger(regionIndex) || regionIndex < 0) return null;
+  if (Number(LivingTamrielConfig.political) === PRESENCE.OFF) return null;
+
+  const state = getRegionState(regionIndex);
+  if (!state || state.crisis === CRISIS_TYPE.PEACE || state.phase === CRISIS_PHASE.NONE) {
+    return null;
+  }
+
+  const lvl = Math.max(1, Number(playerLevel) || 1);
+  const rewardGold = 250 + lvl * 40;
+
+  /** @type {string} */
+  let questType = CRISIS_QUEST_TYPE.WAR_DESERTER_LEADER;
+  let title = LIVING_WORDS.crisisContractWarTitle();
+  let targetName = 'Deserter Warlord';
+
+  if (state.crisis === CRISIS_TYPE.PLAGUE) {
+    questType = CRISIS_QUEST_TYPE.PLAGUE_SMUGGLED_CURE;
+    title = LIVING_WORDS.crisisContractPlagueTitle();
+    targetName = 'Plague Contraband Smuggler';
+  } else if (state.crisis === CRISIS_TYPE.FAMINE) {
+    questType = CRISIS_QUEST_TYPE.FAMINE_HOARDER_CACHE;
+    title = LIVING_WORDS.crisisContractFamineTitle();
+    targetName = 'Grain Syndicate Hoarder';
+  } else if (state.crisis === CRISIS_TYPE.CIVIL_STRIFE) {
+    questType = CRISIS_QUEST_TYPE.STRIFE_AGITATOR_CELL;
+    title = LIVING_WORDS.crisisContractStrifeTitle();
+    targetName = 'Insurgent Ringleader';
+  }
+
+  return {
+    id: `crisis_contract_${regionIndex}_${state.crisis}`,
+    regionIndex,
+    crisis: state.crisis,
+    questType,
+    title,
+    targetName,
+    rewardGold,
+    repDelta: 5,
+    status: 'OFFERED',
+  };
+}
+
+/**
+ * Accepts and persists a regional crisis contract in the LivingDirector save state.
+ *
+ * @param {number} regionIndex
+ * @param {number} [playerLevel=1]
+ * @param {number} [nowMinutes=0]
+ */
+export function acceptRegionalCrisisContract(regionIndex, playerLevel = 1, nowMinutes = 0) {
+  const offer = offerRegionalCrisisContract(regionIndex, playerLevel);
+  if (!offer) return null;
+  const reg = getCrisisQuestRegistry();
+  const active = {
+    ...offer,
+    status: 'ACTIVE',
+    acceptedAtMinutes: Number.isFinite(nowMinutes) ? nowMinutes : 0,
+  };
+  reg[regionIndex] = active;
+  return active;
+}
+
+/**
+ * Returns the currently active crisis contract for `regionIndex`, or `null` if none.
+ *
+ * @param {number|null|undefined} regionIndex
+ */
+export function getActiveCrisisContract(regionIndex) {
+  if (regionIndex == null || !Number.isInteger(regionIndex) || regionIndex < 0) return null;
+  const reg = getCrisisQuestRegistry();
+  const c = reg[regionIndex];
+  if (!c || c.status !== 'ACTIVE') return null;
+  return c;
+}
+
+/**
+ * Completes the active regional crisis contract for `regionIndex`, granting gold,
+ * +5 regional reputation, and reducing regional crisis tension via `onContractCompleted`.
+ *
+ * @param {number} regionIndex
+ * @param {any} [playerEntity=null]
+ */
+export function completeRegionalCrisisContract(regionIndex, playerEntity = null) {
+  const reg = getCrisisQuestRegistry();
+  const c = reg[regionIndex];
+  if (!c || c.status !== 'ACTIVE') return null;
+
+  c.status = 'COMPLETED';
+  const rewardGold = Number(c.rewardGold || 290);
+  const repDelta = Number(c.repDelta || 5);
+
+  if (playerEntity) {
+    if (typeof playerEntity.goldPieces === 'number') {
+      playerEntity.goldPieces += rewardGold;
+    } else {
+      playerEntity.goldPieces = rewardGold;
+    }
+    if (playerEntity.regionalReputations && typeof playerEntity.regionalReputations === 'object') {
+      playerEntity.regionalReputations[regionIndex] =
+        Number(playerEntity.regionalReputations[regionIndex] || 0) + repDelta;
+    }
+  }
+
+  onContractCompleted(regionIndex);
+
+  return {
+    completed: true,
+    contract: c,
+    rewardGold,
+    repDelta,
+    message: LIVING_WORDS.crisisContractCompleted(rewardGold),
+  };
+}
+

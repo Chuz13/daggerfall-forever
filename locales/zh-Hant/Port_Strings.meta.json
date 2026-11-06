@@ -3224,6 +3224,41 @@
   "tr": "a43476f4b047",
   "by": "claude-in-session"
  },
+ "living.contract.accepted": {
+  "en": "49f512945c27",
+  "tr": "49f512945c27",
+  "by": "claude-in-session"
+ },
+ "living.contract.completed": {
+  "en": "f277ce1154f7",
+  "tr": "f277ce1154f7",
+  "by": "claude-in-session"
+ },
+ "living.contract.famineTitle": {
+  "en": "ee0fe9837398",
+  "tr": "ee0fe9837398",
+  "by": "claude-in-session"
+ },
+ "living.contract.optionAccept": {
+  "en": "efaafc109189",
+  "tr": "efaafc109189",
+  "by": "claude-in-session"
+ },
+ "living.contract.plagueTitle": {
+  "en": "0071f3c0fa49",
+  "tr": "0071f3c0fa49",
+  "by": "claude-in-session"
+ },
+ "living.contract.strifeTitle": {
+  "en": "dd49b659c979",
+  "tr": "dd49b659c979",
+  "by": "claude-in-session"
+ },
+ "living.contract.warTitle": {
+  "en": "c684a1a57c3a",
+  "tr": "c684a1a57c3a",
+  "by": "claude-in-session"
+ },
  "living.crisis.entry.famine": {
   "en": "95a006b9eba1",
   "tr": "95a006b9eba1",
@@ -3337,6 +3372,11 @@
  "living.naval.choicePirates": {
   "en": "f2a4df52fc9e",
   "tr": "f2a4df52fc9e",
+  "by": "claude-in-session"
+ },
+ "living.naval.scavenged": {
+  "en": "6ea38ed7ad9c",
+  "tr": "6ea38ed7ad9c",
   "by": "claude-in-session"
  },
  "living.nemesis.approach": {

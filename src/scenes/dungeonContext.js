@@ -33,8 +33,9 @@ import { expandMacros } from '../systems/talk/talkSession.js';   // MACRO1: the 
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
 import { enterDungeonAutomap, exitDungeonAutomap, detachedAutomapRecord, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, automapWaySteps, capsuleCentreFromEye, SCAN_INTERVAL_S, recordTeleporterConnection, teleporterConnection, registerAutomapConsoleCommands } from '../systems/automap/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
 import { automapKeyOf } from '../systems/automap/automap.js';   // TESA8: a dungeon's automap key by its location - a lair past the Bay its own
-import { isDungeonInCooldown, claimFallenAdventurerRemains, getDungeonActiveAdventurer } from '../systems/living/adventurerSim.js';
+import { isDungeonInCooldown, claimFallenAdventurerRemains, getDungeonActiveAdventurer, getActiveAdventurerCompanion } from '../systems/living/adventurerSim.js';
 import { CLASS_TO_MOBILE_TYPE, buildDungeonAdventurerChoiceSpec } from '../systems/living/livingWorldSpawner.js';
+import { getActiveCrisisContract, completeRegionalCrisisContract } from '../systems/living/crisisPresenter.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { automapWaterLevel, ELEMENT_NAMES } from '../systems/automap/automapModel.js';   // ROAD-C c2/S1
 import { signalAutomapReset } from '../ui/automap/automapWindow.js';   // A1: the M window; ROAD-C c2/S5: its native art + the reset signal
@@ -1949,8 +1950,57 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     return f;
   }
   let _livingDungeonAdv = null;
+  let _livingDungeonCrisisBoss = null;
   async function standDungeonLivingAdventurer() {
     if (!foeDeps || !collider || !_dungeonId) return null;
+
+    // 1. Spawn persistent recruited adventurer companion alongside the player at the dungeon entrance
+    const comp = getActiveAdventurerCompanion(skyMinutes());
+    if (comp) {
+      const start = dungeon.enterMarker ?? dungeon.startMarker ?? null;
+      if (start) {
+        const compSpot = spotAbout([start.x, start.y, start.z], 3) ?? { x: start.x, y: start.y, z: start.z };
+        const compType = CLASS_TO_MOBILE_TYPE[comp.className] ?? 144;
+        spawnLooseFoe(compType, [compSpot.x, compSpot.y, compSpot.z], {
+          level: comp.level || effectiveLevel(playerEntity),
+          allied: true,
+          team: 'PlayerAlly',
+        })
+          .then((cf) => {
+            if (!cf) return;
+            if (cf.entity) {
+              cf.entity.name = comp.displayName || comp.name;
+              cf.entity.team = 'PlayerAlly';
+              cf.entity.mobileTeam = 'PlayerAlly';
+            }
+            if (cf.ai) {
+              cf.ai.isHostile = false;
+              cf.ai.detected = false;
+            }
+          })
+          .catch(() => {});
+      }
+    }
+
+    // 2. Spawn Regional Crisis Contract target boss if player holds an active contract in this region
+    const contract = getActiveCrisisContract(_dungeonRegion);
+    if (contract) {
+      const farBoss = dungeonEnd();
+      if (farBoss) {
+        const bossSpot = spotAbout([farBoss.x, farBoss.y, farBoss.z], 4) ?? { x: farBoss.x, y: farBoss.y, z: farBoss.z };
+        spawnLooseFoe(144, [bossSpot.x, bossSpot.y, bossSpot.z], {
+          level: Math.max(2, effectiveLevel(playerEntity) + 1),
+        })
+          .then((bf) => {
+            if (!bf) return;
+            if (bf.entity) bf.entity.name = contract.targetName || 'Crisis Warlord';
+            _livingDungeonCrisisBoss = bf;
+          })
+          .catch(() => {});
+      }
+    }
+
+    // 3. Spawn delving rival adventurer or quest interceptor
     const hit = getDungeonActiveAdventurer(_dungeonId, _dungeonRegion);
     if (!hit?.adv) return null;
     const far = dungeonEnd();
@@ -1965,6 +2015,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     return f;
   }
   function tickDungeonLivingAdventurer(playerFeet) {
+    if (_livingDungeonCrisisBoss?.dead) {
+      _livingDungeonCrisisBoss = null;
+      const done = completeRegionalCrisisContract(_dungeonRegion, playerEntity);
+      if (done?.message) hudText.add(done.message);
+    }
     if (!_livingDungeonAdv || _livingDungeonAdv.interacted || !playerFeet) return;
     const f = _livingDungeonAdv.foe;
     if (!f || f.dead || !f.ai?.feet) return;

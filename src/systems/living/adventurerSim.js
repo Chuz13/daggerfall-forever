@@ -1037,6 +1037,7 @@ export function resolveWanderingAdventurerInteraction({
       adv?.trait !== 'CUTTHROAT' &&
       (roll <= et + bonus || (et + bonus - difficulty >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck))
     ) {
+      recruitAdventurerCompanion(adv);
       return {
         outcome: WANDERING_OUTCOME.RECRUITED_ALLY,
         goldDelta: 0,
@@ -1055,6 +1056,7 @@ export function resolveWanderingAdventurerInteraction({
       if (playerEntity) {
         playerEntity.goldPieces = Math.max(0, haveGold - hireCost);
       }
+      recruitAdventurerCompanion(adv);
       return {
         outcome: WANDERING_OUTCOME.RECRUITED_ALLY,
         goldDelta: -hireCost,
@@ -1161,4 +1163,70 @@ export function resolveWanderingAdventurerInteraction({
     messageKey: 'living.roadAdv.parted',
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PERSISTENT RECRUITED ADVENTURER COMPANION (24 In-Game Hours)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const COMPANION_DURATION_MINUTES = 1440; // 24 in-game hours
+
+/**
+ * Recruits an adventurer as a persistent companion for 24 in-game hours,
+ * persisted in the LivingDirector save state across map pixels and into dungeons.
+ *
+ * @param {any} adv
+ * @param {number} [nowMinutes=0]
+ * @returns {{ id: number|string, name: string, displayName: string, className: string, level: number, trait: string, recruitedAtMinutes: number, expiresAtMinutes: number }}
+ */
+export function recruitAdventurerCompanion(adv, nowMinutes = 0) {
+  const reg = getAdventurerSimRegistry();
+  const now = Number.isFinite(nowMinutes) ? nowMinutes : 0;
+  const companion = {
+    id: adv?.id ?? 950,
+    name: adv?.name || 'Kaelen',
+    displayName: getAdventurerDisplayName(adv),
+    className: adv?.className || 'Ranger',
+    level: Math.max(1, Number(adv?.level ?? 5)),
+    trait: adv?.trait || 'HONORABLE',
+    recruitedAtMinutes: now,
+    expiresAtMinutes: now + COMPANION_DURATION_MINUTES,
+  };
+  reg.activeCompanion = companion;
+  return companion;
+}
+
+/**
+ * Returns the currently active recruited adventurer companion if still within
+ * their 24-hour contract window, or `null` if none / expired.
+ *
+ * @param {number} [nowMinutes=0]
+ * @returns {{ id: number|string, name: string, displayName: string, className: string, level: number, trait: string, recruitedAtMinutes: number, expiresAtMinutes: number } | null}
+ */
+export function getActiveAdventurerCompanion(nowMinutes = 0) {
+  const reg = getAdventurerSimRegistry();
+  const comp = reg?.activeCompanion;
+  if (!comp) return null;
+  if (
+    Number.isFinite(nowMinutes) &&
+    nowMinutes > 0 &&
+    Number.isFinite(comp.expiresAtMinutes) &&
+    comp.expiresAtMinutes > 0 &&
+    nowMinutes >= comp.expiresAtMinutes
+  ) {
+    reg.activeCompanion = null;
+    return null;
+  }
+  return comp;
+}
+
+/**
+ * Dismisses the active adventurer companion (e.g. upon death or manual release).
+ */
+export function dismissAdventurerCompanion() {
+  const reg = getAdventurerSimRegistry();
+  if (reg) {
+    reg.activeCompanion = null;
+  }
+}
+
 

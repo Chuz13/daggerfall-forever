@@ -41,9 +41,17 @@ import {
   planSquadronEncounter,
   shouldPromptSideChoice,
   resolveSideChoice,
+  shouldCullSquadron,
+  canFireProjectile,
   NAVAL_CHOICE,
 } from './navalIncidentHost.js';
 import { onContractCompleted } from './bountySync.js';
+import {
+  offerRegionalCrisisContract,
+  acceptRegionalCrisisContract,
+  getActiveCrisisContract,
+  completeRegionalCrisisContract,
+} from './crisisPresenter.js';
 import {
   shouldDispatchNemesis,
   determineNemesisArchetype,
@@ -64,6 +72,9 @@ import {
   pickWanderingAdventurerEncounter,
   resolveWanderingAdventurerInteraction,
   getAdventurerDisplayName,
+  recruitAdventurerCompanion,
+  getActiveAdventurerCompanion,
+  dismissAdventurerCompanion,
   ROAD_ADVENTURER_SITUATION,
   WANDERING_OUTCOME,
   DUEL_OUTCOME,
@@ -125,6 +136,15 @@ export const LIVING_SITE_KINDS = Object.freeze({
   NEMESIS_AMBUSH: 'NEMESIS_AMBUSH',
   ADVENTURER_MEETING: 'ADVENTURER_MEETING',
   WANDERING_ADVENTURER: 'WANDERING_ADVENTURER',
+  NAVAL_SQUADRON: 'NAVAL_SQUADRON',
+});
+
+/** Classic DAGGER.SND sound clip indices used for Living Tamriel audio accents. */
+export const LIVING_SOUNDS = Object.freeze({
+  HALT: 363,
+  DRAW_WEAPON: 106,
+  SWORD_CLINK: 108,
+  GOLD_COINS: 408,
 });
 
 /** Distance (m) at which a spawned site is kept before cleanup. */
@@ -908,6 +928,59 @@ export function buildLivingSiteBlueprint({
       role: 'wandering_adventurer',
       team: isFightingMonsters ? 'PlayerAlly' : undefined,
     });
+  } else if (kind === LIVING_SITE_KINDS.NAVAL_SQUADRON) {
+    const regState = getRegionState(regionIndex);
+    const atWar =
+      regState?.crisis === CRISIS_TYPE.WAR || regState?.crisis === CRISIS_TYPE.CIVIL_STRIFE;
+    const squad = planSquadronEncounter({
+      playerX: centerX,
+      playerZ: centerZ,
+      atWar,
+      rng,
+    }) ?? {
+      law: [{ x: centerX - 18, z: centerZ + 24, isAlly: false }],
+      pirates: [{ x: centerX + 18, z: centerZ + 24, isAlly: false }],
+      bearing: 0,
+      distance: 220,
+    };
+    meta.squadron = squad;
+    meta.activeProjectiles = 0;
+
+    for (let i = 0; i < squad.law.length; i++) {
+      const s = squad.law[i];
+      const sy = snapPropToGround(heightAt, s.x, s.z);
+      meshes.push({ modelId: LIVING_MODELS.CRATES, feet: [s.x, sy, s.z], yawDeg: i * 45 });
+      flats.push({ ...LIVING_FLATS.BRAZIER, feet: [s.x + 1.2, sy, s.z] });
+      actors.push({
+        mobileType: MOBILE_TYPES.Knight,
+        name: 'Crown Marine',
+        level: Math.max(2, playerLevel),
+        feet: [s.x, sy, s.z],
+        yaw: 0,
+        allied: Boolean(s.isAlly),
+        hostile: false,
+        role: 'naval_law',
+        team: s.isAlly ? 'PlayerAlly' : 'NavalLaw',
+      });
+    }
+
+    for (let i = 0; i < squad.pirates.length; i++) {
+      const s = squad.pirates[i];
+      const sy = snapPropToGround(heightAt, s.x, s.z);
+      meshes.push({ modelId: LIVING_MODELS.BOXES, feet: [s.x, sy, s.z], yawDeg: i * 60 });
+      flats.push({ ...LIVING_FLATS.SACKS, feet: [s.x - 1.2, sy, s.z] });
+      actors.push({
+        mobileType: MOBILE_TYPES.Rogue,
+        name: 'Bay Pirate',
+        level: Math.max(2, playerLevel),
+        feet: [s.x, sy, s.z],
+        yaw: Math.PI,
+        allied: Boolean(s.isAlly),
+        hostile: false,
+        role: 'naval_pirate',
+        team: s.isAlly ? 'PlayerAlly' : 'NavalPirate',
+      });
+    }
   }
 
   return {
@@ -939,6 +1012,8 @@ export function buildLivingSiteBlueprint({
  *   inPool: (rec: any) => boolean,
  *   say: (text: string, sec?: number) => void,
  *   openChoice?: (spec: { lines: string[], options: Array<{ code: string, label: string, action: () => void }> }) => void,
+ *   playSound?: (soundId: number) => void,
+ *   onCompanionChanged?: (companion: any | null) => void,
  *   renderer?: any,
  *   meshes?: { getGpuMesh?: (id: number) => Promise<any> },
  *   getTexture?: (archive: number) => Promise<any>,
@@ -962,6 +1037,75 @@ export function createLivingSceneHost(deps) {
   let checkTimer = 0;
   let lastSpawnMinute = -999999;
   let lastSkirmishRegion = -1;
+  let companionFoe = /** @type {any} */ (null);
+  let companionId = /** @type {number|string|null} */ (null);
+  let companionSpawning = false;
+
+  function syncCompanion(feet, nowMin) {
+    const comp = getActiveAdventurerCompanion(nowMin);
+    if (!comp) {
+      if (companionFoe && deps.inPool(companionFoe)) {
+        try {
+          deps.remove(companionFoe);
+        } catch (_e) {}
+      }
+      if (companionFoe || companionId !== null) {
+        companionFoe = null;
+        companionId = null;
+        deps.onCompanionChanged?.(null);
+      }
+      return;
+    }
+
+    if (companionFoe?.dead) {
+      dismissAdventurerCompanion();
+      companionFoe = null;
+      companionId = null;
+      deps.onCompanionChanged?.(null);
+      return;
+    }
+
+    if (companionId !== comp.id) {
+      companionId = comp.id;
+      deps.onCompanionChanged?.(comp);
+    }
+
+    if ((!companionFoe || !deps.inPool(companionFoe)) && !companionSpawning && feet) {
+      companionSpawning = true;
+      const mobileType = CLASS_TO_MOBILE_TYPE[comp.className] ?? MOBILE_TYPES.Knight;
+      const cx = feet[0] + 2.4;
+      const cz = feet[2] + 2.4;
+      const cy = snapPropToGround(deps.heightAt, cx, cz);
+      Promise.resolve(
+        deps.spawn(mobileType, [cx, cy, cz], {
+          yaw: 0,
+          level: comp.level || 5,
+          allied: true,
+          team: 'PlayerAlly',
+          loose: true,
+          transient: true,
+          managed: true,
+        }),
+      )
+        .then((rec) => {
+          companionSpawning = false;
+          if (!rec) return;
+          if (rec.entity) {
+            rec.entity.name = comp.displayName || comp.name;
+            rec.entity.team = 'PlayerAlly';
+            rec.entity.mobileTeam = 'PlayerAlly';
+          }
+          if (rec.ai) {
+            rec.ai.isHostile = false;
+          }
+          rec.livingRole = 'recruited_companion';
+          companionFoe = rec;
+        })
+        .catch(() => {
+          companionSpawning = false;
+        });
+    }
+  }
 
   function ensureModel(modelId) {
     if (gpuModels.has(modelId) || loadingModels.has(modelId) || !deps.meshes?.getGpuMesh) return;
@@ -1030,90 +1174,109 @@ export function createLivingSceneHost(deps) {
     const nowMin = deps.clock();
 
     if (s.kind === LIVING_SITE_KINDS.CHECKPOINT) {
+      deps.playSound?.(LIVING_SOUNDS.HALT);
       const tollGold = s.blueprint.meta?.tollGold ?? 50;
+      const contractOffer = !getActiveCrisisContract(regIdx)
+        ? offerRegionalCrisisContract(regIdx, Number(player?.level ?? 1))
+        : null;
+      const options = [
+        {
+          code: 'Digit1',
+          label: `1. ${LIVING_WORDS.checkpointOptionKnight()}`,
+          action: () => {
+            const res = resolveCheckpointInteraction({
+              playerEntity: player,
+              method: player?.guildMemberships?.[10]?.rank > 0 ? 'knight' : 'reputation',
+              tollGoldRequired: tollGold,
+              regionIndex: regIdx,
+              nowMinutes: nowMin,
+              rng,
+            });
+            deps.say(res.message, 5);
+            if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
+              setSiteHostile(s, true);
+            }
+          },
+        },
+        {
+          code: 'Digit2',
+          label: `2. ${LIVING_WORDS.checkpointOptionToll(tollGold)}`,
+          action: () => {
+            const haveGold = Number(player?.goldPieces ?? 0);
+            const res = resolveCheckpointInteraction({
+              playerEntity: player,
+              method: 'toll',
+              tollGoldRequired: tollGold,
+              tollPaid: haveGold,
+              regionIndex: regIdx,
+              nowMinutes: nowMin,
+              rng,
+            });
+            if (res.outcome === CHECKPOINT_OUTCOME.TOLL_PAID && player) {
+              player.goldPieces = Math.max(0, haveGold - tollGold);
+            } else if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
+              setSiteHostile(s, true);
+            }
+            deps.say(res.message, 5);
+          },
+        },
+        {
+          code: 'Digit3',
+          label: `3. ${LIVING_WORDS.checkpointOptionDiplomacy()}`,
+          action: () => {
+            const res = resolveCheckpointInteraction({
+              playerEntity: player,
+              method: 'etiquette',
+              tollGoldRequired: tollGold,
+              regionIndex: regIdx,
+              nowMinutes: nowMin,
+              rng,
+            });
+            deps.say(res.message, 5);
+            if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
+              setSiteHostile(s, true);
+            }
+          },
+        },
+        {
+          code: 'Digit4',
+          label: `4. ${LIVING_WORDS.checkpointOptionForce()}`,
+          action: () => {
+            const res = resolveCheckpointInteraction({
+              playerEntity: player,
+              method: 'force',
+              tollGoldRequired: tollGold,
+              regionIndex: regIdx,
+              nowMinutes: nowMin,
+              rng,
+            });
+            setSiteHostile(s, true);
+            deps.say(res.message, 5);
+          },
+        },
+      ];
+      if (contractOffer) {
+        options.push({
+          code: 'Digit5',
+          label: `5. ${LIVING_WORDS.crisisContractOptionAccept(contractOffer.title, contractOffer.rewardGold)}`,
+          action: () => {
+            const accepted = acceptRegionalCrisisContract(regIdx, Number(player?.level ?? 1), nowMin);
+            if (accepted) {
+              deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+              deps.say(LIVING_WORDS.crisisContractAccepted(accepted.title), 6);
+            }
+          },
+        });
+      }
       deps.openChoice({
         lines: [
           LIVING_WORDS.checkpointHalt(),
           LIVING_WORDS.checkpointTollDemand(tollGold),
         ],
-        options: [
-          {
-            code: 'Digit1',
-            label: `1. ${LIVING_WORDS.checkpointOptionKnight()}`,
-            action: () => {
-              const res = resolveCheckpointInteraction({
-                playerEntity: player,
-                method: player?.guildMemberships?.[10]?.rank > 0 ? 'knight' : 'reputation',
-                tollGoldRequired: tollGold,
-                regionIndex: regIdx,
-                nowMinutes: nowMin,
-                rng,
-              });
-              deps.say(res.message, 5);
-              if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
-                setSiteHostile(s, true);
-              }
-            },
-          },
-          {
-            code: 'Digit2',
-            label: `2. ${LIVING_WORDS.checkpointOptionToll(tollGold)}`,
-            action: () => {
-              const haveGold = Number(player?.goldPieces ?? 0);
-              const res = resolveCheckpointInteraction({
-                playerEntity: player,
-                method: 'toll',
-                tollGoldRequired: tollGold,
-                tollPaid: haveGold,
-                regionIndex: regIdx,
-                nowMinutes: nowMin,
-                rng,
-              });
-              if (res.outcome === CHECKPOINT_OUTCOME.TOLL_PAID && player) {
-                player.goldPieces = Math.max(0, haveGold - tollGold);
-              } else if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
-                setSiteHostile(s, true);
-              }
-              deps.say(res.message, 5);
-            },
-          },
-          {
-            code: 'Digit3',
-            label: `3. ${LIVING_WORDS.checkpointOptionDiplomacy()}`,
-            action: () => {
-              const res = resolveCheckpointInteraction({
-                playerEntity: player,
-                method: 'etiquette',
-                tollGoldRequired: tollGold,
-                regionIndex: regIdx,
-                nowMinutes: nowMin,
-                rng,
-              });
-              deps.say(res.message, 5);
-              if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
-                setSiteHostile(s, true);
-              }
-            },
-          },
-          {
-            code: 'Digit4',
-            label: `4. ${LIVING_WORDS.checkpointOptionForce()}`,
-            action: () => {
-              const res = resolveCheckpointInteraction({
-                playerEntity: player,
-                method: 'force',
-                tollGoldRequired: tollGold,
-                regionIndex: regIdx,
-                nowMinutes: nowMin,
-                rng,
-              });
-              setSiteHostile(s, true);
-              deps.say(res.message, 5);
-            },
-          },
-        ],
+        options,
       });
     } else if (s.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH) {
+      deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
       const nemesis = s.blueprint.meta?.nemesis;
       if (!nemesis) return;
       deps.openChoice({
@@ -1261,81 +1424,98 @@ export function createLivingSceneHost(deps) {
         messageKey: 'living.plea.plague',
       };
       const reqGold = plea.requiredGold ?? 25;
+      const contractOffer = !getActiveCrisisContract(regIdx)
+        ? offerRegionalCrisisContract(regIdx, Number(player?.level ?? 1))
+        : null;
+      const pleaOptions = [
+        {
+          code: 'Digit1',
+          label: `1. ${LIVING_WORDS.pleaOptionHelp(reqGold)}`,
+          action: () => {
+            const haveGold = Number(player?.goldPieces ?? 0);
+            const res = resolvePleaResponse({
+              plea,
+              playerEntity: player,
+              regionIndex: regIdx,
+              response: 'HELP',
+              goldOffered: haveGold,
+              nowMinutes: nowMin,
+              rng,
+            });
+            if (res.outcome === PLEA_OUTCOME.HELPED && player) {
+              player.goldPieces = Math.max(0, haveGold - res.goldSpent);
+            }
+            deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+          },
+        },
+        {
+          code: 'Digit2',
+          label: `2. ${LIVING_WORDS.pleaOptionPolite()}`,
+          action: () => {
+            const res = resolvePleaResponse({
+              plea,
+              playerEntity: player,
+              regionIndex: regIdx,
+              response: 'REFUSE_POLITE',
+              nowMinutes: nowMin,
+              rng,
+            });
+            deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+          },
+        },
+        {
+          code: 'Digit3',
+          label: `3. ${LIVING_WORDS.pleaOptionRude()}`,
+          action: () => {
+            const res = resolvePleaResponse({
+              plea,
+              playerEntity: player,
+              regionIndex: regIdx,
+              response: 'REFUSE_RUDE',
+              nowMinutes: nowMin,
+              rng,
+            });
+            if (res.spawnMugger) {
+              Promise.resolve(
+                deps.spawn(MOBILE_TYPES.Rogue, [...s.blueprint.center], {
+                  yaw: 0,
+                  level: Math.max(1, Number(player?.level ?? 1)),
+                  allied: false,
+                  loose: true,
+                  transient: true,
+                  managed: true,
+                }),
+              )
+                .then((rec) => {
+                  if (!rec) return;
+                  if (rec.entity) rec.entity.name = 'Desperate Cutpurse';
+                  if (rec.ai) rec.ai.isHostile = true;
+                  s.foes.push(rec);
+                })
+                .catch(() => {});
+            }
+            deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+          },
+        },
+      ];
+      if (contractOffer) {
+        pleaOptions.push({
+          code: 'Digit4',
+          label: `4. ${LIVING_WORDS.crisisContractOptionAccept(contractOffer.title, contractOffer.rewardGold)}`,
+          action: () => {
+            const accepted = acceptRegionalCrisisContract(regIdx, Number(player?.level ?? 1), nowMin);
+            if (accepted) {
+              deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+              deps.say(LIVING_WORDS.crisisContractAccepted(accepted.title), 6);
+            }
+          },
+        });
+      }
       deps.openChoice({
         lines: [
           LIVING_WORDS.pleaPrompt(plea.type, reqGold),
         ],
-        options: [
-          {
-            code: 'Digit1',
-            label: `1. ${LIVING_WORDS.pleaOptionHelp(reqGold)}`,
-            action: () => {
-              const haveGold = Number(player?.goldPieces ?? 0);
-              const res = resolvePleaResponse({
-                plea,
-                playerEntity: player,
-                regionIndex: regIdx,
-                response: 'HELP',
-                goldOffered: haveGold,
-                nowMinutes: nowMin,
-                rng,
-              });
-              if (res.outcome === PLEA_OUTCOME.HELPED && player) {
-                player.goldPieces = Math.max(0, haveGold - res.goldSpent);
-              }
-              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
-            },
-          },
-          {
-            code: 'Digit2',
-            label: `2. ${LIVING_WORDS.pleaOptionPolite()}`,
-            action: () => {
-              const res = resolvePleaResponse({
-                plea,
-                playerEntity: player,
-                regionIndex: regIdx,
-                response: 'REFUSE_POLITE',
-                nowMinutes: nowMin,
-                rng,
-              });
-              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
-            },
-          },
-          {
-            code: 'Digit3',
-            label: `3. ${LIVING_WORDS.pleaOptionRude()}`,
-            action: () => {
-              const res = resolvePleaResponse({
-                plea,
-                playerEntity: player,
-                regionIndex: regIdx,
-                response: 'REFUSE_RUDE',
-                nowMinutes: nowMin,
-                rng,
-              });
-              if (res.spawnMugger) {
-                Promise.resolve(
-                  deps.spawn(MOBILE_TYPES.Rogue, [...s.blueprint.center], {
-                    yaw: 0,
-                    level: Math.max(1, Number(player?.level ?? 1)),
-                    allied: false,
-                    loose: true,
-                    transient: true,
-                    managed: true,
-                  }),
-                )
-                  .then((rec) => {
-                    if (!rec) return;
-                    if (rec.entity) rec.entity.name = 'Desperate Cutpurse';
-                    if (rec.ai) rec.ai.isHostile = true;
-                    s.foes.push(rec);
-                  })
-                  .catch(() => {});
-              }
-              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
-            },
-          },
-        ],
+        options: pleaOptions,
       });
     } else if (s.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER) {
       const adv = s.blueprint.meta?.adv;
@@ -1385,6 +1565,10 @@ export function createLivingSceneHost(deps) {
                 rng,
               });
               if (res.allied) {
+                const comp = recruitAdventurerCompanion(adv, nowMin);
+                companionId = comp.id;
+                deps.onCompanionChanged?.(comp);
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
                 for (const f of s.foes) {
                   if (f?.livingRole === 'wandering_adventurer') {
                     if (f.entity) {
@@ -1392,6 +1576,7 @@ export function createLivingSceneHost(deps) {
                       f.entity.mobileTeam = 'PlayerAlly';
                     }
                     if (f.ai) f.ai.isHostile = false;
+                    companionFoe = f;
                   }
                 }
                 deps.say(LIVING_WORDS.roadAdvRecruited(adv.name), 5);
@@ -1789,17 +1974,33 @@ export function createLivingSceneHost(deps) {
       checkTimer = 1.0;
 
       const feet = deps.feet();
-      if (!feet || !deps.ready()) {
+      const isAfloat = Boolean(deps.afloat?.());
+      if (!feet || (!deps.ready() && !isAfloat)) {
         releaseSite();
         return;
+      }
+
+      const nowMin = deps.clock();
+      if (!isAfloat) {
+        syncCompanion(feet, nowMin);
       }
 
       if (stood) {
         const c = stood.blueprint.center;
         const d = Math.hypot(feet[0] - c[0], feet[2] - c[2]);
-        if (d > SITE_KEEP_DISTANCE_M) {
+        const shouldCull =
+          stood.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON
+            ? shouldCullSquadron(d)
+            : d > SITE_KEEP_DISTANCE_M;
+        if (shouldCull) {
           releaseSite();
           return;
+        }
+        if (stood.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON && stood.blueprint.meta) {
+          const curProj = Number(stood.blueprint.meta.activeProjectiles || 0);
+          if (canFireProjectile(curProj)) {
+            stood.blueprint.meta.activeProjectiles = curProj + 1;
+          }
         }
         if (
           stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH &&
@@ -1809,8 +2010,31 @@ export function createLivingSceneHost(deps) {
           const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
           if (rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r))) {
             stood.orderRestored = true;
-            onContractCompleted(deps.regionIndex());
-            deps.say(LIVING_WORDS.urbanOrderRestored(), 5);
+            const regIdx = deps.regionIndex();
+            const contractRes = completeRegionalCrisisContract(regIdx, deps.playerEntity());
+            if (contractRes) {
+              deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+              deps.say(contractRes.message, 6);
+            } else {
+              onContractCompleted(regIdx);
+              deps.say(LIVING_WORDS.urbanOrderRestored(), 5);
+            }
+          }
+        }
+        if (
+          stood.kind === LIVING_SITE_KINDS.BANDIT_CAMP &&
+          !stood.campCleared &&
+          stood.foes.length > 0
+        ) {
+          const bandits = stood.foes.filter((f) => f?.livingRole === 'camp_bandit');
+          if (bandits.length > 0 && bandits.every((b) => b.dead || !deps.inPool(b))) {
+            stood.campCleared = true;
+            const regIdx = deps.regionIndex();
+            const contractRes = completeRegionalCrisisContract(regIdx, deps.playerEntity());
+            if (contractRes) {
+              deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+              deps.say(contractRes.message, 6);
+            }
           }
         }
         if (
@@ -1830,72 +2054,108 @@ export function createLivingSceneHost(deps) {
       }
 
       // Naval squadron encounters while afloat at sea
-      if (deps.afloat?.()) {
+      if (isAfloat) {
         if (Number(LivingTamrielConfig.naval) > PRESENCE.OFF) {
-          const nowMin = deps.clock();
           if (nowMin - lastSpawnMinute >= 45) {
             const regIdx = deps.regionIndex();
-            const regState = getRegionState(regIdx);
-            const atWar =
-              regState?.crisis === CRISIS_TYPE.WAR || regState?.crisis === CRISIS_TYPE.CIVIL_STRIFE;
-            const squad = planSquadronEncounter({
-              playerX: feet[0],
-              playerZ: feet[2],
-              atWar,
+            const player = deps.playerEntity();
+            const bp = buildLivingSiteBlueprint({
+              kind: LIVING_SITE_KINDS.NAVAL_SQUADRON,
+              centerX: feet[0],
+              centerZ: feet[2],
+              heightAt: deps.heightAt,
+              regionIndex: regIdx,
+              playerEntity: player,
+              nowMinutes: nowMin,
               rng,
             });
-            if (squad && shouldPromptSideChoice(35) && deps.openChoice) {
+            const squad = bp.meta?.squadron;
+            if (squad && shouldPromptSideChoice(35)) {
               lastSpawnMinute = nowMin;
-              const player = deps.playerEntity();
-              deps.openChoice({
-                lines: [
-                  LIVING_WORDS.navalBattleNotice(),
-                ],
-                options: [
-                  {
-                    code: 'Digit1',
-                    label: `1. ${LIVING_WORDS.navalChoiceLaw()}`,
-                    action: () => {
-                      resolveSideChoice(squad, NAVAL_CHOICE.LAW);
-                      if (player) {
-                        player.regionalReputations = player.regionalReputations || {};
-                        player.regionalReputations[regIdx] =
-                          Number(player.regionalReputations[regIdx] ?? 0) + 5;
-                      }
-                      onContractCompleted(regIdx);
-                      deps.say(LIVING_WORDS.navalChoiceLaw(), 5);
+              const site = standSite(bp);
+              deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
+              if (deps.openChoice) {
+                deps.openChoice({
+                  lines: [
+                    LIVING_WORDS.navalBattleNotice(),
+                  ],
+                  options: [
+                    {
+                      code: 'Digit1',
+                      label: `1. ${LIVING_WORDS.navalChoiceLaw()}`,
+                      action: () => {
+                        resolveSideChoice(squad, NAVAL_CHOICE.LAW);
+                        for (const f of site.foes) {
+                          if (f?.livingRole === 'naval_law') {
+                            if (f.entity) {
+                              f.entity.team = 'PlayerAlly';
+                              f.entity.mobileTeam = 'PlayerAlly';
+                            }
+                            if (f.ai) f.ai.isHostile = false;
+                          } else if (f?.livingRole === 'naval_pirate' && f.ai) {
+                            f.ai.isHostile = true;
+                            f.ai.detected = true;
+                          }
+                        }
+                        if (player) {
+                          player.regionalReputations = player.regionalReputations || {};
+                          player.regionalReputations[regIdx] =
+                            Number(player.regionalReputations[regIdx] ?? 0) + 5;
+                        }
+                        onContractCompleted(regIdx);
+                        deps.say(LIVING_WORDS.navalChoiceLaw(), 5);
+                      },
                     },
-                  },
-                  {
-                    code: 'Digit2',
-                    label: `2. ${LIVING_WORDS.navalChoicePirates()}`,
-                    action: () => {
-                      const res = resolveSideChoice(squad, NAVAL_CHOICE.PIRATES);
-                      if (player) {
-                        player.regionalReputations = player.regionalReputations || {};
-                        player.regionalReputations[regIdx] =
-                          Number(player.regionalReputations[regIdx] ?? 0) - (res.underworldRep || 5);
-                      }
-                      deps.say(LIVING_WORDS.navalChoicePirates(), 5);
+                    {
+                      code: 'Digit2',
+                      label: `2. ${LIVING_WORDS.navalChoicePirates()}`,
+                      action: () => {
+                        const res = resolveSideChoice(squad, NAVAL_CHOICE.PIRATES);
+                        for (const f of site.foes) {
+                          if (f?.livingRole === 'naval_pirate') {
+                            if (f.entity) {
+                              f.entity.team = 'PlayerAlly';
+                              f.entity.mobileTeam = 'PlayerAlly';
+                            }
+                            if (f.ai) f.ai.isHostile = false;
+                          } else if (f?.livingRole === 'naval_law' && f.ai) {
+                            f.ai.isHostile = true;
+                            f.ai.detected = true;
+                          }
+                        }
+                        if (player) {
+                          player.regionalReputations = player.regionalReputations || {};
+                          player.regionalReputations[regIdx] =
+                            Number(player.regionalReputations[regIdx] ?? 0) - (res.underworldRep || 5);
+                        }
+                        deps.say(LIVING_WORDS.navalChoicePirates(), 5);
+                      },
                     },
-                  },
-                  {
-                    code: 'Digit3',
-                    label: `3. ${LIVING_WORDS.navalChoiceNeutral()}`,
-                    action: () => {
-                      resolveSideChoice(squad, NAVAL_CHOICE.NEUTRAL);
-                      deps.say(LIVING_WORDS.navalChoiceNeutral(), 4);
+                    {
+                      code: 'Digit3',
+                      label: `3. ${LIVING_WORDS.navalChoiceNeutral()}`,
+                      action: () => {
+                        const res = resolveSideChoice(squad, NAVAL_CHOICE.NEUTRAL);
+                        if (res.scavenge && player) {
+                          const salvageGold = 50 + Math.max(1, Number(player.level ?? 1)) * 15;
+                          player.goldPieces = Number(player.goldPieces ?? 0) + salvageGold;
+                          deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                          deps.say(LIVING_WORDS.navalScavenged(salvageGold), 5);
+                        } else {
+                          deps.say(LIVING_WORDS.navalChoiceNeutral(), 4);
+                        }
+                      },
                     },
-                  },
-                ],
-              });
+                  ],
+                });
+              }
             }
           }
         }
         return;
       }
 
-      pickAndStandNextSite(feet, deps.clock());
+      pickAndStandNextSite(feet, nowMin);
     },
 
     /**
@@ -2188,6 +2448,7 @@ export function buildDungeonAdventurerChoiceSpec({
             rng,
           });
           if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
+            recruitAdventurerCompanion(adv);
             if (foeRecord?.entity) {
               foeRecord.entity.team = 'PlayerAlly';
               foeRecord.entity.mobileTeam = 'PlayerAlly';
@@ -2230,3 +2491,103 @@ export function buildDungeonAdventurerChoiceSpec({
     ],
   };
 }
+
+/**
+ * Executes the `/living` developer & tester console command.
+ *
+ * Supported subcommands:
+ *   - `/living status`
+ *   - `/living crisis <PEACE|WAR|PLAGUE|FAMINE|CIVIL_STRIFE> [START|MID|END]`
+ *   - `/living spawn <checkpoint|bandit_camp|traveler_rest|quarantine_tent|urban_skirmish|nemesis_ambush|adventurer_meeting|wandering_adventurer|naval_squadron>`
+ *   - `/living quest`
+ *
+ * @param {string[]} args
+ * @param {{
+ *   regionIndex: number,
+ *   playerFeet?: number[] | null,
+ *   heightAt?: (x: number, z: number) => number,
+ *   playerEntity?: any,
+ *   nowMinutes?: number,
+ *   sceneHost?: any,
+ * }} ctx
+ * @returns {string}
+ */
+export function executeLivingConsoleCommand(args, ctx) {
+  const sub = String(args?.[0] ?? 'status').toLowerCase();
+  const regIdx = Number.isInteger(ctx?.regionIndex) ? ctx.regionIndex : 0;
+  const regState = getRegionState(regIdx);
+
+  if (sub === 'status') {
+    const comp = getActiveAdventurerCompanion(ctx?.nowMinutes ?? 0);
+    const contract = getActiveCrisisContract(regIdx);
+    return (
+      `[Living Tamriel] Region ${regIdx} (${regState.regionName}): crisis=${regState.crisis} (${regState.phase}), ` +
+      `tension=${regState.tension.toFixed(1)}, daysRemaining=${regState.phaseDaysRemaining}, ` +
+      `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}`
+    );
+  }
+
+  if (sub === 'crisis') {
+    const rawType = String(args?.[1] ?? 'WAR').toUpperCase();
+    const rawPhase = String(args?.[2] ?? 'MID').toUpperCase();
+    const validType = Object.values(CRISIS_TYPE).includes(/** @type {any} */ (rawType))
+      ? rawType
+      : CRISIS_TYPE.WAR;
+    const validPhase =
+      validType === CRISIS_TYPE.PEACE
+        ? CRISIS_PHASE.NONE
+        : Object.values(CRISIS_PHASE).includes(/** @type {any} */ (rawPhase))
+          ? rawPhase
+          : CRISIS_PHASE.MID;
+    regState.crisis = validType;
+    regState.phase = validPhase;
+    regState.phaseDaysRemaining = validType === CRISIS_TYPE.PEACE ? 0 : 7;
+    if (validType !== CRISIS_TYPE.PEACE) {
+      regState.tension = Math.max(75, regState.tension);
+    } else {
+      regState.tension = 10;
+    }
+    return `[Living Tamriel] Region ${regIdx} (${regState.regionName}) forced to ${regState.crisis} (${regState.phase}).`;
+  }
+
+  if (sub === 'spawn') {
+    const rawKind = String(args?.[1] ?? 'checkpoint').toUpperCase();
+    const validKind = Object.values(LIVING_SITE_KINDS).includes(/** @type {any} */ (rawKind))
+      ? rawKind
+      : LIVING_SITE_KINDS.CHECKPOINT;
+    const feet = ctx?.playerFeet ?? [0, 0, 0];
+    const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
+    const bp = buildLivingSiteBlueprint({
+      kind: validKind,
+      centerX: feet[0] + 16,
+      centerZ: feet[2] + 16,
+      heightAt,
+      regionIndex: regIdx,
+      playerEntity: ctx?.playerEntity ?? null,
+      nowMinutes: ctx?.nowMinutes ?? 0,
+      onRoad: true,
+    });
+    ctx?.sceneHost?.standBlueprint?.(bp);
+    return `[Living Tamriel] Spawned ${validKind} (${bp.meshes.length} meshes, ${bp.flats.length} flats, ${bp.actors.length} actors).`;
+  }
+
+  if (sub === 'quest') {
+    const existing = getActiveCrisisContract(regIdx);
+    if (existing) {
+      const done = completeRegionalCrisisContract(regIdx, ctx?.playerEntity ?? null);
+      return `[Living Tamriel] Completed contract ${existing.questType} (+${done?.rewardGold ?? 0}g).`;
+    }
+    const accepted = acceptRegionalCrisisContract(
+      regIdx,
+      Number(ctx?.playerEntity?.level ?? 1),
+      ctx?.nowMinutes ?? 0,
+    );
+    if (!accepted) {
+      return `[Living Tamriel] Region ${regIdx} is at PEACE; set a crisis first (/living crisis WAR MID).`;
+    }
+    return `[Living Tamriel] Accepted crisis contract: ${accepted.title} (${accepted.rewardGold}g).`;
+  }
+
+  return 'Usage: /living <status | crisis <TYPE> [PHASE] | spawn <KIND> | quest>';
+}
+

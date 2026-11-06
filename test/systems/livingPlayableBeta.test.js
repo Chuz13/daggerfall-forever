@@ -25,6 +25,10 @@ import {
   getRoadAdventurerSiteChance,
   getRoadAdventurerAmbientShare,
   resolveWanderingAdventurerInteraction,
+  recruitAdventurerCompanion,
+  getActiveAdventurerCompanion,
+  dismissAdventurerCompanion,
+  COMPANION_DURATION_MINUTES,
 } from '../../src/systems/living/adventurerSim.js';
 import { LivingTamrielConfig, PRESENCE } from '../../src/systems/living/livingConfig.js';
 import { hasRegionalCheckpointPass } from '../../src/systems/living/roadCheckpointHost.js';
@@ -35,6 +39,11 @@ import {
   getSettlementEntryNotification,
   getRegionCrisisRumor,
   getRegionCrisisBulletinTokens,
+  CRISIS_QUEST_TYPE,
+  offerRegionalCrisisContract,
+  acceptRegionalCrisisContract,
+  getActiveCrisisContract,
+  completeRegionalCrisisContract,
 } from '../../src/systems/living/crisisPresenter.js';
 import { getBuildingCrisisFactor } from '../../src/systems/living/regionEconomy.js';
 import { makeCityGate, updateCityGate } from '../../src/world/city/cityGate.js';
@@ -57,6 +66,8 @@ import {
   buildLivingSiteBlueprint,
   createLivingSceneHost,
   buildDungeonAdventurerChoiceSpec,
+  executeLivingConsoleCommand,
+  LIVING_SOUNDS,
 } from '../../src/systems/living/livingWorldSpawner.js';
 
 describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
@@ -203,7 +214,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
 
     const livingTab = CATEGORIES.find((tab) => tab.id === 'living');
     assert.ok(livingTab);
-    assert.equal(livingTab.title, 'Living Tamriel');
+    assert.equal(livingTab.title, 'Living Tamriel (Experimental, pre-alpha)');
     assert.equal(livingTab.sections.length, 3);
   });
 
@@ -705,5 +716,148 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     const repBefore = player.regionalReputations[17] || 0;
     choiceSpec.options[0].action(); // Join Navy
     assert.ok(player.regionalReputations[17] > repBefore, 'Joining Provincial Navy grants positive regional reputation');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STEP 8: Post-Beta 1.1 Polish (3D Naval Squadron, Persistent 24h Companion,
+  //         Regional Crisis Radiant Contracts, Audio Accents & /living Console)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  it('Step 8: materializes 3D naval squadrons, persists 24h recruited companions, runs crisis contracts, and executes /living commands', async () => {
+    // 1. 3D Naval Squadron blueprint & culling at 450m
+    setRegionCrisis(17, 'WAR', 'MID');
+    const navalBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.NAVAL_SQUADRON,
+      centerX: 100,
+      centerZ: 100,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: { level: 6 },
+      nowMinutes: 600,
+      rng: () => 0.4,
+    });
+    assert.equal(navalBp.kind, LIVING_SITE_KINDS.NAVAL_SQUADRON);
+    assert.ok(navalBp.meshes.length >= 2, 'Naval squadron spawns floating crate/box wreckage props');
+    assert.ok(navalBp.actors.some((a) => a.role === 'naval_law'), 'Naval squadron spawns Crown Marines');
+    assert.ok(navalBp.actors.some((a) => a.role === 'naval_pirate'), 'Naval squadron spawns Bay Pirates');
+
+    // 2. Persistent 24h Recruited Adventurer Companion
+    dismissAdventurerCompanion();
+    assert.equal(getActiveAdventurerCompanion(100), null);
+    const comp = recruitAdventurerCompanion(
+      { id: 42, name: 'Cyrus', className: 'Rogue', level: 8, trait: 'HONORABLE' },
+      1000,
+    );
+    assert.equal(comp.name, 'Cyrus');
+    assert.equal(comp.expiresAtMinutes, 1000 + COMPANION_DURATION_MINUTES);
+    assert.ok(getActiveAdventurerCompanion(1500), 'Companion remains active within 24 in-game hours');
+    assert.equal(
+      getActiveAdventurerCompanion(1000 + COMPANION_DURATION_MINUTES + 1),
+      null,
+      'Companion automatically expires after 24 in-game hours',
+    );
+
+    // 3. Regional Crisis Radiant Contracts (offer, accept, complete, tension reduction)
+    setRegionCrisis(20, 'PLAGUE', 'MID');
+    const reg20 = getRegionState(20);
+    reg20.tension = 0.85;
+    const offer = offerRegionalCrisisContract(20, 5);
+    assert.ok(offer);
+    assert.equal(offer.questType, CRISIS_QUEST_TYPE.PLAGUE_SMUGGLED_CURE);
+    assert.equal(offer.rewardGold, 250 + 5 * 40);
+
+    const accepted = acceptRegionalCrisisContract(20, 5, 1200);
+    assert.ok(accepted);
+    assert.equal(getActiveCrisisContract(20)?.status, 'ACTIVE');
+
+    const contractPlayer = { goldPieces: 100, regionalReputations: { 20: 0 } };
+    const completed = completeRegionalCrisisContract(20, contractPlayer);
+    assert.ok(completed?.completed);
+    assert.equal(contractPlayer.goldPieces, 100 + offer.rewardGold);
+    assert.equal(contractPlayer.regionalReputations[20], 5);
+    assert.ok(reg20.tension < 0.85, 'Completing a crisis contract reduces regional crisis tension');
+    assert.equal(getActiveCrisisContract(20), null, 'Completed contract is no longer active');
+
+    // 4. Audio Accents & Companion HUD hook in createLivingSceneHost + /living Console Command
+    const soundsPlayed = [];
+    const companionEvents = [];
+    const spawned = [];
+    let playerFeet = [0, 0, 0];
+    recruitAdventurerCompanion({ id: 77, name: 'Barenziah', className: 'Nightblade', level: 7 }, 2000);
+
+    const host = createLivingSceneHost({
+      feet: () => playerFeet,
+      ready: () => true,
+      clock: () => 2010,
+      regionIndex: () => 17,
+      inLocationRect: () => false,
+      onRoad: () => true,
+      afloat: () => false,
+      heightAt: () => 0,
+      playerEntity: () => ({ level: 5, goldPieces: 500, regionalReputations: { 17: 0 } }),
+      spawn: async (type, feet, opts) => {
+        const rec = {
+          mobileType: type,
+          feet,
+          opts,
+          dead: false,
+          entity: { name: '', team: opts.team },
+          ai: { isHostile: !opts.allied, detected: false },
+        };
+        spawned.push(rec);
+        return rec;
+      },
+      remove: (rec) => {
+        rec.dead = true;
+      },
+      inPool: (rec) => !rec.dead,
+      say: () => {},
+      openChoice: () => {},
+      playSound: (id) => soundsPlayed.push(id),
+      onCompanionChanged: (c) => companionEvents.push(c),
+    });
+
+    host.frame(1.1);
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(companionEvents.length, 1, 'onCompanionChanged fires when companion is active');
+    assert.equal(companionEvents[0]?.name, 'Barenziah');
+    assert.ok(
+      spawned.some((f) => f.livingRole === 'recruited_companion' && f.entity.team === 'PlayerAlly'),
+      'Recruited companion spawns beside player outdoors',
+    );
+
+    const statusOut = executeLivingConsoleCommand(['status'], {
+      regionIndex: 17,
+      nowMinutes: 2010,
+    });
+    assert.ok(statusOut.includes('Region 17'));
+    assert.ok(statusOut.includes('Barenziah'));
+
+    const crisisOut = executeLivingConsoleCommand(['crisis', 'FAMINE', 'START'], {
+      regionIndex: 17,
+    });
+    assert.ok(crisisOut.includes('FAMINE (START)'));
+    assert.equal(getRegionState(17).crisis, 'FAMINE');
+
+    const questAcceptOut = executeLivingConsoleCommand(['quest'], {
+      regionIndex: 17,
+      playerEntity: contractPlayer,
+      nowMinutes: 2010,
+    });
+    assert.ok(questAcceptOut.includes('Accepted crisis contract'));
+    assert.ok(getActiveCrisisContract(17));
+
+    const spawnOut = executeLivingConsoleCommand(['spawn', 'checkpoint'], {
+      regionIndex: 17,
+      playerFeet: [0, 0, 0],
+      sceneHost: host,
+    });
+    assert.ok(spawnOut.includes('Spawned CHECKPOINT'));
+    assert.equal(host.shown()?.kind, LIVING_SITE_KINDS.CHECKPOINT);
+
+    // Move close to checkpoint to trigger halt sound
+    playerFeet = [16, 0, 16];
+    host.frame(1.1);
+    assert.ok(soundsPlayed.includes(LIVING_SOUNDS.HALT), 'Approaching checkpoint plays HALT sound clip');
   });
 });

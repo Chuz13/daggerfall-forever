@@ -176,7 +176,7 @@ import { evaluateTravelInterruption, canEvadeAmbushWithStealth, TRAVEL_EVENT_TYP
 import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification } from '../systems/living/crisisPresenter.js';
-import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
+import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain, aimedBlowInfo, playerBlowFrame, setWindupAtMeListener } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -3806,6 +3806,12 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
   }));
   let _livingSceneHost = null;
+  const _livingCompanionFace = {
+    isFoe: true,
+    parentQuest: { uid: 777001 },
+    symbol: { original: '_living_companion_' },
+    gender: 0,
+  };
   setLivingQuestSitesProvider(() => {
     const out = [];
     for (const q of questBridge?.machine?.quests?.() ?? []) {
@@ -3837,8 +3843,27 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     inPool: (f) => exteriorFoes.foes.includes(f),
     say: (text, sec) => townTalk.say(text, sec),
     openChoice: (spec) => townTalk.showOverlay(new ChoiceWindow({ lines: spec.lines, options: spec.options })),
+    playSound: (id) => audio?.playOneShot?.(id, 0.75),
+    onCompanionChanged: (comp) => {
+      dropEscortFace(_livingCompanionFace);
+      if (comp) addEscortFace(_livingCompanionFace);
+    },
     renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
   }));
+  registerCommand(
+    'living',
+    'Inspect or trigger Living Tamriel systems',
+    'living <status | crisis <TYPE> [PHASE] | spawn <KIND> | quest>',
+    (args) =>
+      executeLivingConsoleCommand(args ?? [], {
+        regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+        playerFeet: walkMode && playerSpawned ? player.feetAt() : cam.pos,
+        heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
+        playerEntity,
+        nowMinutes: skyMinutes(),
+        sceneHost: livingSceneHostOf(),
+      }),
+  );
   const livingRoadsOf = () => (livingRoads ??= createLivingRoads({
     world: livingTripWorld, mpm: PERSON_MOVE_SPEED / livingBaseRate(), clock: skyMinutes, baseRate: livingBaseRate,
     sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
@@ -11179,7 +11204,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
    *  them, and so does the broker fan-out below - one set of doors per
    *  entity, exactly as one EntityEffectManager per entity. */
   const foeSinks = (g, fromPlayer = true) => ({   // AUDIT WORLD6b-iii(a) B2: the provenance the engine hands (AUDIT WORLD2 B7: a foe's spell is not the player's blow) - this host ignored it, so an enemy blast over a puppet went to its owner as MY hit
-    hurt: (n, o) => { const fp = o?.fromPlayer ?? fromPlayer; if (n > 0) (g._encounter ? exteriorFoes.damageFoe(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', whole: !!o?.whole, round: !!o?.round, element: o?.element ?? null }) : cityGuards.hurtGuard(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', round: !!o?.round })); },   // RVN3: a landing's element (its weakness's weight)   // AUDIT 68 review: a round's tick says whose it is (effects.js runEffectRound), as the dungeon's sink reads it   // X-slice: route by pool
+    hurt: (n, o) => { const fp = o?.fromPlayer ?? fromPlayer; if (n > 0) { if (fp && _livingSceneHost?.isCriminalTarget(g)) { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); } (g._encounter ? exteriorFoes.damageFoe(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', whole: !!o?.whole, round: !!o?.round, element: o?.element ?? null }) : cityGuards.hurtGuard(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', round: !!o?.round })); } },   // RVN3: a landing's element (its weakness's weight)   // AUDIT 68 review: a round's tick says whose it is (effects.js runEffectRound), as the dungeon's sink reads it   // X-slice: route by pool
     heal: (n) => { if (!(n > 0)) return; if (g._encounter) exteriorFoes.healFoe(g, n); else g.entity.health = Math.min(g.entity.maxHealth ?? Infinity, g.entity.health + n); },   // AUDIT PSCALE1 DOORS-5: an encounter foe's heal through its pool, weighed as its damage is
     drainMagicka: (n) => { if (n > 0) g.entity.magicka = Math.max(0, (g.entity.magicka ?? 0) - n); },
     restoreMagicka: (n) => { if (n > 0) g.entity.magicka = Math.min(g.entity.maxMagicka ?? Infinity, (g.entity.magicka ?? 0) + n); },
@@ -33401,7 +33426,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // response; wandering guard NPC -> Assault + conversion with
         // the swing carried onto the fresh foe).
         const lookFwd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
-        const guardHitSound = (g) => audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 });   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
+        const guardHitSound = (g) => { if (_livingSceneHost?.isCriminalTarget(g)) { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); } audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 }); };   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
         // AUDIT 23 (combat-4): the host-side double tallies are gone -
         // resolvePlayerHit runs DFU's tally arm itself.
         // DISC19-F / FB0929: under friendly protection the watch's pool

@@ -219,6 +219,24 @@ export const LIVING_WORDS = Object.freeze({
   travelStealthEvaded: () =>
     t('living.travel.stealthEvaded', 'You slip silently around the highwaymen without a sound.'),
 
+  // Crisis Radiant Contracts & Naval Salvage
+  crisisContractWarTitle: () =>
+    t('living.contract.warTitle', 'Regional Contract: Eliminate the Deserter Warlord'),
+  crisisContractPlagueTitle: () =>
+    t('living.contract.plagueTitle', 'Regional Contract: Recover Stolen Plague Remedies'),
+  crisisContractFamineTitle: () =>
+    t('living.contract.famineTitle', 'Regional Contract: Seize Black-Market Grain Cache'),
+  crisisContractStrifeTitle: () =>
+    t('living.contract.strifeTitle', 'Regional Contract: Suppress Insurgent Ringleader'),
+  crisisContractOptionAccept: (title, gold) =>
+    t('living.contract.optionAccept', 'Accept regional crisis contract ({gold}g reward): {title}', { title, gold }),
+  crisisContractAccepted: (title) =>
+    t('living.contract.accepted', 'Crisis contract accepted: {title}. Track the target in regional camps or dungeons.', { title }),
+  crisisContractCompleted: (gold) =>
+    t('living.contract.completed', 'Crisis contract fulfilled! Earned {gold}g, regional renown, and eased tensions across the land.', { gold }),
+  navalScavenged: (gold) =>
+    t('living.naval.scavenged', 'You salvage {gold}g worth of floating cargo from the naval wreckage.', { gold }),
+
   // Composite helpers for 3D scene interactions (ChoiceWindow)
   urbanSkirmishAlert: () => LIVING_WORDS.urbanSkirmishStart(),
   checkpointOptionKnight: () => LIVING_WORDS.checkpointKnightPass(),

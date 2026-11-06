@@ -29,6 +29,7 @@ class LivingDirectorState {
       adventurers: {},
       travel: { lastInterruptMinute: -999999 },
       pleas: { lastPleaMinute: -999999 },
+      crisisQuests: {},
     };
   }
 
@@ -40,6 +41,7 @@ class LivingDirectorState {
     this.subsystems.adventurers = {};
     this.subsystems.travel = { lastInterruptMinute: -999999 };
     this.subsystems.pleas = { lastPleaMinute: -999999 };
+    this.subsystems.crisisQuests = {};
   }
 }
 
@@ -86,6 +88,7 @@ export function newLivingSaveData() {
       pleas: { lastPleaMinute: -999999 },
       nemesis: { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false },
       checkpoints: { passesByRegion: {} },
+      crisisQuests: {},
     },
   };
 }
@@ -132,6 +135,7 @@ export function getLivingSaveData() {
       checkpoints: {
         passesByRegion: { ...(_state.subsystems.checkpoints?.passesByRegion || {}) },
       },
+      crisisQuests: { ...(_state.subsystems.crisisQuests || {}) },
     },
   };
 }
@@ -204,6 +208,9 @@ export function restoreLivingSaveData(data) {
           passesByRegion: { ...(data.subsystems.checkpoints.passesByRegion || {}) },
         };
       }
+      if (data.subsystems.crisisQuests && typeof data.subsystems.crisisQuests === 'object') {
+        _state.subsystems.crisisQuests = { ...data.subsystems.crisisQuests };
+      }
     }
   } catch (err) {
     console.warn('[LivingDirector] Error restoring save data, falling back to default:', err);
@@ -257,6 +264,7 @@ export function onLivingWorldTick(nowMinutes) {
 export function getLivingDirectorState() {
   return _state;
 }
+export const getDirectorState = getLivingDirectorState;
 
 /**
  * Initializes the Living Tamriel system and registers it into DFF modSaveData.
