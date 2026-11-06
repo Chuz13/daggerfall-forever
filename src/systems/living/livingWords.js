@@ -64,5 +64,23 @@ export const LIVING_WORDS = Object.freeze({
     t('living.economy.warShortage', 'Weapons and armor are in short supply due to the ongoing conflict.'),
   economyFamineFood: () =>
     t('living.economy.famineFood', 'Grain is scarce and provisions fetch a heavy price this season.'),
+
+  // Adventurers 2.0 (Duels, Dares, Rivalry, Quest Interceptions)
+  adventurerDuelChallenge: () =>
+    t('living.adventurer.duelChallenge', 'I challenge thee to single combat to test thy blade!'),
+  adventurerDareChallenge: (gold) =>
+    t('living.adventurer.dareChallenge', 'Think you have what it takes? {gold} gold says you cannot best me in a duel!', { gold }),
+  adventurerEnviousTaunt: () =>
+    t('living.adventurer.enviousTaunt', 'Another strutting \'hero\' thinking they own Tamriel. Step aside before I make you!'),
+  adventurerDuelWon: () =>
+    t('living.adventurer.duelWon', 'A well-fought contest! You have earned my respect and the wager.'),
+  adventurerDuelLost: () =>
+    t('living.adventurer.duelLost', 'Yield! Better luck next time, wanderer. The gold stays with me.'),
+  adventurerQuestIntercepted: () =>
+    t('living.adventurer.questIntercepted', 'A rival adventurer cleared the dungeon ahead of you and claimed the objective!'),
+  adventurerReclaimSuccess: () =>
+    t('living.adventurer.reclaimSuccess', 'You have successfully recovered the quest objective from your rival!'),
+  adventurerReclaimFailed: () =>
+    t('living.adventurer.reclaimFailed', 'The rival adventurer refused to yield the prize and walked away.'),
 });
 
