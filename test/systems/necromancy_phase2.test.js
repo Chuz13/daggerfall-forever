@@ -278,3 +278,4 @@ test('LichdomRitual: prerequisites check and transformation', () => {
   assert.equal(archmage.currentHealth, 60); // Restored to 50% max HP
   assert.equal(phylactery.charges, 2); // 1 charge consumed
 });
+
