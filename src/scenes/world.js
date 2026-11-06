@@ -890,7 +890,7 @@ import { createTownSeatBook, parseSeatCommand, parseSiegeCommand } from '../net/
 import { seatArrivalLine, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; AUDIT SEATS-3 D3: a board's Tithe (SEAT-HALL's and CROWN-HALL's halls: scenes/seatHallHost.js)
 import { createSeatHallHost } from './seatHallHost.js';   // DOMAIN2 (HOST-SPLIT): a seat's halls and the guild's castle
 import { createOnlineHomes, moveArenaHomes, homeSceneName, homeTownBlocks, homeClaimLayout, checkpointLanded, HOME_RETRY_MS } from '../systems/online/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved; HOME-PRICE: a town's size; FIELD BUGS 2026-10-04d KNIGHT-HOUSE: a deed the realm gave, held
-import { createOfflineHomes, createOfflineDecor, isOfflineHouseOwned } from '../systems/offlineHomes.js';
+import { createOfflineHomes, createOfflineDecor, isOfflineHouseOwned, allOfflineHomes, offlineHomesInRegion, inheritOfflineHome } from '../systems/offlineHomes.js';
 import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 import { createHomesBoot } from './homesBootHost.js';   // KNIGHT-HOUSE's deed holds and ACCOUNT-HOMES' sweep, once a boot
 import { createTownPanelHost, panelTownOf, PANEL_TOWN_TYPES } from './townPanelHost.js';   // NOTICE-PANEL: the town panel under the compass - the boards' presses, in any settlement
@@ -1981,8 +1981,8 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   const offlineHomes = !homesApi ? createOfflineHomes({
     player: () => playerEntity,
     sceneCache: () => _sceneCache(),
-    onHomes: () => homesLearned(),
-    onWrote: () => homesLearned(),
+    onHomes: () => { homesLearned(); legacyHost?.syncHouses?.(); },
+    onWrote: () => { homesLearned(); legacyHost?.syncHouses?.(); },
   }) : null;
   const activeHomes = onlineHomes || (isOfflineHousingActive() ? offlineHomes : null);
   const _offlineDecor = !homesApi ? createOfflineDecor() : null;
@@ -25522,7 +25522,27 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   const legacyInheritHouse = (row, fallen) => {
     if (isOnlinePage()) return legacyInheritOnline(row, fallen);
     const at = fallen?.characterId ? newestSaveOf(enumerateSaves().info, fallen.characterId) : -1;
-    return legacyInheritDeed(row, () => (at >= 0 ? loadSlot(at)?.sceneCache ?? null : null));
+    const save = at >= 0 ? loadSlot(at) : null;
+    if (isOfflineHousingActive()) {
+      const reg = row.regionIndex | 0;
+      if (isOfflineHouseOwned(row.mapId, row.buildingKey)) return 'given';
+      if (offlineHomesInRegion(reg).length >= HOME_CAP) return 'waits';
+      const homeData = (save?.modData?.offlineHomes?.homes ?? []).find(
+        (h) => (h.mapId >>> 0) === (row.mapId >>> 0) && (h.buildingKey | 0) === (row.buildingKey | 0)
+      );
+      inheritOfflineHome(homeData || {
+        mapId: row.mapId,
+        buildingKey: row.buildingKey,
+        region: reg,
+      });
+      const homeScene = homeSceneName(row.mapId, row.buildingKey | 0);
+      const scenes = save?.sceneCache ?? null;
+      if (scenes?.permanentScenes?.includes(homeScene)) {
+        graftPermanentScene(playerEntity.sceneCache ??= createSceneCache(), scenes, homeScene);
+      }
+      return 'given';
+    }
+    return legacyInheritDeed(row, () => (save?.sceneCache ?? null));
   };
   // BOOT-OVERLAP: the realm's lines and roster, read behind the boot (above, at the join), are in before the host that
   // reads them is made
@@ -25589,7 +25609,18 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       return true;
     },
     // LEGACY-HOME: the houses the one played holds (a deed that stands - banking.js deedStands), and the house they are in
-    heldHouses: () => (isOnlinePage() ? (realmSession ? _legacyOnlineHomes : null) : allDeeds(playerEntity.houses).filter(deedStands)),   // HOUSES-3: every region's three; LEGACY7 part five: online, the account's online homes (null until read)
+    heldHouses: () => {
+      if (isOnlinePage()) return realmSession ? _legacyOnlineHomes : null;
+      if (isOfflineHousingActive()) {
+        return allOfflineHomes().map((h) => ({
+          regionIndex: h.region | 0,
+          mapId: h.mapId >>> 0,
+          buildingKey: h.buildingKey | 0,
+          location: _townOfMapId.get(h.mapId >>> 0)?.name ?? '',
+        }));
+      }
+      return allDeeds(playerEntity.houses).filter(deedStands);
+    },
     heldHousesWhole: () => isOnlinePage(),   // ACCOUNT-HOMES: online they are the line's whole - every member owns each, and one sold leaves
     inheritHouse: legacyInheritHouse,   // PERMADEATH-HOUSES: a house of the line's dead, the one played's
     // LEGACY6: what the world remembers - the town's regard of the one played and its day, the towns' minute for the
@@ -25622,7 +25653,10 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   setDeathListener('projectLegacy', () => legacyHost?.onDeath());
   setFamilyProvider({
     on: () => legacyOn(),
-    family: () => legacyHost?.family ?? null,
+    family: () => {
+      legacyHost?.syncHouses?.();
+      return legacyHost?.family ?? null;
+    },
     lived: () => legacyHost?.lived() ?? 0,
     past: () => legacyHost?.past ?? null,   // AUDIT LEGACY III A17: the past played back - no sheet of the head's on its clock
     faces: legacyFaces,
@@ -25639,6 +25673,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     moveFamilySeat: () => legacyHost?.moveFamilySeat() ?? { ok: false, why: 'Not here.' },
     choice: () => playerEntity.legacyChoice ?? null,   // LEGACY-CHOICE: why a character has no house
     online: () => isOnlinePage(),
+    offlineHousing: () => isOfflineHousingActive(),
   });
   if (params.has('legacyborn')) legacyHost.takeBorn(params.get('legacyborn'));   // LEGACY1: the waiting birth, before the new game's mod records are made
   _legacyMade(legacyHost);

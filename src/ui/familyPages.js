@@ -36,6 +36,8 @@ import { FRIEND_AT } from '../systems/livingWorld/relations.js';
 import { legacySettings } from '../systems/legacy/settings.js';
 import { capturePointer } from './pointerCapture.js';   // RPT1026-CLIENT: a pad's synthetic pointer is refused a capture, never thrown
 import { raisedWord } from '../systems/legacy/unionKin.js';   // UNION-CHILDREN: a child the other player's house raises
+import { t } from '../systems/textManager.js';
+import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 
 export const FAMILY_PAGE_SECTIONS = Object.freeze([
   Object.freeze(['tree', 'Family Tree']), Object.freeze(['house', 'The House']), Object.freeze(['hall', 'Hall of Ancestors']),
@@ -677,7 +679,13 @@ export function drawHousePage(detail, rerender, { el, divider } = /** @type {any
   detail.append(el('p', 'fam-h', 'The homes'));
   const houses = family.houses ?? [];
   if (!houses.length) {
-    detail.append(el('p', 'px-note', family.seat?.loc ? `Your family owns no house, so its members live among the townsfolk of ${family.seat.loc}. Buy a house at a bank and they will move in.` : 'Your family owns no house and has no seat yet.'));
+    const isDoor = prov?.online?.() || (prov?.offlineHousing ? prov.offlineHousing() : isOfflineHousingActive());
+    const noHouseText = family.seat?.loc
+      ? (isDoor
+        ? t('legacy.home.noHouseDoor', 'Your family owns no house, so its members live among the townsfolk of {loc}. Buy a house at its front door and they will move in.', { loc: family.seat.loc })
+        : t('legacy.home.noHouseBank', 'Your family owns no house, so its members live among the townsfolk of {loc}. Buy a house at a bank and they will move in.', { loc: family.seat.loc }))
+      : t('legacy.home.noHouseNoSeat', 'Your family owns no house and has no seat yet.');
+    detail.append(el('p', 'px-note', noHouseText));
   } else {
     const home = familyHome(family);
     const list = el('div', 'fam-hall');

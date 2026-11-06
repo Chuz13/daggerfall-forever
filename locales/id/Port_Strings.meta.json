@@ -14015,8 +14015,8 @@
   "by": "claude-in-session"
  },
  "features.offlineHousing.note": {
-  "en": "59191e6eaa73",
-  "tr": "59191e6eaa73",
+  "en": "92399607463a",
+  "tr": "617bc33f5ff1",
   "by": "claude-in-session"
  },
  "features.offlineHousing.title": {
@@ -19687,6 +19687,21 @@
  "legacy.deed.tallyRegard": {
   "en": "cfb4aecdc4e0",
   "tr": "a2a6383bac67",
+  "by": "claude-in-session"
+ },
+ "legacy.home.noHouseBank": {
+  "en": "66f2e408bd2f",
+  "tr": "5b0c8b8d47cd",
+  "by": "claude-in-session"
+ },
+ "legacy.home.noHouseDoor": {
+  "en": "fead20722aa4",
+  "tr": "3a06f128bdc4",
+  "by": "claude-in-session"
+ },
+ "legacy.home.noHouseNoSeat": {
+  "en": "ad1b2f2d06c0",
+  "tr": "c044e77bdd7e",
   "by": "claude-in-session"
  },
  "legacy.houseWaits.newborn": {

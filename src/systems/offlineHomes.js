@@ -40,6 +40,34 @@ export function allOfflineHomes() {
   return Array.from(_ownedHomes.values());
 }
 
+/**
+ * Grants/inherits an offline home into player ownership (for Project Legacy heir inheritance).
+ * @param {{ mapId: number, buildingKey: number, region?: number, price?: number, entry?: string, boughtAt?: number, look?: any, decor?: any[], yardDecor?: any[], hidden?: any[], useModes?: any, chests?: any, rev?: number, yardRev?: number }} homeData
+ */
+export function inheritOfflineHome(homeData) {
+  if (!homeData || !Number.isFinite(homeData.mapId) || !Number.isFinite(homeData.buildingKey)) return false;
+  const id = Number(homeData.mapId) >>> 0;
+  const key = Number(homeData.buildingKey);
+  const home = {
+    mapId: id,
+    buildingKey: key,
+    region: Number(homeData.region) || 0,
+    price: Number(homeData.price) || 0,
+    entry: typeof homeData.entry === 'string' ? homeData.entry : 'only-me',
+    boughtAt: Number(homeData.boughtAt) || Date.now(),
+    look: homeData.look ? homeLookOf(homeData.look) : null,
+    decor: Array.isArray(homeData.decor) ? [...homeData.decor] : [],
+    yardDecor: Array.isArray(homeData.yardDecor) ? [...homeData.yardDecor] : [],
+    hidden: Array.isArray(homeData.hidden) ? [...homeData.hidden] : [],
+    useModes: (homeData.useModes && typeof homeData.useModes === 'object') ? { ...homeData.useModes } : {},
+    chests: (homeData.chests && typeof homeData.chests === 'object') ? JSON.parse(JSON.stringify(homeData.chests)) : {},
+    rev: Number(homeData.rev) || 1,
+    yardRev: Number(homeData.yardRev) || 1,
+  };
+  _ownedHomes.set(homeKey(id, key), home);
+  return true;
+}
+
 /** Resets offline homes state (for unit tests). */
 export function _resetForTests() {
   _ownedHomes.clear();
