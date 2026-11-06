@@ -70,6 +70,7 @@
 import { getInt } from './settings/settings.js'; // AUDIT 28 W1: QuestRumorWeight, read live
 import { dice100 } from '../combat/formulas.js';
 import { localizedText } from './textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
+import { getRegionCrisisRumor, getRegionCrisisBulletinTokens } from './living/crisisPresenter.js';
 
 /** TalkManager.RumorType (:341-346). */
 export const RUMOR_TYPE = Object.freeze({ CommonRumor: 0, QuestProgressRumor: 1, QuestRumorMill: 2 });
@@ -285,6 +286,12 @@ export class RumorMill {
     ) {
       let news = this.deps.resolvingError?.() ?? resolvingErrorText();
       const validRumors = this.getValidRumors();
+      const currentReg = this.deps.currentRegionIndex?.() ?? -1;
+      const crisisRumor = currentReg >= 0 ? getRegionCrisisRumor(currentReg) : null;
+      if (crisisRumor && (validRumors.length === 0 || this._rolls()() < 0.65)) {
+        npcSession.numAnswersGivenTellMeAboutOrRumors++;
+        return crisisRumor;
+      }
       if (validRumors.length === 0) return this.deps.expandRandomTextRecord?.(OUT_OF_NEWS_RECORD_INDEX) ?? '';
       const entry = this.weightedRandomRumor(validRumors);
       if (entry.rumorType === RUMOR_TYPE.CommonRumor) {
@@ -308,6 +315,9 @@ export class RumorMill {
    *  CommonRumor's first variant, macro-expanded, as TOKENS; null
    *  when the board has nothing. */
   getNewsOrRumorsForBulletinBoard() {
+    const currentReg = this.deps.currentRegionIndex?.() ?? -1;
+    const crisisTokens = currentReg >= 0 ? getRegionCrisisBulletinTokens(currentReg) : null;
+    if (crisisTokens) return crisisTokens;
     const validRumors = this.getValidRumors(true);
     if (validRumors.length === 0) return null;
     const validRumor = validRumors.find((x) => x.rumorType === RUMOR_TYPE.CommonRumor) ?? null;

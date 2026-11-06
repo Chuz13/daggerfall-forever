@@ -26,6 +26,7 @@ import {
   TOWN_SALE_MODES,
 } from '../../net/townEconLaw.js';
 import { bailiwickOf, seatTipOf } from '../../net/townSeatLaw.js'; // TE0 decision 5: the area's seat (the Tithe's own rule); AUDIT TOWN-ECON CLI-3: a seat's own card where its place has no economy
+import { getRegionCrisisLines } from '../living/crisisPresenter.js';
 
 /**
  * @param {{ online: () => boolean, townOf: (mapId: number) => ({ name: string, px: number, py: number, region: number, type: number }|null|undefined),
@@ -89,11 +90,17 @@ export function createTownEcon(host) {
     tipAt(mapId) {
       const r = readingOf(mapId);
       if (!r) {
-        const seat =
-          host.online() && mapId != null && Number.isFinite(Number(mapId)) ? host.seatAt(Number(mapId) >>> 0) : null;
-        return seat ? seatTipOf(seat, nowMs()) : null;
+        const id = mapId != null && Number.isFinite(Number(mapId)) ? Number(mapId) >>> 0 : null;
+        const seat = host.online() && id != null ? host.seatAt(id) : null;
+        if (seat) return seatTipOf(seat, nowMs());
+        const town = id != null ? host.townOf(id) : null;
+        if (town && isEconTown(town.type)) {
+          const crisisLines = getRegionCrisisLines(town.region);
+          if (crisisLines.length > 0) return { title: town.name, lines: crisisLines };
+        }
+        return null;
       }
-      return townTipOf(
+      const card = townTipOf(
         {
           name: r.town.name,
           p: r.p,
@@ -107,13 +114,24 @@ export function createTownEcon(host) {
         },
         nowMs(),
       ); // TE3: the area's chapters' patrons; SEA-TRADE: its harbour
+      if (card) {
+        const crisisLines = getRegionCrisisLines(r.town.region);
+        if (crisisLines.length > 0) {
+          return { title: card.title, lines: [...card.lines, ...crisisLines] };
+        }
+      }
+      return card;
     },
     /** NOTICE-PANEL: the town panel's lines (townEconLaw.js townPanelLinesOf), or none - offline, or no town with an
-     *  economy (the panel then shows the town's name alone). @param {unknown} mapId */
+     *  economy (the panel then shows the town's name alone, plus any active regional crisis lines). @param {unknown} mapId */
     panelLinesAt(mapId) {
       const r = readingOf(mapId);
-      if (!r) return [];
-      return townPanelLinesOf(
+      if (!r) {
+        const id = mapId != null && Number.isFinite(Number(mapId)) ? Number(mapId) >>> 0 : null;
+        const town = id != null ? host.townOf(id) : null;
+        return town && isEconTown(town.type) ? getRegionCrisisLines(town.region) : [];
+      }
+      const baseLines = townPanelLinesOf(
         {
           p: r.p,
           prev: r.prevOf(),
@@ -125,14 +143,21 @@ export function createTownEcon(host) {
         },
         nowMs(),
       );
+      const crisisLines = getRegionCrisisLines(r.town.region);
+      return crisisLines.length > 0 ? [...baseLines, ...crisisLines] : baseLines;
     },
     /** ...as a function the Overworld's readout asks only of the plate under the pointer (travelViewHud.js showMarkTip),
-     *  one kept a town - or null where no card could stand (offline; neither a town with an economy nor a seat).
+     *  one kept a town - or null where no card could stand (offline without crisis; neither a town with an economy nor a seat).
      *  @param {unknown} mapId */
     tipFnAt(mapId) {
-      if (!host.online() || mapId == null || !Number.isFinite(Number(mapId))) return null;
+      if (mapId == null || !Number.isFinite(Number(mapId))) return null;
       const id = Number(mapId) >>> 0;
-      if (!isEconTown(host.townOf(id)?.type) && !host.seatAt(id)) return null;
+      const town = host.townOf(id);
+      if (!host.online()) {
+        if (!town || !isEconTown(town.type) || getRegionCrisisLines(town.region).length === 0) return null;
+      } else if (!isEconTown(town?.type) && !host.seatAt(id)) {
+        return null;
+      }
       let f = tipFns.get(id);
       if (!f) tipFns.set(id, (f = () => this.tipAt(id)));
       return f;

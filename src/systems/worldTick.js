@@ -35,6 +35,7 @@ import { installUnleveledLoot } from './unleveledLoot.js';   // UL1: its two mat
 import { onLycanthropeHit } from './lycanthropy.js';
 import { onVampireHit } from './vampirism.js';
 import { onPlayerStruckByEnemy } from './artifactEffects.js';   // V3: the Ring of Namira's reflection
+import { onLivingWorldTick } from './living/livingDirector.js';
 
 /**
  * DISC10-D H1: RacialOverrideEffect.OnWeaponHitEntity - THE ONE DISPATCHER,
@@ -536,7 +537,10 @@ export function runDayChange({ entity, lastMinutes, nowMinutes, rolls = Math.ran
   // :447-448 - roll the six climate zones and RAISE the pending-apply
   // flag; the exterior frame's tickWeather drains it. Splitting those
   // is not a liberty, it is WeatherManager's own shape (:146-156).
-  if (worldHalf) rollClimateWeathersForDay(nowMinutes, rolls);
+  if (worldHalf) {
+    rollClimateWeathersForDay(nowMinutes, rolls);
+    onLivingWorldTick(nowMinutes);
+  }
   if (!ownHalf) return { daysPast, loanReminders: [], loanDefaults: [] };   // LIVED1: the world's half alone
 
   // :449 - the landlord's sweep. `entity.sceneCache` may not exist yet

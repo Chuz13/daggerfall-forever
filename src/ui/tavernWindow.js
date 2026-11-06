@@ -260,6 +260,7 @@ export class TavernWindow {
       quality: h.quality?.() ?? 0,
       free: !!h.freeRooms?.(),
       skills: h.skills?.(),
+      regionIndex: h.regionIndex?.() ?? 0,
     });
     if (d.kind === 'ignore') return null; // int.TryParse: nothing at all
     if (d.kind === 'tooMany') return [{ rows: this._rows(TOO_MANY_DAYS_ID, { room, now }) }];

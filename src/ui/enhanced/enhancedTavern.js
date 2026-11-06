@@ -180,6 +180,7 @@ function submitRoom() {
     quality: deps.quality?.() ?? 0,
     free: !!deps.freeRooms?.(),
     skills: deps.skills?.(),
+    regionIndex: deps.regionIndex?.() ?? 0,
   });
   if (d.kind === 'ignore') return; // int.TryParse: nothing at all
   if (d.kind === 'tooMany') {

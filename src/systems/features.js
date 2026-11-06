@@ -158,6 +158,15 @@ const modFeature = (vendor, effect, group) => {
  *  `High` are Daggerfall Unity's own settings words (localizedText). */
 const tier = (value, label) => Object.freeze(Object.defineProperty([value], 1, { enumerable: true, get: label }));
 const OFF = () => localizedText('off', 'Off');
+const LIGHT = () => t('features.tier.light', 'Light');
+const MID = () => t('features.tier.mid', 'Mid');
+const HIGH = () => t('features.tier.high', 'High');
+const LIVING_TIERS = Object.freeze([
+  tier(0, OFF),
+  tier(1, LIGHT),
+  tier(2, MID),
+  tier(3, HIGH),
+]);
 
 /** FT14 (2026-09-15) - WHAT A MOD'S TILE SHOWS, AND WHAT IT DOES NOT.
  *
@@ -1966,6 +1975,101 @@ export const FEATURES = Object.freeze([
     get note() { return t('features.offlineRespawn.note', 'When you die in single-player, wake at the nearest safe place (temple, town, graveyard or dungeon entrance) at half health and lose a tenth of your purse, instead of ending the game.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'offlineRespawn', initial: true, online: 'player' }),
+  }),
+  // LIVING TAMRIEL (LT-07): Modular Living Tamriel world presence features
+  Object.freeze({
+    id: 'living-political',
+    group: 'world',
+    get title() { return t('features.livingPolitical.title', 'Regional politics & crises'); },
+    get note() { return t('features.livingPolitical.note', 'Drives regional state transitions between peace, war, plague, and civil strife across Tamriel.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingPolitical', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-quarantine',
+    group: 'world',
+    get title() { return t('features.livingQuarantine.title', 'Plague quarantine & gate locks'); },
+    get note() { return t('features.livingQuarantine.note', 'Bars city gates around the clock during severe outbreaks and establishes outside relief tents.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingQuarantine', initial: 3, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-urban',
+    group: 'world',
+    get title() { return t('features.livingUrban.title', 'Urban skirmishes'); },
+    get note() { return t('features.livingUrban.note', 'Generates contained street clashes between the city watch and insurgents during regional war and strife.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingUrban', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-bounties',
+    group: 'world',
+    get title() { return t('features.livingBounties.title', 'Dynamic bounty boards'); },
+    get note() { return t('features.livingBounties.note', 'Rebalances notice boards toward wilderness contracts with higher payouts that lower regional crisis tension.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingBounties', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-adventurers',
+    group: 'world',
+    get title() { return t('features.livingAdventurers.title', 'Adventurer simulation'); },
+    get note() { return t('features.livingAdventurers.note', 'Simulates rival adventurers delving dungeons across Tamriel, advancing, and leaving fallen remains.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({
+      store: 'prefs', key: 'livingAdventurers', initial: 2, online: 'player', tiers: LIVING_TIERS,
+      also: Object.freeze([Object.freeze({ store: 'prefs', key: 'livingQuestCompetition', initial: false, online: 'player' })]),
+      parts: Object.freeze([Object.freeze({ key: 'livingQuestCompetition', get label() { return t('features.livingAdventurers.questComp', 'Quest competition'); } })]),
+    }),
+  }),
+  Object.freeze({
+    id: 'living-road-adventurers',
+    group: 'world',
+    get title() { return t('features.livingRoadAdventurers.title', 'Wandering road adventurers'); },
+    get note() { return t('features.livingRoadAdventurers.note', 'Spawns non-hostile adventurers travelling highways, camping in the wilds, returning with dungeon spoils, or fighting monsters along the road.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingRoadAdventurers', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-nemesis',
+    group: 'world',
+    get title() { return t('features.livingNemesis.title', 'Nemesis rivals'); },
+    get note() { return t('features.livingNemesis.note', 'Dispatches persistent challengers, bounty hunters, and grudge avengers with roleplay dialogue checks.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingNemesis', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-travel',
+    group: 'world',
+    get title() { return t('features.livingTravel.title', 'Travel interruptions'); },
+    get note() { return t('features.livingTravel.note', 'Allows journeys and fast travel to be interrupted by roadside caravans, dilemmas, or hostile ambushes.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingTravel', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-camps',
+    group: 'world',
+    get title() { return t('features.livingCamps.title', 'Campsites & checkpoints'); },
+    get note() { return t('features.livingCamps.note', 'Spawns slope-aligned roadside encampments, patrol outposts, and traveller tents along highways.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingCamps', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-naval',
+    group: 'world',
+    get title() { return t('features.livingNaval.title', 'Naval squadrons'); },
+    get note() { return t('features.livingNaval.note', 'Populates open waters with multi-ship fleet skirmishes between provincial patrols and pirate squadrons.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingNaval', initial: 2, online: 'player', tiers: LIVING_TIERS }),
   }),
 ]);
 

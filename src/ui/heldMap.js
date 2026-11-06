@@ -206,6 +206,7 @@ import { hubMapWord, hubTitle } from '../systems/region/regionHubs.js';   // HUB
 import { tierPhrase } from '../systems/dungeon/dungeonTier.js';   // TIER1: a dungeon's tier and size on the label and in the box, online
 import { TV_WHO_GROUPS, TV_WHO_TEXT, TV_KIN_COLORS, TV_KIN_LEGEND, travelViewWho, toggleTravelViewWho, cycleTravelViewRenown, playerShown, playersOnMaps, toggleTravelViewFilter } from '../systems/travel/travelViewFilters.js';   // OW-WHO / OW-KIN: the players' filters and colours, the Overworld's own
 import { seatInfoLine, seatTipOf } from '../net/townSeatLaw.js';   // SEAT1a: a seat's Charter in the box
+import { getRegionCrisisLines } from '../systems/living/crisisPresenter.js';
 
 // ── THE SPRITE (Mac's, public/art/held-map.png) ──────────────────
 // THE SITE ROOT lives in systems/appRoot.js now (AUDIT-THUNDERLOCK
@@ -4244,10 +4245,16 @@ export class HeldMapWindow {
     // ORE-MAP (ui/oreMapTip.js): bare ground answers with its ore card where the host has one - online, the professions
     // open (deps.oreAt) - and the card is asked again when the ground's witnessed state arrives
     const ore = readTip(this.deps.oreAt?.(px, py, () => this._refreshTip()) ?? null);
+    const regionValid = region >= 0 && region < (this.deps.maps?.regionCount ?? 0);
+    const crisisLines = !ore && regionValid ? getRegionCrisisLines(region) : [];
+    const crisisTip = crisisLines.length > 0
+      ? readTip({ title: REGION_NAMES[region] ?? '', lines: crisisLines }, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX })
+      : null;
+    const groundTip = ore ?? crisisTip;
     return {
-      label: (region >= 0 && region < (this.deps.maps?.regionCount ?? 0)) ? (REGION_NAMES[region] ?? '') : '',
+      label: regionValid ? (REGION_NAMES[region] ?? '') : '',
       cursor: '',
-      ...(ore ? { tip: ore } : {}),
+      ...(groundTip ? { tip: groundTip } : {}),
     };
   }
 

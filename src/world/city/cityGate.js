@@ -44,6 +44,7 @@
 // injectable so the law is testable without a clock.
 import { sharedClockOn } from '../../systems/worldTick.js'; // the one predicate every clock-derived online law reads (RESTX2, OL3, OL4, ECON1)
 import { isCity247Active } from '../../systems/buildingLocks.js';
+import { isCityGateQuarantined } from '../../systems/living/quarantineGate.js';
 import { CITY_GATE_OPEN_MODEL_ID, CITY_GATE_CLOSED_MODEL_ID } from '../rmbLayout.js';
 
 /**
@@ -64,7 +65,16 @@ export function makeCityGate(placedModelId) {
  * @param {boolean} night - WorldTime.Now.IsNight
  *   (DaggerfallDateTime.cs:171-174: Hour < DawnHour || Hour >= DuskHour).
  */
-export function updateCityGate(gate, night, { online = sharedClockOn() } = {}) {
+export function updateCityGate(gate, night, { online = sharedClockOn(), region = null } = {}) {
+  // Living Tamriel: Peak quarantine (PLAGUE.MID) enforces closed gates 24/7,
+  // overriding 24/7 city infrastructure and keeping the gate sealed shut (447).
+  if (isCityGateQuarantined(region)) {
+    if (!gate.isOpen && gate.modelId === CITY_GATE_CLOSED_MODEL_ID) return false;
+    gate.isOpen = false;
+    gate.modelId = CITY_GATE_CLOSED_MODEL_ID;
+    return true;
+  }
+
   // OL5: the shared world's arm, and it is NOT "the classic machine with night
   // forced false". That was the first draft and its own pin killed it. The
   // classic machine reconciles the FLAG with the MODEL only by cycling - and

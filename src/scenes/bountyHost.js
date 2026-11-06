@@ -34,6 +34,7 @@ import { addGoldPieces, addItem } from '../systems/inventory.js';
 import { BOUNTY_RING_R } from '../ui/bounty/bountyMapMark.js';
 import { setBountyJournal, BOUNTY_QUEST_PREFIX } from '../systems/bounty/bountyJournal.js';
 import { rewardContract } from '../systems/standing.js';   // REP4: a contract finished, the region's law two points better
+import { onContractCompleted } from '../systems/living/bountySync.js';
 import { sharedClockOn } from '../systems/worldTick.js';   // AUDIT REST II Q3: the never-lapse build's rows, re-stamped online
 import { festivalBountyPaid } from '../systems/festival/festivalClient.js';   // WITCH1: a bounty paid asks a find
 import { passBountyPaid } from '../systems/pass/passClient.js';   // STOREFRONT: and a Battle Pass find
@@ -373,7 +374,10 @@ export function createBountyHost(deps) {
     // REP4 (Mac: "Earn it + faster drift" - regional contracts): the board's region thinks better of the hunter who
     // cleared its road - two points of its law (standing.js rewardContract), said by the law's own notice
     const region = deps.regionAt?.(posting.town.px, posting.town.py);
-    if (Number.isInteger(region) && region >= 0 && entity) rewardContract(entity, region);
+    if (Number.isInteger(region) && region >= 0 && entity) {
+      rewardContract(entity, region);
+      onContractCompleted(region);
+    }
     const reward = bountyRewardRows(posting.gold, item);
     notices.push({
       title: BOUNTY_REWARD_TITLE,

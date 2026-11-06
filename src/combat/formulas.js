@@ -982,7 +982,20 @@ export function calculateEnemyPacification(player, languageSkill, sheathed, roll
   }
   chance += sheathed ? 10 : -25;
   chance += comprehendBonus;
-  return Math.floor(roll01 * 200) < chance;
+  const roll = Math.floor(roll01 * 200);
+  if (roll < chance) return true;
+
+  // Living Tamriel (LT-02): Second chance by Luck for social language skills (Streetwise / Etiquette).
+  // If failed by a narrow margin (<= 5 points on the 200-point scale), player's Luck grants a saving reroll.
+  if (languageSkill === SKILLS.Etiquette || languageSkill === SKILLS.Streetwise) {
+    const delta = roll - chance;
+    if (delta <= 5) {
+      const luck = liveStat(player, 'luck');
+      if (dice100(Math.trunc(luck / 2))) return true;
+    }
+  }
+
+  return false;
 }
 
 // ---- EnemyAttack.MeleeDamage hit gate, "matched to classic" ----

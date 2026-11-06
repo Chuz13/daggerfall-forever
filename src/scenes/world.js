@@ -172,6 +172,11 @@ import { preloadSpellbookArt } from '../ui/spellbookWindow.js';   // U42: the cl
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { worldMinutes, skyMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes, raisedMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
+import { evaluateTravelInterruption, canEvadeAmbushWithStealth, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
+import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js';
+import { LIVING_WORDS } from '../systems/living/livingWords.js';
+import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
+import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain, aimedBlowInfo, playerBlowFrame, setWindupAtMeListener } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -888,7 +893,7 @@ import { createOnlineHomes, moveArenaHomes, homeSceneName, homeTownBlocks, homeC
 import { createOfflineHomes, createOfflineDecor, isOfflineHouseOwned } from '../systems/offlineHomes.js';
 import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 import { createHomesBoot } from './homesBootHost.js';   // KNIGHT-HOUSE's deed holds and ACCOUNT-HOMES' sweep, once a boot
-import { createTownPanelHost, panelTownOf } from './townPanelHost.js';   // NOTICE-PANEL: the town panel under the compass - the boards' presses, in any settlement
+import { createTownPanelHost, panelTownOf, PANEL_TOWN_TYPES } from './townPanelHost.js';   // NOTICE-PANEL: the town panel under the compass - the boards' presses, in any settlement
 import { clearVendorWaypoint, vendorWaypoint, vendorWaypointKey } from '../systems/vendorWaypoint.js';   // HOME-VENDOR: the trader's waypoint
 import { setVendorPage } from '../ui/vendor/vendorPage.js';   // HOME-VENDOR: the Vendor page, under the Professions
 import { setSigilOnline, setSigilRenown } from '../systems/sigil/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
@@ -3800,6 +3805,65 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     engaged: (f) => !!f.ai?.detected && f.ai.targetIsLocalPlayer !== false,   // AUDIT LW-II-2 C14: on me - the pool's cull's own spare
     renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
   }));
+  let _livingSceneHost = null;
+  const _livingCompanionFace = {
+    isFoe: true,
+    parentQuest: { uid: 777001 },
+    symbol: { original: '_living_companion_' },
+    gender: 0,
+  };
+  setLivingQuestSitesProvider(() => {
+    const out = [];
+    for (const q of questBridge?.machine?.quests?.() ?? []) {
+      if (!q || q.questSuccess || q.isComplete) continue;
+      for (const p of Object.values(q.places ?? {})) {
+        if (p?.mapId != null) {
+          out.push({
+            locationId: p.mapId,
+            regionIndex: p.regionIndex ?? (_musicLoc?.regionIndex ?? 0),
+            isMainQuest: Boolean(q.isMainStory || String(q.questName || '').startsWith('S0000')),
+          });
+        }
+      }
+    }
+    return out;
+  });
+  const livingSceneHostOf = () => (_livingSceneHost ??= createLivingSceneHost({
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
+    ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !townTalk.overlayActive,
+    clock: () => skyMinutes(),
+    regionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+    inLocationRect: () => _musicInLocationRect(),
+    onRoad: () => _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16) || onTheRoad(),
+    afloat: () => playerAfloat(),
+    heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
+    playerEntity: () => playerEntity,
+    spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, o),
+    remove: (f) => exteriorFoes.removeFoe(f),
+    inPool: (f) => exteriorFoes.foes.includes(f),
+    say: (text, sec) => townTalk.say(text, sec),
+    openChoice: (spec) => townTalk.showOverlay(new ChoiceWindow({ lines: spec.lines, options: spec.options })),
+    playSound: (id) => audio?.playOneShot?.(id, 0.75),
+    onCompanionChanged: (comp) => {
+      dropEscortFace(_livingCompanionFace);
+      if (comp) addEscortFace(_livingCompanionFace);
+    },
+    renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
+  }));
+  registerCommand(
+    'living',
+    'Inspect or trigger Living Tamriel systems',
+    'living <status | crisis <TYPE> [PHASE] | spawn <KIND> | quest>',
+    (args) =>
+      executeLivingConsoleCommand(args ?? [], {
+        regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+        playerFeet: walkMode && playerSpawned ? player.feetAt() : cam.pos,
+        heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
+        playerEntity,
+        nowMinutes: skyMinutes(),
+        sceneHost: livingSceneHostOf(),
+      }),
+  );
   const livingRoadsOf = () => (livingRoads ??= createLivingRoads({
     world: livingTripWorld, mpm: PERSON_MOVE_SPEED / livingBaseRate(), clock: skyMinutes, baseRate: livingBaseRate,
     sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
@@ -4363,8 +4427,9 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   const tickCityGates = (minute) => {
     const night = isNight(minute);
     for (const p of built.values()) {
+      const gateRegion = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(p.px, p.py) ?? null) : null;
       for (const g of p.cityGates ?? []) {
-        if (!updateCityGate(g.gate, night)) continue;
+        if (!updateCityGate(g.gate, night, { region: gateRegion })) continue;
         const m = g.meshes.get(g.gate.modelId);
         if (!m) continue;
         g.entry.gpu = m.gpu;
@@ -10694,7 +10759,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       // it once per modal frame (host.encounterTick) and from its
       // interior rest; the host's own call below is the exterior arm.
       const _m = modes?.mode ?? 'exterior';
-      const hit = (!spawns || (walkMode && playerSpawned && player.isPlayerSwimming)) ? null : intermittentEnemySpawn({   // XL-1: :489 reads PlayerEnterExit.IsPlayerSwimming, the host flag
+      const _encCtx = {
         gameMinutes: _lastEncMinutes + l + 1, inside: _m !== 'exterior', inDungeon: _m === 'dungeon', isResting: false,   // the dungeon's rest roll is dungeonContext's own
         skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,   // LIVED1: online the minute is the character's own and night is the sky's; TIME1: the sky's own clock
         restAsks: playerEntity.isResting ? playerEntity.restAsks : 1,   // SURV4 + SURV-TIERS: the rest's asks, its kind priced by the tier at the open (scenes/shared.js) - a rough rest asks twice in Hard, once in Casual
@@ -10703,10 +10768,15 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
         // in the wilderness ring of a town's pixel the wilderness
         // tables roll, day and night.
         inLocationRect: _musicInLocationRect(),
+        onRoad: onTheRoad() || _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16),
+        regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
         climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),
         fauna: maps.getFaunaBand?.(playerTravelPixel().x, playerTravelPixel().y),   // TESA-BIOME: past the Bay its zone's wild
         playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2: mentor mode - the group's encounters
-      });
+      };
+      const hit = (!spawns || (walkMode && playerSpawned && player.isPlayerSwimming))
+        ? null
+        : (rollLivingWildernessEncounter(_encCtx) ?? intermittentEnemySpawn(_encCtx));   // XL-1: :489 reads PlayerEnterExit.IsPlayerSwimming, the host flag
       // WILD3: in the open zone's open country a wanderer is a GIANT one roll in WILD_GIANT_CHANCE (there are giants to meet)
       if (hit && _m === 'exterior' && wildHere()) {
         // PVPGIANT: at most WILD_GIANT_MAX giants roam the zone at once (a giant of the pool counts, and is not stood past two)
@@ -10734,7 +10804,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
         // stops), and the rest bring company now and then; off the road, or the switch off, DFU's wanderer as it was
         const _road = getPref('roadEncounters') !== false && onTheRoad();
         if (_road && trivialOnRoad(hit.mobileType, effectiveLevel(playerEntity))) continue;
-        const _company = _road ? roadCompany(hit.mobileType, effectiveLevel(playerEntity), Math.random()) : 0;
+        const _company = (_road ? roadCompany(hit.mobileType, effectiveLevel(playerEntity), Math.random()) : 0) + (hit.extraCount ?? 0);
         for (let k = 0, n = wandererCount(hit.mobileType, partyExtraFoes(partySize()), _company); k < n; k++) _standEncounterFoe(hit, playerFeet);   // AUDIT PSCALE1 COUNT-2: a Lich, a Dragonling, a Giant is a singular 'uh oh' (mobileFactions.js SOLITARY_TYPES) - never a squad
         break;
       }
@@ -11134,7 +11204,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
    *  them, and so does the broker fan-out below - one set of doors per
    *  entity, exactly as one EntityEffectManager per entity. */
   const foeSinks = (g, fromPlayer = true) => ({   // AUDIT WORLD6b-iii(a) B2: the provenance the engine hands (AUDIT WORLD2 B7: a foe's spell is not the player's blow) - this host ignored it, so an enemy blast over a puppet went to its owner as MY hit
-    hurt: (n, o) => { const fp = o?.fromPlayer ?? fromPlayer; if (n > 0) (g._encounter ? exteriorFoes.damageFoe(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', whole: !!o?.whole, round: !!o?.round, element: o?.element ?? null }) : cityGuards.hurtGuard(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', round: !!o?.round })); },   // RVN3: a landing's element (its weakness's weight)   // AUDIT 68 review: a round's tick says whose it is (effects.js runEffectRound), as the dungeon's sink reads it   // X-slice: route by pool
+    hurt: (n, o) => { const fp = o?.fromPlayer ?? fromPlayer; if (n > 0) { if (fp && _livingSceneHost?.isCriminalTarget(g)) { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); } (g._encounter ? exteriorFoes.damageFoe(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', whole: !!o?.whole, round: !!o?.round, element: o?.element ?? null }) : cityGuards.hurtGuard(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', round: !!o?.round })); } },   // RVN3: a landing's element (its weakness's weight)   // AUDIT 68 review: a round's tick says whose it is (effects.js runEffectRound), as the dungeon's sink reads it   // X-slice: route by pool
     heal: (n) => { if (!(n > 0)) return; if (g._encounter) exteriorFoes.healFoe(g, n); else g.entity.health = Math.min(g.entity.maxHealth ?? Infinity, g.entity.health + n); },   // AUDIT PSCALE1 DOORS-5: an encounter foe's heal through its pool, weighed as its damage is
     drainMagicka: (n) => { if (n > 0) g.entity.magicka = Math.max(0, (g.entity.magicka ?? 0) - n); },
     restoreMagicka: (n) => { if (n > 0) g.entity.magicka = Math.min(g.entity.maxMagicka ?? Infinity, (g.entity.magicka ?? 0) + n); },
@@ -11498,7 +11568,12 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z), grantKind: hit.revenant ? 'rev' : 'enc',   // LookAt player; GRANT3: a wanderer's grant (a revenant's its own kind)
       ...(hit.revenant ? revenantSpawnOptions(hit.revenant, effectiveLevel(playerEntity)) : {}),   // REVENANT: a returning one - its record, its gender, a class foe's level
-    }).then((f) => { if (f && fast) { if (noticed) wildFoes.alert(f, performance.now() / 1000); else wildFoes.checked(f); } return f; }).catch(() => null);
+    }).then((f) => {
+      if (f && hit.adventurerName && f.entity) f.entity.name = hit.adventurerName;
+      if (f && hit.nonHostile && f.ai) f.ai.isHostile = false;
+      if (f && fast) { if (noticed) wildFoes.alert(f, performance.now() / 1000); else wildFoes.checked(f); }
+      return f;
+    }).catch(() => null);
     if (noticed) journeyMet();   // AUDIT OW5b E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
     return stood;
   };
@@ -14146,9 +14221,41 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       // pick towards the side the journey came from.
       const travelStart = state.worldCoords(walkMode ? player.pos : cam.pos);
       let beside = null;
+
+      // LIVING TAMRIEL: Fast travel route interruption check
+      let targetPixelX = pick.pixel.x;
+      let targetPixelY = pick.pixel.y;
+      let travelMinutes = computed.minutes;
+      let interruptedEventType = null;
+      let interruptedRegionIdx = 0;
+      if (!partyArrival) {
+        const curPixel = playerTravelPixel();
+        const regIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(curPixel.x, curPixel.y) ?? 0) : 0;
+        interruptedRegionIdx = regIdx;
+        const playerLuck = liveStat(playerEntity, 'luck') || 50;
+        const interruption = evaluateTravelInterruption({
+          regionIndex: regIdx,
+          playerLuck,
+          nowMinutes: worldMinutes(),
+        });
+        if (interruption.shouldInterrupt) {
+          interruptedEventType = interruption.eventType;
+          targetPixelX = Math.round((curPixel.x + pick.pixel.x) / 2);
+          targetPixelY = Math.round((curPixel.y + pick.pixel.y) / 2);
+          travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
+          if (interruption.eventType === TRAVEL_EVENT_TYPE.PEACEFUL_CARAVAN) {
+            townTalk.say(LIVING_WORDS.travelCaravan());
+          } else if (interruption.eventType === TRAVEL_EVENT_TYPE.ROAD_DILEMMA) {
+            townTalk.say(LIVING_WORDS.travelDilemma());
+          } else if (interruption.eventType === TRAVEL_EVENT_TYPE.AMBUSH) {
+            townTalk.say(LIVING_WORDS.travelAmbush());
+          }
+        }
+      }
+
       try {
-        await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,
-          { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,
+        await _teleportToPixel(targetPixelX, targetPixelY, null,
+          { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + travelMinutes,
             reposition: REPOSITION.DirectionFromStartMarker,
             travelStart, modEvent: 'travel',
             resolveArrival: partyArrival ? async (fallback) => {
@@ -14192,6 +14299,27 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
         if (boat) csaAboard.board(boat, CSA_ABOARD_GRACE);
       }
       hccPostDue = false; hccRuntimeOn()?.handlePostFastTravel();
+      if (interruptedEventType) {
+        const pf = walkMode && playerSpawned ? player.feetAt() : cam.pos;
+        const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
+          ? LIVING_SITE_KINDS.BANDIT_CAMP
+          : LIVING_SITE_KINDS.TRAVELER_REST;
+        const stealthSkill = Number(playerEntity?.skills?.stealth ?? playerEntity?.skills?.Stealth ?? 25);
+        const playerLuck = liveStat(playerEntity, 'luck') || 50;
+        const ambushDetectedByStealth =
+          interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH &&
+          canEvadeAmbushWithStealth(stealthSkill, playerLuck);
+        livingSceneHostOf().standBlueprint(buildLivingSiteBlueprint({
+          kind: interruptKind,
+          centerX: pf[0] + Math.sin(cam.yaw) * 14,
+          centerZ: pf[2] + Math.cos(cam.yaw) * 14,
+          heightAt: (x, z) => collider.heightAt?.(x, z) ?? pf[1],
+          regionIndex: interruptedRegionIdx,
+          playerEntity,
+          nowMinutes: worldMinutes(),
+          ambushDetectedByStealth,
+        }));
+      }
       // cautious arrival heals in full; magicka honors NoRegenSpellPoints
       // AUDIT WORLD5 C14: the heal is the trip's NIGHTS - DFU's cautious traveller arrives rested because the days
       // passed. LIVED1: online they pass too - on the character's own clock (the advance below), with every cost the
@@ -18166,7 +18294,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     const baseQuestLog = questBridge.questLog.bind(questBridge);
     questBridge.questLog = (o) => {   // AUDIT FB1022d E8: the lens's `{ windows: false }` reaches the walk (questBridge.js)
       const log = baseQuestLog(o);
-      const extra = [...(bountyHost?.questLogEntries?.() ?? []), ...revenantHuntEntries(rumorHere()), ...(legacyHost?.questLogEntries() ?? [])];   // LEGACY4: and the death quests   // RVN7c: and each hunt - a lair heard of, the way there from where I stand
+      const extra = [...(bountyHost?.questLogEntries?.() ?? []), ...revenantHuntEntries(rumorHere()), ...(legacyHost?.questLogEntries() ?? []), ...getLivingQuestLogEntries(skyMinutes())];   // LEGACY4: and the death quests   // RVN7c: and each hunt - a lair heard of, the way there from where I stand   // LIVING-TAMRIEL: active regional crisis contracts & rival quest interceptions
       return extra.length ? { ...log, active: [...(log?.active ?? []), ...extra] } : log;
     };
   }
@@ -31528,6 +31656,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       dwFish?.offsetAll(r.offset);   // DW-E3: the fish and their schools' centres (Port-Ledger A, the Iliac Puddle row)
       droppedTorches.offsetAll(r.offset);   // HT1: the torches too
       _livingHideoutsHost?.offsetAll(r.offset);   // AUDIT LW-II-2 H2: a band's hideout stood - its tents and its fire stood 819.2 behind every crossing
+      _livingSceneHost?.offsetAll(r.offset);   // LIVING-TAMRIEL: shift active 3D camp/checkpoint/skirmish meshes, flats, and lights with floating origin
       camps.offsetAll(r.offset);   // SURV3: and the camps
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
@@ -31664,6 +31793,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (chunkCampHits) {
           let room = exteriorFoes.encounterRoom?.() ?? Infinity;
           for (const h of chunkCampHits) {
+            const livingRoster = rollLivingChunkCampRoster({
+              climateIndex: maps.getClimateIndex(r.current.x, r.current.y),
+              fauna: maps.getFaunaBand?.(r.current.x, r.current.y),
+              skyMinutes: Math.floor(skyMinutes()),
+              regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+              playerLevel: effectiveLevel(playerEntity),
+            });
+            if (livingRoster) h.mobileTypes = livingRoster.mobileTypes;
             // PSCALE1 x CAMP-CAP: the group as it will STAND - _standCampEncounter grows it by the party it meets
             // (campMembers, OW6: the one home), so the room is asked for the grown count, or a party's third group was cut short
             const size = campMembers(h.mobileTypes).length;
@@ -32087,7 +32224,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // DW-D: UnderwaterPresentationEffects.SuppressPlayerTorch - EnablePlayerTorch's light dark under the fog (the fuel burns on, the light is the only thing it takes)
       meterFor(renderer.gl)?.markCpu('lightset');   // PERF-SIM3: the hand lights, the peers' torches, the camps' fires added, the set handed to the renderer
       const lit = withPlayerLights(wodSel ? wodSel.data : _lanterns,   // EL1: the installed set's cap (16 classic, 48 on the lane); PERF-LIGHTS: `n` is how much of the pool is live
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...(_livingSceneHost?.lights() ?? []), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32, renderer.lightingLane ? capFadeColors(lit, lit.length / 4 - _lanterns.length / 4, cam.pos, renderer.maxPointLights, CITY_LIGHT_COLOR_F32) : null);   // LA-LIGHTS2
     } else {
@@ -32098,7 +32235,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // WOD2: ...and the mod's lights, which burn at every hour.
       const wodSel = wodLit || csaLit.length ? _wodSelect(0, _csaFill(wodLit ? _wodFill(0) : 0, csaLit)) : null;   // AUDIT PRE-MERGE 0928 R2: the boats' lanterns by day too (DungeonLightHandler lights them near)
       const lit = withPlayerLights(wodSel ? wodSel.data : new Float32Array(0),
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...(_livingSceneHost?.lights() ?? []), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32);
     }
@@ -32143,6 +32280,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     else if (_tvDngModel.size) dropTvDungeonModels();   // TV-BURST: the view down, its models let go (kept warm on their shelf)
     if (livingRoads && livingWorldOn() && _mode() === 'exterior') livingRoads.drawTeams(renderer, yardCull);   // LW10: the living world's wagons, in the cart's own pass; PERF-WAGON: by the street's view test
     _livingHideoutsHost?.draw(renderer, null, yardCull);   // LW12: a band's tents; PERF-WAGON: by the street's view test
+    _livingSceneHost?.draw(renderer, null, yardCull);   // LIVING-TAMRIEL: draw active 3D tents, pavilions, wagons, crates, and military banners
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
     quays?.draw(renderer);   // QUAYS: the harbours' quays and the gangways to my ships made fast
     yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
@@ -32561,6 +32699,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // reveal follows the member into every town.
         revealMemberGuildHalls({ witness: onlineOn });   // CHAP2a: and the town's halls witnessed, online
         townEcon.witness(_musicLoc?.mapTableData?.mapId);   // TOWN-ECON TE2: and the town itself, for the registry (online alone - the host builds no book offline)
+        if (PANEL_TOWN_TYPES.has(_musicLocationType())) {
+          const crisisReg = _musicLoc?.regionIndex ?? _questRegionIndex();
+          const townShown = getLocalizedLocationName(_musicLoc?.mapTableData?.mapId, _musicLoc?.name);
+          const crisisBanner = getSettlementEntryNotification(crisisReg, townShown);
+          if (crisisBanner) townTalk.say(crisisBanner, 5);
+        }
         // HUB1: walking into a region's hub says so, online - "Daggerfall, capital of the Kingdom of Daggerfall."
         // SEAT1a (Seats-Arc 3.3): a seat town says its Charter instead - "Anticlere. Its Charter is unheld." - and this
         // client, standing in it, reports the seat it derived (once a day; net/townSeatBook.js witness)
@@ -32682,6 +32826,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     caravanStep(dt);   // LW11: the hold-ups, the reports carried in, the escort - anywhere (a report lands, an escort ends, indoors too)
     if (livingWorldOn() && _mode() === 'exterior' && !tvf) { livingHideoutsHostOf().frame(dt); livePersonBatches.push(...livingHideoutsHostOf().batches()); }   // LW12: a band's hideout near, stood
     else _livingHideoutsHost?.clear();
+    if (_mode() === 'exterior' && !tvf) { livingSceneHostOf().frame(dt); livePersonBatches.push(...livingSceneHostOf().batches()); }   // LIVING-TAMRIEL: tick active 3D site & push campfire/brazier/horse/weapon-rack billboard batches
+    else _livingSceneHost?.clear();
     if (livingWorldOn() && _mode() === 'exterior') livingPatronsStep(Date.now() / 1000, livingPatronsRegion);   // LW15: the region's patrons, now and then (AUDIT LW-II-2 W11: while a living town stands)
     if (livingWorldOn()) livingCarriedStep(LIVING_CARRIED_SLICE_MS);   // LW16: the word carried, worked a slice a frame
     if (livingWorldOn()) { livingWatchStep(); livingPeerWatchStep(); }   // LW7 / WATCH-FIX: the turned watch followed, mine and a peer's
@@ -33280,7 +33426,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // response; wandering guard NPC -> Assault + conversion with
         // the swing carried onto the fresh foe).
         const lookFwd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
-        const guardHitSound = (g) => audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 });   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
+        const guardHitSound = (g) => { if (_livingSceneHost?.isCriminalTarget(g)) { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); } audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 }); };   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
         // AUDIT 23 (combat-4): the host-side double tallies are gone -
         // resolvePlayerHit runs DFU's tally arm itself.
         // DISC19-F / FB0929: under friendly protection the watch's pool
