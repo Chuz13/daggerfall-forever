@@ -46,5 +46,23 @@ export const LIVING_WORDS = Object.freeze({
     t('living.urban.skirmishStart', 'A skirmish erupts in the streets! Townsfolk flee for cover.'),
   urbanOrderRestored: () =>
     t('living.urban.orderRestored', 'The guards have restored order in the district.'),
+
+  // Road Checkpoints
+  checkpointHalt: () =>
+    t('living.checkpoint.halt', 'Halt! State your business at this military checkpoint.'),
+  checkpointKnightPass: () =>
+    t('living.checkpoint.knightPass', 'Hail, noble Knight! The road is yours; pass freely.'),
+  checkpointTollDemand: (gold) =>
+    t('living.checkpoint.tollDemand', 'Wartime transit requires an inspection toll of {gold} gold.', { gold }),
+  checkpointPassed: () =>
+    t('living.checkpoint.passed', 'Papers are in order. Move along, traveller.'),
+  checkpointRefused: () =>
+    t('living.checkpoint.refused', 'Halt! You shall not pass without authorization!'),
+
+  // Regional Economy
+  economyWarShortage: () =>
+    t('living.economy.warShortage', 'Weapons and armor are in short supply due to the ongoing conflict.'),
+  economyFamineFood: () =>
+    t('living.economy.famineFood', 'Grain is scarce and provisions fetch a heavy price this season.'),
 });
 

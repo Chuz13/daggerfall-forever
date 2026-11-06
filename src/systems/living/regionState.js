@@ -6,9 +6,13 @@
 // 62 regions of Tamriel. Ticks daily via advanceWorldMinutes(1440).
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { BAY_REGION_COUNT, REGION_NAMES } from '../../formats/mapsTables.js';
+import { BAY_REGION_COUNT, REGION_NAMES, regionOfTheatre } from '../../formats/mapsTables.js';
+import { inBay } from '../../world/tamriel/tamrielFrame.js';
+import { theatreAt } from '../../world/worldWide/worldGrid.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getLivingDirectorState } from './livingDirector.js';
+
+export const TOTAL_REGION_COUNT = REGION_NAMES.length;
 
 /**
  * Regional crisis types.
@@ -81,19 +85,39 @@ export function getRegionStates() {
 }
 
 /**
- * Returns state for a specific region by index (0..61), auto-initializing if missing.
+ * Returns state for a specific region by index (0..70), auto-initializing if missing.
+ * Supports all 62 Iliac Bay regions and all 9 continental provinces of Tamriel.
  * @param {number} regionIndex
  * @returns {RegionStateRecord}
  */
 export function getRegionState(regionIndex) {
-  if (regionIndex < 0 || regionIndex >= BAY_REGION_COUNT) {
-    return createDefaultRegionState(Math.max(0, regionIndex || 0));
+  if (!Number.isInteger(regionIndex) || regionIndex < 0 || regionIndex >= REGION_NAMES.length) {
+    return createDefaultRegionState(0);
   }
   const dict = getRegionStates();
   if (!dict[regionIndex]) {
     dict[regionIndex] = createDefaultRegionState(regionIndex);
   }
   return dict[regionIndex];
+}
+
+/**
+ * Resolves the region index for world map coordinates (px, py) across all of Tamriel.
+ * @param {number} px
+ * @param {number} py
+ * @param {number} [defaultIndex=0]
+ * @returns {number}
+ */
+export function getRegionIndexAt(px, py, defaultIndex = 0) {
+  if (inBay(px, py)) {
+    return defaultIndex; // Within Iliac Bay, callers use their local map/town region index
+  }
+  const th = theatreAt(px, py);
+  if (th > 0) {
+    const reg = regionOfTheatre(th);
+    if (reg >= 0 && reg < REGION_NAMES.length) return reg;
+  }
+  return defaultIndex;
 }
 
 /**
@@ -175,11 +199,11 @@ export function tickRegionDay(state, rng = Math.random) {
 }
 
 /**
- * Daily tick for all 62 regions, called by LivingDirector upon day boundaries.
+ * Daily tick for all 71 regions across Tamriel, called by LivingDirector upon day boundaries.
  * @param {() => number} [rng]
  */
 export function tickAllRegions(rng = Math.random) {
-  for (let i = 0; i < BAY_REGION_COUNT; i++) {
+  for (let i = 0; i < REGION_NAMES.length; i++) {
     tickRegionDay(getRegionState(i), rng);
   }
 }
