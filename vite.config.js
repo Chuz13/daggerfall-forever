@@ -6,6 +6,7 @@ import { studioArtIndex } from './scripts/studioArtIndex.mjs';   // STUDIO1: the
 import { firstVisitPinsPlugin } from './scripts/firstVisitPins.mjs';   // FIRST-VISIT: the kept answers' pins, computed by the build and the dev server
 import { noImportedTopLevelAwait } from './scripts/noTopLevelAwait.mjs';   // WEBKIT-TLA (AUDIT FB1029g TLA-1): no imported chunk awaits at its top level
 import { limitOpenFiles } from './scripts/openFileLimit.mjs';   // FOUNDATION F5: the assets' reads held under Windows' open-file limit (EMFILE)
+import { dffSessionLoggerPlugin } from './scripts/dffSessionLoggerPlugin.mjs';
 
 limitOpenFiles();
 
@@ -313,5 +314,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [arena2DevServer(), buildTagMeta(), landingHtml(), studioArtIndex(), firstVisitPinsPlugin(), floraPlaygroundAlias(), noImportedTopLevelAwait()],
+  plugins: [arena2DevServer(), buildTagMeta(), landingHtml(), studioArtIndex(), firstVisitPinsPlugin(), floraPlaygroundAlias(), noImportedTopLevelAwait(), dffSessionLoggerPlugin()],
 });

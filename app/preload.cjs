@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld('daggerShell', {
   // UPDATE-RESTART: the update screen's end in the app - the update the shell holds is put in place and the app reopens
   // on it (app/main.cjs restartForUpdate); a reload would play this copy again
   restartForUpdate: () => ipcRenderer.send('dagger:restart-for-update'),
+  // DFF: Game session telemetry logging and diagnostics dump
+  writeSessionLog: (payload) => ipcRenderer.send('dagger:session-log', payload),
   // FPS-VSYNC (AUDIT 28e): this launch lifted Chromium's wait (VSync off when it started) - the page paces its frames
   framesLifted: ipcRenderer.sendSync('dagger:frames-lifted') === true,
   // GPU-TRAIL (src/render/gpuTrail.js): the GPU's last samples, handed over with each one - kept by the shell and written

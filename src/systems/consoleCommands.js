@@ -61,6 +61,7 @@ import { getPref, setPref } from './uiPrefs.js';
 import { legalRepOf, changeLegalRep } from './court.js';
 import { foundFamily, addChild, recordDeath, successors, currentOf } from './legacy/family.js';
 import { setRegionCrisis, getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
+import { dumpSessionLog } from './diagnostics/sessionLogger.js';
 
 let _sceneContext = null;
 /** Register active scene debug context (player control, enemy pools, travel). */
@@ -929,6 +930,17 @@ registerCommand(
       return `Loan of ${amount} gold recorded on account.`;
     }
     return 'Usage: bank <status | deposit <n> | withdraw <n> | clearloans | setloan <n>>';
+  }
+);
+
+registerCommand(
+  'dumplog',
+  'Dump diagnostic session telemetry log to disk: dumplog [reason]',
+  'dumplog [reason]',
+  (args = []) => {
+    const reason = args.join(' ') || 'console-dumplog';
+    const payload = dumpSessionLog(reason);
+    return `Session diagnostic log dumped (Reason: "${reason}", Errors: ${payload.runtimeIssues?.errorCount ?? 0}, Warnings: ${payload.runtimeIssues?.warningCount ?? 0}).`;
   }
 );
 

@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "node tools/testShards.mjs 1/1",
     "stress:offline": "node tools/offlineStressProbe.mjs",
+    "boot:test": "node tools/worldBootProbe.mjs",
     "test:all": "node tools/testShards.mjs 1/1 --all",
     "test:net": "node tools/testShards.mjs 1/1 --net",
     "lint": "eslint --cache --cache-strategy content --cache-location node_modules/.cache/eslint/ src/ server/src/ server-account/src/ test/ tools/ scripts/ app/ *.config.js",
