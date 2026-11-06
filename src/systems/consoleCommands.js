@@ -801,7 +801,7 @@ function handleProfCommand(args = []) {
   }
   if (sub === 'list') {
     const rows = PROFESSIONS.map((p) => {
-      const entry = rec?.[p.id];
+      const entry = rec?.tracks?.[p.id] ?? rec?.[p.id];
       const rank = entry?.rank ?? rankOfXp(entry?.xp ?? 0);
       const xp = entry?.xp ?? 0;
       return `    <b>${p.name}</b> (${p.kind}): Rank ${rank} | XP ${xp}`;
@@ -815,9 +815,11 @@ function handleProfCommand(args = []) {
     if (!prof) return `Unknown profession "${args[1]}". Valid: ${PROFESSIONS.map((p) => p.id).join(', ')}`;
     const rank = Math.max(1, Math.min(100, parseInt(args[2], 10) || 1));
     const xp = xpForRank(rank);
-    if (!rec[prof.id]) rec[prof.id] = { rank: 1, xp: 0 };
-    rec[prof.id].rank = rank;
-    rec[prof.id].xp = xp;
+    rec.tracks ??= {};
+    if (!rec.tracks[prof.id]) rec.tracks[prof.id] = { profession: prof.id, rank: 1, xp: 0 };
+    rec.tracks[prof.id].rank = rank;
+    rec.tracks[prof.id].xp = xp;
+    rec[prof.id] = rec.tracks[prof.id];
     saveProfRecord(null, rec);
     return `Profession ${prof.name} set to Rank ${rank} (XP: ${xp}).`;
   }
@@ -827,11 +829,13 @@ function handleProfCommand(args = []) {
     const prof = PROFESSIONS.find((p) => p.id.toLowerCase() === name || p.name.toLowerCase().startsWith(name));
     if (!prof) return `Unknown profession "${args[1]}". Valid: ${PROFESSIONS.map((p) => p.id).join(', ')}`;
     const add = parseInt(args[2], 10) || 0;
-    if (!rec[prof.id]) rec[prof.id] = { rank: 1, xp: 0 };
-    rec[prof.id].xp = Math.max(0, (rec[prof.id].xp ?? 0) + add);
-    rec[prof.id].rank = rankOfXp(rec[prof.id].xp);
+    rec.tracks ??= {};
+    if (!rec.tracks[prof.id]) rec.tracks[prof.id] = { profession: prof.id, rank: 1, xp: 0 };
+    rec.tracks[prof.id].xp = Math.max(0, (rec.tracks[prof.id].xp ?? 0) + add);
+    rec.tracks[prof.id].rank = rankOfXp(rec.tracks[prof.id].xp);
+    rec[prof.id] = rec.tracks[prof.id];
     saveProfRecord(null, rec);
-    return `Added ${add} XP to ${prof.name}. New Rank: ${rec[prof.id].rank} (Total XP: ${rec[prof.id].xp}).`;
+    return `Added ${add} XP to ${prof.name}. New Rank: ${rec.tracks[prof.id].rank} (Total XP: ${rec.tracks[prof.id].xp}).`;
   }
   return 'Usage: prof <list | set <name> <level> | addxp <name> <amount>>';
 }

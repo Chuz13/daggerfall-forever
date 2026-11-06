@@ -95,12 +95,19 @@ export function loadOfflineRecord(charId) {
  * @param {any} record
  */
 export function saveOfflineRecord(charId, record) {
-  if (!charId || !record) return;
+  if (!record) return;
+  _activeRecord = record;
+  if (!charId) return;
   try {
     appStorage()?.setItem(`${OFFLINE_PROF_STORAGE_PREFIX}${charId}`, JSON.stringify(record));
   } catch {
     /* appStorage fallback */
   }
+}
+
+/** Set active offline record in memory. */
+export function setActiveOfflineRecord(record) {
+  _activeRecord = record;
 }
 
 /**
