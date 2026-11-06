@@ -143,3 +143,4 @@ test('modPluginLoader & desert-frost: executes plugin and simulates freezing nig
   _resetModPluginApi();
   _resetModPluginLoader();
 });
+

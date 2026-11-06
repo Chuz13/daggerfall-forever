@@ -159,3 +159,4 @@ export function _resetModPluginApi() {
   _playerRef = null;
   _worldRef = null;
 }
+

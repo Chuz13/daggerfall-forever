@@ -226,6 +226,7 @@ import { localeForBrowser, catalogLocale } from '../../systems/localeCatalog.js'
 import { paneControls, discardControlsStaging, captureArmed, controlsPromptOpen, dismissControlsPrompt } from './enhancedControls.js';
 // FT0: the features home - one list over the three stores, filtered by kind
 import { OVERHAUL_PANELS, currentOption } from '../../systems/overhauls.js';
+import { drawModsPane } from './enhancedModsPane.js';
 import { setVeAddon } from '../../systems/vanillaEnhanced/vanillaEnhanced.js';   // VE4: an add-on switched from the Texture Overhaul card
 import { installVanillaEnhancedPack } from '../../systems/vanillaEnhanced/vanillaEnhancedPack.js';   // VE4: the shipped mods listed before any host boots
 import { PLUS_THEMES } from './enhancedFrame.js';   // PLUS2: Enhanced Plus's colours
@@ -289,7 +290,7 @@ import { maxRoundsRemaining } from '../hud/hudActiveSpells.js';   // BUFF-END: a
 // by it. Empty at FT0; the Enhanced category of Settings and the Mods
 // section keep their rows until each one's slice moves it here
 // (bible/10-UI/Features-Arc.md).
-const SECTIONS_BOOT = ['Online', 'Continue', 'New Game', 'Load Game', 'Test Room', 'Settings', 'Overhauls', 'Tutorials', 'Screenshots', 'About'];   // UI-CALM: Online first, Offline's four under it (drawDoors, the rail's own word)   // TUT1: the tutorials, to read before the game (ui/tutorialsPane.js)   // ORG2: Features is Settings' tabs now   // LOAD1: the gallery (ui/shotsPane.js)   // OVH1: the three looks   // FT16: Controls is a Settings CATEGORY, not a rail door   // FT14: Mods is gone - every mod is a tile on Features, and what the pane carried besides stands under them   // ONLINE1: the shared world's door
+const SECTIONS_BOOT = ['Online', 'Continue', 'New Game', 'Load Game', 'Test Room', 'Settings', 'Mods', 'Overhauls', 'Tutorials', 'Screenshots', 'About'];   // UI-CALM: Online first, Offline's four under it (drawDoors, the rail's own word)   // TUT1: the tutorials, to read before the game (ui/tutorialsPane.js)   // ORG2: Features is Settings' tabs now   // LOAD1: the gallery (ui/shotsPane.js)   // OVH1: the three looks   // FT16: Controls is a Settings CATEGORY, not a rail door   // FT14: Mods is gone - every mod is a tile on Features, and what the pane carried besides stands under them   // ONLINE1: the shared world's door
 // FD1 (Mac, 2026-09-11): the CLASSIC skin opens on this same door. Its
 // three game doors collapse into BEGIN, which leads into the classic
 // start sequence - the title, the film, Daggerfall's own start window -
@@ -298,7 +299,7 @@ const SECTIONS_BOOT = ['Online', 'Continue', 'New Game', 'Load Game', 'Test Room
 // SO1: ENHANCED left the rail for a category of Settings (settingsMap).
 // ONLINE1: ONLINE joins it - Mac: "if using classic, you'd see the
 // other user's paperdoll" - the same pane, the same save brought in.
-const SECTIONS_CLASSIC = ['Begin', 'Online', 'Settings', 'Overhauls', 'Tutorials', 'Screenshots', 'About'];   // TUT1   // ORG2   // LOAD1: the key keeps its shots under either skin   // OVH1   // FT14; FT16: Controls is a Settings category
+const SECTIONS_CLASSIC = ['Begin', 'Online', 'Settings', 'Mods', 'Overhauls', 'Tutorials', 'Screenshots', 'About'];   // TUT1   // ORG2   // LOAD1: the key keeps its shots under either skin   // OVH1   // FT14; FT16: Controls is a Settings category
 
 // U51: the same rail with the boot-only questions swapped for the
 // in-game ones. Continue and New Game answer "which game", which is
@@ -311,14 +312,14 @@ const SECTIONS_CLASSIC = ['Begin', 'Online', 'Settings', 'Overhauls', 'Tutorials
 // mode's doors), and the pane says so in words. A rail that drops the
 // row instead teaches the player the door was never there - the same
 // argument the Mods section is built on.
-const SECTIONS_PAUSE = ['Resume', 'Save Game', 'Load Game', 'Settings', 'Overhauls', 'Tutorials', 'Screenshots', 'About', 'Exit'];   // TUT1: a landing's shell (the window's own door is its Tutorials tab)   // ORG2   // LOAD1   // OVH1   // FT14; FT16: Controls is a Settings category
+const SECTIONS_PAUSE = ['Resume', 'Save Game', 'Load Game', 'Settings', 'Mods', 'Overhauls', 'Tutorials', 'Screenshots', 'About', 'Exit'];   // TUT1: a landing's shell (the window's own door is its Tutorials tab)   // ORG2   // LOAD1   // OVH1   // FT14; FT16: Controls is a Settings category
 
 const idOf = (label) => label.toLowerCase().split(' ')[0];
 
 /** UI-CALM: the doors behind Offline on the enhanced front door, in order - the games this device keeps. */
 export const HOME_OFFLINE = Object.freeze(['Continue', 'New Game', 'Load Game', 'Test Room']);
 /** UI-CALM: the two small doors under the two questions - the settings a player may want before either. */
-export const HOME_LINKS = Object.freeze(['Settings', 'Overhauls']);
+export const HOME_LINKS = Object.freeze(['Settings', 'Mods', 'Overhauls']);
 /** UI-CALM: whether a section is one of Offline's (its Escape lands back on the offline doors). */
 export const offlineSection = (id) => HOME_OFFLINE.some((l) => idOf(l) === id);
 
@@ -331,6 +332,7 @@ const RAIL_TEXT = Object.freeze({
   online: () => t('menu.rail.online', 'Online'),
   test: () => t('menu.rail.test', 'Test Room'),
   settings: () => t('menu.rail.settings', 'Settings'),
+  mods: () => t('menu.rail.mods', 'Mods'),
   features: () => t('menu.rail.features', 'Features'),
   overhauls: () => t('menu.rail.overhauls', 'Overhauls'),
   tutorials: () => t('menu.rail.tutorials', 'Tutorials'),
@@ -5161,6 +5163,7 @@ function pauseSystem(body) {
   } else {
     ({
       save: paneSave, load: paneLoad,
+      mods: (b) => drawModsPane(b, render),
       overhauls: paneOverhauls,   // OVH1
       screenshots: drawShotsPane,   // LOAD1
       about: paneAbout, exit: paneExit,
@@ -6385,6 +6388,7 @@ function renderInto() {
         continue: paneContinue, new: paneNew, load: paneLoad, online: paneOnline,   // ONLINE1
         test: paneTest,
         save: paneSave, exit: paneExit,
+        mods: (b) => drawModsPane(b, render),
         overhauls: paneOverhauls,   // OVH1
         screenshots: drawShotsPane,   // LOAD1
         tutorials: drawTutorialsPane,   // TUT1

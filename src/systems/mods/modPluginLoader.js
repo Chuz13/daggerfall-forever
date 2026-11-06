@@ -93,3 +93,4 @@ export function _resetModPluginLoader() {
   unloadModPlugins();
   _virtualInitHandlers.clear();
 }
+

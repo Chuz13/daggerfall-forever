@@ -72,3 +72,4 @@ test('LoadOrderAndConflicts: later mod in load order safely overrides conflictin
   _resetModRegistry();
   _resetModDataSync();
 });
+
