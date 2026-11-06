@@ -1584,9 +1584,34 @@
   "tr": "28afb99f614e",
   "by": "claude-in-session"
  },
+ "features.offlineFirmament.note": {
+  "en": "8b922627e471",
+  "tr": "4413520ef121",
+  "by": "claude-in-session"
+ },
+ "features.offlineFirmament.title": {
+  "en": "87bcfdf9436b",
+  "tr": "68c3efcac344",
+  "by": "claude-in-session"
+ },
  "features.offlineHousing.note": {
   "en": "92399607463a",
   "tr": "06ce70f46547",
+  "by": "claude-in-session"
+ },
+ "features.offlineHousing.title": {
+  "en": "8b02eda7be83",
+  "tr": "663ad870b7ab",
+  "by": "claude-in-session"
+ },
+ "features.offlineProfessions.note": {
+  "en": "343248cb7ab7",
+  "tr": "15c867da58cf",
+  "by": "claude-in-session"
+ },
+ "features.offlineProfessions.title": {
+  "en": "cd0ba44b066e",
+  "tr": "9f2859528f5a",
   "by": "claude-in-session"
  },
  "features.offlineRespawn.note": {
@@ -4884,6 +4909,11 @@
   "tr": "c22df4355d61",
   "by": "claude-in-session"
  },
+ "prof.page.stores.empty": {
+  "en": "085034209fe7",
+  "tr": "d86e17e63950",
+  "by": "claude-in-session"
+ },
  "prof.page.work.ember": {
   "en": "4492ac548643",
   "tr": "9895a174e78b",
@@ -6612,6 +6642,11 @@
  "wild.map.chipTipOffline": {
   "en": "0ed5210ca3ca",
   "tr": "9dac1b5bf09f",
+  "by": "claude-in-session"
+ },
+ "wild.map.doorOffline": {
+  "en": "0aa5eacfacec",
+  "tr": "2980eab8397c",
   "by": "claude-in-session"
  },
  "wild.safe.chip": {

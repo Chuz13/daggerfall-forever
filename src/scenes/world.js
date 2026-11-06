@@ -23018,10 +23018,10 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     // STAR7: the rewards' (scenes/starfall/starRewards.js) - the pack's door, the relay's clock, the silver, the Renown
     takeSpoil, relayNowS, marksBook, renownXpAdopt, renownAdopt, renownRose, get renownSaid() { return renownSaid; },
   };
-  const starfall = params.has('online') ? createStarfallHost(_eventHostDeps) : null;
+  const starfall = FORK_FLAGS.ENABLE_ONLINE_PLAY && params.has('online') ? createStarfallHost(_eventHostDeps) : null;
   // STOREFRONT (bible/06-Systems/Battle-Pass.md section 6): THE SEASON IN THE WORLD - the Battle Pass bound, the hourly
   // tremor, the Brass Fissures and their constructs, the Brass Colossus and its Resonant Maul (scenes/seasonHost.js)
-  const passSeason = params.has('online') ? createSeasonHost(_eventHostDeps) : null;
+  const passSeason = FORK_FLAGS.ENABLE_ONLINE_PLAY && params.has('online') ? createSeasonHost(_eventHostDeps) : null;
   /** ROCKET1: THE ROCKET (scenes/rocketHost.js) - the hub's third live event word: mounds round the traveller on the world's
    *  own grid, their poop, the horses farting across the sky and the diarrhea frenzy, on the shared clock. Offline nothing sets it. */
   const rocket = createRocketHost(renderer, sunbabyGround, state);

@@ -14006,12 +14006,12 @@
  },
  "features.offlineFirmament.note": {
   "en": "8b922627e471",
-  "tr": "8b922627e471",
+  "tr": "e1ea87a706a0",
   "by": "claude-in-session"
  },
  "features.offlineFirmament.title": {
   "en": "87bcfdf9436b",
-  "tr": "87bcfdf9436b",
+  "tr": "6e79864ade9b",
   "by": "claude-in-session"
  },
  "features.offlineHousing.note": {
@@ -14021,17 +14021,17 @@
  },
  "features.offlineHousing.title": {
   "en": "8b02eda7be83",
-  "tr": "8b02eda7be83",
+  "tr": "021c93601e8c",
   "by": "claude-in-session"
  },
  "features.offlineProfessions.note": {
   "en": "343248cb7ab7",
-  "tr": "343248cb7ab7",
+  "tr": "936483b3e345",
   "by": "claude-in-session"
  },
  "features.offlineProfessions.title": {
   "en": "cd0ba44b066e",
-  "tr": "cd0ba44b066e",
+  "tr": "3d697dea6685",
   "by": "claude-in-session"
  },
  "features.offlineRespawn.note": {

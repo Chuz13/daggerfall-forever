@@ -5644,9 +5644,34 @@
   "tr": "d4b5016eba6a",
   "by": "claude-in-session"
  },
+ "features.offlineFirmament.note": {
+  "en": "8b922627e471",
+  "tr": "e78fa5c9c99e",
+  "by": "claude-in-session"
+ },
+ "features.offlineFirmament.title": {
+  "en": "87bcfdf9436b",
+  "tr": "9637839973f6",
+  "by": "claude-in-session"
+ },
  "features.offlineHousing.note": {
   "en": "92399607463a",
   "tr": "0168b01e71be",
+  "by": "claude-in-session"
+ },
+ "features.offlineHousing.title": {
+  "en": "8b02eda7be83",
+  "tr": "59eb2d8199b8",
+  "by": "claude-in-session"
+ },
+ "features.offlineProfessions.note": {
+  "en": "343248cb7ab7",
+  "tr": "124a32a769bd",
+  "by": "claude-in-session"
+ },
+ "features.offlineProfessions.title": {
+  "en": "cd0ba44b066e",
+  "tr": "c3a0c5c451e3",
   "by": "claude-in-session"
  },
  "features.offlineRespawn.note": {
@@ -17767,6 +17792,11 @@
  "wild.map.chipTipOffline": {
   "en": "0ed5210ca3ca",
   "tr": "d55770eb995e",
+  "by": "claude-in-session"
+ },
+ "wild.map.doorOffline": {
+  "en": "0aa5eacfacec",
+  "tr": "c02404dfbf9f",
   "by": "claude-in-session"
  },
  "wild.safe.chip": {
