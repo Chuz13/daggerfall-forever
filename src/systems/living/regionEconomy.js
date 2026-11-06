@@ -91,3 +91,35 @@ export function applyTavernRoomCrisisPrice(baseRoomPrice, regionIndex) {
   return applyCrisisPriceMultiplier(baseRoomPrice, regionIndex, ECONOMY_CATEGORY.FOOD_LODGING);
 }
 
+/**
+ * Maps a Daggerfall buildingType (`BUILDING_TYPES`) to its regional crisis economy category
+ * and returns the active price multiplier (`1.0` when at peace).
+ *
+ * @param {number|string|null|undefined} buildingType
+ * @param {number|null|undefined} regionIndex
+ * @returns {number}
+ */
+export function getBuildingCrisisFactor(buildingType, regionIndex) {
+  if (regionIndex == null || !Number.isInteger(regionIndex) || regionIndex < 0) return 1.0;
+  const mults = getRegionEconomyMultipliers(regionIndex);
+  switch (buildingType) {
+    case 2:
+    case 13:
+    case 'Armorer':
+    case 'WeaponSmith':
+      return mults.weaponsArmor;
+    case 0:
+    case 14:
+    case 'Alchemist':
+    case 'Temple':
+      return mults.potionsAlch;
+    case 6:
+    case 12:
+    case 'GeneralStore':
+    case 'Tavern':
+      return mults.foodLodging;
+    default:
+      return mults.general;
+  }
+}
+

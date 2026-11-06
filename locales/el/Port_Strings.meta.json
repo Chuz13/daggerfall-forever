@@ -4399,6 +4399,11 @@
   "tr": "e626abeabd21",
   "by": "claude-in-session"
  },
+ "death.timePassed": {
+  "en": "cbe9e729be3a",
+  "tr": "fc78fc21586e",
+  "by": "claude-in-session"
+ },
  "death.title": {
   "en": "9f7fced01119",
   "tr": "9bfa8932f544",
@@ -4882,6 +4887,16 @@
  "features.chooseGuildJobs.title": {
   "en": "e881bf2ff4c5",
   "tr": "f6d35fc82cc3",
+  "by": "claude-in-session"
+ },
+ "features.city247.note": {
+  "en": "5f41fa1b3992",
+  "tr": "1b33add89e64",
+  "by": "claude-in-session"
+ },
+ "features.city247.title": {
+  "en": "00f91363875a",
+  "tr": "4cd54b8212b6",
   "by": "claude-in-session"
  },
  "features.cloudQuality.default": {
@@ -5514,35 +5529,15 @@
   "tr": "071b97efcc14",
   "by": "claude-in-session"
  },
- "features.city247.effect": {
-  "en": "15ddce06b8cc",
-  "tr": "85b9eb403669",
-  "by": "human"
+ "features.offlineRespawn.note": {
+  "en": "2dbd116cb9a7",
+  "tr": "8ffd3f4057f4",
+  "by": "claude-in-session"
  },
- "features.city247.note": {
-  "en": "5f41fa1b3992",
-  "tr": "1b33add89e64",
-  "by": "human"
- },
- "features.city247.title": {
-  "en": "00f91363875a",
-  "tr": "4cd54b8212b6",
-  "by": "human"
- },
- "features.unifiedBank.effect": {
-  "en": "f3b8be3fe452",
-  "tr": "7c2084651d07",
-  "by": "human"
- },
- "features.unifiedBank.note": {
-  "en": "d17baaea597f",
-  "tr": "3d518d03bd4f",
-  "by": "human"
- },
- "features.unifiedBank.title": {
-  "en": "d496c77c171a",
-  "tr": "7b12f594034b",
-  "by": "human"
+ "features.offlineRespawn.title": {
+  "en": "74a00dde9414",
+  "tr": "8476305b9c4c",
+  "by": "claude-in-session"
  },
  "features.questHerald.note": {
   "en": "96aa445162b4",
@@ -5697,6 +5692,16 @@
  "features.townWatch.title": {
   "en": "26e0f09d50df",
   "tr": "a3d3e282a96e",
+  "by": "claude-in-session"
+ },
+ "features.unifiedBank.note": {
+  "en": "d17baaea597f",
+  "tr": "3d518d03bd4f",
+  "by": "claude-in-session"
+ },
+ "features.unifiedBank.title": {
+  "en": "d496c77c171a",
+  "tr": "7b12f594034b",
   "by": "claude-in-session"
  },
  "features.variedDungeonMonsters.note": {
@@ -6142,6 +6147,11 @@
  "home.mute.undone": {
   "en": "5b03bedff4c8",
   "tr": "e864cfa0c127",
+  "by": "claude-in-session"
+ },
+ "input.action.holdFreeMouse": {
+  "en": "0723a0554d9b",
+  "tr": "931096e9ee7c",
   "by": "claude-in-session"
  },
  "input.action.pvpFlag": {
@@ -7524,16 +7534,6 @@
   "tr": "42c8e7e0135d",
   "by": "claude-in-session"
  },
- "menu.chat.lfg": {
-  "en": "e2502216be5c",
-  "tr": "18aee209acf9",
-  "by": "claude-in-session"
- },
- "menu.chat.lfgNote": {
-  "en": "7e416b08ce54",
-  "tr": "2bb18c7e15d1",
-  "by": "claude-in-session"
- },
  "menu.chat.ping": {
   "en": "a1259a561e06",
   "tr": "88b27207e2b0",
@@ -7547,16 +7547,6 @@
  "menu.chat.title": {
   "en": "2ced57f12591",
   "tr": "7ba2105ca2d5",
-  "by": "claude-in-session"
- },
- "menu.chat.trade": {
-  "en": "3399fecf6395",
-  "tr": "cad93a0307a5",
-  "by": "claude-in-session"
- },
- "menu.chat.tradeNote": {
-  "en": "83a83696941c",
-  "tr": "861cafd0f761",
   "by": "claude-in-session"
  },
  "menu.classic.status.classicSaves": {
@@ -8417,11 +8407,6 @@
  "menu.online.realmCopyOffline": {
   "en": "9e528bcd7339",
   "tr": "f98a5e543cd0",
-  "by": "claude-in-session"
- },
- "menu.online.relay": {
-  "en": "9f537f977fa2",
-  "tr": "b879187628ef",
   "by": "claude-in-session"
  },
  "menu.online.rules": {
@@ -13800,8 +13785,13 @@
   "by": "claude-in-session"
  },
  "wild.legend.offline": {
-  "en": "86db54caef14",
-  "tr": "f4a242563c3a",
+  "en": "3a642e39e031",
+  "tr": "6b93ba15ed60",
+  "by": "claude-in-session"
+ },
+ "wild.map.chipTipOffline": {
+  "en": "0ed5210ca3ca",
+  "tr": "05fcee86f22a",
   "by": "claude-in-session"
  },
  "wild.safe.chip": {
@@ -13825,13 +13815,13 @@
   "by": "claude-in-session"
  },
  "wild.zone.chipTip": {
-  "en": "687871882d2f",
-  "tr": "55002fa7b9ad",
+  "en": "d541a488aa74",
+  "tr": "527e1cf05fdd",
   "by": "claude-in-session"
  },
  "wild.zone.enter": {
-  "en": "d8ef5b322bf0",
-  "tr": "d18e49fe5770",
+  "en": "82e88f6b05e4",
+  "tr": "db3f5f8c2686",
   "by": "claude-in-session"
  }
 }

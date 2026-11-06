@@ -64,6 +64,70 @@ export const LIVING_WORDS = Object.freeze({
     t('living.economy.warShortage', 'Weapons and armor are in short supply due to the ongoing conflict.'),
   economyFamineFood: () =>
     t('living.economy.famineFood', 'Grain is scarce and provisions fetch a heavy price this season.'),
+  economyPlaguePotions: () =>
+    t('living.economy.plaguePotions', 'Remedies and alchemy ingredients are in high demand due to the plague.'),
+
+  // Regional Crisis Status Lines (Map Hover & Town Panel)
+  crisisStatusWarStart: () =>
+    t('living.crisis.status.warStart', 'Crisis: Border Skirmishes (War brewing)'),
+  crisisStatusWarMid: () =>
+    t('living.crisis.status.warMid', 'Crisis: Open Warfare (Martial Law)'),
+  crisisStatusWarEnd: () =>
+    t('living.crisis.status.warEnd', 'Crisis: Fragile Truce (War subsiding)'),
+  crisisStatusPlagueStart: () =>
+    t('living.crisis.status.plagueStart', 'Crisis: Fever Outbreak (Early signs)'),
+  crisisStatusPlagueMid: () =>
+    t('living.crisis.status.plagueMid', 'Crisis: Plague Quarantine (Gates barred)'),
+  crisisStatusPlagueEnd: () =>
+    t('living.crisis.status.plagueEnd', 'Crisis: Fading Contagion (Quarantine lifting)'),
+  crisisStatusFamineStart: () =>
+    t('living.crisis.status.famineStart', 'Crisis: Crop Blight (Food scarce)'),
+  crisisStatusFamineMid: () =>
+    t('living.crisis.status.famineMid', 'Crisis: Severe Famine (Rationing)'),
+  crisisStatusFamineEnd: () =>
+    t('living.crisis.status.famineEnd', 'Crisis: Relief Caravans (Famine easing)'),
+  crisisStatusStrifeStart: () =>
+    t('living.crisis.status.strifeStart', 'Crisis: Civil Unrest (Protests & riots)'),
+  crisisStatusStrifeMid: () =>
+    t('living.crisis.status.strifeMid', 'Crisis: Armed Insurrection (Street clashes)'),
+  crisisStatusStrifeEnd: () =>
+    t('living.crisis.status.strifeEnd', 'Crisis: Order Restoring (Unrest subsiding)'),
+
+  // Settlement Entry Notifications
+  crisisEntryWar: (town) =>
+    t('living.crisis.entry.war', '{town} is under martial law as war rages across the region.', { town }),
+  crisisEntryPlague: (town) =>
+    t('living.crisis.entry.plague', 'Fever warnings hang at the gates of {town}. Plague stalks the region.', { town }),
+  crisisEntryFamine: (town) =>
+    t('living.crisis.entry.famine', 'Gaunt townsfolk line the streets of {town}. Famine grips the region.', { town }),
+  crisisEntryStrife: (town) =>
+    t('living.crisis.entry.strife', 'Armed patrols march through {town} amid civil strife.', { town }),
+
+  // Regional Crisis Rumors (Notice Boards & NPC Rumors)
+  rumorWarStart: (region) =>
+    t('living.rumor.warStart', 'Scouts report border clashes in {region}. Smiths are already raising prices on steel.', { region }),
+  rumorWarMid: (region) =>
+    t('living.rumor.warMid', 'Open war engulfs {region}! Soldiers inspect travelers at road checkpoints and blades cost a fortune.', { region }),
+  rumorWarEnd: (region) =>
+    t('living.rumor.warEnd', 'A fragile truce holds in {region}, though bands of deserters still roam the highways.', { region }),
+  rumorPlagueStart: (region) =>
+    t('living.rumor.plagueStart', 'Healers warn of a dark fever spreading through {region}. Best stock up on potions.', { region }),
+  rumorPlagueMid: (region) =>
+    t('living.rumor.plagueMid', 'Plague has locked the city gates of {region} under strict quarantine! Only relief tents stand outside.', { region }),
+  rumorPlagueEnd: (region) =>
+    t('living.rumor.plagueEnd', 'The worst of the plague in {region} has passed, and the quarantine cordons are finally lifting.', { region }),
+  rumorFamineStart: (region) =>
+    t('living.rumor.famineStart', 'Blighted harvests in {region} have driven up the cost of grain and tavern meals.', { region }),
+  rumorFamineMid: (region) =>
+    t('living.rumor.famineMid', 'Severe famine starves {region}! Granaries are empty and desperate beggars plead for coin on every road.', { region }),
+  rumorFamineEnd: (region) =>
+    t('living.rumor.famineEnd', 'Relief caravans have reached {region}, easing the famine at last.', { region }),
+  rumorStrifeStart: (region) =>
+    t('living.rumor.strifeStart', 'Angry mobs and agitators stir unrest in the streets of {region}.', { region }),
+  rumorStrifeMid: (region) =>
+    t('living.rumor.strifeMid', 'Insurgents clash openly with the city watch across {region}!', { region }),
+  rumorStrifeEnd: (region) =>
+    t('living.rumor.strifeEnd', 'The city watch has quelled the worst of the uprising in {region}.', { region }),
 
   // Adventurers 2.0 (Duels, Dares, Rivalry, Quest Interceptions)
   adventurerDuelChallenge: () =>

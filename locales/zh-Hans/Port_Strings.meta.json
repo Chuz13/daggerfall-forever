@@ -949,6 +949,11 @@
   "tr": "7c78d13f17f5",
   "by": "claude-in-session"
  },
+ "death.timePassed": {
+  "en": "cbe9e729be3a",
+  "tr": "49ffaeb6725c",
+  "by": "claude-in-session"
+ },
  "decor.bar.keys.nudge": {
   "en": "7846d6e7802c",
   "tr": "0c778d47f612",
@@ -1364,6 +1369,16 @@
   "tr": "7fe6b9c995bf",
   "by": "claude-in-session"
  },
+ "features.city247.note": {
+  "en": "5f41fa1b3992",
+  "tr": "2ebc883ef53a",
+  "by": "claude-in-session"
+ },
+ "features.city247.title": {
+  "en": "00f91363875a",
+  "tr": "582feb2452d1",
+  "by": "claude-in-session"
+ },
  "features.enhancedSounds.note": {
   "en": "0e940ec7d60b",
   "tr": "6219a7a5fc98",
@@ -1464,35 +1479,15 @@
   "tr": "36f5d5a177e5",
   "by": "claude-in-session"
  },
- "features.city247.effect": {
-  "en": "15ddce06b8cc",
-  "tr": "db72e9de4216",
-  "by": "human"
+ "features.offlineRespawn.note": {
+  "en": "2dbd116cb9a7",
+  "tr": "13bdcf242033",
+  "by": "claude-in-session"
  },
- "features.city247.note": {
-  "en": "5f41fa1b3992",
-  "tr": "2ebc883ef53a",
-  "by": "human"
- },
- "features.city247.title": {
-  "en": "00f91363875a",
-  "tr": "582feb2452d1",
-  "by": "human"
- },
- "features.unifiedBank.effect": {
-  "en": "f3b8be3fe452",
-  "tr": "8571fe00c0fe",
-  "by": "human"
- },
- "features.unifiedBank.note": {
-  "en": "d17baaea597f",
-  "tr": "13a9e0b09b18",
-  "by": "human"
- },
- "features.unifiedBank.title": {
-  "en": "d496c77c171a",
-  "tr": "10f6b0887d45",
-  "by": "human"
+ "features.offlineRespawn.title": {
+  "en": "74a00dde9414",
+  "tr": "05eed5fabc07",
+  "by": "claude-in-session"
  },
  "features.realWindows.light": {
   "en": "33064adf0f79",
@@ -1537,6 +1532,16 @@
  "features.tamrielMap.title": {
   "en": "b5c1bd42eaeb",
   "tr": "46097fabb9a3",
+  "by": "claude-in-session"
+ },
+ "features.unifiedBank.note": {
+  "en": "d17baaea597f",
+  "tr": "13a9e0b09b18",
+  "by": "claude-in-session"
+ },
+ "features.unifiedBank.title": {
+  "en": "d496c77c171a",
+  "tr": "10f6b0887d45",
   "by": "claude-in-session"
  },
  "features.wagonUpkeep.boons": {
@@ -1887,6 +1892,11 @@
  "home.mute.undone": {
   "en": "5b03bedff4c8",
   "tr": "7fd1318b6ffa",
+  "by": "claude-in-session"
+ },
+ "input.action.holdFreeMouse": {
+  "en": "0723a0554d9b",
+  "tr": "c09a25485226",
   "by": "claude-in-session"
  },
  "input.action.pvpFlag": {
@@ -5960,8 +5970,13 @@
   "by": "claude-in-session"
  },
  "wild.legend.offline": {
-  "en": "86db54caef14",
-  "tr": "daf79f58e0c1",
+  "en": "3a642e39e031",
+  "tr": "4fde04149dfb",
+  "by": "claude-in-session"
+ },
+ "wild.map.chipTipOffline": {
+  "en": "0ed5210ca3ca",
+  "tr": "2a13e098fae7",
   "by": "claude-in-session"
  },
  "wild.safe.chip": {
@@ -5985,13 +6000,13 @@
   "by": "claude-in-session"
  },
  "wild.zone.chipTip": {
-  "en": "687871882d2f",
-  "tr": "198d9dd4ee07",
+  "en": "d541a488aa74",
+  "tr": "1f87ad8ef793",
   "by": "claude-in-session"
  },
  "wild.zone.enter": {
-  "en": "d8ef5b322bf0",
-  "tr": "b13bef52a955",
+  "en": "82e88f6b05e4",
+  "tr": "d42d116a05d2",
   "by": "claude-in-session"
  }
 }

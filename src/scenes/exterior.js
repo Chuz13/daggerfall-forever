@@ -958,8 +958,9 @@ export async function bootExterior(canvas, renderer, params, status) {
    *  recomputed from the swapped model's own vertices. */
   const tickCityGates = (minute) => {
     const night = isNight(minute);
+    const gateRegion = dfLocation?.regionIndex ?? null;
     for (const g of cityGates) {
-      if (!updateCityGate(g.gate, night)) continue;
+      if (!updateCityGate(g.gate, night, { region: gateRegion })) continue;
       const mesh = gpuMeshes.get(g.gate.modelId);
       const cpu = cpuModels.get(g.gate.modelId);
       if (!mesh || !cpu) continue;

@@ -1201,7 +1201,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** @type {number[][] | null} LW6b: the dungeon's resting places, sounded once (restingSpots) */
   let _restingSpots = null;
   const _dungeonId = dfLocation?.mapTableData?.mapId ?? dfLocation?.dungeon?.recordElement?.header?.locationId;
-  const _livingCooldown = _dungeonId ? isDungeonInCooldown(_dungeonId) : false;
+  const _dungeonRegion = dfLocation?.regionIndex ?? null;
+  const _livingCooldown = _dungeonId ? isDungeonInCooldown(_dungeonId, _dungeonRegion) : false;
   const _rawEnemies = dfLocation?.elite || _superTier   // SD4a: a Super dungeon stands the Elite's three at every marker
     ? expandEliteEnemies(_layoutEnemies, {
       copies: ELITE_FOE_MULTIPLIER,
@@ -4048,14 +4049,19 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         if (stopKey) lootPiles[lootPiles.length - 1].stopKey = stopKey;
       }
     }
-    // LIVING TAMRIEL: Inject fallen adventurer remains into boss/final loot pile
+    // LIVING TAMRIEL: Inject fallen adventurer remains into boss/final loot pile with heirloom inscription
     if (_dungeonId && lootPiles.length > 0) {
-      const remains = claimFallenAdventurerRemains(_dungeonId);
+      const remains = claimFallenAdventurerRemains(_dungeonId, _dungeonRegion);
       if (remains && remains.length > 0) {
         const finalPile = lootPiles[lootPiles.length - 1];
         for (const adv of remains) {
           const advItems = rollPileItems({ level: adv.level || 5 });
           if (Array.isArray(advItems) && advItems.length > 0) {
+            const heirloom = advItems.find((it) => it && (it.group === 'Weapons' || it.group === 'Armor')) || advItems[0];
+            if (heirloom && adv.adventurerName) {
+              const baseLabel = heirloom.shortName || heirloom.name || 'Relic';
+              heirloom.shortName = `${adv.adventurerName}'s ${baseLabel}`;
+            }
             finalPile.items.push(...advItems);
           }
         }

@@ -28,6 +28,7 @@ class LivingDirectorState {
       regions: {},
       adventurers: {},
       travel: { lastInterruptMinute: -999999 },
+      pleas: { lastPleaMinute: -999999 },
     };
   }
 
@@ -37,7 +38,8 @@ class LivingDirectorState {
     this.seed = Math.floor(Math.random() * 0x7fffffff);
     this.subsystems.regions = {};
     this.subsystems.adventurers = {};
-    this.subsystems.travel.lastInterruptMinute = -999999;
+    this.subsystems.travel = { lastInterruptMinute: -999999 };
+    this.subsystems.pleas = { lastPleaMinute: -999999 };
   }
 }
 
@@ -55,6 +57,7 @@ export function newLivingSaveData() {
     config: {
       political: LivingTamrielConfig.political,
       adventurers: LivingTamrielConfig.adventurers,
+      nemesis: LivingTamrielConfig.nemesis,
       wilderness: LivingTamrielConfig.wilderness,
       urban: LivingTamrielConfig.urban,
       naval: LivingTamrielConfig.naval,
@@ -62,11 +65,13 @@ export function newLivingSaveData() {
       camps: LivingTamrielConfig.camps,
       quarantine: LivingTamrielConfig.quarantine,
       bounties: LivingTamrielConfig.bounties,
+      allowQuestCompetition: Boolean(LivingTamrielConfig.allowQuestCompetition),
     },
     subsystems: {
       regions: {},
       adventurers: {},
       travel: { lastInterruptMinute: -999999 },
+      pleas: { lastPleaMinute: -999999 },
     },
   };
 }
@@ -83,6 +88,7 @@ export function getLivingSaveData() {
     config: {
       political: LivingTamrielConfig.political,
       adventurers: LivingTamrielConfig.adventurers,
+      nemesis: LivingTamrielConfig.nemesis,
       wilderness: LivingTamrielConfig.wilderness,
       urban: LivingTamrielConfig.urban,
       naval: LivingTamrielConfig.naval,
@@ -90,12 +96,16 @@ export function getLivingSaveData() {
       camps: LivingTamrielConfig.camps,
       quarantine: LivingTamrielConfig.quarantine,
       bounties: LivingTamrielConfig.bounties,
+      allowQuestCompetition: Boolean(LivingTamrielConfig.allowQuestCompetition),
     },
     subsystems: {
       regions: _state.subsystems.regions || {},
       adventurers: _state.subsystems.adventurers || {},
       travel: {
         lastInterruptMinute: Number(_state.subsystems.travel?.lastInterruptMinute) || -999999,
+      },
+      pleas: {
+        lastPleaMinute: Number(_state.subsystems.pleas?.lastPleaMinute) || -999999,
       },
     },
   };
@@ -124,6 +134,7 @@ export function restoreLivingSaveData(data) {
       const clampTier = (v, def) => (typeof v === 'number' && v >= 0 && v <= 3 ? v : def);
       LivingTamrielConfig.political = clampTier(data.config.political, PRESENCE.MID);
       LivingTamrielConfig.adventurers = clampTier(data.config.adventurers, PRESENCE.MID);
+      LivingTamrielConfig.nemesis = clampTier(data.config.nemesis, PRESENCE.MID);
       LivingTamrielConfig.wilderness = clampTier(data.config.wilderness, PRESENCE.MID);
       LivingTamrielConfig.urban = clampTier(data.config.urban, PRESENCE.MID);
       LivingTamrielConfig.naval = clampTier(data.config.naval, PRESENCE.MID);
@@ -131,6 +142,9 @@ export function restoreLivingSaveData(data) {
       LivingTamrielConfig.camps = clampTier(data.config.camps, PRESENCE.MID);
       LivingTamrielConfig.quarantine = clampTier(data.config.quarantine, PRESENCE.HIGH);
       LivingTamrielConfig.bounties = clampTier(data.config.bounties, PRESENCE.MID);
+      if (typeof data.config.allowQuestCompetition === 'boolean') {
+        LivingTamrielConfig.allowQuestCompetition = data.config.allowQuestCompetition;
+      }
     }
 
     // Restore subsystem states
@@ -144,6 +158,11 @@ export function restoreLivingSaveData(data) {
       if (data.subsystems.travel && typeof data.subsystems.travel === 'object') {
         _state.subsystems.travel.lastInterruptMinute =
           Number(data.subsystems.travel.lastInterruptMinute) || -999999;
+      }
+      if (data.subsystems.pleas && typeof data.subsystems.pleas === 'object') {
+        _state.subsystems.pleas = {
+          lastPleaMinute: Number(data.subsystems.pleas.lastPleaMinute) || -999999,
+        };
       }
     }
   } catch (err) {

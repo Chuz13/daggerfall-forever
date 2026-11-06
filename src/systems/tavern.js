@@ -13,6 +13,7 @@ import { dayOfYear } from './gameDate.js';
 import { interiorSceneName, addPermanentScene, removePermanentScene } from './sceneCache.js'; // P1: the rented room's own scene
 import { localizedText, localizedStrings } from './textManager.js'; // L10N3d: the tavern's words
 import { stampLayout, layoutStampOfMapId, recordStands } from './layoutPins.js'; // WD3: a room keeps the layout its inn was rented in
+import { applyTavernRoomCrisisPrice } from './living/regionEconomy.js';
 
 /** The TEXT.RSC records the window speaks (:37-41). */
 export const TOO_MANY_DAYS_ID = 16;
@@ -163,18 +164,20 @@ export function daysAlreadyRented(room, nowMinutes) {
  *  booked past 350 days. */
 export function rentalDecision(
   input,
-  { room = null, nowMinutes = 0, date, quality = 0, free = false, skills = undefined, online = undefined } = {},
+  { room = null, nowMinutes = 0, date, quality = 0, free = false, skills = undefined, online = undefined, regionIndex = 0 } = {},
 ) {
   const days = Number.parseInt(input, 10);
   if (!Number.isFinite(days) || days < 1) return { kind: 'ignore' };
   if (days + daysAlreadyRented(room, nowMinutes) > MAX_RENTAL_DAYS) return { kind: 'tooMany', days };
   if (free) return { kind: 'free', days };
   const { cost, freeForHeartsDay } = calculateRoomCost(days, date);
+  const baseTradePrice = calculateTradePrice(cost, quality, skills, false);
+  const crisisPrice = applyTavernRoomCrisisPrice(baseTradePrice, regionIndex);
   return {
     kind: 'offer',
     days,
     // ESSENTIALS-HALF (2026-09-30, Discord: "things are way too expensive rn for money to be nerfed so heavily... cut the cost of most essential items by half"): online the room costs half (shopStock.js essentialPrice)
-    price: essentialPrice(calculateTradePrice(cost, quality, skills, false), { online }),
+    price: essentialPrice(crisisPrice, { online }),
     heartsDay: freeForHeartsDay,
   };
 }

@@ -28,6 +28,8 @@
 // video/accessibility), with AUDIO and MODS doors of their own as before, and three new ones the port's rows earned:
 // COMBAT and WORLD (most of what the mods change), and GRAPHICS, which is DFU's Video page and every row that draws.
 
+import { t } from '../../systems/textManager.js';
+
 export const CATEGORIES = Object.freeze([
   tab('graphics', 'Graphics', [
     sec('quality', 'Quality', ['preset:graphics']),
@@ -143,18 +145,18 @@ export const CATEGORIES = Object.freeze([
       'Effects/ColorBoostDungeonFalloff',
     ]),
   ]),
-  tab('living', 'Living Tamriel', [
-    sec('living-politics', 'Politics, Economy & Cities', [
+  tab('living', () => t('settings.tab.living', 'Living Tamriel'), [
+    sec('living-politics', () => t('settings.sec.livingPolitics', 'Politics, Economy & Cities'), [
       'feat:living-political',
       'feat:living-quarantine',
       'feat:living-urban',
       'feat:living-bounties',
     ]),
-    sec('living-rivals', 'Rivals, Adventurers & Nemeses', [
+    sec('living-rivals', () => t('settings.sec.livingRivals', 'Rivals, Adventurers & Nemeses'), [
       'feat:living-adventurers',
       'feat:living-nemesis',
     ]),
-    sec('living-travel', 'Roads, Wilderness & High Seas', [
+    sec('living-travel', () => t('settings.sec.livingTravel', 'Roads, Wilderness & High Seas'), [
       'feat:living-travel',
       'feat:living-camps',
       'feat:living-naval',
@@ -478,9 +480,27 @@ export const CATEGORIES = Object.freeze([
 ]);
 
 function tab(id, title, sections) {
+  if (typeof title === 'function') {
+    return Object.freeze({
+      id,
+      get title() {
+        return title();
+      },
+      sections: Object.freeze(sections),
+    });
+  }
   return Object.freeze({ id, title, sections: Object.freeze(sections) });
 }
 function sec(id, title, items) {
+  if (typeof title === 'function') {
+    return Object.freeze({
+      id,
+      get title() {
+        return title();
+      },
+      items: Object.freeze(items),
+    });
+  }
   return Object.freeze({ id, title, items: Object.freeze(items) });
 }
 

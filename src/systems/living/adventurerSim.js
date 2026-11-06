@@ -227,6 +227,11 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
   if (tier === PRESENCE.OFF) return;
 
   const reg = getAdventurerSimRegistry();
+  // Prune any dead records from previous days before today's simulation step
+  // so the pool never grows unbounded across long campaigns.
+  if (Array.isArray(reg.pool) && reg.pool.some((a) => a.status === ADVENTURER_STATUS.DEAD)) {
+    reg.pool = reg.pool.filter((a) => a.status !== ADVENTURER_STATUS.DEAD);
+  }
   const pool = ensureAdventurerPool(rng);
   const allowComp = Boolean(LivingTamrielConfig.allowQuestCompetition);
 
@@ -347,25 +352,43 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
 
 /**
  * Checks whether a dungeon is currently in cleared cooldown (monsters suppressed).
+ * Supports both direct locationId match and deterministic regional dungeon slot matching
+ * (`dungeon_<regionIndex>_<mapId % 10>`) for real MAPS.BSA dungeons.
  * @param {string|number} locationId
+ * @param {number|null} [regionIndex=null]
  * @returns {boolean}
  */
-export function isDungeonInCooldown(locationId) {
+export function isDungeonInCooldown(locationId, regionIndex = null) {
   const reg = getAdventurerSimRegistry();
-  return typeof reg.dungeonCooldowns?.[locationId] === 'number';
+  if (typeof reg.dungeonCooldowns?.[locationId] === 'number') return true;
+  if (regionIndex != null && Number.isFinite(Number(locationId))) {
+    const slotKey = `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`;
+    if (typeof reg.dungeonCooldowns?.[slotKey] === 'number') return true;
+  }
+  return false;
 }
 
 /**
  * Returns any fallen adventurer remains in a specific dungeon, removing them once claimed.
+ * Supports both direct locationId match and deterministic regional dungeon slot matching.
  * @param {string|number} locationId
+ * @param {number|null} [regionIndex=null]
  * @returns {Array<any>|null}
  */
-export function claimFallenAdventurerRemains(locationId) {
+export function claimFallenAdventurerRemains(locationId, regionIndex = null) {
   const reg = getAdventurerSimRegistry();
   if (reg.fallenRemains?.[locationId]?.length) {
     const loot = [...reg.fallenRemains[locationId]];
     delete reg.fallenRemains[locationId];
     return loot;
+  }
+  if (regionIndex != null && Number.isFinite(Number(locationId))) {
+    const slotKey = `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`;
+    if (reg.fallenRemains?.[slotKey]?.length) {
+      const loot = [...reg.fallenRemains[slotKey]];
+      delete reg.fallenRemains[slotKey];
+      return loot;
+    }
   }
   return null;
 }

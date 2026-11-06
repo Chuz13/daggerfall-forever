@@ -174,6 +174,7 @@ import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { worldMinutes, skyMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes, raisedMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { evaluateTravelInterruption, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
+import { getSettlementEntryNotification } from '../systems/living/crisisPresenter.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain, aimedBlowInfo, playerBlowFrame, setWindupAtMeListener } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -890,7 +891,7 @@ import { createOnlineHomes, moveArenaHomes, homeSceneName, homeTownBlocks, homeC
 import { createOfflineHomes, createOfflineDecor, isOfflineHouseOwned } from '../systems/offlineHomes.js';
 import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 import { createHomesBoot } from './homesBootHost.js';   // KNIGHT-HOUSE's deed holds and ACCOUNT-HOMES' sweep, once a boot
-import { createTownPanelHost, panelTownOf } from './townPanelHost.js';   // NOTICE-PANEL: the town panel under the compass - the boards' presses, in any settlement
+import { createTownPanelHost, panelTownOf, PANEL_TOWN_TYPES } from './townPanelHost.js';   // NOTICE-PANEL: the town panel under the compass - the boards' presses, in any settlement
 import { clearVendorWaypoint, vendorWaypoint, vendorWaypointKey } from '../systems/vendorWaypoint.js';   // HOME-VENDOR: the trader's waypoint
 import { setVendorPage } from '../ui/vendor/vendorPage.js';   // HOME-VENDOR: the Vendor page, under the Professions
 import { setSigilOnline, setSigilRenown } from '../systems/sigil/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
@@ -4365,8 +4366,9 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   const tickCityGates = (minute) => {
     const night = isNight(minute);
     for (const p of built.values()) {
+      const gateRegion = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(p.px, p.py) ?? null) : null;
       for (const g of p.cityGates ?? []) {
-        if (!updateCityGate(g.gate, night)) continue;
+        if (!updateCityGate(g.gate, night, { region: gateRegion })) continue;
         const m = g.meshes.get(g.gate.modelId);
         if (!m) continue;
         g.entry.gpu = m.gpu;
@@ -32591,6 +32593,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // reveal follows the member into every town.
         revealMemberGuildHalls({ witness: onlineOn });   // CHAP2a: and the town's halls witnessed, online
         townEcon.witness(_musicLoc?.mapTableData?.mapId);   // TOWN-ECON TE2: and the town itself, for the registry (online alone - the host builds no book offline)
+        if (PANEL_TOWN_TYPES.has(_musicLocationType())) {
+          const crisisReg = _musicLoc?.regionIndex ?? _questRegionIndex();
+          const townShown = getLocalizedLocationName(_musicLoc?.mapTableData?.mapId, _musicLoc?.name);
+          const crisisBanner = getSettlementEntryNotification(crisisReg, townShown);
+          if (crisisBanner) townTalk.say(crisisBanner, 5);
+        }
         // HUB1: walking into a region's hub says so, online - "Daggerfall, capital of the Kingdom of Daggerfall."
         // SEAT1a (Seats-Arc 3.3): a seat town says its Charter instead - "Anticlere. Its Charter is unheld." - and this
         // client, standing in it, reports the seat it derived (once a day; net/townSeatBook.js witness)

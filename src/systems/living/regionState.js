@@ -170,10 +170,18 @@ export function setRegionCrisis(regionIndex, crisisType, startPhase = CRISIS_PHA
  */
 export function tickRegionDay(state, rng = Math.random) {
   if (state.crisis === CRISIS_TYPE.PEACE || state.phase === CRISIS_PHASE.NONE) {
-    // Small chance to initiate a crisis if tension is elevated
-    if (LivingTamrielConfig.political > PRESENCE.OFF && rng() < 0.02) {
+    // Chance to initiate a crisis scales with regional tension (base 1.5% + up to 15% at max tension)
+    const outbreakChance = Math.min(0.25, 0.015 + Math.max(0, state.tension || 0) * 0.0015);
+    if (LivingTamrielConfig.political > PRESENCE.OFF && rng() < outbreakChance) {
       const roll = rng();
-      const nextCrisis = roll < 0.4 ? CRISIS_TYPE.WAR : roll < 0.7 ? CRISIS_TYPE.PLAGUE : CRISIS_TYPE.FAMINE;
+      const nextCrisis =
+        roll < 0.35
+          ? CRISIS_TYPE.WAR
+          : roll < 0.60
+            ? CRISIS_TYPE.PLAGUE
+            : roll < 0.85
+              ? CRISIS_TYPE.FAMINE
+              : CRISIS_TYPE.CIVIL_STRIFE;
       setRegionCrisis(state.regionIndex, nextCrisis, CRISIS_PHASE.START);
     }
     return;
