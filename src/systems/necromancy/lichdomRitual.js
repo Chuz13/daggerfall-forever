@@ -157,7 +157,9 @@ export function handleLichMortalFall(playerEntity, phylactery) {
   // Consume a charge and restore the Lich
   phylactery.charges--;
   const maxHp = playerEntity.maxHealth || 100;
-  playerEntity.currentHealth = Math.floor(maxHp * 0.5);
+  const restoredHp = Math.floor(maxHp * 0.5);
+  playerEntity.health = restoredHp;
+  playerEntity.currentHealth = restoredHp;
 
   return {
     reconstituted: true,

@@ -187,7 +187,7 @@ function shieldSoakOf(entity, a) {
  *  pool spends dmg / k, and the excess that gets through is whole points. */
 export function damageShieldPool(entity, dmg) {
   for (const a of entity?.activeEffects ?? []) {
-    if (a.kind !== 'shield' || a.ended) continue;
+    if ((a.kind !== 'shield' && a.kind !== 'boneArmor') || a.ended) continue;
     if (!(a.shieldRemaining > 0)) continue;   // a busted pool absorbs nothing
     const k = _shieldSoaks.size ? shieldSoakOf(entity, a) : 1;
     a.shieldRemaining -= k === 1 ? dmg : dmg / k;

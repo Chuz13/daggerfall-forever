@@ -252,9 +252,14 @@ export function castLifeTap(caster, target, amount = 30) {
   const casterEntity = caster.entity || caster;
   if (typeof caster.heal === 'function') {
     caster.heal(drained);
-  } else if (typeof casterEntity.currentHealth === 'number') {
+  } else {
     const maxHp = casterEntity.maxHealth || 100;
-    casterEntity.currentHealth = Math.min(maxHp, casterEntity.currentHealth + drained);
+    if (typeof casterEntity.health === 'number') {
+      casterEntity.health = Math.min(maxHp, casterEntity.health + drained);
+    }
+    if (typeof casterEntity.currentHealth === 'number') {
+      casterEntity.currentHealth = Math.min(maxHp, casterEntity.currentHealth + drained);
+    }
   }
 
   return {

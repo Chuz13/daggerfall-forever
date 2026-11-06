@@ -41,8 +41,18 @@ export function calculateUndeadCapacity(playerEntity, { fixedCap = null } = {}) 
 
   if (!playerEntity) return 1;
 
-  const intVal = liveStat(playerEntity, 'Intelligence') || playerEntity.stats?.Intelligence || 50;
-  const wilVal = liveStat(playerEntity, 'Willpower') || playerEntity.stats?.Willpower || 50;
+  const intVal =
+    liveStat(playerEntity, 'intelligence') ||
+    liveStat(playerEntity, 'Intelligence') ||
+    playerEntity.stats?.intelligence ||
+    playerEntity.stats?.Intelligence ||
+    50;
+  const wilVal =
+    liveStat(playerEntity, 'willpower') ||
+    liveStat(playerEntity, 'Willpower') ||
+    playerEntity.stats?.willpower ||
+    playerEntity.stats?.Willpower ||
+    50;
   const mystVal = skillValue(playerEntity, SKILLS.Mysticism) || 15;
 
   const intBonus = Math.floor(intVal / 20);

@@ -327,6 +327,10 @@ export const PORTED_KEYS = new Set([
   '29,255', // Morph Self (V2a - the arm calls the racial override)
   '45,255', // Resurrect (RESURRECT1 - the arm is the cast engine's, at a fallen party member's body)
   '46,255', // Shared Cartography (PARTY-MAP - BUFF_KINDS; the share is systems/party/partyMap.js)
+  '47,255', // Animate Dead (NECROMANCY)
+  '48,255', // Corpse Explosion (NECROMANCY)
+  '49,255', // Life Tap (NECROMANCY)
+  '51,255', // Bone Armor (NECROMANCY)
   '30,255', // Water Breathing
   '31,255', // Water Walking
   '6,0',
@@ -661,6 +665,42 @@ export const PORT_EFFECT_DESCRIPTIONS = new Map([
       'While it lasts, the parts of a dungeon you',
       "map are drawn on your party's maps too,",
       'for those in the same dungeon.',
+    ]),
+  ],
+  [
+    '47,255',
+    Object.freeze([
+      'Animate Dead',
+      'Binds a fallen corpse into an undead minion',
+      'that fights at your command, up to your',
+      'current undead control capacity.',
+    ]),
+  ],
+  [
+    '48,255',
+    Object.freeze([
+      'Corpse Explosion',
+      'Detonates a fallen corpse or undead minion',
+      'in a violent burst of necrotic force,',
+      'damaging nearby foes.',
+    ]),
+  ],
+  [
+    '49,255',
+    Object.freeze([
+      'Life Tap',
+      'Siphons vital force from the target and',
+      'restores the caster\u2019s own health by the',
+      'amount drained.',
+    ]),
+  ],
+  [
+    '51,255',
+    Object.freeze([
+      'Bone Armor',
+      'Wreathes the caster in plates of calcified',
+      'bone that absorb incoming damage until the',
+      'ward shatters or expires.',
     ]),
   ],
 ]);

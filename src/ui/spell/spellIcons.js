@@ -145,10 +145,10 @@ export function drawSpellIcon(renderer, m, index, dst) {
     return true;
   }
   if (i >= CLASSIC_SPELL_ICON_COUNT && i < SPELL_ICON_COUNT) {
-    const sheet = _art.extra ?? _art.icons;
+    if (!_art.extra) return false;
     const src = extraSpellIconRect(i - CLASSIC_SPELL_ICON_COUNT);
     if (!src) return false;
-    drawImgCrop(renderer, sheet, m, src, dst);
+    drawImgCrop(renderer, _art.extra, m, src, dst);
     return true;
   }
   return false;

@@ -64,10 +64,11 @@ test('S1 catalog: DFU offers 90 spell-maker effects, families expanded in DFCare
   // maker's offer list: the spellbook names an effect through
   // GetEffectTemplate, which sees rows no crafting station offers.
   // The OFFER is still exactly 90 - what `craftable` gates.
-  // PARTY-MAP (2026-09-30): plus the port's own Shared Cartography (46,255), which the maker DOES offer - DFU's 90 and one
-  assert.equal(SPELL_MAKER_EFFECTS.filter((e) => e.craftable).length, 91, 'the maker offers DFU\'s 90 and the port\'s Shared Cartography');
-  assert.equal(SPELL_MAKER_EFFECTS.filter((e) => e.craftable && e.key !== '46,255').length, 90, 'DFU\'s own offer is still exactly 90');
-  assert.equal(SPELL_MAKER_EFFECTS.length, 93, 'and the registry carries two more - MorphSelf, and the port\'s own Resurrect (RESURRECT1, sold ready-made online)');
+  // PARTY-MAP (2026-09-30): plus the port's own Shared Cartography (46,255) and NECROMANCY-SUITE (47,255, 48,255, 49,255, 51,255)
+  const portCraftable = new Set(['46,255', '47,255', '48,255', '49,255', '51,255']);
+  assert.equal(SPELL_MAKER_EFFECTS.filter((e) => e.craftable).length, 95, 'the maker offers DFU\'s 90, Shared Cartography, and 4 Necromancy effects');
+  assert.equal(SPELL_MAKER_EFFECTS.filter((e) => e.craftable && !portCraftable.has(e.key)).length, 90, 'DFU\'s own offer is still exactly 90');
+  assert.equal(SPELL_MAKER_EFFECTS.length, 97, 'and the registry carries two more - MorphSelf, and the port\'s own Resurrect (RESURRECT1, sold ready-made online)');
   assert.equal(SPELL_MAKER_EFFECTS.find((e) => e.key === '45,255')?.craftable, false, 'Resurrect is never crafted: the Spell Maker is offline too, and has no one to raise');
   // PERSONALITY is stat 5, ahead of Speed - the classic subType order
   assert.deepEqual(STAT_SUBGROUPS, ['Strength', 'Intelligence', 'Willpower', 'Agility', 'Endurance', 'Personality', 'Speed', 'Luck']);

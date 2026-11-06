@@ -164,8 +164,6 @@ export const BUFF_KINDS = Object.freeze({
   // its rounds on a re-cast as every row here does (STACK-CAP); the entry's PRESENCE is the share -
   // systems/party/partyMap.js reads it, and a caster in no party (offline, solo) holds a buff that does nothing at all.
   '46,255': 'sharedCartography',
-  // NECROMANCY: Bone Armor (51,255) - defensive bone plating duration buff
-  '51,255': 'boneArmor',
 });
 
 /** DaggerfallEntity.IsInvisible / IsBlending / IsAShade, verbatim:
@@ -286,7 +284,6 @@ export const BUFF_START_TEXT = localizedTable({
   shadeNormal: ['youAreAShade', 'You are a shade.'], shadeTrue: ['youAreAShade', 'You are a shade.'],
   silenced: ['youAreSilenced', 'You are silenced.'],   // Silence.cs:91-95
   sharedCartography: () => 'Your map is shared with your party.',   // PARTY-MAP: the port's own line
-  boneArmor: () => 'Plates of bone coalesce around your flesh.',    // NECROMANCY: Bone Armor buff alert
 });
 /** The name this table shipped under, kept live for its importers. */
 export const CONCEALMENT_START_TEXT = BUFF_START_TEXT;
@@ -1391,37 +1388,62 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     // DFU stacks them) and TOPS UP the pool, capped at the incumbent's ORIGINAL startingShield -
     // never above it, and startingShield itself never rises
     // (Shield.cs:53-63).
-    if (isShieldEffect(e)) {
+    if (isShieldEffect(e) || (e.type === 51 && classicSub(e) === 255)) {
+      const shieldKind = e.type === 51 ? 'boneArmor' : 'shield';
       const rounds = rollDuration(e, casterLevel);
-      // REVIEW FIX: the pool rides the SAME magnitude path every other
-      // magnitude family uses, which is what GetMagnitude does - so a
-      // By-Touch or ranged Shield really does run the target's saving
-      // throw (EntityEffect.cs:804-806 ModifyEffectAmount). The raw
-      // roll this used to take made a ranged Shield unsaveable, which
-      // the comment above already claimed it was not.
       let pool = magnitude(e);
       const k = pool > 0 ? potencyOf(e, true) : 1;   // SCHOOLS2: Alteration past 100, on myself
       if (k !== 1) pool = Math.max(1, Math.round(pool * k));
       if (rounds > 0 && pool > 0) {
-        // REVIEW FIX: a BUSTED pool is no longer an incumbent - that
-        // is exactly what DamageShield's ResignAsIncumbent does on
-        // bust (Shield.cs:85). Without the `!a.ended` test a recast
-        // merged into the corpse, refilled a pool nothing reads
-        // (damageShieldPool skips ended entries) and pushed its rounds
-        // back above zero so the ticker never swept it - Shield
-        // stopped absorbing for good after its first bust.
-        const inc = findInc((a) => a.kind === 'shield' && !a.ended);
+        const inc = findInc((a) => a.kind === shieldKind && !a.ended);
         if (inc) {
-          // AUDIT SCHOOLS L1 M1: a power's merge takes the larger pool (above) - DFU's cap at the first cast's pool is the law
-          // of a spell recast; a rider's pool is what its landing earned, and the first bolt of a chain no longer caps the rest
           if (powerMerge(inc) && pool > inc.startingShield) inc.startingShield = pool;
           renewRounds(inc, rounds - 1);
           inc.shieldRemaining = Math.min(inc.startingShield, inc.shieldRemaining + pool);
         } else {
-          pushActive(target, { kind: 'shield', startingShield: pool, shieldRemaining: pool, roundsRemaining: rounds }, sinks, rolls);
+          pushActive(target, { kind: shieldKind, startingShield: pool, shieldRemaining: pool, roundsRemaining: rounds }, sinks, rolls);
+          if (shieldKind === 'boneArmor') sinks?.say?.('Plates of bone coalesce around your flesh.');
         }
         out.buffs = (out.buffs ?? 0) + 1;
       }
+      continue;
+    }
+    if (e.type === 47 && classicSub(e) === 255) {
+      if (!dice100(chanceValue(e, casterLevel), rolls())) { out.chanceFailed = (out.chanceFailed ?? 0) + 1; continue; }
+      ctx.animateDead?.(e, target);
+      out.animateDead = (out.animateDead ?? 0) + 1;
+      pushInstantMarker(target, 'animateDead', e);
+      continue;
+    }
+    if (e.type === 48 && classicSub(e) === 255) {
+      const n = casterDamageScaled(magnitude(e), caster?.entity, target, schoolOf(e));
+      out.damage += n;
+      if (n > 0 && sinks.hurt) sinks.hurt(n, { element: spell.element ?? null });
+      ctx.corpseExplosion?.(e, target, n);
+      handleAttackFromSource(caster?.entity ?? null);
+      out.corpseExplosion = (out.corpseExplosion ?? 0) + 1;
+      pushInstantMarker(target, 'corpseExplosion', e);
+      continue;
+    }
+    if (e.type === 49 && classicSub(e) === 255) {
+      handleAttackFromSource(caster?.entity ?? null);
+      const n = magnitude(e);
+      out.damage += n;
+      if (n > 0) {
+        if (sinks.hurt) sinks.hurt(n);
+        if (caster?.sinks?.heal) {
+          caster.sinks.heal(n);
+        } else if (caster?.entity) {
+          const maxHp = caster.entity.maxHealth ?? 100;
+          if (typeof caster.entity.health === 'number') {
+            caster.entity.health = Math.min(maxHp, caster.entity.health + n);
+          }
+          if (typeof caster.entity.currentHealth === 'number') {
+            caster.entity.currentHealth = Math.min(maxHp, caster.entity.currentHealth + n);
+          }
+        }
+      }
+      pushInstantMarker(target, 'lifeTap', e);
       continue;
     }
     // X1: SPELL ABSORPTION (20) and SPELL RESISTANCE (22) - both are

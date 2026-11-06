@@ -503,9 +503,9 @@ test('U42 icons: the three sheets are cut by enum order, top-down', () => {
     // systems/spell/spellMaker.js - not the collection's.
     assert.equal(spellIconRect(SPELL_ICON_COUNT), null, 'off the end is null, not a wrap');
     assert.equal(spellIconRect(-1), null, '...and so is below the start');
-    assert.deepEqual(spellIconRect(SPELL_ICON_COUNT - 1), [8 * 16, 3 * 16, 16, 16], 'the last real icon');
+    assert.deepEqual(spellIconRect(68), [8 * 16, 3 * 16, 16, 16], 'the last classic icon');
     assert.equal(SPELL_ICON_ROW_COUNT, 20);
-    assert.equal(SPELL_ICON_COUNT, 69);
+    assert.equal(SPELL_ICON_COUNT, 508);
     for (let i = 0; i < 5; i++) {
       assert.deepEqual(targetIconRect(i), [0, i * ICON_H, TARGET_ICON_W, ICON_H]);
       assert.deepEqual(elementIconRect(i), [TARGET_ICON_W, i * ICON_H, ELEMENT_ICON_W, ICON_H]);

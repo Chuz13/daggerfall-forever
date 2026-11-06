@@ -243,9 +243,14 @@ export function checkMinionRebellion(playerEntity, minion, { rolls = Math.random
   if (!minion || minion.dead || minion.rebelled) return false;
   if (!playerEntity) return false;
 
-  const curFatigue = playerEntity.currentFatigue ?? 100;
-  const curMagicka = playerEntity.currentMagicka ?? 100;
-  const willpower = liveStat(playerEntity, 'Willpower') || 50;
+  const curFatigue = playerEntity.fatigue ?? playerEntity.currentFatigue ?? 100;
+  const curMagicka = playerEntity.magicka ?? playerEntity.currentMagicka ?? 100;
+  const willpower =
+    liveStat(playerEntity, 'willpower') ||
+    liveStat(playerEntity, 'Willpower') ||
+    playerEntity.stats?.willpower ||
+    playerEntity.stats?.Willpower ||
+    50;
 
   // Master is fully fit: leash holds firm
   if (curFatigue > 0 && curMagicka > 0) return false;
