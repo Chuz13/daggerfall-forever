@@ -1103,7 +1103,7 @@ import { homeYardWallet } from './homeYards.js';   // INSTANCES' HOST-SPLIT: the
 import { loadIcon } from '../ui/textureCanvas.js';   // HOME-YARD: the decorator's pictures
 import { decorScanDeps } from '../systems/decor/decorScan.js';   // HOME-YARD: the catalogue's scan (DECOR-DUNGEON: one constructor for both hosts)
 import { DOOR_TYPE } from '../world/meshReader.js';   // ARENA1: the undercroft's stair is a dungeon entrance (DECOR-DUNGEON: GLOBAL_SCALE went with the yards' scan deps, systems/decor/decorScan.js)
-import { homeLookSig } from '../net/homeLaw.js';
+import { homeLookSig, HOME_CAP } from '../net/homeLaw.js';
 import { setAirGround, altitudeOfWorldY } from '../systems/weather/airTemperature.js'; import { lawAirGround } from '../systems/weather/airGround.js';   // PRECIP1: the air's map, and the player's height in it
 import { eventMinuteOfSky } from '../systems/skyCalendar.js';   // AUDIT PRECIP HOST-2: a trip's arrival, on the event clock the snow is read by
 import { setWeather, setHeardWeather, heardWeather, fallingWeather, currentWeather, currentWeatherRaw, tickWeather, weatherRespawn, applyClimateWeather, importClimateWeathers, weatherJumpStamp, setSharedWeather, rollClimateWeathersForDay, sampleWeatherField, weatherCrossingStamp, currentFieldCells, currentWeatherIntensity, currentCloudBase, currentWindApproach, currentMapSystems, sampleWeatherIndoors, weatherArrivalStamp, mapGround, precipLawOn, weatherSystemStamp, weatherPhaseFlip, systemWordOf } from '../systems/weather/weatherSim.js';
