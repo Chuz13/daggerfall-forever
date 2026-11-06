@@ -31,14 +31,14 @@ export const CAP_MODES = Object.freeze({
 });
 
 export const PREF_KEYS = Object.freeze({
-  ENABLED: 'necro.enabled',
-  CORPSE_REQ: 'necro.corpseRequirement',
-  SOCIAL_LAW: 'necro.socialLaw',
-  UPKEEP: 'necro.minionUpkeep',
-  REBELLION: 'necro.minionRebellion',
-  WITCH_HUNTER: 'necro.witchHunters',
-  CAP_MODE: 'necro.capMode',
-  FIXED_CAP: 'necro.fixedCap',
+  ENABLED: 'necroEnabled',
+  CORPSE_REQ: 'necroCorpseReq',
+  SOCIAL_LAW: 'necroSocialLaw',
+  UPKEEP: 'necroMinionUpkeep',
+  REBELLION: 'necroMinionRebellion',
+  WITCH_HUNTER: 'necroWitchHunters',
+  CAP_MODE: 'necroCapMode',
+  FIXED_CAP: 'necroFixedCap',
 });
 
 export const NecroConfig = Object.freeze({

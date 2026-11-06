@@ -59,6 +59,15 @@ export const PREF_DEFAULTS = Object.freeze({
   standingAll: true,
   // OFFLINE-HOUSING: whether DFO player housing is active in offline single-player mode.
   offlineHousing: true,
+  // NECROMANCY & DARK ARTS (2026-11-06): Configurable toggles for necromancy, minions, laws and Lichdom
+  necroEnabled: true,
+  necroCorpseReq: 'physical',
+  necroSocialLaw: 'hardcore',
+  necroMinionUpkeep: true,
+  necroMinionRebellion: true,
+  necroWitchHunters: 'frequent',
+  necroCapMode: 'stat_scaled',
+  necroFixedCap: 4,
   // OFFLINE-FIRMAMENT: whether the Firmament passive star tree and Renown progression are active in offline single-player.
   offlineFirmament: true,
   // OFFLINE-PROFESSIONS: whether gathering nodes and crafting professions are active in offline single-player.

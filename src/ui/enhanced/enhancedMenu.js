@@ -3313,6 +3313,47 @@ function portRowsGame({ pause = false } = {}) {
     t('features.unifiedBank.note', 'Access your deposited gold and bank accounts across all regional bank branches in Tamriel.')));
   rows.push(prefRow('city247', t('features.city247.title', '24/7 City Infrastructure'),
     t('features.city247.note', 'Keeps city gates, shops, guild halls, banks, and libraries open at all hours.')));
+
+  function necroChoice(key, name, note, tiers) {
+    const r = choiceRow(key, name, note, tiers);
+    if (r?.dataset) {
+      r.dataset.opt = key;
+      r.dataset.pref = key;
+    }
+    return r;
+  }
+  rows.push(prefRow('necroEnabled', t('menu.necro.enabled.name', 'Dark Arts & Necromancy'),
+    t('menu.necro.enabled.note', 'Enables forbidden dark spells, corpse reanimation, harvesting, and Lichdom rituals.')));
+  rows.push(necroChoice('necroCorpseReq', t('menu.necro.corpseReq.name', 'Corpse Requirement'),
+    t('menu.necro.corpseReq.note', 'Physical requires targeting a dead body. Abstract allows raising undead anywhere from ambient essence.'),
+    [
+      ['physical', t('menu.necro.corpseReq.physical', 'Physical Corpses')],
+      ['abstract', t('menu.necro.corpseReq.abstract', 'Abstract (Anywhere)')],
+    ]));
+  rows.push(necroChoice('necroSocialLaw', t('menu.necro.socialLaw.name', 'Necromancy Social Law'),
+    t('menu.necro.socialLaw.note', 'Hardcore sets city guards on alarm and charges High Treason for visible undead or Liches. Off disables legal reactions.'),
+    [
+      ['hardcore', t('menu.necro.socialLaw.hardcore', 'Hardcore (Alarms & Treason)')],
+      ['mild', t('menu.necro.socialLaw.mild', 'Mild (Fines & Suspicion)')],
+      ['off', t('menu.necro.socialLaw.off', 'Off (Unrestricted)')],
+    ]));
+  rows.push(prefRow('necroMinionUpkeep', t('menu.necro.upkeep.name', 'Minion Magicka Upkeep'),
+    t('menu.necro.upkeep.note', 'Undead minions periodically drain magicka from their master to remain animated.')));
+  rows.push(prefRow('necroMinionRebellion', t('menu.necro.rebellion.name', 'Minion Rebellion on Depletion'),
+    t('menu.necro.rebellion.note', 'Undead break control and turn aggressively hostile if their summoner runs completely out of magicka.')));
+  rows.push(necroChoice('necroWitchHunters', t('menu.necro.witchHunters.name', 'Witch-Hunter Purifiers'),
+    t('menu.necro.witchHunters.note', 'Arkay purifiers and inquisitors ambush high-taint necromancers during wilderness rest and travel.'),
+    [
+      ['frequent', t('menu.necro.witchHunters.frequent', 'Frequent Ambushes')],
+      ['rare', t('menu.necro.witchHunters.rare', 'Rare Ambushes')],
+      ['off', t('menu.necro.witchHunters.off', 'Off')],
+    ]));
+  rows.push(necroChoice('necroCapMode', t('menu.necro.capMode.name', 'Undead Control Capacity'),
+    t('menu.necro.capMode.note', 'Stat-Scaled calculates control points from Intelligence, Willpower, and Mysticism. Fixed applies a flat minion count.'),
+    [
+      ['stat_scaled', t('menu.necro.capMode.statScaled', 'Stat-Scaled (INT/WIL/Myst)')],
+      ['fixed', t('menu.necro.capMode.fixed', 'Fixed Limit (4 Minions)')],
+    ]));
   return rows;
 }
 /** REFLEXES: in-game reflex re-selection for the active character. Reads and writes playerEntity.reflexes directly. */

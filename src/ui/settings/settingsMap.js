@@ -210,6 +210,15 @@ export const CATEGORIES = Object.freeze([
       'feat:mod-climates-calories',
       'feat:mod-roleplay-realism',
     ]),
+    sec('necromancy', () => t('settings.sec.necromancy', 'Dark Arts & Necromancy'), [
+      'port:necroEnabled',
+      'port:necroCorpseReq',
+      'port:necroSocialLaw',
+      'port:necroMinionUpkeep',
+      'port:necroMinionRebellion',
+      'port:necroWitchHunters',
+      'port:necroCapMode',
+    ]),
     sec('moving', 'Climbing & gathering', [
       'feat:enhanced-climbing',
       'Enhancements/AdvancedClimbing',

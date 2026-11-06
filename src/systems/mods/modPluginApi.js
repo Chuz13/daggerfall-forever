@@ -215,7 +215,7 @@ export function createModApi(modId) {
           unlocked.push(perkId);
           store._unlockedPerks = unlocked;
           try {
-            audio?.play2d?.(SOUND.ArenaFanfareLevelUp, 0.8);
+            audio?.playOneShot?.(SOUND.ArenaFanfareLevelUp, 0.8);
           } catch {}
           emitModEvent('perk:unlocked', { modId, perkId });
           return true;
