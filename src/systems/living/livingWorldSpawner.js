@@ -1610,6 +1610,11 @@ export function createLivingSceneHost(deps) {
               player.goldPieces = haveGold - cureGold;
               player.isDiseased = false;
               player.isPoisoned = false;
+              if (Array.isArray(player.activeEffects)) {
+                player.activeEffects = player.activeEffects.filter(
+                  (e) => e?.kind !== 'disease' && e?.kind !== 'poison',
+                );
+              }
               if (Number.isFinite(player.maxHealth)) {
                 player.health = player.maxHealth;
                 player.currentHealth = player.maxHealth;
@@ -1794,8 +1799,13 @@ export function createLivingSceneHost(deps) {
             label: `2. ${LIVING_WORDS.travelStealthSurpriseOption()}`,
             action: () => {
               for (const f of s.foes) {
-                if (f?.entity && Number.isFinite(f.entity.currentHealth)) {
-                  f.entity.currentHealth = Math.max(1, Math.floor(f.entity.currentHealth * 0.75));
+                if (f?.entity) {
+                  if (Number.isFinite(f.entity.currentHealth)) {
+                    f.entity.currentHealth = Math.max(1, Math.floor(f.entity.currentHealth * 0.75));
+                  }
+                  if (Number.isFinite(f.entity.health)) {
+                    f.entity.health = Math.max(1, Math.floor(f.entity.health * 0.75));
+                  }
                 }
               }
               setSiteHostile(s, true);
@@ -2506,8 +2516,10 @@ export function buildDungeonAdventurerChoiceSpec({
               foeRecord.entity.items = foeRecord.entity.items || [];
               foeRecord.entity.items.push({
                 group: 'QuestItems',
+                templateIndex: 0,
                 shortName: `${adv.name}'s Claimed Quest Trophy`,
                 value: buyoutGold,
+                weight: 0.25,
               });
             }
             say(LIVING_WORDS.adventurerDuelChallenge());
@@ -2531,8 +2543,10 @@ export function buildDungeonAdventurerChoiceSpec({
               playerEntity.items = playerEntity.items || [];
               playerEntity.items.push({
                 group: 'QuestItems',
+                templateIndex: 0,
                 shortName: `Reclaimed Quest Trophy`,
                 value: buyoutGold,
+                weight: 0.25,
               });
               if (foeRecord?.ai) foeRecord.ai.isHostile = false;
               say(LIVING_WORDS.adventurerReclaimSuccess());
@@ -2556,8 +2570,10 @@ export function buildDungeonAdventurerChoiceSpec({
               playerEntity.items = playerEntity.items || [];
               playerEntity.items.push({
                 group: 'QuestItems',
+                templateIndex: 0,
                 shortName: `Reclaimed Quest Trophy`,
                 value: buyoutGold,
+                weight: 0.25,
               });
               if (foeRecord?.ai) foeRecord.ai.isHostile = false;
               say(LIVING_WORDS.adventurerReclaimSuccess());

@@ -160,8 +160,15 @@ export function resolvePleaResponse({
       }
       playerEntity.regionalReputations[regionIndex] =
         (playerEntity.regionalReputations[regionIndex] || 0) + 3;
+      if (playerEntity.legalRep && typeof playerEntity.legalRep === 'object') {
+        playerEntity.legalRep[regionIndex] =
+          (playerEntity.legalRep[regionIndex] || 0) + 3;
+      }
       if (typeof playerEntity.health === 'number' && typeof playerEntity.maxHealth === 'number') {
         playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + 15);
+      }
+      if (typeof playerEntity.currentHealth === 'number' && typeof playerEntity.maxHealth === 'number') {
+        playerEntity.currentHealth = Math.min(playerEntity.maxHealth, playerEntity.currentHealth + 15);
       }
     }
     const regState = getRegionState(regionIndex);

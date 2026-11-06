@@ -3556,7 +3556,6 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
         if (!b || !town) return null;
         // LEGACY-HOME: a house of Project Legacy's family holds the line and no one else - the one played's own included
         if (legacyHost?.isFamilyHouse({ mapId: b.townMapId ?? 0, buildingKey: b.buildingKey })) return { key: b.buildingKey, town, only: isFamilyRes };
-        if (isOfflineHousingActive() && isOfflineHouseOwned(b.townMapId ?? 0, b.buildingKey)) return null;
         return modes?.interiorCtx?.ownedRoom ? null : { key: b.buildingKey, town };   // AUDIT-E1: never a player's own room
       },
       collider: () => modes?.interiorCollider ?? null,
@@ -25542,7 +25541,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       }
       return 'given';
     }
-    return legacyInheritDeed(row, () => (save?.sceneCache ?? null));
+    return legacyInheritDeed(row, () => (at >= 0 ? loadSlot(at)?.sceneCache ?? null : null));
   };
   // BOOT-OVERLAP: the realm's lines and roster, read behind the boot (above, at the join), are in before the host that
   // reads them is made
@@ -25609,6 +25608,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       return true;
     },
     // LEGACY-HOME: the houses the one played holds (a deed that stands - banking.js deedStands), and the house they are in
+    // heldHouses: () => (isOnlinePage() ? (realmSession ? _legacyOnlineHomes : null) : allDeeds(playerEntity.houses).filter(deedStands)),
     heldHouses: () => {
       if (isOnlinePage()) return realmSession ? _legacyOnlineHomes : null;
       if (isOfflineHousingActive()) {
@@ -31691,8 +31691,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       dwFish?.offsetAll(r.offset);   // DW-E3: the fish and their schools' centres (Port-Ledger A, the Iliac Puddle row)
       droppedTorches.offsetAll(r.offset);   // HT1: the torches too
       _livingHideoutsHost?.offsetAll(r.offset);   // AUDIT LW-II-2 H2: a band's hideout stood - its tents and its fire stood 819.2 behind every crossing
-      _livingSceneHost?.offsetAll(r.offset);   // LIVING-TAMRIEL: shift active 3D camp/checkpoint/skirmish meshes, flats, and lights with floating origin
       camps.offsetAll(r.offset);   // SURV3: and the camps
+      _livingSceneHost?.offsetAll(r.offset);   // LIVING-TAMRIEL: shift active 3D camp/checkpoint/skirmish meshes, flats, and lights with floating origin
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
       csaPeers.rebase(r.offset);   // CSA-J: the peers' eased places with the world

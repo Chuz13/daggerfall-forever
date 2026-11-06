@@ -33,7 +33,7 @@ import { expandMacros } from '../systems/talk/talkSession.js';   // MACRO1: the 
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
 import { enterDungeonAutomap, exitDungeonAutomap, detachedAutomapRecord, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, automapWaySteps, capsuleCentreFromEye, SCAN_INTERVAL_S, recordTeleporterConnection, teleporterConnection, registerAutomapConsoleCommands } from '../systems/automap/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
 import { automapKeyOf } from '../systems/automap/automap.js';   // TESA8: a dungeon's automap key by its location - a lair past the Bay its own
-import { isDungeonInCooldown, claimFallenAdventurerRemains, getDungeonActiveAdventurer, getActiveAdventurerCompanion } from '../systems/living/adventurerSim.js';
+import { isDungeonInCooldown, claimFallenAdventurerRemains, getDungeonActiveAdventurer, getActiveAdventurerCompanion, dismissAdventurerCompanion } from '../systems/living/adventurerSim.js';
 import { CLASS_TO_MOBILE_TYPE, buildDungeonAdventurerChoiceSpec } from '../systems/living/livingWorldSpawner.js';
 import { getActiveCrisisContract, completeRegionalCrisisContract } from '../systems/living/crisisPresenter.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
@@ -42,7 +42,7 @@ import { signalAutomapReset } from '../ui/automap/automapWindow.js';   // A1: th
 // EM3: the skin fork. The classic skin keeps DFU's 3D panel whole; the
 // enhanced one gets the held sheet with the dungeon's plan inked on it.
 import { createAutomapWindow, preloadAutomapArt, automapDoorReady } from '../ui/automap/automapDoor.js';
-import { applyTextureTable } from '../world/dungeon/dungeonTextures.js';
+import { applyTextureTable, isMainStoryDungeon } from '../world/dungeon/dungeonTextures.js';
 import { createUseMagicItemWindow, noItemToActivateText } from '../ui/useMagicItemWindow.js';   // UI1: the U key's window
 import { cannotChangeIndoorsText } from '../ui/transportWindow.js';   // TR5: the indoors refusal
 import { smallerDungeonsStamp, needsStartWarp } from '../world/smallerDungeons.js';   // AUDIT 28 W4 / FT1: the save-time stamp and the load-time warp, one home
@@ -1205,7 +1205,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _restingSpots = null;
   const _dungeonId = dfLocation?.mapTableData?.mapId ?? dfLocation?.dungeon?.recordElement?.header?.locationId;
   const _dungeonRegion = dfLocation?.regionIndex ?? null;
-  const _livingCooldown = _dungeonId ? isDungeonInCooldown(_dungeonId, _dungeonRegion) : false;
+  const _isProtectedDungeon = Boolean(dfLocation?.name && isMainStoryDungeon(dfLocation.name));
+  const _livingCooldown = (_dungeonId && !_isProtectedDungeon) ? isDungeonInCooldown(_dungeonId, _dungeonRegion) : false;
   const _rawEnemies = dfLocation?.elite || _superTier   // SD4a: a Super dungeon stands the Elite's three at every marker
     ? expandEliteEnemies(_layoutEnemies, {
       copies: ELITE_FOE_MULTIPLIER,
@@ -1951,6 +1952,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   }
   let _livingDungeonAdv = null;
   let _livingDungeonCrisisBoss = null;
+  let _livingDungeonCompanion = null;
   async function standDungeonLivingAdventurer() {
     if (!foeDeps || !collider || !_dungeonId) return null;
 
@@ -1974,9 +1976,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               cf.entity.mobileTeam = 'PlayerAlly';
             }
             if (cf.ai) {
-              cf.ai.isHostile = false;
-              cf.ai.detected = false;
+              cf.ai.detected = true;
             }
+            _livingDungeonCompanion = cf;
           })
           .catch(() => {});
       }
@@ -2015,6 +2017,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     return f;
   }
   function tickDungeonLivingAdventurer(playerFeet) {
+    if (_livingDungeonCompanion?.dead) {
+      _livingDungeonCompanion = null;
+      dismissAdventurerCompanion();
+    }
     if (_livingDungeonCrisisBoss?.dead) {
       _livingDungeonCrisisBoss = null;
       const done = completeRegionalCrisisContract(_dungeonRegion, playerEntity);

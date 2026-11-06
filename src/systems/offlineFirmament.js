@@ -122,7 +122,10 @@ export function getActiveOfflineRecord() {
 export function syncActiveCharId() {
   const curId = characterIdOf(_activePlayerEntity);
   if (curId && curId !== _activeCharId) {
-    if (_activeRecord) {
+    const rawExisting = appStorage()?.getItem(`${OFFLINE_FIRM_STORAGE_PREFIX}${curId}`);
+    if (rawExisting) {
+      _activeRecord = loadOfflineRecord(curId);
+    } else if (_activeRecord) {
       saveOfflineRecord(curId, _activeRecord);
     }
     _activeCharId = curId;
@@ -397,6 +400,11 @@ registerModSaveData(OFFLINE_FIRMAMENT_VENDOR, {
     if (isOfflineFirmamentActive()) {
       setFirmamentOffline(true);
     }
+    if (_activePlayerEntity) {
+      setRenownLayer(_activePlayerEntity, 1);
+      computeEntityMods(_activePlayerEntity);
+    }
+    _activeFirmBook?.read?.().catch(() => {});
   },
 });
 

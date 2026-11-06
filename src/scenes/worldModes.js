@@ -4151,12 +4151,11 @@ export function createWorldModes(host) {
   // never passes the ask (systems/town/townEcon.js; AUDIT TOWN-ECON 2 PRICE-7)
   function shopAdjustment(b, mode) {
     if (Number.isFinite(b?.priceIndex)) return b.priceIndex;   // AUDIT MERCHANT-YARDS Y2: a counter that names its own index (a yard's, systems/merchantYards.js YARD_PRICE_INDEX) is priced at it, both ways
-    const adj = regionPriceAdjustment(playerEntity, b?.regionIndex ?? 0);
-    const f = host.townShopFactor?.(b, mode) ?? (mode === 'Buy' || mode === 'Repair' ? host.seatShopFactor?.(b) ?? 1 : mode === 'Sell' || mode === 'SellMagic' ? Math.min(1, host.seatShopFactor?.(b) ?? 1) : 1);   // AUDIT TOWN-ECON 2 PRICE-4: no town law wired, SEAT-LOOP's bound here - a counter pays no more than it asks this player
     const cf = (mode === 'Buy' || mode === 'Repair') ? getBuildingCrisisFactor(b?.buildingType, b?.regionIndex ?? 0) : 1;
-    const totalF = f * cf;
-    if (b?.roadDiscount && (mode === 'Buy' || mode === 'Sell' || mode === 'SellMagic')) return Math.round(adj * totalF * (1 - b.roadDiscount));   // LW11: a friend's counter on the road; AUDIT TOWN-ECON 2 PRICE-4: its friend's price both ways, so an endless shelf's essentials sold back never pay
-    return totalF === 1 ? adj : Math.round(adj * totalF);
+    const adj = Math.round(regionPriceAdjustment(playerEntity, b?.regionIndex ?? 0) * cf);
+    const f = host.townShopFactor?.(b, mode) ?? (mode === 'Buy' || mode === 'Repair' ? host.seatShopFactor?.(b) ?? 1 : mode === 'Sell' || mode === 'SellMagic' ? Math.min(1, host.seatShopFactor?.(b) ?? 1) : 1);   // AUDIT TOWN-ECON 2 PRICE-4: no town law wired, SEAT-LOOP's bound here - a counter pays no more than it asks this player
+    if (b?.roadDiscount && (mode === 'Buy' || mode === 'Sell' || mode === 'SellMagic')) return Math.round(adj * f * (1 - b.roadDiscount));   // LW11: a friend's counter on the road; AUDIT TOWN-ECON 2 PRICE-4: its friend's price both ways, so an endless shelf's essentials sold back never pay
+    return f === 1 ? adj : Math.round(adj * f);
   }
   function buyPrice(it) {
     const b = interiorBuilding;

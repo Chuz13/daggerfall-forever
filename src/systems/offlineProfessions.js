@@ -176,6 +176,8 @@ registerModSaveData(OFFLINE_PROFESSIONS_VENDOR, {
     return createNewRecord();
   },
   restoreSaveData: (data) => {
+    const charId = characterIdOf(_activePlayerEntity);
+    if (charId) _activeCharId = charId;
     _activeRecord = sanitizeRecord(data);
     if (_activeCharId) {
       saveOfflineRecord(_activeCharId, _activeRecord);
@@ -183,6 +185,8 @@ registerModSaveData(OFFLINE_PROFESSIONS_VENDOR, {
     _activeProfBook?.refresh?.({ force: true })?.catch(() => {});
   },
   newGame: () => {
+    const charId = characterIdOf(_activePlayerEntity);
+    if (charId) _activeCharId = charId;
     _activeRecord = createNewRecord();
     if (_activeCharId) {
       saveOfflineRecord(_activeCharId, _activeRecord);

@@ -108,7 +108,9 @@ export function shouldDispatchNemesis(player, repOrOptions = 0, playerLevel = 1)
   // 3. Glory Challenger: High level champion (level >= 8) with positive standing
   const isKnightOrFighter = Boolean(
     player?.guildMemberships?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
-    player?.guildMemberships?.[GUILD_GROUPS.FightersGuild]?.rank > 0
+    player?.guildMemberships?.[GUILD_GROUPS.FightersGuild]?.rank > 0 ||
+    player?.guilds?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
+    player?.guilds?.[GUILD_GROUPS.FightersGuild]?.rank > 0
   );
   if (level >= 8 && (legalReputation >= 15 || isKnightOrFighter)) return true;
 

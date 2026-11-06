@@ -331,6 +331,11 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
       continue;
     }
 
+    if (adv.status === ADVENTURER_STATUS.TRAVELING) {
+      adv.status = ADVENTURER_STATUS.IDLE;
+      adv.daysRemainingInAction = 0;
+    }
+
     // Currently IDLE: Pick next endeavor (Move or Delve)
     if (rng() < 0.60) {
       // Start a dungeon delve
@@ -552,7 +557,7 @@ export function resolveAdventurerEncounter({
       skillValue(playerEntity, SKILLS.Streetwise) ||
       Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
     const difficulty = Math.min(95, adv.level * 3 + 30);
-    const roll = dice100(rng);
+    const roll = Math.floor(rng() * 100) + 1;
     const margin = sw - difficulty;
 
     if (roll <= sw || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
@@ -575,7 +580,7 @@ export function resolveAdventurerEncounter({
       Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
     const bonus = adv.trait === 'HONORABLE' ? 20 : 0;
     const difficulty = Math.min(95, adv.level * 3 + 25 - bonus);
-    const roll = dice100(rng);
+    const roll = Math.floor(rng() * 100) + 1;
     const margin = (et + bonus) - difficulty;
 
     if (roll <= et + bonus || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
@@ -750,7 +755,7 @@ export function confrontInterceptingAdventurer({
       Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
     const bonus = record.adventurerTrait === 'HONORABLE' ? 25 : 0;
     const difficulty = Math.min(90, record.adventurerLevel * 3 + 20 - bonus);
-    const roll = dice100(rng);
+    const roll = Math.floor(rng() * 100) + 1;
     const margin = (et + bonus) - difficulty;
 
     if (roll <= et + bonus || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
@@ -1030,7 +1035,7 @@ export function resolveWanderingAdventurerInteraction({
       Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
     const bonus = adv?.trait === 'HONORABLE' ? 20 : adv?.trait === 'CAUTIOUS' ? 10 : 0;
     const difficulty = Math.min(90, advLevel * 3 + 25 - bonus);
-    const roll = dice100(rng);
+    const roll = Math.floor(rng() * 100) + 1;
 
     // High Etiquette or Luck convinces an honorable/friendly adventurer to travel with you for free!
     if (
@@ -1111,7 +1116,7 @@ export function resolveWanderingAdventurerInteraction({
       Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
     const traitMod = adv?.trait === 'CAUTIOUS' ? -15 : adv?.trait === 'HONORABLE' || adv?.trait === 'DUELIST' ? 20 : 0;
     const difficulty = Math.min(95, Math.max(15, advLevel * 3 + 30 + traitMod));
-    const roll = dice100(rng);
+    const roll = Math.floor(rng() * 100) + 1;
 
     if (roll <= sw) {
       const extortedGold = Math.max(30, advLevel * 20);
@@ -1120,6 +1125,8 @@ export function resolveWanderingAdventurerInteraction({
       }
       if (Array.isArray(playerEntity?.items)) {
         playerEntity.items.push({
+          group: 'Gems',
+          templateIndex: 0,
           name: `${getAdventurerDisplayName(adv)}'s Dungeon Spoils`,
           shortName: 'Dungeon Spoils',
           value: extortedGold,
@@ -1180,7 +1187,8 @@ export const COMPANION_DURATION_MINUTES = 1440; // 24 in-game hours
  */
 export function recruitAdventurerCompanion(adv, nowMinutes = 0) {
   const reg = getAdventurerSimRegistry();
-  const now = Number.isFinite(nowMinutes) ? nowMinutes : 0;
+  const fallbackNow = Number(getLivingDirectorState()?.lastWorldTickMinute) || 0;
+  const now = Number.isFinite(nowMinutes) && nowMinutes > 0 ? nowMinutes : fallbackNow;
   const companion = {
     id: adv?.id ?? 950,
     name: adv?.name || 'Kaelen',
@@ -1206,6 +1214,16 @@ export function getActiveAdventurerCompanion(nowMinutes = 0) {
   const reg = getAdventurerSimRegistry();
   const comp = reg?.activeCompanion;
   if (!comp) return null;
+  if (
+    Number.isFinite(nowMinutes) &&
+    nowMinutes > 0 &&
+    comp.recruitedAtMinutes === 0 &&
+    comp.expiresAtMinutes === COMPANION_DURATION_MINUTES &&
+    nowMinutes > COMPANION_DURATION_MINUTES
+  ) {
+    comp.recruitedAtMinutes = nowMinutes;
+    comp.expiresAtMinutes = nowMinutes + COMPANION_DURATION_MINUTES;
+  }
   if (
     Number.isFinite(nowMinutes) &&
     nowMinutes > 0 &&

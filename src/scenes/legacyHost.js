@@ -307,17 +307,10 @@ export function createLegacyHost(deps) {
    *  which). Null held is not known yet (online: the realm's homes not read): nothing learned, nothing dropped. Answers
    *  whether they changed. ACCOUNT-HOMES: online the held are the account's homes, the line's WHOLE (`heldHousesWhole`)
    *  - a row another member learned goes once the account no longer holds it. */
-  function syncHousesNow(p = null) {
-    const target = p ?? current();
-    if (!target || !family) return false;
+  function syncHousesNow(p) {
     const held = deps.heldHouses?.() ?? null;
     if (held == null) return false;
-    const changed = syncHouses(family, target.id, held, target.deedsTaken ?? [], { whole: deps.heldHousesWhole?.() === true });   // PERMADEATH-HOUSES: the dead's deeds their save took up; ACCOUNT-HOMES: online, the account's homes whole
-    if (changed) {
-      touch(family);
-      store();
-    }
-    return changed;
+    return syncHouses(family, p.id, held, p.deedsTaken ?? [], { whole: deps.heldHousesWhole?.() === true });   // PERMADEATH-HOUSES: the dead's deeds their save took up; ACCOUNT-HOMES: online, the account's homes whole
   }
   /** AUDIT LEGACY II A1: whether the character in the world IS the one the record plays - after a choice hands the line
    *  to another (the Succession, a switch) the page runs on under the old character until the boot lands, and the slow
@@ -1627,7 +1620,7 @@ export function createLegacyHost(deps) {
     familySeatHere,
     moveFamilySeat,
     familyHome: () => familyHome(family),
-    syncHouses: () => syncHousesNow(),
+    syncHouses: () => { const p = current(); if (!p || !family) return false; const c = syncHousesNow(p); if (c) { touch(family); store(); } return c; },
     /** The past played back (a dead or retired member's save), or null. */
     get past() { return past; },
     current,

@@ -89,8 +89,12 @@ export function evaluateCheckpointEncounter({
   regionIndex,
   rng = Math.random,
 }) {
-  const isKnight = Boolean(playerEntity?.guildMemberships?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0);
-  const rep = Number(playerEntity?.regionalReputations?.[regionIndex] || 0);
+  const isKnight = Boolean(
+    playerEntity?.guildMemberships?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
+    playerEntity?.guilds?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
+    playerEntity?.guilds?.KnightlyOrder?.rank > 0
+  );
+  const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
   const hasHighReputation = rep >= 15;
   const canPassFree = isKnight || hasHighReputation;
 
@@ -135,8 +139,12 @@ export function resolveCheckpointInteraction({
     };
   }
 
-  const isKnight = Boolean(playerEntity?.guildMemberships?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0);
-  const rep = Number(playerEntity?.regionalReputations?.[regionIndex] || 0);
+  const isKnight = Boolean(
+    playerEntity?.guildMemberships?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
+    playerEntity?.guilds?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
+    playerEntity?.guilds?.KnightlyOrder?.rank > 0
+  );
+  const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
   const luck = Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
 
   if (method === 'knight') {

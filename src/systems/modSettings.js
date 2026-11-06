@@ -6513,7 +6513,7 @@ export const MOD_SETTINGS = Object.freeze({
         description: 'Chance, in percent, that you have siblings.',
       }),
       'Legacy.Model': Object.freeze({
-        default: 2,
+        default: 0,
         options: Object.freeze(['Enduring', 'Bloodline', 'Dynasty']),
         description:
           'The kind of family a character made before this mod gets. Enduring: a death costs years. Bloodline: a death is final. Dynasty: no death cost, no permadeath.',

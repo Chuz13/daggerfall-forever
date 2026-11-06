@@ -598,7 +598,7 @@ export function familyGuide(model, tollShare) {
   const enduring = `In an Enduring house a death is not the end, but it costs years: Arkay's toll takes ${pct(tollShare)} of your race's lifespan each time (vampires and werebeasts pay none). From ${pct(ELDER_SHARE)} of your lifespan you are an Elder, and once it is spent, your next death is final.`;
   const bloodline = 'In a Bloodline house every death is final.';
   const dynasty = 'In a Dynastic house death follows your standard game rules — no permadeath and no lost years. You can pass the mantle whenever you choose.';
-  const death = model === MODELS.bloodline ? bloodline : model === MODELS.dynasty ? dynasty : model === MODELS.enduring ? enduring : `${enduring} ${bloodline} ${dynasty} A house's model is chosen once, when its founder is made.`;
+  const death = model === MODELS.bloodline ? bloodline : model === MODELS.dynasty ? dynasty : model === MODELS.enduring ? enduring : `${enduring} ${dynasty} ${bloodline} A house's model is chosen once, when its founder is made.`;
   return [
     ['Your house', 'You belong to a family with a surname, a seat town and a family tree. Every member has their own face, age, stats and skills, and any grown, living member of the blood can be played.'],
     ['Death', death],

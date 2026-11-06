@@ -448,7 +448,7 @@ export function createLocalProfDoor(playerEntity, deps) {
       if (!r) return { ok: false, error: 'bad-recipe' };
       const countNum = Math.max(1, Math.trunc(count));
       const inputs = r.inputs.map((inp) => ({ key: inp.key, n: inp.n * countNum }));
-      spendStores(rec, inputs);
+      if (!spendStores(rec, inputs)) return { ok: false, error: 'prof-materials' };
       const outStore = addToStore(rec, r.out, countNum, 'own');
       const prof = trackOf(r.xp ?? r.more?.profession ?? 'smithing');
       const tier = materialOf(r.out, () => null)?.tier ?? 1;
@@ -479,7 +479,7 @@ export function createLocalProfDoor(playerEntity, deps) {
       const r = recipeById(recipe);
       if (!r) return { ok: false, error: 'bad-recipe' };
       const inputs = recipeInputs(r, { heartwood: heartwood === true, cracked: cracked === true });
-      spendStores(rec, inputs);
+      if (!spendStores(rec, inputs)) return { ok: false, error: 'prof-materials' };
       const prof = trackOf(r.profession);
       const t = ensureTrack(rec, prof);
       rec.made ??= { crafts: [], works: [], brews: [] };
@@ -526,7 +526,7 @@ export function createLocalProfDoor(playerEntity, deps) {
       const p = potionById(potion);
       if (!p) return { ok: false, error: 'bad-recipe' };
       const inputs = brewSpends(p, keys);
-      if (inputs) spendStores(rec, inputs);
+      if (inputs && !spendStores(rec, inputs)) return { ok: false, error: 'prof-materials' };
       const prof = 'provisioning';
       const t = ensureTrack(rec, prof);
       rec.made ??= { crafts: [], works: [], brews: [] };
@@ -566,7 +566,7 @@ export function createLocalProfDoor(playerEntity, deps) {
       const r = recipeById(recipe);
       if (!r) return { ok: false, error: 'bad-recipe' };
       const cost = temperCost(r);
-      if (cost) deductFromStore(rec, cost.key, cost.n);
+      if (cost && !deductFromStore(rec, cost.key, cost.n)) return { ok: false, error: 'prof-materials' };
       const prof = trackOf(r.profession);
       const gainedXp = (r.tier ?? 1) * 25;
       const t = addXp(rec, prof, gainedXp);
@@ -624,7 +624,7 @@ export function createLocalProfDoor(playerEntity, deps) {
 
     async reforge(character, tier, rid, count = 0) {
       const rec = getRecord();
-      deductFromStore(rec, 'essence:arcane', 2);
+      if (!deductFromStore(rec, 'essence:arcane', 2)) return { ok: false, error: 'prof-materials' };
       const t = addXp(rec, 'enchanting', 40);
       saveRecord(rec);
       saveSoon?.changed?.();
@@ -659,7 +659,7 @@ export function createLocalProfDoor(playerEntity, deps) {
       const rec = getRecord();
       const r = recipeById(recipe);
       const inputs = r ? recipeInputs(r) : [];
-      spendStores(rec, inputs);
+      if (!spendStores(rec, inputs)) return { ok: false, error: 'prof-materials' };
       const t = addXp(rec, r?.profession ?? 'smithing', 300);
       const pid = mintProvenance();
       saveRecord(rec);
