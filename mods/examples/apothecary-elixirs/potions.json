@@ -1,0 +1,25 @@
+[
+  {
+    "name": "pureVigorElixir",
+    "price": 95,
+    "ingredients": [14, 25, 59],
+    "effect": "26,255",
+    "displayName": "Pure Vigor Elixir",
+    "textureRecord": 11,
+    "settings": {
+      "magnitudeBaseLow": 25,
+      "magnitudeBaseHigh": 50
+    }
+  },
+  {
+    "name": "frostwardCordial",
+    "price": 85,
+    "ingredients": [5, 22, 59],
+    "effect": "8,1",
+    "displayName": "Frostward Cordial",
+    "textureRecord": 34,
+    "settings": {
+      "chanceBase": 100
+    }
+  }
+]

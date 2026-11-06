@@ -1,0 +1,11 @@
+{
+  "id": "steel-and-sinew",
+  "name": "Steel & Sinew (Armor Fatigue)",
+  "version": "1.0.0",
+  "author": "DFF Modding Community",
+  "description": "Increases fatigue drain for heavy plate armor and reduces it for light leather armor.",
+  "enabled": true,
+  "data": {
+    "combat": "combat.json"
+  }
+}

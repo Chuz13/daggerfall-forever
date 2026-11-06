@@ -27,6 +27,7 @@ import { tickActiveEffects } from './effects.js';
 import { skillValue, tallyMovementSkill, SKILLS } from './skills.js';   // MOVE-REAL: the motion tallies' own door
 import { timeScale } from './timeScale.js';   // RPT1026-PROGRESS: a journey's acceleration, which trains at the real clock
 import { FATIGUE_LOSS, FATIGUE_DRAIN_SCALE, killIfAnyLiveStatZero } from './statMods.js';
+import { getModArmorFatigueScale } from './mods/modDataSync.js';
 import { decayEnemyAlert } from './encounters.js';   // PlayerEntity.Update:380-384, the 8-hour alert decay
 import { dice100, setPlayerStruckHook } from '../combat/formulas.js';
 import { installPcaao } from '../combat/pcaao.js';   // PCO1: the mod's RegisterOverride, once, for every host
@@ -772,8 +773,9 @@ function tickPlayerMinutesOnce({
   // fast travel trains nothing. Here a journey's run counts its REAL seconds and each jump 1/scale of a use, so a
   // journey trains as walking the same real minutes does; at x1 nothing changes. Port-Ledger A.
   const pace = Math.max(1, timeScale());
+  const effectiveDrainScale = FATIGUE_DRAIN_SCALE * getModArmorFatigueScale(entity);
   if (activity.jumped) {
-    sinks.drainFatigue?.(Math.trunc(FATIGUE_LOSS.Jumping * fatigueMultiplier * FATIGUE_DRAIN_SCALE));   // BALANCE1: exertion's scale
+    sinks.drainFatigue?.(Math.trunc(FATIGUE_LOSS.Jumping * fatigueMultiplier * effectiveDrainScale));   // BALANCE1: exertion's scale
     entity._jumpTallyAcc = (entity._jumpTallyAcc ?? 0) + 1 / pace;
     if (entity._jumpTallyAcc >= 1) { entity._jumpTallyAcc -= 1; tallyMovementSkill(entity, SKILLS.Jumping); }
   }
@@ -785,7 +787,7 @@ function tickPlayerMinutesOnce({
   // AUDIT CLIMB-ARC L13: a frame that began two moves (the motor's flag a list then) bills each
   for (const kind of [].concat(activity.parkoured || [])) {
     const exertion = FATIGUE_LOSS.Jumping;   // priced as the jump it takes the place of
-    sinks.drainFatigue?.(Math.trunc(exertion * fatigueMultiplier * FATIGUE_DRAIN_SCALE));
+    sinks.drainFatigue?.(Math.trunc(exertion * fatigueMultiplier * effectiveDrainScale));
     tallyMovementSkill(entity, kind === 'vault' || kind === 'leap' ? SKILLS.Jumping : SKILLS.Climbing);   // CLIMB3: a leap is the Jumping skill's
   }
 
@@ -856,7 +858,7 @@ function tickPlayerMinutesOnce({
     // player to exhaustion. The dungeon host was accidentally exempt
     // (its rest advance never routes through this tick); the three
     // hosts S40 gave rest to were not.
-    if (!entity.isResting) sinks.drainFatigue?.(Math.trunc(loss * fatigueMultiplier * FATIGUE_DRAIN_SCALE));   // BALANCE1: exertion's scale
+    if (!entity.isResting) sinks.drainFatigue?.(Math.trunc(loss * fatigueMultiplier * effectiveDrainScale));   // BALANCE1: exertion's scale
 
     // X11b - PlayerEntity.cs:420-421, the very next statement after
     // that fatigue drain and inside the same per-minute block:

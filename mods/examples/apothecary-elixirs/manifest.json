@@ -1,0 +1,11 @@
+{
+  "id": "apothecary-elixirs",
+  "name": "Apothecary Elixirs",
+  "version": "1.0.0",
+  "author": "DFF Modding Community",
+  "description": "Adds specialized alchemical elixirs using native effect mechanics.",
+  "enabled": true,
+  "data": {
+    "potions": "potions.json"
+  }
+}
