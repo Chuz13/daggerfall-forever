@@ -11,3 +11,4 @@ test('World Boot Integrity: world places, heightmap sampling, coordinates, and l
   assert.ok(result.stats.townsIndexed >= 3, 'Towns indexed for world boot');
   assert.ok(result.stats.dungeonsIndexed >= 1, 'Starting dungeon indexed for world boot');
 });
+

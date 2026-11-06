@@ -266,3 +266,4 @@ export function dumpSessionLog(triggerReason = 'manual') {
 if (typeof window !== 'undefined') {
   initSessionDiagnostics();
 }
+

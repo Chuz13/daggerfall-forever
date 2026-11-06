@@ -70,3 +70,4 @@ test('Session Logging: console dumplog command triggers session telemetry dump',
   assert.ok(res.includes('Session diagnostic log dumped'));
   assert.ok(res.includes('test-trigger'));
 });
+
