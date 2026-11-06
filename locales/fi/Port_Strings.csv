@@ -2858,7 +2858,7 @@ prof.page.specs.respecNowArmed,"Paina uudelleen: {cost, number} hopeaa, voimassa
 prof.page.specs.respecTrial,"Vaihda: ilmaiseksi {date} asti"
 prof.page.stores.bought,"{n} ostettu"
 prof.page.stores.boughtGold,"{n} ostettu kullalla"
-prof.page.stores.empty,"Varastosi ovat tyhjät. Se, mitä keräät verkossa, tulee tänne. Paina käyttönäppäintä yrttikasvustolla, puulla, malmisuonella, lohkareella tai tappamasi olennon kohdalla, tai vedessä verkon kanssa. Voit myös käyttää vastaavaa työkalua pikapalkista tai pikapaikasta. Repusta käytetyt työkalut eivät kerää mitään."
+prof.page.stores.empty,"Varastosi ovat tyhjät. Se, mitä keräät, tulee tänne. Paina käyttönäppäintä yrttikasvustolla, puulla, malmisuonella, lohkareella tai tappamasi olennon kohdalla, tai vedessä verkon kanssa. Voit myös käyttää vastaavaa työkalua pikapalkista tai pikapaikasta. Repusta käytetyt työkalut eivät kerää mitään."
 prof.page.stores.emptyCarry,"Varastosi ovat tyhjät. Se, mitä keräät, menee Materiaalipussiisi tai reppuusi – pane se tänne missä tahansa kaupungissa."
 prof.page.stores.essenceStays,"Arkaaninen olemus pysyy Varastoissasi eikä voi mennä reppuusi. Myy se Tori-välilehdellä."
 prof.page.stores.fromPack,"{n} repustasi"

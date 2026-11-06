@@ -2984,7 +2984,7 @@ prof.page.specs.respecNowArmed,"もう一度押す：{cost, number}シルバー�
 prof.page.specs.respecTrial,"変更：{date}まで無料"
 prof.page.stores.bought,"購入品 {n}"
 prof.page.stores.boughtGold,"ゴールドで購入 {n}"
-prof.page.stores.empty,"倉庫は空です。オンラインで採集したものはここに入ります。薬草の群生地、木、鉱脈、岩、倒した生き物で使用キーを押すか、網を持って水の中で押してください。対応する道具をホットバーやクイックスロットから使うこともできます。所持品から使った道具では何も採集できません。"
+prof.page.stores.empty,"倉庫は空です。採集したものはここに入ります。薬草の群生地、木、鉱脈、岩、倒した生き物で使用キーを押すか、網を持って水の中で押してください。対応する道具をホットバーやクイックスロットから使うこともできます。所持品から使った道具では何も採集できません。"
 prof.page.stores.emptyCarry,"倉庫は空です。採集したものは素材袋か所持品に入ります。どの町でもここに入れられます。"
 prof.page.stores.essenceStays,"秘術のエッセンスは倉庫に残り、所持品には入れられません。市場タブで売ってください。"
 prof.page.stores.fromPack,"所持品から {n}"
