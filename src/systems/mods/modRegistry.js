@@ -58,11 +58,72 @@ export function clearVirtualMods() {
   _virtualRegistry.clear();
 }
 
+/** @type {string[]|null} */
+let _inMemoryLoadOrder = null;
+const _inMemoryModToggles = new Map();
+
 /**
  * Storage key for user mod toggle preference.
  * @param {string} modId
  */
 const modPrefKey = (modId) => `dagger.mods.${modId}.enabled`;
+const MOD_LOAD_ORDER_KEY = 'dagger.mods.loadOrder';
+
+/**
+ * Get user configured mod load order (array of mod IDs).
+ * @returns {string[]}
+ */
+export function getModLoadOrder() {
+  if (_inMemoryLoadOrder !== null) return [..._inMemoryLoadOrder];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const val = localStorage.getItem(MOD_LOAD_ORDER_KEY);
+      if (val) {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) {
+          _inMemoryLoadOrder = parsed;
+          return parsed;
+        }
+      }
+    }
+  } catch {
+    // localStorage unavailable
+  }
+  return [];
+}
+
+/**
+ * Set and persist user mod load order.
+ * @param {string[]} orderArray
+ */
+export function setModLoadOrder(orderArray) {
+  if (!Array.isArray(orderArray)) return;
+  _inMemoryLoadOrder = [...orderArray];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(MOD_LOAD_ORDER_KEY, JSON.stringify(orderArray));
+    }
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+/**
+ * Sort a list of mods according to saved load order.
+ * @param {LoadedMod[]} modList
+ * @returns {LoadedMod[]}
+ */
+function sortModsByLoadOrder(modList) {
+  const order = getModLoadOrder();
+  if (order.length === 0) return modList;
+
+  const orderMap = new Map(order.map((id, index) => [id, index]));
+  return [...modList].sort((a, b) => {
+    const idxA = orderMap.has(a.id) ? orderMap.get(a.id) : 999999;
+    const idxB = orderMap.has(b.id) ? orderMap.get(b.id) : 999999;
+    return idxA - idxB;
+  });
+}
 
 /**
  * Get saved user preference for mod enabled state, or default from manifest.
@@ -71,6 +132,9 @@ const modPrefKey = (modId) => `dagger.mods.${modId}.enabled`;
  * @returns {boolean}
  */
 function isModUserEnabled(modId, defaultState = true) {
+  if (_inMemoryModToggles.has(modId)) {
+    return !!_inMemoryModToggles.get(modId);
+  }
   try {
     if (typeof localStorage !== 'undefined') {
       const val = localStorage.getItem(modPrefKey(modId));
@@ -88,6 +152,7 @@ function isModUserEnabled(modId, defaultState = true) {
  * @param {boolean} enabled
  */
 export function setModEnabled(modId, enabled) {
+  _inMemoryModToggles.set(modId, !!enabled);
   const mod = _mods.get(modId);
   if (mod) {
     mod.enabled = !!enabled;
@@ -199,7 +264,7 @@ export function discoverMods() {
  */
 export function getDiscoveredMods() {
   if (!_initialized) discoverMods();
-  return Array.from(_mods.values());
+  return sortModsByLoadOrder(Array.from(_mods.values()));
 }
 
 /**
@@ -208,7 +273,7 @@ export function getDiscoveredMods() {
  */
 export function getActiveMods() {
   if (!_initialized) discoverMods();
-  return Array.from(_mods.values()).filter((m) => m.enabled && !m.error);
+  return sortModsByLoadOrder(Array.from(_mods.values()).filter((m) => m.enabled && !m.error));
 }
 
 /**
@@ -228,5 +293,7 @@ export function _resetModRegistry() {
   _mods.clear();
   _initialized = false;
   _virtualRegistry.clear();
+  _inMemoryLoadOrder = null;
+  _inMemoryModToggles.clear();
 }
 
