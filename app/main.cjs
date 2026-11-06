@@ -2166,6 +2166,11 @@ ipcMain.on('dagger:open-screenshots-folder', (e, targetPath) => {
   fs.mkdirSync(dir, { recursive: true });
   shell.openPath(dir);
 });
+ipcMain.on('dagger:open-mods-folder', (e, targetPath) => {
+  const dir = targetPath || path.join(app.getPath('userData'), 'Mods');
+  fs.mkdirSync(dir, { recursive: true });
+  shell.openPath(dir);
+});
 // FPS-VSYNC (AUDIT 28e): whether this launch lifted Chromium's wait - the page paces its frames by the cap then
 // (src/systems/frameCap.js installFramePacer), since a held frame costs a whole refresh with the wait lifted
 ipcMain.on('dagger:frames-lifted', (e) => { e.returnValue = FRAME_SWITCHES.length > 0; });

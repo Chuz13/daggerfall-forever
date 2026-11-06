@@ -23,11 +23,13 @@ const { contextBridge, ipcRenderer } = require('electron');
 const path = require('node:path');
 const { createFileStorage } = require('./lib/fileStorage.cjs');
 const { createScreenshotStorage, getScreenshotsDir } = require('./lib/screenshotStorage.cjs');
+const { createModsStorage } = require('./lib/modsStorage.cjs');
 const { webgl2Report } = require('./lib/graphicsBackend.cjs');
 
 const root = ipcRenderer.sendSync('dagger:user-data-path');
 const store = createFileStorage(root);
 const shotStore = createScreenshotStorage(getScreenshotsDir(root));
+const modsStore = createModsStorage(root);
 
 // GPU-BACKEND: on a launch that took a graphics backend's switches, this page's own WebGL2 context, made before any game
 // script and told to the shell's guard (app/lib/graphicsBackend.cjs webgl2Report, watchBackend pageReport)
@@ -50,6 +52,13 @@ contextBridge.exposeInMainWorld('daggerShell', {
   versions: { app: process.env.npm_package_version ?? '', electron: process.versions.electron },
   savesPath: path.join(store.root, 'Saves'),   // where the saves actually are, not the root above them
   screenshotsPath: shotStore.dir,
+  modsPath: modsStore.dir,
+  mods: {
+    folderPath: modsStore.dir,
+    openFolder: () => ipcRenderer.send('dagger:open-mods-folder', modsStore.dir),
+    list: () => modsStore.listMods(),
+    readFile: (folder, relPath) => modsStore.readModFile(folder, relPath),
+  },
   screenshots: {
     folderPath: shotStore.dir,
     openFolder: () => ipcRenderer.send('dagger:open-screenshots-folder', shotStore.dir),
