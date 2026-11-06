@@ -11,6 +11,7 @@ import { getCorpse, consumeCorpse, CORPSE_STATE } from './corpseRegistry.js';
 import { canAffordUndead } from './undeadCapacity.js';
 import { spawnMinion } from './minionController.js';
 import { skillValue, SKILLS } from '../skills.js';
+import { NecroConfig, CORPSE_REQ_MODES } from './necroConfig.js';
 
 export const NECRO_SPELL_KEYS = Object.freeze({
   ANIMATE_DEAD: '47,255',
@@ -123,6 +124,22 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
     return { success: false, reason: 'Necromancy is disabled' };
   }
 
+  const casterEntity = caster?.entity || caster;
+
+  // In Abstract mode, can conjure from thin air if no corpse provided
+  if (!targetCorpse && NecroConfig.corpseRequirement === CORPSE_REQ_MODES.ABSTRACT) {
+    if (!canAffordUndead(casterEntity, 'skeleton')) {
+      return { success: false, reason: 'Insufficient undead control capacity' };
+    }
+    const spawnPos = casterEntity?.position ? [...casterEntity.position] : [0, 0, 0];
+    const minion = spawnMinion({
+      type: 'skeleton',
+      position: spawnPos,
+      masterEntity: casterEntity,
+    });
+    return { success: true, minion };
+  }
+
   const corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
   if (!corpse || corpse.consumed) {
     return { success: false, reason: 'Target is not a viable corpse' };
@@ -141,7 +158,6 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
   }
 
   // Capacity check
-  const casterEntity = caster?.entity || caster;
   if (!canAffordUndead(casterEntity, minionType)) {
     return { success: false, reason: 'Insufficient undead control capacity' };
   }
@@ -275,3 +291,4 @@ export function castBoneArmor(caster, duration = 15, pool = 50) {
     roundsRemaining: duration,
   };
 }
+

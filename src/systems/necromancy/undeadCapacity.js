@@ -11,6 +11,7 @@ import { registerCompanionCount, registerCompanionRoster } from '../companionSlo
 import { liveStat } from '../statMods.js';
 import { skillValue, SKILLS } from '../skills.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
+import { NecroConfig, CAP_MODES } from './necroConfig.js';
 
 export const UNDEAD_SLOT_COST = Object.freeze({
   skeleton: 1,
@@ -33,6 +34,9 @@ const _activeMinions = [];
 export function calculateUndeadCapacity(playerEntity, { fixedCap = null } = {}) {
   if (fixedCap !== null && fixedCap > 0) {
     return Math.floor(fixedCap);
+  }
+  if (NecroConfig.capMode === CAP_MODES.FIXED) {
+    return NecroConfig.fixedCap;
   }
 
   if (!playerEntity) return 1;

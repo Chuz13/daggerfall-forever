@@ -9,6 +9,7 @@
 import { getPlayerTaint, TAINT_TIERS, getTaintTier } from './necroTaint.js';
 import { WEAPON_MATERIALS } from '../../characters/weapons.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
+import { NecroConfig, WITCH_HUNTER_MODES } from './necroConfig.js';
 
 export const HUNTER_TYPES = Object.freeze({
   TEMPLAR: 'arkay_templar',
@@ -67,6 +68,7 @@ export function generatePurifierParty(tier) {
  */
 export function checkWitchHunterAmbush(playerEntity, { isResting = true, rolls = Math.random } = {}) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return { ambush: false, party: [] };
+  if (NecroConfig.witchHunterFrequency === WITCH_HUNTER_MODES.OFF) return { ambush: false, party: [] };
 
   const taint = getPlayerTaint(playerEntity);
   if (taint < 40) return { ambush: false, party: [] };
@@ -75,6 +77,7 @@ export function checkWitchHunterAmbush(playerEntity, { isResting = true, rolls =
   // Base chance scales with taint: 40 taint = 5%, 80 taint = 25%, 100 taint = 35%
   let chance = (taint - 30) * 0.005;
   if (isResting) chance *= 1.5;
+  if (NecroConfig.witchHunterFrequency === WITCH_HUNTER_MODES.RARE) chance *= 0.5;
 
   if (rolls() < chance) {
     const party = generatePurifierParty(tier);

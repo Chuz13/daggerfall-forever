@@ -11,6 +11,7 @@
 
 import { addUndeadMinion, removeUndeadMinion, usedUndeadPoints } from './undeadCapacity.js';
 import { liveStat } from '../statMods.js';
+import { NecroConfig } from './necroConfig.js';
 
 export const MINION_STANCES = Object.freeze({
   FOLLOW: 'follow',
@@ -238,6 +239,7 @@ export function detonateMinion(minionId, { radius = 6, damage = 50, nearbyFoes =
  * @returns {boolean} True if minion broke leash and rebelled
  */
 export function checkMinionRebellion(playerEntity, minion, { rolls = Math.random } = {}) {
+  if (!NecroConfig.minionRebellion) return false;
   if (!minion || minion.dead || minion.rebelled) return false;
   if (!playerEntity) return false;
 
@@ -272,3 +274,4 @@ export function _resetMinionControllerForTests() {
   _spawnedMinions.clear();
   _minionIdCounter = 1;
 }
+

@@ -12,6 +12,7 @@ import { setCrimeCommitted } from '../court.js';
 import { isLich } from './lichdomStatus.js';
 import { allSpawnedMinions, MINION_STANCES } from './minionController.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
+import { NecroConfig, SOCIAL_LAW_MODES } from './necroConfig.js';
 
 export const HAMMERFELL_REGIONS = Object.freeze(new Set([
   'Sentinel',
@@ -46,6 +47,10 @@ export function checkSettlementInfraction(
   } = {},
 ) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY || !isInsideSettlement || !playerEntity) {
+    return { infraction: false, crime: CRIMES.None, alertText: null, isHostile: false };
+  }
+
+  if (NecroConfig.socialLaw === SOCIAL_LAW_MODES.OFF) {
     return { infraction: false, crime: CRIMES.None, alertText: null, isHostile: false };
   }
 

@@ -164,3 +164,4 @@ export function handleLichMortalFall(playerEntity, phylactery) {
     respawnPosition: [...phylactery.anchorPosition],
   };
 }
+
