@@ -1,0 +1,1511 @@
+// @ts-check
+// ═══════════════════════════════════════════════════════════════════════════════
+// LIVING TAMRIEL 3D ACTOR, GEOMETRY & ECOLOGICAL WILDERNESS SPAWNER
+//
+// Bridges the Living Tamriel simulation engines to the live 3D streaming world:
+//  1. Context-Aware Wilderness & Road Spawner (`rollLivingWildernessEncounter`,
+//     `rollLivingChunkCamp`) that complements or replaces vanilla DFO spawns based
+//     on Climate, Biome/Fauna Band, Season, Time of Day, Road vs. Off-Road, and
+//     Regional Political Crisis (WAR, PLAGUE, FAMINE, CIVIL_STRIFE).
+//  2. Real 3D Scene & Actor Host (`createLivingSceneHost`) that stands 3D meshes
+//     (ARCH3D.BSA tents, pavilions, wagons, crates, military banners), animated
+//     billboard flats (campfires, braziers, horses, weapon racks, sacks), dynamic
+//     point lights, and live NPC/mob actors (`exteriorFoes.spawnFoe`) with
+//     interactive ChoiceWindow roleplay resolutions.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { CLIMATES } from '../../formats/mapsFile.js';
+import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
+import { SEASONS, seasonValue, dateFromClassicMinutes } from '../gameDate.js';
+import { encounterTable } from '../../characters/encounterTableDoor.js';
+import { trs } from '../../world/mat4.js';
+import { sphereAabb } from '../../render/frustum.js';
+import { drawSeen } from '../../scenes/decor/decorRoom.js';
+import { GLOBAL_SCALE } from '../../player/activate.js';
+import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import { getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import { checkCampFootprintSlope, snapPropToGround } from './campInjector.js';
+import {
+  shouldSpawnRoadCheckpoint,
+  evaluateCheckpointEncounter,
+  resolveCheckpointInteraction,
+  CHECKPOINT_OUTCOME,
+} from './roadCheckpointHost.js';
+import { shouldSpawnUrbanSkirmish, planUrbanSkirmish, SKIRMISH_TEAMS } from './urbanDirector.js';
+import {
+  shouldDispatchNemesis,
+  determineNemesisArchetype,
+  createNemesisHunter,
+  resolveNemesisConfrontation,
+  NEMESIS_RESOLUTION,
+} from './nemesisHost.js';
+import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME } from './pleaHost.js';
+import {
+  getAdventurerSimRegistry,
+  evaluateAdventurerTension,
+  resolveAdventurerEncounter,
+  DUEL_OUTCOME,
+  ADVENTURER_STATUS,
+} from './adventurerSim.js';
+import { LIVING_WORDS } from './livingWords.js';
+
+/** Existing ARCH3D.BSA 3D model IDs used for Living Tamriel props. */
+export const LIVING_MODELS = Object.freeze({
+  TENT: 41606,      // Standard wilderness camp tent
+  PAVILION: 41607,  // Command / Quarantine relief pavilion tent
+  CANOPY: 41610,    // Large open merchant canopy
+  WAGON: 41214,     // Wooden merchant/supply wagon
+  CRATES: 41834,    // Supply crate stack / barricade
+  BOXES: 41832,     // Medical / provision boxes
+  BANNER: 42560,    // Military checkpoint standard / banner
+});
+
+/** Existing TEXTURE.xxx billboard flats used for Living Tamriel props. */
+export const LIVING_FLATS = Object.freeze({
+  CAMPFIRE: Object.freeze({ archive: 210, record: 1, lightRadius: 14 }),
+  BRAZIER: Object.freeze({ archive: 210, record: 17, lightRadius: 12 }),
+  HORSE: Object.freeze({ archive: 201, record: 0, lightRadius: 0 }),
+  SACKS: Object.freeze({ archive: 205, record: 0, lightRadius: 0 }),
+  WEAPON_RACK: Object.freeze({ archive: 207, record: 14, lightRadius: 0 }),
+});
+
+/** Maps class names used in Living Tamriel records to canonical MOBILE_TYPES IDs. */
+export const CLASS_TO_MOBILE_TYPE = Object.freeze({
+  Mage: MOBILE_TYPES.Mage,
+  Spellsword: MOBILE_TYPES.Spellsword,
+  Battlemage: MOBILE_TYPES.Battlemage,
+  Sorcerer: MOBILE_TYPES.Sorcerer,
+  Healer: MOBILE_TYPES.Healer,
+  Nightblade: MOBILE_TYPES.Nightblade,
+  Bard: MOBILE_TYPES.Bard,
+  Burglar: MOBILE_TYPES.Burglar,
+  Rogue: MOBILE_TYPES.Rogue,
+  Acrobat: MOBILE_TYPES.Acrobat,
+  Thief: MOBILE_TYPES.Thief,
+  Assassin: MOBILE_TYPES.Assassin,
+  Monk: MOBILE_TYPES.Monk,
+  Archer: MOBILE_TYPES.Archer,
+  Ranger: MOBILE_TYPES.Ranger,
+  Barbarian: MOBILE_TYPES.Barbarian,
+  Warrior: MOBILE_TYPES.Warrior,
+  Knight: MOBILE_TYPES.Knight,
+  Merchant: MOBILE_TYPES.Bard,
+  CityWatch: MOBILE_TYPES.Knight_CityWatch,
+});
+
+export const LIVING_SITE_KINDS = Object.freeze({
+  CHECKPOINT: 'CHECKPOINT',
+  BANDIT_CAMP: 'BANDIT_CAMP',
+  TRAVELER_REST: 'TRAVELER_REST',
+  QUARANTINE_TENT: 'QUARANTINE_TENT',
+  URBAN_SKIRMISH: 'URBAN_SKIRMISH',
+  NEMESIS_AMBUSH: 'NEMESIS_AMBUSH',
+  ADVENTURER_MEETING: 'ADVENTURER_MEETING',
+});
+
+/** Distance (m) at which a spawned site is kept before cleanup. */
+export const SITE_KEEP_DISTANCE_M = 220;
+/** Distance (m) at which an interactive site opens its roleplay ChoiceWindow. */
+export const SITE_INTERACT_DISTANCE_M = 14;
+
+/**
+ * Returns the replacement probability (0..1) for Living Tamriel's wilderness
+ * spawner over vanilla DFO spawns based on the `wilderness` presence tier.
+ *  - OFF (0): 0% (pure vanilla DFO)
+ *  - LIGHT (1): 30% (gentle ecological & crisis flavor)
+ *  - MID (2): 65% (balanced Living Tamriel ecology + vanilla)
+ *  - HIGH (3): 100% (full Living Tamriel ecological & crisis spawner replacement)
+ *
+ * @param {number} [tier]
+ * @returns {number}
+ */
+export function getWildernessReplacementShare(tier = LivingTamrielConfig.wilderness) {
+  const t = Number(tier);
+  if (t <= PRESENCE.OFF) return 0;
+  if (t === PRESENCE.LIGHT) return 0.30;
+  if (t === PRESENCE.MID) return 0.65;
+  return 1.0;
+}
+
+/**
+ * Builds a candidate pool of mobileTypes tailored to:
+ *  - Climate (Desert, Subtropical, Rainforest, Swamp, Woodlands, HauntedWoodlands, Mountain)
+ *  - Biome / Fauna band (`fauna` past the Iliac Bay)
+ *  - Calendar Season (Spring, Summer, Fall, Winter)
+ *  - Time of Day (Day vs. Night)
+ *  - Road vs. Deep Wilderness (`onRoad`)
+ *  - Regional Political Crisis (WAR, PLAGUE, FAMINE, CIVIL_STRIFE)
+ *  - Player Level (1..45)
+ *
+ * @param {Object} ctx
+ * @param {number} [ctx.climateIndex=231]
+ * @param {number[]|null} [ctx.fauna=null]
+ * @param {number} [ctx.season=SEASONS.Summer]
+ * @param {boolean} [ctx.isDay=true]
+ * @param {boolean} [ctx.onRoad=false]
+ * @param {boolean} [ctx.inLocationRect=false]
+ * @param {number} [ctx.regionIndex=0]
+ * @param {number} [ctx.playerLevel=1]
+ * @param {() => number} [rolls=Math.random]
+ * @returns {{ pool: number[], crisisDriven: boolean, ecologicalTag: string }}
+ */
+export function buildEcologicalCandidatePool(ctx, rolls = Math.random) {
+  const {
+    climateIndex = CLIMATES.Woodlands,
+    fauna = null,
+    season = SEASONS.Summer,
+    isDay = true,
+    onRoad = false,
+    inLocationRect = false,
+    regionIndex = 0,
+    playerLevel = 1,
+  } = ctx;
+
+  const regState = getRegionState(regionIndex);
+  const crisis = regState?.crisis ?? CRISIS_TYPE.PEACE;
+  const phase = regState?.phase ?? CRISIS_PHASE.NONE;
+  const hasActiveCrisis = crisis !== CRISIS_TYPE.PEACE && phase !== CRISIS_PHASE.NONE;
+
+  // 1. Regional Crisis Overlay (45% chance when region is in an active crisis, or 65% on roads)
+  const crisisChance = onRoad ? 0.65 : 0.45;
+  if (hasActiveCrisis && rolls() < crisisChance) {
+    if (crisis === CRISIS_TYPE.WAR) {
+      /** @type {number[]} */
+      const warPool = onRoad
+        ? [MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer, MOBILE_TYPES.Rogue, MOBILE_TYPES.Knight, MOBILE_TYPES.OrcSergeant]
+        : [MOBILE_TYPES.Orc, MOBILE_TYPES.OrcSergeant, MOBILE_TYPES.OrcShaman, MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer, MOBILE_TYPES.Barbarian];
+      if (playerLevel >= 12) warPool.push(MOBILE_TYPES.OrcWarlord, MOBILE_TYPES.Battlemage);
+      return { pool: warPool, crisisDriven: true, ecologicalTag: 'crisis:war' };
+    }
+    if (crisis === CRISIS_TYPE.PLAGUE) {
+      /** @type {number[]} */
+      const plaguePool = isDay
+        ? [MOBILE_TYPES.Rat, MOBILE_TYPES.Zombie, MOBILE_TYPES.GiantBat, MOBILE_TYPES.Rogue]
+        : [MOBILE_TYPES.Zombie, MOBILE_TYPES.SkeletalWarrior, MOBILE_TYPES.Ghost, MOBILE_TYPES.Mummy, MOBILE_TYPES.Rat];
+      if (playerLevel >= 10 && !isDay) plaguePool.push(MOBILE_TYPES.Wraith, MOBILE_TYPES.Vampire);
+      return { pool: plaguePool, crisisDriven: true, ecologicalTag: 'crisis:plague' };
+    }
+    if (crisis === CRISIS_TYPE.FAMINE) {
+      const faminePool = onRoad
+        ? [MOBILE_TYPES.Rogue, MOBILE_TYPES.Burglar, MOBILE_TYPES.Thief, MOBILE_TYPES.Archer, MOBILE_TYPES.Barbarian]
+        : [MOBILE_TYPES.GrizzlyBear, MOBILE_TYPES.SabertoothTiger, MOBILE_TYPES.Archer, MOBILE_TYPES.Rogue];
+      return { pool: faminePool, crisisDriven: true, ecologicalTag: 'crisis:famine' };
+    }
+    if (crisis === CRISIS_TYPE.CIVIL_STRIFE) {
+      const strifePool = [
+        MOBILE_TYPES.Nightblade,
+        MOBILE_TYPES.Rogue,
+        MOBILE_TYPES.Assassin,
+        MOBILE_TYPES.Bard,
+        MOBILE_TYPES.Warrior,
+        MOBILE_TYPES.Spellsword,
+      ];
+      return { pool: strifePool, crisisDriven: true, ecologicalTag: 'crisis:strife' };
+    }
+  }
+
+  // 2. If a custom Tamriel Fauna Band (`fauna`) is present for provinces beyond the Iliac Bay,
+  //    draw from that biome's table first and blend with seasonal/road modifiers.
+  if (Array.isArray(fauna) && fauna.length >= 3) {
+    const tableIdx = inLocationRect ? fauna[0] : (isDay ? fauna[1] : fauna[2]);
+    const biomeTable = encounterTable(tableIdx, { ...ctx, local: true }, rolls);
+    if (Array.isArray(biomeTable) && biomeTable.length > 0) {
+      const maxSlot = Math.min(biomeTable.length - 1, Math.max(3, playerLevel + 3));
+      const minSlot = Math.max(0, Math.min(maxSlot - 3, playerLevel - 4));
+      const slice = biomeTable.slice(minSlot, maxSlot + 1).filter((id) => Number.isInteger(id) && id >= 0);
+      if (slice.length > 0) {
+        if (onRoad && isDay) {
+          slice.push(MOBILE_TYPES.Rogue, MOBILE_TYPES.Archer, MOBILE_TYPES.Ranger);
+        }
+        return { pool: slice, crisisDriven: false, ecologicalTag: `biome:${tableIdx}` };
+      }
+    }
+  }
+
+  // 3. Road Ecology (when travelling along highways/roads outside crisis)
+  if (onRoad && rolls() < 0.55) {
+    /** @type {number[]} */
+    const roadPool = isDay
+      ? [MOBILE_TYPES.Rogue, MOBILE_TYPES.Archer, MOBILE_TYPES.Warrior, MOBILE_TYPES.Barbarian, MOBILE_TYPES.Ranger, MOBILE_TYPES.Spellsword]
+      : [MOBILE_TYPES.Thief, MOBILE_TYPES.Assassin, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Rogue, MOBILE_TYPES.SkeletalWarrior];
+    if (playerLevel >= 8) roadPool.push(MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Sorcerer);
+    return { pool: roadPool, crisisDriven: false, ecologicalTag: isDay ? 'road:day' : 'road:night' };
+  }
+
+  // 4. Climate + Season + Time-of-Day Ecological Pool
+  /** @type {number[]} */
+  const pool = [];
+  let tag = 'wild:temperate';
+
+  switch (climateIndex) {
+    case CLIMATES.Desert:
+    case CLIMATES.Desert2:
+      tag = 'wild:desert';
+      if (isDay) {
+        pool.push(MOBILE_TYPES.GiantScorpion, MOBILE_TYPES.SabertoothTiger, MOBILE_TYPES.Centaur, MOBILE_TYPES.Archer, MOBILE_TYPES.Barbarian);
+        if (season === SEASONS.Summer && playerLevel >= 7) pool.push(MOBILE_TYPES.FireDaedra, MOBILE_TYPES.FireAtronach, MOBILE_TYPES.Dragonling);
+      } else {
+        pool.push(MOBILE_TYPES.GiantScorpion, MOBILE_TYPES.Mummy, MOBILE_TYPES.SkeletalWarrior, MOBILE_TYPES.Ghost, MOBILE_TYPES.Assassin);
+        if (playerLevel >= 9) pool.push(MOBILE_TYPES.Vampire, MOBILE_TYPES.Wraith, MOBILE_TYPES.Daedroth);
+      }
+      break;
+
+    case CLIMATES.Subtropical:
+    case CLIMATES.Rainforest:
+      tag = 'wild:tropical';
+      if (isDay) {
+        pool.push(MOBILE_TYPES.SabertoothTiger, MOBILE_TYPES.Spider, MOBILE_TYPES.Spriggan, MOBILE_TYPES.Nymph, MOBILE_TYPES.Centaur, MOBILE_TYPES.Ranger);
+        if (playerLevel >= 6) pool.push(MOBILE_TYPES.Harpy, MOBILE_TYPES.GiantScorpion);
+      } else {
+        pool.push(MOBILE_TYPES.Spider, MOBILE_TYPES.GiantBat, MOBILE_TYPES.Wereboar, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Zombie);
+        if (playerLevel >= 8) pool.push(MOBILE_TYPES.Vampire, MOBILE_TYPES.DaedraSeducer);
+      }
+      break;
+
+    case CLIMATES.Swamp:
+      tag = 'wild:swamp';
+      if (isDay) {
+        pool.push(MOBILE_TYPES.Spider, MOBILE_TYPES.Rat, MOBILE_TYPES.Spriggan, MOBILE_TYPES.Zombie, MOBILE_TYPES.Orc, MOBILE_TYPES.Rogue);
+        if (playerLevel >= 7) pool.push(MOBILE_TYPES.FleshAtronach, MOBILE_TYPES.Gargoyle);
+      } else {
+        pool.push(MOBILE_TYPES.Zombie, MOBILE_TYPES.Ghost, MOBILE_TYPES.Wraith, MOBILE_TYPES.GiantBat, MOBILE_TYPES.Wereboar, MOBILE_TYPES.SkeletalWarrior);
+        if (playerLevel >= 10) pool.push(MOBILE_TYPES.Vampire, MOBILE_TYPES.Lich);
+      }
+      break;
+
+    case CLIMATES.Mountain:
+      tag = 'wild:mountain';
+      if (isDay) {
+        pool.push(MOBILE_TYPES.GrizzlyBear, MOBILE_TYPES.Harpy, MOBILE_TYPES.Orc, MOBILE_TYPES.OrcSergeant, MOBILE_TYPES.Barbarian);
+        if (playerLevel >= 6) pool.push(MOBILE_TYPES.Giant, MOBILE_TYPES.Gargoyle, MOBILE_TYPES.OrcWarlord);
+        if (season === SEASONS.Winter && playerLevel >= 7) pool.push(MOBILE_TYPES.IceAtronach, MOBILE_TYPES.FrostDaedra);
+      } else {
+        pool.push(MOBILE_TYPES.Harpy, MOBILE_TYPES.Werewolf, MOBILE_TYPES.OrcShaman, MOBILE_TYPES.Ghost, MOBILE_TYPES.SkeletalWarrior);
+        if (season === SEASONS.Winter && playerLevel >= 6) pool.push(MOBILE_TYPES.FrostDaedra, MOBILE_TYPES.IceAtronach);
+        if (playerLevel >= 9) pool.push(MOBILE_TYPES.Vampire, MOBILE_TYPES.Dragonling);
+      }
+      break;
+
+    case CLIMATES.HauntedWoodlands:
+      tag = 'wild:haunted';
+      if (isDay) {
+        pool.push(MOBILE_TYPES.SkeletalWarrior, MOBILE_TYPES.Zombie, MOBILE_TYPES.Spriggan, MOBILE_TYPES.Wereboar, MOBILE_TYPES.Spider);
+        if (playerLevel >= 7) pool.push(MOBILE_TYPES.Gargoyle, MOBILE_TYPES.Mummy);
+      } else {
+        pool.push(MOBILE_TYPES.Ghost, MOBILE_TYPES.Wraith, MOBILE_TYPES.SkeletalWarrior, MOBILE_TYPES.Zombie, MOBILE_TYPES.Werewolf, MOBILE_TYPES.Vampire);
+        if (playerLevel >= 11) pool.push(MOBILE_TYPES.VampireAncient, MOBILE_TYPES.Lich);
+      }
+      break;
+
+    case CLIMATES.Woodlands:
+    case CLIMATES.MountainWoods:
+    default:
+      tag = 'wild:woodland';
+      if (isDay) {
+        pool.push(MOBILE_TYPES.GrizzlyBear, MOBILE_TYPES.Spriggan, MOBILE_TYPES.Centaur, MOBILE_TYPES.Orc, MOBILE_TYPES.Archer, MOBILE_TYPES.Ranger);
+        if (season === SEASONS.Spring || season === SEASONS.Summer) {
+          pool.push(MOBILE_TYPES.Nymph, MOBILE_TYPES.SabertoothTiger);
+        } else if (season === SEASONS.Winter) {
+          pool.push(MOBILE_TYPES.Barbarian, MOBILE_TYPES.OrcSergeant);
+          if (playerLevel >= 7) pool.push(MOBILE_TYPES.IceAtronach, MOBILE_TYPES.FrostDaedra);
+        }
+        if (playerLevel >= 7) pool.push(MOBILE_TYPES.Giant, MOBILE_TYPES.OrcSergeant);
+      } else {
+        pool.push(MOBILE_TYPES.Werewolf, MOBILE_TYPES.Wereboar, MOBILE_TYPES.GiantBat, MOBILE_TYPES.Spider, MOBILE_TYPES.SkeletalWarrior, MOBILE_TYPES.Rogue);
+        if (season === SEASONS.Fall || season === SEASONS.Winter) {
+          pool.push(MOBILE_TYPES.Ghost, MOBILE_TYPES.Wraith);
+        }
+        if (playerLevel >= 8) pool.push(MOBILE_TYPES.Vampire, MOBILE_TYPES.OrcShaman);
+      }
+      break;
+  }
+
+  // Filter low-level players from facing instant-death high-tier monsters unless lucky/high-roll
+  const filtered = pool.filter((id) => {
+    if (playerLevel < 4 && (id === MOBILE_TYPES.Wraith || id === MOBILE_TYPES.Vampire || id === MOBILE_TYPES.Ghost || id === MOBILE_TYPES.Giant)) {
+      return false;
+    }
+    return true;
+  });
+
+  const finalPool = filtered.length > 0 ? filtered : [MOBILE_TYPES.Rat, MOBILE_TYPES.Imp, MOBILE_TYPES.GrizzlyBear, MOBILE_TYPES.Rogue];
+  return { pool: finalPool, crisisDriven: false, ecologicalTag: `${tag}:s${season}:${isDay ? 'day' : 'night'}` };
+}
+
+/**
+ * Rolls a Living Tamriel wilderness/road encounter that complements or replaces
+ * DFO's default `intermittentEnemySpawn` decision.
+ *
+ * Returns `null` when Living Tamriel defers to vanilla DFO (or when no spawn fires),
+ * or `{ mobileType, minDistance, maxDistance, lineOfSightCheck, ecologicalTag, crisisDriven, extraCount }`.
+ *
+ * @param {Object} ctx
+ * @param {number} ctx.gameMinutes
+ * @param {number|null} [ctx.skyMinutes]
+ * @param {boolean} [ctx.inside=false]
+ * @param {boolean} [ctx.inDungeon=false]
+ * @param {boolean} [ctx.inLocationRect=false]
+ * @param {boolean} [ctx.onRoad=false]
+ * @param {number} [ctx.climateIndex=231]
+ * @param {number[]|null} [ctx.fauna=null]
+ * @param {number} [ctx.regionIndex=0]
+ * @param {number} [ctx.playerLevel=1]
+ * @param {boolean} [ctx.preventEnemySpawns=false]
+ * @param {() => number} [rolls=Math.random]
+ */
+export function rollLivingWildernessEncounter(ctx, rolls = Math.random) {
+  if (!ctx || ctx.inside || ctx.inDungeon || ctx.preventEnemySpawns) return null;
+
+  const share = getWildernessReplacementShare(LivingTamrielConfig.wilderness);
+  if (share <= 0) return null;
+
+  // Classic 12-minute cadence window
+  if (Math.trunc(ctx.gameMinutes / 12) % 12 !== 0) return null;
+
+  // Check if Living Tamriel claims this spawn window vs vanilla DFO
+  if (rolls() >= share) return null;
+
+  const skyMin = Number.isFinite(ctx.skyMinutes) ? Number(ctx.skyMinutes) : ctx.gameMinutes;
+  const timeOfDay = ((skyMin % 1440) + 1440) % 1440;
+  const isDay = timeOfDay >= 360 && timeOfDay <= 1080;
+
+  // Town rect by day does not spawn random monsters (urban skirmishes are handled by livingSceneHost)
+  if (ctx.inLocationRect && isDay) return null;
+
+  const regState = getRegionState(ctx.regionIndex ?? 0);
+  const tensionBonus = Math.min(12, Math.floor((regState?.tension ?? 10) / 8));
+
+  // Spawn roll: higher tension in a region increases wilderness/road danger
+  const baseRollMax = ctx.inLocationRect ? 24 : (isDay ? 36 : 24);
+  const adjustedRollMax = Math.max(10, baseRollMax - tensionBonus);
+  if (Math.floor(rolls() * adjustedRollMax) !== 0) return null;
+
+  const season = seasonValue(dateFromClassicMinutes(skyMin));
+  const { pool, crisisDriven, ecologicalTag } = buildEcologicalCandidatePool(
+    {
+      climateIndex: ctx.climateIndex ?? CLIMATES.Woodlands,
+      fauna: ctx.fauna ?? null,
+      season,
+      isDay,
+      onRoad: Boolean(ctx.onRoad),
+      inLocationRect: Boolean(ctx.inLocationRect),
+      regionIndex: ctx.regionIndex ?? 0,
+      playerLevel: ctx.playerLevel ?? 1,
+    },
+    rolls,
+  );
+
+  const mobileType = pool[Math.floor(rolls() * pool.length)];
+  const extraCount = crisisDriven && rolls() < 0.5 ? 1 : 0;
+
+  return {
+    mobileType,
+    minDistance: 10,
+    maxDistance: 20,
+    lineOfSightCheck: true,
+    ecologicalTag,
+    crisisDriven,
+    extraCount,
+  };
+}
+
+/**
+ * Generates an ecological/crisis pack roster for chunk-load camp encounters when
+ * Living Tamriel claims a chunk-load camp roll.
+ *
+ * @param {Object} ctx
+ * @param {number} [ctx.climateIndex=231]
+ * @param {number[]|null} [ctx.fauna=null]
+ * @param {number} [ctx.skyMinutes=720]
+ * @param {number} [ctx.regionIndex=0]
+ * @param {number} [ctx.playerLevel=1]
+ * @param {() => number} [rolls=Math.random]
+ * @returns {{ mobileTypes: number[], ecologicalTag: string, crisisDriven: boolean }|null}
+ */
+export function rollLivingChunkCampRoster(ctx, rolls = Math.random) {
+  const share = getWildernessReplacementShare(LivingTamrielConfig.wilderness);
+  if (share <= 0 || rolls() >= share) return null;
+
+  const skyMin = Number.isFinite(ctx.skyMinutes) ? Number(ctx.skyMinutes) : 720;
+  const timeOfDay = ((skyMin % 1440) + 1440) % 1440;
+  const isDay = timeOfDay >= 360 && timeOfDay <= 1080;
+  const season = seasonValue(dateFromClassicMinutes(skyMin));
+
+  const { pool, crisisDriven, ecologicalTag } = buildEcologicalCandidatePool(
+    {
+      climateIndex: ctx.climateIndex ?? CLIMATES.Woodlands,
+      fauna: ctx.fauna ?? null,
+      season,
+      isDay,
+      onRoad: false,
+      inLocationRect: false,
+      regionIndex: ctx.regionIndex ?? 0,
+      playerLevel: ctx.playerLevel ?? 1,
+    },
+    rolls,
+  );
+
+  const count = 2 + Math.floor(rolls() * 2); // 2..3 members
+  const mobileTypes = [];
+  for (let i = 0; i < count; i++) {
+    mobileTypes.push(pool[Math.floor(rolls() * pool.length)]);
+  }
+
+  return {
+    mobileTypes,
+    ecologicalTag,
+    crisisDriven,
+  };
+}
+
+/**
+ * Creates a site blueprint (3D meshes, billboard flats, point lights, and actor spawns)
+ * snapped to the terrain at `(centerX, centerZ)`.
+ *
+ * @param {Object} params
+ * @param {string} params.kind One of LIVING_SITE_KINDS
+ * @param {number} params.centerX
+ * @param {number} params.centerZ
+ * @param {(x: number, z: number) => number} params.heightAt
+ * @param {number} [params.regionIndex=0]
+ * @param {any} [params.playerEntity=null]
+ * @param {number} [params.nowMinutes=0]
+ * @param {() => number} [params.rng=Math.random]
+ */
+export function buildLivingSiteBlueprint({
+  kind,
+  centerX,
+  centerZ,
+  heightAt,
+  regionIndex = 0,
+  playerEntity = null,
+  nowMinutes = 0,
+  rng = Math.random,
+}) {
+  const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
+  const y0 = snapPropToGround(heightAt, centerX, centerZ, 0);
+
+  /** @type {Array<{ modelId: number, feet: number[], yawDeg: number }>} */
+  const meshes = [];
+  /** @type {Array<{ archive: number, record: number, feet: number[], lightRadius: number }>} */
+  const flats = [];
+  /** @type {Array<{ mobileType: number, name: string, level: number, feet: number[], yaw: number, allied: boolean, hostile: boolean, role: string, team?: string }>} */
+  const actors = [];
+  /** @type {any} */
+  let meta = { kind, regionIndex };
+
+  if (kind === LIVING_SITE_KINDS.CHECKPOINT) {
+    const info = evaluateCheckpointEncounter({ playerEntity, regionIndex, rng });
+    meta = { ...meta, ...info };
+
+    meshes.push(
+      { modelId: LIVING_MODELS.BANNER, feet: [centerX - 2.5, snapPropToGround(heightAt, centerX - 2.5, centerZ), centerZ], yawDeg: 0 },
+      { modelId: LIVING_MODELS.CRATES, feet: [centerX + 2.5, snapPropToGround(heightAt, centerX + 2.5, centerZ - 1.0), centerZ - 1.0], yawDeg: 25 },
+      { modelId: LIVING_MODELS.BOXES, feet: [centerX - 2.2, snapPropToGround(heightAt, centerX - 2.2, centerZ + 1.5), centerZ + 1.5], yawDeg: -15 },
+    );
+    flats.push(
+      { ...LIVING_FLATS.BRAZIER, feet: [centerX - 1.5, snapPropToGround(heightAt, centerX - 1.5, centerZ - 1.2), centerZ - 1.2] },
+      { ...LIVING_FLATS.WEAPON_RACK, feet: [centerX + 2.0, snapPropToGround(heightAt, centerX + 2.0, centerZ + 1.2), centerZ + 1.2] },
+    );
+
+    const guardCount = Math.min(3, Math.max(2, info.guardCount));
+    for (let i = 0; i < guardCount; i++) {
+      const gx = centerX + (i - 1) * 2.2;
+      const gz = centerZ + (i % 2 === 0 ? 1.5 : -1.0);
+      actors.push({
+        mobileType: i === 0 ? MOBILE_TYPES.Knight : MOBILE_TYPES.Warrior,
+        name: i === 0 ? 'Checkpoint Captain' : 'Provincial Watchman',
+        level: Math.max(3, playerLevel),
+        feet: [gx, snapPropToGround(heightAt, gx, gz), gz],
+        yaw: Math.PI,
+        allied: false,
+        hostile: false,
+        role: 'checkpoint_guard',
+      });
+    }
+  } else if (kind === LIVING_SITE_KINDS.BANDIT_CAMP) {
+    meshes.push(
+      { modelId: LIVING_MODELS.TENT, feet: [centerX - 4.0, snapPropToGround(heightAt, centerX - 4.0, centerZ - 2.0), centerZ - 2.0], yawDeg: 45 },
+      { modelId: LIVING_MODELS.TENT, feet: [centerX + 4.0, snapPropToGround(heightAt, centerX + 4.0, centerZ - 2.0), centerZ - 2.0], yawDeg: -45 },
+      { modelId: LIVING_MODELS.CRATES, feet: [centerX - 1.5, snapPropToGround(heightAt, centerX - 1.5, centerZ + 3.0), centerZ + 3.0], yawDeg: 15 },
+    );
+    flats.push(
+      { ...LIVING_FLATS.CAMPFIRE, feet: [centerX, y0, centerZ] },
+      { ...LIVING_FLATS.SACKS, feet: [centerX + 1.8, snapPropToGround(heightAt, centerX + 1.8, centerZ + 2.2), centerZ + 2.2] },
+    );
+
+    const banditRoles = [
+      { mobileType: MOBILE_TYPES.Rogue, name: 'Highway Brigand', dx: 2.2, dz: 1.0 },
+      { mobileType: MOBILE_TYPES.Archer, name: 'Outlaw Marksman', dx: -2.2, dz: 1.2 },
+      { mobileType: MOBILE_TYPES.Warrior, name: 'Deserter Cutthroat', dx: 0, dz: -2.5 },
+    ];
+    for (const b of banditRoles) {
+      const bx = centerX + b.dx;
+      const bz = centerZ + b.dz;
+      actors.push({
+        mobileType: b.mobileType,
+        name: b.name,
+        level: Math.max(1, playerLevel),
+        feet: [bx, snapPropToGround(heightAt, bx, bz), bz],
+        yaw: Math.atan2(-b.dx, -b.dz),
+        allied: false,
+        hostile: true,
+        role: 'bandit_camp',
+      });
+    }
+  } else if (kind === LIVING_SITE_KINDS.TRAVELER_REST) {
+    const pleaCheck = evaluatePleaEncounter({ regionIndex, nowMinutes, playerEntity, rng: () => 0.05 });
+    meta = { ...meta, plea: pleaCheck.plea };
+
+    meshes.push(
+      { modelId: LIVING_MODELS.WAGON, feet: [centerX - 3.8, snapPropToGround(heightAt, centerX - 3.8, centerZ + 1.0), centerZ + 1.0], yawDeg: 30 },
+      { modelId: LIVING_MODELS.TENT, feet: [centerX + 3.5, snapPropToGround(heightAt, centerX + 3.5, centerZ - 1.5), centerZ - 1.5], yawDeg: -60 },
+      { modelId: LIVING_MODELS.BOXES, feet: [centerX - 1.8, snapPropToGround(heightAt, centerX - 1.8, centerZ - 2.0), centerZ - 2.0], yawDeg: 10 },
+    );
+    flats.push(
+      { ...LIVING_FLATS.CAMPFIRE, feet: [centerX, y0, centerZ] },
+      { ...LIVING_FLATS.HORSE, feet: [centerX - 5.2, snapPropToGround(heightAt, centerX - 5.2, centerZ + 2.5), centerZ + 2.5] },
+    );
+
+    actors.push(
+      {
+        mobileType: MOBILE_TYPES.Bard,
+        name: 'Wayfaring Merchant',
+        level: Math.max(2, playerLevel),
+        feet: [centerX + 1.6, snapPropToGround(heightAt, centerX + 1.6, centerZ + 1.2), centerZ + 1.2],
+        yaw: Math.PI,
+        allied: false,
+        hostile: false,
+        role: 'traveler',
+      },
+      {
+        mobileType: MOBILE_TYPES.Ranger,
+        name: 'Caravan Outrider',
+        level: Math.max(2, playerLevel),
+        feet: [centerX - 1.6, snapPropToGround(heightAt, centerX - 1.6, centerZ + 1.6), centerZ + 1.6],
+        yaw: 0,
+        allied: false,
+        hostile: false,
+        role: 'traveler_guard',
+      },
+    );
+  } else if (kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
+    meshes.push(
+      { modelId: LIVING_MODELS.PAVILION, feet: [centerX, y0, centerZ], yawDeg: 0 },
+      { modelId: LIVING_MODELS.BOXES, feet: [centerX + 3.0, snapPropToGround(heightAt, centerX + 3.0, centerZ + 1.5), centerZ + 1.5], yawDeg: 20 },
+      { modelId: LIVING_MODELS.CRATES, feet: [centerX - 3.0, snapPropToGround(heightAt, centerX - 3.0, centerZ + 1.5), centerZ + 1.5], yawDeg: -25 },
+    );
+    flats.push(
+      { ...LIVING_FLATS.BRAZIER, feet: [centerX + 2.2, snapPropToGround(heightAt, centerX + 2.2, centerZ + 2.8), centerZ + 2.8] },
+      { ...LIVING_FLATS.SACKS, feet: [centerX - 2.0, snapPropToGround(heightAt, centerX - 2.0, centerZ + 2.5), centerZ + 2.5] },
+    );
+
+    actors.push(
+      {
+        mobileType: MOBILE_TYPES.Healer,
+        name: 'Quarantine Physician',
+        level: Math.max(4, playerLevel),
+        feet: [centerX + 1.2, snapPropToGround(heightAt, centerX + 1.2, centerZ + 3.2), centerZ + 3.2],
+        yaw: 0,
+        allied: false,
+        hostile: false,
+        role: 'quarantine_healer',
+      },
+      {
+        mobileType: MOBILE_TYPES.Monk,
+        name: 'Temple Almoner',
+        level: Math.max(3, playerLevel),
+        feet: [centerX - 1.4, snapPropToGround(heightAt, centerX - 1.4, centerZ + 3.0), centerZ + 3.0],
+        yaw: 0,
+        allied: false,
+        hostile: false,
+        role: 'quarantine_healer',
+      },
+    );
+  } else if (kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
+    const plan = planUrbanSkirmish({
+      centerX,
+      centerZ,
+      doorwayPositions: [],
+      heightSampler: heightAt,
+      rng,
+    });
+    if (plan) {
+      meshes.push(
+        { modelId: LIVING_MODELS.CRATES, feet: [plan.props[0].x, plan.props[0].y, plan.props[0].z], yawDeg: 35 },
+      );
+      if (plan.props[1]) {
+        meshes.push(
+          { modelId: LIVING_MODELS.WAGON, feet: [plan.props[1].x, plan.props[1].y, plan.props[1].z], yawDeg: -50 },
+        );
+      }
+      flats.push({ ...LIVING_FLATS.BRAZIER, feet: [centerX, y0, centerZ] });
+
+      for (let i = 0; i < plan.guards.length; i++) {
+        const g = plan.guards[i];
+        const gx = centerX + g.dx;
+        const gz = centerZ + g.dz;
+        actors.push({
+          mobileType: MOBILE_TYPES.Knight,
+          name: 'Loyalist Watchman',
+          level: Math.max(4, playerLevel),
+          feet: [gx, snapPropToGround(heightAt, gx, gz), gz],
+          yaw: 0,
+          allied: true,
+          hostile: false,
+          role: 'skirmish_guard',
+          team: SKIRMISH_TEAMS.CITY_WATCH,
+        });
+      }
+      const rebelTypes = [MOBILE_TYPES.Rogue, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Warrior];
+      for (let i = 0; i < plan.rebels.length; i++) {
+        const rb = plan.rebels[i];
+        const rx = centerX + rb.dx;
+        const rz = centerZ + rb.dz;
+        actors.push({
+          mobileType: rebelTypes[i % rebelTypes.length],
+          name: 'Rebel Insurgent',
+          level: Math.max(3, playerLevel),
+          feet: [rx, snapPropToGround(heightAt, rx, rz), rz],
+          yaw: Math.PI,
+          allied: false,
+          hostile: true,
+          role: 'skirmish_rebel',
+          team: SKIRMISH_TEAMS.INSURGENTS,
+        });
+      }
+    }
+  } else if (kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH) {
+    const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? 0);
+    const regState = getRegionState(regionIndex);
+    const isCrisis = regState?.crisis !== CRISIS_TYPE.PEACE;
+    const archetype = determineNemesisArchetype(playerEntity, {
+      legalReputation: rep,
+      playerLevel,
+      isCrisis,
+      hasGrudge: true,
+      playerGold: Number(playerEntity?.goldPieces ?? 0),
+      rng,
+    });
+    const nemesis = createNemesisHunter(playerLevel, { archetype, rng });
+    meta = { ...meta, nemesis };
+
+    const leaderType = CLASS_TO_MOBILE_TYPE[nemesis.className] ?? MOBILE_TYPES.Assassin;
+    actors.push({
+      mobileType: leaderType,
+      name: nemesis.name,
+      level: nemesis.level,
+      feet: [centerX, y0, centerZ],
+      yaw: Math.PI,
+      allied: false,
+      hostile: false, // Held until ChoiceWindow resolves!
+      role: 'nemesis_leader',
+    });
+
+    const minionTypes = [MOBILE_TYPES.Rogue, MOBILE_TYPES.Archer, MOBILE_TYPES.Warrior];
+    for (let i = 0; i < nemesis.minions.length; i++) {
+      const m = nemesis.minions[i];
+      const angle = ((i + 1) / (nemesis.minions.length + 1)) * Math.PI - Math.PI / 2;
+      const mx = centerX + Math.sin(angle) * 3.0;
+      const mz = centerZ + Math.cos(angle) * 2.5;
+      actors.push({
+        mobileType: minionTypes[i % minionTypes.length],
+        name: m.name,
+        level: m.level,
+        feet: [mx, snapPropToGround(heightAt, mx, mz), mz],
+        yaw: Math.PI,
+        allied: false,
+        hostile: false,
+        role: 'nemesis_minion',
+      });
+    }
+  } else if (kind === LIVING_SITE_KINDS.ADVENTURER_MEETING) {
+    const reg = getAdventurerSimRegistry();
+    const regionalPool = (reg.pool || []).filter(
+      (a) => a.status !== ADVENTURER_STATUS.DEAD && a.currentRegion === regionIndex,
+    );
+    const adv = regionalPool[0] || {
+      id: 999,
+      name: 'Sir Kaelen the Bold',
+      className: 'Knight',
+      trait: 'ARROGANT',
+      level: playerLevel,
+      gearTier: Math.min(9, Math.floor(playerLevel / 5) + 1),
+      currentRegion: regionIndex,
+    };
+    const tension = evaluateAdventurerTension(adv, playerEntity);
+    meta = { ...meta, adv, tension };
+
+    flats.push({ ...LIVING_FLATS.CAMPFIRE, feet: [centerX, y0, centerZ] });
+    meshes.push({
+      modelId: LIVING_MODELS.TENT,
+      feet: [centerX - 3.0, snapPropToGround(heightAt, centerX - 3.0, centerZ - 2.0), centerZ - 2.0],
+      yawDeg: 35,
+    });
+
+    const advType = CLASS_TO_MOBILE_TYPE[adv.className] ?? MOBILE_TYPES.Warrior;
+    actors.push({
+      mobileType: advType,
+      name: `${adv.name} (${adv.className})`,
+      level: adv.level,
+      feet: [centerX + 1.5, snapPropToGround(heightAt, centerX + 1.5, centerZ + 1.0), centerZ + 1.0],
+      yaw: Math.PI,
+      allied: false,
+      hostile: false,
+      role: 'rival_adventurer',
+    });
+  }
+
+  return {
+    kind,
+    center: [centerX, y0, centerZ],
+    meshes,
+    flats,
+    actors,
+    meta,
+  };
+}
+
+/**
+ * Creates the live 3D scene host for Living Tamriel props, camps, checkpoints,
+ * quarantine relief tents, urban skirmishes, Nemesis ambushes, and Rival Adventurers.
+ *
+ * @param {{
+ *   feet: () => (number[] | null),
+ *   ready: () => boolean,
+ *   clock: () => number,
+ *   regionIndex: () => number,
+ *   inLocationRect: () => boolean,
+ *   onRoad: () => boolean,
+ *   heightAt: (x: number, z: number) => number,
+ *   playerEntity: () => any,
+ *   spawn: (type: number, feet: number[], opts: any) => Promise<any>,
+ *   remove: (rec: any) => void,
+ *   inPool: (rec: any) => boolean,
+ *   say: (text: string, sec?: number) => void,
+ *   openChoice?: (spec: { lines: string[], options: Array<{ code: string, label: string, action: () => void }> }) => void,
+ *   renderer?: any,
+ *   meshes?: { getGpuMesh?: (id: number) => Promise<any> },
+ *   getTexture?: (archive: number) => Promise<any>,
+ *   uploadRecordFrame?: (archive: number, record: number, frame: number) => void,
+ *   rng?: () => number,
+ * }} deps
+ */
+export function createLivingSceneHost(deps) {
+  const rng = deps.rng ?? Math.random;
+  /** @type {Map<number, any>} modelId -> { gpu } */
+  const gpuModels = new Map();
+  /** @type {Set<number>} */
+  const loadingModels = new Set();
+  /** @type {Map<string, { w: number, h: number }>} `${archive}:${record}` -> size */
+  const flatSizes = new Map();
+  /** @type {Set<string>} */
+  const loadingFlats = new Set();
+
+  /** Active stood site in the scene, or null. */
+  let stood = /** @type {any} */ (null);
+  let checkTimer = 0;
+  let lastSpawnMinute = -999999;
+  let lastSkirmishRegion = -1;
+
+  function ensureModel(modelId) {
+    if (gpuModels.has(modelId) || loadingModels.has(modelId) || !deps.meshes?.getGpuMesh) return;
+    loadingModels.add(modelId);
+    Promise.resolve(deps.meshes.getGpuMesh(modelId))
+      .then((gpu) => {
+        if (gpu) gpuModels.set(modelId, { gpu });
+      })
+      .catch(() => {})
+      .finally(() => {
+        loadingModels.delete(modelId);
+      });
+  }
+
+  function ensureFlat(archive, record) {
+    const key = `${archive}:${record}`;
+    if (flatSizes.has(key) || loadingFlats.has(key) || !deps.getTexture) return;
+    loadingFlats.add(key);
+    Promise.resolve(deps.getTexture(archive))
+      .then((tex) => {
+        if (!tex) return;
+        const count = tex.getFrameCount?.(record) ?? 1;
+        for (let i = 0; i < count; i++) deps.uploadRecordFrame?.(archive, record, i);
+        const sz = tex.getSize?.(record) ?? { width: 1.2, height: 1.2 };
+        flatSizes.set(key, { w: sz.width * GLOBAL_SCALE, h: sz.height * GLOBAL_SCALE });
+      })
+      .catch(() => {})
+      .finally(() => {
+        loadingFlats.delete(key);
+      });
+  }
+
+  function releaseSite() {
+    const s = stood;
+    if (!s) return;
+    stood = null;
+    for (const f of s.foes) {
+      if (!f?.dead && deps.inPool(f)) {
+        try {
+          deps.remove(f);
+        } catch (_e) {}
+      }
+    }
+    if (s.batches?.length && deps.renderer?.destroyBillboardBatch) {
+      for (const b of s.batches) {
+        try {
+          deps.renderer.destroyBillboardBatch(b);
+        } catch (_e) {}
+      }
+    }
+  }
+
+  function setSiteHostile(s, hostile = true) {
+    for (const f of s.foes) {
+      if (f && !f.dead && f.ai) {
+        f.ai.isHostile = hostile;
+      }
+    }
+  }
+
+  function triggerSiteInteraction(s) {
+    if (!s || s.interacted || !deps.openChoice) return;
+    s.interacted = true;
+    const player = deps.playerEntity();
+    const regIdx = s.blueprint.meta?.regionIndex ?? deps.regionIndex();
+    const nowMin = deps.clock();
+
+    if (s.kind === LIVING_SITE_KINDS.CHECKPOINT) {
+      const tollGold = s.blueprint.meta?.tollGold ?? 50;
+      deps.openChoice({
+        lines: [
+          LIVING_WORDS.checkpointHalt(),
+          LIVING_WORDS.checkpointTollDemand(tollGold),
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: `1. ${LIVING_WORDS.checkpointOptionKnight()}`,
+            action: () => {
+              const res = resolveCheckpointInteraction({
+                playerEntity: player,
+                method: player?.guildMemberships?.[10]?.rank > 0 ? 'knight' : 'reputation',
+                tollGoldRequired: tollGold,
+                regionIndex: regIdx,
+                rng,
+              });
+              deps.say(res.message, 5);
+              if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
+                setSiteHostile(s, true);
+              }
+            },
+          },
+          {
+            code: 'Digit2',
+            label: `2. ${LIVING_WORDS.checkpointOptionToll(tollGold)}`,
+            action: () => {
+              const haveGold = Number(player?.goldPieces ?? 0);
+              const res = resolveCheckpointInteraction({
+                playerEntity: player,
+                method: 'toll',
+                tollGoldRequired: tollGold,
+                tollPaid: haveGold,
+                regionIndex: regIdx,
+                rng,
+              });
+              if (res.outcome === CHECKPOINT_OUTCOME.TOLL_PAID && player) {
+                player.goldPieces = Math.max(0, haveGold - tollGold);
+              } else if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
+                setSiteHostile(s, true);
+              }
+              deps.say(res.message, 5);
+            },
+          },
+          {
+            code: 'Digit3',
+            label: `3. ${LIVING_WORDS.checkpointOptionDiplomacy()}`,
+            action: () => {
+              const res = resolveCheckpointInteraction({
+                playerEntity: player,
+                method: 'etiquette',
+                tollGoldRequired: tollGold,
+                regionIndex: regIdx,
+                rng,
+              });
+              deps.say(res.message, 5);
+              if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
+                setSiteHostile(s, true);
+              }
+            },
+          },
+          {
+            code: 'Digit4',
+            label: `4. ${LIVING_WORDS.checkpointOptionForce()}`,
+            action: () => {
+              const res = resolveCheckpointInteraction({
+                playerEntity: player,
+                method: 'force',
+                tollGoldRequired: tollGold,
+                regionIndex: regIdx,
+                rng,
+              });
+              setSiteHostile(s, true);
+              deps.say(res.message, 5);
+            },
+          },
+        ],
+      });
+    } else if (s.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH) {
+      const nemesis = s.blueprint.meta?.nemesis;
+      if (!nemesis) return;
+      deps.openChoice({
+        lines: [
+          `${nemesis.name}: "${LIVING_WORDS.nemesisMotive(nemesis.archetype)}"`,
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: `1. ${LIVING_WORDS.nemesisOptionTaunt()}`,
+            action: () => {
+              const res = resolveNemesisConfrontation(player, nemesis, 'taunt', rng);
+              deps.say(res.message, 5);
+              if (res.resolution === NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED) {
+                // Remove minions so only the Nemesis fights 1v1!
+                for (const f of s.foes) {
+                  if (f?.livingRole === 'nemesis_minion' && deps.inPool(f)) {
+                    deps.remove(f);
+                  } else if (f?.ai) {
+                    f.ai.isHostile = true;
+                  }
+                }
+              } else {
+                setSiteHostile(s, true);
+              }
+            },
+          },
+          {
+            code: 'Digit2',
+            label: `2. ${LIVING_WORDS.nemesisOptionEtiquette()}`,
+            action: () => {
+              const res = resolveNemesisConfrontation(player, nemesis, 'etiquette', rng);
+              deps.say(res.message, 5);
+              if (
+                res.resolution === NEMESIS_RESOLUTION.PACIFIED ||
+                res.resolution === NEMESIS_RESOLUTION.LUCK_SAVED
+              ) {
+                setSiteHostile(s, false);
+              } else {
+                setSiteHostile(s, true);
+              }
+            },
+          },
+          {
+            code: 'Digit3',
+            label: `3. ${LIVING_WORDS.nemesisOptionStreetwise()}`,
+            action: () => {
+              const res = resolveNemesisConfrontation(player, nemesis, 'streetwise', rng);
+              deps.say(res.message, 5);
+              if (
+                res.resolution === NEMESIS_RESOLUTION.BRIBED ||
+                res.resolution === NEMESIS_RESOLUTION.INTIMIDATED ||
+                res.resolution === NEMESIS_RESOLUTION.LUCK_SAVED
+              ) {
+                setSiteHostile(s, false);
+              } else {
+                setSiteHostile(s, true);
+              }
+            },
+          },
+          {
+            code: 'Digit4',
+            label: `4. ${LIVING_WORDS.nemesisOptionFight()}`,
+            action: () => {
+              const res = resolveNemesisConfrontation(player, nemesis, 'duel', rng);
+              setSiteHostile(s, true);
+              deps.say(res.message, 5);
+            },
+          },
+        ],
+      });
+    } else if (s.kind === LIVING_SITE_KINDS.ADVENTURER_MEETING) {
+      const adv = s.blueprint.meta?.adv;
+      const tension = s.blueprint.meta?.tension;
+      if (!adv) return;
+      const wager = tension?.wagerGold ?? 50;
+      deps.openChoice({
+        lines: [
+          `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, wager)}"`,
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
+            action: () => {
+              const res = resolveAdventurerEncounter({
+                adv,
+                playerEntity: player,
+                action: 'ACCEPT_DARE',
+                wagerGold: wager,
+                rng,
+              });
+              if (player && res.goldDelta) {
+                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+              }
+              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)), 5);
+            },
+          },
+          {
+            code: 'Digit2',
+            label: `2. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
+            action: () => {
+              const res = resolveAdventurerEncounter({
+                adv,
+                playerEntity: player,
+                action: 'APPEAL_ETIQUETTE',
+                wagerGold: wager,
+                rng,
+              });
+              if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) setSiteHostile(s, true);
+              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
+            },
+          },
+          {
+            code: 'Digit3',
+            label: `3. ${LIVING_WORDS.adventurerOptionIntimidate()}`,
+            action: () => {
+              const res = resolveAdventurerEncounter({
+                adv,
+                playerEntity: player,
+                action: 'INTIMIDATE',
+                wagerGold: wager,
+                rng,
+              });
+              if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) setSiteHostile(s, true);
+              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
+            },
+          },
+          {
+            code: 'Digit4',
+            label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
+            action: () => {
+              deps.say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0), 4);
+            },
+          },
+        ],
+      });
+    } else if (s.kind === LIVING_SITE_KINDS.TRAVELER_REST || s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
+      const plea = s.blueprint.meta?.plea ?? {
+        type: 'PLAGUE_CURE',
+        requiredGold: 35,
+        messageKey: 'living.plea.plague',
+      };
+      const reqGold = plea.requiredGold ?? 25;
+      deps.openChoice({
+        lines: [
+          LIVING_WORDS.pleaPrompt(plea.type, reqGold),
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: `1. ${LIVING_WORDS.pleaOptionHelp(reqGold)}`,
+            action: () => {
+              const haveGold = Number(player?.goldPieces ?? 0);
+              const res = resolvePleaResponse({
+                plea,
+                playerEntity: player,
+                regionIndex: regIdx,
+                response: 'HELP',
+                goldOffered: haveGold,
+                nowMinutes: nowMin,
+                rng,
+              });
+              if (res.outcome === PLEA_OUTCOME.HELPED && player) {
+                player.goldPieces = Math.max(0, haveGold - res.goldSpent);
+              }
+              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+            },
+          },
+          {
+            code: 'Digit2',
+            label: `2. ${LIVING_WORDS.pleaOptionPolite()}`,
+            action: () => {
+              const res = resolvePleaResponse({
+                plea,
+                playerEntity: player,
+                regionIndex: regIdx,
+                response: 'REFUSE_POLITE',
+                nowMinutes: nowMin,
+                rng,
+              });
+              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+            },
+          },
+          {
+            code: 'Digit3',
+            label: `3. ${LIVING_WORDS.pleaOptionRude()}`,
+            action: () => {
+              const res = resolvePleaResponse({
+                plea,
+                playerEntity: player,
+                regionIndex: regIdx,
+                response: 'REFUSE_RUDE',
+                nowMinutes: nowMin,
+                rng,
+              });
+              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+            },
+          },
+        ],
+      });
+    }
+  }
+
+  function standSite(blueprint) {
+    releaseSite();
+    for (const m of blueprint.meshes) ensureModel(m.modelId);
+    for (const fl of blueprint.flats) ensureFlat(fl.archive, fl.record);
+
+    const site = {
+      kind: blueprint.kind,
+      blueprint,
+      foes: /** @type {any[]} */ ([]),
+      batches: /** @type {any[]} */ ([]),
+      interacted: false,
+    };
+    stood = site;
+
+    for (const a of blueprint.actors) {
+      Promise.resolve(
+        deps.spawn(a.mobileType, [...a.feet], {
+          yaw: a.yaw,
+          level: a.level,
+          allied: a.allied,
+          team: a.team,
+          loose: true,
+          transient: true,
+          managed: true,
+        }),
+      )
+        .then((rec) => {
+          if (!rec) return;
+          if (stood !== site) {
+            if (deps.inPool(rec)) deps.remove(rec);
+            return;
+          }
+          if (rec.entity) {
+            rec.entity.name = a.name;
+            if (a.team) rec.entity.team = a.team;
+          }
+          if (rec.ai && !a.hostile && !a.allied) {
+            rec.ai.isHostile = false;
+          }
+          rec.livingRole = a.role;
+          site.foes.push(rec);
+        })
+        .catch(() => {});
+    }
+
+    return site;
+  }
+
+  function pickAndStandNextSite(feet, nowMin) {
+    const regIdx = deps.regionIndex();
+    const inTown = deps.inLocationRect();
+    const onRoad = deps.onRoad();
+    const player = deps.playerEntity();
+    const regState = getRegionState(regIdx);
+
+    // 1. Inside a Settlement during WAR.MID or CIVIL_STRIFE.MID -> Urban Skirmish
+    if (
+      inTown &&
+      lastSkirmishRegion !== regIdx &&
+      shouldSpawnUrbanSkirmish({ regionIndex: regIdx, isInsideBuilding: false, existingActiveSkirmishes: 0 })
+    ) {
+      const angle = rng() * Math.PI * 2;
+      const sx = feet[0] + Math.sin(angle) * 28;
+      const sz = feet[2] + Math.cos(angle) * 28;
+      const slope = checkCampFootprintSlope(deps.heightAt, sx, sz, 4.0);
+      if (slope.suitable) {
+        lastSkirmishRegion = regIdx;
+        lastSpawnMinute = nowMin;
+        const bp = buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+          centerX: sx,
+          centerZ: sz,
+          heightAt: deps.heightAt,
+          regionIndex: regIdx,
+          playerEntity: player,
+          nowMinutes: nowMin,
+          rng,
+        });
+        if (bp.actors.length > 0) {
+          standSite(bp);
+          deps.say(LIVING_WORDS.urbanSkirmishAlert(), 5);
+          return;
+        }
+      }
+    }
+
+    if (inTown) return;
+
+    // Cooldown between outdoor 3D site spawns (at least 30 game minutes)
+    if (nowMin - lastSpawnMinute < 30) return;
+
+    const angle = rng() * Math.PI * 2;
+    const dist = 32 + rng() * 18; // 32..50m ahead/around player
+    const cx = feet[0] + Math.sin(angle) * dist;
+    const cz = feet[2] + Math.cos(angle) * dist;
+    const slope = checkCampFootprintSlope(deps.heightAt, cx, cz, 6.0);
+    if (!slope.suitable) return;
+
+    // 2. Quarantine Tent outside Plague regions
+    if (
+      regState?.crisis === CRISIS_TYPE.PLAGUE &&
+      Number(LivingTamrielConfig.quarantine) > PRESENCE.OFF &&
+      rng() < 0.35
+    ) {
+      lastSpawnMinute = nowMin;
+      standSite(
+        buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.QUARANTINE_TENT,
+          centerX: cx,
+          centerZ: cz,
+          heightAt: deps.heightAt,
+          regionIndex: regIdx,
+          playerEntity: player,
+          nowMinutes: nowMin,
+          rng,
+        }),
+      );
+      return;
+    }
+
+    // 3. Roadside Military Checkpoint during WAR or CIVIL_STRIFE
+    if (shouldSpawnRoadCheckpoint({ regionIndex: regIdx, isHighway: onRoad || rng() < 0.4 }) && rng() < 0.45) {
+      lastSpawnMinute = nowMin;
+      standSite(
+        buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.CHECKPOINT,
+          centerX: cx,
+          centerZ: cz,
+          heightAt: deps.heightAt,
+          regionIndex: regIdx,
+          playerEntity: player,
+          nowMinutes: nowMin,
+          rng,
+        }),
+      );
+      return;
+    }
+
+    // 4. Nemesis & Retinue Ambush
+    const rep = Number(player?.regionalReputations?.[regIdx] ?? 0);
+    if (
+      shouldDispatchNemesis(player, {
+        legalReputation: rep,
+        playerLevel: Number(player?.level ?? 1),
+        isCrisis: regState?.crisis !== CRISIS_TYPE.PEACE,
+        hasGrudge: false,
+        playerGold: Number(player?.goldPieces ?? 0),
+      }) &&
+      rng() < 0.20
+    ) {
+      lastSpawnMinute = nowMin;
+      const site = standSite(
+        buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+          centerX: feet[0] + Math.sin(angle) * 12,
+          centerZ: feet[2] + Math.cos(angle) * 12,
+          heightAt: deps.heightAt,
+          regionIndex: regIdx,
+          playerEntity: player,
+          nowMinutes: nowMin,
+          rng,
+        }),
+      );
+      triggerSiteInteraction(site);
+      return;
+    }
+
+    // 5. Rival Adventurer Camp Meeting
+    if (Number(LivingTamrielConfig.adventurers) > PRESENCE.OFF && rng() < 0.22) {
+      lastSpawnMinute = nowMin;
+      standSite(
+        buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.ADVENTURER_MEETING,
+          centerX: cx,
+          centerZ: cz,
+          heightAt: deps.heightAt,
+          regionIndex: regIdx,
+          playerEntity: player,
+          nowMinutes: nowMin,
+          rng,
+        }),
+      );
+      return;
+    }
+
+    // 6. Roadside Bandit Camp or Peaceful Traveler Rest Camp
+    if (Number(LivingTamrielConfig.camps) > PRESENCE.OFF && rng() < 0.35) {
+      lastSpawnMinute = nowMin;
+      const campKind = rng() < 0.5 ? LIVING_SITE_KINDS.BANDIT_CAMP : LIVING_SITE_KINDS.TRAVELER_REST;
+      standSite(
+        buildLivingSiteBlueprint({
+          kind: campKind,
+          centerX: cx,
+          centerZ: cz,
+          heightAt: deps.heightAt,
+          regionIndex: regIdx,
+          playerEntity: player,
+          nowMinutes: nowMin,
+          rng,
+        }),
+      );
+    }
+  }
+
+  return {
+    /**
+     * Per-frame update: checks distance to active site, triggers interactive ChoiceWindows
+     * when player approaches within SITE_INTERACT_DISTANCE_M, or rolls a new site.
+     * @param {number} dt
+     */
+    frame(dt) {
+      if ((checkTimer -= dt) > 0) return;
+      checkTimer = 1.0;
+
+      const feet = deps.feet();
+      if (!feet || !deps.ready()) {
+        releaseSite();
+        return;
+      }
+
+      if (stood) {
+        const c = stood.blueprint.center;
+        const d = Math.hypot(feet[0] - c[0], feet[2] - c[2]);
+        if (d > SITE_KEEP_DISTANCE_M) {
+          releaseSite();
+          return;
+        }
+        if (
+          !stood.interacted &&
+          d <= SITE_INTERACT_DISTANCE_M &&
+          (stood.kind === LIVING_SITE_KINDS.CHECKPOINT ||
+            stood.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH ||
+            stood.kind === LIVING_SITE_KINDS.ADVENTURER_MEETING ||
+            stood.kind === LIVING_SITE_KINDS.TRAVELER_REST ||
+            stood.kind === LIVING_SITE_KINDS.QUARANTINE_TENT)
+        ) {
+          triggerSiteInteraction(stood);
+        }
+        return;
+      }
+
+      pickAndStandNextSite(feet, deps.clock());
+    },
+
+    /**
+     * Draws 3D GPU meshes (tents, pavilions, wagons, crates, military banners) for the active site.
+     * @param {any} renderer
+     * @param {any} [texRemap=null]
+     * @param {any} [cull=null]
+     */
+    draw(renderer, texRemap = null, cull = null) {
+      if (!stood || !renderer?.drawMesh) return 0;
+      let drawn = 0;
+      for (const m of stood.blueprint.meshes) {
+        const entry = gpuModels.get(m.modelId);
+        if (!entry?.gpu) continue;
+        const mat = trs(m.feet[0], m.feet[1], m.feet[2], 0, m.yawDeg, 0);
+        if (drawSeen(renderer, cull, cull ? sphereAabb(entry.gpu.bounds, mat) : null, entry.gpu, mat, texRemap)) {
+          drawn++;
+        }
+      }
+      return drawn;
+    },
+
+    /**
+     * Returns billboard batches (campfires, braziers, horses, weapon racks, sacks) for the exterior pass.
+     */
+    batches() {
+      if (!stood || !deps.renderer?.createBillboardBatch) return [];
+      if (!stood.batches.length && stood.blueprint.flats.length) {
+        for (const fl of stood.blueprint.flats) {
+          const sz = flatSizes.get(`${fl.archive}:${fl.record}`);
+          if (!sz) continue;
+          const b = deps.renderer.createBillboardBatch(fl.archive, fl.record, sz, [fl.feet]);
+          if (b) {
+            if (fl.archive === 210 && fl.record === 1) b.frame = 0;
+            stood.batches.push(b);
+          }
+        }
+      }
+      return stood.batches;
+    },
+
+    /**
+     * Returns dynamic point lights `[x, y, z, radius]` for campfires and braziers at the active site.
+     */
+    lights() {
+      if (!stood) return [];
+      /** @type {number[][]} */
+      const out = [];
+      for (const fl of stood.blueprint.flats) {
+        if (fl.lightRadius > 0) {
+          out.push([fl.feet[0], fl.feet[1] + 1.0, fl.feet[2], fl.lightRadius]);
+        }
+      }
+      return out;
+    },
+
+    /**
+     * Shifts all world coordinates when the floating origin recenters across a map pixel.
+     * @param {number[]} offset
+     */
+    offsetAll(offset) {
+      if (!stood || !offset) return;
+      const move = (/** @type {number[]} */ p) => {
+        p[0] += offset[0];
+        p[1] += offset[1];
+        p[2] += offset[2];
+      };
+      move(stood.blueprint.center);
+      for (const m of stood.blueprint.meshes) move(m.feet);
+      for (const fl of stood.blueprint.flats) move(fl.feet);
+      if (stood.batches.length && deps.renderer?.destroyBillboardBatch) {
+        for (const b of stood.batches) {
+          try {
+            deps.renderer.destroyBillboardBatch(b);
+          } catch (_e) {}
+        }
+        stood.batches = [];
+      }
+    },
+
+    /**
+     * Explicitly stands a site blueprint (used by tests, console commands, or travel interrupts).
+     * @param {any} blueprint
+     */
+    standBlueprint(blueprint) {
+      return standSite(blueprint);
+    },
+
+    /** Returns a summary of the currently stood site for inspection/testing. */
+    shown() {
+      if (!stood) return null;
+      return {
+        kind: stood.kind,
+        center: [...stood.blueprint.center],
+        meshCount: stood.blueprint.meshes.length,
+        flatCount: stood.blueprint.flats.length,
+        actorCount: stood.foes.length,
+        interacted: stood.interacted,
+      };
+    },
+
+    /** Clears any active site and releases all spawned actors and batches. */
+    clear() {
+      releaseSite();
+      checkTimer = 0;
+    },
+  };
+}

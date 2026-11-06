@@ -175,6 +175,7 @@ import { worldMinutes, skyMinutes, setWorldMinutes, setSharedClock, sharedClockO
 import { evaluateTravelInterruption, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification } from '../systems/living/crisisPresenter.js';
+import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain, aimedBlowInfo, playerBlowFrame, setWindupAtMeListener } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -3801,6 +3802,23 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     dropPile: (items, feet) => droppedLoot.seedPile(items, feet, { archive: TREASURE_PILE_ARCHIVE, record: 0 }, null, null, { unsaved: true, owner: 'lw-hideout' }),
     removePile: (pile) => droppedLoot.removePile(pile),
     engaged: (f) => !!f.ai?.detected && f.ai.targetIsLocalPlayer !== false,   // AUDIT LW-II-2 C14: on me - the pool's cull's own spare
+    renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
+  }));
+  let _livingSceneHost = null;
+  const livingSceneHostOf = () => (_livingSceneHost ??= createLivingSceneHost({
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
+    ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !playerAfloat() && !townTalk.overlayActive,
+    clock: () => skyMinutes(),
+    regionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+    inLocationRect: () => _musicInLocationRect(),
+    onRoad: () => _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16) || onTheRoad(),
+    heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
+    playerEntity: () => playerEntity,
+    spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, o),
+    remove: (f) => exteriorFoes.removeFoe(f),
+    inPool: (f) => exteriorFoes.foes.includes(f),
+    say: (text, sec) => townTalk.say(text, sec),
+    openChoice: (spec) => townTalk.showOverlay(new ChoiceWindow({ lines: spec.lines, options: spec.options })),
     renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
   }));
   const livingRoadsOf = () => (livingRoads ??= createLivingRoads({
@@ -10698,7 +10716,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       // it once per modal frame (host.encounterTick) and from its
       // interior rest; the host's own call below is the exterior arm.
       const _m = modes?.mode ?? 'exterior';
-      const hit = (!spawns || (walkMode && playerSpawned && player.isPlayerSwimming)) ? null : intermittentEnemySpawn({   // XL-1: :489 reads PlayerEnterExit.IsPlayerSwimming, the host flag
+      const _encCtx = {
         gameMinutes: _lastEncMinutes + l + 1, inside: _m !== 'exterior', inDungeon: _m === 'dungeon', isResting: false,   // the dungeon's rest roll is dungeonContext's own
         skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,   // LIVED1: online the minute is the character's own and night is the sky's; TIME1: the sky's own clock
         restAsks: playerEntity.isResting ? playerEntity.restAsks : 1,   // SURV4 + SURV-TIERS: the rest's asks, its kind priced by the tier at the open (scenes/shared.js) - a rough rest asks twice in Hard, once in Casual
@@ -10707,10 +10725,15 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
         // in the wilderness ring of a town's pixel the wilderness
         // tables roll, day and night.
         inLocationRect: _musicInLocationRect(),
+        onRoad: onTheRoad() || _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16),
+        regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
         climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),
         fauna: maps.getFaunaBand?.(playerTravelPixel().x, playerTravelPixel().y),   // TESA-BIOME: past the Bay its zone's wild
         playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2: mentor mode - the group's encounters
-      });
+      };
+      const hit = (!spawns || (walkMode && playerSpawned && player.isPlayerSwimming))
+        ? null
+        : (rollLivingWildernessEncounter(_encCtx) ?? intermittentEnemySpawn(_encCtx));   // XL-1: :489 reads PlayerEnterExit.IsPlayerSwimming, the host flag
       // WILD3: in the open zone's open country a wanderer is a GIANT one roll in WILD_GIANT_CHANCE (there are giants to meet)
       if (hit && _m === 'exterior' && wildHere()) {
         // PVPGIANT: at most WILD_GIANT_MAX giants roam the zone at once (a giant of the pool counts, and is not stood past two)
@@ -10738,7 +10761,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
         // stops), and the rest bring company now and then; off the road, or the switch off, DFU's wanderer as it was
         const _road = getPref('roadEncounters') !== false && onTheRoad();
         if (_road && trivialOnRoad(hit.mobileType, effectiveLevel(playerEntity))) continue;
-        const _company = _road ? roadCompany(hit.mobileType, effectiveLevel(playerEntity), Math.random()) : 0;
+        const _company = (_road ? roadCompany(hit.mobileType, effectiveLevel(playerEntity), Math.random()) : 0) + (hit.extraCount ?? 0);
         for (let k = 0, n = wandererCount(hit.mobileType, partyExtraFoes(partySize()), _company); k < n; k++) _standEncounterFoe(hit, playerFeet);   // AUDIT PSCALE1 COUNT-2: a Lich, a Dragonling, a Giant is a singular 'uh oh' (mobileFactions.js SOLITARY_TYPES) - never a squad
         break;
       }
@@ -14155,9 +14178,12 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
       let targetPixelX = pick.pixel.x;
       let targetPixelY = pick.pixel.y;
       let travelMinutes = computed.minutes;
+      let interruptedEventType = null;
+      let interruptedRegionIdx = 0;
       if (!partyArrival) {
         const curPixel = playerTravelPixel();
         const regIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(curPixel.x, curPixel.y) ?? 0) : 0;
+        interruptedRegionIdx = regIdx;
         const playerLuck = liveStat(playerEntity, 'luck') || 50;
         const interruption = evaluateTravelInterruption({
           regionIndex: regIdx,
@@ -14165,6 +14191,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
           nowMinutes: worldMinutes(),
         });
         if (interruption.shouldInterrupt) {
+          interruptedEventType = interruption.eventType;
           targetPixelX = Math.round((curPixel.x + pick.pixel.x) / 2);
           targetPixelY = Math.round((curPixel.y + pick.pixel.y) / 2);
           travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
@@ -14224,6 +14251,21 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
         if (boat) csaAboard.board(boat, CSA_ABOARD_GRACE);
       }
       hccPostDue = false; hccRuntimeOn()?.handlePostFastTravel();
+      if (interruptedEventType) {
+        const pf = walkMode && playerSpawned ? player.feetAt() : cam.pos;
+        const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
+          ? LIVING_SITE_KINDS.BANDIT_CAMP
+          : LIVING_SITE_KINDS.TRAVELER_REST;
+        livingSceneHostOf().standBlueprint(buildLivingSiteBlueprint({
+          kind: interruptKind,
+          centerX: pf[0] + Math.sin(cam.yaw) * 14,
+          centerZ: pf[2] + Math.cos(cam.yaw) * 14,
+          heightAt: (x, z) => collider.heightAt?.(x, z) ?? pf[1],
+          regionIndex: interruptedRegionIdx,
+          playerEntity,
+          nowMinutes: worldMinutes(),
+        }));
+      }
       // cautious arrival heals in full; magicka honors NoRegenSpellPoints
       // AUDIT WORLD5 C14: the heal is the trip's NIGHTS - DFU's cautious traveller arrives rested because the days
       // passed. LIVED1: online they pass too - on the character's own clock (the advance below), with every cost the
@@ -31560,6 +31602,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       dwFish?.offsetAll(r.offset);   // DW-E3: the fish and their schools' centres (Port-Ledger A, the Iliac Puddle row)
       droppedTorches.offsetAll(r.offset);   // HT1: the torches too
       _livingHideoutsHost?.offsetAll(r.offset);   // AUDIT LW-II-2 H2: a band's hideout stood - its tents and its fire stood 819.2 behind every crossing
+      _livingSceneHost?.offsetAll(r.offset);   // LIVING-TAMRIEL: shift active 3D camp/checkpoint/skirmish meshes, flats, and lights with floating origin
       camps.offsetAll(r.offset);   // SURV3: and the camps
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
@@ -31696,6 +31739,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (chunkCampHits) {
           let room = exteriorFoes.encounterRoom?.() ?? Infinity;
           for (const h of chunkCampHits) {
+            const livingRoster = rollLivingChunkCampRoster({
+              climateIndex: maps.getClimateIndex(r.current.x, r.current.y),
+              fauna: maps.getFaunaBand?.(r.current.x, r.current.y),
+              skyMinutes: Math.floor(skyMinutes()),
+              regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+              playerLevel: effectiveLevel(playerEntity),
+            });
+            if (livingRoster) h.mobileTypes = livingRoster.mobileTypes;
             // PSCALE1 x CAMP-CAP: the group as it will STAND - _standCampEncounter grows it by the party it meets
             // (campMembers, OW6: the one home), so the room is asked for the grown count, or a party's third group was cut short
             const size = campMembers(h.mobileTypes).length;
@@ -32119,7 +32170,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // DW-D: UnderwaterPresentationEffects.SuppressPlayerTorch - EnablePlayerTorch's light dark under the fog (the fuel burns on, the light is the only thing it takes)
       meterFor(renderer.gl)?.markCpu('lightset');   // PERF-SIM3: the hand lights, the peers' torches, the camps' fires added, the set handed to the renderer
       const lit = withPlayerLights(wodSel ? wodSel.data : _lanterns,   // EL1: the installed set's cap (16 classic, 48 on the lane); PERF-LIGHTS: `n` is how much of the pool is live
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...(_livingSceneHost?.lights() ?? []), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32, renderer.lightingLane ? capFadeColors(lit, lit.length / 4 - _lanterns.length / 4, cam.pos, renderer.maxPointLights, CITY_LIGHT_COLOR_F32) : null);   // LA-LIGHTS2
     } else {
@@ -32130,7 +32181,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // WOD2: ...and the mod's lights, which burn at every hour.
       const wodSel = wodLit || csaLit.length ? _wodSelect(0, _csaFill(wodLit ? _wodFill(0) : 0, csaLit)) : null;   // AUDIT PRE-MERGE 0928 R2: the boats' lanterns by day too (DungeonLightHandler lights them near)
       const lit = withPlayerLights(wodSel ? wodSel.data : new Float32Array(0),
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...(_livingSceneHost?.lights() ?? []), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32);
     }
@@ -32175,6 +32226,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     else if (_tvDngModel.size) dropTvDungeonModels();   // TV-BURST: the view down, its models let go (kept warm on their shelf)
     if (livingRoads && livingWorldOn() && _mode() === 'exterior') livingRoads.drawTeams(renderer, yardCull);   // LW10: the living world's wagons, in the cart's own pass; PERF-WAGON: by the street's view test
     _livingHideoutsHost?.draw(renderer, null, yardCull);   // LW12: a band's tents; PERF-WAGON: by the street's view test
+    _livingSceneHost?.draw(renderer, null, yardCull);   // LIVING-TAMRIEL: draw active 3D tents, pavilions, wagons, crates, and military banners
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
     quays?.draw(renderer);   // QUAYS: the harbours' quays and the gangways to my ships made fast
     yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
@@ -32720,6 +32772,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     caravanStep(dt);   // LW11: the hold-ups, the reports carried in, the escort - anywhere (a report lands, an escort ends, indoors too)
     if (livingWorldOn() && _mode() === 'exterior' && !tvf) { livingHideoutsHostOf().frame(dt); livePersonBatches.push(...livingHideoutsHostOf().batches()); }   // LW12: a band's hideout near, stood
     else _livingHideoutsHost?.clear();
+    if (_mode() === 'exterior' && !tvf) { livingSceneHostOf().frame(dt); livePersonBatches.push(...livingSceneHostOf().batches()); }   // LIVING-TAMRIEL: tick active 3D site & push campfire/brazier/horse/weapon-rack billboard batches
+    else _livingSceneHost?.clear();
     if (livingWorldOn() && _mode() === 'exterior') livingPatronsStep(Date.now() / 1000, livingPatronsRegion);   // LW15: the region's patrons, now and then (AUDIT LW-II-2 W11: while a living town stands)
     if (livingWorldOn()) livingCarriedStep(LIVING_CARRIED_SLICE_MS);   // LW16: the word carried, worked a slice a frame
     if (livingWorldOn()) { livingWatchStep(); livingPeerWatchStep(); }   // LW7 / WATCH-FIX: the turned watch followed, mine and a peer's

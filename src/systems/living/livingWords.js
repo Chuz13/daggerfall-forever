@@ -180,5 +180,55 @@ export const LIVING_WORDS = Object.freeze({
     t('living.plea.parted', 'May Stendarr watch over your journey nonetheless.'),
   pleaRebuffed: () =>
     t('living.plea.rebuffed', 'Curse your cold heart! May misfortune dog your footsteps!'),
+
+  // Composite helpers for 3D scene interactions (ChoiceWindow)
+  urbanSkirmishAlert: () => LIVING_WORDS.urbanSkirmishStart(),
+  checkpointOptionKnight: () => LIVING_WORDS.checkpointKnightPass(),
+  checkpointOptionToll: (gold) => LIVING_WORDS.checkpointTollDemand(gold),
+  checkpointOptionDiplomacy: () => LIVING_WORDS.checkpointPassed(),
+  checkpointOptionForce: () => LIVING_WORDS.checkpointRefused(),
+  nemesisMotive: (archetype) => {
+    if (archetype === 'SHADOW_ASSASSIN') return LIVING_WORDS.nemesisMotiveAssassin();
+    if (archetype === 'GLORY_CHALLENGER') return LIVING_WORDS.nemesisMotiveGlory();
+    if (archetype === 'GRUDGE_AVENGER') return LIVING_WORDS.nemesisMotiveGrudge();
+    if (archetype === 'ARCANE_RIVAL') return LIVING_WORDS.nemesisMotiveArcane();
+    if (archetype === 'CHAOTIC_MARAUDER') return LIVING_WORDS.nemesisMotiveMarauder();
+    return LIVING_WORDS.nemesisMotiveBounty();
+  },
+  nemesisOptionTaunt: () => LIVING_WORDS.adventurerDuelChallenge(),
+  nemesisOptionEtiquette: () => LIVING_WORDS.nemesisHonor(),
+  nemesisOptionStreetwise: () => LIVING_WORDS.nemesisBribe(),
+  nemesisOptionFight: () => LIVING_WORDS.checkpointRefused(),
+  adventurerGreeting: (trait, gold) => {
+    if (trait === 'ENVIOUS' || trait === 'CUTTHROAT') return LIVING_WORDS.adventurerEnviousTaunt();
+    if (trait === 'ARROGANT' || trait === 'MERCENARY') return LIVING_WORDS.adventurerDareChallenge(gold);
+    return LIVING_WORDS.adventurerDuelChallenge();
+  },
+  adventurerOptionDuel: (gold) => LIVING_WORDS.adventurerDareChallenge(gold),
+  adventurerOptionEtiquette: () => LIVING_WORDS.nemesisHonor(),
+  adventurerOptionIntimidate: () => LIVING_WORDS.nemesisIntimidated(),
+  adventurerOptionDecline: () => LIVING_WORDS.pleaParted(),
+  adventurerOutcome: (outcome, _name, _gold) => {
+    if (outcome === 'PLAYER_WON' || outcome === 'LUCK_REVERSAL' || outcome === 'DIPLOMACY_PEACE') {
+      return LIVING_WORDS.adventurerDuelWon();
+    }
+    if (outcome === 'PLAYER_LOST') return LIVING_WORDS.adventurerDuelLost();
+    if (outcome === 'HOSTILE_DRAW') return LIVING_WORDS.adventurerEnviousTaunt();
+    return LIVING_WORDS.adventurerReclaimFailed();
+  },
+  pleaPrompt: (type, _gold) => {
+    if (type === 'PLAGUE_CURE') return LIVING_WORDS.pleaPlague();
+    if (type === 'FAMINE_BREAD') return LIVING_WORDS.pleaFamine();
+    if (type === 'WAR_REFUGEE') return LIVING_WORDS.pleaWar();
+    return LIVING_WORDS.pleaEscort();
+  },
+  pleaOptionHelp: (gold) => `${LIVING_WORDS.pleaHelped()} (${gold}g)`,
+  pleaOptionPolite: () => LIVING_WORDS.pleaParted(),
+  pleaOptionRude: () => LIVING_WORDS.pleaRebuffed(),
+  pleaOutcome: (outcome) => {
+    if (outcome === 'HELPED') return LIVING_WORDS.pleaHelped();
+    if (outcome === 'PARTED_PEACEFULLY') return LIVING_WORDS.pleaParted();
+    return LIVING_WORDS.pleaRebuffed();
+  },
 });
 

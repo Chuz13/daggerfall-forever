@@ -32,6 +32,20 @@ import { RumorMill } from '../../src/systems/rumorMill.js';
 import { rentalDecision } from '../../src/systems/tavern.js';
 import { CATEGORIES } from '../../src/ui/settings/settingsMap.js';
 import { setPref } from '../../src/systems/uiPrefs.js';
+import { CLIMATES } from '../../src/formats/mapsFile.js';
+import { SEASONS } from '../../src/systems/gameDate.js';
+import { MOBILE_TYPES } from '../../src/characters/mobile/mobileTypes.js';
+import {
+  LIVING_MODELS,
+  LIVING_FLATS,
+  LIVING_SITE_KINDS,
+  getWildernessReplacementShare,
+  buildEcologicalCandidatePool,
+  rollLivingWildernessEncounter,
+  rollLivingChunkCampRoster,
+  buildLivingSiteBlueprint,
+  createLivingSceneHost,
+} from '../../src/systems/living/livingWorldSpawner.js';
 
 describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
   beforeEach(() => {
@@ -179,5 +193,224 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     assert.ok(livingTab);
     assert.equal(livingTab.title, 'Living Tamriel');
     assert.equal(livingTab.sections.length, 3);
+  });
+
+  it('Step 4: Wilderness & Road Ecological Spawner complements or replaces vanilla spawns across Climate, Biome, Season, Day/Night, Road, and Crisis', () => {
+    setPref('livingWilderness', 'Off');
+    assert.equal(getWildernessReplacementShare(), 0);
+    setPref('livingWilderness', 'Light');
+    assert.equal(getWildernessReplacementShare(), 0.30);
+    setPref('livingWilderness', 'Mid');
+    assert.equal(getWildernessReplacementShare(), 0.65);
+    setPref('livingWilderness', 'High');
+    assert.equal(getWildernessReplacementShare(), 1.0);
+
+    // 1. Crisis-driven road pool (WAR)
+    setRegionCrisis(17, 'WAR', 'MID');
+    const warPool = buildEcologicalCandidatePool(
+      { climateIndex: CLIMATES.Woodlands, season: SEASONS.Summer, isDay: true, onRoad: true, regionIndex: 17, playerLevel: 12 },
+      () => 0.1,
+    );
+    assert.equal(warPool.crisisDriven, true);
+    assert.equal(warPool.ecologicalTag, 'crisis:war');
+    assert.ok(warPool.pool.includes(MOBILE_TYPES.OrcWarlord));
+
+    // 2. Mountain Winter Night pool (FrostDaedra / IceAtronach)
+    setRegionCrisis(17, 'PEACE', 'NONE');
+    const winterMtn = buildEcologicalCandidatePool(
+      { climateIndex: CLIMATES.Mountain, season: SEASONS.Winter, isDay: false, onRoad: false, regionIndex: 17, playerLevel: 10 },
+      () => 0.8,
+    );
+    assert.equal(winterMtn.crisisDriven, false);
+    assert.match(winterMtn.ecologicalTag, /wild:mountain:s3:night/);
+    assert.ok(winterMtn.pool.includes(MOBILE_TYPES.FrostDaedra));
+
+    // 3. Desert Summer Day pool
+    const desertDay = buildEcologicalCandidatePool(
+      { climateIndex: CLIMATES.Desert, season: SEASONS.Summer, isDay: true, onRoad: false, regionIndex: 0, playerLevel: 10 },
+      () => 0.8,
+    );
+    assert.match(desertDay.ecologicalTag, /wild:desert:s2:day/);
+    assert.ok(desertDay.pool.includes(MOBILE_TYPES.GiantScorpion));
+    assert.ok(desertDay.pool.includes(MOBILE_TYPES.FireDaedra));
+
+    // 4. rollLivingWildernessEncounter on 12-minute cadence window
+    setRegionCrisis(17, 'PLAGUE', 'MID');
+    const enc = rollLivingWildernessEncounter(
+      {
+        gameMinutes: 144, // 144 / 12 = 12 -> 12 % 12 === 0
+        skyMinutes: 120,  // Night (02:00)
+        inside: false,
+        inDungeon: false,
+        inLocationRect: false,
+        onRoad: false,
+        climateIndex: CLIMATES.Swamp,
+        regionIndex: 17,
+        playerLevel: 10,
+        preventEnemySpawns: false,
+      },
+      () => 0.0, // passes share check, rollMax==0 check, crisis check
+    );
+    assert.ok(enc, 'should return a Living Tamriel wilderness encounter decision');
+    assert.equal(enc.crisisDriven, true);
+    assert.equal(enc.ecologicalTag, 'crisis:plague');
+    assert.equal(enc.extraCount, 1);
+
+    // 5. rollLivingChunkCampRoster replaces chunk-load camp group roster
+    const campRoster = rollLivingChunkCampRoster(
+      { climateIndex: CLIMATES.Woodlands, skyMinutes: 720, regionIndex: 17, playerLevel: 8 },
+      () => 0.1,
+    );
+    assert.ok(campRoster && campRoster.mobileTypes.length >= 2);
+  });
+
+  it('Step 5: 3D Scene & Actor Host spawns real 3D meshes, billboard flats, lights, NPCs, and opens roleplay ChoiceWindows', async () => {
+    setPref('livingCamps', 'High');
+    setPref('livingQuarantine', 'High');
+    setPref('livingNemesis', 'High');
+    setPref('livingAdventurers', 'High');
+
+    const heightAt = () => 10;
+    const player = {
+      level: 10,
+      goldPieces: 500,
+      skills: { Etiquette: 75, Streetwise: 70 },
+      stats: { Personality: 70, Luck: 65, Strength: 70 },
+      regionalReputations: { 17: -40 },
+      guildMemberships: { 10: { rank: 2 } },
+    };
+
+    // Verify all 7 blueprints generate valid 3D meshes, flats, and actors
+    for (const kind of Object.values(LIVING_SITE_KINDS)) {
+      const bp = buildLivingSiteBlueprint({
+        kind,
+        centerX: 100,
+        centerZ: 200,
+        heightAt,
+        regionIndex: 17,
+        playerEntity: player,
+        nowMinutes: 1000,
+        rng: () => 0.2,
+      });
+      assert.equal(bp.kind, kind);
+      assert.ok(bp.actors.length > 0, `${kind} should spawn at least 1 actor`);
+    }
+
+    const spawnedFoes = [];
+    const choicesOpened = [];
+    const messages = [];
+    let drawnMeshes = 0;
+
+    const host = createLivingSceneHost({
+      feet: () => [100, 10, 192], // 8m from (100, 10, 200) -> within SITE_INTERACT_DISTANCE_M (14m)
+      ready: () => true,
+      clock: () => 1000,
+      regionIndex: () => 17,
+      inLocationRect: () => false,
+      onRoad: () => true,
+      heightAt,
+      playerEntity: () => player,
+      spawn: async (mobileType, feet, opts) => {
+        const rec = {
+          mobileType,
+          feet,
+          opts,
+          dead: false,
+          entity: { name: '', team: null },
+          ai: { isHostile: true },
+        };
+        spawnedFoes.push(rec);
+        return rec;
+      },
+      remove: (rec) => {
+        const idx = spawnedFoes.indexOf(rec);
+        if (idx >= 0) spawnedFoes.splice(idx, 1);
+      },
+      inPool: (rec) => spawnedFoes.includes(rec),
+      say: (msg) => messages.push(msg),
+      openChoice: (spec) => choicesOpened.push(spec),
+      renderer: {
+        drawMesh: () => {
+          drawnMeshes++;
+        },
+        createBillboardBatch: (archive, record, sz, positions) => ({ archive, record, sz, positions }),
+        destroyBillboardBatch: () => {},
+      },
+      meshes: {
+        getGpuMesh: async (id) => ({ id, bounds: { center: [0, 0, 0], radius: 3 } }),
+      },
+      getTexture: async () => ({
+        getFrameCount: () => 1,
+        getSize: () => ({ width: 2, height: 2 }),
+      }),
+      uploadRecordFrame: () => {},
+      rng: () => 0.3,
+    });
+
+    // Stand a CHECKPOINT site and verify 3D models, lights, billboards, and ChoiceWindow interaction
+    const checkpointBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.CHECKPOINT,
+      centerX: 100,
+      centerZ: 200,
+      heightAt,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 1000,
+      rng: () => 0.2,
+    });
+    assert.ok(checkpointBp.meshes.some((m) => m.modelId === LIVING_MODELS.BANNER));
+    assert.ok(checkpointBp.flats.some((f) => f.archive === LIVING_FLATS.BRAZIER.archive));
+
+    host.standBlueprint(checkpointBp);
+    await new Promise((r) => setTimeout(r, 10));
+
+    assert.equal(spawnedFoes.length, checkpointBp.actors.length);
+    assert.equal(spawnedFoes[0].ai.isHostile, false, 'checkpoint guards start non-hostile until dialogue resolves');
+    assert.ok(host.lights().length >= 1, 'brazier should emit a dynamic point light');
+    assert.ok(host.batches().length >= 1, 'brazier & weapon rack should produce billboard batches');
+    assert.ok(host.draw({ drawMesh: () => { drawnMeshes++; } }) >= 1, 'should draw 3D meshes');
+
+    // Tick frame at 8m distance -> triggers interactive ChoiceWindow
+    host.frame(1.1);
+    assert.equal(choicesOpened.length, 1, 'approaching checkpoint within 14m should open ChoiceWindow');
+    assert.equal(choicesOpened[0].options.length, 4);
+
+    // Choose option 2 (Pay Toll)
+    const goldBefore = player.goldPieces;
+    choicesOpened[0].options[1].action();
+    assert.ok(player.goldPieces < goldBefore, 'paying checkpoint toll should deduct gold from playerEntity');
+    assert.equal(spawnedFoes[0].ai.isHostile, false, 'guards remain peaceful when toll is paid');
+
+    // Test Floating Origin shift
+    host.offsetAll([50, 0, -50]);
+    assert.equal(host.shown().center[0], 150);
+    assert.equal(host.shown().center[2], 150);
+
+    // Stand a NEMESIS_AMBUSH site with minions and test Taunt -> 1v1 Duel (removes minions!)
+    const nemesisBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+      centerX: 100,
+      centerZ: 195,
+      heightAt,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 1000,
+      rng: () => 0.1, // guarantees minions and successful taunt
+    });
+    host.standBlueprint(nemesisBp);
+    await new Promise((r) => setTimeout(r, 10));
+
+    const totalNemesisFoes = spawnedFoes.length;
+    assert.ok(totalNemesisFoes >= 2, 'high-level nemesis should spawn with retinue minions');
+
+    host.frame(1.1);
+    const nemChoice = choicesOpened[choicesOpened.length - 1];
+    // Option 1: Taunt into 1v1 solo duel
+    nemChoice.options[0].action();
+    assert.equal(spawnedFoes.length, 1, 'taunting nemesis into 1v1 duel should dismiss minions from the scene');
+    assert.equal(spawnedFoes[0].ai.isHostile, true, 'nemesis leader becomes hostile for the 1v1 duel');
+
+    host.clear();
+    assert.equal(host.shown(), null);
   });
 });

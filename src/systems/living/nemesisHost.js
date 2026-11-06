@@ -278,13 +278,13 @@ export function resolveNemesisConfrontation(
     };
   }
 
-  const personality = liveStat(player, 'personality') || 50;
-  const luck = liveStat(player, 'luck') || 50;
+  const personality = liveStat(player, 'personality') || Number(player?.stats?.Personality ?? player?.stats?.personality ?? 50);
+  const luck = liveStat(player, 'luck') || Number(player?.stats?.Luck ?? player?.stats?.luck ?? 50);
   const difficulty = 40 + (nemesis.level * 3);
 
   // 1. Etiquette: Appeal to honor, heraldry, or chivalry
   if (approach === 'etiquette') {
-    const etVal = skillValue(player, SKILLS.Etiquette) || 30;
+    const etVal = skillValue(player, SKILLS.Etiquette) || Number(player?.skills?.Etiquette ?? player?.skills?.etiquette ?? 30);
     // Glory Challengers and Knights respect etiquette greatly (+20 bonus)
     const bonus = nemesis.archetype === NEMESIS_ARCHETYPES.GLORY_CHALLENGER ? 20 : 0;
     const totalScore = etVal + bonus + Math.trunc(personality / 3);
@@ -309,7 +309,7 @@ export function resolveNemesisConfrontation(
 
   // 2. Streetwise: Buyout, underworld negotiation, or intimidation
   if (approach === 'streetwise') {
-    const swVal = skillValue(player, SKILLS.Streetwise) || 30;
+    const swVal = skillValue(player, SKILLS.Streetwise) || Number(player?.skills?.Streetwise ?? player?.skills?.streetwise ?? 30);
     // Bounty Hunters and Marauders are susceptible to gold/negotiation
     const bonus = (nemesis.archetype === NEMESIS_ARCHETYPES.BOUNTY_HUNTER || nemesis.archetype === NEMESIS_ARCHETYPES.CHAOTIC_MARAUDER) ? 15 : 0;
     const totalScore = swVal + bonus + Math.trunc(personality / 3);
@@ -340,7 +340,7 @@ export function resolveNemesisConfrontation(
 
   // 3. Taunt: "На слабо" dare that forces the Nemesis to dismiss minions and fight 1v1
   if (approach === 'taunt') {
-    const swVal = skillValue(player, SKILLS.Streetwise) || 30;
+    const swVal = skillValue(player, SKILLS.Streetwise) || Number(player?.skills?.Streetwise ?? player?.skills?.streetwise ?? 30);
     const totalScore = swVal + Math.trunc(personality / 3);
     const roll = rng() * 100;
 

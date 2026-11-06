@@ -23,6 +23,18 @@ export const PRESENCE = Object.freeze({
   HIGH: 3,
 });
 
+function parseTierValue(v) {
+  if (Number.isInteger(v)) return v;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === 'off' || s === '0') return PRESENCE.OFF;
+    if (s === 'light' || s === '1') return PRESENCE.LIGHT;
+    if (s === 'mid' || s === '2') return PRESENCE.MID;
+    if (s === 'high' || s === '3') return PRESENCE.HIGH;
+  }
+  return null;
+}
+
 /**
  * Reads a presence tier from uiPrefs, falling back to a default tier if unset.
  * @param {string} key
@@ -30,8 +42,8 @@ export const PRESENCE = Object.freeze({
  * @returns {number}
  */
 function readTierPref(key, fallback) {
-  const v = getPref(key);
-  return Number.isInteger(v) ? v : fallback;
+  const parsed = parseTierValue(getPref(key));
+  return parsed !== null ? parsed : fallback;
 }
 
 /**
@@ -46,8 +58,16 @@ export const LivingTamrielConfig = {
   get adventurers() { return readTierPref('livingAdventurers', PRESENCE.MID); },
   set adventurers(v) { setPref('livingAdventurers', Number(v)); },
 
-  get wilderness() { return readTierPref('livingTravel', PRESENCE.MID); },
-  set wilderness(v) { setPref('livingTravel', Number(v)); },
+  get wilderness() {
+    const w = parseTierValue(getPref('livingWilderness'));
+    if (w !== null) return w;
+    return readTierPref('livingTravel', PRESENCE.MID);
+  },
+  set wilderness(v) {
+    const n = parseTierValue(v) ?? Number(v);
+    setPref('livingTravel', n);
+    setPref('livingWilderness', n);
+  },
 
   get urban() { return readTierPref('livingUrban', PRESENCE.MID); },
   set urban(v) { setPref('livingUrban', Number(v)); },
@@ -103,6 +123,7 @@ export function resetLivingConfig() {
   setPref('livingUrban', PRESENCE.MID);
   setPref('livingNaval', PRESENCE.MID);
   setPref('livingTravel', PRESENCE.MID);
+  setPref('livingWilderness', null);
   setPref('livingCamps', PRESENCE.MID);
   setPref('livingQuarantine', PRESENCE.HIGH);
   setPref('livingBounties', PRESENCE.MID);
