@@ -180,6 +180,7 @@ import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
+import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain, aimedBlowInfo, playerBlowFrame, setWindupAtMeListener } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -3845,7 +3846,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   const livingSceneHostOf = () => (_livingSceneHost ??= createLivingSceneHost({
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
-    ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !townTalk.overlayActive,
+    ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior',
     clock: () => skyMinutes(),
     regionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
     inLocationRect: () => _musicInLocationRect(),
@@ -28601,6 +28602,83 @@ export async function bootWorld(canvas, renderer, params, status) {
   // mint (Come Sail Away's giveboat and placeboat, a deed each).
   if (!params.has('online')) installConsoleProbe();
   setDebugSceneContext({
+    triggerCrimeResponse: () => {
+      const feet = walkMode && playerSpawned ? player.pos : cam.pos;
+      cityGuards.makeNpcGuardsIntoEnemies({ pool: _guardPool(), playerFeet: [...feet] }).catch((e) => console.error('[guards]', e));
+      _spawnGuards(true);
+    },
+    spawnCorpse: async (pos) => {
+      const feet = pos ?? (walkMode && playerSpawned ? player.pos : cam.pos);
+      const corpsePos = [feet[0] + 1.5, feet[1], feet[2] + 1.5];
+      const f = await exteriorFoes.spawnFoe(MOBILE_TYPES.Rogue, corpsePos, {
+        loose: true,
+        transient: true,
+        managed: true,
+      });
+      if (f) {
+        exteriorFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      }
+      return f;
+    },
+    spawnUndeadMinion: async (type, pos, name) => {
+      const feet = pos ?? (walkMode && playerSpawned ? player.pos : cam.pos);
+      const spawnPos = [feet[0] + 1.5, feet[1], feet[2] + 1.5];
+      const mobType =
+        type === 'zombie' ? MOBILE_TYPES.Zombie :
+        type === 'mummy' ? MOBILE_TYPES.Mummy :
+        type === 'ghost' ? MOBILE_TYPES.Ghost :
+        type === 'wraith' ? MOBILE_TYPES.Wraith :
+        type === 'lich' ? MOBILE_TYPES.Lich :
+        MOBILE_TYPES.SkeletalWarrior;
+      const f = await exteriorFoes.spawnFoe(mobType, spawnPos, {
+        loose: true,
+        transient: true,
+        managed: true,
+        allied: true,
+        team: 'PlayerAlly',
+      });
+      if (f) {
+        f.livingRole = 'undead_minion';
+        if (f.entity) {
+          f.entity.team = 'PlayerAlly';
+          f.entity.mobileTeam = 'PlayerAlly';
+          if (name) f.entity.name = name;
+        }
+        if (f.ai) f.ai.isHostile = false;
+      }
+      return f;
+    },
+    spawnPurifiers: async (party) => {
+      const feet = walkMode && playerSpawned ? player.pos : cam.pos;
+      const squad = party || [
+        { name: 'Inquisitor Knight', type: MOBILE_TYPES.Knight },
+        { name: 'Mage Inquisitor', type: MOBILE_TYPES.Mage },
+        { name: 'Purifier Healer', type: MOBILE_TYPES.Healer },
+      ];
+      const spawned = [];
+      for (let i = 0; i < squad.length; i++) {
+        const angle = (i * 2 * Math.PI) / squad.length;
+        const px = feet[0] + Math.cos(angle) * 8;
+        const pz = feet[2] + Math.sin(angle) * 8;
+        const py = (collider?.heightAt?.(px, pz) ?? feet[1]) || feet[1];
+        const f = await exteriorFoes.spawnFoe(squad[i].type || MOBILE_TYPES.Knight, [px, py, pz], {
+          loose: true,
+          transient: true,
+          managed: true,
+          allied: false,
+        });
+        if (f) {
+          if (f.entity && squad[i].name) f.entity.name = squad[i].name;
+          if (f.ai) {
+            f.ai.isHostile = true;
+            f.ai.detected = true;
+            f.ai.target = playerEntity;
+          }
+          spawned.push(f);
+        }
+      }
+      return spawned;
+    },
     setPlayerPos: (x, y, z) => {
       if (typeof player?.spawn === 'function') player.spawn(x, y, z);
       else if (player?.pos) { player.pos[0] = x; player.pos[1] = y; player.pos[2] = z; }

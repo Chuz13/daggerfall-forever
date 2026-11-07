@@ -2555,7 +2555,7 @@ export class HeldMapWindow {
     // Overworld's own switches (systems/travel/travelViewFilters.js - one store, so both maps answer alike)
     // MAP-PLAYERS: and its one switch for every player, standing wherever players can be drawn - with none in the region
     // yet too, so they can be hidden before the first one comes; the finer switches while players are shown and here
-    if (this._trav.length || typeof this.deps.travellers === 'function') {
+    if ((this._trav.length || typeof this.deps.travellers === 'function') && this._zoneLaws()) {
       const row = el('div', 'hmkeyrow');
       row.append(el('span', 'hmkeywho', TV_WHO_TEXT.title));   // never .hmkeyname: a phone hides those, and the grid would shift
       const btns = el('div', 'hmkeykinds');

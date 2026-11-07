@@ -570,6 +570,7 @@ export function buildLivingSiteBlueprint({
   onRoad = false,
   ambushDetectedByStealth = false,
   rng = Math.random,
+  adv: passedAdv = null,
 }) {
   const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
   const y0 = snapPropToGround(heightAt, centerX, centerZ, 0);
@@ -919,9 +920,11 @@ export function buildLivingSiteBlueprint({
       playerEntity,
       rng,
     });
-    const adv = wandering.adv;
+    const adv = passedAdv ?? wandering.adv;
     const situation = wandering.situation;
-    meta = { ...meta, ...wandering };
+    const displayName = getAdventurerDisplayName(adv);
+    adv.name = displayName;
+    meta = { ...meta, ...wandering, adv, displayName };
 
     const advType = CLASS_TO_MOBILE_TYPE[adv.className] ?? MOBILE_TYPES.Warrior;
 
@@ -989,7 +992,7 @@ export function buildLivingSiteBlueprint({
     const isFightingMonsters = situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS;
     actors.push({
       mobileType: advType,
-      name: wandering.displayName,
+      name: displayName,
       level: adv.level,
       feet: [centerX + 1.2, snapPropToGround(heightAt, centerX + 1.2, centerZ + 1.0), centerZ + 1.0],
       yaw: Math.PI,
@@ -1060,6 +1063,7 @@ export function buildLivingSiteBlueprint({
     flats,
     actors,
     meta,
+    rng,
   };
 }
 
@@ -1247,6 +1251,7 @@ export function createLivingSceneHost(deps) {
     const player = deps.playerEntity();
     const regIdx = s.blueprint.meta?.regionIndex ?? deps.regionIndex();
     const nowMin = deps.clock();
+    const rng = s.blueprint?.rng ?? s.blueprint?.meta?.rng ?? (deps.rng ?? Math.random);
 
     if (s.kind === LIVING_SITE_KINDS.CHECKPOINT) {
       const contractOffer = !getActiveCrisisContract(regIdx)
@@ -2814,7 +2819,14 @@ export function buildDungeonAdventurerChoiceSpec({
  * @returns {string}
  */
 export function executeLivingConsoleCommand(args, ctx) {
-  const sub = String(args?.[0] ?? 'status').toLowerCase();
+  let cleanArgs = [...(args ?? [])];
+  if (cleanArgs[0]?.toLowerCase() === 'site') {
+    cleanArgs.shift();
+    if (cleanArgs[0]?.toLowerCase() !== 'spawn' && cleanArgs.length > 0) {
+      cleanArgs.unshift('spawn');
+    }
+  }
+  const sub = String(cleanArgs[0] ?? 'status').toLowerCase();
   const regIdx = Number.isInteger(ctx?.regionIndex) ? ctx.regionIndex : 0;
   const regState = getRegionState(regIdx);
 
@@ -2834,8 +2846,8 @@ export function executeLivingConsoleCommand(args, ctx) {
   }
 
   if (sub === 'crisis') {
-    const rawType = String(args?.[1] ?? 'WAR').toUpperCase();
-    const rawPhase = String(args?.[2] ?? 'MID').toUpperCase();
+    const rawType = String(cleanArgs[1] ?? 'WAR').toUpperCase();
+    const rawPhase = String(cleanArgs[2] ?? 'MID').toUpperCase();
     const validType = Object.values(CRISIS_TYPE).includes(/** @type {any} */ (rawType))
       ? rawType
       : CRISIS_TYPE.WAR;
@@ -2850,12 +2862,12 @@ export function executeLivingConsoleCommand(args, ctx) {
   }
 
   if (sub === 'adv') {
-    const act = String(args?.[1] ?? 'list').toLowerCase();
+    const act = String(cleanArgs[1] ?? 'list').toLowerCase();
     ensureAdventurerPool();
     const reg = getAdventurerSimRegistry();
     const pool = reg?.pool ?? [];
     if (act === 'list') {
-      const targetReg = args[2] ? parseInt(args[2], 10) : regIdx;
+      const targetReg = cleanArgs[2] ? parseInt(cleanArgs[2], 10) : regIdx;
       const list = pool.filter((a) => !targetReg || a.currentRegion === targetReg || pool.length <= 15).slice(0, 15);
       if (list.length === 0) return `[Living Tamriel] No active adventurers found in Region ${targetReg}.`;
       return [
@@ -2867,7 +2879,7 @@ export function executeLivingConsoleCommand(args, ctx) {
       ].join('\n');
     }
     if (act === 'summon') {
-      const query = String(args?.[2] ?? 'random').toLowerCase();
+      const query = String(cleanArgs[2] ?? 'random').toLowerCase();
       let match = null;
       if (query === 'random') {
         const live = pool.filter((a) => a.status !== ADVENTURER_STATUS.DEAD);
@@ -2890,6 +2902,7 @@ export function executeLivingConsoleCommand(args, ctx) {
         playerEntity: ctx?.playerEntity ?? null,
         nowMinutes: ctx?.nowMinutes ?? 0,
         onRoad: true,
+        adv: match,
       });
       bp.meta = { ...bp.meta, adv: match };
       ctx?.sceneHost?.standBlueprint?.(bp);
@@ -2899,9 +2912,35 @@ export function executeLivingConsoleCommand(args, ctx) {
   }
 
   if (sub === 'spawn') {
-    const rawKind = String(args?.[1] ?? 'checkpoint').toUpperCase();
-    const validKind = Object.values(LIVING_SITE_KINDS).includes(/** @type {any} */ (rawKind))
-      ? rawKind
+    const aliasMap = {
+      roadside_plea: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
+      plea: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
+      plea_encounter: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
+      checkpoint: LIVING_SITE_KINDS.CHECKPOINT,
+      bandit_camp: LIVING_SITE_KINDS.BANDIT_CAMP,
+      bandit: LIVING_SITE_KINDS.BANDIT_CAMP,
+      camp: LIVING_SITE_KINDS.BANDIT_CAMP,
+      traveler_rest: LIVING_SITE_KINDS.TRAVELER_REST,
+      rest: LIVING_SITE_KINDS.TRAVELER_REST,
+      quarantine: LIVING_SITE_KINDS.QUARANTINE_TENT,
+      quarantine_tent: LIVING_SITE_KINDS.QUARANTINE_TENT,
+      urban_skirmish: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+      skirmish: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+      nemesis_ambush: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+      nemesis: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+      ambush: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+      adventurer_meeting: LIVING_SITE_KINDS.ADVENTURER_MEETING,
+      meeting: LIVING_SITE_KINDS.ADVENTURER_MEETING,
+      wandering_adventurer: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+      adventurer: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+      adv: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+      naval_squadron: LIVING_SITE_KINDS.NAVAL_SQUADRON,
+      naval: LIVING_SITE_KINDS.NAVAL_SQUADRON,
+    };
+    const rawKind = String(cleanArgs[1] ?? 'checkpoint').toLowerCase();
+    const mapped = aliasMap[rawKind] || rawKind.toUpperCase();
+    const validKind = Object.values(LIVING_SITE_KINDS).includes(/** @type {any} */ (mapped))
+      ? mapped
       : LIVING_SITE_KINDS.CHECKPOINT;
     const feet = ctx?.playerFeet ?? [0, 0, 0];
     const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
@@ -2936,6 +2975,6 @@ export function executeLivingConsoleCommand(args, ctx) {
     return `[Living Tamriel] Accepted crisis contract: ${accepted.title} (${accepted.rewardGold}g).`;
   }
 
-  return 'Usage: /living <status | crisis <TYPE> [PHASE] | spawn <KIND> | quest>';
+  return 'Usage: /living <status | crisis <TYPE> [PHASE] | [site] spawn <KIND> | adv <list|summon> | quest>';
 }
 

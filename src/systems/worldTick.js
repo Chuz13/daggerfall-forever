@@ -107,6 +107,7 @@ setRacialCurseDeployer((entity, { now }) => {
   consumeRacialOverridePending(entity, { now });
   consumeVampirismPending(entity, { now });
 });
+let _lastMinionUpkeepMs = 0;
 // V3: the other tail - an enemy damaging the player runs the Ring of
 // Namira's reflection (registered here for the same cycle reason).
 setPlayerStruckHook((attacker, target, damage) => onPlayerStruckByEnemy(attacker, target, damage));
@@ -719,19 +720,23 @@ function tickPlayerMinutesOnce({
   const lastMinutes = Number.isFinite(entity.lastGameMinutes) ? entity.lastGameMinutes : Math.floor(classicMinutes);
   const nowMinutes = Math.floor(next);
 
-  // NECROMANCY: minion upkeep magicka drain, exhaustion rebellion, and taint decay
+  // NECROMANCY: minion upkeep magicka drain (1 mana per 5-second combat round per minion tier), exhaustion rebellion, and taint decay
   if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.enabled) {
     const minions = activeUndead();
+    const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (minions.length > 0 && NecroConfig.minionUpkeep) {
-      const upkeepCost = minions.reduce((sum, m) => sum + (m.slotCost || 1), 0);
-      if (typeof entity.magicka === 'number' && upkeepCost > 0) {
-        if (sinks && sinks.drainMagicka) {
-          sinks.drainMagicka(upkeepCost);
-        } else {
-          entity.magicka = Math.max(0, entity.magicka - upkeepCost);
-        }
-        if (entity.magicka === 0 && NecroConfig.minionRebellion) {
-          checkMinionRebellion(entity, minions);
+      if (!entity._lastMinionUpkeepMs || nowMs - entity._lastMinionUpkeepMs >= 5000) {
+        entity._lastMinionUpkeepMs = nowMs;
+        const upkeepCost = minions.reduce((sum, m) => sum + (Number(m.tier ?? m.slotCost ?? 1)), 0);
+        if (typeof entity.magicka === 'number' && upkeepCost > 0) {
+          if (sinks && sinks.drainMagicka) {
+            sinks.drainMagicka(upkeepCost);
+          } else {
+            entity.magicka = Math.max(0, entity.magicka - upkeepCost);
+          }
+          if (entity.magicka === 0 && NecroConfig.minionRebellion) {
+            checkMinionRebellion(entity, minions);
+          }
         }
       }
     }

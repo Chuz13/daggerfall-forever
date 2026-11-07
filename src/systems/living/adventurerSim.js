@@ -130,10 +130,13 @@ export function createVirtualAdventurer(id, regionIndex, rng = Math.random) {
   const className = ADVENTURER_CLASSES[classIndex];
   const trait = ADVENTURER_TRAITS[Math.floor(rng() * ADVENTURER_TRAITS.length)];
   const level = 1 + Math.floor(rng() * 4); // Initial levels 1..4
+  const idNum = Math.abs(Number(id) || Math.floor(rng() * ADVENTURER_FORENAMES.length));
+  const forename = ADVENTURER_FORENAMES[idNum % ADVENTURER_FORENAMES.length];
+  const name = `${forename} the ${className}`;
 
   return {
     id,
-    name: `${className}_${id}`,
+    name,
     className,
     trait,
     level,
@@ -821,6 +824,7 @@ export function getAdventurerDisplayName(adv) {
   if (!adv) return 'Wandering Adventurer';
   const raw = String(adv.name || '');
   if (raw && !/^[A-Za-z]+_\d+$/.test(raw)) {
+    if (raw.includes(' the ') || raw.includes('(')) return raw;
     return `${raw} (${adv.className || 'Adventurer'})`;
   }
   const idNum = Math.abs(Number(adv.id) || 0);

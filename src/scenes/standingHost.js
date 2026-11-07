@@ -27,6 +27,7 @@ import { racialSuppressCrime } from '../systems/lycanthropy.js';
 import { legalStandingWord } from '../systems/legalBands.js';
 import { t } from '../systems/textManager.js';
 import { isInvisible } from '../systems/effects.js';
+import { checkSettlementInfraction } from '../systems/necromancy/cityLaw.js';
 
 /** How often the street is looked over for a guard who can see a known criminal: once a second, not every frame. */
 export const STANDING_LOOK_MS = 1000;
@@ -62,6 +63,20 @@ export function createStandingWatch({
     // DFU's S19); guardSeesPlayer measures a line and a cone, not a spell, and the watch stopped a player it cannot see
     if (isInvisible(playerEntity)) return false;
     const region = regionIndex();
+
+    // Necromancy & Lichdom settlement infraction check
+    if (cityGuards.guardSeesPlayer({ playerFeet: playerFeet(), pool: guardPool() })) {
+      const necroInf = checkSettlementInfraction(playerEntity, {
+        isInsideSettlement: onStreet(),
+        regionName: regionName(region),
+        crimeAlertSink: (alert) => townTalk?.say?.(alert, 5),
+      });
+      if (necroInf.infraction) {
+        crimeResponse();
+        return true;
+      }
+    }
+
     const clocks = { ownNow: ownNow(), worldNow: worldNow() };
     if (!challengeDue(playerEntity, region, clocks)) return false;
     if (!cityGuards.guardSeesPlayer({ playerFeet: playerFeet(), pool: guardPool() })) return false;

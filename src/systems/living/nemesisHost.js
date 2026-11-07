@@ -355,8 +355,9 @@ export function resolveNemesisConfrontation(
     const swVal = skillValue(player, SKILLS.Streetwise) || Number(player?.skills?.Streetwise ?? player?.skills?.streetwise ?? 30);
     const totalScore = swVal + Math.trunc(personality / 3);
     const roll = rng() * 100;
+    const chance = Math.max(15, Math.min(95, totalScore - difficulty + 50));
 
-    if (roll + totalScore >= difficulty + 40) {
+    if (roll + totalScore >= difficulty + 40 || dice100(chance, roll / 100)) {
       // Strips minions out of the encounter!
       nemesis.minions = [];
       recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED);

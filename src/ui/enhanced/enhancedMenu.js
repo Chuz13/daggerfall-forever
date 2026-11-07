@@ -1542,7 +1542,7 @@ function spareFamiliesCard() {
   if (!familiesShown) return card;
   for (const family of spare) {
     const name = family.surname || t('menu.realm.familyUnnamed', 'Unnamed');
-    card.append(el('p', 'meta', t('menu.realm.familyRow', 'The {name} family ({model, select, bloodline {Bloodline} other {Enduring}})', { name, model: family.model })));
+    card.append(el('p', 'meta', t('menu.realm.familyRow', 'The {name} family ({model, select, bloodline {Bloodline} dynasty {Dynasty} other {Enduring}})', { name, model: family.model })));
     card.append(acts([{
       label: t('menu.realm.removeFamily', 'Remove family'),
       disabled: realmBusy,

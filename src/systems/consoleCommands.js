@@ -1139,10 +1139,11 @@ function handleBountyCommand(args = []) {
       if (legalRepOf(playerEntity, reg) > -25) {
         changeLegalRep(playerEntity, reg, -30);
       }
+      _debugSceneContext?.triggerCrimeResponse?.();
     } else {
       setCrimeCommitted(playerEntity, 0);
     }
-    return `Wanted Bounty of ${val} gold placed on player in ${regName} (Region ${reg}). ${val > 0 ? 'Guards are on alert!' : 'Bounty cleared.'}`;
+    return `Wanted Bounty of ${val} gold placed on player in ${regName} (Region ${reg}). ${val > 0 ? 'Guards are on alert and pursuing!' : 'Bounty cleared.'}`;
   }
   if (sub === 'clear') {
     playerEntity.regionalBounties[reg] = 0;
@@ -1332,7 +1333,10 @@ registerCommand(
         const amt = parseInt(args[2] || '0', 10);
         addNecroTaint(-100, playerEntity);
         const newTaint = addNecroTaint(amt, playerEntity);
-        return `Set Soul Taint to ${newTaint}/100 (${getTaintTier(playerEntity)}).`;
+        const lichNote = isLich(playerEntity)
+          ? ' (Note: Lichdom active; lore permanently locks passive soul taint at 100/100 ABOMINATION unless mortal)'
+          : '';
+        return `Set Soul Taint to ${newTaint}/100 (${getTaintTier(playerEntity)})${lichNote}.`;
       }
       return `Current Soul Taint: ${getPlayerTaint(playerEntity)}/100 (${getTaintTier(playerEntity)}).`;
     }
@@ -1347,7 +1351,8 @@ registerCommand(
           sceneKey: 'current_scene',
           worldTimeMinutes: worldMinutes(),
         });
-        return `Spawned fresh humanoid corpse (ID: ${rec.id}) at [${pos.map((n) => n.toFixed(1)).join(', ')}]. Ready for reanimation.`;
+        _debugSceneContext?.spawnCorpse?.(pos);
+        return `Spawned physical humanoid corpse (ID: ${rec.id}) at [${pos.map((n) => n.toFixed(1)).join(', ')}]. Ready for reanimation.`;
       }
       return 'Usage: necro spawn corpse';
     }
@@ -1368,7 +1373,8 @@ registerCommand(
           position: pos,
           masterEntity: playerEntity,
         });
-        return `Raised ${m.profile.name} (Type: ${m.type}, ID: ${m.id}) at [${pos.map((n) => n.toFixed(1)).join(', ')}].`;
+        _debugSceneContext?.spawnUndeadMinion?.(type, pos, m.profile.name);
+        return `Raised ${m.profile.name} (Type: ${m.type}, ID: ${m.id}) in 3D world at [${pos.map((n) => n.toFixed(1)).join(', ')}].`;
       }
       const list = allSpawnedMinions();
       if (list.length === 0) return 'No active undead minions.';
@@ -1379,7 +1385,8 @@ registerCommand(
     }
     if (sub === 'ambush') {
       const party = generatePurifierParty(getTaintTier(playerEntity) || 'tainted');
-      return `Triggered Witch-Hunter ambush! Purifier squad formed: ${party.map((p) => p.name).join(', ')}.`;
+      _debugSceneContext?.spawnPurifiers?.(party);
+      return `Triggered Witch-Hunter ambush! Purifier squad formed in 3D world: ${party.map((p) => p.name).join(', ')}.`;
     }
     return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | ambush>';
   }
