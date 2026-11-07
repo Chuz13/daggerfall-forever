@@ -10604,12 +10604,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       'Issue a mental order to your commanded minions:',
     ];
     const options = [
-      { code: '1', label: '1. [Follow] Follow close behind master (Numpad 1 / Ctrl+1)', action: () => applyUndeadCommand('follow') },
-      { code: '2', label: '2. [Guard] Hold ground and guard area (Numpad 2 / Ctrl+2)', action: () => applyUndeadCommand('guard') },
-      { code: '3', label: '3. [Attack] Charge nearest enemies on sight (Numpad 3,8 / Ctrl+3)', action: () => applyUndeadCommand('attack') },
-      { code: '4', label: '4. [Feign Death] Collapse into bone/corpse piles (Numpad 4 / Ctrl+4)', action: () => applyUndeadCommand('feign_death') },
-      { code: '5', label: '5. [Shadow Tether] Recall all minions to your feet (Numpad 5,7 / Ctrl+5)', action: () => applyUndeadCommand('recall') },
-      { code: '6', label: '6. [Dismiss] Destroy all active minions (Numpad 9 / Ctrl+6)', action: () => applyUndeadCommand('dismiss') },
+      { code: '1', label: '1. [Follow] Follow close behind master (Numpad 1)', action: () => applyUndeadCommand('follow') },
+      { code: '2', label: '2. [Guard] Hold ground and guard area (Numpad 2)', action: () => applyUndeadCommand('guard') },
+      { code: '3', label: '3. [Attack] Charge nearest enemies on sight (Numpad 3)', action: () => applyUndeadCommand('attack') },
+      { code: '4', label: '4. [Feign Death] Collapse into bone/corpse piles (Numpad 4)', action: () => applyUndeadCommand('feign_death') },
+      { code: '5', label: '5. [Shadow Tether] Recall all minions to your feet (Numpad 8)', action: () => applyUndeadCommand('recall') },
+      { code: '6', label: '6. [Dismiss] Destroy all active minions (Numpad 9)', action: () => applyUndeadCommand('dismiss') },
       { code: '7', label: '7. [Close] (Numpad 6 / Esc)', action: () => {} },
     ];
     townTalk.showOverlay(new ChoiceWindow({ lines, options }));
@@ -17084,19 +17084,20 @@ export async function bootWorld(canvas, renderer, params, status) {
 
     // NECROMANCY: Quick Minion Commands & Undead Command Nexus Menu
     if (FORK_FLAGS.ENABLE_NECROMANCY && !townTalk.overlayActive) {
-      if (e.code === 'Numpad6' || (!e.shiftKey && (e.code === 'KeyK' || e.code === 'KeyU'))) {
+      const act = actionOf(e.code);
+      if (act === 'UndeadNexus') {
         if (openUndeadCommandMenu()) { e.preventDefault(); return; }
-      } else if (e.code === 'Numpad1' || (e.ctrlKey && e.code === 'Digit1')) {
+      } else if (act === 'UndeadFollow') {
         e.preventDefault(); applyUndeadCommand('follow'); return;
-      } else if (e.code === 'Numpad2' || (e.ctrlKey && e.code === 'Digit2')) {
+      } else if (act === 'UndeadGuard') {
         e.preventDefault(); applyUndeadCommand('guard'); return;
-      } else if (e.code === 'Numpad8' || e.code === 'Numpad3' || (e.ctrlKey && e.code === 'Digit3')) {
+      } else if (act === 'UndeadAttack') {
         e.preventDefault(); applyUndeadCommand('attack'); return;
-      } else if (e.code === 'Numpad4' || (e.ctrlKey && e.code === 'Digit4')) {
+      } else if (act === 'UndeadFeignDeath') {
         e.preventDefault(); applyUndeadCommand('feign_death'); return;
-      } else if (e.code === 'Numpad7' || e.code === 'Numpad5' || (e.ctrlKey && e.code === 'Digit5')) {
+      } else if (act === 'UndeadRecall') {
         e.preventDefault(); applyUndeadCommand('recall'); return;
-      } else if (e.code === 'Numpad9' || (e.ctrlKey && e.code === 'Digit6')) {
+      } else if (act === 'UndeadDismiss') {
         e.preventDefault(); applyUndeadCommand('dismiss'); return;
       }
     }

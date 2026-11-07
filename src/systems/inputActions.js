@@ -221,6 +221,8 @@ export const ACTIONS = Object.freeze([
   'PvpFlag',
   // HOLD-FREE-MOUSE: hold the key to free cursor, release to relock mouselook. Appended, like every port action.
   'HoldFreeMouse',
+  // UNDEAD-COMMANDS: Necromancy minion tactical orders and nexus dialog
+  'UndeadNexus', 'UndeadFollow', 'UndeadGuard', 'UndeadAttack', 'UndeadFeignDeath', 'UndeadRecall', 'UndeadDismiss',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -238,7 +240,8 @@ export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'Quick
   'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
   'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
   'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'TogglePerspective', 'ActChoice', 'BoatSailUp', 'BoatSailDown', 'Professions',
-  'LegacyFamily', 'ModeWheel', 'WeaponTechnique', 'Spyglass', 'SaddlePanel', 'ShipHold', 'ShotCycle', 'PartyPing', 'Decorate', 'SignatureTechnique', 'PvpFlag', 'HoldFreeMouse']);   // HOLD-FREE-MOUSE   // PARTY-PING: the party's ping   // the decorator, unbound   // SHOT-KINDS: the guns' load   // CARGO-ANYWHERE: the ship's hold   // SPYGLASS: the captain's glass   // TECH1: the weapon's technique   // LEGACY1: Project Legacy's family tree; MODE-WHEEL: the mode wheel   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'LegacyFamily', 'ModeWheel', 'WeaponTechnique', 'Spyglass', 'SaddlePanel', 'ShipHold', 'ShotCycle', 'PartyPing', 'Decorate', 'SignatureTechnique', 'PvpFlag', 'HoldFreeMouse',
+  'UndeadNexus', 'UndeadFollow', 'UndeadGuard', 'UndeadAttack', 'UndeadFeignDeath', 'UndeadRecall', 'UndeadDismiss']);   // HOLD-FREE-MOUSE   // PARTY-PING: the party's ping   // the decorator, unbound   // SHOT-KINDS: the guns' load   // CARGO-ANYWHERE: the ship's hold   // SPYGLASS: the captain's glass   // TECH1: the weapon's technique   // LEGACY1: Project Legacy's family tree; MODE-WHEEL: the mode wheel   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -430,6 +433,14 @@ export const DEFAULT_BINDINGS = Object.freeze([
   // PVP-KEY: the key the flag always had. A file that already spends Caps Lock keeps it, and the flag waits for a key.
   ['CapsLock', 'PvpFlag'],
   ['Slash', 'TravelView'],
+  // UNDEAD-COMMANDS: Numpad tactical keypad layout
+  ['Numpad6', 'UndeadNexus'],
+  ['Numpad1', 'UndeadFollow'],
+  ['Numpad2', 'UndeadGuard'],
+  ['Numpad3', 'UndeadAttack'],
+  ['Numpad4', 'UndeadFeignDeath'],
+  ['Numpad8', 'UndeadRecall'],
+  ['Numpad9', 'UndeadDismiss'],
 ]);
 
 /**
@@ -629,6 +640,15 @@ export const ACTION_GROUPS = Object.freeze([
   g('Project Legacy', [
     ['LegacyFamily', 'Family tree'],
   ], 'project-legacy'),
+  g('Necromancy', [
+    ['UndeadNexus', 'Undead Command Nexus Menu'],
+    ['UndeadFollow', 'Order Minions: Follow'],
+    ['UndeadGuard', 'Order Minions: Guard'],
+    ['UndeadAttack', 'Order Minions: Attack'],
+    ['UndeadFeignDeath', 'Order Minions: Feign Death'],
+    ['UndeadRecall', 'Order Minions: Recall (Shadow Tether)'],
+    ['UndeadDismiss', 'Order Minions: Dismiss'],
+  ]),
 ]);
 const _groupOf = new Map(ACTION_GROUPS.flatMap((grp) => grp.rows.map((r) => [r.action, grp])));
 /** KB1: the words a player reads for an action - its row's label, with its mod's name after a mod's. */
