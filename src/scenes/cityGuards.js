@@ -385,7 +385,13 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       if (defender) {
         entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly';
         if (threat?.ai) ai.makeEnemyHostileToAttacker(threat, threat.ai.feet, 600);
-      } else ai.makeHostileToPlayer(600, attackerFeet);   // wave 36: MakeEnemyHostileToAttacker seeds the remembered position too
+      } else {
+        ai.target = PLAYER_TARGET;
+        ai.secondaryTarget = PLAYER_TARGET;
+        ai.detected = true;
+        ai.makeHostileToPlayer(600, attackerFeet);
+        ai.makeEnemyHostileToAttacker?.(PLAYER_TARGET, attackerFeet);
+      }
       const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
       // EnemyMotor.cs:131-137 computes hasBowAttack from the MobileEnemy
       // FLAGS, and EnemyBasics.cs:2197-2212 gives Knight_CityWatch
@@ -867,7 +873,11 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     g.leaving = false; g.ai.fleeLeft = 0;   // WATCH-LEAVES: one walking off turns back for the criminal
     g.entity.team = g.entity.mobileTeam = staticTeamOf(GUARD_MOBILE_TYPE);
     g.ai.isHostile = true;
+    g.ai.target = PLAYER_TARGET;
+    g.ai.secondaryTarget = PLAYER_TARGET;
+    g.ai.detected = true;
     g.ai.makeHostileToPlayer(600, playerFeet ?? null);
+    g.ai.makeEnemyHostileToAttacker?.(PLAYER_TARGET, playerFeet ?? null);
   }
 
   /** AUDIT 24 (the seven-slice sweep): free a guard's LIVE billboard
