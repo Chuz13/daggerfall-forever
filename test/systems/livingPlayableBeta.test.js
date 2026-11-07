@@ -848,6 +848,24 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     assert.ok(questAcceptOut.includes('Accepted crisis contract'));
     assert.ok(getActiveCrisisContract(17));
 
+    // Verify 'site spawn' alias support
+    const siteSpawnOut = executeLivingConsoleCommand(['site', 'spawn', 'roadside_plea'], {
+      regionIndex: 17,
+      playerFeet: [0, 0, 0],
+      sceneHost: host,
+    });
+    assert.ok(siteSpawnOut.includes('Spawned PLEA_ENCOUNTER'));
+    assert.equal(host.shown()?.kind, LIVING_SITE_KINDS.PLEA_ENCOUNTER);
+
+    // Verify encounter console command
+    let encounterTriggered = null;
+    const encounterOut = executeLivingConsoleCommand(['encounter', 'pack'], {
+      regionIndex: 17,
+      triggerEncounter: (k) => { encounterTriggered = k; return 'Encounter triggered: pack'; },
+    });
+    assert.equal(encounterTriggered, 'pack');
+    assert.ok(encounterOut.includes('Encounter triggered'));
+
     const spawnOut = executeLivingConsoleCommand(['spawn', 'checkpoint'], {
       regionIndex: 17,
       playerFeet: [0, 0, 0],

@@ -18,6 +18,11 @@ import {
 import { LivingTamrielConfig, PRESENCE, resetLivingConfig } from '../../src/systems/living/livingConfig.js';
 import { restoreLivingSaveData, getLivingDirectorState } from '../../src/systems/living/livingDirector.js';
 import { setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from '../../src/systems/living/regionState.js';
+import {
+  createLivingSceneHost,
+  buildLivingSiteBlueprint,
+  LIVING_SITE_KINDS,
+} from '../../src/systems/living/livingWorldSpawner.js';
 
 test('LT-03: Travel interruption formula respects Luck, cooldown, and presence tiers', () => {
   restoreLivingSaveData(null);
@@ -113,7 +118,7 @@ test('LT-03: Stealth allows evading ambush threats', () => {
   assert.equal(caught, false);
 });
 
-test('LT-03: Slope-snap algorithm filters steep inclines and snaps props safely', () => {
+test('LT-03: Slope-snap algorithm filters steep inclines and snaps props safely', async () => {
   // Flat ground height sampler (elevation = 100.0m everywhere)
   const flatSampler = () => 100.0;
   const flatCheck = checkCampFootprintSlope(flatSampler, 500, 500, 6.0);
@@ -136,4 +141,59 @@ test('LT-03: Slope-snap algorithm filters steep inclines and snaps props safely'
   // Validate presets structure
   assert.ok(CAMP_PRESETS.BANDIT_CAMP.props.length >= 3);
   assert.ok(CAMP_PRESETS.TRAVELER_REST.actors.length >= 1);
+
+  // Validate Traveler Rest interaction choices
+  let openedTradeActor = null;
+  let choiceSpec = null;
+  let saidMsg = null;
+  const dummyPlayer = { health: 50, maxHealth: 100, fatigue: 100, maxFatigue: 200, goldPieces: 50 };
+  const travelHost = createLivingSceneHost({
+    ready: () => true,
+    feet: () => [100, 0, 100],
+    heightAt: () => 0,
+    regionIndex: () => 0,
+    inLocationRect: () => false,
+    onRoad: () => true,
+    clock: () => 600,
+    playerEntity: () => dummyPlayer,
+    spawn: async (m, pos, opts) => ({ id: Math.random(), entity: { name: 'Actor' }, ...opts }),
+    inPool: () => true,
+    remove: () => {},
+    openChoice: (spec) => { choiceSpec = spec; },
+    openLivingActor: (actor) => { openedTradeActor = actor; },
+    say: (msg) => { saidMsg = msg; },
+    playSound: () => {},
+  });
+
+  const restBp = buildLivingSiteBlueprint({
+    kind: LIVING_SITE_KINDS.TRAVELER_REST,
+    centerX: 100,
+    centerZ: 100,
+    heightAt: () => 0,
+    regionIndex: 0,
+    playerEntity: dummyPlayer,
+    nowMinutes: 600,
+    onRoad: true,
+  });
+
+  const site = travelHost.standBlueprint(restBp);
+  await new Promise((r) => setTimeout(r, 10));
+  travelHost.frame(1.1);
+
+  assert.ok(choiceSpec, 'Traveler rest triggers ChoiceWindow');
+  assert.equal(choiceSpec.options.length, 4);
+
+  // Test Option 1: Trade
+  choiceSpec.options[0].action();
+  assert.ok(openedTradeActor, 'Trade option invokes openLivingActor with merchant actor');
+  assert.equal(openedTradeActor.livingRole, 'traveler');
+
+  // Test Option 2: Rest
+  choiceSpec.options[1].action();
+  assert.equal(dummyPlayer.health, 85, 'Rest option heals health');
+  assert.equal(dummyPlayer.fatigue, 200, 'Rest option recovers fatigue');
+
+  // Test Option 4: Rob
+  choiceSpec.options[3].action();
+  assert.equal(site.hostile, true, 'Rob option makes traveler rest camp hostile');
 });
