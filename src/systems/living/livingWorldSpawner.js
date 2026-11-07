@@ -650,6 +650,7 @@ export function buildLivingSiteBlueprint({
         allied: false,
         hostile: !ambushDetectedByStealth,
         role: 'bandit_camp',
+        team: 'Criminals',
       });
     }
   } else if (kind === LIVING_SITE_KINDS.TRAVELER_REST) {
@@ -1125,6 +1126,7 @@ export function createLivingSceneHost(deps) {
         } catch (_e) {}
       }
       if (companionFoe || companionId !== null) {
+        deps.say?.(LIVING_WORDS.roadAdvExpired ? LIVING_WORDS.roadAdvExpired('Adventurer') : "Your contracted companion's 24-hour service has expired. They bid you farewell and return to the road.", 6);
         companionFoe = null;
         companionId = null;
         deps.onCompanionChanged?.(null);
@@ -1172,13 +1174,40 @@ export function createLivingSceneHost(deps) {
           }
           if (rec.ai) {
             rec.ai.isHostile = false;
+            rec.ai.target = null;
+            rec.ai.secondaryTarget = null;
+            rec.ai.follow = { feet: () => deps.feet?.() ?? [rec.ai.feet[0], rec.ai.feet[1], rec.ai.feet[2]], stop: 2.5 };
+            rec.ai.moving = true;
+            rec.ai.canAct = true;
+            if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();
           }
+          rec.companion = `adv:${comp.name}`;
+          rec.shipmate = true;
           rec.livingRole = 'recruited_companion';
           companionFoe = rec;
         })
         .catch(() => {
           companionSpawning = false;
         });
+    } else if (companionFoe && !companionFoe.dead && companionFoe.ai && feet) {
+      if (!companionFoe.ai.follow) {
+        companionFoe.ai.follow = { feet: () => deps.feet?.() ?? [companionFoe.ai.feet[0], companionFoe.ai.feet[1], companionFoe.ai.feet[2]], stop: 2.5 };
+      }
+      companionFoe.ai.moving = true;
+      companionFoe.ai.canAct = true;
+      companionFoe.ai.isHostile = false;
+      const ff = companionFoe.ai.feet ?? companionFoe.pos;
+      if (ff) {
+        const dist = Math.hypot(ff[0] - feet[0], ff[2] - feet[2]);
+        if (dist > 35) {
+          const rx = feet[0] - 2.0;
+          const rz = feet[2] - 2.0;
+          const ry = snapPropToGround(deps.heightAt, rx, rz);
+          if (companionFoe.pos) { companionFoe.pos[0] = rx; companionFoe.pos[1] = ry; companionFoe.pos[2] = rz; }
+          if (companionFoe.feet) { companionFoe.feet[0] = rx; companionFoe.feet[1] = ry; companionFoe.feet[2] = rz; }
+          if (companionFoe.ai.feet) { companionFoe.ai.feet[0] = rx; companionFoe.ai.feet[1] = ry; companionFoe.ai.feet[2] = rz; }
+        }
+      }
     }
   }
 
@@ -1533,17 +1562,27 @@ export function createLivingSceneHost(deps) {
       const options = [
         {
           code: 'Digit1',
-          label: '1. [Trade] Greet the merchant and inspect wares (Shop)',
+          label: '1. [Buy] Inspect traveling merchant wares',
           action: () => {
             deps.say?.('The merchant opens their traveling trunk for barter.', 4);
             if (merchantActor && deps.openLivingActor) {
-              deps.openLivingActor(merchantActor);
+              deps.openLivingActor(merchantActor, 'Buy');
             }
           },
         },
         {
           code: 'Digit2',
-          label: '2. [Rest] Rest by the campfire to recover fatigue and health',
+          label: '2. [Sell] Sell spoils and equipment to merchant',
+          action: () => {
+            deps.say?.('The merchant weighs your goods and prepares coin.', 4);
+            if (merchantActor && deps.openLivingActor) {
+              deps.openLivingActor(merchantActor, 'Sell');
+            }
+          },
+        },
+        {
+          code: 'Digit3',
+          label: '3. [Rest] Rest by the campfire to recover fatigue and health',
           action: () => {
             if (player) {
               player.health = Math.min(Number(player.maxHealth ?? player.health), Number(player.health) + 35);
@@ -1553,15 +1592,15 @@ export function createLivingSceneHost(deps) {
           },
         },
         {
-          code: 'Digit3',
-          label: '3. [Depart] Nod politely and continue on your way',
+          code: 'Digit4',
+          label: '4. [Depart] Nod politely and continue on your way',
           action: () => {
             deps.say?.('"Safe travels under the stars, friend."', 4);
           },
         },
         {
-          code: 'Digit4',
-          label: '4. [Rob] Threaten the caravan and demand their gold!',
+          code: 'Digit5',
+          label: '5. [Rob] Threaten the caravan and demand their gold!',
           action: () => {
             setSiteHostile(s, true);
             deps.say?.('"Guards, to arms! A brigand attacks our camp!"', 5);
@@ -1776,14 +1815,28 @@ export function createLivingSceneHost(deps) {
                 for (const f of s.foes) {
                   if (f?.livingRole === 'wandering_adventurer') {
                     if (f.entity) {
+                      f.entity.name = comp.displayName || comp.name;
                       f.entity.team = 'PlayerAlly';
                       f.entity.mobileTeam = 'PlayerAlly';
                     }
-                    if (f.ai) f.ai.isHostile = false;
+                    if (f.ai) {
+                      f.ai.isHostile = false;
+                      f.ai.target = null;
+                      f.ai.secondaryTarget = null;
+                      f.ai.follow = { feet: () => deps.feet?.() ?? [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], stop: 2.5 };
+                      f.ai.moving = true;
+                      f.ai.canAct = true;
+                      if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
+                    }
+                    f.companion = `adv:${comp.name}`;
+                    f.shipmate = true;
+                    f.livingRole = 'recruited_companion';
                     companionFoe = f;
                   }
                 }
                 deps.say(LIVING_WORDS.roadAdvRecruited(adv.name), 5);
+              } else if (res.goldShortage) {
+                deps.say(LIVING_WORDS.roadAdvNoGold(res.hireCost || wager), 5);
               } else {
                 deps.say(LIVING_WORDS.roadAdvDeclined(), 5);
               }
@@ -2003,7 +2056,13 @@ export function createLivingSceneHost(deps) {
           }
           if (rec.entity) {
             rec.entity.name = a.name;
-            if (a.team) rec.entity.team = a.team;
+            if (a.team) {
+              rec.entity.team = a.team;
+              rec.entity.mobileTeam = a.team;
+            }
+            if (a.role === 'bandit_camp') {
+              rec.entity.suppressInfighting = true;
+            }
           }
           if (site.hostile || a.hostile) {
             if (rec.ai) {

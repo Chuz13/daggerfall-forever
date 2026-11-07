@@ -201,7 +201,7 @@ export const LIVING_WORDS = Object.freeze({
   roadAdvOptionIntel: () =>
     t('living.roadAdv.optionIntel', 'Trade road news, dungeon intel, and share the camp.'),
   roadAdvOptionRecruit: (gold) =>
-    t('living.roadAdv.optionRecruit', 'Invite to travel and fight alongside you ({gold}g retainer or Etiquette).', { gold }),
+    t('living.roadAdv.optionRecruit', 'Hire to travel and fight alongside you ({gold}g retainer).', { gold }),
   roadAdvOptionSpar: (gold) =>
     t('living.roadAdv.optionSpar', 'Propose a friendly wager match of blades ({gold}g).', { gold }),
   roadAdvOptionExtort: () =>
@@ -210,6 +210,10 @@ export const LIVING_WORDS = Object.freeze({
     t('living.roadAdv.intelShared', 'You exchange maps and road warnings over the fire, feeling refreshed for the journey ahead.'),
   roadAdvRecruited: (name) =>
     t('living.roadAdv.recruited', '{name} salutes and falls in beside you: "My blade is with you along this road!"', { name }),
+  roadAdvNoGold: (gold) =>
+    t('living.roadAdv.noGold', 'I cannot pledge my blade without the retainer fee ({gold} gold).', { gold }),
+  roadAdvExpired: (name) =>
+    t('living.roadAdv.contractExpired', "Your contracted companion's 24-hour service has expired. They bid you farewell and return to the road.", { name }),
   roadAdvExtorted: (name) =>
     t('living.roadAdv.extorted', '{name} backs down with a scowl and tosses you a pouch of dungeon spoils.', { name }),
   roadAdvDeclined: () =>

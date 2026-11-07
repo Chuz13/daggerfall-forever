@@ -3847,46 +3847,74 @@ export async function bootWorld(canvas, renderer, params, status) {
     return out;
   });
 
-  function openTravelerMerchant(foe) {
+  function openTravelerMerchant(foe, defaultMode = 'Buy') {
+    const ensureShelf = () => {
+      if (!foe._merchantShelf) {
+        foe._merchantShelf = {
+          items: stockShopShelf({ buildingType: 1, quality: 12 }, playerEntity),
+          coin: 1500,
+        };
+      }
+    };
+    const openTrade = (tradeMode) => {
+      ensureShelf();
+      const b = {
+        buildingType: 1, // General Store
+        quality: 12,
+        name: 'Wayfaring Merchant',
+        buildingKey: null,
+        regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+      };
+      if (modes?.openRoadTrade) {
+        modes.openRoadTrade({
+          shelf: foe._merchantShelf,
+          b,
+          mode: tradeMode,
+          allow: (m, staged, price) => {
+            if ((m === 'Sell' || m === 'SellMagic') && foe._merchantShelf.coin < price) {
+              townTalk.say('The merchant does not have enough coin left to buy all those goods.');
+              return false;
+            }
+            return true;
+          },
+          done: (m, staged, price) => {
+            if (m === 'Sell' || m === 'SellMagic') {
+              foe._merchantShelf.coin = Math.max(0, foe._merchantShelf.coin - price);
+            } else if (m === 'Buy') {
+              foe._merchantShelf.coin += price;
+            }
+          },
+        }, tradeMode);
+      } else {
+        townTalk.say('Merchant trade interface is not available.');
+      }
+    };
+
+    if (defaultMode === 'Sell') {
+      openTrade('Sell');
+      return true;
+    }
+
     const lines = [
       '=== WAYFARING MERCHANT ===',
       '"Greetings, wanderer! The roads of the Iliac Bay are dangerous, but my wagon carries fine provisions, potions, and gear."',
       '"Would you care to barter, or perhaps trade news of the road?"',
+      `Merchant Purse: ${foe._merchantShelf ? foe._merchantShelf.coin : 1500} gold`,
     ];
     const options = [
       {
         code: 'Digit1',
-        label: '1. [Trade] Buy supplies & Sell spoils (Shop)',
-        action: () => {
-          if (!foe._merchantShelf) {
-            foe._merchantShelf = {
-              items: stockShopShelf({ buildingType: 1, quality: 12 }, playerEntity),
-              coin: 1500,
-            };
-          }
-          const b = {
-            buildingType: 1, // General Store
-            quality: 12,
-            name: 'Wayfaring Merchant',
-            buildingKey: null,
-            regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
-          };
-          if (modes?.openRoadTrade) {
-            modes.openRoadTrade({
-              shelf: foe._merchantShelf,
-              b,
-              mode: 'Buy',
-              allow: () => true,
-              done: () => {},
-            }, 'Buy');
-          } else {
-            townTalk.say('Merchant trade interface is not available.');
-          }
-        },
+        label: `1. ${t('living.merchant.buy', '[Buy] Inspect wares & buy supplies')}`,
+        action: () => openTrade('Buy'),
       },
       {
         code: 'Digit2',
-        label: '2. [Rumors] Inquire about roads and perils',
+        label: `2. ${t('living.merchant.sell', '[Sell] Sell spoils for coin')}`,
+        action: () => openTrade('Sell'),
+      },
+      {
+        code: 'Digit3',
+        label: '3. [Rumors] Inquire about roads and perils',
         action: () => {
           const rumors = [
             '"Keep your eyes sharp for bandit camps near the foothills—they prey on lone travelers."',
@@ -3898,8 +3926,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         },
       },
       {
-        code: 'Digit3',
-        label: '3. [Leave] Farewell, safe travels',
+        code: 'Digit4',
+        label: '4. [Leave] Farewell, safe travels',
         action: () => {},
       },
     ];
@@ -3907,10 +3935,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     return true;
   }
 
-  function openLivingSiteActor(rec) {
+  function openLivingSiteActor(rec, defaultMode = 'Buy') {
     if (!rec) return false;
     if (rec.livingRole === 'traveler' || rec.entity?.name === 'Wayfaring Merchant') {
-      return openTravelerMerchant(rec);
+      return openTravelerMerchant(rec, defaultMode);
     }
     if (rec.livingRole === 'traveler_guard') {
       townTalk.say('"Keep your hands off your weapon, wanderer. The merchant is under my protection."', 5);
@@ -3938,6 +3966,20 @@ export async function bootWorld(canvas, renderer, params, status) {
       else if (roll < 0.80) targetKind = 'adv';
       else if (roll < 0.90) targetKind = 'bandit';
       else targetKind = 'plea';
+    }
+
+    if (targetKind === 'naval' || targetKind === 'naval_squadron' || targetKind === 'sea' || targetKind === 'fleet' || targetKind === 'ships') {
+      const bp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.NAVAL_SQUADRON,
+        centerX: feet[0],
+        centerZ: feet[2],
+        heightAt,
+        regionIndex: reg,
+        playerEntity,
+        nowMinutes: nowMin,
+      });
+      livingSceneHostOf().standBlueprint(bp);
+      return '[Living Tamriel] Spawned Naval Warship Squadron Battle (Crown Navy vs Bay Pirates with 3D ships, gunnery & broadsides).';
     }
 
     if (targetKind === 'merchant' || targetKind === 'trader' || targetKind === 'traveler' || targetKind === 'rest') {
@@ -4017,7 +4059,21 @@ export async function bootWorld(canvas, renderer, params, status) {
         minDistance: 12,
         maxDistance: 25,
       };
-      const stood = _standCampEncounter(h, feet);
+      let stood = _standCampEncounter(h, feet);
+      if (!stood) {
+        // Direct placement fallback so 'encounter camp' never fails regardless of roads/locations
+        let placedCount = 0;
+        for (let i = 0; i < types.length; i++) {
+          const ang = (i / types.length) * Math.PI * 2;
+          const dist = 12 + (i % 3) * 2;
+          const sx = feet[0] + Math.cos(ang) * dist;
+          const sz = feet[2] + Math.sin(ang) * dist;
+          const sy = heightAt(sx, sz);
+          exteriorFoes.spawnFoe(types[i], [sx, sy, sz]);
+          placedCount++;
+        }
+        stood = placedCount > 0;
+      }
       return stood
         ? `[Living Tamriel] Spawned wilderness ${h.kind} (${types.length} enemies) near player.`
         : '[Living Tamriel] Could not find clear ground for wilderness camp.';

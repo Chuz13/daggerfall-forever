@@ -972,6 +972,7 @@ export function resolveWanderingAdventurerInteraction({
   playerEntity,
   action,
   regionIndex = 0,
+  nowMinutes = 0,
   rng = Math.random,
 }) {
   const playerLuck = Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
@@ -1034,59 +1035,38 @@ export function resolveWanderingAdventurerInteraction({
   }
 
   if (action === 'RECRUIT_ALLY') {
-    const et =
-      skillValue(playerEntity, SKILLS.Etiquette) ||
-      Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
-    const bonus = adv?.trait === 'HONORABLE' ? 20 : adv?.trait === 'CAUTIOUS' ? 10 : 0;
-    const difficulty = Math.min(90, advLevel * 3 + 25 - bonus);
-    const roll = Math.floor(rng() * 100) + 1;
-
-    // High Etiquette or Luck convinces an honorable/friendly adventurer to travel with you for free!
-    if (
-      adv?.trait !== 'CUTTHROAT' &&
-      (roll <= et + bonus || (et + bonus - difficulty >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck))
-    ) {
-      recruitAdventurerCompanion(adv);
-      return {
-        outcome: WANDERING_OUTCOME.RECRUITED_ALLY,
-        goldDelta: 0,
-        repDelta: 1,
-        healed: false,
-        allied: true,
-        hostile: false,
-        spoilsItem: false,
-        messageKey: 'living.roadAdv.recruited',
-      };
-    }
-
-    // Otherwise, hire with gold retainer
+    const hireCost = Math.max(25, advLevel * 20);
     const haveGold = Number(playerEntity?.goldPieces ?? 0);
-    if (haveGold >= hireCost && adv?.trait !== 'CUTTHROAT') {
-      if (playerEntity) {
-        playerEntity.goldPieces = Math.max(0, haveGold - hireCost);
-      }
-      recruitAdventurerCompanion(adv);
+
+    if (haveGold < hireCost) {
       return {
-        outcome: WANDERING_OUTCOME.RECRUITED_ALLY,
-        goldDelta: -hireCost,
+        outcome: WANDERING_OUTCOME.DECLINED,
+        goldDelta: 0,
         repDelta: 0,
         healed: false,
-        allied: true,
+        allied: false,
         hostile: false,
         spoilsItem: false,
-        messageKey: 'living.roadAdv.recruited',
+        goldShortage: true,
+        hireCost,
+        messageKey: 'living.roadAdv.noGold',
       };
     }
 
+    if (playerEntity) {
+      playerEntity.goldPieces = Math.max(0, haveGold - hireCost);
+    }
+    recruitAdventurerCompanion(adv, nowMinutes);
     return {
-      outcome: WANDERING_OUTCOME.DECLINED,
-      goldDelta: 0,
-      repDelta: 0,
+      outcome: WANDERING_OUTCOME.RECRUITED_ALLY,
+      goldDelta: -hireCost,
+      hireCost,
+      repDelta: 1,
       healed: false,
-      allied: false,
+      allied: true,
       hostile: false,
       spoilsItem: false,
-      messageKey: 'living.roadAdv.declined',
+      messageKey: 'living.roadAdv.recruited',
     };
   }
 

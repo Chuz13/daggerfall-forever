@@ -680,7 +680,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     assert.equal(choiceSpec.options.length, 5);
     // Option 2: Recruit ally
     choiceSpec.options[1].action();
-    const stoodAdv = spawnedFoes.find((f) => f.livingRole === 'wandering_adventurer');
+    const stoodAdv = spawnedFoes.find((f) => f.livingRole === 'recruited_companion' || f.livingRole === 'wandering_adventurer');
     assert.equal(stoodAdv.entity.team, 'PlayerAlly', 'recruited road adventurer joins PlayerAlly');
 
     // 4. Stealth-detected BANDIT_CAMP ambush ChoiceWindow

@@ -181,19 +181,19 @@ test('LT-03: Slope-snap algorithm filters steep inclines and snaps props safely'
   travelHost.frame(1.1);
 
   assert.ok(choiceSpec, 'Traveler rest triggers ChoiceWindow');
-  assert.equal(choiceSpec.options.length, 4);
+  assert.equal(choiceSpec.options.length, 5);
 
-  // Test Option 1: Trade
+  // Test Option 1: Trade (Buy)
   choiceSpec.options[0].action();
   assert.ok(openedTradeActor, 'Trade option invokes openLivingActor with merchant actor');
   assert.equal(openedTradeActor.livingRole, 'traveler');
 
-  // Test Option 2: Rest
-  choiceSpec.options[1].action();
+  // Test Option 3: Rest
+  choiceSpec.options[2].action();
   assert.equal(dummyPlayer.health, 85, 'Rest option heals health');
   assert.equal(dummyPlayer.fatigue, 200, 'Rest option recovers fatigue');
 
-  // Test Option 4: Rob
-  choiceSpec.options[3].action();
+  // Test Option 5: Rob
+  choiceSpec.options[4].action();
   assert.equal(site.hostile, true, 'Rob option makes traveler rest camp hostile');
 });

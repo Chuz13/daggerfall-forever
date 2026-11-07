@@ -1,2 +1,2 @@
-export const BUILD_TAG = '9eeb653ef7bf';
-export const UPDATE = '0.2.42';
+export const BUILD_TAG = '569741784802';
+export const UPDATE = '0.2.93';
