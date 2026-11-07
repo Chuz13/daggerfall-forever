@@ -69,6 +69,7 @@ export function createDefaultRegionState(regionIndex) {
     phase: CRISIS_PHASE.NONE,
     phaseDaysRemaining: 0,
     tension: 10,
+    crises: {},
   };
 }
 
@@ -120,6 +121,96 @@ export function getRegionIndexAt(px, py, defaultIndex = 0) {
   return defaultIndex;
 }
 
+const CRISIS_PRIORITY = Object.freeze({
+  [CRISIS_TYPE.WAR]: 4,
+  [CRISIS_TYPE.CIVIL_STRIFE]: 3,
+  [CRISIS_TYPE.PLAGUE]: 2,
+  [CRISIS_TYPE.FAMINE]: 1,
+});
+
+/**
+ * Synchronizes the legacy single `.crisis`, `.phase`, `.phaseDaysRemaining` properties
+ * with the highest-priority entry in `state.crises`.
+ * @param {RegionStateRecord} state
+ */
+function _syncPrimaryCrisis(state) {
+  if (!state.crises || typeof state.crises !== 'object') {
+    state.crises = {};
+  }
+  const entries = Object.entries(state.crises).filter(
+    ([type, rec]) => rec && rec.phase !== CRISIS_PHASE.NONE && type !== CRISIS_TYPE.PEACE,
+  );
+  if (entries.length === 0) {
+    state.crisis = CRISIS_TYPE.PEACE;
+    state.phase = CRISIS_PHASE.NONE;
+    state.phaseDaysRemaining = 0;
+    return;
+  }
+  if (state.crisis && state.crises[state.crisis] && state.crises[state.crisis].phase !== CRISIS_PHASE.NONE) {
+    state.phase = state.crises[state.crisis].phase;
+    state.phaseDaysRemaining = state.crises[state.crisis].phaseDaysRemaining ?? 0;
+    return;
+  }
+  entries.sort(([typeA], [typeB]) => (CRISIS_PRIORITY[typeB] || 0) - (CRISIS_PRIORITY[typeA] || 0));
+  const [topType, topRec] = entries[0];
+  state.crisis = topType;
+  state.phase = topRec.phase;
+  state.phaseDaysRemaining = topRec.phaseDaysRemaining ?? 0;
+}
+
+/**
+ * Returns all active crises in the region as an array of objects.
+ * @param {number} regionIndex
+ * @returns {Array<{ type: string, phase: string, phaseDaysRemaining: number }>}
+ */
+export function getActiveCrises(regionIndex) {
+  const state = getRegionState(regionIndex);
+  if (!state) return [];
+  if (!state.crises || typeof state.crises !== 'object') {
+    state.crises = {};
+  }
+  const list = [];
+  for (const [type, rec] of Object.entries(state.crises)) {
+    if (rec && rec.phase !== CRISIS_PHASE.NONE && type !== CRISIS_TYPE.PEACE) {
+      list.push({
+        type,
+        phase: rec.phase,
+        phaseDaysRemaining: rec.phaseDaysRemaining ?? 0,
+      });
+    }
+  }
+  if (list.length === 0 && state.crisis && state.crisis !== CRISIS_TYPE.PEACE && state.phase !== CRISIS_PHASE.NONE) {
+    list.push({
+      type: state.crisis,
+      phase: state.phase,
+      phaseDaysRemaining: state.phaseDaysRemaining ?? 0,
+    });
+  }
+  return list;
+}
+
+/**
+ * Checks whether a region currently has an active crisis of a specific type.
+ * @param {number} regionIndex
+ * @param {string} crisisType
+ * @param {string} [matchingPhase]
+ * @returns {boolean}
+ */
+export function hasRegionCrisis(regionIndex, crisisType, matchingPhase = null) {
+  const state = getRegionState(regionIndex);
+  if (!state) return false;
+  if (state.crises && state.crises[crisisType]) {
+    const rec = state.crises[crisisType];
+    if (rec.phase && rec.phase !== CRISIS_PHASE.NONE) {
+      return matchingPhase ? rec.phase === matchingPhase : true;
+    }
+  }
+  if (state.crisis === crisisType && state.phase !== CRISIS_PHASE.NONE) {
+    return matchingPhase ? state.phase === matchingPhase : true;
+  }
+  return false;
+}
+
 /**
  * Whether the specified region is currently in active peak quarantine (PLAGUE.MID).
  * @param {number} regionIndex
@@ -128,8 +219,7 @@ export function getRegionIndexAt(px, py, defaultIndex = 0) {
 export function isRegionInQuarantine(regionIndex) {
   const tier = Number(LivingTamrielConfig.quarantine);
   if (tier === PRESENCE.OFF) return false;
-  const state = getRegionState(regionIndex);
-  return state.crisis === CRISIS_TYPE.PLAGUE && state.phase === CRISIS_PHASE.MID;
+  return hasRegionCrisis(regionIndex, CRISIS_TYPE.PLAGUE, CRISIS_PHASE.MID);
 }
 
 /**
@@ -140,26 +230,52 @@ export function isRegionInQuarantine(regionIndex) {
 export function isRegionInSkirmishPhase(regionIndex) {
   const tier = Number(LivingTamrielConfig.political);
   if (tier === PRESENCE.OFF) return false;
-  const state = getRegionState(regionIndex);
-  const isConflict = state.crisis === CRISIS_TYPE.WAR || state.crisis === CRISIS_TYPE.CIVIL_STRIFE;
-  return isConflict && state.phase === CRISIS_PHASE.MID;
+  return (
+    hasRegionCrisis(regionIndex, CRISIS_TYPE.WAR, CRISIS_PHASE.MID) ||
+    hasRegionCrisis(regionIndex, CRISIS_TYPE.CIVIL_STRIFE, CRISIS_PHASE.MID)
+  );
 }
 
 /**
  * Manually trigger or set a crisis on a region (used by quests, bounties, or random rolls).
+ * Supports simultaneous coexistence of one crisis per type.
  * @param {number} regionIndex
  * @param {string} crisisType
  * @param {string} [startPhase]
+ * @param {number} [daysRemaining]
  */
-export function setRegionCrisis(regionIndex, crisisType, startPhase = CRISIS_PHASE.START) {
+export function setRegionCrisis(regionIndex, crisisType, startPhase = CRISIS_PHASE.START, daysRemaining = null) {
   const state = getRegionState(regionIndex);
+  if (!state.crises || typeof state.crises !== 'object') {
+    state.crises = {};
+  }
+  if (crisisType === CRISIS_TYPE.PEACE) {
+    state.crises = {};
+    state.crisis = CRISIS_TYPE.PEACE;
+    state.phase = CRISIS_PHASE.NONE;
+    state.phaseDaysRemaining = 0;
+    state.tension = Math.max(5, (state.tension || 10) - 20);
+    return;
+  }
+  if (startPhase === CRISIS_PHASE.NONE) {
+    delete state.crises[crisisType];
+    _syncPrimaryCrisis(state);
+    return;
+  }
+  const days = daysRemaining ?? (PHASE_DURATIONS_DAYS[startPhase] || 5);
+  state.crises[crisisType] = {
+    phase: startPhase,
+    phaseDaysRemaining: days,
+  };
   state.crisis = crisisType;
   state.phase = startPhase;
-  state.phaseDaysRemaining = PHASE_DURATIONS_DAYS[startPhase] || 5;
+  state.phaseDaysRemaining = days;
   if (crisisType === CRISIS_TYPE.WAR || crisisType === CRISIS_TYPE.CIVIL_STRIFE) {
-    state.tension = Math.min(100, state.tension + 35);
+    state.tension = Math.min(100, (state.tension || 10) + 35);
   } else if (crisisType === CRISIS_TYPE.PLAGUE) {
-    state.tension = Math.min(100, state.tension + 20);
+    state.tension = Math.min(100, (state.tension || 10) + 20);
+  } else if (crisisType === CRISIS_TYPE.FAMINE) {
+    state.tension = Math.min(100, (state.tension || 10) + 15);
   }
 }
 
@@ -169,7 +285,18 @@ export function setRegionCrisis(regionIndex, crisisType, startPhase = CRISIS_PHA
  * @param {() => number} [rng]
  */
 export function tickRegionDay(state, rng = Math.random) {
-  if (state.crisis === CRISIS_TYPE.PEACE || state.phase === CRISIS_PHASE.NONE) {
+  if (!state.crises || typeof state.crises !== 'object') {
+    state.crises = {};
+    if (state.crisis && state.crisis !== CRISIS_TYPE.PEACE && state.phase !== CRISIS_PHASE.NONE) {
+      state.crises[state.crisis] = {
+        phase: state.phase,
+        phaseDaysRemaining: state.phaseDaysRemaining ?? 5,
+      };
+    }
+  }
+
+  const activeTypes = Object.keys(state.crises);
+  if (activeTypes.length === 0) {
     // Chance to initiate a crisis scales with regional tension (base 1.5% + up to 15% at max tension)
     const outbreakChance = Math.min(0.25, 0.015 + Math.max(0, state.tension || 0) * 0.0015);
     if (LivingTamrielConfig.political > PRESENCE.OFF && rng() < outbreakChance) {
@@ -187,23 +314,25 @@ export function tickRegionDay(state, rng = Math.random) {
     return;
   }
 
-  state.phaseDaysRemaining--;
-  if (state.phaseDaysRemaining <= 0) {
-    // Transition through START -> MID -> END -> PEACE
-    if (state.phase === CRISIS_PHASE.START) {
-      state.phase = CRISIS_PHASE.MID;
-      state.phaseDaysRemaining = PHASE_DURATIONS_DAYS[CRISIS_PHASE.MID];
-    } else if (state.phase === CRISIS_PHASE.MID) {
-      state.phase = CRISIS_PHASE.END;
-      state.phaseDaysRemaining = PHASE_DURATIONS_DAYS[CRISIS_PHASE.END];
-    } else {
-      // Crisis ended
-      state.crisis = CRISIS_TYPE.PEACE;
-      state.phase = CRISIS_PHASE.NONE;
-      state.phaseDaysRemaining = 0;
-      state.tension = Math.max(5, state.tension - 25);
+  for (const type of activeTypes) {
+    const rec = state.crises[type];
+    if (!rec) continue;
+    rec.phaseDaysRemaining--;
+    if (rec.phaseDaysRemaining <= 0) {
+      if (rec.phase === CRISIS_PHASE.START) {
+        rec.phase = CRISIS_PHASE.MID;
+        rec.phaseDaysRemaining = PHASE_DURATIONS_DAYS[CRISIS_PHASE.MID];
+      } else if (rec.phase === CRISIS_PHASE.MID) {
+        rec.phase = CRISIS_PHASE.END;
+        rec.phaseDaysRemaining = PHASE_DURATIONS_DAYS[CRISIS_PHASE.END];
+      } else {
+        delete state.crises[type];
+        state.tension = Math.max(5, (state.tension || 10) - 20);
+      }
     }
   }
+
+  _syncPrimaryCrisis(state);
 }
 
 /**

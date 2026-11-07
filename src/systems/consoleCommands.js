@@ -64,8 +64,14 @@ import { depositGold, withdrawGold, forgiveLoans, isUnifiedBankActive } from './
 import { getPref, setPref } from './uiPrefs.js';
 import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.js';
 import { REGION_NAMES } from '../formats/mapsTables.js';
-import { foundFamily, addChild, recordDeath, successors, currentOf } from './legacy/family.js';
-import { setRegionCrisis, getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
+import { foundFamily, addChild, recordDeath, successors, currentOf, fullNameOf } from './legacy/family.js';
+import { setRegionCrisis, getRegionState, getActiveCrises, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
+import { applyLichdom, cureLichdom, isLich } from './necromancy/lichdomStatus.js';
+import { getPlayerTaint, getTaintTier, addNecroTaint } from './necromancy/necroTaint.js';
+import { allSpawnedMinions, spawnMinion } from './necromancy/minionController.js';
+import { _resetUndeadCapacityForTests as clearUndeadPool, usedUndeadPoints, calculateUndeadCapacity } from './necromancy/undeadCapacity.js';
+import { registerCorpse } from './necromancy/corpseRegistry.js';
+import { generatePurifierParty } from './necromancy/witchHunters.js';
 import { dumpSessionLog } from './diagnostics/sessionLogger.js';
 
 let _sceneContext = null;
@@ -1195,7 +1201,7 @@ registerCommand(
       const succ = successors(_mockFamily);
       return [
         `<b>Project Legacy Dynasty Status:</b>`,
-        `Family Head: ${cur?.name ?? playerEntity.name ?? 'Hero'}`,
+        `Family Head: ${cur ? fullNameOf(cur.given, cur.surname) : (playerEntity.name ?? 'Hero')}`,
         `Dynasty Model: ${_mockFamily.model ?? 'dynasty'}`,
         `Living Members: ${living}`,
         `Available Heirs: ${succ.length}`,
@@ -1205,7 +1211,8 @@ registerCommand(
     if (sub === 'addchild') {
       const cur = currentOf(_mockFamily);
       const childRes = addChild(_mockFamily, cur?.id ?? 1);
-      return `Added child to dynasty: ${childRes.person?.name ?? 'Child'} (ID: ${childRes.person?.id}).`;
+      const childName = childRes.person ? fullNameOf(childRes.person.given, childRes.person.surname) : 'Child';
+      return `Added child to dynasty: ${childName} (ID: ${childRes.person?.id}).`;
     }
     if (sub === 'retire') {
       const cur = currentOf(_mockFamily);
@@ -1213,7 +1220,8 @@ registerCommand(
       const succ = successors(_mockFamily);
       if (succ.length > 0) {
         _mockFamily.currentId = succ[0].id;
-        return `Current head retired. Succession passed to heir: ${succ[0].name}.`;
+        const heirName = succ[0] ? fullNameOf(succ[0].given, succ[0].surname) : 'Heir';
+        return `Current head retired. Succession passed to heir: ${heirName}.`;
       }
       return 'Current head retired. No direct heirs available; line continues as dynasty.';
     }
@@ -1230,13 +1238,20 @@ registerCommand(
 registerCommand(
   'crisis',
   'Trigger or inspect Living Tamriel regional crisis: crisis <start|stop|status>',
-  'crisis <start <war|plague|famine|civil_strife> [region]|stop [region]|status [region]>',
+  'crisis <start <war|plague|famine|civil_strife> [region]|stop [war|plague|famine|civil_strife] [region]|status [region]>',
   (args = []) => {
     const sub = String(args[0] || 'status').toLowerCase();
     const reg = args[2] ? parseInt(args[2], 10) : (args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : 17);
     if (sub === 'status') {
       const st = getRegionState(reg);
-      return `Region ${reg} Crisis: ${st.crisis} (Phase: ${st.phase}, Days remaining: ${st.phaseDaysRemaining ?? 0})`;
+      const active = getActiveCrises(reg);
+      if (active.length === 0) {
+        return `Region ${reg} (${st.regionName}): At Peace.`;
+      }
+      return [
+        `<b>Region ${reg} (${st.regionName}) Active Crises (${active.length}):</b>`,
+        ...active.map((c) => `- ${c.type} (Phase: ${c.phase}, Days remaining: ${c.phaseDaysRemaining})`),
+      ].join('\n');
     }
     if (sub === 'start') {
       const type = String(args[1] || 'war').toLowerCase();
@@ -1254,11 +1269,119 @@ registerCommand(
       return `Started ${crisisType} crisis in Region ${regionIndex} (Phase: ${CRISIS_PHASE.START}).`;
     }
     if (sub === 'stop') {
+      const raw = args[1]?.toLowerCase();
+      const validTypes = {
+        'war': CRISIS_TYPE.WAR,
+        'plague': CRISIS_TYPE.PLAGUE,
+        'famine': CRISIS_TYPE.FAMINE,
+        'strife': CRISIS_TYPE.CIVIL_STRIFE,
+        'civil_strife': CRISIS_TYPE.CIVIL_STRIFE,
+      };
+      if (validTypes[raw]) {
+        const regionIndex = args[2] ? parseInt(args[2], 10) : 17;
+        setRegionCrisis(regionIndex, validTypes[raw], CRISIS_PHASE.NONE);
+        return `Stopped ${validTypes[raw]} crisis in Region ${regionIndex}.`;
+      }
       const regionIndex = args[1] ? parseInt(args[1], 10) : 17;
       setRegionCrisis(regionIndex, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
-      return `Stopped crisis in Region ${regionIndex}. Peace restored.`;
+      return `Stopped all crises in Region ${regionIndex}. Peace restored.`;
     }
-    return 'Usage: crisis <start <war|plague|famine|civil_strife> [region] | stop [region] | status [region]>';
+    return 'Usage: crisis <start <war|plague|famine|civil_strife> [region] | stop [type] [region] | status [region]>';
+  }
+);
+
+registerCommand(
+  'necro',
+  'Necromancy testing suite: necro <status|lich|taint|spawn|minions|ambush>',
+  'necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | ambush>',
+  (args = []) => {
+    const sub = String(args[0] || 'status').toLowerCase();
+    if (sub === 'status') {
+      const lich = isLich(playerEntity);
+      const taint = getPlayerTaint(playerEntity);
+      const tier = getTaintTier(playerEntity);
+      const used = usedUndeadPoints();
+      const max = calculateUndeadCapacity(playerEntity);
+      const minions = allSpawnedMinions();
+      return [
+        `<b>Necromancy Occult Status:</b>`,
+        `- Lichdom: ${lich ? 'ACTIVE (Immortal Undead)' : 'Inactive (Mortal)'}`,
+        `- Soul Taint: ${taint}/100 (${tier.toUpperCase()})`,
+        `- Undead Command Capacity: ${used}/${max} points`,
+        `- Active Minions: ${minions.length}`,
+      ].join('\n');
+    }
+    if (sub === 'lich') {
+      const val = String(args[1] || 'toggle').toLowerCase();
+      const currentlyLich = isLich(playerEntity);
+      if (val === 'off' || (val === 'toggle' && currentlyLich)) {
+        cureLichdom(playerEntity);
+        return 'Lichdom stripped. You have returned to mortal flesh.';
+      }
+      applyLichdom(playerEntity, { nowMinutes: worldMinutes() });
+      return 'Lichdom transformation complete! You are now an immortal creature of darkness.';
+    }
+    if (sub === 'taint') {
+      const action = String(args[1] || 'get').toLowerCase();
+      if (action === 'add') {
+        const amt = parseInt(args[2] || '10', 10);
+        const newTaint = addNecroTaint(amt, playerEntity);
+        return `Added ${amt} taint. Current Soul Taint: ${newTaint}/100 (${getTaintTier(playerEntity)}).`;
+      }
+      if (action === 'set') {
+        const amt = parseInt(args[2] || '0', 10);
+        addNecroTaint(-100, playerEntity);
+        const newTaint = addNecroTaint(amt, playerEntity);
+        return `Set Soul Taint to ${newTaint}/100 (${getTaintTier(playerEntity)}).`;
+      }
+      return `Current Soul Taint: ${getPlayerTaint(playerEntity)}/100 (${getTaintTier(playerEntity)}).`;
+    }
+    if (sub === 'spawn') {
+      const target = String(args[1] || 'corpse').toLowerCase();
+      if (target === 'corpse') {
+        const pos = playerEntity?.pos ? [playerEntity.pos[0] + 1.5, playerEntity.pos[1], playerEntity.pos[2] + 1.5] : [0, 0, 0];
+        const rec = registerCorpse({
+          entityType: 'humanoid',
+          entityName: 'Slain Adventurer',
+          position: pos,
+          sceneKey: 'current_scene',
+          worldTimeMinutes: worldMinutes(),
+        });
+        return `Spawned fresh humanoid corpse (ID: ${rec.id}) at [${pos.map((n) => n.toFixed(1)).join(', ')}]. Ready for reanimation.`;
+      }
+      return 'Usage: necro spawn corpse';
+    }
+    if (sub === 'minions') {
+      const action = String(args[1] || 'list').toLowerCase();
+      if (action === 'clear') {
+        clearUndeadPool();
+        for (const m of allSpawnedMinions()) {
+          m.dead = true;
+        }
+        return 'All undead minions dismissed and destroyed.';
+      }
+      if (action === 'raise') {
+        const type = String(args[2] || 'skeleton').toLowerCase();
+        const pos = playerEntity?.pos ? [playerEntity.pos[0] + 1.5, playerEntity.pos[1], playerEntity.pos[2] + 1.5] : [0, 0, 0];
+        const m = spawnMinion({
+          type,
+          position: pos,
+          masterEntity: playerEntity,
+        });
+        return `Raised ${m.profile.name} (Type: ${m.type}, ID: ${m.id}) at [${pos.map((n) => n.toFixed(1)).join(', ')}].`;
+      }
+      const list = allSpawnedMinions();
+      if (list.length === 0) return 'No active undead minions.';
+      return [
+        `<b>Active Undead Minions (${list.length}):</b>`,
+        ...list.map((m) => `- ${m.name} (${m.type}): HP ${m.health}/${m.maxHealth}, Stance: ${m.stance}`),
+      ].join('\n');
+    }
+    if (sub === 'ambush') {
+      const party = generatePurifierParty(getTaintTier(playerEntity) || 'tainted');
+      return `Triggered Witch-Hunter ambush! Purifier squad formed: ${party.map((p) => p.name).join(', ')}.`;
+    }
+    return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | ambush>';
   }
 );
 

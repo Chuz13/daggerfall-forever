@@ -4256,7 +4256,13 @@ export class HeldMapWindow {
       };
     }
     const regionValid = region >= 0 && region < (this.deps.maps?.regionCount ?? 0);
-    const crisisLines = !ore && regionValid ? getRegionCrisisLines(region) : [];
+    const crisisLines = regionValid ? getRegionCrisisLines(region) : [];
+    if (ore && crisisLines.length > 0) {
+      ore = {
+        ...ore,
+        lines: [...crisisLines, ...ore.lines],
+      };
+    }
     const crisisTip = crisisLines.length > 0
       ? readTip({ title: REGION_NAMES[region] ?? '', lines: crisisLines }, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX })
       : null;

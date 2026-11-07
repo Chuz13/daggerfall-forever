@@ -31,35 +31,45 @@ export function getRegionEconomyMultipliers(regionIndex) {
   if (tier === PRESENCE.OFF) return neutral;
 
   const state = getRegionState(regionIndex);
-  if (!state || state.crisis === CRISIS_TYPE.PEACE || state.phase === CRISIS_PHASE.NONE) {
-    return neutral;
-  }
+  if (!state) return neutral;
 
-  // Phase intensity scalar: MID = 1.0, START = 0.5, END = 0.25
-  const phaseScale =
-    state.phase === CRISIS_PHASE.MID ? 1.0 : state.phase === CRISIS_PHASE.START ? 0.5 : 0.25;
+  const active = [];
+  if (state.crises && typeof state.crises === 'object') {
+    for (const [type, rec] of Object.entries(state.crises)) {
+      if (rec && rec.phase !== CRISIS_PHASE.NONE && type !== CRISIS_TYPE.PEACE) {
+        active.push({ type, phase: rec.phase });
+      }
+    }
+  }
+  if (active.length === 0) {
+    if (state.crisis && state.crisis !== CRISIS_TYPE.PEACE && state.phase !== CRISIS_PHASE.NONE) {
+      active.push({ type: state.crisis, phase: state.phase });
+    }
+  }
+  if (active.length === 0) return neutral;
 
   let general = 1.0;
   let weaponsArmor = 1.0;
   let foodLodging = 1.0;
   let potionsAlch = 1.0;
 
-  switch (state.crisis) {
-    case CRISIS_TYPE.WAR:
-    case CRISIS_TYPE.CIVIL_STRIFE:
-      weaponsArmor += 0.35 * phaseScale; // +35% for martial gear at peak
-      general += 0.15 * phaseScale;
-      break;
-
-    case CRISIS_TYPE.FAMINE:
-      foodLodging += 0.50 * phaseScale; // +50% for provisions & inn beds at peak
-      general += 0.20 * phaseScale;
-      break;
-
-    case CRISIS_TYPE.PLAGUE:
-      potionsAlch += 0.40 * phaseScale; // +40% for remedies and alchemy reagents at peak
-      general += 0.10 * phaseScale;
-      break;
+  for (const c of active) {
+    const phaseScale = c.phase === CRISIS_PHASE.MID ? 1.0 : c.phase === CRISIS_PHASE.START ? 0.5 : 0.25;
+    switch (c.type) {
+      case CRISIS_TYPE.WAR:
+      case CRISIS_TYPE.CIVIL_STRIFE:
+        weaponsArmor = Math.max(weaponsArmor, 1.0 + 0.35 * phaseScale);
+        general = Math.max(general, 1.0 + 0.15 * phaseScale);
+        break;
+      case CRISIS_TYPE.FAMINE:
+        foodLodging = Math.max(foodLodging, 1.0 + 0.50 * phaseScale);
+        general = Math.max(general, 1.0 + 0.20 * phaseScale);
+        break;
+      case CRISIS_TYPE.PLAGUE:
+        potionsAlch = Math.max(potionsAlch, 1.0 + 0.40 * phaseScale);
+        general = Math.max(general, 1.0 + 0.10 * phaseScale);
+        break;
+    }
   }
 
   return { general, weaponsArmor, foodLodging, potionsAlch };

@@ -44,6 +44,14 @@ export const LIVING_WORDS = Object.freeze({
   // Urban Skirmishes
   urbanSkirmishStart: () =>
     t('living.urban.skirmishStart', 'A skirmish erupts in the streets! Townsfolk flee for cover.'),
+  urbanSkirmishPrompt: () =>
+    t('living.urban.skirmishPrompt', 'A violent skirmish erupts in the streets! Watchmen clash with Insurgents.'),
+  urbanSkirmishOptionWatch: () =>
+    t('living.urban.optionWatch', 'Stand with the City Watch (+5 Rep, Watchmen allied, Insurgents hostile)'),
+  urbanSkirmishOptionRebels: () =>
+    t('living.urban.optionRebels', 'Join the Insurgents (-15 Rep, +10 Underworld, Insurgents allied, Watch hostile)'),
+  urbanSkirmishOptionChaos: () =>
+    t('living.urban.optionChaos', 'Chaos Mode / Remain Neutral (Both sides damagable, no friendly fire bounty)'),
   urbanOrderRestored: () =>
     t('living.urban.orderRestored', 'The guards have restored order in the district.'),
 

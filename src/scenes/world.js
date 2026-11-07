@@ -15610,6 +15610,40 @@ export async function bootWorld(canvas, renderer, params, status) {
     // multi-line messages always did, and a plain PUSH, because that
     // is what MessageBox is.
     messageBox: (line) => messageBox(line),
+    onEncounterHalt: () => {
+      if (player) {
+        player.velocity = [0, 0, 0];
+        player.isMoving = false;
+        player.targetSpeed = 0;
+      }
+      setWorldTimeScale(1);
+      travelAsked = 1;
+      const nearby = exteriorFoes.foes.filter((f) => f && !f.dead && Math.hypot(f.ai?.feet?.[0] - player.pos[0], f.ai?.feet?.[2] - player.pos[2]) <= 30);
+      if (nearby.length === 0) {
+        const angles = [-0.5, 0, 0.5];
+        const offsetAngle = angles[Math.floor(Math.random() * angles.length)];
+        const spawnYaw = cam.yaw + offsetAngle;
+        const dist = 10.0 + Math.random() * 4.0;
+        const sx = player.pos[0] + Math.sin(spawnYaw) * dist;
+        const sz = player.pos[2] + Math.cos(spawnYaw) * dist;
+        const sy = (surfaceAt ? surfaceAt(sx, sz) : player.pos[1]) ?? player.pos[1];
+        const encounterTypes = [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief, MOBILE_TYPES.Warrior, MOBILE_TYPES.Barbarian];
+        const chosenType = encounterTypes[Math.floor(Math.random() * encounterTypes.length)];
+        exteriorFoes.spawnFoe(chosenType, [sx, sy, sz], {
+          yaw: Math.atan2(player.pos[0] - sx, player.pos[2] - sz),
+          allied: false,
+          loose: true,
+          transient: true,
+          managed: true,
+        }).then((f) => {
+          if (f?.ai) {
+            f.ai.isHostile = true;
+            f.ai.detected = true;
+            f.ai.target = playerEntity;
+          }
+        }).catch(() => {});
+      }
+    },
     // AUDIT-D3: a new ask never lifts a hold - the clock running under the last ask (the governor's: the land loading, an
     // enemy near, the ground's walking pace) keeps it till the governor's next frame weighs the new one; a lower ask is
     // the clock's at once. RATE-LAW asks again at every change of ground, and each lifted the hold for a frame

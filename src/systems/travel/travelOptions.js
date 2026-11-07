@@ -1231,6 +1231,8 @@ export function createTravelOptions(deps = {}) {
       ui?.showMessage(T.MsgAvoidSuccess);
       return true;
     }
+    interruptTravel();
+    deps.onEncounterHalt?.();
     messageBox(T.MsgAvoidFail);
     return false;
   }
@@ -1248,6 +1250,8 @@ export function createTravelOptions(deps = {}) {
     const route = st.route;   // AUDIT OW4 J2: held before the panel's Camp - a spot's route dies in interruptTravel
     ui?.closeWindow();
     if (st.destinationCautious) return attemptAvoidEncounter(route);
+    interruptTravel();
+    deps.onEncounterHalt?.();
     messageBox(T.MsgEnemies);
     return false;
   }

@@ -12,7 +12,7 @@
 import { RSC, TOKEN_TEXT } from '../../formats/textRsc.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getDirectorState } from './livingDirector.js';
-import { getRegionState, isRegionInQuarantine, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import { getRegionState, isRegionInQuarantine, getActiveCrises, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
 import { onContractCompleted } from './bountySync.js';
 import { LIVING_WORDS } from './livingWords.js';
 
@@ -96,6 +96,55 @@ export function getRegionCrisisEconomyLine(regionIndex) {
  * @returns {string[]}
  */
 export function getRegionCrisisLines(regionIndex) {
+  if (regionIndex == null || !Number.isInteger(regionIndex) || regionIndex < 0) return [];
+  if (Number(LivingTamrielConfig.political) === PRESENCE.OFF) return [];
+
+  const active = getActiveCrises(regionIndex);
+  if (active.length > 0) {
+    const lines = [];
+    for (const c of active) {
+      let status = null;
+      switch (c.type) {
+        case CRISIS_TYPE.WAR:
+          if (c.phase === CRISIS_PHASE.START) status = LIVING_WORDS.crisisStatusWarStart();
+          else if (c.phase === CRISIS_PHASE.MID) status = LIVING_WORDS.crisisStatusWarMid();
+          else status = LIVING_WORDS.crisisStatusWarEnd();
+          break;
+        case CRISIS_TYPE.PLAGUE:
+          if (c.phase === CRISIS_PHASE.START) status = LIVING_WORDS.crisisStatusPlagueStart();
+          else if (c.phase === CRISIS_PHASE.MID) status = LIVING_WORDS.crisisStatusPlagueMid();
+          else status = LIVING_WORDS.crisisStatusPlagueEnd();
+          break;
+        case CRISIS_TYPE.FAMINE:
+          if (c.phase === CRISIS_PHASE.START) status = LIVING_WORDS.crisisStatusFamineStart();
+          else if (c.phase === CRISIS_PHASE.MID) status = LIVING_WORDS.crisisStatusFamineMid();
+          else status = LIVING_WORDS.crisisStatusFamineEnd();
+          break;
+        case CRISIS_TYPE.CIVIL_STRIFE:
+          if (c.phase === CRISIS_PHASE.START) status = LIVING_WORDS.crisisStatusStrifeStart();
+          else if (c.phase === CRISIS_PHASE.MID) status = LIVING_WORDS.crisisStatusStrifeMid();
+          else status = LIVING_WORDS.crisisStatusStrifeEnd();
+          break;
+      }
+      if (status && !lines.includes(status)) lines.push(status);
+      let econ = null;
+      switch (c.type) {
+        case CRISIS_TYPE.WAR:
+        case CRISIS_TYPE.CIVIL_STRIFE:
+          econ = LIVING_WORDS.economyWarShortage();
+          break;
+        case CRISIS_TYPE.FAMINE:
+          econ = LIVING_WORDS.economyFamineFood();
+          break;
+        case CRISIS_TYPE.PLAGUE:
+          econ = LIVING_WORDS.economyPlaguePotions();
+          break;
+      }
+      if (econ && !lines.includes(econ)) lines.push(econ);
+    }
+    return lines;
+  }
+
   const status = getRegionCrisisStatusLine(regionIndex);
   if (!status) return [];
   const econ = getRegionCrisisEconomyLine(regionIndex);

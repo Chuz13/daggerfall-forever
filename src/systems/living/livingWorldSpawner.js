@@ -23,7 +23,7 @@ import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
-import { getRegionState, isRegionInQuarantine, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import { getRegionState, isRegionInQuarantine, getActiveCrises, setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
 import { getQuarantineReliefPostInfo } from './quarantineGate.js';
 import { checkCampFootprintSlope, snapPropToGround } from './campInjector.js';
 import {
@@ -67,6 +67,7 @@ import {
 } from './nemesisHost.js';
 import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME } from './pleaHost.js';
 import {
+  ensureAdventurerPool,
   getAdventurerSimRegistry,
   evaluateAdventurerTension,
   resolveAdventurerEncounter,
@@ -1835,6 +1836,80 @@ export function createLivingSceneHost(deps) {
           },
         ],
       });
+    } else if (s.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
+      deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
+      deps.openChoice({
+        lines: [
+          LIVING_WORDS.urbanSkirmishPrompt(),
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: `1. ${LIVING_WORDS.urbanSkirmishOptionWatch()}`,
+            action: () => {
+              s.skirmishStance = 'watch';
+              for (const f of s.foes) {
+                if (f?.livingRole === 'skirmish_guard') {
+                  f.allied = true;
+                  if (f.ai) f.ai.isHostile = false;
+                } else if (f?.livingRole === 'skirmish_rebel') {
+                  f.allied = false;
+                  if (f.ai) {
+                    f.ai.isHostile = true;
+                    f.ai.detected = true;
+                    f.ai.target = deps.playerEntity();
+                  }
+                }
+              }
+              if (player?.regionalReputations) {
+                player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) + 5;
+              }
+              deps.say('You joined the City Watch! Defend the town against the rebels! (+5 Regional Rep)', 5);
+            },
+          },
+          {
+            code: 'Digit2',
+            label: `2. ${LIVING_WORDS.urbanSkirmishOptionRebels()}`,
+            action: () => {
+              s.skirmishStance = 'rebels';
+              for (const f of s.foes) {
+                if (f?.livingRole === 'skirmish_rebel') {
+                  f.allied = true;
+                  if (f.ai) f.ai.isHostile = false;
+                } else if (f?.livingRole === 'skirmish_guard') {
+                  f.allied = false;
+                  if (f.ai) {
+                    f.ai.isHostile = true;
+                    f.ai.detected = true;
+                    f.ai.target = deps.playerEntity();
+                  }
+                }
+              }
+              if (player?.regionalReputations) {
+                player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) - 15;
+              }
+              if (player?.guildMemberships?.[9]) {
+                player.guildMemberships[9].reputation = (player.guildMemberships[9].reputation ?? 0) + 10;
+              }
+              deps.say('You joined the Insurgents! Overthrow the guards! (-15 Regional Rep, +10 Underworld)', 5);
+            },
+          },
+          {
+            code: 'Digit3',
+            label: `3. ${LIVING_WORDS.urbanSkirmishOptionChaos()}`,
+            action: () => {
+              s.skirmishStance = 'chaos';
+              for (const f of s.foes) {
+                f.allied = false;
+                if (f?.ai) {
+                  f.ai.isHostile = false;
+                }
+              }
+              deps.say('You choose Chaos! Both sides remain neutral to you unless struck, and crossfire is not a crime.', 5);
+            },
+          },
+        ],
+      });
     }
   }
 
@@ -2254,6 +2329,7 @@ export function createLivingSceneHost(deps) {
           !stood.interacted &&
           d <= SITE_INTERACT_DISTANCE_M &&
           (stood.kind === LIVING_SITE_KINDS.CHECKPOINT ||
+            stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH ||
             stood.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH ||
             stood.kind === LIVING_SITE_KINDS.ADVENTURER_MEETING ||
             stood.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER ||
@@ -2379,6 +2455,11 @@ export function createLivingSceneHost(deps) {
      */
     isCriminalTarget(foe) {
       if (!foe) return false;
+      if (stood?.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
+        if (stood.skirmishStance === 'chaos' || stood.skirmishStance === 'rebels') {
+          return false;
+        }
+      }
       const team = foe.entity?.team ?? (foe.livingRole === 'skirmish_guard' ? SKIRMISH_TEAMS.CITY_WATCH : null);
       if (!team) return false;
       return isSkirmishBlowCriminal('PLAYER', team, true);
@@ -2740,9 +2821,14 @@ export function executeLivingConsoleCommand(args, ctx) {
   if (sub === 'status') {
     const comp = getActiveAdventurerCompanion(ctx?.nowMinutes ?? 0);
     const contract = getActiveCrisisContract(regIdx);
+    const activeCrises = getActiveCrises(regIdx);
+    const crisisStr =
+      activeCrises.length > 0
+        ? activeCrises.map((c) => `${c.type} (${c.phase}, ${c.phaseDaysRemaining}d)`).join(', ')
+        : 'PEACE';
     return (
-      `[Living Tamriel] Region ${regIdx} (${regState.regionName}): crisis=${regState.crisis} (${regState.phase}), ` +
-      `tension=${regState.tension.toFixed(1)}, daysRemaining=${regState.phaseDaysRemaining}, ` +
+      `[Living Tamriel] Region ${regIdx} (${regState.regionName}): crises=[${crisisStr}], ` +
+      `tension=${regState.tension.toFixed(1)}, ` +
       `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}`
     );
   }
@@ -2759,15 +2845,57 @@ export function executeLivingConsoleCommand(args, ctx) {
         : Object.values(CRISIS_PHASE).includes(/** @type {any} */ (rawPhase))
           ? rawPhase
           : CRISIS_PHASE.MID;
-    regState.crisis = validType;
-    regState.phase = validPhase;
-    regState.phaseDaysRemaining = validType === CRISIS_TYPE.PEACE ? 0 : 7;
-    if (validType !== CRISIS_TYPE.PEACE) {
-      regState.tension = Math.max(75, regState.tension);
-    } else {
-      regState.tension = 10;
+    setRegionCrisis(regIdx, validType, validPhase);
+    return `[Living Tamriel] Region ${regIdx} (${regState.regionName}) crisis updated: ${validType} (${validPhase}).`;
+  }
+
+  if (sub === 'adv') {
+    const act = String(args?.[1] ?? 'list').toLowerCase();
+    ensureAdventurerPool();
+    const reg = getAdventurerSimRegistry();
+    const pool = reg?.pool ?? [];
+    if (act === 'list') {
+      const targetReg = args[2] ? parseInt(args[2], 10) : regIdx;
+      const list = pool.filter((a) => !targetReg || a.currentRegion === targetReg || pool.length <= 15).slice(0, 15);
+      if (list.length === 0) return `[Living Tamriel] No active adventurers found in Region ${targetReg}.`;
+      return [
+        `<b>Active Adventurers in Region ${targetReg} (${list.length}):</b>`,
+        ...list.map((a) => {
+          const name = getAdventurerDisplayName(a);
+          return `- ${name} | Lvl ${a.level} ${a.className} | Gear T${a.gearTier} | Trait: ${a.trait} | Status: ${a.status} | Duels: ${a.duelsWon ?? 0}W/${a.duelsLost ?? 0}L`;
+        }),
+      ].join('\n');
     }
-    return `[Living Tamriel] Region ${regIdx} (${regState.regionName}) forced to ${regState.crisis} (${regState.phase}).`;
+    if (act === 'summon') {
+      const query = String(args?.[2] ?? 'random').toLowerCase();
+      let match = null;
+      if (query === 'random') {
+        const live = pool.filter((a) => a.status !== ADVENTURER_STATUS.DEAD);
+        match = live[Math.floor(Math.random() * live.length)] || pool[0];
+      } else if (query === 'nearest') {
+        match = pool.find((a) => a.currentRegion === regIdx && a.status !== ADVENTURER_STATUS.DEAD) || pool[0];
+      } else {
+        match = pool.find((a) => (a.name || '').toLowerCase().includes(query) || (a.id || '').toLowerCase().includes(query));
+      }
+      if (!match) return `[Living Tamriel] Adventurer "${query}" not found in world pool.`;
+
+      const feet = ctx?.playerFeet ?? [0, 0, 0];
+      const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
+      const bp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+        centerX: feet[0] + 3,
+        centerZ: feet[2] + 3,
+        heightAt,
+        regionIndex: regIdx,
+        playerEntity: ctx?.playerEntity ?? null,
+        nowMinutes: ctx?.nowMinutes ?? 0,
+        onRoad: true,
+      });
+      bp.meta = { ...bp.meta, adv: match };
+      ctx?.sceneHost?.standBlueprint?.(bp);
+      return `[Living Tamriel] Summoned adventurer ${getAdventurerDisplayName(match)} (Lvl ${match.level} ${match.className}) in front of you. Step closer to interact.`;
+    }
+    return 'Usage: /living adv <list [region] | summon [nearest|random|<name>]>';
   }
 
   if (sub === 'spawn') {
