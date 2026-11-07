@@ -699,6 +699,7 @@ import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveD
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAway/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
 import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR, NAVAL_TAG_RANGE } from './naval/navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
+import { spawnNavalSquadronShips } from './naval/navalSquadronBridge.js';
 import { peaceWayOf, heldPeaceWay } from '../systems/comeSailAway/peaceWay.js';   // PEACE-WAY: her way out of a fight (held a moment)
 import { createRaidAshore } from './raidAshore.js';   // RAID-ASHORE: a voyage's raid thrown back where I stand
 import { createHoldDoor, holdsCargo } from './holdDoor.js';   // CARGO-ANYWHERE: a ship's hold from anywhere
@@ -4066,6 +4067,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     openChoice: (spec) => townTalk.showOverlay(new ChoiceWindow({ lines: spec.lines, options: spec.options })),
     openLivingActor: (rec) => openLivingSiteActor(rec),
     playSound: (id) => audio?.playOneShot?.(id, 0.75),
+    myId: () => (typeof myId === 'function' ? myId() : 'player'),
+    spawnNavalSquadron: (squad) => spawnNavalSquadronShips({
+      naval,
+      squadron: squad,
+      playerLevel: effectiveLevel(playerEntity),
+      regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+    }),
     onCompanionChanged: (comp) => {
       dropEscortFace(_livingCompanionFace);
       if (comp) addEscortFace(_livingCompanionFace);

@@ -48,6 +48,7 @@ import {
 } from '../../src/systems/living/crisisPresenter.js';
 import { getBuildingCrisisFactor } from '../../src/systems/living/regionEconomy.js';
 import { makeCityGate, updateCityGate } from '../../src/world/city/cityGate.js';
+import { spawnNavalSquadronShips } from '../../src/scenes/naval/navalSquadronBridge.js';
 import { createTownEcon } from '../../src/systems/town/townEcon.js';
 import { RumorMill } from '../../src/systems/rumorMill.js';
 import { rentalDecision } from '../../src/systems/tavern.js';
@@ -741,6 +742,28 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     assert.ok(navalBp.meshes.length >= 2, 'Naval squadron spawns floating crate/box wreckage props');
     assert.ok(navalBp.actors.some((a) => a.role === 'naval_law'), 'Naval squadron spawns Crown Marines');
     assert.ok(navalBp.actors.some((a) => a.role === 'naval_pirate'), 'Naval squadron spawns Bay Pirates');
+
+    // 1b. Materialize real Come Sail Away 3D warship squadron via navalSquadronBridge
+    const launchedShips = [];
+    const mockNaval = {
+      launchShip: (spec) => {
+        const entry = { id: `ship_${launchedShips.length}`, ship: { ...spec, target: null, mode: null } };
+        launchedShips.push(entry);
+        return entry;
+      },
+    };
+    const { lawShips, pirateShips } = spawnNavalSquadronShips({
+      naval: mockNaval,
+      squadron: navalBp.meta.squadron,
+      playerLevel: 6,
+      regionIndex: 17,
+    });
+    assert.ok(lawShips.length >= 1, 'Spawns at least 1 Law warship');
+    assert.ok(pirateShips.length >= 1, 'Spawns at least 1 Pirate corsair');
+    assert.equal(lawShips[0].ship.classId, 'warGalley', 'Scales to warGalley at lvl 6');
+    assert.equal(pirateShips[0].ship.classId, 'pirateBrigantine', 'Scales to pirateBrigantine at lvl 6');
+    assert.equal(lawShips[0].ship.mode, 'engage', 'Warship set to engage mode');
+    assert.equal(pirateShips[0].ship.mode, 'engage', 'Pirate ship set to engage mode');
 
     // 2. Persistent 24h Recruited Adventurer Companion
     dismissAdventurerCompanion();

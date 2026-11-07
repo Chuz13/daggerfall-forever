@@ -1973,9 +1973,14 @@ export function createLivingSceneHost(deps) {
       blueprint,
       foes: /** @type {any[]} */ ([]),
       batches: /** @type {any[]} */ ([]),
+      navalSquadron: null,
       interacted: false,
     };
     stood = site;
+
+    if (blueprint.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON && deps.spawnNavalSquadron) {
+      site.navalSquadron = deps.spawnNavalSquadron(blueprint.meta?.squadron);
+    }
 
     for (const a of blueprint.actors) {
       Promise.resolve(
@@ -2438,6 +2443,12 @@ export function createLivingSceneHost(deps) {
                             f.ai.detected = true;
                           }
                         }
+                        if (site.navalSquadron?.pirateShips) {
+                          const pId = deps.myId?.() ?? 'player';
+                          for (const p of site.navalSquadron.pirateShips) {
+                            if (p?.ship) { p.ship.target = pId; p.ship.mode = 'engage'; }
+                          }
+                        }
                         if (player) {
                           player.regionalReputations = player.regionalReputations || {};
                           player.regionalReputations[regIdx] =
@@ -2462,6 +2473,12 @@ export function createLivingSceneHost(deps) {
                           } else if (f?.livingRole === 'naval_law' && f.ai) {
                             f.ai.isHostile = true;
                             f.ai.detected = true;
+                          }
+                        }
+                        if (site.navalSquadron?.lawShips) {
+                          const pId = deps.myId?.() ?? 'player';
+                          for (const l of site.navalSquadron.lawShips) {
+                            if (l?.ship) { l.ship.target = pId; l.ship.mode = 'engage'; }
                           }
                         }
                         if (player) {

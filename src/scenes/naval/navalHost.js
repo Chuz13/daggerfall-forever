@@ -5273,6 +5273,7 @@ export function createNavalHost(deps) {
     yardModelOf: (boat) => yardModel(boat),
     harbourList, warp, dockedAt, gangways,   // QUAYS: the harbours the quays stand off (scenes/quayPool.js), Come Sail Away's warp seam, where a boat lies made fast, the gangways run out
     boatInPlay: () => boatInPlay(),
+    launchShip: (spec) => launch(spec),
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     /** AUDIT NAV2 F3/F9: another player's boat at sea as their word says her - her crew's share and whether she
      *  fights (her crew at battle on every screen) - or null (no word, or an older build's). AUDIT WK-W12: and her work,
