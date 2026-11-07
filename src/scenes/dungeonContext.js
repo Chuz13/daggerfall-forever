@@ -2316,7 +2316,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         if (!isClassEnemyId(f.mobileType) && isAzurasStarEquipped(playerEntity) && fillEmptyTrap(playerEntity.items, f.mobileType, { azurasStarOnly: true })) hudText.add(SOUL_TRAP_TEXT.trapSuccess);
         reportPlayerKill(f.entity, { kind: 'melee' });
         renownFoeDied(f);
-        raiseEnemyDeath(f.entity, { luck: liveStat(playerEntity, 'luck') });
+        raiseEnemyDeath(f.entity, { luck: liveStat(playerEntity, 'luck'), feet: feet ?? f.ai?.feet ?? f.pos, mobileType: f.mobileType });
         scatterDungeonBand(f);   // RVN7d: executed - its band broke at its kneel
         const items = finishExecution(playerEntity, f);
         f.executing = null;
@@ -7125,7 +7125,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       spawnCorpse(foe);
       playRareDrop(audio, foe.ai.feet, foe.entity.items);   // LR3: the chime for a Rare or better on the body
       if (!_roomBody) stampWonWeapons(foe.entity.items, _sharedFoe(foe) ? fightN(foe) : 1);   // SIGIL1: the body's Magic+ weapons won online may carry a sigil; a bigger fight, better odds
-      if (!_roomBody) raiseEnemyDeath(foe.entity, { luck: liveStat(playerEntity, 'luck'), by: foe._killedBy ?? null }); else egFindKill(foe.entity, foe._killedBy ?? null).catch(() => {});   // EG-E3: the striker the foes stream names (a joiner's kill is the joiner's find) - a room's body raises its death in the room's base, which the find never answers, so its kill asks here (PARTY-LOOT; systems/eliteGates/egFind.js); UL1: OnEnemyDeath (EnemyDeath.cs:139) - the kill, not the load's rewind. AUDIT VC6: the player's luck, which SURV2's food rolls against - this host keeps no loot stream of its own, so the roll stays Math.random as its spawn loot's is
+      if (!_roomBody) raiseEnemyDeath(foe.entity, { luck: liveStat(playerEntity, 'luck'), by: foe._killedBy ?? null, feet: foe.ai?.feet ?? foe.pos, mobileType: foe.mobileType }); else egFindKill(foe.entity, foe._killedBy ?? null).catch(() => {});   // EG-E3: the striker the foes stream names (a joiner's kill is the joiner's find) - a room's body raises its death in the room's base, which the find never answers, so its kill asks here (PARTY-LOOT; systems/eliteGates/egFind.js); UL1: OnEnemyDeath (EnemyDeath.cs:139) - the kill, not the load's rewind. AUDIT VC6: the player's luck, which SURV2's food rolls against - this host keeps no loot stream of its own, so the roll stays Math.random as its spawn loot's is
       return;
     }
     // C15 knockback (WeaponManager.WeaponDamage): WEAPON hits carry

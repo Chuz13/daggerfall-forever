@@ -1,14 +1,14 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { raiseEnemyDeath } from '../../src/scenes/corpseMarker.js';
+import { raiseEnemyDeath, openCorpseLoot } from '../../src/scenes/corpseMarker.js';
 import { getCorpse, corpsesNear, registerCorpse, canHarvestCorpseWithInventory, harvestAllFromCorpse, _resetCorpseRegistryForTests } from '../../src/systems/necromancy/corpseRegistry.js';
 import { applySpell } from '../../src/systems/effects.js';
 import { activeUndead, _resetUndeadCapacityForTests, undeadParty } from '../../src/systems/necromancy/undeadCapacity.js';
 import { checkCityLawViolation } from '../../src/systems/necromancy/cityLaw.js';
 import { isLich } from '../../src/systems/necromancy/lichdomStatus.js';
 import { createPhylactery, performRitualOfUnlife, reconstituteLich, drinkElixirOfUnlife, PHYLACTERY_STATE } from '../../src/systems/necromancy/lichdomRitual.js';
-import { castCorpseExplosion, castBoneArmor } from '../../src/systems/necromancy/necromanticSpells.js';
+import { castAnimateDead, castCorpseExplosion, castBoneArmor } from '../../src/systems/necromancy/necromanticSpells.js';
 import { spawnMinion } from '../../src/systems/necromancy/minionController.js';
 import { mixCauldron, ELIXIR_OF_UNLIFE_RECIPE, ELIXIR_OF_UNLIFE_KEY } from '../../src/systems/potions.js';
 import { hurtPlayer, playerEntity } from '../../src/characters/playerEntity.js';
@@ -369,4 +369,65 @@ test('NecroIntegration: Elixir of Unlife cauldron recipe & Level 20 + Mysticism 
   assert.equal(okDrink.success, true);
   assert.equal(isLich(archmage), true);
 });
+
+test('NecroIntegration: Wave 2 real-world corpse position via opts.feet, openCorpseLoot carving & 3D minion lifecycle', () => {
+  _resetCorpseRegistryForTests();
+  _resetUndeadCapacityForTests();
+
+  // 1. Real enemy entity without .feet on entity, passed via opts.feet & opts.mobileType
+  const realEnemyEntity = { id: 'dungeon_vamp_1', level: 10, maxHealth: 150, items: [] };
+  raiseEnemyDeath(realEnemyEntity, { feet: [2400, 12, -1800], mobileType: 28 });
+
+  const nearby = corpsesNear([2402, 12, -1801], 6);
+  assert.equal(nearby.length, 1, 'Corpse must be registered at opts.feet [2400, 12, -1800], not [0, 0, 0]');
+  assert.equal(nearby[0].entityType, 'undead');
+
+  // 2. Clicking corpse in world with a Dagger (113) carves necromantic remains into corpse loot window
+  const corpseEntry = { corpse: true, corpseMarker: { archive: 400, record: 1, pos: [2400, 12, -1800] }, entity: realEnemyEntity };
+  const playerWithDagger = { items: [{ templateIndex: 113, name: 'Dagger' }], goldPieces: 0 };
+  let openedHooks = null;
+  const itemCount = openCorpseLoot(corpseEntry, {
+    playerEntity: playerWithDagger,
+    say: () => {},
+    openWindow: (h) => { openedHooks = h; return true; },
+  });
+  assert.equal(itemCount, 5, 'Undead corpse clicked with Dagger in inventory yields 5 necromantic reagents');
+  assert.ok(openedHooks, 'Corpse loot window opens with carved remains instead of saying "The body has no treasure."');
+
+  // 3. castAnimateDead spawns 3D minion body via __sceneContext and castBoneArmor cleans it up
+  const spawned3d = [];
+  const killed3d = [];
+  const prevCtx = globalThis.__sceneContext;
+  globalThis.__sceneContext = {
+    spawnUndeadMinion: (type, pos, name) => {
+      const b = { type, pos, name, dead: false };
+      spawned3d.push(b);
+      return b;
+    },
+    killMinionBody: (b) => {
+      killed3d.push(b);
+    },
+  };
+  try {
+    const skelCorpse = registerCorpse({
+      id: 'skel_corpse_w2',
+      entityType: 'humanoid',
+      preferredType: 'skeleton',
+      maxHealth: 80,
+      position: [2400, 12, -1800],
+    });
+    const caster = { isPlayer: true, stats: { intelligence: 80, willpower: 80 }, skills: new Array(35).fill(80), activeEffects: [] };
+    const animRes = castAnimateDead(caster, skelCorpse);
+    assert.equal(animRes.success, true);
+    assert.equal(spawned3d.length, 1, 'castAnimateDead must spawn 3D minion body in scene');
+    assert.equal(animRes.minion.sceneBody, spawned3d[0]);
+
+    const armorRes = castBoneArmor(caster, 15, 50);
+    assert.equal(armorRes.consumedSkeleton, true);
+    assert.equal(killed3d.length, 1, 'Absorbing skeleton into Bone Armor must remove its 3D scene body');
+  } finally {
+    globalThis.__sceneContext = prevCtx;
+  }
+});
+
 

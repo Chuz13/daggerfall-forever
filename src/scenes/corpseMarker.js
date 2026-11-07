@@ -67,7 +67,7 @@ import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemy/enemyBasics.
 import { FlatAnim, isAnimatedFlat } from '../render/flatAnimation.js'; // AUDIT DEX B3: a corpse of more than one frame animates, as DFU's billboard does
 import { localizedText, getLocalizedEnemyName } from '../systems/textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the enemy's name
 import { silverFindAt } from '../systems/silverFinds.js'; // SILVER-FINDS: a body opened holds silver now and then
-import { registerCorpse } from '../systems/necromancy/corpseRegistry.js';
+import { registerCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 
 /** ItemTemplates Arrow - the auto-pickup arm keys on it. */
@@ -189,8 +189,8 @@ export function raiseEnemyDeath(entity, opts = {}) {
 // NECROMANCY: Register fallen foes in the real-time corpse lifecycle registry
 registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return;
-  const pos = entity.feet ?? entity.pos ?? opts?.feet ?? [0, 0, 0];
-  const rawType = entity.mobileType ?? entity.career ?? 'humanoid';
+  const pos = opts?.feet ?? entity.feet ?? entity.pos ?? [0, 0, 0];
+  const rawType = opts?.mobileType ?? entity.mobileType ?? entity.career ?? 'humanoid';
   const entityType =
     typeof rawType === 'number'
       ? [9, 12, 13, 15, 16, 17, 18, 28, 30].includes(rawType)
@@ -201,7 +201,7 @@ registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
       : String(rawType);
   const lvl = entity.level ?? 1;
   const maxHp = entity.maxHealth ?? entity.entity?.maxHealth ?? (lvl * 20 + 15);
-  registerCorpse({
+  const rec = registerCorpse({
     id: entity.id ?? `corpse_${Math.random().toString(36).slice(2, 9)}`,
     entityType,
     level: lvl,
@@ -211,6 +211,10 @@ registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
     deathTimestamp: Date.now() / 1000,
     lootItems: entity.items ?? [],
   });
+  if (rec && entity) {
+    entity._necroCorpseId = rec.id;
+    entity._necroEntityType = entityType;
+  }
 });
 
 /**
@@ -531,6 +535,29 @@ export const arrowsOnly = (items) =>
 
 function corpsePrelude(entry, playerEntity, say) {
   if (!entry || entry.corpseDisabled) return 0;
+  if (
+    FORK_FLAGS.ENABLE_NECROMANCY &&
+    entry.entity?._necroCorpseId &&
+    !entry._necroHarvested &&
+    playerEntity &&
+    canHarvestCorpseWithInventory(playerEntity)
+  ) {
+    entry.entity.items = entry.entity.items || [];
+    const eType = entry.entity._necroEntityType || 'humanoid';
+    const lvl = entry.entity.level ?? 1;
+    entry.entity.items.push(
+      { templateIndex: 49, name: 'Mummy Wrappings (Flesh)', group: 'MiscellaneousIngredients1', stackCount: 1, weight: 0.25 },
+      { templateIndex: 40, name: 'Grave Dust (Bone)', group: 'CreatureIngredients1', stackCount: 1, weight: 0.25 },
+      { templateIndex: 39, name: 'Ectoplasm', group: 'CreatureIngredients1', stackCount: 1, weight: 0.25 },
+    );
+    if (eType === 'undead' || lvl >= 8) {
+      entry.entity.items.push(
+        { templateIndex: 45, name: 'Vampire Dust', group: 'CreatureIngredients1', stackCount: 1, weight: 0.25 },
+        { templateIndex: 38, name: 'Lich Dust', group: 'CreatureIngredients1', stackCount: 1, weight: 0.25 },
+      );
+    }
+    entry._necroHarvested = true;
+  }
   const items = entry.entity?.items;
   // :942-947 - the body has no treasure, and the container is
   // DISABLED: an emptied corpse stops being activatable.

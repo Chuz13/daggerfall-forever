@@ -1102,7 +1102,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (f.entity?.revenant) { const nr = revenantSlain(playerEntity, f.entity); if (nr && !peer) revenantSay(revenantSlainEvent(nr, playerEntity?.name, { archive: f.archive }), say); }   // REVENANT: slain at last - its record closed, whoever struck last
       rollCorpseKit(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a plain foe's kit, worn by nobody now, on its ladder - before the sigils and the chime read the body
       stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds
-      raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
+      raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck'), feet: f.ai?.feet ?? f.pos, mobileType: f.mobileType });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
       // AUDIT 24 (wave 38): EnemyDeath.CompleteDeath, through the one
       // home. This pool minted the marker inline at f.ai.feet - so a
       // flying encounter foe left its corpse hanging in the air where
@@ -1543,7 +1543,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (!isClassEnemyId(f.mobileType) && isAzurasStarEquipped(playerEntity) && fillEmptyTrap(playerEntity.items, f.mobileType, { azurasStarOnly: true })) say?.(SOUL_TRAP_TEXT.trapSuccess);
     reportPlayerKill(f.entity, { kind: 'melee' });   // SET2: a kill of mine
     renownFoeDied(f);
-    raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // UL1: OnEnemyDeath - its handlers' items join its pile
+    raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck'), feet: feet ?? f.ai?.feet ?? f.pos, mobileType: f.mobileType });   // UL1: OnEnemyDeath - its handlers' items join its pile
     scatterBand(f);   // RVN6: executed - its band broke at its kneel (once)
     const items = finishExecution(playerEntity, f);
     releaseFoeBatch(f);

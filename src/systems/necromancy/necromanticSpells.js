@@ -148,9 +148,20 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
 
   let corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
   if (!corpse || corpse.consumed || !corpse.corpseState) {
-    const pos = targetCorpse?.pos || targetCorpse?.position || targetCorpse?.feet || (Array.isArray(targetCorpse) ? targetCorpse : null);
+    const pos =
+      targetCorpse?.necroTargetPos ||
+      targetCorpse?.pos ||
+      targetCorpse?.position ||
+      targetCorpse?.feet ||
+      (Array.isArray(targetCorpse) ? targetCorpse : null);
     if (pos) {
-      corpse = corpsesNear(pos, 6)[0] ?? null;
+      corpse = corpsesNear(pos, 8)[0] ?? null;
+    }
+    if (!corpse) {
+      const casterPos = casterEntity?.position || casterEntity?.pos || casterEntity?.feet || null;
+      if (casterPos) {
+        corpse = corpsesNear(casterPos, 10)[0] ?? null;
+      }
     }
   }
 
@@ -205,6 +216,17 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
     position: corpse.position,
     masterEntity: casterEntity,
   });
+
+  if (minion && typeof globalThis.__sceneContext?.spawnUndeadMinion === 'function') {
+    const maybeBody = globalThis.__sceneContext.spawnUndeadMinion(minionType, corpse.position, minion.name);
+    if (maybeBody && typeof maybeBody.then === 'function') {
+      maybeBody.then((body) => {
+        if (body) minion.sceneBody = body;
+      }).catch(() => {});
+    } else if (maybeBody) {
+      minion.sceneBody = maybeBody;
+    }
+  }
 
   return {
     success: true,
@@ -293,6 +315,10 @@ export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDama
   } else if (minionTarget) {
     const sacrificed = detonateMinion(minionTarget) || minionTarget;
     sacrificed.dead = true;
+    if (sacrificed.sceneBody) {
+      sacrificed.sceneBody.dead = true;
+      globalThis.__sceneContext?.killMinionBody?.(sacrificed.sceneBody);
+    }
     explosionOrigin = sacrificed.position || sacrificed.pos || sacrificed.feet || searchOrigin;
     sourceMaxHp = Number(sacrificed.maxHealth ?? sacrificed.entity?.maxHealth) || 60;
   }
@@ -413,8 +439,14 @@ export function castBoneArmor(caster, duration = 15, pool = 50) {
   let consumedSkeleton = false;
   const activeSkeletons = allSpawnedMinions().filter((m) => m && !m.dead && m.type === 'skeleton');
   if (activeSkeletons.length > 0) {
-    const skel = detonateMinion(activeSkeletons[0]) || activeSkeletons[0];
+    const preferred = activeSkeletons.find((m) => m.sceneBody) || activeSkeletons[activeSkeletons.length - 1];
+    const skel = detonateMinion(preferred) || preferred;
     skel.dead = true;
+    const body = skel.sceneBody || preferred.sceneBody;
+    if (body) {
+      body.dead = true;
+      globalThis.__sceneContext?.killMinionBody?.(body);
+    }
     const skelMaxHp = Number(skel.maxHealth ?? skel.profile?.maxHealth) || 60;
     pool = Math.round(skelMaxHp * 3);
     consumedSkeleton = true;

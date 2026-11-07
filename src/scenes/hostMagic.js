@@ -53,6 +53,7 @@ import { tellSpellLanded } from '../systems/spell/spellPower.js';   // SCHOOLS3:
 import '../systems/arcanePowers.js';   // AUDIT SCHOOLS L2 F8: what the paths DO, registered with THE ONE CAST ENGINE every page builds - the standalone dungeon page (scenes/dungeon.js) had their price and potency and none of their powers
 import '../systems/firmamentPowers.js';   // FIRM1: what the Firmament DOES, registered with the one cast engine every page builds, as the paths' are
 import { applySpell, spellReflectedText, hasActiveEffect, isSoulTrapEffect, spellSways } from '../systems/effects.js';   // WBX7: a soul trap meets the court's boss too
+import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js';
 import { spellToFoeOwner } from '../systems/enchantments.js';   // RPT1026-FIGHTS (TRAP-TO-OWNER): the session's door to a foe another player runs
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bundle
@@ -1033,6 +1034,8 @@ export function createPlayerMagic({
    *  one law with the shaft's and the swing's (combat/friendlyFire.js). */
   const sparedFromPlayer = (t) => sparedByPlayer(t);
   const playerTargets = () => foes().filter((t) => !sparedFromPlayer(t));
+  const hasNecroTouch = (sp) => (sp?.effects ?? []).some((e) => e && (e.type === 47 || e.type === 48 || e.type === 49));
+  const hasCorpseExplosion = (sp) => (sp?.effects ?? []).some((e) => e && e.type === 48);
   /** AREA-CASTER (FIELD BUGS 2026-10-01; asked, Mac: "Include the caster"): AN AREA SPELL MADE ONLY OF GIFTS LANDS ON ITS
    *  CASTER TOO - an Area Around Caster's (DFU's ignoreCaster passed them by) and an Area at Range's wherever its missile
    *  bursts, or if it bursts nowhere - as a self-cast, never saved against (ALLY-CAST C1's law for a gift), once, at the
@@ -1045,6 +1048,17 @@ export function createPlayerMagic({
   }
   function explodeAt(pos, spell, casterLevel, playerFeet, caster = null, { excludeFoe = null, playerHeight = CAPSULE_HEIGHT, allies = false, duel = false, boss = duel } = {}) {
     mwFx.area(spell, pos, EXPLOSION_RADIUS);   // MW-SPELLFX1: the area visual where it goes off (explodeSpell)
+    if (caster?.entity === playerEntity && hasCorpseExplosion(spell)) {
+      const liveHostiles = playerTargets().map((f) => ({
+        ...f,
+        feet: f?.ai?.feet ?? f?.pos,
+        hurt: (dmg) => foeSinks(f, true)?.hurt?.(dmg, { fromPlayer: true, element: spell.element ?? 0 }),
+      }));
+      const ceRes = castCorpseExplosion(playerEntity, pos, { radius: Math.max(6, EXPLOSION_RADIUS), nearbyFoes: liveHostiles });
+      if (ceRes?.success) {
+        say(`Corpse Explosion deals ${ceRes.damage} damage to ${ceRes.hitCount} foes!`);
+      }
+    }
     // SHIPMATES: a blast of the player's own crew passes the player and the rest of the crew by (combat/friendlyFire.js)
     const crewBlast = isShipmate(caster?.foe);
     for (const t of sweepFoes(pos, EXPLOSION_RADIUS, foes())) {
@@ -1064,7 +1078,7 @@ export function createPlayerMagic({
     // WB4b: and the court's boss, whose flank is in it (his own radius)
     if (boss && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, bossMarksFor(spell))) giveToBoss(t, spell, caster);   // AUDIT WBX F5: `boss` - a Soul Trap is no duel spell, and it meets him too
     // ROAD-H H2: the player is a COLLIDER in DFU's OverlapSphere like every foe (DaggerfallMissile.cs:481) - its CharacterController capsule, at the LIVE height PlayerHeightChanger keeps (:54-57/:475-478). This measured ONE POINT at the STANDING half-capsule, feet + 0.9: a metre and a half wrong on a mount, half a metre wrong crouched, and short of DFU's catch by a whole body radius in every stance. AUDIT 65 CV-2: and that body is the PLAYER's 0.35 (PlayerAdvanced.prefab:82), not the foe's 0.45 - the rim is 4.35.
-    if (playerFeet && !crewBlast && sphereOverlapsCapsule(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS)) {
+    if (playerFeet && !crewBlast && !(caster?.entity === playerEntity && hasCorpseExplosion(spell)) && sphereOverlapsCapsule(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS)) {
       // AREA-SELF (FIELD BUGS 2026-10-01, Opaldes: "Big Regen Spell doesnt do anything" - Area at Range, Regenerate and
       // Fortify): MY OWN BLAST OF GIFTS IS NEVER SAVED AGAINST BY ME - DFU save-scales every bundle that is not
       // CasterOnly, so its caster resisted their own Regenerate round by round (two rounds in three for a Breton) and
@@ -1268,9 +1282,13 @@ export function createPlayerMagic({
       else if (t?.duel) giveToDuel(t, sp);   // DUEL1: the touch met my duel opponent
       else if (t?.boss) giveToBoss(t, sp, playerCaster(cast));   // WB4b: the touch met the court's boss
       else if (t) applySpellToFoe(sp, castingLevel(playerEntity), t, playerCaster(cast));
+      else if (hasNecroTouch(sp)) {
+        playerEntity.necroTargetPos = alongAim(eye, dir, 2.0);
+        applySpellToPlayer({ ...sp, rangeType: 0 }, castingLevel(playerEntity), playerCaster(cast));
+      }
       // IMPACTFX: the touch, seen where it met - a heal rising at whoever took it, the element's small spray on a foe
-      if (t) {
-        const mid = bodyMid(t) ?? alongAim(eye, dir, 1.5), kind = fxKindOf(sp);
+      if (t || hasNecroTouch(sp)) {
+        const mid = (t ? bodyMid(t) : null) ?? alongAim(eye, dir, 1.5), kind = fxKindOf(sp);
         if (kind === 'heal') landFx('heal', mid, { radius: 0.75, heard: 24 });
         else landFx(kind, mid, { scale: 0.75, power: 0.6, heard: 30, shake: 1.5 });
       }
@@ -1363,7 +1381,7 @@ export function createPlayerMagic({
     if (fallen?.gone) { say(RESURRECT_TEXT.forGood(fallen.name)); return false; }
     // AUDIT CONTRIB A1: a Resurrect's touch IS the body - the gate above found one in reach, and the probe below sees
     // only foes and standing mates, so a Resurrect at a body with no foe beside it was eaten silently here
-    if (sp.rangeType === 1 && !raising) {
+    if (sp.rangeType === 1 && !raising && !hasNecroTouch(sp)) {
       // ByTouch: CastReadySpell aborts BEFORE spending when no target
       // sits in touch range (verbatim - the S9 'spends on a whiff'
       // rule was wrong and died at its audit).

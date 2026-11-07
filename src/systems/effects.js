@@ -48,7 +48,7 @@ import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify match
 import { breakNormalPowerConcealment, handleAttackFromSource } from './concealment.js';
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
-import { castAnimateDead, castCorpseExplosion } from './necromancy/necromanticSpells.js';
+import { castAnimateDead, castCorpseExplosion, castLifeTap } from './necromancy/necromanticSpells.js';
 import { regenShare } from './courtRules.js';   // WBX6 / EVENT-RULES: a made level holds regeneration
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { HEAL_SPELL_POINTS_KEY } from './potionRecipes.js';   // PROF12: Heal-SpellPoints' key, beside the one recipe that names it
@@ -1424,14 +1424,19 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       if (ctx.animateDead) {
         ctx.animateDead(e, target);
       } else {
-        castAnimateDead({
+        const res = castAnimateDead({
           casterEntity: caster?.entity ?? target,
           targetCorpse: target,
           scene: 'current',
-          position: target?.pos ?? target?.feet ?? [0, 0, 0],
+          position: target?.necroTargetPos ?? target?.pos ?? target?.feet ?? [0, 0, 0],
           spellMagnitude: magnitude(e),
           say: sinks?.say,
         });
+        if (res?.success && res.minion && typeof sinks?.say === 'function') {
+          sinks.say(`You raise ${res.minion.name} from the remains!`);
+        } else if (res && !res.success && res.reason && typeof sinks?.say === 'function') {
+          sinks.say(res.reason);
+        }
       }
       out.animateDead = (out.animateDead ?? 0) + 1;
       pushInstantMarker(target, 'animateDead', e);
@@ -1440,15 +1445,17 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     if (e.type === 48 && classicSub(e) === 255) {
       const n = casterDamageScaled(magnitude(e), caster?.entity, target, schoolOf(e));
       out.damage += n;
-      if (n > 0 && sinks.hurt) sinks.hurt(n, { element: spell.element ?? null });
+      const isSelfTarget = target && (target === caster || target === caster?.entity);
+      if (n > 0 && sinks.hurt && !isSelfTarget) sinks.hurt(n, { element: spell.element ?? null });
       if (ctx.corpseExplosion) {
         ctx.corpseExplosion(e, target, n);
       } else {
         castCorpseExplosion({
           casterEntity: caster?.entity ?? target,
-          originPosition: target?.pos ?? target?.feet ?? [0, 0, 0],
+          originPosition: target?.necroTargetPos ?? target?.pos ?? target?.feet ?? [0, 0, 0],
           radius: 6,
           damage: n,
+          nearbyFoes: ctx?.nearbyFoes ?? [],
           scene: 'current',
           damageSink: sinks?.hurt,
           say: sinks?.say,
@@ -1462,18 +1469,24 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     if (e.type === 49 && classicSub(e) === 255) {
       handleAttackFromSource(caster?.entity ?? null);
       const n = magnitude(e);
-      out.damage += n;
-      if (n > 0) {
-        if (sinks.hurt) sinks.hurt(n);
-        if (caster?.sinks?.heal) {
-          caster.sinks.heal(n);
-        } else if (caster?.entity) {
-          const maxHp = caster.entity.maxHealth ?? 100;
-          if (typeof caster.entity.health === 'number') {
-            caster.entity.health = Math.min(maxHp, caster.entity.health + n);
-          }
-          if (typeof caster.entity.currentHealth === 'number') {
-            caster.entity.currentHealth = Math.min(maxHp, caster.entity.currentHealth + n);
+      const isSelfTarget = target && (target === caster || target === caster?.entity);
+      if (isSelfTarget) {
+        const tapRes = castLifeTap(caster?.entity ?? target, null, n);
+        if (tapRes?.success) out.damage += tapRes.drained;
+      } else {
+        out.damage += n;
+        if (n > 0) {
+          if (sinks.hurt) sinks.hurt(n);
+          if (caster?.sinks?.heal) {
+            caster.sinks.heal(n);
+          } else if (caster?.entity) {
+            const maxHp = caster.entity.maxHealth ?? 100;
+            if (typeof caster.entity.health === 'number') {
+              caster.entity.health = Math.min(maxHp, caster.entity.health + n);
+            }
+            if (typeof caster.entity.currentHealth === 'number') {
+              caster.entity.currentHealth = Math.min(maxHp, caster.entity.currentHealth + n);
+            }
           }
         }
       }

@@ -10551,7 +10551,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       case 'attack': {
         setAllMinionsStance(MINION_STANCES.ATTACK);
         const pPos = leaderPos ? [leaderPos[0], leaderPos[1], leaderPos[2]] : [0, 0, 0];
-        const allFoes = exteriorFoes?.foes ?? [];
+        const activePool = modes?.mode === 'dungeon' ? modes?.dungeonCtx : modes?.mode === 'interior' ? modes?.interiorFoes : exteriorFoes;
+        const allFoes = activePool?.foes ?? exteriorFoes?.foes ?? [];
         let nearestHostile = null;
         let nearestDist = 45;
         for (const e of allFoes) {
@@ -10661,19 +10662,23 @@ export async function bootWorld(canvas, renderer, params, status) {
           townTalk.say(t('necro.cmd.none', 'You have no active undead minions to command.'));
           return false;
         }
-        const bodyMatch = uniqueBodies.find((b) => b && !b.dead);
+        const activePool = modes?.mode === 'dungeon' ? modes?.dungeonCtx : modes?.mode === 'interior' ? modes?.interiorFoes : exteriorFoes;
+        const bodyMatch = sacrificed.sceneBody || uniqueBodies.find((b) => b && !b.dead);
         const detPos = bodyMatch?.ai?.feet || bodyMatch?.pos || sacrificed.position || pPos;
         if (bodyMatch) {
           bodyMatch.dead = true;
           _undeadMinionFoes.delete(bodyMatch);
-          if (exteriorFoes?.damageFoe) {
+          if (activePool?.damageFoe) {
+            activePool.damageFoe(bodyMatch, 99999, null, null, { fromPlayer: false, bypassShield: true });
+          } else if (exteriorFoes?.damageFoe) {
             exteriorFoes.damageFoe(bodyMatch, 99999, null, null, { fromPlayer: false, bypassShield: true });
           }
         }
-        const allFoes = (exteriorFoes?.foes ?? []).map((f) => ({
+        const rawFoes = activePool?.foes ?? exteriorFoes?.foes ?? [];
+        const allFoes = rawFoes.map((f) => ({
           ...f,
           feet: f?.ai?.feet ?? f?.pos,
-          hurt: (dmg) => exteriorFoes?.damageFoe?.(f, dmg, null, null, { fromPlayer: true }),
+          hurt: (dmg) => (activePool?.damageFoe ?? exteriorFoes?.damageFoe)?.(f, dmg, null, null, { fromPlayer: true }),
         }));
         const res = castCorpseExplosion(
           playerEntity,
@@ -29406,6 +29411,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     applyUndeadCommand: (cmd) => applyUndeadCommand(cmd),
     openUndeadCommandMenu: () => openUndeadCommandMenu(),
+    killMinionBody: (body) => {
+      if (!body) return;
+      body.dead = true;
+      _undeadMinionFoes.delete(body);
+      const activePool = modes?.mode === 'dungeon' ? modes?.dungeonCtx : modes?.mode === 'interior' ? modes?.interiorFoes : exteriorFoes;
+      if (activePool?.damageFoe) {
+        activePool.damageFoe(body, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      } else if (exteriorFoes?.damageFoe) {
+        exteriorFoes.damageFoe(body, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      }
+    },
     spawnPurifiers: async (party) => {
       const p = walkMode && playerSpawned ? player.pos : cam.pos;
       const yaw = cam?.yaw ?? 0;

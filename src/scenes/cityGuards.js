@@ -1021,7 +1021,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       // the luck DFU rolls them against. Every pool hands both now.
       rollCorpseKit(g.entity, { rolls: rand, luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a watchman's kit on the plain ladder, before the sigils and the chime read the body (a peer's kill, or a DEFENDER's death by a monster or a fall, left it bare above - AUDIT 625 L7)
       stampWonWeapons(g.entity.items, 1, { rolls: rand });   // SIGIL1: a body's Magic+ weapons won online may carry a sigil (the watch is never a party's fight)
-      raiseEnemyDeath(g.entity, { rolls: rand, luck: liveStat(playerEntity, 'luck') });
+      raiseEnemyDeath(g.entity, { rolls: rand, luck: liveStat(playerEntity, 'luck'), feet: g.ai?.feet ?? g.pos, mobileType: g.mobileType });
       // G4 (HandleAttackFromSource, verbatim): killing the city watch
       // IS Murder, and CG2 landed the second half -
       // DaggerfallEntityBehaviour.cs:267's
