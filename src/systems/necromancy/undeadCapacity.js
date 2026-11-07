@@ -157,27 +157,51 @@ export function activeUndead() {
   return _activeMinions.filter((m) => !m.dead);
 }
 
+import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
+
+function minionMobileType(type) {
+  switch (String(type).toLowerCase()) {
+    case 'zombie': return MOBILE_TYPES.Zombie;
+    case 'ghost': return MOBILE_TYPES.Ghost;
+    case 'mummy': return MOBILE_TYPES.Mummy;
+    case 'wraith': return MOBILE_TYPES.Wraith;
+    case 'lich': return MOBILE_TYPES.Lich;
+    case 'skeleton':
+    default:
+      return MOBILE_TYPES.SkeletalWarrior;
+  }
+}
+
 /**
  * Unified party bridge for crewAshore 3D follower simulation.
  */
 export const undeadParty = {
   get party() {
-    return _activeMinions.filter((m) => !m.dead && m.stance !== 'feign_death').map((m) => {
-      m.key = m.key || m.id;
-      m.boat = 'undead';
-      m.team = 'PlayerAlly';
-      m.mobileTeam = 'PlayerAlly';
-      return m;
-    });
+    return _activeMinions
+      .filter((m) => !m.dead && m.stance !== 'feign_death' && m.stance !== 'guard')
+      .map((m) => {
+        m.key = m.key || m.id;
+        m.boat = 'undead';
+        m.team = 'PlayerAlly';
+        m.mobileTeam = 'PlayerAlly';
+        m.mobile = m.mobile || minionMobileType(m.type);
+        m.gender = m.gender || 'unspecified';
+        return m;
+      });
   },
   wake: () => {},
+  isAshore: (boat, name) => {
+    return _activeMinions.some(
+      (m) => (m.name === name || m.id === name || m.key === name) && !m.dead && m.stance !== 'feign_death'
+    );
+  },
   knock: (boat, name) => {
-    const minion = _activeMinions.find((m) => m.name === name || m.id === name);
+    const minion = _activeMinions.find((m) => m.name === name || m.id === name || m.key === name);
     if (minion) minion.dead = true;
     return true;
   },
   hurt: (boat, name, hp, maxHp) => {
-    const minion = _activeMinions.find((m) => m.name === name || m.id === name);
+    const minion = _activeMinions.find((m) => m.name === name || m.id === name || m.key === name);
     if (minion) {
       minion.health = hp;
       minion.maxHealth = maxHp;
@@ -193,6 +217,13 @@ export function initUndeadCompanionAdapter() {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return;
   registerCompanionCount('undead', () => activeUndeadCount());
   registerCompanionRoster('undead', () => activeUndeadRoster());
+}
+
+/**
+ * Clears all active undead minions from the capacity tracker.
+ */
+export function clearAllUndeadMinions() {
+  _activeMinions.length = 0;
 }
 
 /**

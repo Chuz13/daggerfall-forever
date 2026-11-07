@@ -273,6 +273,16 @@ export function checkMinionRebellion(playerEntity, minion, { rolls = Math.random
 }
 
 /**
+ * Dismisses and destroys all active spawned minions.
+ */
+export function dismissAllMinions() {
+  for (const m of _spawnedMinions.values()) {
+    m.dead = true;
+  }
+  _spawnedMinions.clear();
+}
+
+/**
  * Test helper to clear spawned minions.
  */
 export function _resetMinionControllerForTests() {

@@ -1357,9 +1357,23 @@ registerCommand(
       }
       return 'Usage: necro spawn corpse';
     }
+    if (sub === 'menu') {
+      _sceneContext?.openUndeadCommandMenu?.();
+      return 'Opened Undead Command Menu.';
+    }
+    if (sub === 'cmd') {
+      const order = String(args[1] || 'follow').toLowerCase();
+      const ok = _sceneContext?.applyUndeadCommand?.(order);
+      return ok ? `Issued undead command: ${order}` : `Failed to issue command "${order}".`;
+    }
     if (sub === 'minions') {
       const action = String(args[1] || 'list').toLowerCase();
-      if (action === 'clear') {
+      if (['follow', 'guard', 'attack', 'feign_death', 'recall'].includes(action)) {
+        const ok = _sceneContext?.applyUndeadCommand?.(action);
+        return ok ? `Updated undead stance: ${action}` : `Failed to issue stance "${action}".`;
+      }
+      if (action === 'clear' || action === 'dismiss') {
+        _sceneContext?.applyUndeadCommand?.('dismiss');
         clearUndeadPool();
         for (const m of allSpawnedMinions()) {
           m.dead = true;

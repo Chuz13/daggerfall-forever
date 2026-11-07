@@ -728,7 +728,8 @@ import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './naval/navalCrew.js';  
 import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' sleeping hours
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
-import { undeadParty, initUndeadCompanionAdapter } from '../systems/necromancy/undeadCapacity.js';
+import { undeadParty, initUndeadCompanionAdapter, clearAllUndeadMinions } from '../systems/necromancy/undeadCapacity.js';
+import { MINION_STANCES, allSpawnedMinions, setAllMinionsStance, orderRecall, dismissAllMinions } from '../systems/necromancy/minionController.js';
 import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush } from '../systems/necromancy/witchHunters.js';
 import { NecroConfig } from '../systems/necromancy/necroConfig.js';
 import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength, sendRevenantAway, forgetSwornMember, swornFightStep, swornFightWon, devotedWithYou } from '../systems/revenant/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
@@ -10069,6 +10070,143 @@ export async function bootWorld(canvas, renderer, params, status) {
     now: () => Math.floor(playerTicker.ownMinutes),
     onKnocked: (c) => { c.dead = true; },
   });
+
+  const _undeadMinionFoes = new Set();
+
+  function applyUndeadCommand(cmd) {
+    const leaderPos = walkMode && playerSpawned ? player.pos : cam.pos;
+    const minions = allSpawnedMinions();
+    if (minions.length === 0 && _undeadMinionFoes.size === 0) {
+      townTalk.say('You have no active undead minions to command.');
+      return false;
+    }
+
+    switch (cmd) {
+      case 'follow':
+        setAllMinionsStance(MINION_STANCES.FOLLOW);
+        for (const f of _undeadMinionFoes) {
+          if (f && !f.dead) {
+            if (f.ai) {
+              f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
+              f.ai.isHostile = false;
+            }
+            if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
+          }
+        }
+        townTalk.say('Undead Minions: Following at your heel.');
+        return true;
+
+      case 'guard':
+        setAllMinionsStance(MINION_STANCES.GUARD);
+        for (const f of _undeadMinionFoes) {
+          if (f && !f.dead) {
+            if (f.ai) { f.ai.follow = null; f.ai.isHostile = false; }
+            if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
+          }
+        }
+        townTalk.say('Undead Minions: Holding ground and guarding position.');
+        return true;
+
+      case 'attack':
+        setAllMinionsStance(MINION_STANCES.ATTACK);
+        for (const f of _undeadMinionFoes) {
+          if (f && !f.dead) {
+            if (f.ai) { f.ai.follow = null; f.ai.isHostile = false; }
+            if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
+          }
+        }
+        townTalk.say('Undead Minions: Seeking and attacking enemies aggressively!');
+        return true;
+
+      case 'feign_death':
+        setAllMinionsStance(MINION_STANCES.FEIGN_DEATH);
+        for (const f of _undeadMinionFoes) {
+          if (f && !f.dead) {
+            if (f.ai) { f.ai.follow = null; f.ai.isHostile = false; }
+            if (f.entity) { f.entity.team = 'Neutral'; f.entity.mobileTeam = 'Neutral'; }
+          }
+        }
+        townTalk.say('Undead Minions: Collapsing to ground (feigning death).');
+        return true;
+
+      case 'recall': {
+        const p = leaderPos ? [...leaderPos] : [0, 0, 0];
+        let i = 0;
+        const total = Math.max(1, _undeadMinionFoes.size);
+        for (const f of _undeadMinionFoes) {
+          if (f && !f.dead && (f.pos || f.feet)) {
+            const ang = (i * 2 * Math.PI) / total;
+            const rx = p[0] + Math.cos(ang) * 1.8;
+            const rz = p[2] + Math.sin(ang) * 1.8;
+            const ry = (collider?.heightAt?.(rx, rz) ?? p[1]) || p[1];
+            if (f.pos) { f.pos[0] = rx; f.pos[1] = ry; f.pos[2] = rz; }
+            if (f.feet) { f.feet[0] = rx; f.feet[1] = ry; f.feet[2] = rz; }
+            if (f.ai) {
+              f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
+              f.ai.target = null;
+            }
+            i++;
+          }
+        }
+        orderRecall(p);
+        setAllMinionsStance(MINION_STANCES.FOLLOW);
+        townTalk.say('Shadow Tether: All minions recalled to your side!');
+        return true;
+      }
+
+      case 'dismiss':
+        for (const f of _undeadMinionFoes) {
+          if (f && !f.dead) {
+            f.dead = true;
+            const dCtx = modes?.dungeonCtx;
+            const iFoes = modes?.interiorFoes;
+            if (modes?.mode === 'dungeon' && dCtx?.damageFoe) {
+              dCtx.damageFoe(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+            } else if (modes?.mode === 'interior' && iFoes?.damageFoe) {
+              iFoes.damageFoe(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+            } else if (exteriorFoes?.damageFoe) {
+              exteriorFoes.damageFoe(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+            }
+          }
+        }
+        _undeadMinionFoes.clear();
+        dismissAllMinions();
+        clearAllUndeadMinions();
+        townTalk.say('All undead minions dismissed and returned to dust.');
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  function openUndeadCommandMenu() {
+    const minions = allSpawnedMinions();
+    if (minions.length === 0 && _undeadMinionFoes.size === 0) {
+      townTalk.say('You have no active undead minions. Raise a corpse first.');
+      return false;
+    }
+    const currentStance = (minions[0]?.stance || 'follow').toUpperCase();
+    const count = Math.max(minions.length, _undeadMinionFoes.size);
+    const minionNames = minions.map((m) => m.name).join(', ') || 'Undead Thrall';
+    const lines = [
+      '=== UNDEAD COMMAND NEXUS ===',
+      `Active Minions: ${count} (${minionNames})`,
+      `Current Stance: [${currentStance}]`,
+      'Issue a mental order to your commanded minions:',
+    ];
+    const options = [
+      { code: '1', label: '1. [Follow] Follow close behind master (Ctrl+1)', action: () => applyUndeadCommand('follow') },
+      { code: '2', label: '2. [Guard] Hold ground and guard area (Ctrl+2)', action: () => applyUndeadCommand('guard') },
+      { code: '3', label: '3. [Attack] Charge nearest enemies on sight (Ctrl+3)', action: () => applyUndeadCommand('attack') },
+      { code: '4', label: '4. [Feign Death] Collapse into bone/corpse piles (Ctrl+4)', action: () => applyUndeadCommand('feign_death') },
+      { code: '5', label: '5. [Shadow Tether] Recall all minions to your feet (Ctrl+5)', action: () => applyUndeadCommand('recall') },
+      { code: '6', label: '6. [Dismiss] Destroy all active minions (Ctrl+6)', action: () => applyUndeadCommand('dismiss') },
+      { code: '7', label: '7. [Close]', action: () => {} },
+    ];
+    townTalk.showOverlay(new ChoiceWindow({ lines, options }));
+    return true;
+  }
   /** REVENANT-COMPANION: a sworn one called to the player's side - it says so as it steps through. */
   const noteRevenantArrival = (id) => _revenantArrivals.add(id);
   // COMPANION-ROSTER (ui/companionRoster.js): the roster's acts heard here - a call's words wait for the stand, a
@@ -16535,6 +16673,20 @@ export async function bootWorld(canvas, renderer, params, status) {
     // had. A field outside every overlay (the social panel's letter) sent its letters down this ladder: W walked,
     // space jumped, F shut the panel. The panel stops its own now; this is the host's half, for any field it did not.
     if (isTextEntryTarget(e.target)) return;
+
+    // NECROMANCY: Quick Minion Commands (Ctrl+1..6 or Alt+1..6) and Menu Popup (KeyK / KeyU)
+    if (FORK_FLAGS.ENABLE_NECROMANCY && !townTalk.overlayActive) {
+      if (e.ctrlKey || e.altKey) {
+        if (e.code === 'Digit1') { e.preventDefault(); applyUndeadCommand('follow'); return; }
+        if (e.code === 'Digit2') { e.preventDefault(); applyUndeadCommand('guard'); return; }
+        if (e.code === 'Digit3') { e.preventDefault(); applyUndeadCommand('attack'); return; }
+        if (e.code === 'Digit4') { e.preventDefault(); applyUndeadCommand('feign_death'); return; }
+        if (e.code === 'Digit5') { e.preventDefault(); applyUndeadCommand('recall'); return; }
+        if (e.code === 'Digit6') { e.preventDefault(); applyUndeadCommand('dismiss'); return; }
+      } else if (!e.shiftKey && (e.code === 'KeyK' || e.code === 'KeyU')) {
+        if (openUndeadCommandMenu()) { e.preventDefault(); return; }
+      }
+    }
     // ROAD-G G3 - THE RING IS FILLED BEFORE THE LADDER. InputManager
     // .PollInput (:1795-1809) rebuilds `heldKeys` every frame whatever
     // the dispatch does - `foreach (KeyCode k in KeyCodeList) if
@@ -28674,16 +28826,26 @@ export async function bootWorld(canvas, renderer, params, status) {
         });
       }
       if (f) {
+        f.companion = `undead_${name || type}`;
         f.livingRole = 'undead_minion';
         if (f.entity) {
           f.entity.team = 'PlayerAlly';
           f.entity.mobileTeam = 'PlayerAlly';
           if (name) f.entity.name = name;
         }
-        if (f.ai) f.ai.isHostile = false;
+        if (f.ai) {
+          f.ai.isHostile = false;
+          f.ai.follow = {
+            feet: () => (walkMode && playerSpawned ? player.pos : cam.pos),
+            stop: 2.0,
+          };
+        }
+        _undeadMinionFoes.add(f);
       }
       return f;
     },
+    applyUndeadCommand: (cmd) => applyUndeadCommand(cmd),
+    openUndeadCommandMenu: () => openUndeadCommandMenu(),
     spawnPurifiers: async (party) => {
       const p = walkMode && playerSpawned ? player.pos : cam.pos;
       const yaw = cam?.yaw ?? 0;
