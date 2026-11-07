@@ -225,8 +225,17 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
     /** A body is a node while the pack holds a Skinning Knife or blade for harvesting. */
     looseNodesOf: ({ entity }) => ((foragingToolIn(entity, SKINNING_KNIFE.templateIndex) || canHarvestCorpseWithInventory(entity)) ? bodies() : []),
     flatsOf: () => [],   // the body is its own picture (DFU's corpse)
-    gone: (b) => (b.hide ? goneIn(book, b.key, 'hide') : false),   // GATHER-SPEED: or being counted
-    mark: (b) => (b.hide && !goneIn(book, b.key, 'hide') ? BODY_MARK : null),   // NODE-MARKS: a body the knife may still skin
+    gone: (b) => {
+      const skinGone = b.hide ? goneIn(book, b.key, 'hide') : true;
+      const necroGone = b.foeRef?._necroHarvested || b.entity?._necroHarvested;
+      if (b.hide) return skinGone && necroGone;
+      return necroGone;
+    },
+    mark: (b) => {
+      const skinActive = b.hide && !goneIn(book, b.key, 'hide');
+      const necroActive = !b.foeRef?._necroHarvested && !b.entity?._necroHarvested;
+      return (skinActive || necroActive) ? BODY_MARK : null;
+    },
     marksLoose: true,
     /** TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): the Skinning Knife's Use at a body is E
      *  there (TOOL-USE) - a phone and a pad had no E to start Hunting with, nor to hold while the line was drawn. */
@@ -272,7 +281,12 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
           profession: 'hunting',
           ready: true,
           open: () => {
-            const res = harvestAllFromCorpse(corpseRecord || { id: corpseId || b.key, entityType: 'humanoid', position: b.at?.() }, entity);
+            const res = harvestAllFromCorpse(corpseRecord || {
+              id: corpseId || b.key,
+              entityType: b.entity?._necroEntityType || (b.foe >= 128 ? 'undead' : 'humanoid'),
+              level: b.entity?.level || 1,
+              position: b.at?.() || [0, 0, 0],
+            }, entity);
             if (b.foeRef) b.foeRef._necroHarvested = true;
             if (b.entity) b.entity._necroHarvested = true;
             if (corpseRecord) corpseRecord.harvested = true;

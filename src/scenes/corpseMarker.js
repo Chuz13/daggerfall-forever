@@ -545,29 +545,6 @@ export const arrowsOnly = (items) =>
 
 function corpsePrelude(entry, playerEntity, say) {
   if (!entry || entry.corpseDisabled) return 0;
-  if (
-    FORK_FLAGS.ENABLE_NECROMANCY &&
-    entry.entity?._necroCorpseId &&
-    !entry._necroHarvested &&
-    playerEntity &&
-    canHarvestCorpseWithInventory(playerEntity)
-  ) {
-    entry.entity.items = entry.entity.items || [];
-    const eType = entry.entity._necroEntityType || 'humanoid';
-    const lvl = entry.entity.level ?? 1;
-    entry.entity.items.push(
-      { templateIndex: 49, name: 'Mummy Wrappings (Flesh)', group: 'MiscellaneousIngredients1', stackCount: 1, weight: 0.25 },
-      { templateIndex: 40, name: 'Grave Dust (Bone)', group: 'CreatureIngredients1', stackCount: 1, weight: 0.25 },
-      { templateIndex: 39, name: 'Ectoplasm', group: 'CreatureIngredients1', stackCount: 1, weight: 0.25 },
-    );
-    if (eType === 'undead' || lvl >= 8) {
-      entry.entity.items.push(
-        { templateIndex: 45, name: 'Vampire Dust', group: 'CreatureIngredients1', stackCount: 1, weight: 0.25 },
-        { templateIndex: 38, name: 'Lich Dust', group: 'CreatureIngredients1', stackCount: 1, weight: 0.25 },
-      );
-    }
-    entry._necroHarvested = true;
-  }
   const items = entry.entity?.items;
   // :942-947 - the body has no treasure, and the container is
   // DISABLED: an emptied corpse stops being activatable.

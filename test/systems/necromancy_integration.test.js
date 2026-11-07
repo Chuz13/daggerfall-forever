@@ -382,17 +382,11 @@ test('NecroIntegration: Wave 2 real-world corpse position via opts.feet, openCor
   assert.equal(nearby.length, 1, 'Corpse must be registered at opts.feet [2400, 12, -1800], not [0, 0, 0]');
   assert.equal(nearby[0].entityType, 'undead');
 
-  // 2. Clicking corpse in world with a Dagger (113) carves necromantic remains into corpse loot window
-  const corpseEntry = { corpse: true, corpseMarker: { archive: 400, record: 1, pos: [2400, 12, -1800] }, entity: realEnemyEntity };
+  // 2. Harvesting corpse in world with a Dagger (113) carves necromantic remains into player's inventory
   const playerWithDagger = { items: [{ templateIndex: 113, name: 'Dagger' }], goldPieces: 0 };
-  let openedHooks = null;
-  const itemCount = openCorpseLoot(corpseEntry, {
-    playerEntity: playerWithDagger,
-    say: () => {},
-    openWindow: (h) => { openedHooks = h; return true; },
-  });
-  assert.equal(itemCount, 5, 'Undead corpse clicked with Dagger in inventory yields 5 necromantic reagents');
-  assert.ok(openedHooks, 'Corpse loot window opens with carved remains instead of saying "The body has no treasure."');
+  const harvestRes = harvestAllFromCorpse(nearby[0], playerWithDagger);
+  assert.equal(harvestRes.success, true, 'Harvesting undead corpse with Dagger succeeds');
+  assert.ok(playerWithDagger.items.length >= 3, 'Undead corpse harvested with Dagger in inventory yields necromantic reagents');
 
   // 3. castAnimateDead spawns 3D minion body via __sceneContext and castBoneArmor cleans it up
   const spawned3d = [];

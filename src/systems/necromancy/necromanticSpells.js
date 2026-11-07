@@ -208,9 +208,12 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
   const mystSkill = skillValue(casterEntity, SKILLS.Mysticism) || 20;
 
   let minionType = 'skeleton';
+  const isLichCorpse = corpse.entityType === 'lich' || corpse.entityType === 'ancient_lich' || corpse.preferredType === 'lich';
+  const isMageBoss = (corpse.entityType === 'spellcaster' || corpse.entityType === 'mage') && (corpse.level >= 15);
+
   if (corpse.preferredType && ['skeleton', 'zombie', 'ghost', 'mummy', 'lich'].includes(corpse.preferredType)) {
     minionType = corpse.preferredType;
-  } else if (corpse.entityType === 'lich' || (hasReagent(45) && mystSkill >= 80 && canAffordUndead(casterEntity, 'lich'))) {
+  } else if (isLichCorpse || (isMageBoss && hasReagent(45) && mystSkill >= 80 && canAffordUndead(casterEntity, 'lich'))) {
     minionType = 'lich';
   } else if (corpse.entityType === 'undead' && corpse.corpseState === CORPSE_STATE.FRESH) {
     minionType = 'mummy';
@@ -239,8 +242,15 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
     return { success: false, reason: 'Insufficient undead control capacity' };
   }
 
-  // Consume corpse from the world
+  // Consume and destroy corpse from the world
   consumeCorpse(corpse.id);
+  corpse.consumed = true;
+  if (typeof corpse.destroyCorpse === 'function') {
+    try { corpse.destroyCorpse(); } catch {}
+  }
+  if (typeof globalThis.__sceneContext?.destroyCorpse === 'function') {
+    try { globalThis.__sceneContext.destroyCorpse(corpse); } catch {}
+  }
 
   // Spawn the minion
   const minion = spawnMinion({

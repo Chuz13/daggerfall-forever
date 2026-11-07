@@ -210,16 +210,23 @@ export function corpsesNear(center, maxRadius, { sceneKey = null, requiredState 
 
 /**
  * Harvests a specific material component from a corpse.
- * @param {string} corpseId
+ * @param {string|object} corpseOrId
  * @param {'bones'|'flesh'|'skull'|'organs'|'ectoplasm'} harvestPart
  * @param {object} [options]
  * @param {string} [options.tool] e.g. 'dagger'
  * @returns {{ success: boolean, itemYield: string|null, reason?: string }}
  */
-export function harvestCorpse(corpseId, harvestPart, { tool = 'dagger' } = {}) {
-  const corpse = getCorpse(corpseId);
+export function harvestCorpse(corpseOrId, harvestPart, { tool = 'dagger' } = {}) {
+  const corpse = typeof corpseOrId === 'string' ? getCorpse(corpseOrId) : (corpseOrId || getCorpse(corpseOrId?.id));
   if (!corpse) return { success: false, itemYield: null, reason: 'No corpse found' };
   if (corpse.consumed) return { success: false, itemYield: null, reason: 'Corpse already consumed' };
+
+  if (!corpse.harvested || typeof corpse.harvested !== 'object') {
+    corpse.harvested = {};
+  }
+  if (!corpse.corpseState) {
+    corpse.corpseState = CORPSE_STATE.FRESH;
+  }
 
   if (corpse.harvested[harvestPart]) {
     return { success: false, itemYield: null, reason: `Already harvested ${harvestPart}` };
@@ -299,11 +306,18 @@ export function harvestAllFromCorpse(corpseOrId, playerEntity) {
     };
   }
 
+  if (!corpse.harvested || typeof corpse.harvested !== 'object') {
+    corpse.harvested = {};
+  }
+  if (!corpse.corpseState) {
+    corpse.corpseState = CORPSE_STATE.FRESH;
+  }
+
   const yields = [];
   const itemsAdded = [];
   const parts = ['bones', 'skull', 'flesh', 'ectoplasm'];
   for (const part of parts) {
-    const res = harvestCorpse(corpse.id, /** @type {any} */ (part), { tool: 'dagger' });
+    const res = harvestCorpse(corpse, /** @type {any} */ (part), { tool: 'dagger' });
     if (res.success && res.itemYield) {
       yields.push(res.itemYield);
     }

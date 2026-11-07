@@ -10740,7 +10740,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       { code: '5', label: t('necro.menu.optFollow', '5. [Follow] Follow close behind master (Numpad 1)'), action: () => applyUndeadCommand('follow') },
       { code: '6', label: t('necro.menu.optGuard', '6. [Guard] Hold ground and guard area (Numpad 2)'), action: () => applyUndeadCommand('guard') },
       { code: '7', label: t('necro.menu.optDismiss', '7. [Dismiss] Destroy all active minions (Numpad 3)'), action: () => applyUndeadCommand('dismiss') },
-      { code: '8', label: t('necro.menu.optHarvest', '8. [Harvest Remains] Carve reagents from nearby corpse (Numpad 5)'), action: () => applyUndeadCommand('harvest') },
+      { code: '8', label: t('necro.menu.optHarvest', '8. [Harvest Remains] Carve reagents from nearby corpse (Numpad 0)'), action: () => applyUndeadCommand('harvest') },
       { code: '0', label: t('necro.menu.optClose', '0. [Close] (Numpad 6 / Esc)'), action: () => {} },
     ];
     townTalk.showOverlay(new ChoiceWindow({ lines, options }));
@@ -17271,14 +17271,14 @@ export async function bootWorld(canvas, renderer, params, status) {
         e.preventDefault(); applyUndeadCommand('feign_death'); return;
       } else if (act === 'UndeadDetonate' || isNum(4)) {
         e.preventDefault(); applyUndeadCommand('detonate'); return;
-      } else if (act === 'UndeadHarvest' || isNum(5)) {
-        e.preventDefault(); applyUndeadCommand('harvest'); return;
       } else if (act === 'UndeadFollow' || isNum(1)) {
         e.preventDefault(); applyUndeadCommand('follow'); return;
       } else if (act === 'UndeadGuard' || isNum(2)) {
         e.preventDefault(); applyUndeadCommand('guard'); return;
       } else if (act === 'UndeadDismiss' || isNum(3)) {
         e.preventDefault(); applyUndeadCommand('dismiss'); return;
+      } else if (act === 'UndeadHarvest' || isNum(0)) {
+        e.preventDefault(); applyUndeadCommand('harvest'); return;
       }
     }
     // ROAD-G G3 - THE RING IS FILLED BEFORE THE LADDER. InputManager
