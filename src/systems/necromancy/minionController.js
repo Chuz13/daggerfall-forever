@@ -9,7 +9,7 @@
 // 4. Rebellion: If master's mental stamina breaks (0 Magicka/Fatigue),
 //    undead can break the leash and attack the caster.
 
-import { addUndeadMinion, removeUndeadMinion, usedUndeadPoints } from './undeadCapacity.js';
+import { addUndeadMinion, removeUndeadMinion, usedUndeadPoints, setUndeadMinionsStance } from './undeadCapacity.js';
 import { liveStat } from '../statMods.js';
 import { NecroConfig } from './necroConfig.js';
 
@@ -161,6 +161,7 @@ export function setAllMinionsStance(stance) {
       count++;
     }
   }
+  setUndeadMinionsStance(stance);
   return count;
 }
 

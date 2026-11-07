@@ -130,9 +130,20 @@ export function addUndeadMinion(minion) {
     name: minion.name || `Raised ${minion.type || 'Undead'}`,
     health: minion.health || 50,
     dead: false,
+    stance: minion.stance || 'follow',
     raisedTimestamp: Date.now(),
   });
   return true;
+}
+
+/**
+ * Updates stance on all capacity-tracked minions.
+ * @param {string} stance
+ */
+export function setUndeadMinionsStance(stance) {
+  for (const m of _activeMinions) {
+    m.stance = stance;
+  }
 }
 
 /**
@@ -186,6 +197,7 @@ export const undeadParty = {
         m.mobileTeam = 'PlayerAlly';
         m.mobile = m.mobile || minionMobileType(m.type);
         m.gender = m.gender || 'unspecified';
+        m.stance = m.stance || 'follow';
         return m;
       });
   },

@@ -233,18 +233,22 @@ export function createCrewAshore(deps) {
       if (rec.entity) {
         party.hurt(s.c.boat, s.c.name, rec.entity.health, rec.entity.maxHealth);
         // AUDIT CC-A4: the player's, whatever turned him (a blow of mine that reached him, a reset of an ally's team)
-        rec.entity.team = 'PlayerAlly';
-        rec.entity.mobileTeam = 'PlayerAlly';
+        if (rec.undeadStance !== 'feign_death') {
+          rec.entity.team = 'PlayerAlly';
+          rec.entity.mobileTeam = 'PlayerAlly';
+        }
       }
       rec.shipmate = true;
-      rec.ai.follow = deps.follow ? deps.follow(s.c, i, followOf(i)) : followOf(i);
+      deps.onFrame?.(s.c, rec, i);
+      rec.ai.follow = deps.follow ? deps.follow(s.c, rec, i, followOf(i)) : followOf(i);
       rec.ai.seat = deps.seat ? seatOf(i, list.length) : null; // WAGONS1
       rec.ai.seatDraw = deps.seatDraw ? seatDrawOf(i, list.length) : null; // WAGONS2: drawn in the grown wagon
       const seat = rec.ai.seat?.() ?? null;
       if (seat)
         s.sat = { feet: [seat.feet[0], seat.feet[1], seat.feet[2]], yaw: seat.yaw }; // WAGON-ALIGHT: where it sits, kept for its getting down
       else if (s.sat) getDown(s, place);
-      if (place && L && !seat) {
+      const allowCatchUp = deps.allowCatchUp ? deps.allowCatchUp(s.c, rec) : !!rec.ai.follow;
+      if (place && L && !seat && allowCatchUp) {
         const f = rec.ai.feet;
         // AUDIT CC-A3: a floor away counts only while the leader stands on one - levitating, swimming or in the air, the
         // body stood at his height would only fall and be stood up there again

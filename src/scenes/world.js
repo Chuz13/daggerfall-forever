@@ -10072,14 +10072,125 @@ export async function bootWorld(canvas, renderer, params, status) {
     onStood: (c, rec) => {
       rec.livingRole = 'undead_minion';
       rec.shipmate = true;
+      rec.undeadStance = c.stance || 'follow';
       _undeadMinionFoes.add(rec);
     },
     onLeave: (c, rec) => {
       _undeadMinionFoes.delete(rec);
     },
-    follow: (c, i, defFollow) => {
-      if (c.stance === 'guard' || c.stance === 'feign_death') return null;
+    allowCatchUp: (c, rec) => {
+      const s = rec.undeadStance || c.stance || 'follow';
+      return s === 'follow';
+    },
+    follow: (c, rec, i, defFollow) => {
+      const s = rec.undeadStance || c.stance || 'follow';
+      if (s === 'guard' || s === 'feign_death') return null;
+      if (s === 'attack') {
+        const hasTgt = rec.ai?.target && !rec.ai.target.dead && (rec.ai.target.entity?.health ?? 1) > 0;
+        return hasTgt ? null : defFollow;
+      }
       return defFollow;
+    },
+    onFrame: (c, rec, i) => {
+      const s = rec.undeadStance || c.stance || 'follow';
+      rec.undeadStance = s;
+      if (c) c.stance = s;
+
+      if (s === 'guard') {
+        if (rec.ai) {
+          rec.ai.follow = null;
+          rec.ai.moving = false;
+          rec.ai.target = null;
+          rec.ai.secondaryTarget = null;
+          rec.ai.path = null;
+          rec.ai.velY = 0;
+          rec.ai.canAct = false;
+          rec.ai._following = false;
+          rec.ai._followWalking = false;
+        }
+        rec.yielded = false;
+      } else if (s === 'feign_death') {
+        if (rec.ai) {
+          rec.ai.follow = null;
+          rec.ai.moving = false;
+          rec.ai.target = null;
+          rec.ai.secondaryTarget = null;
+          rec.ai.path = null;
+          rec.ai.velY = 0;
+          rec.ai.canAct = false;
+          rec.ai._following = false;
+          rec.ai._followWalking = false;
+        }
+        rec.yielded = true;
+        if (rec.entity) {
+          rec.entity.team = 'Neutral';
+          rec.entity.mobileTeam = 'Neutral';
+        }
+      } else if (s === 'attack') {
+        rec.yielded = false;
+        if (rec.ai) rec.ai.canAct = true;
+        if (rec.entity) {
+          rec.entity.team = 'PlayerAlly';
+          rec.entity.mobileTeam = 'PlayerAlly';
+        }
+        const curTgt = rec.ai?.target;
+        const validTgt = curTgt && !curTgt.dead && (curTgt.entity?.health ?? 1) > 0;
+        if (!validTgt) {
+          const pFeet = walkMode && playerSpawned ? player.pos : cam.pos;
+          const foes = exteriorFoes?.foes ?? [];
+          let nearest = null;
+          let nearestDist = 45;
+          for (const f of foes) {
+            if (f && !f.dead && f !== rec && f.entity?.team !== 'PlayerAlly' && f.livingRole !== 'undead_minion' && !f.puppet) {
+              const ff = f.ai?.feet ?? f.pos;
+              if (ff) {
+                const dist = Math.hypot(ff[0] - pFeet[0], ff[2] - pFeet[2]);
+                if (dist < nearestDist) {
+                  nearestDist = dist;
+                  nearest = f;
+                }
+              }
+            }
+          }
+          if (nearest && rec.ai) {
+            const nf = nearest.ai?.feet ?? nearest.pos;
+            if (typeof rec.ai.makeEnemyHostileToAttacker === 'function') {
+              rec.ai.makeEnemyHostileToAttacker(nearest, nf, 9999);
+            }
+            rec.ai.target = nearest;
+            rec.ai.secondaryTarget = nearest;
+            rec.ai.targetSenses = nearest;
+            rec.ai._armedTargeting = true;
+            rec.ai.follow = null;
+            rec.ai.isHostile = false;
+            rec.ai.moving = true;
+            if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();
+          } else if (rec.ai) {
+            rec.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
+            rec.ai.target = null;
+            rec.ai.isHostile = false;
+          }
+        } else if (rec.ai) {
+          rec.ai._armedTargeting = true;
+          rec.ai.follow = null;
+          rec.ai.isHostile = false;
+          rec.ai.moving = true;
+        }
+      } else {
+        // follow stance
+        rec.yielded = false;
+        if (rec.ai) {
+          rec.ai.canAct = true;
+          rec.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
+          rec.ai.target = null;
+          rec.ai.secondaryTarget = null;
+          rec.ai.isHostile = false;
+        }
+        if (rec.entity) {
+          rec.entity.team = 'PlayerAlly';
+          rec.entity.mobileTeam = 'PlayerAlly';
+        }
+      }
     },
   });
 
@@ -10101,10 +10212,14 @@ export async function bootWorld(canvas, renderer, params, status) {
         setAllMinionsStance(MINION_STANCES.FOLLOW);
         for (const f of uniqueBodies) {
           if (f && !f.dead) {
+            f.undeadStance = 'follow';
+            f.yielded = false;
             if (f.ai) {
+              f.ai.canAct = true;
               f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
               f.ai.isHostile = false;
               f.ai.target = null;
+              f.ai.secondaryTarget = null;
               if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
             }
             if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
@@ -10117,10 +10232,16 @@ export async function bootWorld(canvas, renderer, params, status) {
         setAllMinionsStance(MINION_STANCES.GUARD);
         for (const f of uniqueBodies) {
           if (f && !f.dead) {
+            f.undeadStance = 'guard';
+            f.yielded = false;
             if (f.ai) {
               f.ai.follow = null;
+              f.ai.moving = false;
               f.ai.target = null;
+              f.ai.secondaryTarget = null;
               f.ai.path = null;
+              f.ai.velY = 0;
+              f.ai.canAct = false;
               f.ai.isHostile = false;
             }
             if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
@@ -10134,13 +10255,13 @@ export async function bootWorld(canvas, renderer, params, status) {
         const pPos = leaderPos ? [leaderPos[0], leaderPos[1], leaderPos[2]] : [0, 0, 0];
         const allFoes = exteriorFoes?.foes ?? [];
         let nearestHostile = null;
-        let nearestDist = Infinity;
+        let nearestDist = 45;
         for (const e of allFoes) {
-          if (e && !e.dead && !uniqueBodies.includes(e) && e.entity?.team !== 'PlayerAlly' && e.livingRole !== 'undead_minion') {
+          if (e && !e.dead && !uniqueBodies.includes(e) && e.entity?.team !== 'PlayerAlly' && e.livingRole !== 'undead_minion' && !e.puppet) {
             const ef = e.ai?.feet ?? e.pos;
             if (ef) {
               const d = Math.hypot(ef[0] - pPos[0], ef[2] - pPos[2]);
-              if (d < nearestDist && d < 40) {
+              if (d < nearestDist) {
                 nearestDist = d;
                 nearestHostile = e;
               }
@@ -10149,11 +10270,24 @@ export async function bootWorld(canvas, renderer, params, status) {
         }
         for (const f of uniqueBodies) {
           if (f && !f.dead) {
+            f.undeadStance = 'attack';
+            f.yielded = false;
             if (f.ai) {
-              f.ai.follow = null;
+              f.ai.canAct = true;
               f.ai.isHostile = false;
               if (nearestHostile) {
+                const nf = nearestHostile.ai?.feet ?? nearestHostile.pos;
+                if (typeof f.ai.makeEnemyHostileToAttacker === 'function') {
+                  f.ai.makeEnemyHostileToAttacker(nearestHostile, nf, 9999);
+                }
                 f.ai.target = nearestHostile;
+                f.ai.secondaryTarget = nearestHostile;
+                f.ai.targetSenses = nearestHostile;
+                f.ai._armedTargeting = true;
+                f.ai.follow = null;
+                f.ai.moving = true;
+              } else {
+                f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
               }
               if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
             }
@@ -10168,10 +10302,16 @@ export async function bootWorld(canvas, renderer, params, status) {
         setAllMinionsStance(MINION_STANCES.FEIGN_DEATH);
         for (const f of uniqueBodies) {
           if (f && !f.dead) {
+            f.undeadStance = 'feign_death';
+            f.yielded = true;
             if (f.ai) {
               f.ai.follow = null;
+              f.ai.moving = false;
               f.ai.target = null;
+              f.ai.secondaryTarget = null;
               f.ai.path = null;
+              f.ai.velY = 0;
+              f.ai.canAct = false;
               f.ai.isHostile = false;
             }
             if (f.entity) { f.entity.team = 'Neutral'; f.entity.mobileTeam = 'Neutral'; }
@@ -10193,14 +10333,19 @@ export async function bootWorld(canvas, renderer, params, status) {
             if (f.pos) { f.pos[0] = rx; f.pos[1] = ry; f.pos[2] = rz; }
             if (f.feet) { f.feet[0] = rx; f.feet[1] = ry; f.feet[2] = rz; }
             if (f.ai?.feet) { f.ai.feet[0] = rx; f.ai.feet[1] = ry; f.ai.feet[2] = rz; }
+            f.undeadStance = 'follow';
+            f.yielded = false;
             if (f.ai) {
+              f.ai.canAct = true;
               f.ai.target = null;
+              f.ai.secondaryTarget = null;
               f.ai.path = null;
               f.ai.velY = 0;
               f.ai._restGrounded = false;
               f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
               if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
             }
+            if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
             i++;
           }
         }
