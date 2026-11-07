@@ -62,7 +62,8 @@ import { giveCarried, hasBag } from './materialsBag.js';
 import { BAG_TEMPLATE } from '../net/bagLaw.js';
 import { depositGold, withdrawGold, forgiveLoans, isUnifiedBankActive } from './banking.js';
 import { getPref, setPref } from './uiPrefs.js';
-import { legalRepOf, changeLegalRep } from './court.js';
+import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.js';
+import { REGION_NAMES } from '../formats/mapsTables.js';
 import { foundFamily, addChild, recordDeath, successors, currentOf } from './legacy/family.js';
 import { setRegionCrisis, getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
 import { dumpSessionLog } from './diagnostics/sessionLogger.js';
@@ -845,7 +846,7 @@ function handleFirmamentCommand(args = []) {
     return [
       `<b>Offline Firmament & Renown Status:</b>`,
       `Renown Level: ${renown}`,
-      `Renown XP: ${rec?.xp ?? 0} (${prog.intoLevel}/${prog.neededForNextLevel})`,
+      `Renown XP: ${rec?.xp ?? 0} (${prog.into}/${prog.need})`,
       `Stars Total: ${stars}`,
       `Craft Points: ${craft}`,
       `Active Tree Perks: ${rec?.tree ? 'Configured' : 'Empty'}`,
@@ -1109,31 +1110,74 @@ registerCommand(
   }
 );
 
+const defaultRegion = () => _sceneContext?.getRegionIndex?.() ?? (playerEntity.currentRegionIndex ?? 17);
+
 function handleBountyCommand(args = []) {
   const sub = String(args[0] || 'get').toLowerCase();
-  const reg = args[2] ? parseInt(args[2], 10) : (args[1] && sub === 'get' ? parseInt(args[1], 10) : 0);
-  const curRep = legalRepOf(playerEntity, reg);
+  const curReg = defaultRegion();
+  const reg = args[2] ? parseInt(args[2], 10) : (args[1] && sub === 'get' ? parseInt(args[1], 10) : curReg);
+  const regName = REGION_NAMES[reg] ?? `Region ${reg}`;
+  playerEntity.regionalBounties = playerEntity.regionalBounties || {};
+  const currentBounty = playerEntity.regionalBounties[reg] ?? 0;
+
   if (sub === 'get') {
-    const status = curRep < -20 ? 'CRIMINAL (Guards pursue)' : curRep < 0 ? 'SUSPECT' : 'IN GOOD STANDING';
-    return `Legal Reputation in Region ${reg}: ${curRep} [${status}]`;
+    const isWanted = (playerEntity.crimeCommitted > 0) || currentBounty > 0;
+    return `Wanted Bounty in ${regName} (Region ${reg}): ${currentBounty} gold [${isWanted ? 'WANTED / GUARDS PURSUE' : 'NO ACTIVE BOUNTY'}]`;
   }
   if (sub === 'set') {
     const val = parseInt(args[1], 10);
-    if (Number.isNaN(val)) return 'Usage: bounty set <repValue> [region]';
-    const delta = val - curRep;
+    if (Number.isNaN(val) || val < 0) return 'Usage: bounty set <goldAmount> [region]';
+    playerEntity.regionalBounties[reg] = val;
+    if (val > 0) {
+      setCrimeCommitted(playerEntity, CRIMES.Assault);
+      if (legalRepOf(playerEntity, reg) > -25) {
+        changeLegalRep(playerEntity, reg, -30);
+      }
+    } else {
+      setCrimeCommitted(playerEntity, 0);
+    }
+    return `Wanted Bounty of ${val} gold placed on player in ${regName} (Region ${reg}). ${val > 0 ? 'Guards are on alert!' : 'Bounty cleared.'}`;
+  }
+  if (sub === 'clear') {
+    playerEntity.regionalBounties[reg] = 0;
+    setCrimeCommitted(playerEntity, 0);
+    if (legalRepOf(playerEntity, reg) < 0) {
+      changeLegalRep(playerEntity, reg, -legalRepOf(playerEntity, reg) + 10);
+    }
+    return `Bounty cleared in ${regName} (Region ${reg}). Guards stand down.`;
+  }
+  return 'Usage: bounty <get [region] | set <goldAmount> [region] | clear [region]>';
+}
+
+function handleLegalRepCommand(args = []) {
+  const sub = String(args[0] || 'get').toLowerCase();
+  const curReg = defaultRegion();
+  const reg = args[2] ? parseInt(args[2], 10) : (args[1] && sub === 'get' ? parseInt(args[1], 10) : curReg);
+  const regName = REGION_NAMES[reg] ?? `Region ${reg}`;
+  const curRep = legalRepOf(playerEntity, reg);
+
+  if (sub === 'get') {
+    const status = curRep < -20 ? 'CRIMINAL' : curRep < 0 ? 'SUSPECT' : curRep > 20 ? 'REVERED' : 'RESPECTABLE';
+    return `Legal Reputation in ${regName} (Region ${reg}): ${curRep} [${status}]`;
+  }
+  if (sub === 'set') {
+    const val = parseInt(args[1], 10);
+    if (Number.isNaN(val)) return 'Usage: legalrep set <repValue> [region]';
+    const clamped = Math.max(-100, Math.min(100, val));
+    const delta = clamped - curRep;
     changeLegalRep(playerEntity, reg, delta);
-    return `Legal Reputation in Region ${reg} set to ${val}.`;
+    return `Legal Reputation in ${regName} (Region ${reg}) set to ${clamped}.`;
   }
   if (sub === 'clear') {
     if (curRep < 0) {
-      changeLegalRep(playerEntity, reg, -curRep + 10);
+      changeLegalRep(playerEntity, reg, -curRep);
     }
-    return `Bounty cleared in Region ${reg}. Reputation restored to ${legalRepOf(playerEntity, reg)}.`;
+    return `Legal Reputation cleared in ${regName} (Region ${reg}). Current reputation: ${legalRepOf(playerEntity, reg)}.`;
   }
-  return 'Usage: bounty <get [region] | set <repValue> [region] | clear [region]>';
+  return 'Usage: legalrep <get [region] | set <repValue> [region] | clear [region]>';
 }
-registerCommand('bounty', 'Check or modify legal reputation and bounty: bounty <get|set|clear>', 'bounty <get [reg]|set <val> [reg]|clear [reg]>', handleBountyCommand);
-registerCommand('legalrep', 'Check or modify legal reputation: legalrep <get|set|clear>', 'legalrep <get|set|clear>', handleBountyCommand);
+registerCommand('bounty', 'Check or place criminal bounty / wanted status on player: bounty <get|set|clear>', 'bounty <get [reg]|set <gold> [reg]|clear [reg]>', handleBountyCommand);
+registerCommand('legalrep', 'Check or set regional legal standing (-100..100): legalrep <get|set|clear>', 'legalrep <get [reg]|set <val> [reg]|clear [reg]>', handleLegalRepCommand);
 
 let _mockFamily = null;
 registerCommand(

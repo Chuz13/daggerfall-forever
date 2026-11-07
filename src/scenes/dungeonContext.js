@@ -1992,11 +1992,21 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         const bossSpot = spotAbout([farBoss.x, farBoss.y, farBoss.z], 4) ?? { x: farBoss.x, y: farBoss.y, z: farBoss.z };
         spawnLooseFoe(144, [bossSpot.x, bossSpot.y, bossSpot.z], {
           level: Math.max(2, effectiveLevel(playerEntity) + 1),
+          feetGiven: true,
+          loose: true,
+          transient: true,
+          managed: true,
         })
           .then((bf) => {
             if (!bf) return;
-            if (bf.entity) bf.entity.name = contract.targetName || 'Crisis Warlord';
+            const targetTitle = contract.targetName || 'Crisis Warlord';
+            if (bf.entity) {
+              bf.entity.name = `[CRISIS TARGET] ${targetTitle}`;
+              bf.entity.isBoss = true;
+              bf.entity.isCrisisTarget = true;
+            }
             _livingDungeonCrisisBoss = bf;
+            hudText?.add?.(`Crisis Contract Target detected deep within this dungeon: ${targetTitle}!`);
           })
           .catch(() => {});
       }

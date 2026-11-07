@@ -28572,6 +28572,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       else if (player?.pos) { player.pos[0] = x; player.pos[1] = y; player.pos[2] = z; }
     },
     getPlayerPos: () => (player?.pos ? [...player.pos] : null),
+    getRegionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 17,
     killAllFoes: () => {
       let count = 0;
       if (exteriorFoes?.foes) {

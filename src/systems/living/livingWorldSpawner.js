@@ -627,8 +627,12 @@ export function buildLivingSiteBlueprint({
       { ...LIVING_FLATS.SACKS, feet: [centerX + 1.8, snapPropToGround(heightAt, centerX + 1.8, centerZ + 2.2), centerZ + 2.2] },
     );
 
+    const crisisContract = getActiveCrisisContract(regionIndex);
+    const leaderName = crisisContract?.targetName
+      ? `[CRISIS TARGET] ${crisisContract.targetName}`
+      : 'Highway Brigand';
     const banditRoles = [
-      { mobileType: MOBILE_TYPES.Rogue, name: 'Highway Brigand', dx: 2.2, dz: 1.0 },
+      { mobileType: MOBILE_TYPES.Rogue, name: leaderName, dx: 2.2, dz: 1.0 },
       { mobileType: MOBILE_TYPES.Archer, name: 'Outlaw Marksman', dx: -2.2, dz: 1.2 },
       { mobileType: MOBILE_TYPES.Warrior, name: 'Deserter Cutthroat', dx: 0, dz: -2.5 },
     ];
@@ -1225,9 +1229,13 @@ export function createLivingSceneHost(deps) {
   }
 
   function setSiteHostile(s, hostile = true) {
+    if (!s) return;
+    s.hostile = hostile;
     for (const f of s.foes) {
       if (f && !f.dead && f.ai) {
         f.ai.isHostile = hostile;
+        f.ai.detected = hostile;
+        f.ai.target = hostile ? deps.playerEntity() : null;
       }
     }
   }
@@ -1351,7 +1359,8 @@ export function createLivingSceneHost(deps) {
       if (!nemesis) return;
       deps.openChoice({
         lines: [
-          `${nemesis.name}: "${LIVING_WORDS.nemesisMotive(nemesis.archetype)}"`,
+          `${nemesis.name} (${nemesis.archetype || 'Bounty Hunter'}): "${LIVING_WORDS.nemesisMotive(nemesis.archetype)}"`,
+          `Demands: Settle the contract or draw steel!`,
         ],
         options: [
           {
@@ -1850,6 +1859,7 @@ export function createLivingSceneHost(deps) {
           level: a.level,
           allied: a.allied,
           team: a.team,
+          feetGiven: true,
           loose: true,
           transient: true,
           managed: true,
@@ -1865,7 +1875,13 @@ export function createLivingSceneHost(deps) {
             rec.entity.name = a.name;
             if (a.team) rec.entity.team = a.team;
           }
-          if (rec.ai && !a.hostile && !a.allied) {
+          if (site.hostile || a.hostile) {
+            if (rec.ai) {
+              rec.ai.isHostile = true;
+              rec.ai.detected = true;
+              rec.ai.target = deps.playerEntity();
+            }
+          } else if (rec.ai && !a.allied) {
             rec.ai.isHostile = false;
           }
           rec.livingRole = a.role;

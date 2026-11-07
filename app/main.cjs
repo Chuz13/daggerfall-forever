@@ -39,7 +39,7 @@ const { pathToFileURL } = require('node:url');
 const { frameRateSwitches } = require('./lib/frameRate.cjs');   // FPS-VSYNC: VSync off lifts Chromium's wait
 const { backendLaunch, holdsVSync, watchBackend, backendOption, chooseBackend, restartArgs } = require('./lib/graphicsBackend.cjs');   // GPU-BACKEND: the Vulkan opt-in and its guard
 const { getScreenshotsDir } = require('./lib/screenshotStorage.cjs');
-const { writeSessionLogToDisk } = require('../scripts/sessionLogStorage.cjs');
+const { writeSessionLogToDisk } = require('./lib/sessionLogStorage.cjs');
 
 // DAGGER_USER_DATA points saves/config somewhere else - the probe's
 // door (tools/appShellProbe.mjs writes into a temp dir it can read
