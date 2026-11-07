@@ -205,7 +205,7 @@ export function beginYield(player, f, { now = Date.now(), rolls = Math.random } 
 /** A kneeling one this frame (`dtMs` the frame's - the world's own time: a window that pauses the game stops its wait):
  *  'slip' when it has waited too long or the player walked off, else null. */
 export function yieldStep(f, feet, dtMs = 0) {
-  if (!f?.yielded) return null;
+  if (!f?.yielded || typeof f.yielded !== 'object') return null;
   // AUDIT (2026-10-02): its choice open on the screen (the host's word: the window not yet done) - the foes' clock runs
   // under a window (WINFOE1), its wait does not; nor does the walk-away, the player stands at the window
   const j = f.yielded.judging;
