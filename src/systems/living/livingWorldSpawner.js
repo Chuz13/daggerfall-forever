@@ -677,6 +677,7 @@ export function buildLivingSiteBlueprint({
         allied: false,
         hostile: false,
         role: 'traveler',
+        team: 'Traveler',
       },
       {
         mobileType: MOBILE_TYPES.Ranger,
@@ -687,6 +688,7 @@ export function buildLivingSiteBlueprint({
         allied: false,
         hostile: false,
         role: 'traveler_guard',
+        team: 'Traveler',
       },
     );
   } else if (kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
