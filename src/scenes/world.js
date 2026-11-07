@@ -5575,7 +5575,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     halfWidthsOf, heightAt, heightCell, holdPixel, hostBed, labGrass, landform, livingArmOf, livingAshore,
     livingBaseRate, livingCarriedOf, livingChapterOf, livingCrews, livingCycleOf, livingDeadAt, livingFlatOf,
     livingKilled, livingPlaceOf, livingRate, livingSlay, livingTownAt, livingTripsOf, loadGroundSet, lookOfHome,
-    jungle, lowPolyTrees, maps, modelFeetOf, onlineHomes, personTex, playerTravelPixel, portOnSea, renderer, restrideTerrain,
+    jungle, lowPolyTrees, maps, modelFeetOf, onlineHomes: activeHomes, personTex, playerTravelPixel, portOnSea, renderer, restrideTerrain,
     seasons, siegeFieldsByTown, snowCover, snowfall, standPixelNpcs, standWodPile, strideFor, terrainGen, tileSide,
     townEcon, townPlacesFor, townSeats, verges, waterOn, waterSheetOf, wod, wodForgetPeerSites, wodOpened, wodPathsPoint,
     worldHeight, lodStride,   // FLORA-GROUND, THE RINGS: the far ring's class
@@ -5991,15 +5991,16 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  each home drawn on its own takes its new table when it is ready (the older ask never lands over a newer); a pixel
    *  that merged a home which is painted now is rebuilt, the season's own teardown (tickSeason), once. */
   function refreshHomeLooks() {
-    if (!onlineHomes) return;
-    const v = onlineHomes.version() * 1024 + _lookPreviewGen;
+    const hApi = onlineHomes || (isOfflineHousingActive() ? offlineHomes : null);
+    if (!hApi) return;
+    const v = hApi.version() * 1024 + _lookPreviewGen;
     if (v === _homeLookV) return;
     _homeLookV = v;
     for (const [key, p] of built) {
       // AUDIT: each pixel from the registry as its build read it - an answer landing mid-build is never spent before
       // the pixel stands (the publish asks for a refresh)
       if (!p.homeTown || p._lookV === v) continue;
-      const homes = onlineHomes.homesIn(p.homeTown);
+      const homes = hApi.homesIn(p.homeTown);
       if (!homes) continue;
       p._lookV = v;
       let merged = false;
@@ -28608,21 +28609,44 @@ export async function bootWorld(canvas, renderer, params, status) {
       _spawnGuards(true);
     },
     spawnCorpse: async (pos) => {
-      const feet = pos ?? (walkMode && playerSpawned ? player.pos : cam.pos);
-      const corpsePos = [feet[0] + 1.5, feet[1], feet[2] + 1.5];
-      const f = await exteriorFoes.spawnFoe(MOBILE_TYPES.Rogue, corpsePos, {
-        loose: true,
-        transient: true,
-        managed: true,
-      });
-      if (f) {
-        exteriorFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      const p = (pos && (pos[0] !== 0 || pos[2] !== 0)) ? pos : (walkMode && playerSpawned ? player.pos : cam.pos);
+      const yaw = cam?.yaw ?? 0;
+      const fwdX = Math.sin(yaw);
+      const fwdZ = Math.cos(yaw);
+      const corpseX = p[0] + fwdX * 2.5;
+      const corpseZ = p[2] + fwdZ * 2.5;
+      const corpseY = (collider?.heightAt?.(corpseX, corpseZ) ?? p[1]) || p[1];
+      const corpsePos = [corpseX, corpseY, corpseZ];
+
+      const dCtx = modes?.dungeonCtx;
+      const iFoes = modes?.interiorFoes;
+      let f = null;
+      if (modes?.mode === 'dungeon' && dCtx?.spawnFoe) {
+        f = await dCtx.spawnFoe(MOBILE_TYPES.Rogue, corpsePos, { yaw: yaw + Math.PI });
+        if (f) dCtx.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      } else if (modes?.mode === 'interior' && iFoes?.spawnFoe) {
+        f = await iFoes.spawnFoe(MOBILE_TYPES.Rogue, corpsePos, { yaw: yaw + Math.PI, loose: true, feetGiven: true });
+        if (f) iFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      } else if (exteriorFoes?.spawnFoe) {
+        f = await exteriorFoes.spawnFoe(MOBILE_TYPES.Rogue, corpsePos, {
+          loose: true,
+          transient: true,
+          managed: true,
+          feetGiven: true,
+        });
+        if (f) exteriorFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
       }
       return f;
     },
     spawnUndeadMinion: async (type, pos, name) => {
-      const feet = pos ?? (walkMode && playerSpawned ? player.pos : cam.pos);
-      const spawnPos = [feet[0] + 1.5, feet[1], feet[2] + 1.5];
+      const p = (pos && (pos[0] !== 0 || pos[2] !== 0)) ? pos : (walkMode && playerSpawned ? player.pos : cam.pos);
+      const yaw = cam?.yaw ?? 0;
+      const fwdX = Math.sin(yaw);
+      const fwdZ = Math.cos(yaw);
+      const spawnX = p[0] + fwdX * 2.5;
+      const spawnZ = p[2] + fwdZ * 2.5;
+      const spawnY = (collider?.heightAt?.(spawnX, spawnZ) ?? p[1]) || p[1];
+      const spawnPos = [spawnX, spawnY, spawnZ];
       const mobType =
         type === 'zombie' ? MOBILE_TYPES.Zombie :
         type === 'mummy' ? MOBILE_TYPES.Mummy :
@@ -28630,13 +28654,25 @@ export async function bootWorld(canvas, renderer, params, status) {
         type === 'wraith' ? MOBILE_TYPES.Wraith :
         type === 'lich' ? MOBILE_TYPES.Lich :
         MOBILE_TYPES.SkeletalWarrior;
-      const f = await exteriorFoes.spawnFoe(mobType, spawnPos, {
-        loose: true,
-        transient: true,
-        managed: true,
-        allied: true,
-        team: 'PlayerAlly',
-      });
+
+      const dCtx = modes?.dungeonCtx;
+      const iFoes = modes?.interiorFoes;
+      let f = null;
+      if (modes?.mode === 'dungeon' && dCtx?.spawnFoe) {
+        f = await dCtx.spawnFoe(mobType, spawnPos, { yaw: yaw + Math.PI });
+      } else if (modes?.mode === 'interior' && iFoes?.spawnFoe) {
+        f = await iFoes.spawnFoe(mobType, spawnPos, { yaw: yaw + Math.PI, loose: true, feetGiven: true });
+      } else if (exteriorFoes?.spawnFoe) {
+        f = await exteriorFoes.spawnFoe(mobType, spawnPos, {
+          loose: true,
+          transient: true,
+          managed: true,
+          allied: true,
+          team: 'PlayerAlly',
+          feetGiven: true,
+          yaw: yaw + Math.PI,
+        });
+      }
       if (f) {
         f.livingRole = 'undead_minion';
         if (f.entity) {
@@ -28649,24 +28685,49 @@ export async function bootWorld(canvas, renderer, params, status) {
       return f;
     },
     spawnPurifiers: async (party) => {
-      const feet = walkMode && playerSpawned ? player.pos : cam.pos;
-      const squad = party || [
-        { name: 'Inquisitor Knight', type: MOBILE_TYPES.Knight },
-        { name: 'Mage Inquisitor', type: MOBILE_TYPES.Mage },
-        { name: 'Purifier Healer', type: MOBILE_TYPES.Healer },
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      const yaw = cam?.yaw ?? 0;
+      const squad = party && party.length ? party : [
+        { name: 'Inquisitor Knight', type: 'arkay_templar' },
+        { name: 'Mage Inquisitor', type: 'holy_inquisitor' },
+        { name: 'Purifier Healer', type: 'witch_hunter_archer' },
       ];
       const spawned = [];
+      const dCtx = modes?.dungeonCtx;
+      const iFoes = modes?.interiorFoes;
       for (let i = 0; i < squad.length; i++) {
-        const angle = (i * 2 * Math.PI) / squad.length;
-        const px = feet[0] + Math.cos(angle) * 8;
-        const pz = feet[2] + Math.sin(angle) * 8;
-        const py = (collider?.heightAt?.(px, pz) ?? feet[1]) || feet[1];
-        const f = await exteriorFoes.spawnFoe(squad[i].type || MOBILE_TYPES.Knight, [px, py, pz], {
-          loose: true,
-          transient: true,
-          managed: true,
-          allied: false,
-        });
+        const angleOffset = ((i - (squad.length - 1) / 2) * 0.45);
+        const ang = yaw + angleOffset;
+        const px = p[0] + Math.sin(ang) * 5.5;
+        const pz = p[2] + Math.cos(ang) * 5.5;
+        const py = (collider?.heightAt?.(px, pz) ?? p[1]) || p[1];
+        let mobType = MOBILE_TYPES.Knight;
+        const t = squad[i].type;
+        if (typeof t === 'number') {
+          mobType = t;
+        } else if (typeof t === 'string') {
+          const s = t.toLowerCase();
+          if (s.includes('archer')) mobType = MOBILE_TYPES.Archer;
+          else if (s.includes('inquisitor') || s.includes('mage')) mobType = MOBILE_TYPES.Mage;
+          else if (s.includes('templar') || s.includes('knight')) mobType = MOBILE_TYPES.Knight;
+          else if (s.includes('healer')) mobType = MOBILE_TYPES.Healer;
+        }
+
+        let f = null;
+        if (modes?.mode === 'dungeon' && dCtx?.spawnFoe) {
+          f = await dCtx.spawnFoe(mobType, [px, py, pz], { yaw: ang + Math.PI });
+        } else if (modes?.mode === 'interior' && iFoes?.spawnFoe) {
+          f = await iFoes.spawnFoe(mobType, [px, py, pz], { yaw: ang + Math.PI, loose: true, feetGiven: true });
+        } else if (exteriorFoes?.spawnFoe) {
+          f = await exteriorFoes.spawnFoe(mobType, [px, py, pz], {
+            loose: true,
+            transient: true,
+            managed: true,
+            allied: false,
+            feetGiven: true,
+            yaw: ang + Math.PI,
+          });
+        }
         if (f) {
           if (f.entity && squad[i].name) f.entity.name = squad[i].name;
           if (f.ai) {
@@ -28683,7 +28744,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (typeof player?.spawn === 'function') player.spawn(x, y, z);
       else if (player?.pos) { player.pos[0] = x; player.pos[1] = y; player.pos[2] = z; }
     },
-    getPlayerPos: () => (player?.pos ? [...player.pos] : null),
+    getPlayerPos: () => (player?.pos ? [...player.pos] : (cam?.pos ? [...cam.pos] : null)),
     getRegionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 17,
     killAllFoes: () => {
       let count = 0;

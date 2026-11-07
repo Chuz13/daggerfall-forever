@@ -1343,7 +1343,8 @@ registerCommand(
     if (sub === 'spawn') {
       const target = String(args[1] || 'corpse').toLowerCase();
       if (target === 'corpse') {
-        const pos = playerEntity?.pos ? [playerEntity.pos[0] + 1.5, playerEntity.pos[1], playerEntity.pos[2] + 1.5] : [0, 0, 0];
+        const playerPos = _sceneContext?.getPlayerPos?.();
+        const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
         const rec = registerCorpse({
           entityType: 'humanoid',
           entityName: 'Slain Adventurer',
@@ -1352,7 +1353,7 @@ registerCommand(
           worldTimeMinutes: worldMinutes(),
         });
         _sceneContext?.spawnCorpse?.(pos);
-        return `Spawned physical humanoid corpse (ID: ${rec.id}) at [${pos.map((n) => n.toFixed(1)).join(', ')}]. Ready for reanimation.`;
+        return `Spawned physical humanoid corpse (ID: ${rec.id}) in front of player. Ready for reanimation.`;
       }
       return 'Usage: necro spawn corpse';
     }
@@ -1367,14 +1368,15 @@ registerCommand(
       }
       if (action === 'raise') {
         const type = String(args[2] || 'skeleton').toLowerCase();
-        const pos = playerEntity?.pos ? [playerEntity.pos[0] + 1.5, playerEntity.pos[1], playerEntity.pos[2] + 1.5] : [0, 0, 0];
+        const playerPos = _sceneContext?.getPlayerPos?.();
+        const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
         const m = spawnMinion({
           type,
           position: pos,
           masterEntity: playerEntity,
         });
         _sceneContext?.spawnUndeadMinion?.(type, pos, m.profile.name);
-        return `Raised ${m.profile.name} (Type: ${m.type}, ID: ${m.id}) in 3D world at [${pos.map((n) => n.toFixed(1)).join(', ')}].`;
+        return `Raised ${m.profile.name} (Type: ${m.type}, ID: ${m.id}) in front of player.`;
       }
       const list = allSpawnedMinions();
       if (list.length === 0) return 'No active undead minions.';
