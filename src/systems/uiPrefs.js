@@ -88,6 +88,8 @@ export const PREF_DEFAULTS = Object.freeze({
   // HUD-MOVE (Mac: "an option to move the magicka, health and fatigue bar separately"): off, the three bars move as
   // one piece; on, each moves on its own.
   hudBarsSplit: false,
+  // HUD-VITALS: display mode for enhanced vitals bars ('percent' | 'currentMax' | 'combo')
+  hudVitalsMode: 'percent',
   // HUD-SNAP: while moving a piece, its edges and centre catch on the other pieces' and the screen's
   hudSnap: true,
   // FOEBAR1 (2026-09-17, Mac, from a friend's pictures): the target bar's

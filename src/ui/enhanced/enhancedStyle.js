@@ -3722,14 +3722,16 @@ ${paceControlsCss('tview')}
 .hud-bars { display: flex; align-items: center; gap: 14px; }
 .hud-vital { display: flex; align-items: center; }
 .hud-vital .hud-track { width: min(190px, 23vw); height: 20px;
-  display: flex; align-items: center; justify-content: space-between; }
+  display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .hud-vital .hud-fill { position: absolute; inset: 0; width: 100%; }
 .hud-vlabel { position: relative; z-index: 1; padding-left: 8px;
   font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); white-space: nowrap; flex-shrink: 0; }
 .hud-num { position: relative; z-index: 1; padding-right: 8px;
   font-size: 12px; font-variant-numeric: tabular-nums;
-  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); }
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.9); white-space: nowrap; flex-shrink: 0; }
+.hud-bars[data-vitals-mode="combo"] .hud-num { font-size: 11px; padding-right: 6px; }
+.hud-bars[data-vitals-mode="combo"] .hud-vlabel { font-size: 10px; padding-left: 6px; }
 .hud-health .hud-fill { background: #d98074; }
 .hud-magicka .hud-fill { background: #6f8fd9; }
 .hud-fatigue .hud-fill { background: #74d9a0; }

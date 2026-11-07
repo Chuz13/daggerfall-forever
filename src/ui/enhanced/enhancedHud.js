@@ -82,7 +82,7 @@ import { ownMinutes, sharedClockOn } from '../../systems/worldTick.js';   // LIV
 import { nightRealMinutesLeft } from '../../systems/rest/restAct.js';   // REST1: the night interval's minutes left
 import { compassScroll, breathShortThreshold, compassMarkerLerp, DETECT_MARKER_RGB } from '../hud/hud.js';
 import { PARTY_GREEN_CSS } from '../../net/social.js';   // COMPASS-PARTY: the party's one green
-import { maxBreath, maxFatigue, liveStat } from '../../systems/statMods.js';   // PX30b/PX30d: DFU's own ceilings
+import { maxBreath, maxFatigue, liveStat, FATIGUE_MULTIPLIER } from '../../systems/statMods.js';   // PX30b/PX30d: DFU's own ceilings
 // QS3: the quickslot diamond. The MODEL is systems/quickslots.js and
 // nothing about it is restated here; the ICON is the one the inventory
 // window draws (ui/item/itemIconUrl.js, moved out of that 2200-line screen
@@ -575,6 +575,38 @@ const clipInset = (node, key, side) => {
 export { GHOST_HOLD, GHOST_RATE, stepGhost } from '../barLoss.js';
 /** VB2: at or below this percentage the health bar's frame warns. */
 export const LOW_HEALTH_PCT = 25;
+
+/** Display modes for enhanced vitals bars: percentage, current/max, or both. */
+export const HUD_VITALS_MODES = Object.freeze(['percent', 'currentMax', 'combo']);
+export const vitalsModeNow = () => {
+  const m = getPref('hudVitalsMode');
+  return HUD_VITALS_MODES.includes(m) ? m : 'percent';
+};
+
+/**
+ * Format the numerical readout on a vital bar according to the player's chosen mode:
+ * 'percent': 100%
+ * 'currentMax': 100 / 100
+ * 'combo': 100 / 100 (100%)
+ */
+export function formatVitalValue(now, max, key, mode = 'percent') {
+  const pct = max > 0 ? (now / max) * 100 : 0;
+  const shown = now > 0 ? Math.max(1, Math.min(100, Math.round(pct))) : 0;
+  if (mode === 'percent') return `${shown}%`;
+
+  const isFatigue = key === 'fatigue';
+  const isScaledFatigue = isFatigue && (max >= 128 || (max >= 64 && max % FATIGUE_MULTIPLIER === 0));
+  let curVal = isScaledFatigue ? Math.round(now / FATIGUE_MULTIPLIER) : Math.round(now);
+  let maxVal = isScaledFatigue ? Math.round(max / FATIGUE_MULTIPLIER) : Math.round(max);
+  if (key === 'magicka' && max <= 1 && now === 0) maxVal = 0;
+  if (now > 0 && curVal < 1) curVal = 1;
+  if (curVal < 0) curVal = 0;
+  if (maxVal > 0 && curVal > maxVal) curVal = maxVal;
+
+  if (mode === 'currentMax') return `${curVal} / ${maxVal}`;
+  if (mode === 'combo') return `${curVal} / ${maxVal} (${shown}%)`;
+  return `${shown}%`;
+}
 const ghosts = {};
 /** FRAME1b: the last health (percent) the foe bar showed for each foe,
  *  keyed by the entity - so a foe struck again after its bar faded, or
@@ -1255,17 +1287,16 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     ['health', parts.health, hp.health ?? 0, hp.maxHealth || 1],
     ['fatigue', parts.fatigue, vitals.fatigue ?? 0, maxFatigue(vitals) || vitals.maxFatigue || 1],
   ];
+  const vitalsMode = vitalsModeNow();
+  if (last.vitalsMode !== vitalsMode) {
+    last.vitalsMode = vitalsMode;
+    parts.bars?.setAttribute?.('data-vitals-mode', vitalsMode);
+  }
   for (const [key, part, now, max] of rows) {
     const pct = (now / max) * 100;
     width(part.fill, `${key}W`, pct);
-    // A percentage, rounded the way a player reads it - and never 0%
-    // while there is anything left, because "0%" on a living bar is
-    // the same lie "0 min" would have been on the quest timer.
-    // Clamped to 100 as well as floored at 1: a bar cannot be more
-    // than full, and a number that says otherwise is a bug wearing a
-    // percent sign rather than something a player should have to read.
-    const shown = now > 0 ? Math.max(1, Math.min(100, Math.round(pct))) : 0;
-    put(part.num, `${key}N`, `${shown}%`);
+    const text = formatVitalValue(now, max, key, vitalsMode);
+    put(part.num, `${key}N`, text);
     // VB2: the lost chunk behind the fill, and the health frame's warning.
     lossTick(key, part, pct, dt, CHUNK_MIN_LOSS);
     const low = key === 'health' && now > 0 && pct <= LOW_HEALTH_PCT;

@@ -2912,6 +2912,45 @@ function hudScaleRow() {
   return row;
 }
 
+/** Display mode for enhanced vitals bars ('percent' | 'currentMax' | 'combo'). */
+function hudVitalsModeRow() {
+  const row = el('div', 'row');
+  row.dataset.opt = 'hudVitalsMode'; row.dataset.pref = 'hudVitalsMode';   // ORG2
+  const main = el('div', 'row-main');
+  main.append(
+    el('div', 'row-name', t('menu.hud.vitalsMode', 'Status bars display')),
+    el('div', 'row-note', t('menu.hud.vitalsModeNote', 'Display mode for health, magicka, and fatigue bars.'))
+  );
+  row.append(main);
+  const ctl = el('div', 'ctl');
+  const modes = ['percent', 'currentMax', 'combo'];
+  const labels = {
+    percent: () => t('menu.hud.vitalsModePercent', 'Percentage'),
+    currentMax: () => t('menu.hud.vitalsModeCurrentMax', 'Current / Max'),
+    combo: () => t('menu.hud.vitalsModeCombo', 'Combo'),
+  };
+  const labelOf = (m) => (labels[m] ? labels[m]() : labels.percent());
+  let cur = getPref('hudVitalsMode');
+  if (!modes.includes(cur)) cur = 'percent';
+  const val = el('span', 'val', labelOf(cur));
+  val.style.cursor = 'pointer';
+  const cycle = (dir) => {
+    const idx = modes.indexOf(cur);
+    cur = modes[(idx + dir + modes.length) % modes.length];
+    setPref('hudVitalsMode', cur);
+    val.textContent = labelOf(cur);
+  };
+  val.onclick = () => cycle(1);
+  const step = (dir, arrow) => {
+    const b = el('button', 'step', arrow);
+    b.onclick = () => cycle(dir);
+    return b;
+  };
+  ctl.append(step(-1, '\u2039'), val, step(1, '\u203a'));
+  row.append(ctl);
+  return row;
+}
+
 /** FIELD BUGS 2026-10-09e MAP-SCALE ("Desktop client in-game map icons and text too small on high resolutions"): the
  *  held map's interface scale, on the prefs shelf (uiPrefs.mapScale) - Auto (the screen's height over 1080) or a fixed
  *  scale, stepped through MAP_SCALE_CHOICES (ui/map/mapScale.js). An open map takes it on its next frame. */
@@ -3193,6 +3232,7 @@ function portRowsInterface({ pause = false } = {}) {
   if (!pause) out.push(languageRow());   // L10N1b: the front door's alone - a running game is the language it booted in
   if (!pause) { const packRow = translationPackRow(); if (packRow) out.push(packRow); }   // L10N3b: and its translation pack
   out.push(hudScaleRow());
+  out.push(hudVitalsModeRow());
   out.push(mapScaleRow());   // MAP-SCALE
   out.push(prefRow('shopHidden', t('menu.shop.hide', 'Hide the shop'),
     t('menu.shop.hideNote', 'Take the shop off the pause screen. Your Aurum and your items stay on your account.')));   // SHOP-HIDE

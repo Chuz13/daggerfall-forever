@@ -327,6 +327,7 @@ export const CATEGORIES = Object.freeze([
     sec('shop', 'Shop', ['port:shopHidden']), // SHOP-HIDE
     sec('hud', 'HUD', [
       'port:hudScale',
+      'port:hudVitalsMode',
       'port:hudLock',
       'port:hudBars',
       'port:hudReset',
