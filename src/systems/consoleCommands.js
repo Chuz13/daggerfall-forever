@@ -1139,7 +1139,7 @@ function handleBountyCommand(args = []) {
       if (legalRepOf(playerEntity, reg) > -25) {
         changeLegalRep(playerEntity, reg, -30);
       }
-      _debugSceneContext?.triggerCrimeResponse?.();
+      _sceneContext?.triggerCrimeResponse?.();
     } else {
       setCrimeCommitted(playerEntity, 0);
     }
@@ -1351,7 +1351,7 @@ registerCommand(
           sceneKey: 'current_scene',
           worldTimeMinutes: worldMinutes(),
         });
-        _debugSceneContext?.spawnCorpse?.(pos);
+        _sceneContext?.spawnCorpse?.(pos);
         return `Spawned physical humanoid corpse (ID: ${rec.id}) at [${pos.map((n) => n.toFixed(1)).join(', ')}]. Ready for reanimation.`;
       }
       return 'Usage: necro spawn corpse';
@@ -1373,7 +1373,7 @@ registerCommand(
           position: pos,
           masterEntity: playerEntity,
         });
-        _debugSceneContext?.spawnUndeadMinion?.(type, pos, m.profile.name);
+        _sceneContext?.spawnUndeadMinion?.(type, pos, m.profile.name);
         return `Raised ${m.profile.name} (Type: ${m.type}, ID: ${m.id}) in 3D world at [${pos.map((n) => n.toFixed(1)).join(', ')}].`;
       }
       const list = allSpawnedMinions();
@@ -1385,7 +1385,7 @@ registerCommand(
     }
     if (sub === 'ambush') {
       const party = generatePurifierParty(getTaintTier(playerEntity) || 'tainted');
-      _debugSceneContext?.spawnPurifiers?.(party);
+      _sceneContext?.spawnPurifiers?.(party);
       return `Triggered Witch-Hunter ambush! Purifier squad formed in 3D world: ${party.map((p) => p.name).join(', ')}.`;
     }
     return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | ambush>';

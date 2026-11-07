@@ -2233,6 +2233,7 @@ export function createLivingSceneHost(deps) {
      * @param {number} dt
      */
     frame(dt) {
+      if (dt <= 0) return;
       if ((checkTimer -= dt) > 0) return;
       checkTimer = 1.0;
 

@@ -30767,7 +30767,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     partyPing?.frame({ eye: (travelView?.active && travelView.eye) || cam.pos, dir: (travelView?.active && travelView.fwd) || fwd });   // PARTY-PING: one look, every mode, before the modal return
     const right = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];   // HANDEDNESS (mat4's law): screen-right = (cos, 0, -sin) under the mirrored projection - Unity's own right
     noteLocalPlayer(walkMode && playerSpawned ? player.pos : cam.pos, fwd);   // TACT2: where I stand and face - a foe behind me sees my back (ai/tactics.js)
-    tickTactics(foeFrameDt(_questBoxHoldsFoes() || (_mode() === 'dungeon' && windowHoldsDungeon(modes?.dungeonCtx?.uiOverlayActive, playerEntity.health > 0 && !modes?.deathUp?.())) ? 0 : dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step - held when they are; AUDIT TELL H1: a dungeon's window holds its foes, and their wind-ups with them
+    tickTactics(foeFrameDt((!onlineOn && (gamePaused() || townTalk.overlayActive)) || _questBoxHoldsFoes() || (_mode() === 'dungeon' && windowHoldsDungeon(modes?.dungeonCtx?.uiOverlayActive, playerEntity.health > 0 && !modes?.deathUp?.())) ? 0 : dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step - held when they are; AUDIT TELL H1: a dungeon's window holds its foes, and their wind-ups with them
 
     // Modal frame (worldModes.js): interior/dungeon consume the frame
     // entirely - the early return also freezes streaming (the
@@ -33035,7 +33035,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     caravanStep(dt);   // LW11: the hold-ups, the reports carried in, the escort - anywhere (a report lands, an escort ends, indoors too)
     if (livingWorldOn() && _mode() === 'exterior' && !tvf) { livingHideoutsHostOf().frame(dt); livePersonBatches.push(...livingHideoutsHostOf().batches()); }   // LW12: a band's hideout near, stood
     else _livingHideoutsHost?.clear();
-    if (_mode() === 'exterior' && !tvf) { livingSceneHostOf().frame(dt); livePersonBatches.push(...livingSceneHostOf().batches()); }   // LIVING-TAMRIEL: tick active 3D site & push campfire/brazier/horse/weapon-rack billboard batches
+    if (_mode() === 'exterior' && !tvf) {
+      const _modalActive = !onlineOn && (gamePaused() || townTalk.overlayActive || _questBoxHoldsFoes());
+      livingSceneHostOf().frame(_modalActive ? 0 : dt);
+      livePersonBatches.push(...livingSceneHostOf().batches());
+    }   // LIVING-TAMRIEL: tick active 3D site & push campfire/brazier/horse/weapon-rack billboard batches
     else _livingSceneHost?.clear();
     if (livingWorldOn() && _mode() === 'exterior') livingPatronsStep(Date.now() / 1000, livingPatronsRegion);   // LW15: the region's patrons, now and then (AUDIT LW-II-2 W11: while a living town stands)
     if (livingWorldOn()) livingCarriedStep(LIVING_CARRIED_SLICE_MS);   // LW16: the word carried, worked a slice a frame
@@ -33049,11 +33053,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // inventory, a status box, a quest popup - only the civilians above
     // do (nobody walks away mid-talk); the player's own motor is what a
     // window holds. A rest can now be broken by a foe that walks up.
-    // QUEST-POPUP-PAUSE: offline, a quest box on top holds them all.
-    const foeDt = _questBoxHoldsFoes() ? 0 : dt;
+    // QUEST-POPUP-PAUSE: offline, any modal choice window, talk overlay, or quest box on top pauses enemies
+    const _modalPaused = !onlineOn && (gamePaused() || townTalk.overlayActive || _questBoxHoldsFoes());
+    const foeDt = _modalPaused ? 0 : (_questBoxHoldsFoes() ? 0 : dt);
     livePersonBatches.push(...cityGuards.update(foeDt,
       walkMode && playerSpawned ? player.pos : cam.pos, cam.pos, _foeSenses()));
-    standingWatch.frame();   // REP1: a guard who sees a known criminal stops them
+    if (!_modalPaused) standingWatch.frame();   // REP1: a guard who sees a known criminal stops them
     // X-slice: the encounter pool drives + draws beside the watch; this
     // is the EXTERIOR arm of the cadence loop (AUDIT 62 F11: the modal
     // modes ring the same function through the mode machine, above the

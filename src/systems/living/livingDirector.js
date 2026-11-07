@@ -147,6 +147,7 @@ export function getLivingSaveData() {
 /**
  * Safe restore with schema validation and fallback (Failsafe Doctrine).
  * If corrupted or incompatible, safely resets to default rather than crashing the save.
+ * Preferences in uiPrefs are user-level settings; saved configs only restore explicitly defined fields.
  * @param {any} data
  */
 export function restoreLivingSaveData(data) {
@@ -163,20 +164,22 @@ export function restoreLivingSaveData(data) {
       _state.seed = Math.floor(data.seed);
     }
 
-    // Restore user config preferences if present
+    // Only restore explicitly defined config fields, never overwrite user settings with defaults
     if (data.config && typeof data.config === 'object') {
-      const clampTier = (v, def) => (typeof v === 'number' && v >= 0 && v <= 3 ? v : def);
-      LivingTamrielConfig.political = clampTier(data.config.political, PRESENCE.MID);
-      LivingTamrielConfig.adventurers = clampTier(data.config.adventurers, PRESENCE.MID);
-      LivingTamrielConfig.roadAdventurers = clampTier(data.config.roadAdventurers, PRESENCE.MID);
-      LivingTamrielConfig.nemesis = clampTier(data.config.nemesis, PRESENCE.MID);
-      LivingTamrielConfig.wilderness = clampTier(data.config.wilderness, PRESENCE.MID);
-      LivingTamrielConfig.urban = clampTier(data.config.urban, PRESENCE.MID);
-      LivingTamrielConfig.naval = clampTier(data.config.naval, PRESENCE.MID);
-      LivingTamrielConfig.travelInterruption = clampTier(data.config.travelInterruption, PRESENCE.MID);
-      LivingTamrielConfig.camps = clampTier(data.config.camps, PRESENCE.MID);
-      LivingTamrielConfig.quarantine = clampTier(data.config.quarantine, PRESENCE.HIGH);
-      LivingTamrielConfig.bounties = clampTier(data.config.bounties, PRESENCE.MID);
+      const restoreTier = (v, setter) => {
+        if (typeof v === 'number' && v >= 0 && v <= 3) setter(v);
+      };
+      restoreTier(data.config.political, (v) => { LivingTamrielConfig.political = v; });
+      restoreTier(data.config.adventurers, (v) => { LivingTamrielConfig.adventurers = v; });
+      restoreTier(data.config.roadAdventurers, (v) => { LivingTamrielConfig.roadAdventurers = v; });
+      restoreTier(data.config.nemesis, (v) => { LivingTamrielConfig.nemesis = v; });
+      restoreTier(data.config.wilderness, (v) => { LivingTamrielConfig.wilderness = v; });
+      restoreTier(data.config.urban, (v) => { LivingTamrielConfig.urban = v; });
+      restoreTier(data.config.naval, (v) => { LivingTamrielConfig.naval = v; });
+      restoreTier(data.config.travelInterruption, (v) => { LivingTamrielConfig.travelInterruption = v; });
+      restoreTier(data.config.camps, (v) => { LivingTamrielConfig.camps = v; });
+      restoreTier(data.config.quarantine, (v) => { LivingTamrielConfig.quarantine = v; });
+      restoreTier(data.config.bounties, (v) => { LivingTamrielConfig.bounties = v; });
       if (typeof data.config.allowQuestCompetition === 'boolean') {
         LivingTamrielConfig.allowQuestCompetition = data.config.allowQuestCompetition;
       }
@@ -284,7 +287,6 @@ export function initLivingDirector() {
     restoreSaveData: restoreLivingSaveData,
     newGame: () => {
       _state.reset();
-      resetLivingConfig();
     },
   });
 
