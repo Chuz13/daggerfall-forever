@@ -180,6 +180,7 @@ import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
+import { stockTravelingMerchantTrunk, executeRoadsideFenceSale } from '../systems/living/travelingMerchant.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain, aimedBlowInfo, playerBlowFrame, setWindupAtMeListener } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
@@ -3850,10 +3851,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   function openTravelerMerchant(foe, defaultMode = 'Buy') {
     const ensureShelf = () => {
       if (!foe._merchantShelf) {
-        foe._merchantShelf = {
-          items: stockShopShelf({ buildingType: 1, quality: 12 }, playerEntity),
-          coin: 1500,
-        };
+        const reg = _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0;
+        const px = playerTravelPixel();
+        const clim = maps.getClimateIndex(px.x, px.y);
+        foe._merchantShelf = stockTravelingMerchantTrunk({
+          regionIndex: reg,
+          climateIndex: clim,
+          playerEntity,
+        });
       }
     };
     const openTrade = (tradeMode) => {
@@ -3879,7 +3884,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           },
           done: (m, staged, price) => {
             if (m === 'Sell' || m === 'SellMagic') {
-              foe._merchantShelf.coin = Math.max(0, foe._merchantShelf.coin - price);
+              executeRoadsideFenceSale(staged, price, foe._merchantShelf);
             } else if (m === 'Buy') {
               foe._merchantShelf.coin += price;
             }

@@ -23,6 +23,12 @@ import {
   buildLivingSiteBlueprint,
   LIVING_SITE_KINDS,
 } from '../../src/systems/living/livingWorldSpawner.js';
+import {
+  stockTravelingMerchantTrunk,
+  executeRoadsideFenceSale,
+  CURE_DISEASE_RECIPE_KEY,
+  STAMINA_RECIPE_KEY,
+} from '../../src/systems/living/travelingMerchant.js';
 
 test('LT-03: Travel interruption formula respects Luck, cooldown, and presence tiers', () => {
   restoreLivingSaveData(null);
@@ -197,3 +203,43 @@ test('LT-03: Slope-snap algorithm filters steep inclines and snaps props safely'
   choiceSpec.options[4].action();
   assert.equal(site.hostile, true, 'Rob option makes traveler rest camp hostile');
 });
+
+test('LT-04: Traveling Road Merchant adaptive trunk and roadside fence economics', () => {
+  restoreLivingSaveData(null);
+
+  // 1. Desert climate inventory adaptation
+  const desertTrunk = stockTravelingMerchantTrunk({
+    regionIndex: 20, // Sentinel / Alik'r
+    climateIndex: 225, // Desert
+    playerEntity: { level: 5 },
+  });
+  assert.ok(desertTrunk.items.length > 5, 'Desert trunk contains basic and climate goods');
+  const hasStaminaPotion = desertTrunk.items.some((it) => it.potionRecipeKey === STAMINA_RECIPE_KEY);
+  assert.ok(hasStaminaPotion, 'Desert traveling merchant stocks stamina potions for desert treks');
+
+  // 2. Regional Plague Crisis inventory adaptation
+  setRegionCrisis(17, CRISIS_TYPE.PLAGUE, CRISIS_PHASE.MID);
+  const plagueTrunk = stockTravelingMerchantTrunk({
+    regionIndex: 17,
+    climateIndex: 230,
+    playerEntity: { level: 5 },
+  });
+  const hasCureDisease = plagueTrunk.items.some((it) => it.potionRecipeKey === CURE_DISEASE_RECIPE_KEY);
+  assert.ok(hasCureDisease, 'Merchant stocks Cure Disease elixirs during active regional Plague crisis');
+
+  // 3. Fencing stolen goods
+  const stolenItem = { templateIndex: 10, group: 'Weapons', stolen: true, value: 120 };
+  const shelf = { coin: 1500, items: [] };
+
+  // Refusal when exceeding purse
+  const overPrice = executeRoadsideFenceSale([stolenItem], 2000, shelf);
+  assert.equal(overPrice.ok, false);
+  assert.equal(stolenItem.stolen, true, 'Stolen mark remains when transaction fails');
+
+  // Successful fence trade
+  const successTrade = executeRoadsideFenceSale([stolenItem], 120, shelf);
+  assert.equal(successTrade.ok, true);
+  assert.equal(shelf.coin, 1380, 'Merchant purse decremented by trade value');
+  assert.equal(stolenItem.stolen, undefined, 'Stolen mark cleared upon roadside fencing');
+});
+
