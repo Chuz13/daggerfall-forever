@@ -736,6 +736,7 @@ import { corpsesNear, harvestAllFromCorpse, canHarvestCorpseWithInventory } from
 import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js';
 import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush } from '../systems/necromancy/witchHunters.js';
 import { NecroConfig } from '../systems/necromancy/necroConfig.js';
+import { registerConsoleSceneContext } from '../systems/consoleCommands.js';
 import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength, sendRevenantAway, forgetSwornMember, swornFightStep, swornFightWon, devotedWithYou } from '../systems/revenant/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
 import { registerCompanionCount, registerCompanionRoster, companionsWithYou, COMPANION_SLOTS } from '../systems/companionSlots.js';   // COMPANION-SLOTS: the crew's hands ashore counted with the sworn
 import { PERSONALITIES } from '../systems/revenant/revenantPersonality.js';   // REVENANT-COMPANION: the party card's word for one
@@ -10759,6 +10760,50 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.showOverlay(new ChoiceWindow({ lines, options }));
     return true;
   }
+
+  globalThis.__sceneContext = {
+    say: (msg) => townTalk?.say?.(msg),
+    getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
+    openUndeadCommandMenu,
+    applyUndeadCommand,
+    spawnCorpse: (pos) => {
+      // Spawn a corpse in front of player
+      if (exteriorFoes?.foes) {
+        // Can be registered as a local foe or handled via corpseRegistry
+      }
+    },
+    destroyCorpse: (corpse) => {
+      const p = corpse?.position;
+      const id = corpse?.id;
+      const destroyInList = (list, pool) => {
+        if (!list) return;
+        for (const f of list) {
+          const matchId = id && f.entity?._necroCorpseId === id;
+          const fp = f.corpseMarker?.pos ?? f.pos ?? f.feet;
+          const matchPos = p && fp && Math.hypot(fp[0] - p[0], fp[2] - p[2]) < 3.0;
+          if (matchId || matchPos) {
+            f.corpseDisabled = true;
+            f.corpse = false;
+            f.corpseDestroyed = true;
+            if (f.corpseMarker) f.corpseMarker.corpseDisabled = true;
+            pool?.removeCorpse?.(f);
+          }
+        }
+      };
+      destroyInList(exteriorFoes?.foes, exteriorFoes);
+      destroyInList(modes?.dungeonCtx?.foes, modes?.dungeonCtx);
+      destroyInList(modes?.interiorFoes?.foes, modes?.interiorFoes);
+    },
+    killMinionBody: (body) => {
+      if (body) {
+        body.dead = true;
+        body.corpse = false;
+        body.corpseDisabled = true;
+        body.corpseDestroyed = true;
+      }
+    },
+  };
+  registerConsoleSceneContext(globalThis.__sceneContext);
   /** REVENANT-COMPANION: a sworn one called to the player's side - it says so as it steps through. */
   const noteRevenantArrival = (id) => _revenantArrivals.add(id);
   // COMPANION-ROSTER (ui/companionRoster.js): the roster's acts heard here - a call's words wait for the stand, a

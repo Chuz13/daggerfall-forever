@@ -35,9 +35,17 @@ export function animateDeadSpell() {
       {
         type: 47,
         subType: 255,
-        duration: 0,
-        chance: 100,
-        magnitude: 1,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase: 0,
+        chanceMod: 4,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 1,
+        magnitudeBaseHigh: 1,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
       },
     ],
   };
@@ -58,9 +66,17 @@ export function corpseExplosionSpell() {
       {
         type: 48,
         subType: 255,
-        duration: 0,
-        chance: 100,
-        magnitude: 40,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 40,
+        magnitudeBaseHigh: 40,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
       },
     ],
   };
@@ -81,9 +97,17 @@ export function lifeTapSpell() {
       {
         type: 49,
         subType: 255,
-        duration: 0,
-        chance: 100,
-        magnitude: 30,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 30,
+        magnitudeBaseHigh: 30,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
       },
     ],
   };
@@ -104,9 +128,17 @@ export function boneArmorSpell() {
       {
         type: 51,
         subType: 255,
-        duration: 15, // 15 rounds
-        chance: 100,
-        magnitude: 50, // 50 damage shield
+        durationBase: 15, // 15 rounds
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 50, // 50 damage shield
+        magnitudeBaseHigh: 50,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
       },
     ],
   };
@@ -312,6 +344,13 @@ export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDama
     explosionOrigin = corpse.position || searchOrigin;
     sourceMaxHp = Number(corpse.maxHealth) || 0;
     consumeCorpse(corpse.id);
+    corpse.consumed = true;
+    if (typeof corpse.destroyCorpse === 'function') {
+      try { corpse.destroyCorpse(); } catch {}
+    }
+    if (typeof globalThis.__sceneContext?.destroyCorpse === 'function') {
+      try { globalThis.__sceneContext.destroyCorpse(corpse); } catch {}
+    }
   } else if (minionTarget) {
     const sacrificed = detonateMinion(minionTarget) || minionTarget;
     sacrificed.dead = true;

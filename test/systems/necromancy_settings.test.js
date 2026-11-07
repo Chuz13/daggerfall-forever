@@ -32,25 +32,25 @@ function withFakeDOM(fn) {
   try { return fn(); } finally { delete globalThis.document; delete globalThis.window; }
 }
 
-test('NecroSettings: section is present in Gameplay tab with all 7 options', () => {
-  const gameplay = CATEGORIES.find((c) => c.id === 'gameplay');
-  assert.ok(gameplay, 'Gameplay tab must exist');
+test('NecroSettings: sections are present in dedicated Necromancy tab with all 7 options', () => {
+  const necroTab = CATEGORIES.find((c) => c.id === 'necromancy');
+  assert.ok(necroTab, 'Necromancy tab must exist');
 
-  const necroSec = gameplay.sections.find((s) => s.id === 'necromancy');
-  assert.ok(necroSec, 'Necromancy section must exist in Gameplay tab');
-  assert.equal(necroSec.title, 'Dark Arts & Necromancy');
-
+  const allItems = necroTab.sections.flatMap((s) => [...s.items]);
   const expectedItems = [
     'port:necroEnabled',
     'port:necroCorpseReq',
-    'port:necroSocialLaw',
+    'port:necroCapMode',
     'port:necroMinionUpkeep',
     'port:necroMinionRebellion',
+    'port:necroSocialLaw',
     'port:necroWitchHunters',
-    'port:necroCapMode',
   ];
 
-  assert.deepEqual([...necroSec.items], expectedItems);
+  for (const item of expectedItems) {
+    assert.ok(allItems.includes(item), `Item ${item} must exist in Necromancy tab sections`);
+  }
+  assert.equal(allItems.length, 7);
 });
 
 test('NecroSettings: portPool builds all 7 necromancy rows with correct dataset opt/pref', () => {
@@ -88,9 +88,9 @@ test('NecroSettings: itemChanged detects preference adjustments and restoreTabDe
   assert.equal(itemChanged('port:necroEnabled', pool), true, 'necroEnabled should be marked changed');
   assert.equal(itemChanged('port:necroSocialLaw', pool), true, 'necroSocialLaw should be marked changed');
 
-  // Restore defaults for gameplay tab
-  const gameplay = CATEGORIES.find((c) => c.id === 'gameplay');
-  withFakeDOM(() => restoreTabDefaults(gameplay));
+  // Restore defaults for necromancy tab
+  const necroTab = CATEGORIES.find((c) => c.id === 'necromancy');
+  withFakeDOM(() => restoreTabDefaults(necroTab));
 
   assert.equal(getPref(PREF_KEYS.ENABLED), PREF_DEFAULTS.necroEnabled);
   assert.equal(getPref(PREF_KEYS.SOCIAL_LAW), PREF_DEFAULTS.necroSocialLaw);

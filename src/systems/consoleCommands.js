@@ -83,6 +83,7 @@ let _sceneContext = null;
 export function setDebugSceneContext(ctx) {
   _sceneContext = ctx;
 }
+export const registerConsoleSceneContext = setDebugSceneContext;
 export function getDebugSceneContext() {
   return _sceneContext;
 }
@@ -1476,8 +1477,18 @@ registerCommand(
       }
       return `Current Soul Taint: ${getPlayerTaint(playerEntity)}/100 (${getTaintTier(playerEntity)}).`;
     }
-    if (sub === 'spawn') {
-      const target = String(args[1] || 'corpse').toLowerCase();
+    if (sub === 'spawn' || ['skeleton', 'zombie', 'ghost', 'mummy', 'lich', 'corpse'].includes(sub)) {
+      const target = (sub === 'spawn' ? String(args[1] || 'skeleton') : sub).toLowerCase();
+      if (['skeleton', 'zombie', 'ghost', 'mummy', 'lich'].includes(target)) {
+        const playerPos = _sceneContext?.getPlayerPos?.();
+        const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
+        const m = spawnMinion({
+          type: target,
+          position: pos,
+          masterEntity: playerEntity,
+        });
+        return `Raised ${m.profile.name} (Type: ${m.type}, ID: ${m.id}) in front of player.`;
+      }
       if (target === 'corpse') {
         const playerPos = _sceneContext?.getPlayerPos?.();
         const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
@@ -1491,7 +1502,7 @@ registerCommand(
         _sceneContext?.spawnCorpse?.(pos);
         return `Spawned physical humanoid corpse (ID: ${rec.id}) in front of player. Ready for reanimation.`;
       }
-      return 'Usage: necro spawn corpse';
+      return 'Usage: necro spawn <skeleton | zombie | ghost | mummy | lich | corpse>';
     }
     if (sub === 'menu') {
       _sceneContext?.openUndeadCommandMenu?.();
@@ -1589,6 +1600,40 @@ registerCommand(
     return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
   }
 );
+
+registerCommand('necro_spawn', 'Spawn minion or corpse: necro_spawn <skeleton|zombie|ghost|mummy|lich|corpse>', 'necro_spawn <type>', (args = []) => getConsoleCommand('necro').callback(['spawn', ...args]));
+registerCommand('necro_corpse', 'Spawn a corpse in front of player', 'necro_corpse', () => getConsoleCommand('necro').callback(['spawn', 'corpse']));
+registerCommand('necro_menu', 'Open Undead Command Menu', 'necro_menu', () => getConsoleCommand('necro').callback(['menu']));
+registerCommand('necro_spells', 'Add all necromancy spells to spellbook', 'necro_spells', () => getConsoleCommand('addspell').callback(['all_necro']));
+registerCommand('necrospells', 'Add all necromancy spells to spellbook', 'necrospells', () => getConsoleCommand('addspell').callback(['all_necro']));
+
+registerCommand('give_dagger', 'Add a Dagger (113) and Skinning Knife (603) to inventory', 'give_dagger', () => {
+  handleAddItemCommand(['113', '1']);
+  handleAddItemCommand(['603', '1']);
+  return 'Added Dagger (113) and Skinning Knife (603) to inventory.';
+});
+registerCommand('givedagger', 'Add a Dagger (113) and Skinning Knife (603) to inventory', 'givedagger', () => getConsoleCommand('give_dagger').callback([]));
+
+registerCommand('give_knife', 'Add a Skinning Knife (603) to inventory', 'give_knife', () => {
+  handleAddItemCommand(['603', '1']);
+  return 'Added Skinning Knife (603) to inventory.';
+});
+registerCommand('giveknife', 'Add a Skinning Knife (603) to inventory', 'giveknife', () => getConsoleCommand('give_knife').callback([]));
+
+registerCommand('give_elixir', 'Add 1x Elixir of Unlife potion to inventory', 'give_elixir', () => handleAddItemCommand(['elixir_unlife', '1']));
+registerCommand('giveelixir', 'Add 1x Elixir of Unlife potion to inventory', 'giveelixir', () => handleAddItemCommand(['elixir_unlife', '1']));
+
+registerCommand('give_elixir_reagents', 'Add all reagents required to craft the Elixir of Unlife', 'give_elixir_reagents', () => handleAddItemCommand(['lich_ingredients']));
+registerCommand('give_reagents', 'Add all reagents required to craft the Elixir of Unlife', 'give_reagents', () => handleAddItemCommand(['lich_ingredients']));
+registerCommand('givereagents', 'Add all reagents required to craft the Elixir of Unlife', 'givereagents', () => handleAddItemCommand(['lich_ingredients']));
+
+registerCommand('open_perks', 'Inspect Character Perks in the Growth tab', 'open_perks', () => {
+  return 'Character Perks & Feats are integrated into the Growth tab of the Pause Menu (Esc -> Growth). Use "perk list" or "perk unlock <id|all>" from console.';
+});
+registerCommand('perks', 'Inspect or manage Character Perks', 'perks', (args = []) => {
+  const sub = String(args[0] || 'list').toLowerCase();
+  return getConsoleCommand('perk').callback([sub, ...args.slice(1)]);
+});
 
 /** ConsoleInputHistory (ConsoleInputHistory.cs), whole - the up/down
  *  walk with its go-to-entry bookkeeping, at ConsoleController's own

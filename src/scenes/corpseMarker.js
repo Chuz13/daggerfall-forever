@@ -214,6 +214,16 @@ registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
   if (rec && entity) {
     entity._necroCorpseId = rec.id;
     entity._necroEntityType = entityType;
+    rec.destroyCorpse = () => {
+      entity.corpseDisabled = true;
+      if (Array.isArray(entity.items)) entity.items.length = 0;
+      if (opts?.foe) {
+        opts.foe.corpseDisabled = true;
+        opts.foe.corpse = false;
+        opts.foe.corpseDestroyed = true;
+        if (opts.foe.corpseMarker) opts.foe.corpseMarker.corpseDisabled = true;
+      }
+    };
   }
 });
 

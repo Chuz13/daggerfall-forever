@@ -46,6 +46,7 @@ import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { CORPSE_ACTIVATION_DISTANCE } from '../player/activate.js';
 import { PITCH_FLOOR } from '../player/lookFilter.js';
+import { canHarvestCorpseWithInventory, harvestAllFromCorpse, getCorpse } from '../systems/necromancy/corpseRegistry.js';
 
 /** The Skinning Knife in the hand (FORAGE0 14.2): DFU's own Dagger. */
 export const KNIFE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 113, material: 0 });
@@ -107,10 +108,37 @@ export function createBodyStamps({ nowMs, rand = (b) => { globalThis.crypto.getR
 export function bodiesOf(foes, stamps, placeOf, keyOf = () => null) {
   const out = [];
   for (const f of foes ?? []) {
-    if (!f?.dead || !f.corpse) continue;
+    if (!f?.dead || !f.corpse || f.corpseDisabled) continue;
     const s = stamps.of(f.entity);
-    if (!s) continue;
-    out.push({ key: s.key, foe: s.foe, tier: s.tier, hide: s.hide, at: () => placeOf(f) ?? null, lift: BODY_LIFT, reach: BODY_REACH, lootKey: () => keyOf(f) ?? null });
+    const foeType = f.entity?.mobileType ?? f.mobileType ?? 0;
+    if (s) {
+      out.push({
+        key: s.key,
+        foe: s.foe,
+        tier: s.tier,
+        hide: s.hide,
+        entity: f.entity,
+        foeRef: f,
+        at: () => placeOf(f) ?? null,
+        lift: BODY_LIFT,
+        reach: BODY_REACH,
+        lootKey: () => keyOf(f) ?? null,
+      });
+    } else {
+      const id = f.entity?._necroCorpseId || f.id || `body_${out.length}`;
+      out.push({
+        key: `necro_corpse:${id}`,
+        foe: foeType,
+        tier: 1,
+        hide: null,
+        entity: f.entity,
+        foeRef: f,
+        at: () => placeOf(f) ?? null,
+        lift: BODY_LIFT,
+        reach: BODY_REACH,
+        lootKey: () => keyOf(f) ?? null,
+      });
+    }
   }
   return out;
 }
@@ -194,11 +222,11 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
     id: 'body',
     professions: Object.freeze(['hunting']),
     nodesOf: () => [],
-    /** A body is a node only while the pack holds a Skinning Knife. */
-    looseNodesOf: ({ entity }) => (foragingToolIn(entity, SKINNING_KNIFE.templateIndex) ? bodies() : []),
+    /** A body is a node while the pack holds a Skinning Knife or blade for harvesting. */
+    looseNodesOf: ({ entity }) => ((foragingToolIn(entity, SKINNING_KNIFE.templateIndex) || canHarvestCorpseWithInventory(entity)) ? bodies() : []),
     flatsOf: () => [],   // the body is its own picture (DFU's corpse)
-    gone: (b) => goneIn(book, b.key, 'hide'),   // GATHER-SPEED: or being counted
-    mark: (b) => (goneIn(book, b.key, 'hide') ? null : BODY_MARK),   // NODE-MARKS: a body the knife may still skin
+    gone: (b) => (b.hide ? goneIn(book, b.key, 'hide') : false),   // GATHER-SPEED: or being counted
+    mark: (b) => (b.hide && !goneIn(book, b.key, 'hide') ? BODY_MARK : null),   // NODE-MARKS: a body the knife may still skin
     marksLoose: true,
     /** TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): the Skinning Knife's Use at a body is E
      *  there (TOOL-USE) - a phone and a pad had no E to start Hunting with, nor to hold while the line was drawn. */
@@ -215,15 +243,63 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
       });
       return { ...plan, profession: 'hunting' };
     },
-    /** PROF-MENU (2026-10-01, Mac: "use the same menu the loot menu uses"): THE BODY'S TWO ACTS AS THE MENU'S ROWS - the
-     *  knife and the search (the act choice key's toggle, retired). The search opens the body's own loot by its key (AUDIT
-     *  32 H8), or - with no door by key - hands the press on to the ray's corpse (AUDIT 29 C1); an emptied body has none. */
+    /** PROF-MENU: The body's actions as menu rows.
+     *  Can include Skinning (if animal pelt), Harvest Remains (if necromancy blade), and Search/Loot.
+     *  If only Search/Loot is available, returns [] so the interaction yields directly to the quick loot window. */
     rows(b, ctx) {
-      const skin = { ...this.plan(b, ctx), id: 'hide' };
-      if (!searchable(b)) return [skin];
-      const key = openLoot ? b.lootKey() : null;
-      const search = huntPlan({ body: b, taken: false, counting: false, rank: 0, storesFull: () => false, high: 0, loot: true });
-      return [skin, { ...search, profession: 'hunting', id: 'search', ...(key ? { open: () => openLoot?.(key) } : {}) }];
+      const entity = ctx?.entity;
+      const hasKnife = foragingToolIn(entity, SKINNING_KNIFE.templateIndex);
+      const hasBlade = canHarvestCorpseWithInventory(entity);
+
+      const rows = [];
+
+      // 1. Skinning action (if corpse has hide and player has skinning knife)
+      if (b.hide && hasKnife) {
+        const skin = { ...this.plan(b, ctx), id: 'hide' };
+        rows.push(skin);
+      }
+
+      // 2. Necromantic Harvest action (if player has blade/skinning knife and corpse not yet harvested)
+      const corpseId = b.entity?._necroCorpseId;
+      const corpseRecord = corpseId ? getCorpse(corpseId) : null;
+      const alreadyHarvested = b.foeRef?._necroHarvested || b.entity?._necroHarvested || corpseRecord?.harvested;
+
+      if (hasBlade && !alreadyHarvested) {
+        const name = foeName(b.foe);
+        rows.push({
+          id: 'harvest_remains',
+          verb: t('necro.harvest.action', 'Harvest Remains'),
+          profession: 'hunting',
+          ready: true,
+          open: () => {
+            const res = harvestAllFromCorpse(corpseRecord || { id: corpseId || b.key, entityType: 'humanoid', position: b.at?.() }, entity);
+            if (b.foeRef) b.foeRef._necroHarvested = true;
+            if (b.entity) b.entity._necroHarvested = true;
+            if (corpseRecord) corpseRecord.harvested = true;
+            if (res.success) {
+              const msg = t('necro.harvest.done', 'You harvest necromantic reagents from {0}: {1}.', name, (res.yields || []).join(', '));
+              globalThis.__sceneContext?.say?.(msg);
+            } else {
+              globalThis.__sceneContext?.say?.(res.reason || t('necro.harvest.empty', 'Nothing useful remains on this corpse.'));
+            }
+          },
+        });
+      }
+
+      // 3. Search / Loot action
+      if (searchable(b)) {
+        const key = openLoot ? b.lootKey() : null;
+        const search = huntPlan({ body: b, taken: false, counting: false, rank: 0, storesFull: () => false, high: 0, loot: true });
+        rows.push({ ...search, profession: 'hunting', id: 'search', ...(key ? { open: () => openLoot?.(key) } : {}) });
+      }
+
+      // If only search is left, yield directly to quick loot window
+      const nonLootRows = rows.filter((r) => r.id !== 'search');
+      if (nonLootRows.length === 0) {
+        return [];
+      }
+
+      return rows;
     },
     start(b, plan, { entity, rank, keyLabel, tool = null, byPress = false }) {
       const used = tool ?? (byPress || null);   // PROF-MENU: a click's or a list's press holds the knife as its Use does
