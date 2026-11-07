@@ -2968,6 +2968,10 @@ export function executeLivingConsoleCommand(args, ctx) {
       camp: LIVING_SITE_KINDS.BANDIT_CAMP,
       traveler_rest: LIVING_SITE_KINDS.TRAVELER_REST,
       rest: LIVING_SITE_KINDS.TRAVELER_REST,
+      traveler: LIVING_SITE_KINDS.TRAVELER_REST,
+      merchant: LIVING_SITE_KINDS.TRAVELER_REST,
+      trader: LIVING_SITE_KINDS.TRAVELER_REST,
+      caravan: LIVING_SITE_KINDS.TRAVELER_REST,
       quarantine: LIVING_SITE_KINDS.QUARANTINE_TENT,
       quarantine_tent: LIVING_SITE_KINDS.QUARANTINE_TENT,
       urban_skirmish: LIVING_SITE_KINDS.URBAN_SKIRMISH,
@@ -3029,6 +3033,6 @@ export function executeLivingConsoleCommand(args, ctx) {
     return `[Living Tamriel] Accepted crisis contract: ${accepted.title} (${accepted.rewardGold}g).`;
   }
 
-  return 'Usage: /living <status | crisis <TYPE> [PHASE] | [site] spawn <KIND> | encounter [random|camp|pack] | adv <list|summon> | quest>';
+  return 'Usage: /living <status | crisis <TYPE> [PHASE] | [site] spawn <KIND> | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | quest>';
 }
 

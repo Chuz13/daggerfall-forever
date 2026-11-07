@@ -3926,8 +3926,80 @@ export async function bootWorld(canvas, renderer, params, status) {
     const reg = _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0;
     const nowMin = Math.floor(skyMinutes());
     const lvl = effectiveLevel(playerEntity);
+    const heightAt = (x, z) => collider.heightAt?.(x, z) ?? feet[1] ?? 0;
 
-    if (kind === 'camp' || kind === 'pack' || kind === 'band') {
+    let targetKind = String(kind || 'random').toLowerCase();
+    if (targetKind === 'random') {
+      const roll = Math.random();
+      if (roll < 0.25) targetKind = 'wild';
+      else if (roll < 0.45) targetKind = 'camp';
+      else if (roll < 0.65) targetKind = 'merchant';
+      else if (roll < 0.80) targetKind = 'adv';
+      else if (roll < 0.90) targetKind = 'bandit';
+      else targetKind = 'plea';
+    }
+
+    if (targetKind === 'merchant' || targetKind === 'trader' || targetKind === 'traveler' || targetKind === 'rest') {
+      const bp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.TRAVELER_REST,
+        centerX: feet[0] + 14,
+        centerZ: feet[2] + 14,
+        heightAt,
+        regionIndex: reg,
+        playerEntity,
+        nowMinutes: nowMin,
+        onRoad: true,
+      });
+      livingSceneHostOf().standBlueprint(bp);
+      return '[Living Tamriel] Spawned Traveling Merchant Rest Camp (Wayfaring Merchant, Outrider, Wagon, Campfire, Shop).';
+    }
+
+    if (targetKind === 'adv' || targetKind === 'adventurer' || targetKind === 'meeting') {
+      const bp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
+        centerX: feet[0] + 12,
+        centerZ: feet[2] + 12,
+        heightAt,
+        regionIndex: reg,
+        playerEntity,
+        nowMinutes: nowMin,
+        onRoad: true,
+      });
+      livingSceneHostOf().standBlueprint(bp);
+      return '[Living Tamriel] Spawned Wandering Road Adventurer (Interactive Dialogue, Duel & Companion Recruitment).';
+    }
+
+    if (targetKind === 'bandit' || targetKind === 'bandit_camp') {
+      const bp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.BANDIT_CAMP,
+        centerX: feet[0] + 16,
+        centerZ: feet[2] + 16,
+        heightAt,
+        regionIndex: reg,
+        playerEntity,
+        nowMinutes: nowMin,
+        onRoad: false,
+      });
+      livingSceneHostOf().standBlueprint(bp);
+      return '[Living Tamriel] Spawned Wilderness Bandit Camp (Tents, Fire, Loot Chest, Bandit Squad).';
+    }
+
+    if (targetKind === 'plea' || targetKind === 'roadside_plea') {
+      const bp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
+        centerX: feet[0] + 14,
+        centerZ: feet[2] + 14,
+        heightAt,
+        regionIndex: reg,
+        playerEntity,
+        nowMinutes: nowMin,
+        onRoad: true,
+      });
+      livingSceneHostOf().standBlueprint(bp);
+      return '[Living Tamriel] Spawned Roadside Plea Encounter (Stranded Traveler requesting Aid).';
+    }
+
+    if (targetKind === 'camp' || targetKind === 'pack' || targetKind === 'band') {
       const roster = rollLivingChunkCampRoster({
         climateIndex: clim,
         fauna: maps.getFaunaBand?.(px.x, px.y),
@@ -3937,7 +4009,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       });
       const types = roster?.mobileTypes?.length ? roster.mobileTypes : [15, 15, 15];
       const h = {
-        kind: kind === 'camp' ? 'camp' : 'pack',
+        kind: targetKind === 'camp' ? 'camp' : 'pack',
         mobileTypes: types,
         spacing: 3,
         alertRadius: 10,
@@ -3950,6 +4022,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         : '[Living Tamriel] Could not find clear ground for wilderness camp.';
     }
 
+    // Default 'wild' / ecological encounter:
     const encCtx = {
       gameMinutes: Math.floor(playerTicker.ownMinutes),
       inside: false,

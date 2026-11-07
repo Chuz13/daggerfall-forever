@@ -430,8 +430,8 @@ registerCommand(
 
 registerCommand(
   'encounter',
-  'Trigger an immediate wilderness encounter near player: encounter [random|camp|pack]',
-  'encounter [random|camp|pack]',
+  'Trigger an immediate Living Tamriel wilderness encounter: encounter [random|wild|camp|merchant|adv|bandit|plea]',
+  'encounter [random|wild|camp|merchant|adv|bandit|plea]',
   (args = []) => {
     const ctx = getDebugSceneContext();
     if (!ctx?.triggerWildernessEncounter) {
