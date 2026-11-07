@@ -1,5 +1,7 @@
 # Daggerfall Forever
 
+> This project woudn't have existed without the original Daggerfall team, Interkarma, DFU modding community, and DFO team. Thank you all for gifting me a foundation for making my dream come true!
+
 A fork of DFO focused on modular single-player experience. The aim is to integrate as much major DFU mods as possible and make their settings customizable.
 
 ---

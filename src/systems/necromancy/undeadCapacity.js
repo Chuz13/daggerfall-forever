@@ -178,7 +178,7 @@ function minionMobileType(type) {
 export const undeadParty = {
   get party() {
     return _activeMinions
-      .filter((m) => !m.dead && m.stance !== 'feign_death' && m.stance !== 'guard')
+      .filter((m) => !m.dead)
       .map((m) => {
         m.key = m.key || m.id;
         m.boat = 'undead';
@@ -192,7 +192,7 @@ export const undeadParty = {
   wake: () => {},
   isAshore: (boat, name) => {
     return _activeMinions.some(
-      (m) => (m.name === name || m.id === name || m.key === name) && !m.dead && m.stance !== 'feign_death'
+      (m) => (m.name === name || m.id === name || m.key === name) && !m.dead
     );
   },
   knock: (boat, name) => {

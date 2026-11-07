@@ -108,7 +108,7 @@ test('GPU-BACKEND: the graphics backend row stands after VSync, drawn in the des
 });
 
 test('ORG2: Graphics leads, with the preset at its head, and the tabs a player looks for in the order they look (mutant: the preset or a tab moved)', () => {
-  assert.deepEqual(CATEGORY_IDS, ['graphics', 'living', 'gameplay', 'combat', 'world', 'interface', 'audio', 'controls', 'accessibility', 'mods']);
+  assert.deepEqual(CATEGORY_IDS, ['graphics', 'living', 'necromancy', 'gameplay', 'combat', 'world', 'interface', 'audio', 'controls', 'accessibility', 'mods']);
   const g = CATEGORIES[0];
   assert.deepEqual(g.sections[0].items, ['preset:graphics'], 'Quality first, the preset alone in it');
   for (const id of PRESET_ROWS) assert.equal(whereIs(`feat:${id}`)?.tab.id, 'graphics', `${id}, a row the preset sets, is on the same tab`);

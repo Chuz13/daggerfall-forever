@@ -143,6 +143,7 @@ export function createCrewAshore(deps) {
   function liftAll() {
     for (const s of stood.values()) {
       carry(s);
+      deps.onLeave?.(s.c, s.rec);
       lift(s);
     }
     stood.clear();
@@ -210,6 +211,7 @@ export function createCrewAshore(deps) {
       const i = list.indexOf(s.c);
       if (rec._knockedOut) {
         stood.delete(k);
+        deps.onLeave?.(s.c, rec);
         leave(s); // COMPANION-PORTAL: carried off through a portal
         if (party.knock(s.c.boat, s.c.name, now)) deps.onKnocked?.(s.c, rec._knockedBy ?? null); // RVN10 (Feud-Arc.md 21.1): and the foe whose blow it was
         continue;
@@ -219,10 +221,12 @@ export function createCrewAshore(deps) {
       if (rec.dead || !rec.ai || (s.has && !s.has(rec))) {
         carry(s);
         stood.delete(k);
+        deps.onLeave?.(s.c, rec);
         continue;
       } // AUDIT WK-M3: with his spells
       if (i < 0) {
         stood.delete(k);
+        deps.onLeave?.(s.c, rec);
         leave(s);
         continue;
       } // sent back aboard - COMPANION-PORTAL: through a portal
@@ -233,7 +237,7 @@ export function createCrewAshore(deps) {
         rec.entity.mobileTeam = 'PlayerAlly';
       }
       rec.shipmate = true;
-      rec.ai.follow = followOf(i);
+      rec.ai.follow = deps.follow ? deps.follow(s.c, i, followOf(i)) : followOf(i);
       rec.ai.seat = deps.seat ? seatOf(i, list.length) : null; // WAGONS1
       rec.ai.seatDraw = deps.seatDraw ? seatDrawOf(i, list.length) : null; // WAGONS2: drawn in the grown wagon
       const seat = rec.ai.seat?.() ?? null;
@@ -303,7 +307,10 @@ export function createCrewAshore(deps) {
             const fx = carried.get(c);
             if (fx?.length) rec.entity.activeEffects = [...(rec.entity.activeEffects ?? []), ...fx];
           }
-          if (rec.ai) rec.ai.follow = followOf(Math.max(0, party.party.indexOf(c)));
+          if (rec.ai) {
+            const idx = Math.max(0, party.party.indexOf(c));
+            rec.ai.follow = deps.follow ? deps.follow(c, idx, followOf(idx)) : followOf(idx);
+          }
           stood.set(k, { c, rec, remove: place.remove, has: place.has ?? null, fx: place.fx ?? null });
           try {
             place.fx?.arrive?.(rec);

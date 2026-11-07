@@ -1389,7 +1389,6 @@ registerCommand(
           position: pos,
           masterEntity: playerEntity,
         });
-        _sceneContext?.spawnUndeadMinion?.(type, pos, m.profile.name);
         return `Raised ${m.profile.name} (Type: ${m.type}, ID: ${m.id}) in front of player.`;
       }
       const list = allSpawnedMinions();

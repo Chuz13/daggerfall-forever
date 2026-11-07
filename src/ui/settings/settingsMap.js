@@ -163,6 +163,21 @@ export const CATEGORIES = Object.freeze([
       'feat:living-naval',
     ]),
   ]),
+  tab('necromancy', () => t('settings.tab.necromancy', 'Dark Arts & Necromancy (Experimental, pre-alpha)'), [
+    sec('necro-core', () => t('settings.sec.necroCore', 'Forbidden Arts & Soul Taint'), [
+      'port:necroEnabled',
+      'port:necroCorpseReq',
+      'port:necroCapMode',
+    ]),
+    sec('necro-minions', () => t('settings.sec.necroMinions', 'Undead Minions & Upkeep'), [
+      'port:necroMinionUpkeep',
+      'port:necroMinionRebellion',
+    ]),
+    sec('necro-world', () => t('settings.sec.necroWorld', 'Social Law & Witch-Hunters'), [
+      'port:necroSocialLaw',
+      'port:necroWitchHunters',
+    ]),
+  ]),
   tab('gameplay', 'Gameplay', [
     sec('general', 'General', [
       'Enhancements/LoiterLimitInHours',
@@ -209,15 +224,6 @@ export const CATEGORIES = Object.freeze([
       'feat:offline-respawn',
       'feat:mod-climates-calories',
       'feat:mod-roleplay-realism',
-    ]),
-    sec('necromancy', () => t('settings.sec.necromancy', 'Dark Arts & Necromancy'), [
-      'port:necroEnabled',
-      'port:necroCorpseReq',
-      'port:necroSocialLaw',
-      'port:necroMinionUpkeep',
-      'port:necroMinionRebellion',
-      'port:necroWitchHunters',
-      'port:necroCapMode',
     ]),
     sec('moving', 'Climbing & gathering', [
       'feat:enhanced-climbing',

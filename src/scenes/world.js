@@ -10069,6 +10069,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),
     now: () => Math.floor(playerTicker.ownMinutes),
     onKnocked: (c) => { c.dead = true; },
+    onStood: (c, rec) => {
+      rec.livingRole = 'undead_minion';
+      rec.shipmate = true;
+      _undeadMinionFoes.add(rec);
+    },
+    onLeave: (c, rec) => {
+      _undeadMinionFoes.delete(rec);
+    },
+    follow: (c, i, defFollow) => {
+      if (c.stance === 'guard' || c.stance === 'feign_death') return null;
+      return defFollow;
+    },
   });
 
   const _undeadMinionFoes = new Set();
@@ -10076,7 +10088,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   function applyUndeadCommand(cmd) {
     const leaderPos = walkMode && playerSpawned ? player.pos : cam.pos;
     const minions = allSpawnedMinions();
-    if (minions.length === 0 && _undeadMinionFoes.size === 0) {
+    const bodies = [..._undeadMinionFoes, ...(undeadAshore?.bodies?.() ?? [])];
+    const uniqueBodies = [...new Set(bodies)];
+
+    if (minions.length === 0 && uniqueBodies.length === 0) {
       townTalk.say('You have no active undead minions to command.');
       return false;
     }
@@ -10084,11 +10099,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     switch (cmd) {
       case 'follow':
         setAllMinionsStance(MINION_STANCES.FOLLOW);
-        for (const f of _undeadMinionFoes) {
+        for (const f of uniqueBodies) {
           if (f && !f.dead) {
             if (f.ai) {
               f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
               f.ai.isHostile = false;
+              f.ai.target = null;
+              if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
             }
             if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
           }
@@ -10098,31 +10115,65 @@ export async function bootWorld(canvas, renderer, params, status) {
 
       case 'guard':
         setAllMinionsStance(MINION_STANCES.GUARD);
-        for (const f of _undeadMinionFoes) {
+        for (const f of uniqueBodies) {
           if (f && !f.dead) {
-            if (f.ai) { f.ai.follow = null; f.ai.isHostile = false; }
+            if (f.ai) {
+              f.ai.follow = null;
+              f.ai.target = null;
+              f.ai.path = null;
+              f.ai.isHostile = false;
+            }
             if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
           }
         }
         townTalk.say('Undead Minions: Holding ground and guarding position.');
         return true;
 
-      case 'attack':
+      case 'attack': {
         setAllMinionsStance(MINION_STANCES.ATTACK);
-        for (const f of _undeadMinionFoes) {
+        const pPos = leaderPos ? [leaderPos[0], leaderPos[1], leaderPos[2]] : [0, 0, 0];
+        const allFoes = exteriorFoes?.foes ?? [];
+        let nearestHostile = null;
+        let nearestDist = Infinity;
+        for (const e of allFoes) {
+          if (e && !e.dead && !uniqueBodies.includes(e) && e.entity?.team !== 'PlayerAlly' && e.livingRole !== 'undead_minion') {
+            const ef = e.ai?.feet ?? e.pos;
+            if (ef) {
+              const d = Math.hypot(ef[0] - pPos[0], ef[2] - pPos[2]);
+              if (d < nearestDist && d < 40) {
+                nearestDist = d;
+                nearestHostile = e;
+              }
+            }
+          }
+        }
+        for (const f of uniqueBodies) {
           if (f && !f.dead) {
-            if (f.ai) { f.ai.follow = null; f.ai.isHostile = false; }
+            if (f.ai) {
+              f.ai.follow = null;
+              f.ai.isHostile = false;
+              if (nearestHostile) {
+                f.ai.target = nearestHostile;
+              }
+              if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
+            }
             if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
           }
         }
-        townTalk.say('Undead Minions: Seeking and attacking enemies aggressively!');
+        townTalk.say(nearestHostile ? 'Undead Minions: Engaging nearest enemy!' : 'Undead Minions: In attack stance, scouting for enemies.');
         return true;
+      }
 
       case 'feign_death':
         setAllMinionsStance(MINION_STANCES.FEIGN_DEATH);
-        for (const f of _undeadMinionFoes) {
+        for (const f of uniqueBodies) {
           if (f && !f.dead) {
-            if (f.ai) { f.ai.follow = null; f.ai.isHostile = false; }
+            if (f.ai) {
+              f.ai.follow = null;
+              f.ai.target = null;
+              f.ai.path = null;
+              f.ai.isHostile = false;
+            }
             if (f.entity) { f.entity.team = 'Neutral'; f.entity.mobileTeam = 'Neutral'; }
           }
         }
@@ -10132,18 +10183,23 @@ export async function bootWorld(canvas, renderer, params, status) {
       case 'recall': {
         const p = leaderPos ? [...leaderPos] : [0, 0, 0];
         let i = 0;
-        const total = Math.max(1, _undeadMinionFoes.size);
-        for (const f of _undeadMinionFoes) {
-          if (f && !f.dead && (f.pos || f.feet)) {
+        const total = Math.max(1, uniqueBodies.length);
+        for (const f of uniqueBodies) {
+          if (f && !f.dead) {
             const ang = (i * 2 * Math.PI) / total;
             const rx = p[0] + Math.cos(ang) * 1.8;
             const rz = p[2] + Math.sin(ang) * 1.8;
             const ry = (collider?.heightAt?.(rx, rz) ?? p[1]) || p[1];
             if (f.pos) { f.pos[0] = rx; f.pos[1] = ry; f.pos[2] = rz; }
             if (f.feet) { f.feet[0] = rx; f.feet[1] = ry; f.feet[2] = rz; }
+            if (f.ai?.feet) { f.ai.feet[0] = rx; f.ai.feet[1] = ry; f.ai.feet[2] = rz; }
             if (f.ai) {
-              f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
               f.ai.target = null;
+              f.ai.path = null;
+              f.ai.velY = 0;
+              f.ai._restGrounded = false;
+              f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
+              if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
             }
             i++;
           }
@@ -10155,7 +10211,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
 
       case 'dismiss':
-        for (const f of _undeadMinionFoes) {
+        dismissAllMinions();
+        clearAllUndeadMinions();
+        for (const f of uniqueBodies) {
           if (f && !f.dead) {
             f.dead = true;
             const dCtx = modes?.dungeonCtx;
@@ -10170,9 +10228,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           }
         }
         _undeadMinionFoes.clear();
-        dismissAllMinions();
-        clearAllUndeadMinions();
-        townTalk.say('All undead minions dismissed and returned to dust.');
+        townTalk.say('Undead Minions: All minions dismissed and banished.');
         return true;
 
       default:
@@ -10182,12 +10238,14 @@ export async function bootWorld(canvas, renderer, params, status) {
 
   function openUndeadCommandMenu() {
     const minions = allSpawnedMinions();
-    if (minions.length === 0 && _undeadMinionFoes.size === 0) {
+    const bodies = [..._undeadMinionFoes, ...(undeadAshore?.bodies?.() ?? [])];
+    const uniqueBodies = [...new Set(bodies)];
+    if (minions.length === 0 && uniqueBodies.length === 0) {
       townTalk.say('You have no active undead minions. Raise a corpse first.');
       return false;
     }
     const currentStance = (minions[0]?.stance || 'follow').toUpperCase();
-    const count = Math.max(minions.length, _undeadMinionFoes.size);
+    const count = Math.max(minions.length, uniqueBodies.length);
     const minionNames = minions.map((m) => m.name).join(', ') || 'Undead Thrall';
     const lines = [
       '=== UNDEAD COMMAND NEXUS ===',
@@ -10196,13 +10254,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       'Issue a mental order to your commanded minions:',
     ];
     const options = [
-      { code: '1', label: '1. [Follow] Follow close behind master (Ctrl+1)', action: () => applyUndeadCommand('follow') },
-      { code: '2', label: '2. [Guard] Hold ground and guard area (Ctrl+2)', action: () => applyUndeadCommand('guard') },
-      { code: '3', label: '3. [Attack] Charge nearest enemies on sight (Ctrl+3)', action: () => applyUndeadCommand('attack') },
-      { code: '4', label: '4. [Feign Death] Collapse into bone/corpse piles (Ctrl+4)', action: () => applyUndeadCommand('feign_death') },
-      { code: '5', label: '5. [Shadow Tether] Recall all minions to your feet (Ctrl+5)', action: () => applyUndeadCommand('recall') },
-      { code: '6', label: '6. [Dismiss] Destroy all active minions (Ctrl+6)', action: () => applyUndeadCommand('dismiss') },
-      { code: '7', label: '7. [Close]', action: () => {} },
+      { code: '1', label: '1. [Follow] Follow close behind master (Numpad 1 / Ctrl+1)', action: () => applyUndeadCommand('follow') },
+      { code: '2', label: '2. [Guard] Hold ground and guard area (Numpad 2 / Ctrl+2)', action: () => applyUndeadCommand('guard') },
+      { code: '3', label: '3. [Attack] Charge nearest enemies on sight (Numpad 3,8 / Ctrl+3)', action: () => applyUndeadCommand('attack') },
+      { code: '4', label: '4. [Feign Death] Collapse into bone/corpse piles (Numpad 4 / Ctrl+4)', action: () => applyUndeadCommand('feign_death') },
+      { code: '5', label: '5. [Shadow Tether] Recall all minions to your feet (Numpad 5,7 / Ctrl+5)', action: () => applyUndeadCommand('recall') },
+      { code: '6', label: '6. [Dismiss] Destroy all active minions (Numpad 9 / Ctrl+6)', action: () => applyUndeadCommand('dismiss') },
+      { code: '7', label: '7. [Close] (Numpad 6 / Esc)', action: () => {} },
     ];
     townTalk.showOverlay(new ChoiceWindow({ lines, options }));
     return true;
@@ -16674,17 +16732,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     // space jumped, F shut the panel. The panel stops its own now; this is the host's half, for any field it did not.
     if (isTextEntryTarget(e.target)) return;
 
-    // NECROMANCY: Quick Minion Commands (Ctrl+1..6 or Alt+1..6) and Menu Popup (KeyK / KeyU)
+    // NECROMANCY: Quick Minion Commands & Undead Command Nexus Menu
     if (FORK_FLAGS.ENABLE_NECROMANCY && !townTalk.overlayActive) {
-      if (e.ctrlKey || e.altKey) {
-        if (e.code === 'Digit1') { e.preventDefault(); applyUndeadCommand('follow'); return; }
-        if (e.code === 'Digit2') { e.preventDefault(); applyUndeadCommand('guard'); return; }
-        if (e.code === 'Digit3') { e.preventDefault(); applyUndeadCommand('attack'); return; }
-        if (e.code === 'Digit4') { e.preventDefault(); applyUndeadCommand('feign_death'); return; }
-        if (e.code === 'Digit5') { e.preventDefault(); applyUndeadCommand('recall'); return; }
-        if (e.code === 'Digit6') { e.preventDefault(); applyUndeadCommand('dismiss'); return; }
-      } else if (!e.shiftKey && (e.code === 'KeyK' || e.code === 'KeyU')) {
+      if (e.code === 'Numpad6' || (!e.shiftKey && (e.code === 'KeyK' || e.code === 'KeyU'))) {
         if (openUndeadCommandMenu()) { e.preventDefault(); return; }
+      } else if (e.code === 'Numpad1' || (e.ctrlKey && e.code === 'Digit1')) {
+        e.preventDefault(); applyUndeadCommand('follow'); return;
+      } else if (e.code === 'Numpad2' || (e.ctrlKey && e.code === 'Digit2')) {
+        e.preventDefault(); applyUndeadCommand('guard'); return;
+      } else if (e.code === 'Numpad8' || e.code === 'Numpad3' || (e.ctrlKey && e.code === 'Digit3')) {
+        e.preventDefault(); applyUndeadCommand('attack'); return;
+      } else if (e.code === 'Numpad4' || (e.ctrlKey && e.code === 'Digit4')) {
+        e.preventDefault(); applyUndeadCommand('feign_death'); return;
+      } else if (e.code === 'Numpad7' || e.code === 'Numpad5' || (e.ctrlKey && e.code === 'Digit5')) {
+        e.preventDefault(); applyUndeadCommand('recall'); return;
+      } else if (e.code === 'Numpad9' || (e.ctrlKey && e.code === 'Digit6')) {
+        e.preventDefault(); applyUndeadCommand('dismiss'); return;
       }
     }
     // ROAD-G G3 - THE RING IS FILLED BEFORE THE LADDER. InputManager
