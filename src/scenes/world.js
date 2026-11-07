@@ -9652,9 +9652,16 @@ export async function bootWorld(canvas, renderer, params, status) {
         // COMPANION-KIT: a companion's bar says who he is, his health and his effects (mine live here; another player's
         // companion is a puppet whose effects are his owner's - his name alone)
         const mate = f.companion != null;
+        let displayName = mate ? (f.puppet ? (f.companionName || 'Companion') : (f.entity.name || 'Companion')) : '';
+        if (f.livingRole === 'undead_minion' && !displayName) {
+          displayName = f.entity?.name || 'Undead Thrall';
+        }
+        if (f.undeadStance === 'feign_death' && displayName) {
+          displayName = `${displayName} [${t('necro.stance.feigningDeath', 'Feigning Death')}]`;
+        }
         points.push({ x: at.x, y: at.y, share: max > 0 ? Math.max(0, f.entity.health) / max : 1, distance: d,
           // AUDIT WK-U3: another player's companion, his own name as his owner's frame gives it (his class's never) and no more
-          ...(mate ? (f.puppet ? { name: f.companionName || 'Companion', fx: [] } : { name: f.entity.name || 'Companion', hp: f.entity.health, hpMax: max, fx: composePartyFx(f.entity) }) : {}) });
+          ...(mate || f.livingRole === 'undead_minion' ? (f.puppet ? { name: displayName, fx: [] } : { name: displayName, hp: f.entity.health, hpMax: max, fx: composePartyFx(f.entity) }) : {}) });
       }
     }
     drawCrewBars(points, { covered, scale: enhancedHudScale() });
@@ -10108,7 +10115,6 @@ export async function bootWorld(canvas, renderer, params, status) {
           rec.ai._following = false;
           rec.ai._followWalking = false;
         }
-        rec.yielded = false;
       } else if (s === 'feign_death') {
         if (rec.ai) {
           rec.ai.follow = null;
@@ -10121,13 +10127,11 @@ export async function bootWorld(canvas, renderer, params, status) {
           rec.ai._following = false;
           rec.ai._followWalking = false;
         }
-        rec.yielded = true;
         if (rec.entity) {
           rec.entity.team = 'Neutral';
           rec.entity.mobileTeam = 'Neutral';
         }
       } else if (s === 'attack') {
-        rec.yielded = false;
         if (rec.ai) rec.ai.canAct = true;
         if (rec.entity) {
           rec.entity.team = 'PlayerAlly';
@@ -10178,7 +10182,6 @@ export async function bootWorld(canvas, renderer, params, status) {
         }
       } else {
         // follow stance
-        rec.yielded = false;
         if (rec.ai) {
           rec.ai.canAct = true;
           rec.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
@@ -10213,7 +10216,6 @@ export async function bootWorld(canvas, renderer, params, status) {
         for (const f of uniqueBodies) {
           if (f && !f.dead) {
             f.undeadStance = 'follow';
-            f.yielded = false;
             if (f.ai) {
               f.ai.canAct = true;
               f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
@@ -10233,7 +10235,6 @@ export async function bootWorld(canvas, renderer, params, status) {
         for (const f of uniqueBodies) {
           if (f && !f.dead) {
             f.undeadStance = 'guard';
-            f.yielded = false;
             if (f.ai) {
               f.ai.follow = null;
               f.ai.moving = false;
@@ -10271,7 +10272,6 @@ export async function bootWorld(canvas, renderer, params, status) {
         for (const f of uniqueBodies) {
           if (f && !f.dead) {
             f.undeadStance = 'attack';
-            f.yielded = false;
             if (f.ai) {
               f.ai.canAct = true;
               f.ai.isHostile = false;
@@ -10303,7 +10303,6 @@ export async function bootWorld(canvas, renderer, params, status) {
         for (const f of uniqueBodies) {
           if (f && !f.dead) {
             f.undeadStance = 'feign_death';
-            f.yielded = true;
             if (f.ai) {
               f.ai.follow = null;
               f.ai.moving = false;
@@ -10334,7 +10333,6 @@ export async function bootWorld(canvas, renderer, params, status) {
             if (f.feet) { f.feet[0] = rx; f.feet[1] = ry; f.feet[2] = rz; }
             if (f.ai?.feet) { f.ai.feet[0] = rx; f.ai.feet[1] = ry; f.ai.feet[2] = rz; }
             f.undeadStance = 'follow';
-            f.yielded = false;
             if (f.ai) {
               f.ai.canAct = true;
               f.ai.target = null;
@@ -10389,7 +10387,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       townTalk.say('You have no active undead minions. Raise a corpse first.');
       return false;
     }
-    const currentStance = (minions[0]?.stance || 'follow').toUpperCase();
+    const rawStance = minions[0]?.stance || 'follow';
+    const currentStance = (rawStance === 'feign_death' ? 'FEIGNING DEATH' : rawStance).toUpperCase();
     const count = Math.max(minions.length, uniqueBodies.length);
     const minionNames = minions.map((m) => m.name).join(', ') || 'Undead Thrall';
     const lines = [

@@ -807,6 +807,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** Free a foe's live billboard batch once nothing will draw it. */
   function releaseFoeBatch(f) {
     if (!f.puppet && f._grant) _net?.grants?.ended(f);   // GRANT3: its member gone from my pool - the grant's last frees it
+    if (f.feignMarker) {
+      renderer.destroyBillboardBatch(f.feignMarker.batch);
+      f.feignMarker = null;
+    }
     if (!f.batch) return;
     renderer.destroyBillboardBatch(f.batch);
     f.batch = null;
@@ -1664,6 +1668,51 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // its execution and its oath play out where it knelt. COMPANION-PORTAL: a companion stepping out stands still.
       if (f.yielded || f.executing || f.sparing) { fateFrame(f, dt, playerFeet, eye); continue; }
       if (f.leaving) { leavingFrame(f, eye); continue; }
+      if (f.undeadStance === 'feign_death') {
+        if (!f.feignMarker && !f._feignLoading) {
+          f._feignLoading = true;
+          const ct = corpseTextureOf(f);
+          if (ct) {
+            mintCorpseMarker({
+              renderer, getTexture, uploadRecordFrame, collider,
+              corpseTexture: ct,
+              feet: f.ai.feet,
+              fallbackSize: billboardSize(f.tex, 0),
+              stillDead: () => f.undeadStance === 'feign_death' && !f.dead,
+              sizeScale: eliteSize(f.entity) * wildGiantSize(f.entity),
+            }).then((c) => {
+              f._feignLoading = false;
+              if (!c) return;
+              if (f.undeadStance !== 'feign_death' || f.dead || f._gone) {
+                renderer.destroyBillboardBatch(c.batch);
+                return;
+              }
+              f.feignMarker = c;
+            }).catch(() => { f._feignLoading = false; });
+          }
+        }
+        if (f.feignMarker) {
+          tickCorpseMarkers([f.feignMarker], dt);
+        } else if (f.mobile?.heldPose && f.ai) {
+          f._mout = f.mobile.heldPose('hurt', -1, f.ai.yaw, f.ai.feet, eye);
+        }
+        if (f.ai) {
+          f.ai.follow = null;
+          f.ai.moving = false;
+          f.ai.target = null;
+          f.ai.secondaryTarget = null;
+          f.ai.path = null;
+          f.ai.velY = 0;
+          f.ai.canAct = false;
+          f.ai._following = false;
+          f.ai._followWalking = false;
+        }
+        continue;
+      } else if (f.feignMarker) {
+        renderer.destroyBillboardBatch(f.feignMarker.batch);
+        f.feignMarker = null;
+        f._feignLoading = false;
+      }
       // AUDIT 24 (wave 32): PARALYSIS. This pool passed the literal `false`
       // for the motor's paralyzed argument and ran the attack machine
       // unconditionally, so a paralysed encounter foe kept walking and kept
@@ -2109,7 +2158,15 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     npcLane?.begin();
     _npcOffered = !!npcLane;
     for (const f of foes) {
-      if (f.dead || !f._mout) continue;
+      if (f.dead) continue;
+      if (f.undeadStance === 'feign_death') {
+        if (f.feignMarker?.batch) {
+          f.feignMarker.batch.castOnly = false;
+          out.push(f.feignMarker.batch);
+          continue;
+        }
+      }
+      if (!f._mout) continue;
       if (pilotFoe(f)) continue;   // STAFF-PILOT: the boss I steer - my camera stands inside it
       // A5 - EntityConcealmentBehaviour.Update/MakeConcealed
       // (:36-43, :56-62): "Handles magical concealment for entities
@@ -2291,6 +2348,20 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       c.batch.frame = c.anim?.frame ?? 0;   // FA1 slice 3: a REBUILT batch is a new object - it needs the frame too (AUDIT DEX B3: its clock's)
       if (c.elite) markEliteCorpseBatch(c.batch, c.elitePhase, c.boss);   // ELITE FOES: ...and its outline, in step with itself
     }
+    for (const f of foes) {
+      if (f.feignMarker) {
+        const c = f.feignMarker;
+        if (c.pos[0] >= x0 && c.pos[0] < x1 && c.pos[2] >= z0 && c.pos[2] < z1) {
+          const d = dy(c.pos[0], c.pos[2]);
+          if (d) {
+            c.pos[1] += d;
+            renderer.destroyBatch(c.batch);
+            c.batch = renderer.createBillboardBatch(c.archive, c.record, c.size, [c.pos]);
+            c.batch.frame = c.anim?.frame ?? 0;
+          }
+        }
+      }
+    }
   }
 
   /** AUDIT 17e F23: the floating-origin recenter shifts everything. */
@@ -2298,6 +2369,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     for (const f of foes) {
       if (!f.ai) continue;
       f.ai.offsetOrigin(offset);   // AUDIT 68 S20-offset-ai-memory: the pursuit memory and the fall anchor with the feet
+      if (f.feignMarker) {
+        const c = f.feignMarker;
+        c.pos[0] += offset[0]; c.pos[1] += offset[1]; c.pos[2] += offset[2];
+        renderer.destroyBatch(c.batch);
+        c.batch = renderer.createBillboardBatch(c.archive, c.record, c.size, [c.pos]);
+        c.batch.frame = c.anim?.frame ?? 0;
+      }
     }
     // AUDIT 39: the spawns still crossing their awaits move too.
     for (const s of spawning) { s.feet[0] += offset[0]; s.feet[1] += offset[1]; s.feet[2] += offset[2]; }

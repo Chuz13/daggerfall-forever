@@ -233,8 +233,8 @@ export function getTargets(self, candidates, playerFeet, {
     // Can't target self (:768)
     if (c === self || (targetAi && targetAi === ai)) continue;
     // REVENANT-FATE: a beaten revenant on its knees, judged or burning, and COMPANION-PORTAL's body stepping through its
-    // portal, are nobody's foe - nothing can reach them, so nothing hunts them
-    if (!isPlayer && (c.yielded || c.executing || c.sparing || c.leaving)) continue;
+    // portal, are nobody's foe - nothing can reach them, so nothing hunts them (NECRO: nor an undead minion feigning death)
+    if (!isPlayer && (c.yielded || c.executing || c.sparing || c.leaving || c.undeadStance === 'feign_death')) continue;
     // WATCH-PROTECTS: a townsperson is quarry for a hostile monster alone (huntsCivilians), and no team's - the chain
     // below weighs foes and players
     const civilian = !isPlayer && c.civilian === true;

@@ -1395,7 +1395,7 @@ registerCommand(
       if (list.length === 0) return 'No active undead minions.';
       return [
         `<b>Active Undead Minions (${list.length}):</b>`,
-        ...list.map((m) => `- ${m.name} (${m.type}): HP ${m.health}/${m.maxHealth}, Stance: ${m.stance}`),
+        ...list.map((m) => `- ${m.name} (${m.type}): HP ${m.health}/${m.maxHealth}, Stance: ${m.stance === 'feign_death' ? 'Feigning Death' : m.stance}`),
       ].join('\n');
     }
     if (sub === 'ambush') {
