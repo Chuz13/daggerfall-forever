@@ -64,6 +64,15 @@ export const MINION_PROFILES = Object.freeze({
     spellCaster: true,
     darkAura: true,
   },
+  ancient_lich: {
+    type: 'ancient_lich',
+    name: 'Ancient Lich',
+    baseHealth: 600,
+    speed: 0.95,
+    spellCaster: true,
+    darkAura: true,
+    spectralShield: true,
+  },
 });
 
 /** @type {Map<string, object>} */

@@ -48,7 +48,7 @@ import {
   usedUndeadPoints,
 } from '../../src/systems/necromancy/undeadCapacity.js';
 
-import { EFFECT_COST_TABLE } from '../../src/systems/spellcost.js';
+import { EFFECT_COST_TABLE, calculateCastCost } from '../../src/systems/spellcost.js';
 import { allowedTargetsOf, TARGET_FLAGS_SELF, TARGET_FLAGS_OTHER } from '../../src/systems/spell/spellMaker.js';
 import { SKILLS } from '../../src/systems/skills.js';
 import { isLich } from '../../src/systems/necromancy/lichdomStatus.js';
@@ -277,5 +277,85 @@ test('LichdomRitual: prerequisites check and transformation', () => {
   assert.deepEqual(fallRes.respawnPosition, [100, 10, 200]);
   assert.equal(archmage.currentHealth, 60); // Restored to 50% max HP
   assert.equal(phylactery.charges, 2); // 1 charge consumed
+});
+
+test('NecroSpells: Target gold costs match 1000/500/500/1000', () => {
+  const dummyCaster = { stats: { Intelligence: 50 }, skills: {} };
+
+  const animCost = calculateCastCost(animateDeadSpell(), dummyCaster);
+  assert.equal(animCost.gold, 1000, 'Animate Dead costs exactly 1000 gold');
+
+  const exploCost = calculateCastCost(corpseExplosionSpell(), dummyCaster);
+  assert.equal(exploCost.gold, 500, 'Corpse Explosion costs exactly 500 gold');
+
+  const tapCost = calculateCastCost(lifeTapSpell(), dummyCaster);
+  assert.equal(tapCost.gold, 499, 'Life Tap costs ~500 gold (499)');
+
+  const armorCost = calculateCastCost(boneArmorSpell(), dummyCaster);
+  assert.equal(armorCost.gold, 1000, 'Bone Armor costs exactly 1000 gold');
+});
+
+test('NecroSpells: Linear minion ladder scales from Noob (Zombie) to Top (Lich) to 2x Dust (Ancient Lich)', () => {
+  // 1. Noob necromancer: Level 1, Willpower 50, Magnitude 5 -> Score 55 -> Zombie
+  const noobCaster = {
+    level: 1,
+    stats: { Willpower: 50, Intelligence: 50 },
+    skills: { [SKILLS.Mysticism]: 30 },
+    items: [],
+  };
+  const corpse1 = registerCorpse({ position: [0, 0, 0] });
+  const noobRes = castAnimateDead(noobCaster, corpse1, { spellMagnitude: 5 });
+  assert.equal(noobRes.success, true);
+  assert.equal(noobRes.minion?.type, 'zombie', 'Noob necromancer raises Zombie');
+
+  // Reset between sub-steps so capacity is clean
+  _resetMinionControllerForTests();
+  _resetUndeadCapacityForTests();
+
+  // 2. Zombie + Ectoplasm upgrade -> Ghost
+  const noobWithEcto = {
+    level: 1,
+    stats: { Willpower: 50, Intelligence: 50 },
+    skills: { [SKILLS.Mysticism]: 30 },
+    items: [{ templateIndex: 39, name: 'Ectoplasm', stackCount: 1 }],
+  };
+  const corpse2 = registerCorpse({ position: [2, 0, 0] });
+  const ectoRes = castAnimateDead(noobWithEcto, corpse2, { spellMagnitude: 5 });
+  assert.equal(ectoRes.success, true);
+  assert.equal(ectoRes.minion?.type, 'ghost', 'Zombie upgraded with Ectoplasm becomes Ghost');
+  assert.equal(noobWithEcto.items.length, 0, 'Ectoplasm consumed on upgrade');
+
+  // Reset between sub-steps
+  _resetMinionControllerForTests();
+  _resetUndeadCapacityForTests();
+
+  // 3. Top necromancer: Level 20, Willpower 100, Magnitude 100 -> Score 200 -> Lich
+  const topCaster = {
+    level: 20,
+    stats: { Willpower: 100, Intelligence: 100 },
+    skills: { [SKILLS.Mysticism]: 100 },
+    items: [],
+  };
+  const corpse3 = registerCorpse({ position: [4, 0, 0] });
+  const topRes = castAnimateDead(topCaster, corpse3, { spellMagnitude: 100 });
+  assert.equal(topRes.success, true);
+  assert.equal(topRes.minion?.type, 'lich', 'Top necromancer (Score 200) raises Lich');
+
+  // Reset between sub-steps
+  _resetMinionControllerForTests();
+  _resetUndeadCapacityForTests();
+
+  // 4. Top necromancer with 2x Lich Dust -> Ancient Lich
+  const topWith2Dust = {
+    level: 20,
+    stats: { Willpower: 100, Intelligence: 100 },
+    skills: { [SKILLS.Mysticism]: 100 },
+    items: [{ templateIndex: 38, name: 'Lich Dust', stackCount: 2 }],
+  };
+  const corpse4 = registerCorpse({ position: [6, 0, 0] });
+  const ancientRes = castAnimateDead(topWith2Dust, corpse4, { spellMagnitude: 100 });
+  assert.equal(ancientRes.success, true);
+  assert.equal(ancientRes.minion?.type, 'ancient_lich', 'Top necromancer with 2x Lich Dust raises Ancient Lich');
+  assert.equal(topWith2Dust.items.length, 0, '2x Lich Dust consumed on Ancient Lich raise');
 });
 

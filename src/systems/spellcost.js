@@ -72,7 +72,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '28,255': row(SKILLS.Alteration, { duration: costs(20, 20) }), // Climbing
   '30,255': row(SKILLS.Alteration, { duration: costs(20, 8) }), // WaterBreathing - P12
   '35,255': row(SKILLS.Alteration, { duration: costs(28, 8), magnitude: costs(80, 60) }), // Shield
-  '51,255': row(SKILLS.Alteration, { duration: costs(28, 8), magnitude: costs(60, 50) }), // BoneArmor
+  '51,255': row(SKILLS.Alteration, { duration: costs(10, 0), magnitude: costs(17, 0) }), // BoneArmor (1000 gold)
 
   // ---- Destruction ----
   '1,0': row(SKILLS.Destruction, { duration: costs(28, 8), magnitude: costs(40, 28) }), // ContinuousDamageHealth
@@ -82,7 +82,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '4,1': row(SKILLS.Destruction, { magnitude: costs(20, 28) }), // DamageFatigue
   '4,2': row(SKILLS.Destruction, { magnitude: costs(20, 28) }), // DamageSpellPoints
   '5,255': row(SKILLS.Destruction, { chance: costs(80, 140) }), // Disintegrate
-  '48,255': row(SKILLS.Destruction, { magnitude: costs(45, 35) }), // CorpseExplosion
+  '48,255': row(SKILLS.Destruction, { magnitude: costs(5, 0) }), // CorpseExplosion (500 gold at 2.5 area mult)
   ...family(7, STATS, row(SKILLS.Destruction, { magnitude: costs(8, 100, 116) })), // Drain{Attribute}
   ...family(11, [...STATS, 8, 9], row(SKILLS.Destruction, { magnitude: costs(60, 100, 40) })), // Transfer{Attribute} + TransferHealth (11,8) / TransferFatigue (11,9)
 
@@ -108,7 +108,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '19,255': row(SKILLS.Mysticism, { duration: costs(20, 100), chance: costs(20, 100) }), // Silence
   '43,255': row(SKILLS.Mysticism, {}), // Teleport - NO components (the fudge, at Mysticism)
   '46,255': row(SKILLS.Mysticism, { duration: costs(8, 8) }), // PARTY-MAP: Shared Cartography - the port's own; Light's cheap per-round price, cheap enough to keep up
-  '47,255': row(SKILLS.Mysticism, { chance: costs(40, 100), magnitude: costs(50, 40) }), // AnimateDead
+  '47,255': row(SKILLS.Mysticism, { chance: costs(0, 100), magnitude: costs(0, 120) }), // AnimateDead (1000 gold)
   '44,255': row(SKILLS.Mysticism, { duration: costs(60, 68), chance: costs(40, 68) }), // ComprehendLanguages
 
   // ---- Restoration ----
@@ -122,7 +122,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '18,255': row(SKILLS.Restoration, { duration: costs(100, 20), magnitude: costs(8, 8) }), // Regenerate
   '20,255': row(SKILLS.Restoration, { duration: costs(28, 140), chance: costs(28, 140) }), // SpellAbsorption
   '26,255': row(SKILLS.Restoration, { duration: costs(20, 8) }), // FreeAction - S22
-  '49,255': row(SKILLS.Restoration, { magnitude: costs(30, 30) }), // LifeTap
+  '49,255': row(SKILLS.Restoration, { magnitude: costs(11, 0, 3) }), // LifeTap (500 gold at 1.5 range mult)
 
   // ---- Thaumaturgy ----
   '14,255': row(SKILLS.Thaumaturgy, { duration: costs(60, 100) }), // Levitate - P11

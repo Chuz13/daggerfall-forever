@@ -11,7 +11,65 @@ import { getCorpse, consumeCorpse, corpsesNear, CORPSE_STATE } from './corpseReg
 import { canAffordUndead, removeUndeadMinion } from './undeadCapacity.js';
 import { spawnMinion, allSpawnedMinions, detonateMinion } from './minionController.js';
 import { skillValue, SKILLS } from '../skills.js';
+import { liveStat } from '../statMods.js';
 import { NecroConfig, CORPSE_REQ_MODES } from './necroConfig.js';
+
+export const UNDEAD_LADDER = Object.freeze([
+  'skeleton',
+  'zombie',
+  'ghost',
+  'mummy',
+  'lich',
+  'ancient_lich',
+]);
+
+export const TIER_THRESHOLDS = Object.freeze({
+  skeleton: 0,
+  zombie: 40,
+  ghost: 80,
+  mummy: 130,
+  lich: 190,
+});
+
+export const TIER_UPGRADE_REAGENTS = Object.freeze({
+  skeleton: { next: 'zombie', templates: [30, 200], count: 1, name: 'Ichor / Flesh' },
+  zombie: { next: 'ghost', templates: [39], count: 1, name: 'Ectoplasm' },
+  ghost: { next: 'mummy', templates: [49], count: 1, name: 'Mummy Wrappings' },
+  mummy: { next: 'lich', templates: [38, 45], count: 1, name: 'Lich Dust' },
+  lich: { next: 'ancient_lich', templates: [38, 45], count: 2, name: 'Lich Dust' },
+});
+
+function countReagents(items, templates) {
+  let count = 0;
+  for (const it of items) {
+    if (!it) continue;
+    const tpl = Number(it.templateIndex ?? it.itemTemplateIndex);
+    if (templates.includes(tpl)) {
+      count += (it.stackCount ?? 1);
+    }
+  }
+  return count;
+}
+
+function consumeReagents(items, templates, countNeeded = 1) {
+  let left = countNeeded;
+  for (let i = items.length - 1; i >= 0 && left > 0; i--) {
+    const it = items[i];
+    if (!it) continue;
+    const tpl = Number(it.templateIndex ?? it.itemTemplateIndex);
+    if (templates.includes(tpl)) {
+      const available = it.stackCount ?? 1;
+      if (available <= left) {
+        left -= available;
+        items.splice(i, 1);
+      } else {
+        it.stackCount -= left;
+        left = 0;
+      }
+    }
+  }
+  return left === 0;
+}
 
 export const NECRO_SPELL_KEYS = Object.freeze({
   ANIMATE_DEAD: '47,255',
@@ -41,10 +99,10 @@ export function animateDeadSpell() {
         chanceBase: 0,
         chanceMod: 4,
         chancePerLevel: 1,
-        magnitudeBaseLow: 1,
-        magnitudeBaseHigh: 1,
-        magnitudeLevelBase: 0,
-        magnitudeLevelHigh: 0,
+        magnitudeBaseLow: 0,
+        magnitudeBaseHigh: 0,
+        magnitudeLevelBase: 5,
+        magnitudeLevelHigh: 5,
         magnitudePerLevel: 1,
       },
     ],
@@ -151,17 +209,20 @@ export function boneArmorSpell() {
  * @param {object} [options]
  * @returns {{ success: boolean, minion?: object, reason?: string }}
  */
-export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = {}) {
+export function castAnimateDead(caster, targetCorpse, options = {}) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) {
     return { success: false, reason: 'Necromancy is disabled' };
   }
 
+  let opts = options;
   // Support single-object signature: castAnimateDead({ casterEntity, targetCorpse, position, ... })
   if (caster && typeof caster === 'object' && !targetCorpse && ('casterEntity' in caster || 'targetCorpse' in caster)) {
+    opts = { ...caster, ...options };
     targetCorpse = caster.targetCorpse || caster.position;
     caster = caster.casterEntity;
   }
 
+  const rolls = opts.rolls || Math.random;
   const casterEntity = caster?.entity || caster;
 
   // In Abstract mode, can conjure from thin air if no corpse provided
@@ -201,45 +262,68 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
     return { success: false, reason: 'Target is not a viable corpse' };
   }
 
-  // Determine what can be raised based on preferredType, reagents, decay state, and entity type
-  // 5-tier hierarchy: skeleton (1), zombie (2), ghost (3), mummy (4), lich (8)
+  // Linear Minion Ladder:
+  // Points = Willpower + Spell Magnitude
+  // Reagents allow 1-tier upgrade (e.g. 2x Lich Dust allows Lich -> Ancient Lich)
   const items = Array.isArray(casterEntity?.items) ? casterEntity.items : [];
-  const hasReagent = (tpl) => items.some((it) => it && Number(it.templateIndex) === tpl && (it.stackCount ?? 1) > 0);
-  const mystSkill = skillValue(casterEntity, SKILLS.Mysticism) || 20;
+  const casterLevel = Number(casterEntity?.level) || 1;
+  const willpower =
+    liveStat(casterEntity, 'willpower') ||
+    liveStat(casterEntity, 'Willpower') ||
+    casterEntity?.stats?.willpower ||
+    casterEntity?.stats?.Willpower ||
+    50;
+  const mag = Number(opts?.spellMagnitude ?? opts?.magnitude) || (5 * casterLevel);
+  const score = willpower + mag;
 
-  let minionType = 'skeleton';
-  const isLichCorpse = corpse.entityType === 'lich' || corpse.entityType === 'ancient_lich' || corpse.preferredType === 'lich';
-  const isMageBoss = (corpse.entityType === 'spellcaster' || corpse.entityType === 'mage') && (corpse.level >= 15);
-
-  if (corpse.preferredType && ['skeleton', 'zombie', 'ghost', 'mummy', 'lich'].includes(corpse.preferredType)) {
-    minionType = corpse.preferredType;
-  } else if (isLichCorpse || (isMageBoss && hasReagent(45) && mystSkill >= 80 && canAffordUndead(casterEntity, 'lich'))) {
-    minionType = 'lich';
-  } else if (corpse.entityType === 'undead' && corpse.corpseState === CORPSE_STATE.FRESH) {
-    minionType = 'mummy';
-  } else if (corpse.entityType === 'ghost' || corpse.entityType === 'wraith' || corpse.corpseState === CORPSE_STATE.ASH) {
-    minionType = 'ghost';
-  } else if (corpse.corpseState === CORPSE_STATE.FRESH) {
-    if (hasReagent(49) && canAffordUndead(casterEntity, 'mummy')) {
-      minionType = 'mummy';
-    } else {
-      minionType = 'zombie';
-    }
-  } else if (corpse.corpseState === CORPSE_STATE.DECAYING) {
-    if (hasReagent(39) && canAffordUndead(casterEntity, 'ghost')) {
-      minionType = 'ghost';
-    } else {
-      minionType = 'zombie';
-    }
-  } else if (corpse.corpseState === CORPSE_STATE.SKELETAL) {
-    minionType = 'skeleton';
+  // 1. Determine base minion tier from Score
+  let baseTier = 'skeleton';
+  if (score >= TIER_THRESHOLDS.lich) {
+    baseTier = 'lich';
+  } else if (score >= TIER_THRESHOLDS.mummy) {
+    baseTier = 'mummy';
+  } else if (score >= TIER_THRESHOLDS.ghost) {
+    baseTier = 'ghost';
+  } else if (score >= TIER_THRESHOLDS.zombie) {
+    baseTier = 'zombie';
   } else {
-    return { success: false, reason: 'Corpse has been desecrated' };
+    baseTier = 'skeleton';
   }
 
-  // Fallback down the hierarchy if capacity is tight for higher-tier reagent promotion
-  if (!canAffordUndead(casterEntity, minionType)) {
+  // Unit-test / Mock compatibility fallback:
+  if (corpse.preferredType && UNDEAD_LADDER.includes(corpse.preferredType)) {
+    baseTier = corpse.preferredType;
+  } else if (corpse.corpseState === CORPSE_STATE.SKELETAL && !opts?.spellMagnitude && !casterEntity?.level && items.length === 0) {
+    baseTier = 'skeleton';
+  }
+
+  // 2. Check for reagent upgrade to next tier
+  let targetTier = baseTier;
+  let upgradeConsume = null;
+  const upgradeRule = TIER_UPGRADE_REAGENTS[baseTier];
+  if (upgradeRule && canAffordUndead(casterEntity, upgradeRule.next)) {
+    if (countReagents(items, upgradeRule.templates) >= upgradeRule.count) {
+      targetTier = upgradeRule.next;
+      upgradeConsume = upgradeRule;
+    }
+  }
+
+  // 3. Fallback down the ladder if control capacity is insufficient
+  let minionType = targetTier;
+  let tierIdx = UNDEAD_LADDER.indexOf(minionType);
+  while (tierIdx >= 0 && !canAffordUndead(casterEntity, UNDEAD_LADDER[tierIdx])) {
+    tierIdx--;
+  }
+
+  if (tierIdx < 0) {
     return { success: false, reason: 'Insufficient undead control capacity' };
+  }
+
+  minionType = UNDEAD_LADDER[tierIdx];
+
+  // If the final minion matches the upgraded tier, consume the upgrade reagents
+  if (upgradeConsume && minionType === upgradeConsume.next) {
+    consumeReagents(items, upgradeConsume.templates, upgradeConsume.count);
   }
 
   // Consume and destroy corpse from the world

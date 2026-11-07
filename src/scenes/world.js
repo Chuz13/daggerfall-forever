@@ -29396,6 +29396,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const spawnY = (collider?.heightAt?.(spawnX, spawnZ) ?? p[1]) || p[1];
       const spawnPos = [spawnX, spawnY, spawnZ];
       const mobType =
+        type === 'ancient_lich' ? MOBILE_TYPES.AncientLich :
         type === 'zombie' ? MOBILE_TYPES.Zombie :
         type === 'mummy' ? MOBILE_TYPES.Mummy :
         type === 'ghost' ? MOBILE_TYPES.Ghost :

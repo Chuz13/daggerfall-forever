@@ -19,6 +19,7 @@ export const UNDEAD_SLOT_COST = Object.freeze({
   ghost: 3,
   mummy: 4,
   lich: 8,
+  ancient_lich: 12,
 });
 
 /** @type {Array<object>} */
