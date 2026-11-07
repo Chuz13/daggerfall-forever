@@ -1203,38 +1203,47 @@ registerCommand('legalrep', 'Check or set regional legal standing (-100..100): l
 let _mockFamily = null;
 registerCommand(
   'dynasty',
-  'Project Legacy Dynasty family model testing: dynasty <status|addchild|retire|addrenown>',
-  'dynasty <status|addchild [gender] [race]|retire|addrenown <n>>',
+  'Project Legacy Dynasty family model testing: dynasty <status|addchild|retire|addrenown|setmodel>',
+  'dynasty <status|addchild [gender] [race]|retire|addrenown <n>|setmodel <dynasty|enduring|bloodline>>',
   (args = []) => {
     const sub = String(args[0] || 'status').toLowerCase();
-    if (!_mockFamily) {
-      _mockFamily = foundFamily(playerEntity, { id: 'dyn-test-1', seat: { region: 'Daggerfall', loc: 'Daggerfall', mapId: 5000 } });
+    const ctx = getDebugSceneContext();
+    const realFam = ctx?.getActiveFamily?.();
+    const fam = realFam || _mockFamily || (_mockFamily = foundFamily(playerEntity, { id: 'dyn-test-1', seat: { region: 'Daggerfall', loc: 'Daggerfall', mapId: 5000 }, model: 'dynasty' }));
+    if (sub === 'setmodel') {
+      const targetModel = String(args[1] || 'dynasty').toLowerCase();
+      if (!['dynasty', 'enduring', 'bloodline'].includes(targetModel)) {
+        return 'Usage: dynasty setmodel <dynasty|enduring|bloodline>';
+      }
+      fam.model = targetModel;
+      if (playerEntity) playerEntity.legacyChoice = targetModel;
+      return `Family model updated to: ${targetModel.toUpperCase()}`;
     }
     if (sub === 'status') {
-      const cur = currentOf(_mockFamily);
-      const living = _mockFamily.people?.filter((p) => !p.died)?.length ?? 1;
-      const succ = successors(_mockFamily);
+      const cur = currentOf(fam);
+      const living = fam.people?.filter((p) => !p.died)?.length ?? 1;
+      const succ = successors(fam);
       return [
-        `<b>Project Legacy Dynasty Status:</b>`,
+        `<b>Project Legacy Family Status:</b>`,
         `Family Head: ${cur ? fullNameOf(cur.given, cur.surname) : (playerEntity.name ?? 'Hero')}`,
-        `Dynasty Model: ${_mockFamily.model ?? 'dynasty'}`,
+        `Family Model: ${(fam.model ?? 'dynasty').toUpperCase()}`,
         `Living Members: ${living}`,
         `Available Heirs: ${succ.length}`,
-        `Dynasty Renown: ${_mockFamily.renown ?? 0}`,
+        `Dynasty Renown: ${fam.renown ?? 0}`,
       ].join('\n');
     }
     if (sub === 'addchild') {
-      const cur = currentOf(_mockFamily);
-      const childRes = addChild(_mockFamily, cur?.id ?? 1);
+      const cur = currentOf(fam);
+      const childRes = addChild(fam, cur?.id ?? 1);
       const childName = childRes.person ? fullNameOf(childRes.person.given, childRes.person.surname) : 'Child';
       return `Added child to dynasty: ${childName} (ID: ${childRes.person?.id}).`;
     }
     if (sub === 'retire') {
-      const cur = currentOf(_mockFamily);
-      recordDeath(_mockFamily, cur?.id ?? 1, { cause: 'peaceful retirement' });
-      const succ = successors(_mockFamily);
+      const cur = currentOf(fam);
+      recordDeath(fam, cur?.id ?? 1, { cause: 'peaceful retirement' });
+      const succ = successors(fam);
       if (succ.length > 0) {
-        _mockFamily.currentId = succ[0].id;
+        fam.currentId = succ[0].id;
         const heirName = succ[0] ? fullNameOf(succ[0].given, succ[0].surname) : 'Heir';
         return `Current head retired. Succession passed to heir: ${heirName}.`;
       }
@@ -1243,10 +1252,10 @@ registerCommand(
     if (sub === 'addrenown') {
       const amount = parseInt(args[1], 10);
       if (Number.isNaN(amount)) return 'Usage: dynasty addrenown <amount>';
-      _mockFamily.renown = (_mockFamily.renown ?? 0) + amount;
-      return `Added ${amount} renown to dynasty. Total: ${_mockFamily.renown}.`;
+      fam.renown = (fam.renown ?? 0) + amount;
+      return `Added ${amount} renown to dynasty. Total: ${fam.renown}.`;
     }
-    return 'Usage: dynasty <status | addchild | retire | addrenown <n>>';
+    return 'Usage: dynasty <status | addchild | retire | addrenown <n> | setmodel <dynasty|enduring|bloodline>>';
   }
 );
 

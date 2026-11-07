@@ -29095,6 +29095,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // mint (Come Sail Away's giveboat and placeboat, a deed each).
   if (!params.has('online')) installConsoleProbe();
   setDebugSceneContext({
+    getActiveFamily: () => legacyHost?.family ?? null,
     triggerWildernessEncounter: (kind) => triggerWildernessEncounter(kind),
     triggerCrimeResponse: () => {
       const feet = walkMode && playerSpawned ? player.pos : cam.pos;
