@@ -428,6 +428,20 @@ registerCommand(
   }
 );
 
+registerCommand(
+  'encounter',
+  'Trigger an immediate wilderness encounter near player: encounter [random|camp|pack]',
+  'encounter [random|camp|pack]',
+  (args = []) => {
+    const ctx = getDebugSceneContext();
+    if (!ctx?.triggerWildernessEncounter) {
+      return 'Wilderness encounter trigger is unavailable in current scene (must be in exterior world).';
+    }
+    const kind = args[0] ? String(args[0]).toLowerCase() : 'random';
+    return ctx.triggerWildernessEncounter(kind);
+  }
+);
+
 // ── DFU CLASSIC COMMANDS ───────────────────────────────────────────────
 
 registerCommand(

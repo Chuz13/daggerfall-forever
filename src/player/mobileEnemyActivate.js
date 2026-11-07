@@ -157,7 +157,15 @@ export function activateMobileEnemy(
   }
   // LW14: one of a company of the living world beside the player - its door (join us, lead on, part ways)
   // AUDIT LW-II D11: at the treasure's reach, as his pack's (the HUD's one refusal past it), and never in Info ("You see")
-  if (mode !== 'steal' && mode !== 'info' && openLiving && foe.living?.res && foe.shipmate === true) {
+  if (
+    mode !== 'steal' &&
+    mode !== 'info' &&
+    openLiving &&
+    ((foe.living?.res && foe.shipmate === true) ||
+      foe.livingRole === 'traveler' ||
+      foe.livingRole === 'traveler_guard' ||
+      foe.entity?.name === 'Wayfaring Merchant')
+  ) {
     const far = distance > TREASURE_ACTIVATION_DISTANCE;
     if (far) {
       midScreen?.(tooFarAwayText());

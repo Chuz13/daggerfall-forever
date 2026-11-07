@@ -1523,8 +1523,53 @@ export function createLivingSceneHost(deps) {
           },
         ],
       });
+    } else if (s.kind === LIVING_SITE_KINDS.TRAVELER_REST) {
+      const merchantActor = s.foes.find((f) => f?.livingRole === 'traveler');
+      const lines = [
+        '=== TRAVELER\'S REST ===',
+        'You come upon a traveling merchant and their armed outrider resting beside a warm campfire along the road.',
+        '"Welcome to our camp, traveler. Rest your feet, or inspect the goods I have brought from across the province."',
+      ];
+      const options = [
+        {
+          code: 'Digit1',
+          label: '1. [Trade] Greet the merchant and inspect wares (Shop)',
+          action: () => {
+            deps.say?.('The merchant opens their traveling trunk for barter.', 4);
+            if (merchantActor && deps.openLivingActor) {
+              deps.openLivingActor(merchantActor);
+            }
+          },
+        },
+        {
+          code: 'Digit2',
+          label: '2. [Rest] Rest by the campfire to recover fatigue and health',
+          action: () => {
+            if (player) {
+              player.health = Math.min(Number(player.maxHealth ?? player.health), Number(player.health) + 35);
+              player.fatigue = Math.min(Number(player.maxFatigue ?? player.fatigue), Number(player.fatigue) + 100);
+            }
+            deps.say?.('You warm your hands by the fire and share a cup of tea with the travelers, feeling refreshed.', 6);
+          },
+        },
+        {
+          code: 'Digit3',
+          label: '3. [Depart] Nod politely and continue on your way',
+          action: () => {
+            deps.say?.('"Safe travels under the stars, friend."', 4);
+          },
+        },
+        {
+          code: 'Digit4',
+          label: '4. [Rob] Threaten the caravan and demand their gold!',
+          action: () => {
+            setSiteHostile(s, true);
+            deps.say?.('"Guards, to arms! A brigand attacks our camp!"', 5);
+          },
+        },
+      ];
+      deps.openChoice({ lines, options });
     } else if (
-      s.kind === LIVING_SITE_KINDS.TRAVELER_REST ||
       s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT ||
       s.kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER
     ) {
@@ -2959,6 +3004,14 @@ export function executeLivingConsoleCommand(args, ctx) {
     return `[Living Tamriel] Spawned ${validKind} (${bp.meshes.length} meshes, ${bp.flats.length} flats, ${bp.actors.length} actors).`;
   }
 
+  if (sub === 'encounter') {
+    const kind = String(cleanArgs[1] ?? 'random').toLowerCase();
+    if (ctx?.triggerEncounter) {
+      return ctx.triggerEncounter(kind);
+    }
+    return '[Living Tamriel] Wilderness encounter trigger unavailable in current scene.';
+  }
+
   if (sub === 'quest') {
     const existing = getActiveCrisisContract(regIdx);
     if (existing) {
@@ -2976,6 +3029,6 @@ export function executeLivingConsoleCommand(args, ctx) {
     return `[Living Tamriel] Accepted crisis contract: ${accepted.title} (${accepted.rewardGold}g).`;
   }
 
-  return 'Usage: /living <status | crisis <TYPE> [PHASE] | [site] spawn <KIND> | adv <list|summon> | quest>';
+  return 'Usage: /living <status | crisis <TYPE> [PHASE] | [site] spawn <KIND> | encounter [random|camp|pack] | adv <list|summon> | quest>';
 }
 

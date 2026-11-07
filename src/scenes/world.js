@@ -3845,6 +3845,137 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     return out;
   });
+
+  function openTravelerMerchant(foe) {
+    const lines = [
+      '=== WAYFARING MERCHANT ===',
+      '"Greetings, wanderer! The roads of the Iliac Bay are dangerous, but my wagon carries fine provisions, potions, and gear."',
+      '"Would you care to barter, or perhaps trade news of the road?"',
+    ];
+    const options = [
+      {
+        code: 'Digit1',
+        label: '1. [Trade] Buy supplies & Sell spoils (Shop)',
+        action: () => {
+          if (!foe._merchantShelf) {
+            foe._merchantShelf = {
+              items: stockShopShelf({ buildingType: 1, quality: 12 }, playerEntity),
+              coin: 1500,
+            };
+          }
+          const b = {
+            buildingType: 1, // General Store
+            quality: 12,
+            name: 'Wayfaring Merchant',
+            buildingKey: null,
+            regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+          };
+          if (modes?.openRoadTrade) {
+            modes.openRoadTrade({
+              shelf: foe._merchantShelf,
+              b,
+              mode: 'Buy',
+              allow: () => true,
+              done: () => {},
+            }, 'Buy');
+          } else {
+            townTalk.say('Merchant trade interface is not available.');
+          }
+        },
+      },
+      {
+        code: 'Digit2',
+        label: '2. [Rumors] Inquire about roads and perils',
+        action: () => {
+          const rumors = [
+            '"Keep your eyes sharp for bandit camps near the foothills—they prey on lone travelers."',
+            '"The frontier checkpoints have doubled their tolls due to the ongoing regional crisis."',
+            '"Many wanderers speak of dark cultists and ancient tombs stirring in the wilderness."',
+            '"If you are bound for Wayrest, keep to the paved highways and avoid the marsh tracks."',
+          ];
+          townTalk.say(rumors[Math.floor(Math.random() * rumors.length)], 6);
+        },
+      },
+      {
+        code: 'Digit3',
+        label: '3. [Leave] Farewell, safe travels',
+        action: () => {},
+      },
+    ];
+    townTalk.showOverlay(new ChoiceWindow({ lines, options }));
+    return true;
+  }
+
+  function openLivingSiteActor(rec) {
+    if (!rec) return false;
+    if (rec.livingRole === 'traveler' || rec.entity?.name === 'Wayfaring Merchant') {
+      return openTravelerMerchant(rec);
+    }
+    if (rec.livingRole === 'traveler_guard') {
+      townTalk.say('"Keep your hands off your weapon, wanderer. The merchant is under my protection."', 5);
+      return true;
+    }
+    return false;
+  }
+
+  function triggerWildernessEncounter(kind = 'random') {
+    if (!exteriorFoes?.spawnFoe) return 'Cannot trigger wilderness encounter: exterior foes spawner not ready.';
+    const feet = walkMode && playerSpawned ? player.feetAt() : cam.pos;
+    const px = playerTravelPixel();
+    const clim = maps.getClimateIndex(px.x, px.y);
+    const reg = _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0;
+    const nowMin = Math.floor(skyMinutes());
+    const lvl = effectiveLevel(playerEntity);
+
+    if (kind === 'camp' || kind === 'pack' || kind === 'band') {
+      const roster = rollLivingChunkCampRoster({
+        climateIndex: clim,
+        fauna: maps.getFaunaBand?.(px.x, px.y),
+        skyMinutes: nowMin,
+        regionIndex: reg,
+        playerLevel: lvl,
+      });
+      const types = roster?.mobileTypes?.length ? roster.mobileTypes : [15, 15, 15];
+      const h = {
+        kind: kind === 'camp' ? 'camp' : 'pack',
+        mobileTypes: types,
+        spacing: 3,
+        alertRadius: 10,
+        minDistance: 12,
+        maxDistance: 25,
+      };
+      const stood = _standCampEncounter(h, feet);
+      return stood
+        ? `[Living Tamriel] Spawned wilderness ${h.kind} (${types.length} enemies) near player.`
+        : '[Living Tamriel] Could not find clear ground for wilderness camp.';
+    }
+
+    const encCtx = {
+      gameMinutes: Math.floor(playerTicker.ownMinutes),
+      inside: false,
+      inDungeon: false,
+      isResting: false,
+      skyMinutes: nowMin,
+      restAsks: 1,
+      inLocationRect: false,
+      onRoad: false,
+      regionIndex: reg,
+      climateIndex: clim,
+      fauna: maps.getFaunaBand?.(px.x, px.y),
+      playerLevel: lvl,
+    };
+    const hit = rollLivingWildernessEncounter(encCtx) ??
+      intermittentEnemySpawn(encCtx) ?? {
+        mobileType: 4, // Grizzly Bear fallback
+        minDistance: 10,
+        maxDistance: 22,
+        lineOfSightCheck: false,
+      };
+    _standEncounterFoe(hit, feet);
+    const mobName = ENEMY_BASICS[hit.mobileType]?.name ?? `Mob #${hit.mobileType}`;
+    return `[Living Tamriel] Spawned wilderness encounter: ${mobName} (ID: ${hit.mobileType}).`;
+  }
+
   const livingSceneHostOf = () => (_livingSceneHost ??= createLivingSceneHost({
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior',
@@ -3860,6 +3991,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     inPool: (f) => exteriorFoes.foes.includes(f),
     say: (text, sec) => townTalk.say(text, sec),
     openChoice: (spec) => townTalk.showOverlay(new ChoiceWindow({ lines: spec.lines, options: spec.options })),
+    openLivingActor: (rec) => openLivingSiteActor(rec),
     playSound: (id) => audio?.playOneShot?.(id, 0.75),
     onCompanionChanged: (comp) => {
       dropEscortFace(_livingCompanionFace);
@@ -3879,6 +4011,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         playerEntity,
         nowMinutes: skyMinutes(),
         sceneHost: livingSceneHostOf(),
+        triggerEncounter: (kind) => triggerWildernessEncounter(kind),
       }),
   );
   const livingRoadsOf = () => (livingRoads ??= createLivingRoads({
@@ -28962,6 +29095,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // mint (Come Sail Away's giveboat and placeboat, a deed each).
   if (!params.has('online')) installConsoleProbe();
   setDebugSceneContext({
+    triggerWildernessEncounter: (kind) => triggerWildernessEncounter(kind),
     triggerCrimeResponse: () => {
       const feet = walkMode && playerSpawned ? player.pos : cam.pos;
       cityGuards.makeNpcGuardsIntoEnemies({ pool: _guardPool(), playerFeet: [...feet] }).catch((e) => console.error('[guards]', e));
@@ -32029,6 +32163,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
               makeEnemiesHostile: _makeEnemiesHostile,
               openCompanion: (rec) => openCompanionPack(rec),   // COMPANION-KIT: my companion's pack
               openFate: (rec) => openRevenantFate(rec),   // REVENANT-FATE: a beaten revenant's choice
+              openLiving: (rec) => openLivingSiteActor(rec),
               playerFeet: walkMode ? player.pos : cam.pos,
               nothingText: () => townTalk.randomText(FOUND_NOTHING_VALUABLE_TEXT_ID) || 'You found nothing valuable.',
             });
