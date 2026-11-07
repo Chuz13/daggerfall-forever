@@ -3865,23 +3865,20 @@ export async function bootWorld(canvas, renderer, params, status) {
       ensureShelf();
       const b = {
         buildingType: 1, // General Store
-        quality: 12,
+        quality: 6, // Low-medium merchant quality
+        roadDiscount: 0.40, // 40% discount: buys cheaply from player on the road
         name: 'Wayfaring Merchant',
         buildingKey: null,
         regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+        // Buys EVERYTHING player carries that is not a quest item
+        accepts: (it) => !it?.isQuestItem && !it?.questItem,
       };
       if (modes?.openRoadTrade) {
         modes.openRoadTrade({
           shelf: foe._merchantShelf,
           b,
           mode: tradeMode,
-          allow: (m, staged, price) => {
-            if ((m === 'Sell' || m === 'SellMagic') && foe._merchantShelf.coin < price) {
-              townTalk.say('The merchant does not have enough coin left to buy all those goods.');
-              return false;
-            }
-            return true;
-          },
+          allow: () => true, // Unlimited shop gold like vanilla DFO
           done: (m, staged, price) => {
             if (m === 'Sell' || m === 'SellMagic') {
               executeRoadsideFenceSale(staged, price, foe._merchantShelf);
@@ -3904,7 +3901,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       '=== WAYFARING MERCHANT ===',
       '"Greetings, wanderer! The roads of the Iliac Bay are dangerous, but my wagon carries fine provisions, potions, and gear."',
       '"Would you care to barter, or perhaps trade news of the road?"',
-      `Merchant Purse: ${foe._merchantShelf ? foe._merchantShelf.coin : 1500} gold`,
     ];
     const options = [
       {

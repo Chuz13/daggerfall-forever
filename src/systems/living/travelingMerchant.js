@@ -12,6 +12,7 @@ import { createPotion } from '../loot/loot.js';
 import { clearStolen, isStolen } from '../stolenGoods.js';
 import { getActiveCrises, CRISIS_TYPE } from './regionState.js';
 import { mintCondition, setItemFields } from '../item/itemTemplates.js';
+import { createWeapon } from '../../combat/enemyEquipment.js';
 
 // Classic recipe key for Cure Disease
 export const CURE_DISEASE_RECIPE_KEY = 111516185;
@@ -20,13 +21,30 @@ export const STAMINA_RECIPE_KEY = 221871;
 
 export const BASE_MERCHANT_GOLD = 1500;
 
+// Canonical item templates:
+// UselessItems2: Torch = 247, Bandage = 249, Oil = 252, CampingEquipment = 530, Rations = 531, Waterskin = 539, Campfire = 541
+// Weapons: Arrow = 131
+const ITEM_IDS = Object.freeze({
+  Torch: 247,
+  Bandage: 249,
+  Oil: 252,
+  CampingEquipment: 530,
+  Rations: 531,
+  Waterskin: 539,
+  Campfire: 541,
+  Arrow: 131,
+});
+
 /**
- * Creates custom emergency rations, waterskin, or torches for travelers.
+ * Creates custom emergency rations, waterskin, torches, or arrows for travelers.
  * @param {number} templateIndex
  * @param {string} group
  * @param {number} count
  */
 function createTravelSupplyItem(templateIndex, group = 'UselessItems2', count = 1) {
+  if (group === 'Weapons' && templateIndex === ITEM_IDS.Arrow) {
+    return mintCondition(setItemFields({ ...createWeapon(ITEM_IDS.Arrow, 0, () => 0), stackCount: count }));
+  }
   return mintCondition(
     setItemFields({
       group,
@@ -65,10 +83,13 @@ export function stockTravelingMerchantTrunk({
   // - 1x Magicka Potion
   items.push(mintHealingPotion(), mintHealingPotion(), mintMagickaPotion());
 
-  // Rations / torches / oil
+  // Rations / torches / oil / bandages / waterskin
   items.push(
-    createTravelSupplyItem(288, 'UselessItems2', 3), // Rations / Food
-    createTravelSupplyItem(289, 'UselessItems2', 2), // Oil flask
+    createTravelSupplyItem(ITEM_IDS.Rations, 'UselessItems2', 3), // Food rations
+    createTravelSupplyItem(ITEM_IDS.Torch, 'UselessItems2', 2), // Torches
+    createTravelSupplyItem(ITEM_IDS.Oil, 'UselessItems2', 2), // Oil flasks
+    createTravelSupplyItem(ITEM_IDS.Bandage, 'UselessItems2', 3), // Bandages
+    createTravelSupplyItem(ITEM_IDS.Waterskin, 'UselessItems2', 1), // Waterskin
   );
 
   // 3. Climate Adaptation
@@ -81,13 +102,14 @@ export function stockTravelingMerchantTrunk({
     items.push(
       createPotion(STAMINA_RECIPE_KEY),
       createPotion(STAMINA_RECIPE_KEY),
-      createTravelSupplyItem(289, 'UselessItems2', 4), // Extra water/oil flasks
+      createTravelSupplyItem(ITEM_IDS.Waterskin, 'UselessItems2', 2), // Extra waterskins
     );
   } else if (isMountain) {
-    // Mountainous passes require stamina, torches, and climbing provisions
+    // Mountainous passes require stamina, torches, and camping gear
     items.push(
       createPotion(STAMINA_RECIPE_KEY),
-      createTravelSupplyItem(289, 'UselessItems2', 3),
+      createTravelSupplyItem(ITEM_IDS.Torch, 'UselessItems2', 3),
+      createTravelSupplyItem(ITEM_IDS.CampingEquipment, 'UselessItems2', 1),
     );
   }
 
@@ -110,14 +132,14 @@ export function stockTravelingMerchantTrunk({
   if (hasWar) {
     // During war/strife, merchant stocks arrows and medical bandages
     items.push(
-      createTravelSupplyItem(265, 'Weapons', 30), // Arrows (quiver)
-      createTravelSupplyItem(288, 'UselessItems2', 4), // Bandages / field supplies
+      createTravelSupplyItem(ITEM_IDS.Arrow, 'Weapons', 30), // Arrows (quiver)
+      createTravelSupplyItem(ITEM_IDS.Bandage, 'UselessItems2', 4), // Medical bandages
     );
   }
 
   if (hasFamine) {
     // During famine, food rations are scarce and precious
-    items.push(createTravelSupplyItem(288, 'UselessItems2', 5));
+    items.push(createTravelSupplyItem(ITEM_IDS.Rations, 'UselessItems2', 5));
   }
 
   return {
