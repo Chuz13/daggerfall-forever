@@ -17,7 +17,9 @@ import {
 } from '../../systems/mods/modRegistry.js';
 import { syncModData } from '../../systems/mods/modDataSync.js';
 import { unloadModPlugins, loadActiveModPlugins } from '../../systems/mods/modPluginLoader.js';
-import { getModPerks } from '../../systems/mods/modPluginApi.js';
+import { getModPerks, getAllRegisteredPerks } from '../../systems/mods/modPluginApi.js';
+import { getAllPerks, getUnlockedPerks } from '../../systems/perks/perkRegistry.js';
+import { playerEntity } from '../../characters/playerEntity.js';
 import { t } from '../../systems/textManager.js';
 
 const el = (tag, cls, txt) => {
@@ -230,5 +232,28 @@ export function drawModsPane(body, rerender) {
   });
 
   body.append(listContainer);
+
+  // Perks & Milestones summary card
+  const perksCard = el('div', 'card');
+  perksCard.style.marginTop = '12px';
+  perksCard.append(el('h3', null, t('perks.ui.title', 'Perks & Milestones')));
+  perksCard.append(el('p', 'meta', t('perks.ui.lead', 'Passive combat, magic, and survival feats unlocked by mastering skills and surviving the Iliac Bay.')));
+  const unlockedSet = new Set(playerEntity ? getUnlockedPerks(playerEntity) : []);
+  const corePerks = getAllPerks();
+  const modPerks = getAllRegisteredPerks();
+  const allPerks = [...corePerks, ...modPerks.filter((mp) => !corePerks.some((cp) => cp.id === mp.id))];
+  allPerks.forEach((p) => {
+    const isUnlocked = unlockedSet.has(p.id);
+    const row = el('div', 'mod-perk-item');
+    row.style.fontSize = '13px';
+    row.style.marginTop = '4px';
+    row.style.color = isUnlocked ? '#e0c36a' : '#999';
+    const nameStr = t(`perks.${p.id}.name`, p.name);
+    const descStr = t(`perks.${p.id}.desc`, p.desc || p.description || '');
+    const statusStr = isUnlocked ? t('perks.ui.unlocked', 'Unlocked') : t('perks.ui.locked', 'Locked');
+    row.textContent = `${isUnlocked ? '★' : '☆'} ${nameStr} [${statusStr}] — ${descStr}`;
+    perksCard.append(row);
+  });
+  body.append(perksCard);
 }
 

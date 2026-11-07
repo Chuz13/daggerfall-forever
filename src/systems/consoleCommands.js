@@ -46,7 +46,11 @@ import { addGoldPieces, addItem } from './inventory.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { worldMinutes, setWorldMinutes } from './worldTick.js';
 import { setWeather, currentWeather } from './weather/weatherSim.js';
-import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES } from './item/itemTemplates.js';
+import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
+import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
+import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell } from './necromancy/necromanticSpells.js';
+import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
+import { getAllRegisteredPerks } from './mods/modPluginApi.js';
 import { weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { MATERIAL_NAMES } from './mods/modDataSync.js';
@@ -545,12 +549,23 @@ export function findItemTemplate(query) {
     if (t) return { template: t, index: num };
   }
   const clean = String(query).toLowerCase().replace(/[\s_-]/g, '');
+  if (clean === 'skinningknife' || clean === 'flayingknife') {
+    const t = templateByIndex(603);
+    if (t) return { template: t, index: 603 };
+  }
   for (let i = 0; i < 288; i++) {
     const t = templateByIndex(i);
     if (!t?.name) continue;
     const cleanName = t.name.toLowerCase().replace(/[\s_-]/g, '');
     if (cleanName === clean || cleanName.includes(clean)) {
       return { template: t, index: i };
+    }
+  }
+  for (const row of customTemplateRows?.() ?? []) {
+    if (!row?.name) continue;
+    const cleanName = row.name.toLowerCase().replace(/[\s_-]/g, '');
+    if (cleanName === clean || cleanName.includes(clean)) {
+      return { template: row, index: row.index };
     }
   }
 
@@ -592,6 +607,27 @@ for (const [groupName, indices] of Object.entries(GROUP_TEMPLATE_INDICES || {}))
 
 function handleAddItemCommand(args = []) {
   if (!args || !args.length) return 'Usage: additem <templateIndex|name> [count] [material]';
+
+  const firstClean = String(args[0]).toLowerCase().replace(/[\s_-]/g, '');
+  if (firstClean === 'elixirunlife' || firstClean === 'elixirofunlife') {
+    const count = Math.max(1, parseInt(args[1] || '1', 10) || 1);
+    if (!playerEntity.items) playerEntity.items = [];
+    for (let k = 0; k < count; k++) {
+      const elixir = makePotion(ELIXIR_OF_UNLIFE_KEY);
+      elixir.shortName = 'Potion of Elixir of Unlife';
+      elixir.longName = 'Potion of Elixir of Unlife';
+      playerEntity.items.push(elixir);
+    }
+    surfacePlayer?.();
+    return `Added ${count}x Potion of Elixir of Unlife (Recipe Key: ${ELIXIR_OF_UNLIFE_KEY}) to inventory.`;
+  }
+  if (firstClean === 'lichingredients' || firstClean === 'elixirreagents') {
+    const lines = [];
+    for (const tpl of ELIXIR_OF_UNLIFE_RECIPE.ingredients) {
+      lines.push(handleAddItemCommand([String(tpl), '1']));
+    }
+    return lines.join('\n');
+  }
 
   let rawTokens = [...args];
   let material = null;
@@ -782,7 +818,84 @@ function handleLevelCommand(args = []) {
   return `Player level set to ${lvl}.`;
 }
 registerCommand('set_level', 'Set player character level: set_level <level>', 'set_level <level>', handleLevelCommand);
+registerCommand('setlevel', 'Set player character level: setlevel <level>', 'setlevel <level>', handleLevelCommand);
 registerCommand('level', 'Set player character level: level <level>', 'level <level>', handleLevelCommand);
+registerCommand('setskill', 'Set player skill value: setskill <name> <value>', 'setskill <skillName> <value>', (args = []) => getConsoleCommand('set_skill').callback(args));
+registerCommand('setstat', 'Set player attribute: setstat <name> <value>', 'setstat <attribute> <value>', (args = []) => getConsoleCommand('set_attr').callback(args));
+registerCommand('setattr', 'Set player attribute: setattr <name> <value>', 'setattr <attribute> <value>', (args = []) => getConsoleCommand('set_attr').callback(args));
+
+registerCommand(
+  'addspell',
+  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|all_necro>',
+  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|all_necro>',
+  (args = []) => {
+    const key = String(args[0] || 'all_necro').toLowerCase().replace(/[\s_-]/g, '');
+    const map = {
+      animatedead: animateDeadSpell,
+      corpseexplosion: corpseExplosionSpell,
+      lifetap: lifeTapSpell,
+      bonearmor: boneArmorSpell,
+    };
+    playerEntity.spells = Array.isArray(playerEntity.spells) ? playerEntity.spells : [];
+    const addOne = (fn) => {
+      const sp = fn();
+      if (!playerEntity.spells.some((s) => s.name === sp.name)) {
+        playerEntity.spells.push(sp);
+      }
+      return sp.name;
+    };
+    if (key === 'allnecro' || key === 'all' || key === 'necro') {
+      const added = Object.values(map).map(addOne);
+      surfacePlayer?.();
+      return `Added Necromancy spell suite to spellbook: ${added.join(', ')}.`;
+    }
+    if (map[key]) {
+      const name = addOne(map[key]);
+      surfacePlayer?.();
+      return `Added spell "${name}" to spellbook.`;
+    }
+    return 'Usage: addspell <animate_dead | corpse_explosion | life_tap | bone_armor | all_necro>';
+  }
+);
+
+registerCommand(
+  'perk',
+  'Inspect or unlock character perks: perk <list | unlock <id|all> | reset>',
+  'perk <list | unlock <id|all> | reset>',
+  (args = []) => {
+    const sub = String(args[0] || 'list').toLowerCase();
+    const corePerks = getAllPerks();
+    const modPerks = getAllRegisteredPerks();
+    const allPerks = [...corePerks, ...modPerks.filter((mp) => !corePerks.some((cp) => cp.id === mp.id))];
+    playerEntity.unlockedPerks = Array.isArray(playerEntity.unlockedPerks) ? playerEntity.unlockedPerks : [];
+
+    if (sub === 'unlock') {
+      const target = String(args[1] || 'all').toLowerCase();
+      if (target === 'all') {
+        for (const p of allPerks) {
+          if (!playerEntity.unlockedPerks.includes(p.id)) playerEntity.unlockedPerks.push(p.id);
+        }
+        surfacePlayer?.();
+        return `Unlocked all ${allPerks.length} perks: ${allPerks.map((p) => p.id).join(', ')}.`;
+      }
+      const found = allPerks.find((p) => p.id.toLowerCase() === target);
+      if (!found) return `Unknown perk "${args[1]}". Available: ${allPerks.map((p) => p.id).join(', ')}`;
+      if (!playerEntity.unlockedPerks.includes(found.id)) playerEntity.unlockedPerks.push(found.id);
+      surfacePlayer?.();
+      return `Unlocked perk "${found.name}" (${found.id}).`;
+    }
+    if (sub === 'reset') {
+      playerEntity.unlockedPerks = [];
+      surfacePlayer?.();
+      return 'Reset all manually unlocked perks.';
+    }
+    const unlockedSet = new Set(getUnlockedPerks(playerEntity));
+    return [
+      `<b>Character Perks & Milestones (${unlockedSet.size}/${allPerks.length} unlocked):</b>`,
+      ...allPerks.map((p) => `- ${unlockedSet.has(p.id) ? '★ [UNLOCKED]' : '☆ [LOCKED]'} ${p.name} (${p.id}): ${p.desc || p.description || ''}`),
+    ].join('\n');
+  }
+);
 
 let _debugTextEl = null;
 let _debugTextInterval = null;
@@ -1426,7 +1539,54 @@ registerCommand(
       _sceneContext?.spawnPurifiers?.(party);
       return `Triggered Witch-Hunter ambush! Purifier squad formed in 3D world: ${party.map((p) => p.name).join(', ')}.`;
     }
-    return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | ambush>';
+    if (sub === 'harvest') {
+      const ok = _sceneContext?.applyUndeadCommand?.('harvest');
+      return ok ? 'Harvested reagents from nearby corpse.' : 'Failed to harvest (ensure a corpse is nearby and you carry a Skinning Knife or Dagger).';
+    }
+    if (sub === 'detonate') {
+      const ok = _sceneContext?.applyUndeadCommand?.('detonate');
+      return ok ? 'Detonated nearest undead minion!' : 'No active undead minion to detonate.';
+    }
+    if (sub === 'elixir') {
+      return handleAddItemCommand(['elixir_unlife', '1']);
+    }
+    if (sub === 'test') {
+      const preset = String(args[1] || 'kit').toLowerCase();
+      if (preset === 'lich') {
+        handleLevelCommand(['20']);
+        getConsoleCommand('set_skill').callback(['Mysticism', '100']);
+        getConsoleCommand('set_attr').callback(['intelligence', '100']);
+        getConsoleCommand('set_attr').callback(['willpower', '100']);
+        handleAddItemCommand(['lich_ingredients']);
+        handleAddItemCommand(['elixir_unlife', '1']);
+        return '<b>[Necro Test: Lich]</b> Set Level 20, Mysticism 100, INT/WIL 100, added 4 Elixir reagents (38, 39, 45, 53) + 1 brewed Potion of Elixir of Unlife!';
+      }
+      if (preset === 'harvest') {
+        handleAddItemCommand(['603', '1']);
+        handleAddItemCommand(['113', '1']);
+        getConsoleCommand('necro').callback(['spawn', 'corpse']);
+        return '<b>[Necro Test: Harvest]</b> Added Skinning Knife (603) + Dagger (113) and spawned a fresh corpse in front of you.';
+      }
+      if (preset === 'synergy') {
+        getConsoleCommand('addspell').callback(['all_necro']);
+        getConsoleCommand('necro').callback(['minions', 'raise', 'skeleton']);
+        getConsoleCommand('necro').callback(['spawn', 'corpse']);
+        return '<b>[Necro Test: Synergy]</b> Added all Necro spells, raised a Skeleton minion (for Bone Armor 3x HP / Numpad 4 Detonate), and spawned a corpse (for 5x HP Corpse Explosion).';
+      }
+      // default 'kit'
+      handleLevelCommand(['20']);
+      getConsoleCommand('set_skill').callback(['Mysticism', '100']);
+      getConsoleCommand('set_skill').callback(['Destruction', '100']);
+      getConsoleCommand('set_attr').callback(['intelligence', '100']);
+      getConsoleCommand('set_attr').callback(['willpower', '100']);
+      handleHealCommand();
+      handleAddItemCommand(['603', '1']);
+      handleAddItemCommand(['lich_ingredients']);
+      handleAddItemCommand(['elixir_unlife', '1']);
+      getConsoleCommand('addspell').callback(['all_necro']);
+      return '<b>[Necro Full Test Kit]</b> Level 20, Mysticism/Destruction 100, INT/WIL 100, Skinning Knife (603), Elixir of Unlife + 4 reagents, and all 4 Necromancy spells granted!';
+    }
+    return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
   }
 );
 
@@ -1489,6 +1649,30 @@ export const consoleInputHistory = new ConsoleInputHistory();
  *  door can hand it to a caller that is not a text window. */
 export function executeConsoleLine(input) {
   const trimmed = String(input).trim();
+  if (trimmed.includes(';')) {
+    const segments = trimmed
+      .split(';')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (segments.length > 1) {
+      consoleLog(`> ${input}`);
+      consoleInputHistory.addNewInputEntry(input);
+      const results = [];
+      for (const seg of segments) {
+        const parts = seg.split(/\s+/);
+        const rawCommand = parts[0];
+        const command = !hasConsoleCommand(rawCommand) && rawCommand.startsWith('/')
+          ? rawCommand.slice(1)
+          : rawCommand;
+        const args = parts.slice(1);
+        const ans = executeConsoleCommand(command, args);
+        results.push(ans);
+      }
+      const combined = results.join('\n');
+      consoleLog(combined);
+      return combined;
+    }
+  }
   const parts = trimmed.split(' ');
   const rawCommand = parts[0];
   const command = !hasConsoleCommand(rawCommand) && rawCommand.startsWith('/')

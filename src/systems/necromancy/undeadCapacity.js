@@ -16,7 +16,7 @@ import { NecroConfig, CAP_MODES } from './necroConfig.js';
 export const UNDEAD_SLOT_COST = Object.freeze({
   skeleton: 1,
   zombie: 2,
-  ghost: 2,
+  ghost: 3,
   mummy: 4,
   lich: 8,
 });

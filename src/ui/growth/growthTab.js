@@ -26,6 +26,8 @@ import { atLevelCap, LEVEL_CAP } from '../../systems/levelCap.js';   // LEVEL-45
 import { pvp30Asks, pvp30Said, pvp30Rows, pvp30No, pvp30Owed, pvp30Go } from '../levelUp/pvp30Ask.js';   // PVP-30
 import { usesVirtueLeveling } from '../../systems/oblivionLeveling.js';   // ORL1: which bar the view of the stars reads
 import { GROWTH_PAGE_SECTIONS, SPEC_LANDINGS, growthPageAt } from './growthPages.js';   // the leaf the boot doors read
+import { getAllPerks, getUnlockedPerks } from '../../systems/perks/perkRegistry.js';
+import { getAllRegisteredPerks } from '../../systems/mods/modPluginApi.js';
 
 export { GROWTH_PAGE_SECTIONS, growthPageAt };
 
@@ -175,6 +177,28 @@ function pvp30Page(detail, ctx) {
 function specsPage(detail, ctx) {
   dropStage();
   drawSpecGuide(detail, ctx.render, { el: ctx.el, divider: ctx.divider, skillMeter: ctx.skillMeter, askCard: ctx.askCard, entity: ctx.entity, openMaster: ctx.openMaster });
+  const { el, divider, entity } = ctx;
+  if (!el || !divider) return;
+  detail.append(divider(t('perks.ui.title', 'Perks & Milestones')));
+  detail.append(el('p', 'gr-lead', t('perks.ui.lead', 'Passive combat, magic, and survival feats unlocked by mastering skills and surviving the Iliac Bay.')));
+  const unlockedSet = new Set(entity ? getUnlockedPerks(entity) : []);
+  const corePerks = getAllPerks();
+  const modPerks = getAllRegisteredPerks();
+  const allPerks = [...corePerks, ...modPerks.filter((mp) => !corePerks.some((cp) => cp.id === mp.id))];
+  const listWrap = el('div', 'gr-perks-list');
+  for (const p of allPerks) {
+    const isUnlocked = unlockedSet.has(p.id);
+    const row = el('div', isUnlocked ? 'card gr-perk-card on' : 'card gr-perk-card');
+    const nameStr = t(`perks.${p.id}.name`, p.name);
+    const descStr = t(`perks.${p.id}.desc`, p.desc || p.description || '');
+    const statusStr = isUnlocked ? t('perks.ui.unlocked', 'Unlocked') : t('perks.ui.locked', 'Locked');
+    row.append(
+      el('h4', 'gr-perk-head', `${isUnlocked ? '★' : '☆'} ${nameStr} [${statusStr}]`),
+      el('p', 'meta', descStr),
+    );
+    listWrap.append(row);
+  }
+  detail.append(listWrap);
 }
 
 // ── Firmament ───────────────────────────────────────────────────────

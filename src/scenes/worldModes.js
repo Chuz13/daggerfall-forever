@@ -616,8 +616,8 @@ export function createWorldModes(host) {
   const cardTableGold = (i) => !!interiorCtx?.tables?.[i]?.gold;
   /** TAVERN-TABLES: why this player may not sit at the gold table (a key of CARD_GOLD_BARRED), or null - online it seats
    *  a realm character's stake, at a relay that deals, and nobody else; offline it is a table like the other. */
-  const cardGoldBarred = (i) => (!cardTableGold(i) || !isOnlinePage() ? null : !host.cardStakes?.goldOk?.() ? 'realm' : !host.cardOnline?.ok?.() ? 'relay' : null);
-  const CARD_GOLD_BARRED = Object.freeze({ realm: 'This table plays for gold, and only a realm character may stake at it. The green table plays for chips.', relay: 'This table plays for gold and is not dealing right now. The green table plays for chips.' });
+  const cardGoldBarred = (i) => (!FORK_FLAGS.ENABLE_ONLINE_PLAY || !cardTableGold(i) || !isOnlinePage() ? null : !host.cardStakes?.goldOk?.() ? 'realm' : !host.cardOnline?.ok?.() ? 'relay' : null);
+  const CARD_GOLD_BARRED = Object.freeze({ realm: 'This table plays for gold.', relay: 'This table is not dealing right now.' });
   function sitAtCardTable(i) {
     // TAVERN-TABLES: told before he sits - the relay refuses a sit at the gold table with no stake, and the refusal
     // stood him up (the owner's report: one table, and "it doesnt let him use gold tables")
@@ -721,7 +721,7 @@ export function createWorldModes(host) {
     const regs = new Map(seeds.map((r, i) => [names[i], r]));
     iliacGame = openIliacTableGame({
       renderer, entity: playerEntity, say, holdCursor, relock: () => host.relock?.(), rand32: cardRand32, now: () => performance.now(),
-      day: cardDay, key: cardTableKey(), grade: iliacGrade(quality), friendly: !!host.realmAct || isOnlinePage(),   // AUDIT CARDS-6 B5: the day's clock, read at the book
+      day: cardDay, key: cardTableKey(), grade: iliacGrade(quality), friendly: FORK_FLAGS.ENABLE_ONLINE_PLAY ? (!!host.realmAct || isOnlinePage()) : false,   // AUDIT CARDS-6 B5: the day's clock, read at the book
       regulars: free.map((chair, i) => (names[i] ? { name: names[i], seed: seeds[i].seed, chair } : null)).filter(Boolean),
       frame: tableFrame(t), mySeatFeet: seats[cardSeat.seat].feet, chairFeet: (k) => seats[k]?.feet ?? seats[cardSeat.seat].feet,
       packPrice: cardPackHere, buyPack: buyCardPackHere,
@@ -729,7 +729,7 @@ export function createWorldModes(host) {
       onStand: () => standFromCardTable(),
       gambit: gambitTableOn, onGambit: () => openGambitGame(),   // KG3: the third game, offered while its Features switch is on
       // CARDS10: a relay that deals Iliac Hand - the room's table at this cloth (the same index and chairs as Hold'em's)
-      online: host.iliacOnline?.ok?.() ? {
+      online: FORK_FLAGS.ENABLE_ONLINE_PLAY && host.iliacOnline?.ok?.() ? {
         send: (w) => !!host.iliacOnline.send(w), myId: () => host.iliacOnline.id(), now: () => host.iliacOnline.now(),
         table: cardSeat.table, chairs: seats.length, chair: cardSeat.seat,
         rankedWhy: () => host.iliacRanked?.why?.() ?? 'Ranked games are closed here.', vouch: (deck) => host.iliacRanked?.vouch?.(deck) ?? Promise.resolve({ ok: false }),
@@ -769,7 +769,7 @@ export function createWorldModes(host) {
       renderer, entity: playerEntity, say, holdCursor, relock: () => host.relock?.(), rand32: cardRand32, now: () => performance.now(),
       // AUDIT KG II C9: a regular's night is the TAVERN's (both its tables seat the same regulars) - never paid out afresh
       // at the other table
-      day: cardDay, key: cardTavernKey(), friendly: !!host.realmAct || isOnlinePage(),   // 5.7: online, the regulars play for fun
+      day: cardDay, key: cardTavernKey(), friendly: FORK_FLAGS.ENABLE_ONLINE_PLAY ? (!!host.realmAct || isOnlinePage()) : false,   // 5.7: online, the regulars play for fun
       regulars: free.map((chair, i) => (names[i] ? { name: names[i], seed: seeds[i].seed, chair } : null)).filter(Boolean),
       frame: tableFrame(t), mySeatFeet: seats[cardSeat.seat].feet, touch: () => isTouchDevice(),
       onHoldem: () => { closeGambitGame(); if (cardSeat) openCardGame((cardSeat.free?.length ?? 0) + 1); },
@@ -779,7 +779,7 @@ export function createWorldModes(host) {
       // KG5 (Kings-Gambit.md section 18): a relay that runs The King's Gambit - the room's board at this cloth; KG6
       // (section 19): at the red table for gold, a realm character's (CARDS6's escrow: the stake held by the service, its
       // cash-out the relay's) - anyone else plays the regulars there - and the season's board from either
-      online: host.gambitOnline?.ok?.() && (!holdemGoldTable(cardSeat.table) || gambitGoldOk()) ? {
+      online: FORK_FLAGS.ENABLE_ONLINE_PLAY && host.gambitOnline?.ok?.() && (!holdemGoldTable(cardSeat.table) || gambitGoldOk()) ? {
         send: (w) => !!host.gambitOnline.send(w), myId: () => host.gambitOnline.id(), now: () => host.gambitOnline.now(),
         table: cardSeat.table, chairs: seats.length, chair: cardSeat.seat, chairFeet: (k) => seats[k]?.feet ?? null,
         welcomes: () => host.gambitOnline.welcomes?.() ?? 0,
@@ -932,8 +932,8 @@ export function createWorldModes(host) {
     closeGambitGame();
     const stakes = stakesFor(interiorBuilding?.quality ?? 10);
     // CARDS6: online, a realm character plays for gold at the relay's table - its stake held by the service (net/card/cardStakes.js)
-    const goldOnline = cardTableGold(cardSeat?.table ?? -1) && !!host.cardOnline?.ok?.() && !!host.cardStakes?.goldOk?.();   // TAVERN-TABLES: at the gold table alone - a realm character plays for chips at the other
-    const friendly = !goldOnline && (!!host.realmAct || isOnlinePage());
+    const goldOnline = FORK_FLAGS.ENABLE_ONLINE_PLAY && cardTableGold(cardSeat?.table ?? -1) && !!host.cardOnline?.ok?.() && !!host.cardStakes?.goldOk?.();   // TAVERN-TABLES: at the gold table alone - a realm character plays for chips at the other
+    const friendly = FORK_FLAGS.ENABLE_ONLINE_PLAY ? (!goldOnline && (!!host.realmAct || isOnlinePage())) : false;
     const buyIn = buyInRange(goldOnline ? host.cardStakes.purse() ?? 0 : friendly ? FRIENDLY_CHIPS_BB * stakes.bb : goldAmount(playerEntity), stakes);
     const game = { hud: null, releaseCursor: holdCursor(), stakes, friendly, buyIn, names: tavernRegulars(Math.max(1, Math.min(5, seatCount - 1))), regulars: null, barks: new Map(), key: cardTableKey(), day: cardDay(), session: null, remote: null, log: [], phase: 'buyin', why: null, scene: null, draw: createCardTableDraw(renderer), paintedAt: 0 };   // CARDS3: the draw makes nothing until the first card
     cardGame = game;
@@ -943,7 +943,7 @@ export function createWorldModes(host) {
     // CARDS5: online, a relay that deals runs this table - the player sits at it with the friendly chips, the room sees
     // it, and the other players at it play him; alone, he may play the regulars instead (the friendly game, below)
     game.goldOnline = goldOnline;
-    if (host.cardOnline?.ok?.() && !goldOnline) {
+    if (FORK_FLAGS.ENABLE_ONLINE_PLAY && host.cardOnline?.ok?.() && !goldOnline) {
       // the game's table first, the word after - the relay's answer may come before the next line runs
       closeCardWatch(cardSeat.table);   // the cloth is the game's now, not a watcher's
       game.remote = new RemoteCardTable({ myId: host.cardOnline.id(), chair: cardSeat.seat });
@@ -5577,7 +5577,7 @@ export function createWorldModes(host) {
       ownsHouse: () => ownsHouse(playerEntity.houses ?? [], bankRegion()),
       housesFull: () => regionHousesFull(playerEntity.houses ?? [], bankRegion()),   // HOUSES-3: the region's three owned
       housesForSale: () => currentHousesForSale().length,
-      onlineHomeLines: () => (host.onlineHomes ? HOME_BANK_LINES : null),   // HOME1: online, a home is bought at its door
+      onlineHomeLines: () => (FORK_FLAGS.ENABLE_ONLINE_PLAY && host.onlineHomes ? HOME_BANK_LINES : null),   // HOME1: online, a home is bought at its door
       // H2: BUY HOUSE reaches the purchase window. The U24 identity
       // guard again - a window that dispatches to another must not be
       // nulled by its OWN onClose - and the bank is restored when the

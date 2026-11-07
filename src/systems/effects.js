@@ -1082,7 +1082,11 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       continue;
     }
     if (isDamageHealth(e)) {
-      const n = casterDamageScaled(magnitude(e), caster?.entity, target, schoolOf(e));   // DROPS-AUDIT ELITE-SPELLS; SOFTCAP2: the target, for mentor mode; SCHOOLS3: the school it is cast in
+      let n = casterDamageScaled(magnitude(e), caster?.entity, target, schoolOf(e));   // DROPS-AUDIT ELITE-SPELLS; SOFTCAP2: the target, for mentor mode; SCHOOLS3: the school it is cast in
+      const tgtProf = target?.profile ?? target?.entity?.profile;
+      if (n > 0 && spell.element === 0 && Number.isFinite(tgtProf?.weaknessFire)) {
+        n = Math.max(1, Math.round(n * tgtProf.weaknessFire));
+      }
       out.damage += n;
       if (n > 0 && sinks.hurt) sinks.hurt(n, { element: spell.element ?? null });   // BOSS-TRAITS: the spell's element (a resistance reads it - systems/bossTraits.js)
       // DamageHealthFromSource runs HandleAttackFromSource whatever the
@@ -1395,15 +1399,21 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       let pool = magnitude(e);
       const k = pool > 0 ? potencyOf(e, true) : 1;   // SCHOOLS2: Alteration past 100, on myself
       if (k !== 1) pool = Math.max(1, Math.round(pool * k));
+      if (shieldKind === 'boneArmor') {
+        const res = castBoneArmor(target, rounds, pool);
+        if (res.consumedSkeleton) {
+          pool = res.shieldRemaining;
+        }
+      }
       if (rounds > 0 && pool > 0) {
         const inc = findInc((a) => a.kind === shieldKind && !a.ended);
         if (inc) {
-          if (powerMerge(inc) && pool > inc.startingShield) inc.startingShield = pool;
+          if ((powerMerge(inc) || shieldKind === 'boneArmor') && pool > inc.startingShield) inc.startingShield = pool;
           renewRounds(inc, rounds - 1);
           inc.shieldRemaining = Math.min(inc.startingShield, inc.shieldRemaining + pool);
         } else {
           pushActive(target, { kind: shieldKind, startingShield: pool, shieldRemaining: pool, roundsRemaining: rounds }, sinks, rolls);
-          if (shieldKind === 'boneArmor') sinks?.say?.('Plates of bone coalesce around your flesh.');
+          if (shieldKind === 'boneArmor') sinks?.say?.(localizedText('boneArmorCast', 'Plates of bone coalesce around your flesh.'));
         }
         out.buffs = (out.buffs ?? 0) + 1;
       }

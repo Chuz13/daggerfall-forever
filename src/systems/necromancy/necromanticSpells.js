@@ -8,8 +8,8 @@
 
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { getCorpse, consumeCorpse, corpsesNear, CORPSE_STATE } from './corpseRegistry.js';
-import { canAffordUndead } from './undeadCapacity.js';
-import { spawnMinion } from './minionController.js';
+import { canAffordUndead, removeUndeadMinion } from './undeadCapacity.js';
+import { spawnMinion, allSpawnedMinions, detonateMinion } from './minionController.js';
 import { skillValue, SKILLS } from '../skills.js';
 import { NecroConfig, CORPSE_REQ_MODES } from './necroConfig.js';
 
@@ -158,19 +158,40 @@ export function castAnimateDead(caster, targetCorpse, { rolls = Math.random } = 
     return { success: false, reason: 'Target is not a viable corpse' };
   }
 
-  // Determine what can be raised based on decay state and entity type
+  // Determine what can be raised based on preferredType, reagents, decay state, and entity type
+  // 5-tier hierarchy: skeleton (1), zombie (2), ghost (3), mummy (4), lich (8)
+  const items = Array.isArray(casterEntity?.items) ? casterEntity.items : [];
+  const hasReagent = (tpl) => items.some((it) => it && Number(it.templateIndex) === tpl && (it.stackCount ?? 1) > 0);
+  const mystSkill = skillValue(casterEntity, SKILLS.Mysticism) || 20;
+
   let minionType = 'skeleton';
-  if (corpse.corpseState === CORPSE_STATE.FRESH) {
-    minionType = corpse.entityType === 'undead' ? 'mummy' : 'zombie';
+  if (corpse.preferredType && ['skeleton', 'zombie', 'ghost', 'mummy', 'lich'].includes(corpse.preferredType)) {
+    minionType = corpse.preferredType;
+  } else if (corpse.entityType === 'lich' || (hasReagent(45) && mystSkill >= 80 && canAffordUndead(casterEntity, 'lich'))) {
+    minionType = 'lich';
+  } else if (corpse.entityType === 'undead' && corpse.corpseState === CORPSE_STATE.FRESH) {
+    minionType = 'mummy';
+  } else if (corpse.entityType === 'ghost' || corpse.entityType === 'wraith' || corpse.corpseState === CORPSE_STATE.ASH) {
+    minionType = 'ghost';
+  } else if (corpse.corpseState === CORPSE_STATE.FRESH) {
+    if (hasReagent(49) && canAffordUndead(casterEntity, 'mummy')) {
+      minionType = 'mummy';
+    } else {
+      minionType = 'zombie';
+    }
   } else if (corpse.corpseState === CORPSE_STATE.DECAYING) {
-    minionType = 'zombie';
+    if (hasReagent(39) && canAffordUndead(casterEntity, 'ghost')) {
+      minionType = 'ghost';
+    } else {
+      minionType = 'zombie';
+    }
   } else if (corpse.corpseState === CORPSE_STATE.SKELETAL) {
     minionType = 'skeleton';
   } else {
     return { success: false, reason: 'Corpse has been desecrated' };
   }
 
-  // Capacity check
+  // Fallback down the hierarchy if capacity is tight for higher-tier reagent promotion
   if (!canAffordUndead(casterEntity, minionType)) {
     return { success: false, reason: 'Insufficient undead control capacity' };
   }
@@ -216,31 +237,91 @@ export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDama
     caster = opts.casterEntity;
   }
 
-  let corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
-  if (!corpse || corpse.consumed || !corpse.corpseState) {
-    const pos = targetCorpse?.pos || targetCorpse?.position || targetCorpse?.feet || (Array.isArray(targetCorpse) ? targetCorpse : null);
-    if (pos) {
-      corpse = corpsesNear(pos, radius)[0] ?? null;
+  const casterEntity = caster?.entity || caster;
+  const searchOrigin =
+    targetCorpse?.pos ||
+    targetCorpse?.position ||
+    targetCorpse?.feet ||
+    (Array.isArray(targetCorpse) ? targetCorpse : null) ||
+    casterEntity?.position ||
+    casterEntity?.pos ||
+    [0, 0, 0];
+
+  // Priority 1: Direct corpse record or ID
+  let corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : (targetCorpse?.corpseState ? targetCorpse : null);
+  // Priority 2: Direct minion target passed as targetCorpse
+  let minionTarget = (!corpse && targetCorpse && (targetCorpse.livingRole === 'undead_minion' || (targetCorpse.id && String(targetCorpse.id).startsWith('minion_'))))
+    ? targetCorpse
+    : null;
+
+  // Priority 3: Nearest viable corpse in range (strict priority on corpse over minion)
+  if ((!corpse || corpse.consumed) && !minionTarget && searchOrigin) {
+    corpse = corpsesNear(searchOrigin, radius * 2)[0] ?? null;
+  }
+
+  // Priority 4: Nearest active undead minion if no corpse found
+  if ((!corpse || corpse.consumed) && !minionTarget) {
+    const active = allSpawnedMinions();
+    if (active.length > 0) {
+      let best = null;
+      let bestDist = Infinity;
+      const [ox, oy, oz] = searchOrigin;
+      for (const m of active) {
+        if (!m || m.dead) continue;
+        const [mx, my, mz] = m.position || [0, 0, 0];
+        const d = Math.hypot(mx - ox, my - oy, mz - oz);
+        if (d < bestDist) {
+          bestDist = d;
+          best = m;
+        }
+      }
+      minionTarget = best;
     }
   }
 
-  if (!corpse || corpse.consumed) {
+  if ((!corpse || corpse.consumed) && !minionTarget) {
     return { success: false, hitCount: 0, damage: 0, reason: 'No corpse to detonate' };
   }
 
-  const casterEntity = caster?.entity || caster;
+  let explosionOrigin = [0, 0, 0];
+  let sourceMaxHp = 0;
+
+  if (corpse && !corpse.consumed) {
+    explosionOrigin = corpse.position || searchOrigin;
+    sourceMaxHp = Number(corpse.maxHealth) || 0;
+    consumeCorpse(corpse.id);
+  } else if (minionTarget) {
+    const sacrificed = detonateMinion(minionTarget) || minionTarget;
+    sacrificed.dead = true;
+    explosionOrigin = sacrificed.position || sacrificed.pos || sacrificed.feet || searchOrigin;
+    sourceMaxHp = Number(sacrificed.maxHealth ?? sacrificed.entity?.maxHealth) || 60;
+  }
+
+  // Damage = 5x source maxHealth when maxHealth is tracked; fallback to skill-scaled baseDamage for legacy mocks
   const destSkill = skillValue(casterEntity, SKILLS.Destruction) || 20;
-  const damage = Math.round(baseDamage * (0.8 + destSkill / 100));
+  const damage = sourceMaxHp > 0
+    ? Math.round(sourceMaxHp * 5)
+    : Math.round(baseDamage * (0.8 + destSkill / 100));
 
-  // Consume corpse
-  consumeCorpse(corpse.id);
-
-  const [cx, cy, cz] = corpse.position;
+  const [cx, cy, cz] = explosionOrigin;
   let hitCount = 0;
 
+  // Smart AoE: damages ONLY hostile enemies (never self, allies, or undead minions)
   for (const foe of nearbyFoes) {
     if (!foe || foe.dead) continue;
-    const [fx, fy, fz] = foe.feet || foe.position || [0, 0, 0];
+    if (
+      foe === caster ||
+      foe === casterEntity ||
+      foe.isPlayer ||
+      foe.allied ||
+      foe.shipmate ||
+      foe.team === 'PlayerAlly' ||
+      foe.entity?.team === 'PlayerAlly' ||
+      foe.livingRole === 'undead_minion'
+    ) {
+      continue;
+    }
+    const [fx, fy, fz] = foe.feet || foe.position || foe.pos || [0, 0, 0];
     const dist = Math.hypot(fx - cx, fy - cy, fz - cz);
     if (dist <= radius) {
       if (typeof foe.hurt === 'function') {
@@ -257,26 +338,44 @@ export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDama
     success: true,
     hitCount,
     damage,
+    sacrificedMinion: !!minionTarget,
   };
 }
 
 /**
  * Executes Life Tap, siphoning health from target to caster.
+ * If targeting an allied undead minion (or if no target provided and an active minion exists),
+ * drains up to 100% of the minion's remaining health to heal the caster.
  * @param {object} caster
- * @param {object} target
+ * @param {object} [target]
  * @param {number} [amount=30]
  * @returns {{ success: boolean, drained: number, reason?: string }}
  */
 export function castLifeTap(caster, target, amount = 30) {
-  if (!caster || !target) return { success: false, drained: 0, reason: 'Invalid targets' };
+  if (!caster) return { success: false, drained: 0, reason: 'Invalid targets' };
+  if (!target) {
+    const active = allSpawnedMinions();
+    if (active.length > 0) target = active[0];
+  }
+  if (!target) return { success: false, drained: 0, reason: 'Invalid targets' };
 
-  let drained = amount;
+  const isMinion = !!(
+    target.livingRole === 'undead_minion' ||
+    target.team === 'PlayerAlly' ||
+    (target.id && String(target.id).startsWith('minion_'))
+  );
+  const maxDrain = isMinion ? Math.max(amount, target.health ?? target.maxHealth ?? amount) : amount;
+
+  let drained = maxDrain;
   if (typeof target.health === 'number') {
-    drained = Math.min(amount, target.health);
+    drained = Math.min(maxDrain, target.health);
     target.health = Math.max(0, target.health - drained);
-    if (target.health <= 0) target.dead = true;
+    if (target.health <= 0) {
+      target.dead = true;
+      if (target.id) removeUndeadMinion(target.id);
+    }
   } else if (typeof target.hurt === 'function') {
-    target.hurt(amount);
+    target.hurt(maxDrain);
   }
 
   const casterEntity = caster.entity || caster;
@@ -300,30 +399,48 @@ export function castLifeTap(caster, target, amount = 30) {
 
 /**
  * Applies Bone Armor protective shield to the caster.
+ * If an allied skeleton minion is active, consumes the nearest skeleton to grant
+ * a bone shield equal to 3x the skeleton's maxHealth!
  * @param {object} caster
  * @param {number} [duration=15]
  * @param {number} [pool=50]
- * @returns {{ success: boolean, shieldRemaining: number, roundsRemaining: number }}
+ * @returns {{ success: boolean, shieldRemaining: number, roundsRemaining: number, consumedSkeleton?: boolean }}
  */
 export function castBoneArmor(caster, duration = 15, pool = 50) {
   const entity = caster?.entity || caster;
   if (!entity) return { success: false, shieldRemaining: 0, roundsRemaining: 0 };
 
-  entity.activeEffects = entity.activeEffects || [];
-  const entry = {
-    kind: 'boneArmor',
-    startingShield: pool,
-    shieldRemaining: pool,
-    roundsRemaining: duration,
-    ended: false,
-  };
+  let consumedSkeleton = false;
+  const activeSkeletons = allSpawnedMinions().filter((m) => m && !m.dead && m.type === 'skeleton');
+  if (activeSkeletons.length > 0) {
+    const skel = detonateMinion(activeSkeletons[0]) || activeSkeletons[0];
+    skel.dead = true;
+    const skelMaxHp = Number(skel.maxHealth ?? skel.profile?.maxHealth) || 60;
+    pool = Math.round(skelMaxHp * 3);
+    consumedSkeleton = true;
+  }
 
-  entity.activeEffects.push(entry);
+  entity.activeEffects = entity.activeEffects || [];
+  const existing = entity.activeEffects.find((e) => e.kind === 'boneArmor' && !e.ended);
+  if (existing) {
+    existing.startingShield = Math.max(existing.startingShield || pool, pool);
+    existing.shieldRemaining = pool;
+    existing.roundsRemaining = duration;
+  } else {
+    entity.activeEffects.push({
+      kind: 'boneArmor',
+      startingShield: pool,
+      shieldRemaining: pool,
+      roundsRemaining: duration,
+      ended: false,
+    });
+  }
 
   return {
     success: true,
     shieldRemaining: pool,
     roundsRemaining: duration,
+    consumedSkeleton,
   };
 }
 

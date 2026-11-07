@@ -66,6 +66,7 @@ import { noticeFrame, noticeRelease } from './enhanced/enhancedNotice.js';   // 
 import { isEnhanced } from '../systems/uiSkin.js';   // CLK4: the enhanced skin's rest is a veil, not a wall
 import { dateFromClassicMinutes } from '../systems/gameDate.js';
 import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken, channelHealTick, campNightStep } from '../systems/rest/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs   // OL2: the world's clock, read for the counter page
+import { setNecroRestManaLock } from '../systems/worldTick.js';
 
 /** CLK4 (the Clock arc): on the ENHANCED skin the resting page is a
  *  translucent veil over the world instead of DFU's opaque black, so
@@ -264,6 +265,7 @@ export class RestWindow {
     // on OPEN, not on the first rested hour: standing in the window
     // deciding already costs a held enchantment.
     this.deps.setResting?.(true);
+    setNecroRestManaLock(null, true);
     // REST1 (bible/06-Systems/Rest-Arc.md): ONLINE THE WINDOW OPENS ON THE ACT. No selection page, no hours, no loiter:
     // the host's rest point (createRestDeps' restAct) is read once, here, and the window either refuses or holds the
     // channel, then lands the night (or the short rest inside the night interval) through the host's own bag and
@@ -350,6 +352,7 @@ export class RestWindow {
     this.done = true;
     this.deps.setResting?.(false);
     this.deps.setLoitering?.(false);
+    setNecroRestManaLock(null, false);
     // RestFinishedPopup_OnClose is `PopToHUD(); RaiseSkills();`
     // (:728-732) IN THAT ORDER, and the order is load bearing: the
     // level-up screen RaiseSkills can raise needs the host's overlay
@@ -732,6 +735,7 @@ export class RestWindow {
   }
 
   _end(result) {
+    setNecroRestManaLock(null, false);
     this.deps.camp?.settle?.();   // CAMP-ROLL: an act that ended with no night heard is no camp's roller any more
     // EndRest's else-block FIRST arm (:480-486): the expired-room line
     // outranks

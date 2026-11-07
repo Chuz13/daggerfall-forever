@@ -21,6 +21,80 @@ export const PHYLACTERY_STATE = Object.freeze({
 
 export const MIN_LICHDOM_LEVEL = 5;
 export const MIN_LICHDOM_MYSTICISM = 40;
+export const ELIXIR_LICHDOM_LEVEL = 20;
+export const ELIXIR_LICHDOM_MYSTICISM = 100;
+
+/**
+ * Checks whether the player meets the strict Elixir of Unlife alchemy ascension requirements:
+ * Level >= 20 and Mysticism >= 100.
+ * @param {object} playerEntity
+ * @returns {{ eligible: boolean, reason?: string }}
+ */
+export function canDrinkElixirOfUnlife(playerEntity) {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY) {
+    return { eligible: false, reason: 'Necromancy is disabled.' };
+  }
+  if (!playerEntity) {
+    return { eligible: false, reason: 'Invalid player entity.' };
+  }
+  if (isLich(playerEntity)) {
+    return { eligible: false, reason: 'You have already ascended to Lichdom.' };
+  }
+  const level = playerEntity.level || 1;
+  if (level < ELIXIR_LICHDOM_LEVEL) {
+    return {
+      eligible: false,
+      reason: `Your mortal vessel is too weak for the Elixir of Unlife (Requires Level ${ELIXIR_LICHDOM_LEVEL}, current: ${level}).`,
+    };
+  }
+  const mystSkill = skillValue(playerEntity, SKILLS.Mysticism) || 15;
+  if (mystSkill < ELIXIR_LICHDOM_MYSTICISM) {
+    return {
+      eligible: false,
+      reason: `Your mastery of Mysticism is insufficient to bind your soul (Requires ${ELIXIR_LICHDOM_MYSTICISM}, current: ${mystSkill}).`,
+    };
+  }
+  return { eligible: true };
+}
+
+/**
+ * Drinks the Elixir of Unlife.
+ * If Level >= 20 and Mysticism >= 100, binds a Phylactery and ascends to Lichdom.
+ * Otherwise, the elixir acts as a lethal poison that ravages the drinker's mortal body.
+ * @param {object} playerEntity
+ * @param {object} [options]
+ * @returns {{ success: boolean, lichdom: boolean, poisonDamage?: number, reason?: string, message?: string }}
+ */
+export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, nowMinutes = 0 } = {}) {
+  const check = canDrinkElixirOfUnlife(playerEntity);
+  if (!check.eligible) {
+    const lethalDmg = Math.max(100, (playerEntity?.maxHealth ?? 100) * 2);
+    if (typeof hurtPlayer === 'function') {
+      hurtPlayer(lethalDmg);
+    } else if (playerEntity && typeof playerEntity.health === 'number') {
+      playerEntity.health = Math.max(0, playerEntity.health - lethalDmg);
+    }
+    return {
+      success: false,
+      lichdom: false,
+      poisonDamage: lethalDmg,
+      reason: check.reason,
+    };
+  }
+  if (!playerEntity.phylacteryAnchor || playerEntity.phylacteryAnchor.destroyed) {
+    playerEntity.phylacteryAnchor = createPhylactery({
+      anchorPosition: playerEntity.position || playerEntity.pos || [0, 0, 0],
+      anchorScene: playerEntity.sceneKey || 'interior_sanctum',
+    });
+  }
+  const res = performRitualOfUnlife(playerEntity, playerEntity.phylacteryAnchor, { nowMinutes });
+  return {
+    success: res.success,
+    lichdom: res.success,
+    reason: res.reason,
+    message: res.message,
+  };
+}
 
 /**
  * Creates a new, unbound phylactery vessel.

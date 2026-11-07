@@ -190,10 +190,22 @@ export function raiseEnemyDeath(entity, opts = {}) {
 registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return;
   const pos = entity.feet ?? entity.pos ?? opts?.feet ?? [0, 0, 0];
+  const rawType = entity.mobileType ?? entity.career ?? 'humanoid';
+  const entityType =
+    typeof rawType === 'number'
+      ? [9, 12, 13, 15, 16, 17, 18, 28, 30].includes(rawType)
+        ? 'undead'
+        : [19, 20, 21, 22, 23].includes(rawType)
+          ? 'daedra'
+          : 'humanoid'
+      : String(rawType);
+  const lvl = entity.level ?? 1;
+  const maxHp = entity.maxHealth ?? entity.entity?.maxHealth ?? (lvl * 20 + 15);
   registerCorpse({
     id: entity.id ?? `corpse_${Math.random().toString(36).slice(2, 9)}`,
-    entityType: entity.mobileType ?? entity.career ?? 'humanoid',
-    level: entity.level ?? 1,
+    entityType,
+    level: lvl,
+    maxHealth: maxHp,
     position: [pos[0] ?? 0, pos[1] ?? 0, pos[2] ?? 0],
     sceneKey: opts?.sceneKey ?? 'world',
     deathTimestamp: Date.now() / 1000,

@@ -2,14 +2,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { raiseEnemyDeath } from '../../src/scenes/corpseMarker.js';
-import { getCorpse, corpsesNear, _resetCorpseRegistryForTests } from '../../src/systems/necromancy/corpseRegistry.js';
+import { getCorpse, corpsesNear, registerCorpse, canHarvestCorpseWithInventory, harvestAllFromCorpse, _resetCorpseRegistryForTests } from '../../src/systems/necromancy/corpseRegistry.js';
 import { applySpell } from '../../src/systems/effects.js';
 import { activeUndead, _resetUndeadCapacityForTests, undeadParty } from '../../src/systems/necromancy/undeadCapacity.js';
 import { checkCityLawViolation } from '../../src/systems/necromancy/cityLaw.js';
 import { isLich } from '../../src/systems/necromancy/lichdomStatus.js';
-import { createPhylactery, performRitualOfUnlife, reconstituteLich, PHYLACTERY_STATE } from '../../src/systems/necromancy/lichdomRitual.js';
+import { createPhylactery, performRitualOfUnlife, reconstituteLich, drinkElixirOfUnlife, PHYLACTERY_STATE } from '../../src/systems/necromancy/lichdomRitual.js';
+import { castCorpseExplosion, castBoneArmor } from '../../src/systems/necromancy/necromanticSpells.js';
+import { spawnMinion } from '../../src/systems/necromancy/minionController.js';
+import { mixCauldron, ELIXIR_OF_UNLIFE_RECIPE, ELIXIR_OF_UNLIFE_KEY } from '../../src/systems/potions.js';
 import { hurtPlayer, playerEntity } from '../../src/characters/playerEntity.js';
-import { tickPlayerMinutes } from '../../src/systems/worldTick.js';
+import { tickPlayerMinutes, setNecroRestManaLock } from '../../src/systems/worldTick.js';
+import { executeConsoleLine } from '../../src/systems/consoleCommands.js';
 import { NecroConfig } from '../../src/systems/necromancy/necroConfig.js';
 import { CRIMES } from '../../src/systems/crimes.js';
 
@@ -247,3 +251,122 @@ test('NecroIntegration: hurtPlayer restores Lich at phylactery instead of dying'
   assert.ok(mortalLich.health > 0, 'Health must be restored by reconstitution');
   assert.equal(phylactery.charges, 2, 'Phylactery must consume 1 charge');
 });
+
+test('NecroIntegration: harvesting requires dagger or skinning knife and mints reagents', () => {
+  _resetCorpseRegistryForTests();
+  const corpse = registerCorpse({ id: 'test_corpse_h1', entityType: 'humanoid', position: [0, 0, 0] });
+  const unarmedPlayer = { items: [] };
+  assert.equal(canHarvestCorpseWithInventory(unarmedPlayer), false);
+
+  const knifePlayer = { items: [{ templateIndex: 603, group: 'UselessItems2' }] };
+  assert.equal(canHarvestCorpseWithInventory(knifePlayer), true);
+
+  const res = harvestAllFromCorpse(corpse, knifePlayer);
+  assert.equal(res.success, true);
+  assert.ok(res.itemsAdded.length >= 2, 'Should harvest multiple reagents into inventory');
+});
+
+test('NecroIntegration: Bone Armor consumes nearest skeleton for 3x maxHealth shield & Corpse Explosion deals 5x maxHealth to enemies only', () => {
+  _resetCorpseRegistryForTests();
+  _resetUndeadCapacityForTests();
+
+  const caster = { isPlayer: true, stats: { intelligence: 100, willpower: 100 }, skills: new Array(35).fill(100), pos: [0, 0, 0] };
+  const skel = spawnMinion({ masterEntity: caster, type: 'skeleton', position: [2, 0, 0] });
+  assert.ok(skel, 'Skeleton minion spawned');
+
+  const armorRes = castBoneArmor(caster, 25, 10);
+  assert.equal(armorRes.success, true);
+  assert.equal(armorRes.consumedSkeleton, true);
+  assert.equal(armorRes.shieldRemaining, skel.maxHealth * 3, 'Bone Armor shield must equal 3x skeleton maxHealth');
+
+  // Register a corpse with maxHealth = 80 and a friendly minion nearby
+  registerCorpse({ id: 'corpse_80hp', maxHealth: 80, position: [3, 0, 0] });
+  const zomb = spawnMinion({ masterEntity: caster, type: 'zombie', position: [1, 0, 0] });
+
+  let enemyDamage = 0;
+  let allyDamage = 0;
+  const hostileEnemy = {
+    id: 'enemy_1',
+    pos: [4, 0, 0],
+    isHostile: true,
+    health: 500,
+    hurt: (dmg) => { enemyDamage += dmg; },
+  };
+  const alliedMinionTarget = {
+    id: zomb.id,
+    pos: [1, 0, 0],
+    allied: true,
+    livingRole: 'undead_minion',
+    health: 120,
+    hurt: (dmg) => { allyDamage += dmg; },
+  };
+
+  const expRes = castCorpseExplosion({
+    casterEntity: caster,
+    originPosition: [0, 0, 0],
+    nearbyFoes: [hostileEnemy, alliedMinionTarget],
+  });
+
+  assert.equal(expRes.success, true);
+  assert.equal(expRes.sacrificedMinion, false, 'Must prioritize corpse over minion when untargeted');
+  assert.equal(expRes.damage, 80 * 5, 'Corpse Explosion must deal 5x corpse maxHealth');
+  assert.equal(enemyDamage, 400, 'Hostile enemy takes 5x maxHealth damage');
+  assert.equal(allyDamage, 0, 'Allied minion takes zero friendly fire damage');
+});
+
+test('NecroIntegration: Rest Mana Lock pauses minion upkeep during rest and unblocks after', () => {
+  _resetUndeadCapacityForTests();
+  const caster = {
+    isPlayer: true,
+    magicka: 100,
+    maxMagicka: 100,
+    health: 100,
+    maxHealth: 100,
+    fatigue: 1000,
+    maxFatigue: 1000,
+    lastGameMinutes: 0,
+    skills: new Array(35).fill(80),
+    stats: { intelligence: 80, willpower: 80, endurance: 50, strength: 50, agility: 50, speed: 50, personality: 50, luck: 50 },
+    effects: [],
+  };
+  spawnMinion({ masterEntity: caster, type: 'skeleton', position: [0, 0, 0] });
+
+  setNecroRestManaLock(caster, true);
+  let drainedWhileResting = 0;
+  tickPlayerMinutes({
+    entity: caster,
+    classicMinutes: 10,
+    dt: 1,
+    sinks: { drainMagicka: (n) => { drainedWhileResting += n; }, drainFatigue: () => {}, hurt: () => {}, heal: () => {} },
+  });
+  assert.equal(drainedWhileResting, 0, 'No magicka drained for minions while resting');
+
+  setNecroRestManaLock(caster, false);
+  let drainedAfterRest = 0;
+  tickPlayerMinutes({
+    entity: caster,
+    classicMinutes: 20,
+    dt: 1,
+    sinks: { drainMagicka: (n) => { drainedAfterRest += n; }, drainFatigue: () => {}, hurt: () => {}, heal: () => {} },
+  });
+  assert.ok(drainedAfterRest > 0, 'Magicka drain resumes once rest ends');
+});
+
+test('NecroIntegration: Elixir of Unlife cauldron recipe & Level 20 + Mysticism 100 requirement', () => {
+  const mix = mixCauldron([53, 38, 45, 39]);
+  assert.equal(mix.kind, 'mixed');
+  assert.equal(mix.key, ELIXIR_OF_UNLIFE_KEY);
+  assert.equal(mix.recipe.name, ELIXIR_OF_UNLIFE_RECIPE.name);
+
+  const lowPlayer = { level: 10, skills: new Array(35).fill(50), health: 100, maxHealth: 100 };
+  let poisonHurt = 0;
+  const failDrink = drinkElixirOfUnlife(lowPlayer, { hurtPlayer: (n) => { poisonHurt += n; } });
+  assert.equal(failDrink.success, false);
+  assert.ok(poisonHurt > 0, 'Drinking Elixir below requirements inflicts lethal poison damage');
+
+  const archmage = { level: 20, skills: new Array(35).fill(100), stats: { intelligence: 100, willpower: 100 }, health: 100, maxHealth: 100, items: [] };
+  const okDrink = drinkElixirOfUnlife(archmage, {});
+  assert.equal(okDrink.success, true);
+  assert.equal(isLich(archmage), true);
+});
+

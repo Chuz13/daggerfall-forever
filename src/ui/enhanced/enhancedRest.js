@@ -21,6 +21,7 @@ import { bindings } from '../input.js';   // B5: the live InputManager registry,
 import { localizedText } from '../../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { restClockLine } from '../restWindow.js';   // AUDIT LIVED1 O (U3): the classic window's clock line, one home for its words
 import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken, channelHealTick, campNightStep } from '../../systems/rest/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs
+import { setNecroRestManaLock } from '../../systems/worldTick.js';
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -84,6 +85,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   // rest-encounter roll, and PARTY-REST1's own "never double up on a rest that is already real" guard all read
   // it and all silently saw `false` throughout an enhanced rest.
   deps.setResting?.(true);
+  setNecroRestManaLock(null, true);
   overlay.abortForEnemySpawn = () => {
     if (overlay.session) overlay.session.abortForEnemySpawn();
     else if (!ambushNight()) overlay._pendingEnemySpawn = true;   // AUDIT REST-PARTY A2: the act's night is restAct.js's own session, run in one call - a quest foe stood inside it breaks it there
@@ -118,6 +120,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   // RemoveExpiredRentedRooms as the first arm of EndRest, the presence re-roll on close.
   const moveToBed = () => { if (overlay._allocatedBed != null && !ignoreAllocatedBed) deps.moveToBed?.(overlay._allocatedBed); };
   overlay._end = (result) => {
+    setNecroRestManaLock(null, false);
     deps.camp?.settle?.();   // CAMP-ROLL: an act that ended with no night heard is no camp's roller any more (restWindow.js _end)
     if (result.rentExpired) deps.onRentExpired?.();
     if (overlay.mode !== 'loiter' && (overlay.session?.totalHours ?? 0) >= 6) deps.onNightSlept?.();   // REST2: a night slept spends your own camp's charge, as restWindow.js
@@ -489,6 +492,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     // open would leave the player permanently "resting" for the rest of the session.
     deps.setResting?.(false);
     deps.setLoitering?.(false);
+    setNecroRestManaLock(null, false);
     if (lockHandler && typeof document !== 'undefined') document.removeEventListener('pointerlockchange', lockHandler);
     host?.remove();
     host = null;

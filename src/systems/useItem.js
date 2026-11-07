@@ -39,7 +39,10 @@ import { isSurvivalItem, useSurvivalItem } from './survival/items.js';   // SURV
 import { survivalRules } from './survival/switch.js';   // SURV-TIERS: a meal's sickness is the tier's
 import { SURVIVAL_RULES } from './survival/difficulty.js';   // AUDIT SURV-TIERS: and with the arc off, Casual's - none
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
-import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, t } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
+import { drinkElixirOfUnlife } from './necromancy/lichdomRitual.js';
+import { corpsesNear, harvestAllFromCorpse } from './necromancy/corpseRegistry.js';
 import { hoodCapable, hoodUp } from './survival/temperature.js';   // HOOD-SAID: the one hood law, for toggleHood
 import { sandPotionRefusal } from './arena/arenaKit.js';   // AUDIT ARENA-LADDER: no potion on the sand
 import { flightBottleRefusal } from './eliteGates/spireKit.js';   // POTION-CLOCK: the Spire's made-level law runs the potion clock below (its registration); AUDIT POTION-MIGHT C7: and keeps a bottle its flight ban would waste
@@ -358,16 +361,65 @@ export function useItem(item, collection, {
     // since every potion is the same Glass_Bottle template and only
     // its recipe differs.
     if (collection) removeOneRecord(collection, item);
-    // U44: and then it actually DOES something. The arm consumed the
-    // bottle and answered `pending`, which printed "You drink the
-    // potion." over an entity nothing had touched - the game claiming
-    // an outcome it had not produced, for the whole of the item arc.
-    // DrinkPotion's own guard is `PotionRecipeKey == 0` (:906), so a
-    // bottle naming no recipe is drunk and does nothing, exactly as
-    // here.
-    const drank = drinkPotion ? drinkPotion(item.potionRecipeKey ?? 0, Number.isInteger(item.potent) ? item.potent : 0) : null;   // PROF12: a Potent potion's share
-    pvpPotionDrunk(item);   // PVP-POTIONS: its kind's 15 s start (POTION-CLOCK: in an Elite Breach too)
-    out = drank ? { kind: 'potion', potion: drank } : { kind: 'potion', pending: true };
+    if (item.potionRecipeKey === ELIXIR_OF_UNLIFE_KEY) {
+      const res = drinkElixirOfUnlife(entity, { nowMinutes: nowMinute });
+      const text = res.lichdom
+        ? t('necro.lich.success', 'The mortal spark is snuffed. You rise as an immortal Lich of the Iliac Bay.')
+        : t('necro.lich.fail', 'Your body rejects the Elixir of Unlife! Lethal poison courses through your veins (Requires Level 20 & 100 Mysticism).');
+      out = { kind: 'potion', potion: 'Elixir of Unlife', lichdom: res.lichdom, text };
+    } else {
+      // U44: and then it actually DOES something. The arm consumed the
+      // bottle and answered `pending`, which printed "You drink the
+      // potion." over an entity nothing had touched - the game claiming
+      // an outcome it had not produced, for the whole of the item arc.
+      // DrinkPotion's own guard is `PotionRecipeKey == 0` (:906), so a
+      // bottle naming no recipe is drunk and does nothing, exactly as
+      // here.
+      const drank = drinkPotion ? drinkPotion(item.potionRecipeKey ?? 0, Number.isInteger(item.potent) ? item.potent : 0) : null;   // PROF12: a Potent potion's share
+      pvpPotionDrunk(item);   // PVP-POTIONS: its kind's 15 s start (POTION-CLOCK: in an Elite Breach too)
+      out = drank ? { kind: 'potion', potion: drank } : { kind: 'potion', pending: true };
+    }
+  }
+
+  // NECROMANCY: Field Corpse Harvesting with Skinning Knife (603) or Dagger/Tanto (113, 114)
+  else if ([603, 113, 114].includes(item.templateIndex)) {
+    const hEntity = entity ?? { items: collection };
+    if (collection && !Array.isArray(hEntity.items)) hEntity.items = collection;
+    const pos = hEntity?.position || hEntity?.pos || [0, 0, 0];
+    const nearby = corpsesNear(pos, 8);
+    if (nearby.length > 0) {
+      const res = harvestAllFromCorpse(nearby[0], hEntity);
+      const text = res.success
+        ? t('necro.harvest.done', 'You harvest necromantic reagents from {0}: {1}.', nearby[0].entityName || 'the corpse', res.harvested.join(', '))
+        : t('necro.harvest.empty', 'Nothing useful remains on this corpse.');
+      out = { kind: 'harvestCorpse', ...res, text };
+    } else if (item.templateIndex === 603) {
+      out = {
+        kind: 'harvestCorpse',
+        success: false,
+        text: t('necro.harvest.none', 'No fresh or skeletal corpses nearby to harvest.'),
+      };
+    }
+  }
+
+  // NECROMANCY: Field Alchemy Ritual — Using Lich Dust (45) when carrying all 4 Elixir of Unlife reagents [38, 39, 45, 53]
+  else if (item.templateIndex === 45 && Array.isArray(collection)) {
+    const reqIds = ELIXIR_OF_UNLIFE_RECIPE.ingredients;
+    const foundItems = reqIds.map((tpl) => collection.find((it) => it && Number(it.templateIndex) === tpl && (it.stackCount ?? 1) > 0));
+    if (foundItems.every(Boolean)) {
+      for (const ing of foundItems) {
+        removeOneRecord(collection, ing);
+      }
+      const elixir = makePotion(ELIXIR_OF_UNLIFE_KEY);
+      elixir.shortName = 'Potion of Elixir of Unlife';
+      elixir.longName = 'Potion of Elixir of Unlife';
+      collection.push(elixir);
+      out = {
+        kind: 'brewElixirOfUnlife',
+        item: elixir,
+        text: t('necro.elixir.brewed', 'Dark alchemy coalesces! You distil the Elixir of Unlife from the four occult reagents.'),
+      };
+    }
   }
 
   else if (isPotionRecipe(item)) out = { kind: 'potionRecipe', text: named('cannotUseThis') };

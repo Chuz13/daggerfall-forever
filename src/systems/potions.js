@@ -48,12 +48,21 @@ import { templateByIndex } from './item/itemTemplates.js';
 import {
   POTION_RECIPES,
   POTION_DEFAULT_TEXTURE_RECORD,
+  ELIXIR_OF_UNLIFE_RECIPE,
+  ELIXIR_OF_UNLIFE_KEY,
   potionRecipeKey,
   potionKeyFromCauldron,
   setPotionDisplayNames,
 } from './potionRecipes.js';
 import { localizedStrings } from './textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
-export { POTION_RECIPES, POTION_DEFAULT_TEXTURE_RECORD, potionRecipeKey, potionKeyFromCauldron };
+export {
+  POTION_RECIPES,
+  POTION_DEFAULT_TEXTURE_RECORD,
+  ELIXIR_OF_UNLIFE_RECIPE,
+  ELIXIR_OF_UNLIFE_KEY,
+  potionRecipeKey,
+  potionKeyFromCauldron,
+};
 
 /** L10N3d: PotionRecipe.GetDisplayName (:225-236) is
  *  `GetLocalizedText(DisplayNameKey)`, and each recipe's `name` IS its
@@ -89,6 +98,7 @@ setPotionDisplayNames(POTION_NAME_TEXT);
  *  the same hash the cauldron computes, which is the whole matching
  *  mechanism - there is no ingredient comparison anywhere. */
 const _byKey = new Map(POTION_RECIPES.map((r) => [potionRecipeKey(r.ingredients), r]));
+const _customByKey = new Map([[ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE]]);
 // RR1: `EntityEffectBroker.RegisterEffectTemplate(new CureDiseasePotionRR(), true)`
 // (RoleplayRealism.cs:198) - a mod's effect class re-declares its potion
 // recipes and the broker's dictionary takes them over DFU's (allowReplacement).
@@ -100,7 +110,19 @@ export function overridePotionRecipes(rows) {
   for (const r of rows ?? [])
     _recipeOverrides.set(potionRecipeKey(r.ingredients), Object.isFrozen(r) ? r : Object.freeze(r));
 }
-export const potionRecipeByKey = (key) => _recipeOverrides.get(key) ?? _byKey.get(key) ?? null;
+export const potionRecipeByKey = (key) => _recipeOverrides.get(key) ?? _byKey.get(key) ?? _customByKey.get(key) ?? null;
+
+export function makePotion(recipeKey) {
+  const recipe = potionRecipeByKey(recipeKey);
+  return {
+    group: 'UselessItems1',
+    templateIndex: 83,
+    potionRecipeKey: recipeKey,
+    value: recipe?.price ?? 1,
+    worldTextureRecord: recipe?.textureRecord ?? POTION_DEFAULT_TEXTURE_RECORD,
+    stackCount: 1,
+  };
+}
 
 /** EntityEffectManager.DrinkPotion (:903-947), the bundle half.
  *

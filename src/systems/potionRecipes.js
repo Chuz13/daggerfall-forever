@@ -261,3 +261,25 @@ export const POTION_RECIPES = Object.freeze(
 /** PotionRecipe.cs:34 `int textureRecord = 11` - the field's own
  *  initialiser, which is what a recipe that never sets one keeps. */
 export const POTION_DEFAULT_TEXTURE_RECORD = 11;
+
+/**
+ * NECROMANCY & LICHDOM: The Elixir of Unlife.
+ * Brewed at a Guild/Temple Potion Maker (or via field ritual using Lich Dust) from:
+ *  - 38: Wraith Essence
+ *  - 39: Ectoplasm
+ *  - 45: Lich Dust
+ *  - 53: Daedra's Heart
+ * Exported separately so DFU's canonical POTION_RECIPES.length === 20 pin remains untouched.
+ */
+export const ELIXIR_OF_UNLIFE_RECIPE = Object.freeze(
+  withDisplayName({
+    name: 'elixirOfUnlife',
+    price: 2500,
+    ingredients: [38, 39, 45, 53],
+    effect: '47,255',
+    displayName: 'Elixir of Unlife',
+    textureRecord: 35,
+    settings: { chanceBase: 100 },
+  }),
+);
+export const ELIXIR_OF_UNLIFE_KEY = potionRecipeKey(ELIXIR_OF_UNLIFE_RECIPE.ingredients);

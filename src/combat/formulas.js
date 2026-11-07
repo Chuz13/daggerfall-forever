@@ -47,7 +47,14 @@ import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's In
 import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what the target takes - a leaf, for the brain that registers into it imports the motor that imports this file
 import { ENEMY_GROUPS, enemyEntityGroup, _resetEnemyGroups } from './enemyGroups.js';   // AUDIT DEX C3: the group switch and its mod door, a leaf
 import { emitModEvent } from '../systems/mods/modEventBus.js';
-import { getMaterialDamageMultiplier, getMaterialArmorPenetration, getMaterialConditionLossMultiplier } from '../systems/mods/modDataSync.js';
+import {
+  getMaterialDamageMultiplier,
+  getMaterialArmorPenetration,
+  getMaterialConditionLossMultiplier,
+  getMaterialSunderArmorChance,
+  getMaterialStaminaDrain,
+  getMaterialHolyBurn,
+} from '../systems/mods/modDataSync.js';
 
 // ---- Dice100.cs verbatim ----
 export const dice100 = (chance, roll01 = Math.random()) => Math.floor(roll01 * 100) < chance;   // Random.Range(0,100) < chance
@@ -778,6 +785,77 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   if (weapon && damage > 0 && (weapon.poisonType ?? -1) !== -1) {
     if (onInflictPoison) onInflictPoison(attacker, target, weapon.poisonType);
     weapon.poisonType = -1;
+  }
+  // Necromancy MINION_PROFILES: target vulnerabilities/resistances & attacker on-hit effects
+  const tgtProfile = target?.profile ?? target?.entity?.profile;
+  if (tgtProfile) {
+    if (tgtProfile.ethereal) {
+      const wepMat = weapon?.material ?? -1;
+      const isMagicalOrSilver = isEnchantedItem(weapon) || wepMat >= 2;
+      if (!isMagicalOrSilver) {
+        if (attacker.isPlayer) say?.(materialIneffectiveText());
+        return report(0);
+      }
+    }
+    if (damage > 0 && weapon) {
+      const isBlunt = !!(weapon.isBluntWeapon || [119, 120, 121, 122].includes(weapon.templateIndex));
+      if (isBlunt && Number.isFinite(tgtProfile.weaknessBlunt)) {
+        damage = Math.max(1, Math.round(damage * tgtProfile.weaknessBlunt));
+      } else if (!isBlunt && Number.isFinite(tgtProfile.resistSlashing)) {
+        damage = Math.max(1, Math.round(damage * tgtProfile.resistSlashing));
+      }
+    }
+  }
+  const atkProfile = attacker?.profile ?? attacker?.entity?.profile;
+  if (atkProfile && damage > 0 && target) {
+    if (atkProfile.diseaseOnHit && rolls() < 0.25) {
+      target.diseased = true;
+      target.activeEffects = target.activeEffects || [];
+      if (!target.activeEffects.some((e) => e.kind === 'disease' && !e.ended)) {
+        target.activeEffects.push({ kind: 'disease', diseaseType: 16, daysOfSymptomsLeft: 5, ended: false });
+      }
+    }
+    if (atkProfile.drainFatigue) {
+      const curFat = target.fatigue ?? target.currentFatigue;
+      if (typeof curFat === 'number') {
+        const nextFat = Math.max(0, curFat - 15);
+        if (typeof target.fatigue === 'number') target.fatigue = nextFat;
+        if (typeof target.currentFatigue === 'number') target.currentFatigue = nextFat;
+      }
+    }
+    if (atkProfile.curseOnHit) {
+      target.cursed = true;
+    }
+  }
+  // Weapons Reforged: material multipliers, armor penetration, sunder, stamina drain, holy burn
+  if (weapon && weapon.material !== undefined && damage > 0) {
+    const matMult = getMaterialDamageMultiplier(weapon.material);
+    if (Number.isFinite(matMult) && matMult !== 1) {
+      damage = Math.max(1, Math.round(damage * matMult));
+    }
+    const pen = getMaterialArmorPenetration(weapon.material);
+    if (pen > 0) {
+      damage += Math.max(1, Math.round(damage * pen));
+    }
+    const sunderChance = getMaterialSunderArmorChance(weapon.material);
+    if (sunderChance > 0 && rolls() < sunderChance && target) {
+      target.armorSundered = true;
+      if (typeof target.armorValue === 'number') target.armorValue += 2;
+    }
+    const stamDrain = getMaterialStaminaDrain(weapon.material);
+    if (stamDrain > 0 && target && typeof target.fatigue === 'number') {
+      target.fatigue = Math.max(0, target.fatigue - stamDrain);
+    }
+    if (getMaterialHolyBurn(weapon.material)) {
+      const isUndeadTarget =
+        enemyEntityGroup(target) === ENEMY_GROUPS.Undead ||
+        target?.entityType === 'undead' ||
+        target?.livingRole === 'undead_minion' ||
+        !!tgtProfile;
+      if (isUndeadTarget) {
+        damage += 5;
+      }
+    }
   }
   damage = shared(Math.max(0, damage));
   // FormulaHelper.cs:699-701: the equipment damages at the TAIL with

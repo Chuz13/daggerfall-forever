@@ -3491,3 +3491,55 @@ living.merchant.buy,"[Osta] Tarkastele tavaroita ja osta tarvikkeita"
 living.merchant.sell,"[Myy] Myy saaliita kultakolikoista"
 living.roadAdv.noGold,"En voi tarjota miekkaani ilman palkkiota ({gold} kultaa)."
 living.roadAdv.contractExpired,"Kumppanisi 24 tunnin sopimus on päättynyt. He jättävät jäähyväiset ja palaavat tielle."
+input.action.undeadNexus,Undead Command Nexus Menu
+input.action.undeadRecall,Order Minions: Recall to Heel (Numpad 7)
+input.action.undeadAttack,Order Minions: Attack / Focus (Numpad 8)
+input.action.undeadFeignDeath,Order Minions: Ambush / Feign Death (Numpad 9)
+input.action.undeadDetonate,Order Minions: Detonate Nearest (Numpad 4)
+input.action.undeadFollow,Order Minions: Follow (Numpad 1)
+input.action.undeadGuard,Order Minions: Guard (Numpad 2)
+input.action.undeadDismiss,Order Minions: Dismiss All (Numpad 3)
+necro.cmd.none,You have no active undead minions to command.
+necro.cmd.follow,Undead Minions: Following at your heel.
+necro.cmd.guard,Undead Minions: Holding ground and guarding position.
+necro.cmd.attackTarget,Undead Minions: Engaging nearest enemy!
+necro.cmd.attackScout,"Undead Minions: In attack stance, scouting for enemies."
+necro.cmd.feignDeath,Undead Minions: Collapsing to ground (feigning death).
+necro.cmd.recall,Shadow Tether: All minions recalled to your side!
+necro.cmd.detonate,Minion Detonated! Dealt {0} AoE damage to {1} foes.
+necro.cmd.dismiss,Undead Minions: All minions dismissed and banished.
+necro.menu.empty,You have no active undead minions. Raise a corpse first.
+necro.menu.title,=== UNDEAD COMMAND NEXUS ===
+necro.menu.active,Active Minions: {0} ({1})
+necro.menu.stance,Current Stance: [{0}]
+necro.menu.prompt,Issue a mental order to your commanded minions:
+necro.menu.optRecall,1. [Recall to Heel] Teleport all minions to your side (Numpad 7)
+necro.menu.optAttack,2. [Attack / Focus] Charge nearest enemies on sight (Numpad 8)
+necro.menu.optAmbush,3. [Ambush / Wait] Collapse & hold position (Numpad 9)
+necro.menu.optDetonate,4. [Detonate Minion] Sacrifice nearest minion for 5x HP AoE (Numpad 4)
+necro.menu.optFollow,5. [Follow] Follow close behind master (Numpad 1)
+necro.menu.optGuard,6. [Guard] Hold ground and guard area (Numpad 2)
+necro.menu.optDismiss,7. [Dismiss] Destroy all active minions (Numpad 3)
+necro.menu.optHarvest,8. [Harvest Remains] Carve reagents from nearby corpse
+necro.menu.optClose,0. [Close] (Numpad 6 / Esc)
+necro.harvest.none,No fresh or skeletal corpses nearby to harvest.
+necro.harvest.noBlade,You need a Skinning Knife or Dagger in your inventory to harvest remains.
+necro.harvest.done,You harvest necromantic reagents from {0}: {1}.
+necro.harvest.empty,Nothing useful remains on this corpse.
+necro.elixir.brewed,Dark alchemy coalesces! You distil the Elixir of Unlife from the four occult reagents.
+necro.lich.success,The mortal spark is snuffed. You rise as an immortal Lich of the Iliac Bay.
+necro.lich.fail,Your body rejects the Elixir of Unlife! Lethal poison courses through your veins (Requires Level 20 & 100 Mysticism).
+perks.ui.title,Perks & Milestones
+perks.ui.lead,"Passive combat, magic, and survival feats unlocked by mastering skills and surviving the Iliac Bay."
+perks.ui.unlocked,Unlocked
+perks.ui.locked,Locked
+perks.blade_mastery.name,Blade Mastery
+perks.blade_mastery.desc,+15% damage and +10% crit chance with Long Blades (Requires 50 Long Blade).
+perks.arcane_reservoir.name,Arcane Reservoir
+perks.arcane_reservoir.desc,Increases maximum Magicka by +25 and halves spell interruption (Requires 50 Destruction or Mysticism).
+perks.shadow_step.name,Shadow Step
+perks.shadow_step.desc,Movement in stealth makes 40% less noise and backstabs deal +25% bonus damage (Requires 50 Stealth).
+perks.iron_constitution.name,Iron Constitution
+perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% and grants +15 Max HP (Requires Level 5).
+perks.treasure_hunter.name,Treasure Hunter
+perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).

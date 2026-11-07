@@ -9218,3 +9218,55 @@ living.merchant.buy,"[Купить] Осмотреть товары и купи�
 living.merchant.sell,"[Продать] Продать добычу за золото"
 living.roadAdv.noGold,"Я не могу обнажить свой клинок без платы за наём ({gold} золотых)."
 living.roadAdv.contractExpired,"Срок 24-часового контракта вашего спутника истёк. Он прощается с вами и возвращается на тракт."
+input.action.undeadNexus,Меню управления нежитью (Нексус)
+input.action.undeadRecall,Приказ нежити: К ноге! (Numpad 7)
+input.action.undeadAttack,Приказ нежити: Атака / Фокус (Numpad 8)
+input.action.undeadFeignDeath,Приказ нежити: Засада / Притвориться мёртвым (Numpad 9)
+input.action.undeadDetonate,Приказ нежити: Подрыв миньона (Numpad 4)
+input.action.undeadFollow,Приказ нежити: Следовать (Numpad 1)
+input.action.undeadGuard,Приказ нежити: Охранять (Numpad 2)
+input.action.undeadDismiss,Приказ нежити: Развоплотить всех (Numpad 3)
+necro.cmd.none,У вас нет активных миньонов-нежити для приказа.
+necro.cmd.follow,Нежить: Следует за хозяином («К ноге!»).
+necro.cmd.guard,Нежить: Удерживает позицию и охраняет территорию.
+necro.cmd.attackTarget,Нежить: Атакует ближайшего врага!
+necro.cmd.attackScout,"Нежить: В атакующей стойке, ищет врагов."
+necro.cmd.feignDeath,Нежить: Падает замертво в засаду.
+necro.cmd.recall,Теневая привязь: Вся нежить призвана к вашей ноге!
+necro.cmd.detonate,Подрыв миньона! Нанесено {0} ед. урона по площади ({1} врагам).
+necro.cmd.dismiss,Нежить: Все миньоны развоплощены и изгнаны.
+necro.menu.empty,У вас нет активных миньонов-нежити. Сначала поднимите труп.
+necro.menu.title,=== НЕКСУС ПОВЕЛЕНИЯ НЕЖИТЬЮ ===
+necro.menu.active,Активные миньоны: {0} ({1})
+necro.menu.stance,Текущий приказ: [{0}]
+necro.menu.prompt,Отдайте мысленный приказ вашей орде нежити:
+necro.menu.optRecall,1. [К ноге!] Мгновенно вернуть всю нежить к себе (Numpad 7)
+necro.menu.optAttack,2. [Атака / Фокус] Бросить орду на ближайших врагов (Numpad 8)
+necro.menu.optAmbush,3. [Засада / Ждать] Упасть замертво и ждать (Numpad 9)
+necro.menu.optDetonate,4. [Подрыв] Взорвать ближайшего миньона (5x HP AoE) (Numpad 4)
+necro.menu.optFollow,5. [Следовать] Идти следом за хозяином (Numpad 1)
+necro.menu.optGuard,6. [Охранять] Держать текущую позицию (Numpad 2)
+necro.menu.optDismiss,7. [Развоплотить] Уничтожить всех активных миньонов (Numpad 3)
+necro.menu.optHarvest,8. [Разделать останки] Собрать реагенты с ближайшего трупа
+necro.menu.optClose,0. [Закрыть] (Numpad 6 / Esc)
+necro.harvest.none,Рядом нет подходящих трупов для разделки.
+necro.harvest.noBlade,Для разделки останков нужен свежеватель (Skinning Knife) или любой кинжал в инвентаре.
+necro.harvest.done,Вы собрали некромантские реагенты с {0}: {1}.
+necro.harvest.empty,На этом трупе больше не осталось полезных реагентов.
+necro.elixir.brewed,Тёмная алхимия свершилась! Вы сварили Эликсир не-жизни из четырёх оккультных реагентов.
+necro.lich.success,Смертная искра погасла. Вы переродились бессмертным Личем залива Илиак!
+necro.lich.fail,Ваше тело отвергает Эликсир не-жизни! Смертельный яд выжигает вены (Требуется Уровень 20 и Мистицизм 100).
+perks.ui.title,Перки и Подвиги
+perks.ui.lead,"Пассивные боевые, магические и выживальческие таланты, открываемые по мере мастерства."
+perks.ui.unlocked,Открыто
+perks.ui.locked,Закрыто
+perks.blade_mastery.name,Мастер клинка
+perks.blade_mastery.desc,+15% к урону и +10% к шансу крита длинными клинками (Требуется Длинный клинок 50).
+perks.arcane_reservoir.name,Магический резервуар
+perks.arcane_reservoir.desc,Увеличивает макс. ману на +25 и вдвое снижает шанс срыва заклинаний (Требуется Разрушение или Мистицизм 50).
+perks.shadow_step.name,Шаг в тени
+perks.shadow_step.desc,"Движение в скрытности на 40% тише, а удары в спину наносят +25% урона (Требуется Скрытность 50)."
+perks.iron_constitution.name,Железное здоровье
+perks.iron_constitution.desc,Снижает уязвимость к болезням и ядам на 30% и даёт +15 к макс. здоровью (Требуется Уровень 5).
+perks.treasure_hunter.name,Охотник за сокровищами
+perks.treasure_hunter.desc,Увеличивает количество золота в сундуках и на трупах на 20% (Требуется Торговля 40).

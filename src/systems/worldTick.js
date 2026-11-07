@@ -46,6 +46,28 @@ import { tickTaintDaily } from './necromancy/necroTaint.js';
 import { NecroConfig } from './necromancy/necroConfig.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 
+let _necroRestManaLocked = false;
+
+/**
+ * Blocks or unblocks necromancy minion magicka upkeep during rest.
+ * When unblocked, resets the upkeep timestamp so accumulated rest time does not burst-drain magicka.
+ * @param {object} [entity]
+ * @param {boolean} locked
+ */
+export function setNecroRestManaLock(entity, locked) {
+  _necroRestManaLocked = !!locked;
+  if (entity) {
+    entity._restManaLock = !!locked;
+    if (!locked) {
+      entity._lastMinionUpkeepMs = 0;
+    }
+  }
+}
+
+export function isNecroRestManaLocked(entity) {
+  return !!(entity?.isResting || entity?.isLoitering || entity?._restManaLock || _necroRestManaLocked);
+}
+
 /**
  * DISC10-D H1: RacialOverrideEffect.OnWeaponHitEntity - THE ONE DISPATCHER,
  * called by the player's strike resolution AFTER the target's health moved,
@@ -721,10 +743,11 @@ function tickPlayerMinutesOnce({
   const nowMinutes = Math.floor(next);
 
   // NECROMANCY: minion upkeep magicka drain (1 mana per 5-second combat round per minion tier), exhaustion rebellion, and taint decay
+  // Blocked while resting so necromancers can recover magicka peacefully; unblocked on any rest exit.
   if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.enabled) {
     const minions = activeUndead();
     const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (minions.length > 0 && NecroConfig.minionUpkeep) {
+    if (minions.length > 0 && NecroConfig.minionUpkeep && !isNecroRestManaLocked(entity)) {
       if (!entity._lastMinionUpkeepMs || nowMs - entity._lastMinionUpkeepMs >= 5000) {
         entity._lastMinionUpkeepMs = nowMs;
         const upkeepCost = minions.reduce((sum, m) => sum + (Number(m.tier ?? m.slotCost ?? 1)), 0);
@@ -739,6 +762,8 @@ function tickPlayerMinutesOnce({
           }
         }
       }
+    } else if (isNecroRestManaLocked(entity)) {
+      entity._lastMinionUpkeepMs = nowMs;
     }
     tickTaintDaily(Math.floor(nowMinutes / 1440), entity);
   }

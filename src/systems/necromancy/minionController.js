@@ -202,19 +202,30 @@ export function orderRecall(masterPosition, spreadRadius = 1.5) {
  * @param {Array<object>} [options.nearbyFoes=[]]
  * @returns {{ success: boolean, hitCount: number, damage: number, reason?: string }}
  */
-export function detonateMinion(minionId, { radius = 6, damage = 50, nearbyFoes = [] } = {}) {
-  const m = getSpawnedMinion(minionId);
+export function detonateMinion(minionId = null, { radius = 6, damage = 50, nearbyFoes = [] } = {}) {
+  let m = typeof minionId === 'string' ? getSpawnedMinion(minionId) : (minionId?.id ? (getSpawnedMinion(minionId.id) || minionId) : null);
+  if (!m && minionId === null) {
+    for (const cand of _spawnedMinions.values()) {
+      if (!cand.dead) {
+        m = cand;
+        break;
+      }
+    }
+  }
   if (!m || m.dead) return { success: false, hitCount: 0, damage: 0, reason: 'Invalid minion' };
 
   m.dead = true;
-  removeUndeadMinion(minionId);
-  _spawnedMinions.delete(minionId);
+  removeUndeadMinion(m.id);
+  _spawnedMinions.delete(m.id);
 
-  const [cx, cy, cz] = m.position;
+  const [cx, cy, cz] = m.position || [0, 0, 0];
   let hitCount = 0;
 
   for (const foe of nearbyFoes) {
     if (!foe || foe.dead) continue;
+    if (foe.isPlayer || foe.allied || foe.team === 'PlayerAlly' || foe.entity?.team === 'PlayerAlly' || foe.livingRole === 'undead_minion') {
+      continue;
+    }
     const [fx, fy, fz] = foe.feet || foe.position || [0, 0, 0];
     const dist = Math.hypot(fx - cx, fy - cy, fz - cz);
     if (dist <= radius) {
@@ -228,7 +239,7 @@ export function detonateMinion(minionId, { radius = 6, damage = 50, nearbyFoes =
     }
   }
 
-  return { success: true, hitCount, damage };
+  return { success: true, hitCount, damage, minion: m, id: m.id, maxHealth: m.maxHealth, position: m.position };
 }
 
 /**

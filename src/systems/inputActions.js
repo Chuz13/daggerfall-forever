@@ -222,7 +222,7 @@ export const ACTIONS = Object.freeze([
   // HOLD-FREE-MOUSE: hold the key to free cursor, release to relock mouselook. Appended, like every port action.
   'HoldFreeMouse',
   // UNDEAD-COMMANDS: Necromancy minion tactical orders and nexus dialog
-  'UndeadNexus', 'UndeadFollow', 'UndeadGuard', 'UndeadAttack', 'UndeadFeignDeath', 'UndeadRecall', 'UndeadDismiss',
+  'UndeadNexus', 'UndeadFollow', 'UndeadGuard', 'UndeadAttack', 'UndeadFeignDeath', 'UndeadRecall', 'UndeadDismiss', 'UndeadDetonate',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -241,7 +241,7 @@ export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'Quick
   'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
   'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'TogglePerspective', 'ActChoice', 'BoatSailUp', 'BoatSailDown', 'Professions',
   'LegacyFamily', 'ModeWheel', 'WeaponTechnique', 'Spyglass', 'SaddlePanel', 'ShipHold', 'ShotCycle', 'PartyPing', 'Decorate', 'SignatureTechnique', 'PvpFlag', 'HoldFreeMouse',
-  'UndeadNexus', 'UndeadFollow', 'UndeadGuard', 'UndeadAttack', 'UndeadFeignDeath', 'UndeadRecall', 'UndeadDismiss']);   // HOLD-FREE-MOUSE   // PARTY-PING: the party's ping   // the decorator, unbound   // SHOT-KINDS: the guns' load   // CARGO-ANYWHERE: the ship's hold   // SPYGLASS: the captain's glass   // TECH1: the weapon's technique   // LEGACY1: Project Legacy's family tree; MODE-WHEEL: the mode wheel   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'UndeadNexus', 'UndeadFollow', 'UndeadGuard', 'UndeadAttack', 'UndeadFeignDeath', 'UndeadRecall', 'UndeadDismiss', 'UndeadDetonate']);   // HOLD-FREE-MOUSE   // PARTY-PING: the party's ping   // the decorator, unbound   // SHOT-KINDS: the guns' load   // CARGO-ANYWHERE: the ship's hold   // SPYGLASS: the captain's glass   // TECH1: the weapon's technique   // LEGACY1: Project Legacy's family tree; MODE-WHEEL: the mode wheel   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -433,14 +433,15 @@ export const DEFAULT_BINDINGS = Object.freeze([
   // PVP-KEY: the key the flag always had. A file that already spends Caps Lock keeps it, and the flag waits for a key.
   ['CapsLock', 'PvpFlag'],
   ['Slash', 'TravelView'],
-  // UNDEAD-COMMANDS: Numpad tactical keypad layout
+  // UNDEAD-COMMANDS: Numpad tactical keypad layout (Numpad 7: Recall, 8: Attack, 9: Feign Death/Ambush, 4: Detonate, 6: Nexus Modal)
   ['Numpad6', 'UndeadNexus'],
+  ['Numpad7', 'UndeadRecall'],
+  ['Numpad8', 'UndeadAttack'],
+  ['Numpad9', 'UndeadFeignDeath'],
+  ['Numpad4', 'UndeadDetonate'],
   ['Numpad1', 'UndeadFollow'],
   ['Numpad2', 'UndeadGuard'],
-  ['Numpad3', 'UndeadAttack'],
-  ['Numpad4', 'UndeadFeignDeath'],
-  ['Numpad8', 'UndeadRecall'],
-  ['Numpad9', 'UndeadDismiss'],
+  ['Numpad3', 'UndeadDismiss'],
 ]);
 
 /**
@@ -641,13 +642,14 @@ export const ACTION_GROUPS = Object.freeze([
     ['LegacyFamily', 'Family tree'],
   ], 'project-legacy'),
   g('Necromancy', [
-    ['UndeadNexus', 'Undead Command Nexus Menu'],
-    ['UndeadFollow', 'Order Minions: Follow'],
-    ['UndeadGuard', 'Order Minions: Guard'],
-    ['UndeadAttack', 'Order Minions: Attack'],
-    ['UndeadFeignDeath', 'Order Minions: Feign Death'],
-    ['UndeadRecall', 'Order Minions: Recall (Shadow Tether)'],
-    ['UndeadDismiss', 'Order Minions: Dismiss'],
+    ['UndeadNexus', t('input.action.undeadNexus', 'Undead Command Nexus Menu')],
+    ['UndeadRecall', t('input.action.undeadRecall', 'Order Minions: Recall to Heel (Numpad 7)')],
+    ['UndeadAttack', t('input.action.undeadAttack', 'Order Minions: Attack / Focus (Numpad 8)')],
+    ['UndeadFeignDeath', t('input.action.undeadFeignDeath', 'Order Minions: Ambush / Feign Death (Numpad 9)')],
+    ['UndeadDetonate', t('input.action.undeadDetonate', 'Order Minions: Detonate Nearest (Numpad 4)')],
+    ['UndeadFollow', t('input.action.undeadFollow', 'Order Minions: Follow (Numpad 1)')],
+    ['UndeadGuard', t('input.action.undeadGuard', 'Order Minions: Guard (Numpad 2)')],
+    ['UndeadDismiss', t('input.action.undeadDismiss', 'Order Minions: Dismiss All (Numpad 3)')],
   ]),
 ]);
 const _groupOf = new Map(ACTION_GROUPS.flatMap((grp) => grp.rows.map((r) => [r.action, grp])));
@@ -1451,7 +1453,18 @@ export function repairUnloseableBindings(store) {
  *  3 is MODE-WHEEL's (Left Alt let go of Sneak, so the wheel can land on it); 4 is PVP-KEY's (the flag told, keyless). */
 export const KEYBINDS_VERSION = 4;
 /** The actions a later version added, by that version: a file older than it is told when the action lands keyless. */
-const ADDED_AT = Object.freeze({ ModeWheel: 3, PvpFlag: 4 });
+const ADDED_AT = Object.freeze({
+  ModeWheel: 3,
+  PvpFlag: 4,
+  UndeadNexus: 4,
+  UndeadRecall: 4,
+  UndeadAttack: 4,
+  UndeadFeignDeath: 4,
+  UndeadDetonate: 4,
+  UndeadFollow: 4,
+  UndeadGuard: 4,
+  UndeadDismiss: 4,
+});
 
 /** KB1's step-1 rows, `[code, old default, the version that moved it]`: a file older than the version lets the code
  *  go where it still holds the old default. MODE-WHEEL: Left Alt was Sneak's until v3; a v2 file let go of it once, so
@@ -1500,6 +1513,13 @@ export function migrateKeyBinds(store, fromVersion) {
     }
   }
   resetDefaults(store, true);   // step 2: the standard's defaults, on every code still free
+  if (fromVersion < 2) {
+    for (const [defCode, defAct] of DEFAULT_BINDINGS) {
+      if ((ADDED_AT[defAct] ?? 2) > 2 && store.primary.get(defCode) === defAct) {
+        store.primary.delete(defCode);
+      }
+    }
+  }
   const spoken = (code) => actionForCode(store, code) != null || comboModifiers(store).has(code);
   for (const [vendor, rows] of Object.entries(MOD_ACTIONS)) {
     if (fromVersion >= 2) break;   // MODE-WHEEL: the mods' old keys are a v1 file's alone - a v2 file carried them already
@@ -1522,6 +1542,7 @@ export function migrateKeyBinds(store, fromVersion) {
       report.moved.push(`${row.action} on ${code}`);
     }
   }
+  if (fromVersion < 2) resetDefaults(store, true);
   for (const [code, action] of DEFAULT_BINDINGS) {
     if (fromVersion >= 2 && fromVersion >= (ADDED_AT[action] ?? 2)) continue;   // a v2 file was told its losses at v2; then the wheel (v3) and the flag (v4, AUDIT PVP-KEY B7)
     if (getBinding(store, action, true) != null || store.removedPrimary.has(action)) continue;

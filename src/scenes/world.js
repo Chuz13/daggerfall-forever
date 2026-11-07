@@ -731,7 +731,9 @@ import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
 import { undeadParty, initUndeadCompanionAdapter, clearAllUndeadMinions } from '../systems/necromancy/undeadCapacity.js';
-import { MINION_STANCES, allSpawnedMinions, setAllMinionsStance, orderRecall, dismissAllMinions } from '../systems/necromancy/minionController.js';
+import { MINION_STANCES, MINION_PROFILES, allSpawnedMinions, setAllMinionsStance, orderRecall, dismissAllMinions, detonateMinion } from '../systems/necromancy/minionController.js';
+import { corpsesNear, harvestAllFromCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
+import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js';
 import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush } from '../systems/necromancy/witchHunters.js';
 import { NecroConfig } from '../systems/necromancy/necroConfig.js';
 import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength, sendRevenantAway, forgetSwornMember, swornFightStep, swornFightWon, devotedWithYou } from '../systems/revenant/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
@@ -10351,6 +10353,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       rec.livingRole = 'undead_minion';
       rec.shipmate = true;
       rec.undeadStance = c.stance || 'follow';
+      const prof = c?.profile || MINION_PROFILES[c?.type] || MINION_PROFILES.skeleton;
+      rec.profile = prof;
+      if (rec.entity) rec.entity.profile = prof;
       _undeadMinionFoes.add(rec);
     },
     onLeave: (c, rec) => {
@@ -10476,8 +10481,29 @@ export async function bootWorld(canvas, renderer, params, status) {
     const bodies = [..._undeadMinionFoes, ...(undeadAshore?.bodies?.() ?? [])];
     const uniqueBodies = [...new Set(bodies)];
 
+    if (cmd === 'harvest') {
+      const pPos = leaderPos ? [leaderPos[0], leaderPos[1], leaderPos[2]] : [0, 0, 0];
+      const nearbyCorpses = corpsesNear(pPos, 8);
+      if (nearbyCorpses.length === 0) {
+        townTalk.say(t('necro.harvest.none', 'No fresh or skeletal corpses nearby to harvest.'));
+        return false;
+      }
+      if (!canHarvestCorpseWithInventory(playerEntity)) {
+        townTalk.say(t('necro.harvest.noBlade', 'You need a Skinning Knife or Dagger in your inventory to harvest remains.'));
+        return false;
+      }
+      const res = harvestAllFromCorpse(nearbyCorpses[0], playerEntity);
+      if (res.success) {
+        surfacePlayer?.();
+        townTalk.say(t('necro.harvest.done', 'You harvest necromantic reagents from {0}: {1}.', nearbyCorpses[0].entityName || 'corpse', res.harvested.join(', ')));
+        return true;
+      }
+      townTalk.say(t('necro.harvest.empty', 'Nothing useful remains on this corpse.'));
+      return false;
+    }
+
     if (minions.length === 0 && uniqueBodies.length === 0) {
-      townTalk.say('You have no active undead minions to command.');
+      townTalk.say(t('necro.cmd.none', 'You have no active undead minions to command.'));
       return false;
     }
 
@@ -10498,7 +10524,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
           }
         }
-        townTalk.say('Undead Minions: Following at your heel.');
+        townTalk.say(t('necro.cmd.follow', 'Undead Minions: Following at your heel.'));
         return true;
 
       case 'guard':
@@ -10519,7 +10545,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
           }
         }
-        townTalk.say('Undead Minions: Holding ground and guarding position.');
+        townTalk.say(t('necro.cmd.guard', 'Undead Minions: Holding ground and guarding position.'));
         return true;
 
       case 'attack': {
@@ -10565,7 +10591,11 @@ export async function bootWorld(canvas, renderer, params, status) {
             if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
           }
         }
-        townTalk.say(nearestHostile ? 'Undead Minions: Engaging nearest enemy!' : 'Undead Minions: In attack stance, scouting for enemies.');
+        townTalk.say(
+          nearestHostile
+            ? t('necro.cmd.attackTarget', 'Undead Minions: Engaging nearest enemy!')
+            : t('necro.cmd.attackScout', 'Undead Minions: In attack stance, scouting for enemies.')
+        );
         return true;
       }
 
@@ -10587,7 +10617,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             if (f.entity) { f.entity.team = 'Neutral'; f.entity.mobileTeam = 'Neutral'; }
           }
         }
-        townTalk.say('Undead Minions: Collapsing to ground (feigning death).');
+        townTalk.say(t('necro.cmd.feignDeath', 'Undead Minions: Collapsing to ground (feigning death).'));
         return true;
 
       case 'recall': {
@@ -10620,7 +10650,37 @@ export async function bootWorld(canvas, renderer, params, status) {
         }
         orderRecall(p);
         setAllMinionsStance(MINION_STANCES.FOLLOW);
-        townTalk.say('Shadow Tether: All minions recalled to your side!');
+        townTalk.say(t('necro.cmd.recall', 'Shadow Tether: All minions recalled to your side!'));
+        return true;
+      }
+
+      case 'detonate': {
+        const pPos = leaderPos ? [leaderPos[0], leaderPos[1], leaderPos[2]] : [0, 0, 0];
+        const sacrificed = detonateMinion() || uniqueBodies.find((b) => b && !b.dead);
+        if (!sacrificed) {
+          townTalk.say(t('necro.cmd.none', 'You have no active undead minions to command.'));
+          return false;
+        }
+        const bodyMatch = uniqueBodies.find((b) => b && !b.dead);
+        const detPos = bodyMatch?.ai?.feet || bodyMatch?.pos || sacrificed.position || pPos;
+        if (bodyMatch) {
+          bodyMatch.dead = true;
+          _undeadMinionFoes.delete(bodyMatch);
+          if (exteriorFoes?.damageFoe) {
+            exteriorFoes.damageFoe(bodyMatch, 99999, null, null, { fromPlayer: false, bypassShield: true });
+          }
+        }
+        const allFoes = (exteriorFoes?.foes ?? []).map((f) => ({
+          ...f,
+          feet: f?.ai?.feet ?? f?.pos,
+          hurt: (dmg) => exteriorFoes?.damageFoe?.(f, dmg, null, null, { fromPlayer: true }),
+        }));
+        const res = castCorpseExplosion(
+          playerEntity,
+          { id: sacrificed.id || 'minion_1', livingRole: 'undead_minion', maxHealth: sacrificed.maxHealth || 60, position: detPos },
+          { radius: 8, nearbyFoes: allFoes }
+        );
+        townTalk.say(t('necro.cmd.detonate', 'Minion Detonated! Dealt {0} AoE damage to {1} foes.', res.damage, res.hitCount));
         return true;
       }
 
@@ -10642,7 +10702,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           }
         }
         _undeadMinionFoes.clear();
-        townTalk.say('Undead Minions: All minions dismissed and banished.');
+        townTalk.say(t('necro.cmd.dismiss', 'Undead Minions: All minions dismissed and banished.'));
         return true;
 
       default:
@@ -10654,8 +10714,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const minions = allSpawnedMinions();
     const bodies = [..._undeadMinionFoes, ...(undeadAshore?.bodies?.() ?? [])];
     const uniqueBodies = [...new Set(bodies)];
-    if (minions.length === 0 && uniqueBodies.length === 0) {
-      townTalk.say('You have no active undead minions. Raise a corpse first.');
+    const pPos = walkMode && playerSpawned ? player.pos : cam.pos;
+    const nearbyCorpses = corpsesNear(pPos || [0, 0, 0], 8);
+    if (minions.length === 0 && uniqueBodies.length === 0 && nearbyCorpses.length === 0) {
+      townTalk.say(t('necro.menu.empty', 'You have no active undead minions. Raise a corpse first.'));
       return false;
     }
     const rawStance = minions[0]?.stance || 'follow';
@@ -10663,20 +10725,32 @@ export async function bootWorld(canvas, renderer, params, status) {
     const count = Math.max(minions.length, uniqueBodies.length);
     const minionNames = minions.map((m) => m.name).join(', ') || 'Undead Thrall';
     const lines = [
-      '=== UNDEAD COMMAND NEXUS ===',
-      `Active Minions: ${count} (${minionNames})`,
-      `Current Stance: [${currentStance}]`,
-      'Issue a mental order to your commanded minions:',
+      t('necro.menu.title', '=== UNDEAD COMMAND NEXUS ==='),
+      t('necro.menu.active', 'Active Minions: {0} ({1})', count, minionNames),
+      t('necro.menu.stance', 'Current Stance: [{0}]', currentStance),
+      t('necro.menu.prompt', 'Issue a mental order to your commanded minions:'),
     ];
     const options = [
-      { code: '1', label: '1. [Follow] Follow close behind master (Numpad 1)', action: () => applyUndeadCommand('follow') },
-      { code: '2', label: '2. [Guard] Hold ground and guard area (Numpad 2)', action: () => applyUndeadCommand('guard') },
-      { code: '3', label: '3. [Attack] Charge nearest enemies on sight (Numpad 3)', action: () => applyUndeadCommand('attack') },
-      { code: '4', label: '4. [Feign Death] Collapse into bone/corpse piles (Numpad 4)', action: () => applyUndeadCommand('feign_death') },
-      { code: '5', label: '5. [Shadow Tether] Recall all minions to your feet (Numpad 8)', action: () => applyUndeadCommand('recall') },
-      { code: '6', label: '6. [Dismiss] Destroy all active minions (Numpad 9)', action: () => applyUndeadCommand('dismiss') },
-      { code: '7', label: '7. [Close] (Numpad 6 / Esc)', action: () => {} },
+      { code: '1', label: t('necro.menu.optRecall', '1. [Recall to Heel] Teleport all minions to your side (Numpad 7)'), action: () => applyUndeadCommand('recall') },
+      { code: '2', label: t('necro.menu.optAttack', '2. [Attack / Focus] Charge nearest enemies on sight (Numpad 8)'), action: () => applyUndeadCommand('attack') },
+      { code: '3', label: t('necro.menu.optAmbush', '3. [Ambush / Wait] Collapse & hold position (Numpad 9)'), action: () => applyUndeadCommand('feign_death') },
+      { code: '4', label: t('necro.menu.optDetonate', '4. [Detonate Minion] Sacrifice nearest minion for 5x HP AoE (Numpad 4)'), action: () => applyUndeadCommand('detonate') },
+      { code: '5', label: t('necro.menu.optFollow', '5. [Follow] Follow close behind master (Numpad 1)'), action: () => applyUndeadCommand('follow') },
+      { code: '6', label: t('necro.menu.optGuard', '6. [Guard] Hold ground and guard area (Numpad 2)'), action: () => applyUndeadCommand('guard') },
+      { code: '7', label: t('necro.menu.optDismiss', '7. [Dismiss] Destroy all active minions (Numpad 3)'), action: () => applyUndeadCommand('dismiss') },
     ];
+    if (nearbyCorpses.length > 0 && canHarvestCorpseWithInventory(playerEntity)) {
+      options.push({
+        code: '8',
+        label: t('necro.menu.optHarvest', '8. [Harvest Remains] Carve reagents from nearby corpse'),
+        action: () => applyUndeadCommand('harvest'),
+      });
+    }
+    options.push({
+      code: '0',
+      label: t('necro.menu.optClose', '0. [Close] (Numpad 6 / Esc)'),
+      action: () => {},
+    });
     townTalk.showOverlay(new ChoiceWindow({ lines, options }));
     return true;
   }
@@ -17162,6 +17236,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         e.preventDefault(); applyUndeadCommand('feign_death'); return;
       } else if (act === 'UndeadRecall') {
         e.preventDefault(); applyUndeadCommand('recall'); return;
+      } else if (act === 'UndeadDetonate') {
+        e.preventDefault(); applyUndeadCommand('detonate'); return;
       } else if (act === 'UndeadDismiss') {
         e.preventDefault(); applyUndeadCommand('dismiss'); return;
       }
@@ -29309,9 +29385,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (f) {
         f.companion = `undead_${name || type}`;
         f.livingRole = 'undead_minion';
+        const prof = MINION_PROFILES[type] || MINION_PROFILES.skeleton;
+        f.profile = prof;
         if (f.entity) {
           f.entity.team = 'PlayerAlly';
           f.entity.mobileTeam = 'PlayerAlly';
+          f.entity.profile = prof;
           if (name) f.entity.name = name;
         }
         if (f.ai) {

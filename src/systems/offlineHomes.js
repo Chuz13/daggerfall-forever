@@ -387,21 +387,27 @@ export function createOfflineDecor() {
 
   async function remove({ mapId, buildingKey, id }) {
     const h = getHome(mapId, buildingKey);
+    let refund = 0;
     if (h) {
-      const hadYard = (h.yardDecor || []).some((p) => p.id === id);
-      if (hadYard) {
+      const yardPiece = (h.yardDecor || []).find((p) => p.id === id);
+      if (yardPiece) {
+        refund += decorSaleBack(yardPiece.item) || 0;
         h.yardDecor = h.yardDecor.filter((p) => p.id !== id);
         h.yardRev = (Number(h.yardRev) || 1) + 1;
       }
-      const hadDecor = (h.decor || []).some((p) => p.id === id);
-      if (hadDecor) {
+      const decorPiece = (h.decor || []).find((p) => p.id === id);
+      if (decorPiece) {
+        refund += decorSaleBack(decorPiece.item) || 0;
         h.decor = h.decor.filter((p) => p.id !== id);
         h.rev = (Number(h.rev) || 1) + 1;
+      }
+      if (refund > 0 && playerEntity) {
+        playerEntity.goldPieces = (Number(playerEntity.goldPieces) || 0) + refund;
       }
       if (h.useModes?.[id]) delete h.useModes[id];
       if (h.chests?.[id]) delete h.chests[id];
     }
-    return { ok: true, data: { rev: Number(h?.rev) || 1, yardVer: Number(h?.yardRev) || 1 } };
+    return { ok: true, data: { rev: Number(h?.rev) || 1, yardVer: Number(h?.yardRev) || 1, refund, gold: Number(playerEntity?.goldPieces) || 0 } };
   }
 
   async function hidden({ mapId, buildingKey, keys }) {
