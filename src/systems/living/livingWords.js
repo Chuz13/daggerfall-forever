@@ -35,11 +35,11 @@ export const LIVING_WORDS = Object.freeze({
   navalBattleNotice: () =>
     t('living.naval.battleNotice', 'A naval skirmish rages between patrol ships and pirates!'),
   navalChoiceLaw: () =>
-    t('living.naval.choiceLaw', 'Stand with the Crown fleet!'),
+    t('living.naval.choiceLaw', 'Stand with the Crown fleet! (+Regional renown, fight pirates)'),
   navalChoicePirates: () =>
-    t('living.naval.choicePirates', 'Join the pirates!'),
+    t('living.naval.choicePirates', 'Join the pirates! (+Pirate ally, -Regional renown)'),
   navalChoiceNeutral: () =>
-    t('living.naval.choiceNeutral', 'Remain neutral and observe.'),
+    t('living.naval.choiceNeutral', 'Remain neutral and observe. (No intervention)'),
 
   // Urban Skirmishes
   urbanSkirmishStart: () =>
@@ -239,10 +239,14 @@ export const LIVING_WORDS = Object.freeze({
 
   // Composite helpers for 3D scene interactions (ChoiceWindow)
   urbanSkirmishAlert: () => LIVING_WORDS.urbanSkirmishStart(),
-  checkpointOptionKnight: () => LIVING_WORDS.checkpointKnightPass(),
-  checkpointOptionToll: (gold) => LIVING_WORDS.checkpointTollDemand(gold),
-  checkpointOptionDiplomacy: () => LIVING_WORDS.checkpointPassed(),
-  checkpointOptionForce: () => LIVING_WORDS.checkpointRefused(),
+  checkpointOptionKnight: () =>
+    t('living.checkpoint.optKnight', 'Present Knight credentials or Regional renown (+Free passage)'),
+  checkpointOptionToll: (gold) =>
+    t('living.checkpoint.optToll', 'Pay wartime transit toll of {gold}g (+Safe passage)', { gold }),
+  checkpointOptionDiplomacy: () =>
+    t('living.checkpoint.optDiplomacy', 'Persuade the guard with Etiquette (+Chance of free pass)'),
+  checkpointOptionForce: () =>
+    t('living.checkpoint.optForce', 'Refuse authorization and draw weapon (+Fight guards)'),
   nemesisMotive: (archetype) => {
     if (archetype === 'SHADOW_ASSASSIN') return LIVING_WORDS.nemesisMotiveAssassin();
     if (archetype === 'GLORY_CHALLENGER') return LIVING_WORDS.nemesisMotiveGlory();
@@ -251,19 +255,27 @@ export const LIVING_WORDS = Object.freeze({
     if (archetype === 'CHAOTIC_MARAUDER') return LIVING_WORDS.nemesisMotiveMarauder();
     return LIVING_WORDS.nemesisMotiveBounty();
   },
-  nemesisOptionTaunt: () => LIVING_WORDS.adventurerDuelChallenge(),
-  nemesisOptionEtiquette: () => LIVING_WORDS.nemesisHonor(),
-  nemesisOptionStreetwise: () => LIVING_WORDS.nemesisBribe(),
-  nemesisOptionFight: () => LIVING_WORDS.checkpointRefused(),
+  nemesisOptionTaunt: () =>
+    t('living.nemesis.optTaunt', 'Taunt rival into single combat (+1v1 duel, minions stay back)'),
+  nemesisOptionEtiquette: () =>
+    t('living.nemesis.optEtiquette', 'Appeal to warrior honor (Etiquette check to pacify)'),
+  nemesisOptionStreetwise: () =>
+    t('living.nemesis.optStreetwise', 'Negotiate a buyout / bribe (-Gold, avert combat)'),
+  nemesisOptionFight: () =>
+    t('living.nemesis.optFight', 'Draw steel and attack! (+Immediate battle)'),
   adventurerGreeting: (trait, gold) => {
     if (trait === 'ENVIOUS' || trait === 'CUTTHROAT') return LIVING_WORDS.adventurerEnviousTaunt();
     if (trait === 'ARROGANT' || trait === 'MERCENARY') return LIVING_WORDS.adventurerDareChallenge(gold);
     return LIVING_WORDS.adventurerDuelChallenge();
   },
-  adventurerOptionDuel: (gold) => LIVING_WORDS.adventurerDareChallenge(gold),
-  adventurerOptionEtiquette: () => LIVING_WORDS.nemesisHonor(),
-  adventurerOptionIntimidate: () => LIVING_WORDS.nemesisIntimidated(),
-  adventurerOptionDecline: () => LIVING_WORDS.pleaParted(),
+  adventurerOptionDuel: (gold) =>
+    t('living.adventurer.optDuel', 'Accept wager duel for {gold}g (+Combat match)', { gold }),
+  adventurerOptionEtiquette: () =>
+    t('living.adventurer.optEtiquette', 'Propose fellowship / peace (Etiquette check to recruit)'),
+  adventurerOptionIntimidate: () =>
+    t('living.adventurer.optIntimidate', 'Intimidate to back down (Streetwise check)'),
+  adventurerOptionDecline: () =>
+    t('living.adventurer.optDecline', 'Politely decline and walk away (Leave peacefully)'),
   adventurerOutcome: (outcome, _name, _gold) => {
     if (outcome === 'PLAYER_WON' || outcome === 'LUCK_REVERSAL' || outcome === 'DIPLOMACY_PEACE') {
       return LIVING_WORDS.adventurerDuelWon();
@@ -278,9 +290,12 @@ export const LIVING_WORDS = Object.freeze({
     if (type === 'WAR_REFUGEE') return LIVING_WORDS.pleaWar();
     return LIVING_WORDS.pleaEscort();
   },
-  pleaOptionHelp: (gold) => `${LIVING_WORDS.pleaHelped()} (${gold}g)`,
-  pleaOptionPolite: () => LIVING_WORDS.pleaParted(),
-  pleaOptionRude: () => LIVING_WORDS.pleaRebuffed(),
+  pleaOptionHelp: (gold) =>
+    t('living.plea.optHelp', 'Offer assistance and alms (-{gold}g, +Renown, +Virtue)', { gold }),
+  pleaOptionPolite: () =>
+    t('living.plea.optPolite', 'Politely decline assistance (Part peacefully)'),
+  pleaOptionRude: () =>
+    t('living.plea.optRude', 'Bruskly brush them off (Risk provoking confrontation)'),
   pleaOutcome: (outcome) => {
     if (outcome === 'HELPED') return LIVING_WORDS.pleaHelped();
     if (outcome === 'PARTED_PEACEFULLY') return LIVING_WORDS.pleaParted();

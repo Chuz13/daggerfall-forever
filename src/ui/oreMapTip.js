@@ -70,7 +70,7 @@ const tierOf = (key) => minedMaterial(key)?.tier ?? 0;
  *   state (net/nodeLaw.js witnessedFact's `state`), null not known; `surveyed` (MINE-PERKS) the reader a Surveyor, whose
  *   veins on such ground are the climate's whole table and only the signature waits (net/nodeLaw.js vein)
  */
-export function oreMapTip({ climate, region = null, fact = null, surveyed = false }) {
+export function oreMapTip({ climate, region = null, fact = null, surveyed = false, online = true }) {
   const own = VEIN_TABLES[climate];
   if (!own) return null;
   const at = Number.isInteger(region) ? /** @type {number} */ (region) : null;
@@ -94,6 +94,15 @@ export function oreMapTip({ climate, region = null, fact = null, surveyed = fals
       : (REGION_NAMES[/** @type {number} */ (at)] ?? t('ore.tip.thisLand', 'This land'));
     lines.push(t('ore.tip.own', "{owner}'s own ore: {ore}", { owner, ore: oreWord(sig.ore) }) + times);
   } else if (times) lines.push(`${REGION_NAMES[/** @type {number} */ (at)]}${times}`);
+
+  const deep = deepClimateOres(climate).map(oreWord);
+  if (!online) {
+    if (deep.length) {
+      lines.push(t('ore.tip.deepOffline', '{ores} can be found in regional dungeons', { ores: orList(deep) }));
+    }
+    return { title: t('ore.tip.title', ORE_TIP_TITLE), lines };
+  }
+
   // what the witnesses hold back: the table's veins over the unwitnessed tier, and the signature - MINE-PERKS: from a
   // Surveyor the signature alone (their own word witnesses the rest), so their card says no vein waits, or only it.
   // WW-C1: and a province's metals its own climate's table does not hold - more than three said as its richest ores
@@ -104,7 +113,6 @@ export function oreMapTip({ climate, region = null, fact = null, surveyed = fals
   const held = heldKeys.length > 3 ? ['its richest ores'] : heldKeys.map(oreWord);
   // DEEP-OPEN: and a dungeon's climate ore, which waits on that dungeon's witnesses whatever this ground's state (a
   // Surveyor's word witnesses their surface veins alone - nodeLaw.js vein `surveyed`)
-  const deep = deepClimateOres(climate).map(oreWord);
   const deepWord = deep.length ? t('ore.tip.deepWitnessed', DEEP_WITNESSED, { ores: orList(deep) }) : null;
   const withDeep = (ground) => (deepWord ? t('ore.tip.both', '{ground}; {deep}', { ground, deep: deepWord }) : ground);
   const rule = t('ore.tip.rule', WITNESS_RULE, { n: WITNESS.confirm });

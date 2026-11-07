@@ -584,12 +584,13 @@ export const ZONE_MAP_TEXT = Object.freeze({
       '{zone}: a wild and perilous province.',
       { zone: WILD_NAME },
     ),
-  door: () => t('wild.map.door', 'Open the {zone} map', { zone: WILD_NAME }),
-  doorOffline: () => t('wild.map.doorOffline', 'Open the {zone} map', { zone: WILD_NAME }),
+  door: () => t('wild.map.door', 'Open the {zone} map, with its four rings and their loot', { zone: WILD_NAME }),
+  doorOffline: () => t('wild.map.doorOffline', 'Open the {zone} map, with its four rings', { zone: WILD_NAME }),
 });
-/** AUDIT TESA II M5: the legend's laws - online the zone's, its travel law Cyrodiil's; offline (`laws` false) the one line
- *  that says they hold only online. */
+/** AUDIT TESA II M5: the legend's laws - online the zone's, its travel law Cyrodiil's; offline (`laws` false) Cyrodiil's
+ *  offline exploration text and travel limits without online PvP rules. */
 export function zoneRules(laws = true) {
+  if (!laws) return [ZONE_MAP_TEXT.offline()];
   return [ZONE_RULES[0], ZONE_RULES[1], ZONE_MAP_TEXT.travel(), ZONE_RULES[2]];
 }
 

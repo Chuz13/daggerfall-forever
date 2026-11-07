@@ -1340,8 +1340,8 @@ export function createLivingSceneHost(deps) {
       }
       deps.openChoice({
         lines: [
-          LIVING_WORDS.checkpointHalt(),
-          LIVING_WORDS.checkpointTollDemand(tollGold),
+          `Checkpoint Guard: "${LIVING_WORDS.checkpointHalt()}"`,
+          `Inspection Toll: ${LIVING_WORDS.checkpointTollDemand(tollGold)}`,
         ],
         options,
       });
@@ -1641,7 +1641,19 @@ export function createLivingSceneHost(deps) {
           },
         });
       }
-      const promptLines = [LIVING_WORDS.pleaPrompt(plea.type, reqGold)];
+      let speakerTitle = 'Traveller';
+      if (s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
+        speakerTitle = 'Plague Relief Healer';
+      } else if (plea.type === 'PLAGUE_CURE') {
+        speakerTitle = 'Afflicted Villager';
+      } else if (plea.type === 'FAMINE_BREAD') {
+        speakerTitle = 'Starving Refugee';
+      } else if (plea.type === 'WAR_REFUGEE') {
+        speakerTitle = 'Displaced Citizen';
+      } else if (plea.type === 'ESCORT') {
+        speakerTitle = 'Stranded Traveller';
+      }
+      const promptLines = [`${speakerTitle}: "${LIVING_WORDS.pleaPrompt(plea.type, reqGold)}"`];
       if (reliefInfo) {
         promptLines.unshift(LIVING_WORDS.quarantineReliefTent());
       }
@@ -2239,8 +2251,8 @@ export function createLivingSceneHost(deps) {
         return;
       }
 
-      // Naval squadron encounters while afloat at sea
-      if (isAfloat) {
+      // Naval squadron encounters while afloat at sea (never within settlement/location borders)
+      if (isAfloat && !deps.inLocationRect()) {
         if (Number(LivingTamrielConfig.naval) > PRESENCE.OFF) {
           if (nowMin - lastSpawnMinute >= 45) {
             const regIdx = deps.regionIndex();

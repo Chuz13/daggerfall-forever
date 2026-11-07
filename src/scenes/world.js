@@ -3850,7 +3850,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     regionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
     inLocationRect: () => _musicInLocationRect(),
     onRoad: () => _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16) || onTheRoad(),
-    afloat: () => playerAfloat(),
+    afloat: () => (!!csaRuntime?.isSailing?.() || !!csaAboard?.aboard?.boat || !!naval?.aboard?.()) && !_musicInLocationRect(),
     heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
     playerEntity: () => playerEntity,
     spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, o),

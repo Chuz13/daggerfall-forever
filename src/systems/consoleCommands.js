@@ -46,7 +46,7 @@ import { addGoldPieces, addItem } from './inventory.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { worldMinutes, setWorldMinutes } from './worldTick.js';
 import { setWeather, currentWeather } from './weather/weatherSim.js';
-import { templateByIndex, setItemFields, GROUP_TEMPLATE_INDICES } from './item/itemTemplates.js';
+import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES } from './item/itemTemplates.js';
 import { weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { MATERIAL_NAMES } from './mods/modDataSync.js';
@@ -58,7 +58,8 @@ import { starsFor, craftPointsFor } from '../net/firmament/firmamentLaw.js';
 import { allOfflineHomes, inheritOfflineHome, _resetForTests as resetOfflineHomes } from './offlineHomes.js';
 import { getActiveOfflineRecord as getActiveProfRecord, saveOfflineRecord as saveProfRecord, createNewRecord as createNewProfRecord } from './offlineProfessions.js';
 import { PROFESSIONS, rankOfXp, xpForRank } from '../net/professionLaw.js';
-import { giveCarried } from './materialsBag.js';
+import { giveCarried, hasBag } from './materialsBag.js';
+import { BAG_TEMPLATE } from '../net/bagLaw.js';
 import { depositGold, withdrawGold, forgiveLoans, isUnifiedBankActive } from './banking.js';
 import { getPref, setPref } from './uiPrefs.js';
 import { legalRepOf, changeLegalRep } from './court.js';
@@ -972,28 +973,50 @@ registerCommand('profession', 'Manage offline professions: profession <list|set|
 
 registerCommand(
   'addmats',
-  'Add crafting resources to offline Materials Bag: addmats [ore|herbs|leather|all] [count]',
-  'addmats [ore|herbs|leather|all] [count]',
+  'Add crafting resources to offline Materials Bag: addmats [ore|ingot|herb|leather|wood|all] [count]',
+  'addmats [ore|ingot|herb|leather|wood|all] [count]',
   (args = []) => {
     const cat = String(args[0] || 'all').toLowerCase();
     const count = args[1] ? Math.max(1, parseInt(args[1], 10) || 1) : 5;
-    const ORES = ['iron_ore', 'silver_ore', 'gold_ore', 'iron_ingot', 'steel_ingot'];
-    const HERBS = ['red_rose', 'yellow_blossom', 'green_leaves', 'aloe'];
-    const LEATHER = ['leather', 'strips'];
+    const ORES = ['metal:iron', 'metal:copper', 'metal:silver', 'metal:gold', 'ore:moonstone'];
+    const INGOTS = ['ingot:iron', 'ingot:steel', 'ingot:silver', 'ingot:moonstone'];
+    const HERBS = ['p1:19', 'p1:20', 'p1:17', 'p1:10'];
+    const LEATHER = ['hide:rat', 'hide:bat', 'hide:bear', 'leather:cured', 'leather:hardened'];
+    const WOOD = ['log:pine', 'log:oak', 'plank:pine', 'plank:oak'];
 
     let keys = [];
     if (cat === 'ore' || cat === 'ores') keys = ORES;
+    else if (cat === 'ingot' || cat === 'ingots') keys = INGOTS;
     else if (cat === 'herb' || cat === 'herbs') keys = HERBS;
-    else if (cat === 'leather') keys = LEATHER;
-    else if (cat === 'all') keys = [...ORES, ...HERBS, ...LEATHER];
+    else if (cat === 'leather' || cat === 'hides') keys = LEATHER;
+    else if (cat === 'wood' || cat === 'logs' || cat === 'planks') keys = WOOD;
+    else if (cat === 'all') keys = [...ORES, ...INGOTS, ...HERBS, ...LEATHER, ...WOOD];
     else keys = [cat];
 
-    let givenCount = 0;
-    for (const k of keys) {
-      giveCarried(playerEntity, k, count);
-      givenCount += count;
+    if (!Array.isArray(playerEntity.items)) playerEntity.items = [];
+    if (!hasBag(playerEntity.items)) {
+      const bagItem = mintCondition(
+        setItemFields({
+          group: 'UselessItems2',
+          templateIndex: BAG_TEMPLATE,
+          material: 0,
+          flags: 0,
+          variant: 0,
+          message: 0,
+          stackCount: 1,
+        })
+      );
+      playerEntity.items.push(bagItem);
     }
-    return `Added ${givenCount} material items (${keys.join(', ')}) to Materials Bag.`;
+
+    let bagAdded = 0;
+    let packAdded = 0;
+    for (const k of keys) {
+      const res = giveCarried(playerEntity, k, count);
+      bagAdded += (res?.bag ?? 0);
+      packAdded += (res?.pack ?? 0) + (res?.over ?? 0);
+    }
+    return `Added ${bagAdded} items to Materials Bag${packAdded ? ` (${packAdded} to pack)` : ''} for: ${keys.join(', ')}.`;
   }
 );
 

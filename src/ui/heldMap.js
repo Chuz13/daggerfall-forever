@@ -2305,7 +2305,7 @@ export class HeldMapWindow {
     // far band (AUDIT FB1031 W1: a tile is some 95 paper pixels at the Bay's fit, so a square a tile would wash 4,096
     // times the ground one pixel holds) or with its switch off
     const v = this._view;
-    const wit = this.filters.witnessed || zoomBand(v.scale) === 'far' ? null
+    const wit = !this._zoneLaws() || this.filters.witnessed || zoomBand(v.scale) === 'far' ? null
       : this.deps.witnessed?.read?.({ x0: v.ox, y0: v.oy, x1: v.ox + this._paper.w / v.scale, y1: v.oy + this._paper.h / v.scale }) ?? null;
     if ((wit?.key ?? '') !== this._witnessKey) { this._witnessKey = wit?.key ?? ''; this._witnessRead = wit; this._witnessed = wit?.tiles ?? []; gateMoved = true; this._dirty = true; }
     // POI-2: and the approved POIs - one approved, moved or retired with the map open
@@ -2515,7 +2515,7 @@ export class HeldMapWindow {
     const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0)),
       this._trav.length ? 1 : 0, playersOnMaps() ? 1 : 0, ...TV_WHO_GROUPS.map((g) => (who[g] ? 1 : 0)), who.renown,
       ...WAYPOINT_KINDS.map((k) => `${wpShown[k] ? 1 : 0}:${wpAll.filter((w) => w.kind === k).length}`), this.deps.wildMask?.() ? 1 : 0, this._zoneLaws() ? 1 : 0,
-      this.deps.witnessed?.open?.() ? 1 : 0, this.filters.witnessed ? 1 : 0].join('|');   // OW-WHO: and the players' row; WAYPOINTS: and theirs; WILD1: and the open zone's; AUDIT TESA II M5: and whether its laws hold; WITNESS-MAP: and the witnessed ground's switch
+      (this._zoneLaws() && this.deps.witnessed?.open?.()) ? 1 : 0, this.filters.witnessed ? 1 : 0].join('|');   // OW-WHO: and the players' row; WAYPOINTS: and theirs; WILD1: and the open zone's; AUDIT TESA II M5: and whether its laws hold; WITNESS-MAP: and the witnessed ground's switch
     if (sig === this._keySig) return;
     this._keySig = sig;
     if (typeof box.replaceChildren === 'function') box.replaceChildren(); else box.innerHTML = '';
@@ -2586,6 +2586,7 @@ export class HeldMapWindow {
       row.append(head);
       const btns = el('div', 'hmkeykinds');
       for (const k of WAYPOINT_KINDS) {
+        if (!this._zoneLaws() && (k === 'party' || k === 'guild')) continue;
         const on = wpShown[k] !== false, n = wpAll.filter((w) => w.kind === k).length;
         const b = el('button', `act hmkeyflt${on ? ' on' : ''}`, `${WAYPOINT_TEXT[k]} (${n})`);
         b.type = 'button'; b.tabIndex = -1;
@@ -2601,7 +2602,7 @@ export class HeldMapWindow {
     }
     // WITNESS-MAP: THE WITNESSED GROUND'S ROW - its switch (the store's flag FALSE, on: the classic's inversion), while the
     // professions are open to the account; dimmed in the far band, which tints none
-    if (this.deps.witnessed?.open?.()) {
+    if (this._zoneLaws() && this.deps.witnessed?.open?.()) {
       const row = el('div', 'hmkeyrow');
       row.append(el('span', 'hmkeywho', witnessKeyText()));
       const btns = el('div', 'hmkeykinds');
@@ -4244,7 +4245,16 @@ export class HeldMapWindow {
     const region = politic - 128;
     // ORE-MAP (ui/oreMapTip.js): bare ground answers with its ore card where the host has one - online, the professions
     // open (deps.oreAt) - and the card is asked again when the ground's witnessed state arrives
-    const ore = readTip(this.deps.oreAt?.(px, py, () => this._refreshTip()) ?? null);
+    let ore = readTip(this.deps.oreAt?.(px, py, () => this._refreshTip()) ?? null);
+    if (ore && !this._zoneLaws()) {
+      ore = {
+        ...ore,
+        lines: ore.lines
+          .filter((l) => !/witness|player|account/i.test(l))
+          .map((l) => l.replace(/;\s*[^;]*witnessed[^;]*/gi, '').replace(/[^;]*witnessed[^;]*;\s*/gi, '').trim())
+          .filter(Boolean),
+      };
+    }
     const regionValid = region >= 0 && region < (this.deps.maps?.regionCount ?? 0);
     const crisisLines = !ore && regionValid ? getRegionCrisisLines(region) : [];
     const crisisTip = crisisLines.length > 0
