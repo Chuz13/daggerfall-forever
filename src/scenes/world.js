@@ -10722,14 +10722,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const uniqueBodies = [...new Set(bodies)];
     const pPos = walkMode && playerSpawned ? player.pos : cam.pos;
     const nearbyCorpses = corpsesNear(pPos || [0, 0, 0], 8);
-    if (minions.length === 0 && uniqueBodies.length === 0 && nearbyCorpses.length === 0) {
-      townTalk.say(t('necro.menu.empty', 'You have no active undead minions. Raise a corpse first.'));
-      return false;
-    }
     const rawStance = minions[0]?.stance || 'follow';
     const currentStance = (rawStance === 'feign_death' ? 'FEIGNING DEATH' : rawStance).toUpperCase();
     const count = Math.max(minions.length, uniqueBodies.length);
-    const minionNames = minions.map((m) => m.name).join(', ') || 'Undead Thrall';
+    const minionNames = minions.map((m) => m.name).join(', ') || (count > 0 ? 'Undead Thrall' : 'None');
     const lines = [
       t('necro.menu.title', '=== UNDEAD COMMAND NEXUS ==='),
       t('necro.menu.active', 'Active Minions: {0} ({1})', count, minionNames),
@@ -10744,19 +10740,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       { code: '5', label: t('necro.menu.optFollow', '5. [Follow] Follow close behind master (Numpad 1)'), action: () => applyUndeadCommand('follow') },
       { code: '6', label: t('necro.menu.optGuard', '6. [Guard] Hold ground and guard area (Numpad 2)'), action: () => applyUndeadCommand('guard') },
       { code: '7', label: t('necro.menu.optDismiss', '7. [Dismiss] Destroy all active minions (Numpad 3)'), action: () => applyUndeadCommand('dismiss') },
+      { code: '8', label: t('necro.menu.optHarvest', '8. [Harvest Remains] Carve reagents from nearby corpse (Numpad 5)'), action: () => applyUndeadCommand('harvest') },
+      { code: '0', label: t('necro.menu.optClose', '0. [Close] (Numpad 6 / Esc)'), action: () => {} },
     ];
-    if (nearbyCorpses.length > 0 && canHarvestCorpseWithInventory(playerEntity)) {
-      options.push({
-        code: '8',
-        label: t('necro.menu.optHarvest', '8. [Harvest Remains] Carve reagents from nearby corpse'),
-        action: () => applyUndeadCommand('harvest'),
-      });
-    }
-    options.push({
-      code: '0',
-      label: t('necro.menu.optClose', '0. [Close] (Numpad 6 / Esc)'),
-      action: () => {},
-    });
     townTalk.showOverlay(new ChoiceWindow({ lines, options }));
     return true;
   }
@@ -17274,21 +17260,24 @@ export async function bootWorld(canvas, renderer, params, status) {
     // NECROMANCY: Quick Minion Commands & Undead Command Nexus Menu
     if (FORK_FLAGS.ENABLE_NECROMANCY && !townTalk.overlayActive) {
       const act = actionOf(e.code);
-      if (act === 'UndeadNexus') {
+      const isNum = (digit) => e.code === `Numpad${digit}` || e.code === `Keypad${digit}` || (e.location === 3 && (e.key === String(digit) || e.code.includes(String(digit))));
+      if (act === 'UndeadNexus' || isNum(6)) {
         if (openUndeadCommandMenu()) { e.preventDefault(); return; }
-      } else if (act === 'UndeadFollow') {
-        e.preventDefault(); applyUndeadCommand('follow'); return;
-      } else if (act === 'UndeadGuard') {
-        e.preventDefault(); applyUndeadCommand('guard'); return;
-      } else if (act === 'UndeadAttack') {
-        e.preventDefault(); applyUndeadCommand('attack'); return;
-      } else if (act === 'UndeadFeignDeath') {
-        e.preventDefault(); applyUndeadCommand('feign_death'); return;
-      } else if (act === 'UndeadRecall') {
+      } else if (act === 'UndeadRecall' || isNum(7)) {
         e.preventDefault(); applyUndeadCommand('recall'); return;
-      } else if (act === 'UndeadDetonate') {
+      } else if (act === 'UndeadAttack' || isNum(8)) {
+        e.preventDefault(); applyUndeadCommand('attack'); return;
+      } else if (act === 'UndeadFeignDeath' || isNum(9)) {
+        e.preventDefault(); applyUndeadCommand('feign_death'); return;
+      } else if (act === 'UndeadDetonate' || isNum(4)) {
         e.preventDefault(); applyUndeadCommand('detonate'); return;
-      } else if (act === 'UndeadDismiss') {
+      } else if (act === 'UndeadHarvest' || isNum(5)) {
+        e.preventDefault(); applyUndeadCommand('harvest'); return;
+      } else if (act === 'UndeadFollow' || isNum(1)) {
+        e.preventDefault(); applyUndeadCommand('follow'); return;
+      } else if (act === 'UndeadGuard' || isNum(2)) {
+        e.preventDefault(); applyUndeadCommand('guard'); return;
+      } else if (act === 'UndeadDismiss' || isNum(3)) {
         e.preventDefault(); applyUndeadCommand('dismiss'); return;
       }
     }

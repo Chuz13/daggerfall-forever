@@ -104,7 +104,17 @@ export class ChoiceWindow {
       noticeRelease(this); // ENH-NOTICE1: the panel leaves with the box
       return;
     }
-    const opt = this.options.find((o) => o.code === code);
+    const dMatch = /^(?:Digit|Numpad)([0-9])$/.exec(code);
+    const digitChar = dMatch ? dMatch[1] : null;
+    const opt = this.options.find((o) => {
+      if (o.code === code) return true;
+      if (digitChar) {
+        if (o.code === digitChar) return true;
+        if (o.code === `Digit${digitChar}` || o.code === `Numpad${digitChar}`) return true;
+      }
+      if (code === 'Escape' && (o.code === '0' || o.code === 'Digit0' || o.code === 'Numpad0' || o.code === 'Escape')) return true;
+      return false;
+    });
     if (opt) {
       this.done = true;
       closeEnhancedChoice(this);
