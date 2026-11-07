@@ -447,6 +447,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
   border-top: 2px solid rgba(5,6,8,0.45); box-shadow: inset 0 1px 0 rgba(163,152,128,0.16); }
 .inv-tip dt { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #a89f88; align-self: center; }
 .inv-tip dd { margin: 0; font-size: 14px; color: #efe8d6; text-align: right; font-variant-numeric: tabular-nums; }
+.inv-tip dd.trait { font-size: 12px; color: #ffd875; }
 /* HUD-TIP / STATUS-TIPS (ui/hud/hudTip.js): the HUD's hover card is the pack's card - a narrower one, its lines plain words */
 .inv-tip.hud-tip { width: min(260px, 80vw); z-index: 39; }   /* over the HUD (z 4), under the asset picker (dataSource.js ASSET_PICKER_Z, MWFIX 1) */
 .inv-tip.hud-tip .hud-tip-line { margin: 0 0 4px; font-size: 14px; line-height: 1.3; color: #efe8d6; }

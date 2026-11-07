@@ -11,7 +11,7 @@ import { hudText } from '../notify.js';
 import { hurtPlayer } from '../../characters/playerEntity.js';
 import { FATIGUE_MULTIPLIER } from '../statMods.js';
 import { SOUND } from '../soundClips.js';
-import * as audio from '../audio.js';
+import { audio } from '../audio.js';
 
 /** @type {Map<string, Record<string, any>>} */
 const _modStorageStore = new Map();

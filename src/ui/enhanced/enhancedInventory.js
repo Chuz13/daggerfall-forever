@@ -139,7 +139,7 @@ import { bulkVerdict, runBulk, listAtCap, CONTAINER_LIST_CAP, containerFull } fr
 import { sortInPlace, SORT_STORE_KINDS } from '../packSort.js';   // PACK-SORT: the pack's Sort, and the side window's
 import { entityMaxEncumbrance } from '../../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../../systems/statMods.js';
-import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemArmorTypeLine, itemHandsLine } from '../../systems/item/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
+import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemArmorTypeLine, itemHandsLine, weaponMaterialTraitText } from '../../systems/item/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
 import { survivalInfoTokens, potionMacroName, potionRecipeIngredientNames } from '../../systems/item/itemInfo.js'; import { isPortalStone } from '../../systems/gate/gateSpoils.js';   // AUDIT SURV C: the survival items' tokens on this skin's card too
 import { isStarglass } from '../../systems/starfall/starglass.js';   // AUDIT STAR I2: Starfall Glass's lines on this skin's card
 import { isLockpick } from '../../systems/lockpick/lockpickItem.js';   // AUDIT LOCKPICK B2: the Lockpick's lines on this skin's card
@@ -470,6 +470,7 @@ export function itemLine(item, identity = undefined) {
     // the card cannot tell a player a claymore is one-handed while the
     // equip table is emptying both their hands for it.
     hands: itemHandsLine(item),
+    trait: weaponMaterialTraitText(item),
     // AUDIT SURV C: a food's worth and stage, a skin's water, the gear's uses - the classic popup's tokens (systems/item/itemInfo.js
     // survivalInfoTokens, less the name and the weight this card already carries), so a Waterskin says its water here too
     survival: isSurvivalItem(item) || isRestItem(item) ? survivalInfoTokens(item).slice(2).map((r) => r.text) : null,   // REST6: the seven's lines too
@@ -3548,7 +3549,7 @@ function infoCard(picked, side, ready = render, { body = false, own = true } = {
   if (line.quest != null) into.append(el('p', 'boundline', questLine(line.quest)));   // QUEST-MARK: whose quest it is
   const dl = el('dl', 'stats');
   // CARD-FIT: each pair in its own group, so a narrow card flows them two a line and never breaks a pair across two
-  const pair = (k, v) => { if (v != null) { const g = el('div', 'pair'); g.append(el('dt', null, k), el('dd', null, String(v))); dl.append(g); } };
+  const pair = (k, v, cls = null) => { if (v != null) { const g = el('div', `pair${cls ? ` pair-${cls}` : ''}`); g.append(el('dt', null, k), el('dd', cls ? cls : null, String(v))); dl.append(g); } };
   // MAC-M1: the headline stat FIRST - a player reading this card is
   // deciding whether to swing the thing, and weight is not that
   // question. Only one of the two ever draws: an item is a weapon or it
@@ -3561,6 +3562,7 @@ function infoCard(picked, side, ready = render, { body = false, own = true } = {
   // thing is swung - and above the weight, which is not. Null for
   // everything that is not a weapon, so no book grows an empty row.
   pair('Hands', line.hands);
+  pair('Special', line.trait || weaponMaterialTraitText(picked), 'trait');
   for (const t of line.survival ?? []) {   // AUDIT SURV C: the classic popup's tokens, each under a word of its own
     const i = t.indexOf(': ');
     if (i > 0) pair(t.slice(0, i), t.slice(i + 2));

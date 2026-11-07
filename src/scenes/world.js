@@ -13,6 +13,9 @@ import { cyrodiilMask } from '../systems/wild/cyrodiilZone.js';   // WW-C2: the 
 import { createZoneHalls } from './zoneHallsHost.js';   // WW-C2: the zone's halls and their ground, out of bootWorld   // ZONE-GIANTS
 import { pixelKeyText } from '../world/pixelKeys.js';   // PIXEL-KEYS: a built pixel's key text made once
 import { FORK_FLAGS } from '../config/forkFlags.js';
+import { discoverMods } from '../systems/mods/modRegistry.js';
+import { syncModData } from '../systems/mods/modDataSync.js';
+import { loadActiveModPlugins } from '../systems/mods/modPluginLoader.js';
 import { resetPlayerGpsState } from '../world/playerGps.js';   // AUDIT DEX C1: PlayerGPS.ResetState, the jump core's
 import { restAilmentLines } from '../systems/rest/restWarning.js';   // REST-WARN
 import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
@@ -1347,7 +1350,17 @@ export const BOSS_COUNT_FELL_TEXT = 'The fight counts you fallen.';
 // recenters the world (StreamingWorld + FloatingOrigin semantics in
 // streamingWorld.js). Everything is stored pixel-local; per-frame
 // placement is pixelTranslation(px, py) under the current compensation.
-export async function bootWorld(canvas, renderer, params, status) { handHeroGenderToGrammar(playerEntity);   // L10N3g: StartGameBehaviour.cs:147 - every start, a load included, hands the grammar the live hero's gender
+export async function bootWorld(canvas, renderer, params, status) {
+  if (FORK_FLAGS.ENABLE_MODS) {
+    try {
+      discoverMods();
+      syncModData();
+      void loadActiveModPlugins();
+    } catch (e) {
+      console.warn('[Mods] Boot mod initialization error:', e);
+    }
+  }
+  handHeroGenderToGrammar(playerEntity);   // L10N3g: StartGameBehaviour.cs:147 - every start, a load included, hands the grammar the live hero's gender
   // MENU1-WARM: the seven enhanced menus are lazy chunks, each fetched
   // the first time its door opens - which is mid-play, on the frame the
   // key was pressed. Asked for idly instead, so no door pays for its

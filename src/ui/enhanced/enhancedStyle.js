@@ -5455,6 +5455,7 @@ ${paceControlsCss('tview')}
   text-transform: uppercase; text-align: right; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .card .stats dd { margin: 0; font-size: 19px; overflow-wrap: anywhere;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
+.pack-shell .card .stats dd.trait { font-size: 13px; color: #ffd875; text-shadow: 1px 1px 0 rgba(0,0,0,0.85); }
 .pack-shell .card .meta, .pack-shell .card p { color: #c5bda2; text-align: center; font-size: 14px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .card .tag { float: right; color: #c5bda2; font-size: 11px; letter-spacing: 0.2em;

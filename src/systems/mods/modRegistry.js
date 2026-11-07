@@ -49,6 +49,9 @@ export function registerVirtualMod(manifest, files = {}) {
     manifest,
     files,
   });
+  if (_initialized) {
+    discoverMods();
+  }
 }
 
 /**
@@ -56,6 +59,9 @@ export function registerVirtualMod(manifest, files = {}) {
  */
 export function clearVirtualMods() {
   _virtualRegistry.clear();
+  if (_initialized) {
+    discoverMods();
+  }
 }
 
 /** @type {string[]|null} */

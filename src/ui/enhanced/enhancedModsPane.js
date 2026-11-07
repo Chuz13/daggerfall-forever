@@ -34,6 +34,8 @@ const el = (tag, cls, txt) => {
  */
 export function drawModsPane(body, rerender) {
   body.classList.add('wide');
+  discoverMods();
+  syncModData();
 
   // 1. Header Card with actions
   const topCard = el('div', 'card');
