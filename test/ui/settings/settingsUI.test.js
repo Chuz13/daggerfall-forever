@@ -35,8 +35,8 @@ test('MENU T1: the category map is TOTAL and DISJOINT over the store', () => {
   // fails the build rather than quietly dropping a row
   // SO1 gave ENHANCED a category with no store key; FT12 took it off the rail. ORG2: one screen for every option - nine
   // TABS by subject over the 171 and the Features rows; World holds none of DFU's keys, only the port's and the mods'
-  assert.deepEqual(CATEGORY_IDS.map((c) => keysOf(c).length), [67, 16, 5, 0, 37, 5, 15, 19, 7]);
-  assert.deepEqual(CATEGORY_IDS, ['graphics', 'gameplay', 'combat', 'world', 'interface', 'audio', 'controls', 'accessibility', 'mods']);
+  assert.deepEqual(CATEGORY_IDS.map((c) => keysOf(c).length), [67, 16, 5, 0, 37, 5, 15, 19, 7, 0]);
+  assert.deepEqual(CATEGORY_IDS, ['graphics', 'gameplay', 'combat', 'world', 'interface', 'audio', 'controls', 'accessibility', 'mods', 'dff']);
 });
 
 test('MENU T2: no player ever reads a raw ini identifier', () => {

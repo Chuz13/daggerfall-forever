@@ -730,7 +730,7 @@ import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './naval/navalCrew.js';  
 import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' sleeping hours
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
-import { undeadParty, initUndeadCompanionAdapter, clearAllUndeadMinions, getUndeadCapacityEntry } from '../systems/necromancy/undeadCapacity.js';
+import { undeadParty, initUndeadCompanionAdapter, clearAllUndeadMinions, getUndeadCapacityEntry, usedUndeadPoints, calculateUndeadCapacity, activeUndeadUpkeep } from '../systems/necromancy/undeadCapacity.js';
 import { MINION_STANCES, MINION_PROFILES, allSpawnedMinions, setAllMinionsStance, orderRecall, dismissAllMinions, detonateMinion, registerControlledReleaseHook, releaseAllControlledUndead } from '../systems/necromancy/minionController.js';
 import { corpsesNear, harvestAllFromCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
 import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js';
@@ -10882,8 +10882,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     const currentStance = (rawStance === 'feign_death' ? 'FEIGNING DEATH' : rawStance).toUpperCase();
     const count = Math.max(minions.length, uniqueBodies.length);
     const minionNames = minions.map((m) => m.name).join(', ') || (count > 0 ? 'Undead Thrall' : 'None');
+    const usedPool = usedUndeadPoints();
+    const maxPool = calculateUndeadCapacity(playerEntity);
+    const upkeepActive = NecroConfig.minionUpkeep;
+    const upkeepCost = activeUndeadUpkeep();
     const lines = [
       t('necro.menu.title', '=== UNDEAD COMMAND NEXUS ==='),
+      t('necro.menu.pool', 'Control Pool: {0}/{1}', usedPool, maxPool),
+      ...(upkeepActive ? [t('necro.menu.upkeep', 'Mana Upkeep: {0} / round', upkeepCost)] : []),
       t('necro.menu.active', 'Active Minions: {0} ({1})', count, minionNames),
       t('necro.menu.stance', 'Current Stance: [{0}]', currentStance),
       t('necro.menu.prompt', 'Issue a mental order to your commanded minions:'),

@@ -214,10 +214,11 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     const famineQuote = rentalDecision('1', { quality: 10, date: { month: 1, day: 1 }, regionIndex: 17 });
     assert.ok(famineQuote.price > baseQuote.price, `famine tavern price (${famineQuote.price}) should exceed peace price (${baseQuote.price})`);
 
-    const livingTab = CATEGORIES.find((tab) => tab.id === 'living');
-    assert.ok(livingTab);
-    assert.equal(livingTab.title, 'Living Tamriel (Experimental, pre-alpha)');
-    assert.equal(livingTab.sections.length, 3);
+    const dffTab = CATEGORIES.find((tab) => tab.id === 'dff');
+    assert.ok(dffTab);
+    const livingSec = dffTab.sections.find((s) => s.id === 'living');
+    assert.ok(livingSec);
+    assert.equal(livingSec.title, 'Living Tamriel (Experimental, pre-alpha)');
   });
 
   it('Step 4: Wilderness & Road Ecological Spawner complements or replaces vanilla spawns across Climate, Biome, Season, Day/Night, Road, and Crisis', () => {

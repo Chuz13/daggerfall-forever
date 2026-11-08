@@ -1362,7 +1362,7 @@ necro.alert.abomination,"Нечестива потвора! Варта, до з�
 necro.alert.witchHunters,"Ім'ям Аркея, нечестивий осквернителю, прийми праведний суд!"
 necro.alert.rebellion,"Ментальний зв'язок розірвано! Нежить повстала проти вас!"
 necro.alert.lichdom,"Смертна плоть згасає. Ви відроджуєтесь як вічний Ліч."
-settings.sec.necromancy,"Dark Arts & Necromancy"
+settings.sec.necromancy,"Dark Arts & Necromancy (Experimental, alpha)"
 menu.necro.enabled.name,"Dark Arts & Necromancy"
 menu.necro.enabled.note,"Enables forbidden dark spells, corpse reanimation, harvesting, and Lichdom rituals."
 menu.necro.corpseReq.name,"Corpse Requirement"
@@ -1486,3 +1486,8 @@ HUD_SUTURE_FAIL,"Недостатньо плоті для зшивання ко�
 HUD_SUTURE_SUCCESS,"Кістки хрустять, а плоть зростається воєдино... М'ясний Колос постає з {0} тіл!"
 status.absorbsMore,"Поглинає ще {n} од. шкоди."
 status.absorbs,"Поглинає шкоду."
+
+settings.sec.living,"Living Tamriel (Experimental, pre-alpha)"
+settings.tab.dff,"DFF"
+necro.menu.pool,"Пул контролю: {0}/{1}"
+necro.menu.upkeep,"Витрата мани: {0} за раунд"

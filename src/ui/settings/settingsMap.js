@@ -145,39 +145,6 @@ export const CATEGORIES = Object.freeze([
       'Effects/ColorBoostDungeonFalloff',
     ]),
   ]),
-  tab('living', () => t('settings.tab.living', 'Living Tamriel (Experimental, pre-alpha)'), [
-    sec('living-politics', () => t('settings.sec.livingPolitics', 'Politics, Economy & Cities'), [
-      'feat:living-political',
-      'feat:living-quarantine',
-      'feat:living-urban',
-      'feat:living-bounties',
-    ]),
-    sec('living-rivals', () => t('settings.sec.livingRivals', 'Rivals, Adventurers & Nemeses'), [
-      'feat:living-adventurers',
-      'feat:living-road-adventurers',
-      'feat:living-nemesis',
-    ]),
-    sec('living-travel', () => t('settings.sec.livingTravel', 'Roads, Wilderness & High Seas'), [
-      'feat:living-travel',
-      'feat:living-camps',
-      'feat:living-naval',
-    ]),
-  ]),
-  tab('necromancy', () => t('settings.tab.necromancy', 'Dark Arts & Necromancy (Experimental, pre-alpha)'), [
-    sec('necro-core', () => t('settings.sec.necroCore', 'Forbidden Arts & Soul Taint'), [
-      'port:necroEnabled',
-      'port:necroCorpseReq',
-      'port:necroCapMode',
-    ]),
-    sec('necro-minions', () => t('settings.sec.necroMinions', 'Undead Minions & Upkeep'), [
-      'port:necroMinionUpkeep',
-      'port:necroMinionRebellion',
-    ]),
-    sec('necro-world', () => t('settings.sec.necroWorld', 'Social Law & Witch-Hunters'), [
-      'port:necroSocialLaw',
-      'port:necroWitchHunters',
-    ]),
-  ]),
   tab('gameplay', 'Gameplay', [
     sec('general', 'General', [
       'Enhancements/LoiterLimitInHours',
@@ -493,6 +460,29 @@ export const CATEGORIES = Object.freeze([
       'Daggerfall/MyDaggerfallUnityScreenshotsPath',
     ]),
     sec('index', 'Every mod', ['mods-index']),
+  ]),
+  tab('dff', () => t('settings.tab.dff', 'DFF'), [
+    sec('necromancy', () => t('settings.sec.necromancy', 'Dark Arts & Necromancy (Experimental, alpha)'), [
+      'port:necroEnabled',
+      'port:necroCorpseReq',
+      'port:necroCapMode',
+      'port:necroMinionUpkeep',
+      'port:necroMinionRebellion',
+      'port:necroSocialLaw',
+      'port:necroWitchHunters',
+    ]),
+    sec('living', () => t('settings.sec.living', 'Living Tamriel (Experimental, pre-alpha)'), [
+      'feat:living-political',
+      'feat:living-quarantine',
+      'feat:living-urban',
+      'feat:living-bounties',
+      'feat:living-adventurers',
+      'feat:living-road-adventurers',
+      'feat:living-nemesis',
+      'feat:living-travel',
+      'feat:living-camps',
+      'feat:living-naval',
+    ]),
   ]),
 ]);
 

@@ -32,11 +32,14 @@ function withFakeDOM(fn) {
   try { return fn(); } finally { delete globalThis.document; delete globalThis.window; }
 }
 
-test('NecroSettings: sections are present in dedicated Necromancy tab with all 7 options', () => {
-  const necroTab = CATEGORIES.find((c) => c.id === 'necromancy');
-  assert.ok(necroTab, 'Necromancy tab must exist');
+test('NecroSettings: sections are present in DFF tab with all 7 options', () => {
+  const dffTab = CATEGORIES.find((c) => c.id === 'dff');
+  assert.ok(dffTab, 'DFF tab must exist');
+  const necroSec = dffTab.sections.find((s) => s.id === 'necromancy');
+  assert.ok(necroSec, 'Necromancy section must exist in DFF tab');
+  assert.equal(necroSec.title, 'Dark Arts & Necromancy (Experimental, alpha)');
 
-  const allItems = necroTab.sections.flatMap((s) => [...s.items]);
+  const allItems = necroSec.items;
   const expectedItems = [
     'port:necroEnabled',
     'port:necroCorpseReq',
@@ -48,7 +51,7 @@ test('NecroSettings: sections are present in dedicated Necromancy tab with all 7
   ];
 
   for (const item of expectedItems) {
-    assert.ok(allItems.includes(item), `Item ${item} must exist in Necromancy tab sections`);
+    assert.ok(allItems.includes(item), `Item ${item} must exist in Necromancy section`);
   }
   assert.equal(allItems.length, 7);
 });
@@ -88,9 +91,9 @@ test('NecroSettings: itemChanged detects preference adjustments and restoreTabDe
   assert.equal(itemChanged('port:necroEnabled', pool), true, 'necroEnabled should be marked changed');
   assert.equal(itemChanged('port:necroSocialLaw', pool), true, 'necroSocialLaw should be marked changed');
 
-  // Restore defaults for necromancy tab
-  const necroTab = CATEGORIES.find((c) => c.id === 'necromancy');
-  withFakeDOM(() => restoreTabDefaults(necroTab));
+  // Restore defaults for dff tab
+  const dffTab = CATEGORIES.find((c) => c.id === 'dff');
+  withFakeDOM(() => restoreTabDefaults(dffTab));
 
   assert.equal(getPref(PREF_KEYS.ENABLED), PREF_DEFAULTS.necroEnabled);
   assert.equal(getPref(PREF_KEYS.SOCIAL_LAW), PREF_DEFAULTS.necroSocialLaw);

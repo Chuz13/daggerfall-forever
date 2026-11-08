@@ -9,19 +9,18 @@ import { getPref, setPref } from '../../src/systems/uiPrefs.js';
 
 const rd = (relPath) => readFileSync(new URL('../../' + relPath, import.meta.url), 'utf8');
 
-test('LT-07: Living Tamriel is a top-level settings tab alongside Graphics with 3 structured sections', () => {
-  const livingTab = CATEGORIES.find((c) => c.id === 'living');
-  assert.ok(livingTab, 'Living Tamriel tab must exist in CATEGORIES');
-  assert.equal(livingTab.title, 'Living Tamriel (Experimental, pre-alpha)');
+test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
+  const dffTab = CATEGORIES.find((c) => c.id === 'dff');
+  assert.ok(dffTab, 'DFF tab must exist in CATEGORIES');
+  const livingSec = dffTab.sections.find((s) => s.id === 'living');
+  assert.ok(livingSec, 'Living Tamriel section must exist in DFF tab');
+  assert.equal(livingSec.title, 'Living Tamriel (Experimental, pre-alpha)');
 
-  // Verify tab order: Graphics is first, Living Tamriel is second
+  // Verify tab order: Graphics is first, DFF is at bottom
   assert.equal(CATEGORIES[0].id, 'graphics');
-  assert.equal(CATEGORIES[1].id, 'living');
+  assert.equal(CATEGORIES[CATEGORIES.length - 1].id, 'dff');
 
-  const sectionIds = livingTab.sections.map((s) => s.id);
-  assert.deepEqual(sectionIds, ['living-politics', 'living-rivals', 'living-travel']);
-
-  // Verify all 10 features are placed in the living tab
+  // Verify all 10 features are placed in the dff tab under living section
   const expectedFeatures = [
     'feat:living-political',
     'feat:living-quarantine',
@@ -38,7 +37,8 @@ test('LT-07: Living Tamriel is a top-level settings tab alongside Graphics with 
   for (const featId of expectedFeatures) {
     const loc = whereIs(featId);
     assert.ok(loc, `${featId} must be mapped in settingsMap`);
-    assert.equal(loc.tab.id, 'living', `${featId} must be in living tab`);
+    assert.equal(loc.tab.id, 'dff', `${featId} must be in dff tab`);
+    assert.equal(loc.section.id, 'living', `${featId} must be in living section`);
   }
 });
 

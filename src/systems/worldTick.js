@@ -40,7 +40,7 @@ import { onLycanthropeHit } from './lycanthropy.js';
 import { onVampireHit } from './vampirism.js';
 import { onPlayerStruckByEnemy } from './artifactEffects.js';   // V3: the Ring of Namira's reflection
 import { onLivingWorldTick } from './living/livingDirector.js';
-import { activeUndead } from './necromancy/undeadCapacity.js';
+import { activeUndead, activeUndeadUpkeep } from './necromancy/undeadCapacity.js';
 import { checkMinionRebellion, tickControlledUndeadRound } from './necromancy/minionController.js';
 import { tickTaintDaily } from './necromancy/necroTaint.js';
 import { NecroConfig } from './necromancy/necroConfig.js';
@@ -755,7 +755,7 @@ function tickPlayerMinutesOnce({
     if (minions.length > 0 && NecroConfig.minionUpkeep && !isNecroRestManaLocked(entity)) {
       if (!entity._lastMinionUpkeepMs || nowMs - entity._lastMinionUpkeepMs >= 5000) {
         entity._lastMinionUpkeepMs = nowMs;
-        const upkeepCost = minions.reduce((sum, m) => sum + (Number(m.upkeep ?? m.tier ?? m.slotCost ?? 1)), 0);
+        const upkeepCost = activeUndeadUpkeep();
         if (typeof entity.magicka === 'number' && upkeepCost > 0) {
           if (sinks && sinks.drainMagicka) {
             sinks.drainMagicka(upkeepCost);

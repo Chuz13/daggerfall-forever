@@ -523,11 +523,14 @@ export function localizedTextList(key, en, collection = TextCollections.Internal
 
 /** THE PORT'S OWN STRINGS: `key` in Port_Strings for the current locale, else the English pattern `en`, formatted
  *  with `args` (formatMessage). */
-export function t(key, en, args = null) {
+export function t(key, en, args = null, ...rest) {
+  const actualArgs = rest.length > 0
+    ? [args, ...rest]
+    : (args !== null && typeof args !== 'object' ? [args] : args);
   const v = readTable(runtimeCollectionName(TextCollections.Port), key);
   const pattern = v ?? en;
   const pseudo = v === undefined && _locale === PSEUDO_LOCALE;
-  return formatMessage(pattern, args, { locale: intlLocale(), pseudo });
+  return formatMessage(pattern, actualArgs, { locale: intlLocale(), pseudo });
 }
 
 /** L10N3d: a table of DFU text constants keyed by their Internal_Strings key, each read through localizedText at the

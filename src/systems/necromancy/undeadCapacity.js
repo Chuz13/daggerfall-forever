@@ -222,6 +222,16 @@ export function activeUndead() {
   return _activeMinions.filter((m) => !m.dead);
 }
 
+/**
+ * Calculates current total mana upkeep per combat round for all raised active undead.
+ * @returns {number}
+ */
+export function activeUndeadUpkeep() {
+  return _activeMinions
+    .filter((m) => !m.dead && !m.controlled)
+    .reduce((sum, m) => sum + Number(m.upkeep ?? m.tier ?? m.slotCost ?? 1), 0);
+}
+
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 
 function minionMobileType(type) {

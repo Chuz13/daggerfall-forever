@@ -9195,7 +9195,7 @@ necro.alert.abomination,"Нечестивая тварь! Стража, к ор�
 necro.alert.witchHunters,"Именем Аркея, нечестивый осквернитель, узри праведный суд!"
 necro.alert.rebellion,"Ментальная связь разорвана! Нежить восстала против вас!"
 necro.alert.lichdom,"Смертная плоть угасает. Вы возрождаетесь в вечном Личдоме."
-settings.sec.necromancy,"Тёмные искусства и некромантия"
+settings.sec.necromancy,"Тёмные искусства и некромантия (Experimental, alpha)"
 menu.necro.enabled.name,"Тёмные искусства и некромантия"
 menu.necro.enabled.note,"Включает запретные тёмные чары, поднятие трупов, сбор костей и ритуал Личдома."
 menu.necro.corpseReq.name,"Требование наличия трупа"
@@ -9319,3 +9319,8 @@ HUD_SUTURE_FAIL,"Недостаточно плоти для сшивания к�
 HUD_SUTURE_SUCCESS,"Кости хрустят, а плоть срастается воедино... Мясной Колосс восстаёт из {0} тел!"
 status.absorbsMore,"Поглощает ещё {n} ед. урона."
 status.absorbs,"Поглощает урон."
+
+settings.sec.living,"Живой Тамриэль (Experimental, pre-alpha)"
+settings.tab.dff,"ДФФ"
+necro.menu.pool,"Пул контроля: {0}/{1}"
+necro.menu.upkeep,"Расход маны: {0} в раунд"
