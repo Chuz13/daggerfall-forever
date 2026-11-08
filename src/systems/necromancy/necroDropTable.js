@@ -109,7 +109,7 @@ export const CREATURE_REAGENT_DROPS = Object.freeze({
     { templateIndex: NECRO_REAGENT_IDX.Ectoplasm, chance: 0.30 },
   ]),
   [MOBILE_TYPES.Vampire]: Object.freeze([
-    { templateIndex: NECRO_REAGENT_IDX.BigTooth, chance: 0.75 },
+    { templateIndex: NECRO_REAGENT_IDX.BigTooth, chance: 1.00 },
     { templateIndex: NECRO_REAGENT_IDX.ElixirVitae, chance: 0.45 },
     { templateIndex: NECRO_REAGENT_IDX.Ectoplasm, chance: 0.35 },
   ]),

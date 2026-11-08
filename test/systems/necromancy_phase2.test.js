@@ -34,6 +34,7 @@ import {
   handleLichMortalFall,
   PHYLACTERY_STATE,
 } from '../../src/systems/necromancy/lichdomRitual.js';
+import { NecroConfig } from '../../src/systems/necromancy/necroConfig.js';
 
 import {
   registerCorpse,
@@ -224,6 +225,7 @@ test('MinionController: detonateMinion sacrifices minion for area damage', () =>
 });
 
 test('MinionController: checkMinionRebellion breaks leash on exhaustion', () => {
+  NecroConfig.minionRebellion = true;
   const player = {
     currentFatigue: 0, // Exhausted!
     currentMagicka: 0,

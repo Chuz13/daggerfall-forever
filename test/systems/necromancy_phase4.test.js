@@ -51,7 +51,7 @@ test('NecroConfig: defaults and pref modification', () => {
   assert.equal(NecroConfig.enabled, true);
   assert.equal(NecroConfig.corpseRequirement, CORPSE_REQ_MODES.PHYSICAL);
   assert.equal(NecroConfig.socialLaw, SOCIAL_LAW_MODES.HARDCORE);
-  assert.equal(NecroConfig.minionRebellion, true);
+  assert.equal(NecroConfig.minionRebellion, false);
   assert.equal(NecroConfig.witchHunterFrequency, WITCH_HUNTER_MODES.FREQUENT);
   assert.equal(NecroConfig.capMode, CAP_MODES.STAT_SCALED);
   assert.equal(NecroConfig.fixedCap, 4);

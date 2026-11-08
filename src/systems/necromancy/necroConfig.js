@@ -69,14 +69,14 @@ export const NecroConfig = Object.freeze({
   },
 
   get minionUpkeep() {
-    return getPref(PREF_KEYS.UPKEEP, true) !== false;
+    return getPref(PREF_KEYS.UPKEEP, false) === true;
   },
   set minionUpkeep(v) {
     setPref(PREF_KEYS.UPKEEP, !!v);
   },
 
   get minionRebellion() {
-    return getPref(PREF_KEYS.REBELLION, true) !== false;
+    return getPref(PREF_KEYS.REBELLION, false) === true;
   },
   set minionRebellion(v) {
     setPref(PREF_KEYS.REBELLION, !!v);
@@ -124,8 +124,8 @@ export function resetNecroConfig() {
   setPref(PREF_KEYS.ENABLED, true);
   setPref(PREF_KEYS.CORPSE_REQ, CORPSE_REQ_MODES.PHYSICAL);
   setPref(PREF_KEYS.SOCIAL_LAW, SOCIAL_LAW_MODES.HARDCORE);
-  setPref(PREF_KEYS.UPKEEP, true);
-  setPref(PREF_KEYS.REBELLION, true);
+  setPref(PREF_KEYS.UPKEEP, false);
+  setPref(PREF_KEYS.REBELLION, false);
   setPref(PREF_KEYS.WITCH_HUNTER, WITCH_HUNTER_MODES.FREQUENT);
   setPref(PREF_KEYS.CAP_MODE, CAP_MODES.STAT_SCALED);
   setPref(PREF_KEYS.FIXED_CAP, 4);

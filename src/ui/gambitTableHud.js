@@ -235,6 +235,7 @@ export function gambitHudModel(p) {
   let next = 'chooseRegular',
     nextArgs = {};
   /** @type {string|null} */ let line = null;
+  const online = p.online ?? null;
   if (phase === 'setup') {
     out.title = gambitTitle({ phase });
     out.setup = {

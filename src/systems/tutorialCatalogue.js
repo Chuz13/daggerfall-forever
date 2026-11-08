@@ -342,7 +342,7 @@ export const TUTORIALS = Object.freeze([
   page({
     id: 'tavern-cards', group: 'towns', title: 'Card Games', trigger: 'When you first sit at a card table.',
     body: [
-      'Play Texas Hold\'em, Iliac Hand or The King\'s Gambit against the locals, and the first two against other players too. Online, one table plays for real gold.',
+      'Play Texas Hold\'em, Iliac Hand or The King\'s Gambit against the locals for gold.',
       'Cards you collect go into your Card Binder, kept under Menu > Holdings > Collections.',
     ],
   }),
