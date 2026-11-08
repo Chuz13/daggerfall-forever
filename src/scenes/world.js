@@ -6612,17 +6612,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     try {
       setSyntheticTimeIncrease(true);
       if (sharedClockOn()) {
-        const curSky = skyMinutes();
-        const targetSky = curSky + LICH_RESPAWN_MONTH_MINUTES;
-        const curWall = wallMsForSkyMinutes(curSky);
-        const targetWall = wallMsForSkyMinutes(targetSky);
-        if (Number.isFinite(curWall) && Number.isFinite(targetWall)) {
-          _sharedOffsetMs += Math.round(targetWall - curWall);
-        }
+        advanceOwnMinutes(LICH_RESPAWN_MONTH_MINUTES);
       }
-      setWorldMinutes(worldMinutes() + LICH_RESPAWN_MONTH_MINUTES);
-      advanceOwnMinutes(LICH_RESPAWN_MONTH_MINUTES);
       playerTicker.advance(LICH_RESPAWN_MONTH_MINUTES);
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
     } catch (e) {
       console.error('[necro] ticker advance error on lich respawn:', e);
     }

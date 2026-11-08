@@ -572,3 +572,24 @@ test('Safeguards: Ancient Lich casting Lichdom spell returns peaceful refusal wi
   assert.equal(isAncientLich(ancient), true, 'Must remain Ancient Lich');
   assert.equal(ancient.racialOverride.racial, 'ancient_lichdom');
 });
+
+test('Time Skip: Numpad 5 Status readout date advances by 1 calendar month upon Lich respawn', async () => {
+  const { QuestMachine } = await import('../../src/systems/quest/machine.js');
+  const { statusReadoutRows } = await import('../../src/ui/statusBox.js');
+
+  let curMinutes = 0;
+  const machine = new QuestMachine({
+    nowSeconds: () => curMinutes * 60,
+    skySeconds: () => 0, // Even if server sky is static/shared in online mode
+  });
+
+  const lines = (id) => (id === 22 ? ['It is %tim on %dat.'] : []);
+  const beforeRows = statusReadoutRows({ lines, macroContext: machine.macroContext(), entity: { activeEffects: [] } });
+  assert.ok(beforeRows[0].includes('Morning Star'), `Expected Morning Star before death, got: ${beforeRows[0]}`);
+
+  // 1 month passes (43,200 minutes)
+  curMinutes += LICH_RESPAWN_MONTH_MINUTES;
+
+  const afterRows = statusReadoutRows({ lines, macroContext: machine.macroContext(), entity: { activeEffects: [] } });
+  assert.ok(afterRows[0].includes("Sun's Dawn"), `Expected Sun's Dawn (1 month later) after death, got: ${afterRows[0]}`);
+});

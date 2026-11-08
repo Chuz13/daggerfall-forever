@@ -93,8 +93,15 @@ export class StatusReadout extends ActionTextBox {
  * until a game minute ran.
  */
 export function statusReadoutRows({ lines, macroContext = null, entity, survival = null }) {
+  const statusCtx = macroContext ? {
+    ...macroContext,
+    hooks: {
+      ...macroContext.hooks,
+      skySeconds: () => (typeof macroContext.hooks?.nowSeconds === 'function' ? macroContext.hooks.nowSeconds() : macroContext.hooks?.skySeconds?.()),
+    },
+  } : null;
   const rows = [
-    ...statusInfoRows(lines, macroContext),
+    ...statusInfoRows(lines, statusCtx ?? macroContext),
     '',
     ...healthStatusRows(entity, lines),
   ];
