@@ -433,12 +433,12 @@ export const DEFAULT_BINDINGS = Object.freeze([
   // PVP-KEY: the key the flag always had. A file that already spends Caps Lock keeps it, and the flag waits for a key.
   ['CapsLock', 'PvpFlag'],
   ['Slash', 'TravelView'],
-  // UNDEAD-COMMANDS: Numpad tactical keypad layout (Numpad 7: Recall, 8: Attack, 9: Feign Death/Ambush, 4: Detonate, 6: Nexus Modal)
+  // UNDEAD-COMMANDS: Numpad tactical keypad layout (Numpad 7: Recall, 8: Attack, 9: Feign Death/Ambush, 6: Nexus Modal)
   ['Numpad6', 'UndeadNexus'],
   ['Numpad7', 'UndeadRecall'],
   ['Numpad8', 'UndeadAttack'],
   ['Numpad9', 'UndeadFeignDeath'],
-  ['Numpad4', 'UndeadDetonate'],
+  // ['Numpad4', 'UndeadDetonate'], // Unbound: minion detonate retired in favor of Corpse Explosion spell
   ['Numpad1', 'UndeadFollow'],
   ['Numpad2', 'UndeadGuard'],
   ['Numpad3', 'UndeadDismiss'],
@@ -476,7 +476,7 @@ export const HELM_RUDDER_ACTIONS = Object.freeze({ MoveLeft: 'TurnLeft', MoveRig
  *  and binds Left Ctrl; nothing in DFU reads it either). They stay in ACTIONS (the list is never cut: a saved file
  *  and the classic grid resolve by position) but ship unbound and the enhanced pane does not draw them - a row that
  *  holds a key and does nothing is how a key gets spent twice. */
-export const HIDDEN_ACTIONS = Object.freeze(['ToggleConsole', 'Slide']);
+export const HIDDEN_ACTIONS = Object.freeze(['ToggleConsole', 'Slide', 'UndeadDetonate']);
 
 /** KB1: THE HOTBAR'S TEN KEYS, in slot order. Slots 1-4 are the quickslot diamond's own four actions - one key,
  *  one action: the diamond reads them while it is the quickbar, the hotbar while it is (systems/uiSkin.js
@@ -646,7 +646,7 @@ export const ACTION_GROUPS = Object.freeze([
     ['UndeadRecall', t('input.action.undeadRecall', 'Order Minions: Recall to Heel (Numpad 7)')],
     ['UndeadAttack', t('input.action.undeadAttack', 'Order Minions: Attack / Focus (Numpad 8)')],
     ['UndeadFeignDeath', t('input.action.undeadFeignDeath', 'Order Minions: Ambush / Feign Death (Numpad 9)')],
-    ['UndeadDetonate', t('input.action.undeadDetonate', 'Order Minions: Detonate Nearest (Numpad 4)')],
+    // ['UndeadDetonate', t('input.action.undeadDetonate', 'Order Minions: Detonate Nearest (Numpad 4)')], // Hidden: replaced by Corpse Explosion
     ['UndeadFollow', t('input.action.undeadFollow', 'Order Minions: Follow (Numpad 1)')],
     ['UndeadGuard', t('input.action.undeadGuard', 'Order Minions: Guard (Numpad 2)')],
     ['UndeadDismiss', t('input.action.undeadDismiss', 'Order Minions: Dismiss All (Numpad 3)')],

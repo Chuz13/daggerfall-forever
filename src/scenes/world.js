@@ -10790,7 +10790,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       { code: '1', label: t('necro.menu.optRecall', '1. [Recall to Heel] Teleport all minions to your side (Numpad 7)'), action: () => applyUndeadCommand('recall') },
       { code: '2', label: t('necro.menu.optAttack', '2. [Attack / Focus] Charge nearest enemies on sight (Numpad 8)'), action: () => applyUndeadCommand('attack') },
       { code: '3', label: t('necro.menu.optAmbush', '3. [Ambush / Wait] Collapse & hold position (Numpad 9)'), action: () => applyUndeadCommand('feign_death') },
-      { code: '4', label: t('necro.menu.optDetonate', '4. [Detonate Minion] Sacrifice nearest minion for 5x HP AoE (Numpad 4)'), action: () => applyUndeadCommand('detonate') },
+      // { code: '4', label: t('necro.menu.optDetonate', '4. [Detonate Minion] Sacrifice nearest minion for 5x HP AoE (Numpad 4)'), action: () => applyUndeadCommand('detonate') },
       { code: '5', label: t('necro.menu.optFollow', '5. [Follow] Follow close behind master (Numpad 1)'), action: () => applyUndeadCommand('follow') },
       { code: '6', label: t('necro.menu.optGuard', '6. [Guard] Hold ground and guard area (Numpad 2)'), action: () => applyUndeadCommand('guard') },
       { code: '7', label: t('necro.menu.optDismiss', '7. [Dismiss] Destroy all active minions (Numpad 3)'), action: () => applyUndeadCommand('dismiss') },
@@ -17458,8 +17458,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         e.preventDefault(); applyUndeadCommand('attack'); return;
       } else if (act === 'UndeadFeignDeath' || isNum(9)) {
         e.preventDefault(); applyUndeadCommand('feign_death'); return;
-      } else if (act === 'UndeadDetonate' || isNum(4)) {
-        e.preventDefault(); applyUndeadCommand('detonate'); return;
+      // } else if (act === 'UndeadDetonate' || isNum(4)) {
+      //   e.preventDefault(); applyUndeadCommand('detonate'); return;
       } else if (act === 'UndeadFollow' || isNum(1)) {
         e.preventDefault(); applyUndeadCommand('follow'); return;
       } else if (act === 'UndeadGuard' || isNum(2)) {
