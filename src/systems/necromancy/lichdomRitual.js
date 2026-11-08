@@ -92,8 +92,21 @@ export function canDrinkElixirOfUnlife(playerEntity) {
   if (!playerEntity) {
     return { eligible: false, reason: 'Invalid player entity.' };
   }
-  if (isAnyLich(playerEntity)) {
-    return { eligible: false, alreadyLich: true, reason: 'You have already ascended to Lichdom.' };
+  if (isAncientLich(playerEntity)) {
+    return {
+      eligible: false,
+      alreadyAncient: true,
+      alreadyLich: true,
+      reason: t('necro.elixir.alreadyAncient', 'The Elixir of Unlife has no effect on you, you are already an Ancient Lich.'),
+    };
+  }
+  if (isLich(playerEntity) || isAnyLich(playerEntity)) {
+    return {
+      eligible: false,
+      alreadyLich: true,
+      alreadyAncient: false,
+      reason: t('necro.elixir.alreadyLich', 'You have already ascended to Lichdom. The Elixir of Unlife has no further effect on your undead vessel.'),
+    };
   }
   if (!hasReadGrimoire(playerEntity)) {
     return {
@@ -153,6 +166,16 @@ export function canDrinkElixirOfUnlife(playerEntity) {
  */
 export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, forceDeath = null, sinks = null, nowMinutes = 0 } = {}) {
   const check = canDrinkElixirOfUnlife(playerEntity);
+  if (check.alreadyLich || check.alreadyAncient) {
+    return {
+      success: false,
+      lichdom: false,
+      alreadyLich: true,
+      alreadyAncient: !!check.alreadyAncient,
+      reason: check.reason,
+      message: check.reason,
+    };
+  }
   if (!check.eligible) {
     dealRitualFailureDamage(playerEntity, { isLich: false, hurtPlayer, forceDeath, sinks });
     return {
@@ -190,6 +213,16 @@ export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, forceDeat
  */
 export function performLichdomRitual(caster, { hurtPlayer = null, forceDeath = null, sinks = null, nowMinutes = 0 } = {}) {
   const check = canDrinkElixirOfUnlife(caster);
+  if (check.alreadyAncient) {
+    const msg = t('spell.necro.alreadyAncientLich', 'You have already achieved Ancient Lichdom. The ritual is no longer needed.');
+    return {
+      success: false,
+      alreadyAncient: true,
+      alreadyLich: true,
+      reason: msg,
+      message: msg,
+    };
+  }
   if (check.alreadyLich) {
     const msg = t('spell.necro.alreadyLich', 'You have already ascended to Lichdom. Do not squander your power in vain.');
     return {
@@ -489,7 +522,7 @@ export function canAscendToArchLichdom(caster) {
 export function performArchLichdomRitual(caster, { hurtPlayer = null, forceDeath = null, sinks = null, nowMinutes = 0 } = {}) {
   const check = canAscendToArchLichdom(caster);
   if (check.alreadyAncient) {
-    const msg = t('spell.necro.alreadyAncientLich', 'You have already achieved Ancient Lichdom. Do not squander your power in vain.');
+    const msg = t('spell.necro.alreadyAncientLich', 'You have already achieved Ancient Lichdom. The ritual is no longer needed.');
     return {
       success: false,
       alreadyAncient: true,

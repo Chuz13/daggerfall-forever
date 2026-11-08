@@ -9296,3 +9296,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"당신은 이미 리치로 승천했습니다. 불사의 엘릭서는 당신의 언데드 육신에 더 이상 영향을 미치지 않습니다."
+necro.elixir.alreadyAncient,"불사의 엘릭서는 당신에게 효과가 없습니다. 당신은 이미 고대 리치입니다."

@@ -3585,3 +3585,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"Minął miesiąc. Twoja nieumarła esencja odradza się na pobliskim cmentarzu."
+necro.elixir.alreadyLich,"Osiągnąłeś już stan licza. Eliksir Nie-Życia nie wywiera dalszego wpływu na twoją nieumarłą powłokę."
+necro.elixir.alreadyAncient,"Eliksir Nie-Życia nie działa na ciebie, jesteś już Arcyliczem."

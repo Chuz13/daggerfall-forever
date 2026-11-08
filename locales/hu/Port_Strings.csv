@@ -3370,3 +3370,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"Már felvetted a Lich állapotot. A Nem-élet Elixírje nincs többé hatással az élőholt porhüvelyedre."
+necro.elixir.alreadyAncient,"A Nem-élet Elixírje nincs hatással rád, már Főlich vagy."

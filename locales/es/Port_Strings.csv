@@ -9296,3 +9296,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"Ha pasado un mes. Tu esencia no muerta se reconstituye en un cementerio cercano."
+necro.elixir.alreadyLich,"Ya has alcanzado el estado de liche. El Elixir de la No-Muerte no tiene más efecto sobre tu cuerpo no-muerto."
+necro.elixir.alreadyAncient,"El Elixir de la No-Muerte no tiene ningún efecto en ti, ya eres un Archiliche."

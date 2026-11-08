@@ -9296,3 +9296,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"Du har allerede oppnådd lisjdom. Det Ulevendes Eliksir har ingen ytterligere virkning på ditt udøde hylster."
+necro.elixir.alreadyAncient,"Det Ulevendes Eliksir har ingen virkning på deg, du er allerede en erkelisj."

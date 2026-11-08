@@ -10,6 +10,8 @@ import {
   canAscendToArchLichdom,
   performArchLichdomRitual,
   performLichdomRitual,
+  canDrinkElixirOfUnlife,
+  drinkElixirOfUnlife,
   ARCH_LICH_MIN_LEVEL,
   ARCH_LICH_MIN_MYSTICISM,
   ARCH_LICH_MIN_INTELLIGENCE,
@@ -37,6 +39,8 @@ import { applySpell } from '../../src/systems/effects.js';
 import { spellTipLines, statusTip } from '../../src/ui/hud/statusTips.js';
 import { effectRows } from '../../src/ui/enhanced/enhancedHud.js';
 import { liveStat } from '../../src/systems/statMods.js';
+import { useItem } from '../../src/systems/useItem.js';
+import { ELIXIR_OF_UNLIFE_KEY, makePotion } from '../../src/systems/potions.js';
 
 test('Arch-Lichdom: spell definition has correct metadata and is not craftable', () => {
   const sp = archLichdomSpell();
@@ -420,4 +424,151 @@ test('Lich & Ancient Lich cemetery death interception: full vitals, 30 days time
   setLichCemeteryRespawnHook(null);
   setDeathListener('test_legacy_listener', null);
   setDeathPresenter(null);
+});
+
+test('Safeguards: Lich drinking Elixir of Unlife displays refusal without damage or death', () => {
+  const lich = {
+    level: 25,
+    health: 200,
+    maxHealth: 200,
+    skills: { [SKILLS.Mysticism]: 100 },
+    stats: { intelligence: 100, willpower: 100 },
+  };
+  applyLichdom(lich);
+  assert.equal(isLich(lich), true);
+
+  let hurtCount = 0;
+  let forceDeathCalled = false;
+  const res = drinkElixirOfUnlife(lich, {
+    hurtPlayer: () => { hurtCount++; },
+    forceDeath: () => { forceDeathCalled = true; },
+  });
+
+  assert.equal(res.success, false);
+  assert.equal(res.lichdom, false);
+  assert.equal(res.alreadyLich, true);
+  assert.equal(res.alreadyAncient, false);
+  assert.equal(hurtCount, 0, 'Must NOT inflict poison damage on existing Lich');
+  assert.equal(forceDeathCalled, false, 'Must NOT trigger death on existing Lich');
+  assert.equal(lich.health, 200, 'Health must remain intact');
+  assert.ok(typeof res.reason === 'string' && res.reason.length > 0);
+});
+
+test('Safeguards: Ancient Lich drinking Elixir of Unlife displays refusal without damage or death', () => {
+  const ancient = {
+    level: 35,
+    health: 300,
+    maxHealth: 300,
+    skills: { [SKILLS.Mysticism]: 200 },
+    stats: { intelligence: 150, willpower: 150 },
+  };
+  applyLichdom(ancient);
+  applyAncientLichdom(ancient);
+  assert.equal(isAncientLich(ancient), true);
+
+  let hurtCount = 0;
+  let forceDeathCalled = false;
+  const res = drinkElixirOfUnlife(ancient, {
+    hurtPlayer: () => { hurtCount++; },
+    forceDeath: () => { forceDeathCalled = true; },
+  });
+
+  assert.equal(res.success, false);
+  assert.equal(res.lichdom, false);
+  assert.equal(res.alreadyLich, true);
+  assert.equal(res.alreadyAncient, true);
+  assert.equal(hurtCount, 0, 'Must NOT inflict poison damage on Ancient Lich');
+  assert.equal(forceDeathCalled, false, 'Must NOT trigger death on Ancient Lich');
+  assert.equal(ancient.health, 300, 'Health must remain intact');
+  assert.ok(typeof res.reason === 'string' && res.reason.length > 0);
+});
+
+test('Safeguards: Ancient Lich casting Arch-Lichdom returns peaceful refusal', () => {
+  const ancient = {
+    level: 35,
+    health: 300,
+    maxHealth: 300,
+    skills: { [SKILLS.Mysticism]: 200 },
+    stats: { intelligence: 150, willpower: 150 },
+  };
+  applyLichdom(ancient);
+  applyAncientLichdom(ancient);
+  assert.equal(isAncientLich(ancient), true);
+
+  let hurtCalled = false;
+  let messageSaid = '';
+  const sinks = {
+    hurt: () => { hurtCalled = true; },
+    say: (msg) => { messageSaid = msg; },
+  };
+
+  const res = performArchLichdomRitual(ancient, { sinks });
+  assert.equal(res.success, false);
+  assert.equal(res.alreadyAncient, true);
+  assert.equal(hurtCalled, false, 'Must NOT hurt Ancient Lich');
+  assert.equal(ancient.health, 300);
+  assert.ok(messageSaid.length > 0 || (res.message && res.message.length > 0));
+});
+
+test('Safeguards: useItem drinking Elixir of Unlife as Lich or Ancient Lich gives peaceful message without lethal failure', () => {
+  // 1. As Lich
+  const lich = {
+    level: 25,
+    health: 200,
+    maxHealth: 200,
+    skills: { [SKILLS.Mysticism]: 100 },
+    stats: { intelligence: 100, willpower: 100 },
+    items: [],
+  };
+  applyLichdom(lich);
+  const elixirItem1 = makePotion(ELIXIR_OF_UNLIFE_KEY);
+  lich.items.push(elixirItem1);
+
+  const outLich = useItem(elixirItem1, lich.items, { entity: lich });
+  assert.equal(outLich.kind, 'potion');
+  assert.equal(outLich.lichdom, false);
+  assert.equal(lich.health, 200, 'Lich health must remain 200 (no poison damage)');
+  assert.ok(!outLich.text.includes('rejects the Elixir'), 'Must NOT say body rejects or lethal poison');
+  assert.ok(outLich.text.length > 0);
+
+  // 2. As Ancient Lich
+  const ancient = {
+    level: 35,
+    health: 300,
+    maxHealth: 300,
+    skills: { [SKILLS.Mysticism]: 200 },
+    stats: { intelligence: 150, willpower: 150 },
+    items: [],
+  };
+  applyLichdom(ancient);
+  applyAncientLichdom(ancient);
+  const elixirItem2 = makePotion(ELIXIR_OF_UNLIFE_KEY);
+  ancient.items.push(elixirItem2);
+
+  const outAncient = useItem(elixirItem2, ancient.items, { entity: ancient });
+  assert.equal(outAncient.kind, 'potion');
+  assert.equal(outAncient.lichdom, false);
+  assert.equal(ancient.health, 300, 'Ancient Lich health must remain 300 (no poison damage)');
+  assert.ok(!outAncient.text.includes('rejects the Elixir'), 'Must NOT say body rejects or lethal poison');
+  assert.ok(outAncient.text.length > 0);
+});
+
+test('Safeguards: Ancient Lich casting Lichdom spell returns peaceful refusal without reapplication', () => {
+  const ancient = {
+    level: 35,
+    health: 300,
+    maxHealth: 300,
+    skills: { [SKILLS.Mysticism]: 200 },
+    stats: { intelligence: 150, willpower: 150 },
+  };
+  applyLichdom(ancient);
+  applyAncientLichdom(ancient);
+
+  let hurtCount = 0;
+  const res = performLichdomRitual(ancient, { hurtPlayer: () => { hurtCount++; } });
+  assert.equal(res.success, false);
+  assert.equal(res.alreadyAncient, true);
+  assert.equal(hurtCount, 0, 'Must NOT hurt Ancient Lich');
+  assert.equal(isAncientLich(ancient), true, 'Must remain Ancient Lich');
+  assert.equal(ancient.racialOverride.racial, 'ancient_lichdom');
 });

@@ -9296,3 +9296,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"Ein Monat ist vergangen. Eure untote Essenz setzt sich auf einem nahen Friedhof wieder zusammen."
+necro.elixir.alreadyLich,"Ihr seid bereits ein Lich. Das Lebenselixier hat keine weitere Wirkung auf Eure untote Hülle."
+necro.elixir.alreadyAncient,"Das Lebenselixier hat keine Wirkung auf Euch, Ihr seid bereits ein Erzlich."

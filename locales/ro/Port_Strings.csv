@@ -9296,3 +9296,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"Ai devenit deja un Lici. Elixirul Non-Vieții nu mai are niciun efect asupra trupului tău strigoi."
+necro.elixir.alreadyAncient,"Elixirul Non-Vieții nu are niciun efect asupra ta, ești deja un Arhilici."

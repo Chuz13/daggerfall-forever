@@ -1570,3 +1570,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"Zaten Lichliğe ulaştınız. Hayatsızlık İksirinin ölümsüz bedeniniz üzerinde başka bir etkisi yoktur."
+necro.elixir.alreadyAncient,"Hayatsızlık İksirinin size bir etkisi yoktur, zaten bir Kadim Lichsiniz."

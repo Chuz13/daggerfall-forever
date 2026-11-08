@@ -9296,3 +9296,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"You have already ascended to Lichdom. The Elixir of Unlife has no further effect on your undead vessel."
+necro.elixir.alreadyAncient,"The Elixir of Unlife has no effect on you, you are already an Ancient Lich."

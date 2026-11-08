@@ -1463,3 +1463,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"你已晉升為巫妖。無生藥劑對你的不死之軀已不再起效。"
+necro.elixir.alreadyAncient,"無生藥劑對你不起作用，你已是大巫妖。"

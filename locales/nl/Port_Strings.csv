@@ -2903,3 +2903,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"Je bent al verheven tot een Lich. Het Elixir van het Onleven heeft geen effect meer op je ondode omhulsel."
+necro.elixir.alreadyAncient,"Het Elixir van het Onleven heeft geen effect op je, je bent al een Aartslich."

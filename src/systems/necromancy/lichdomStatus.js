@@ -194,6 +194,7 @@ export function applyLichdom(entity, { phylacteryId = 'phylactery_main', nowMinu
 export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient', nowMinutes = 0 } = {}) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return null;
   if (!entity) return null;
+  if (liveAncientLichdom(entity) || entity.racialOverride?.racial === 'ancient_lichdom') return null;
   if (liveLichdom(entity) || entity.racialOverride?.racial === 'lichdom') {
     cureLichdom(entity);
   }

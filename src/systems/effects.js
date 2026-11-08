@@ -1507,8 +1507,8 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         hurtPlayer: sinks?.hurt ?? ctx?.hurtPlayer,
         sinks,
       });
-      if (res?.alreadyLich) {
-        sinks?.say?.(res.message);
+      if (res?.alreadyLich || res?.alreadyAncient) {
+        sinks?.say?.(res.message || res.reason);
         continue;
       }
       if (res?.success && res.message) {
@@ -1526,7 +1526,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         sinks,
       });
       if (res?.alreadyAncient) {
-        sinks?.say?.(res.message);
+        sinks?.say?.(res.message || res.reason);
         continue;
       }
       if (res?.success && res.message) {

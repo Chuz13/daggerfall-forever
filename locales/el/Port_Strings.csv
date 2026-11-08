@@ -3028,3 +3028,5 @@ necro.tip.ancientLich.survival,"Undeath: No need to eat, drink, breathe or sleep
 necro.tip.holy,"Weakness: Holy ground burns the undead soul."
 necro.tip.phylactery,"Phylactery: Bound soul reconstitutes upon mortal destruction."
 necro.respawnAtCemetery,"A month has passed. Your undead essence reconstitutes in a nearby cemetery."
+necro.elixir.alreadyLich,"Έχετε ήδη γίνει Λιχ. Το Ελιξίριο της Μη-Ζωής δεν έχει πλέον καμία επίδραση στο απέθαντο σώμα σας."
+necro.elixir.alreadyAncient,"Το Ελιξίριο της Μη-Ζωής δεν έχει καμία επίδραση πάνω σας, είστε ήδη Αρχιλίχ."

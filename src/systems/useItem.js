@@ -366,9 +366,11 @@ export function useItem(item, collection, {
       const res = drinkElixirOfUnlife(entity, { nowMinutes: nowMinute });
       const text = res.lichdom
         ? t('necro.lich.success', 'The mortal spark is snuffed. You rise as an immortal Lich of the Iliac Bay.')
-        : (res.reason
-            ? t('necro.lich.fail_reason', `Your body rejects the Elixir of Unlife! ${res.reason}`)
-            : t('necro.lich.fail', 'Your body rejects the Elixir of Unlife! Lethal poison courses through your veins (Requires Level 20, 100 Mysticism, 100 Intelligence and 100 Willpower).'));
+        : (res.alreadyLich || res.alreadyAncient)
+          ? (res.message || res.reason)
+          : (res.reason
+              ? t('necro.lich.fail_reason', `Your body rejects the Elixir of Unlife! ${res.reason}`)
+              : t('necro.lich.fail', 'Your body rejects the Elixir of Unlife! Lethal poison courses through your veins (Requires Level 20, 100 Mysticism, 100 Intelligence and 100 Willpower).'));
       out = { kind: 'potion', potion: 'Elixir of Unlife', lichdom: res.lichdom, text };
     } else {
       // U44: and then it actually DOES something. The arm consumed the
