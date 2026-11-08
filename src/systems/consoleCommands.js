@@ -726,44 +726,62 @@ registerCommand('item', 'Add item to player inventory: item <templateIndex|name>
 
 const VALID_ATTRS = ['strength', 'intelligence', 'willpower', 'agility', 'endurance', 'personality', 'speed', 'luck'];
 
+const handleSetAttr = (args = []) => {
+  if (!args || args.length < 2) return 'Usage: set_attr <attribute> <value>';
+  const rawName = String(args[0]).toLowerCase();
+  const attr = VALID_ATTRS.find((a) => a.startsWith(rawName));
+  if (!attr) return `Unknown attribute "${args[0]}". Valid attributes: ${VALID_ATTRS.join(', ')}`;
+  const val = parseInt(args[1], 10);
+  if (Number.isNaN(val)) return 'Usage: set_attr <attribute> <value>';
+  if (!playerEntity.stats) playerEntity.stats = {};
+  playerEntity.stats[attr] = val;
+  computeEntityMods(playerEntity);
+  surfacePlayer?.();
+  return `Attribute ${attr} set to ${val}.`;
+};
+
 registerCommand(
   'set_attr',
   'Set player attribute: set_attr <name> <value>',
   'set_attr <strength|intelligence|willpower|agility|endurance|personality|speed|luck> <value>',
-  (args = []) => {
-    if (!args || args.length < 2) return 'Usage: set_attr <attribute> <value>';
-    const rawName = String(args[0]).toLowerCase();
-    const attr = VALID_ATTRS.find((a) => a.startsWith(rawName));
-    if (!attr) return `Unknown attribute "${args[0]}". Valid attributes: ${VALID_ATTRS.join(', ')}`;
-    const val = parseInt(args[1], 10);
-    if (Number.isNaN(val)) return 'Usage: set_attr <attribute> <value>';
-    if (!playerEntity.stats) playerEntity.stats = {};
-    playerEntity.stats[attr] = val;
-    computeEntityMods(playerEntity);
-    surfacePlayer?.();
-    return `Attribute ${attr} set to ${val}.`;
-  }
+  handleSetAttr
 );
+
+registerCommand(
+  'set_stat',
+  'Alias for set_attr: set_stat <name> <value>',
+  'set_stat <strength|intelligence|willpower|agility|endurance|personality|speed|luck> <value>',
+  handleSetAttr
+);
+
+const handleModAttr = (args = []) => {
+  if (!args || args.length < 2) return 'Usage: mod_attr <attribute> <delta>';
+  const rawName = String(args[0]).toLowerCase();
+  const attr = VALID_ATTRS.find((a) => a.startsWith(rawName));
+  if (!attr) return `Unknown attribute "${args[0]}". Valid attributes: ${VALID_ATTRS.join(', ')}`;
+  const delta = parseInt(args[1], 10);
+  if (Number.isNaN(delta)) return 'Usage: mod_attr <attribute> <delta>';
+  if (!playerEntity.stats) playerEntity.stats = {};
+  const cur = playerEntity.stats[attr] ?? 50;
+  const next = cur + delta;
+  playerEntity.stats[attr] = next;
+  computeEntityMods(playerEntity);
+  surfacePlayer?.();
+  return `Attribute ${attr} modified by ${delta > 0 ? '+' : ''}${delta} to ${next}.`;
+};
 
 registerCommand(
   'mod_attr',
   'Modify player attribute by delta: mod_attr <name> <delta>',
   'mod_attr <attribute> <delta>',
-  (args = []) => {
-    if (!args || args.length < 2) return 'Usage: mod_attr <attribute> <delta>';
-    const rawName = String(args[0]).toLowerCase();
-    const attr = VALID_ATTRS.find((a) => a.startsWith(rawName));
-    if (!attr) return `Unknown attribute "${args[0]}". Valid attributes: ${VALID_ATTRS.join(', ')}`;
-    const delta = parseInt(args[1], 10);
-    if (Number.isNaN(delta)) return 'Usage: mod_attr <attribute> <delta>';
-    if (!playerEntity.stats) playerEntity.stats = {};
-    const cur = playerEntity.stats[attr] ?? 50;
-    const next = cur + delta;
-    playerEntity.stats[attr] = next;
-    computeEntityMods(playerEntity);
-    surfacePlayer?.();
-    return `Attribute ${attr} modified by ${delta > 0 ? '+' : ''}${delta} to ${next}.`;
-  }
+  handleModAttr
+);
+
+registerCommand(
+  'mod_stat',
+  'Alias for mod_attr: mod_stat <name> <delta>',
+  'mod_stat <attribute> <delta>',
+  handleModAttr
 );
 
 function resolveSkillId(name) {
