@@ -119,7 +119,7 @@ export function corpseExplosionSpell() {
     name: 'Corpse Explosion',
     icon: 12,
     rangeType: 4, // AreaAtRange
-    element: 0,   // Fire/Magic detonation
+    element: 2,   // DiseaseOrPoison (Poison damage & projectile)
     effects: [
       {
         type: 48,
@@ -370,14 +370,19 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
  * @param {Array<object>} [options.nearbyFoes=[]]
  * @returns {{ success: boolean, hitCount: number, damage: number, reason?: string }}
  */
-export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDamage = 40, nearbyFoes = [] } = {}) {
+export function castCorpseExplosion(caster, targetCorpse, options = {}) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) {
     return { success: false, hitCount: 0, damage: 0, reason: 'Necromancy is disabled' };
   }
 
+  let opts = options;
+  let radius = options?.radius ?? 6;
+  let baseDamage = options?.damage ?? options?.baseDamage ?? 40;
+  let nearbyFoes = options?.nearbyFoes ?? [];
+
   // Support single-object signature
   if (caster && typeof caster === 'object' && !targetCorpse && ('casterEntity' in caster || 'originPosition' in caster)) {
-    const opts = caster;
+    opts = caster;
     targetCorpse = opts.targetCorpse || opts.originPosition;
     radius = opts.radius ?? radius;
     baseDamage = opts.damage ?? opts.baseDamage ?? baseDamage;
@@ -397,63 +402,26 @@ export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDama
 
   // Priority 1: Direct corpse record or ID
   let corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : (targetCorpse?.corpseState ? targetCorpse : null);
-  // Priority 2: Direct minion target passed as targetCorpse
-  let minionTarget = (!corpse && targetCorpse && (targetCorpse.livingRole === 'undead_minion' || (targetCorpse.id && String(targetCorpse.id).startsWith('minion_'))))
-    ? targetCorpse
-    : null;
 
-  // Priority 3: Nearest viable corpse in range (strict priority on corpse over minion)
-  if ((!corpse || corpse.consumed) && !minionTarget && searchOrigin) {
-    corpse = corpsesNear(searchOrigin, radius * 2)[0] ?? null;
+  // Strictly corpses: Find nearest viable unconsumed corpse within 2 meters from impact/search origin
+  const corpseSearchRadius = Number(opts?.corpseSearchRadius) > 0 ? Number(opts.corpseSearchRadius) : 2.0;
+  if ((!corpse || corpse.consumed) && searchOrigin) {
+    corpse = corpsesNear(searchOrigin, corpseSearchRadius)[0] ?? null;
   }
 
-  // Priority 4: Nearest active undead minion if no corpse found
-  if ((!corpse || corpse.consumed) && !minionTarget) {
-    const active = allSpawnedMinions();
-    if (active.length > 0) {
-      let best = null;
-      let bestDist = Infinity;
-      const [ox, oy, oz] = searchOrigin;
-      for (const m of active) {
-        if (!m || m.dead) continue;
-        const [mx, my, mz] = m.position || [0, 0, 0];
-        const d = Math.hypot(mx - ox, my - oy, mz - oz);
-        if (d < bestDist) {
-          bestDist = d;
-          best = m;
-        }
-      }
-      minionTarget = best;
-    }
+  if (!corpse || corpse.consumed) {
+    return { success: false, hitCount: 0, damage: 0, reason: 'No corpse to detonate', sacrificedMinion: false };
   }
 
-  if ((!corpse || corpse.consumed) && !minionTarget) {
-    return { success: false, hitCount: 0, damage: 0, reason: 'No corpse to detonate' };
+  const explosionOrigin = corpse.position ? [...corpse.position] : [...searchOrigin];
+  const sourceMaxHp = Number(corpse.maxHealth) || 0;
+  consumeCorpse(corpse.id);
+  corpse.consumed = true;
+  if (typeof corpse.destroyCorpse === 'function') {
+    try { corpse.destroyCorpse(); } catch {}
   }
-
-  let explosionOrigin = [0, 0, 0];
-  let sourceMaxHp = 0;
-
-  if (corpse && !corpse.consumed) {
-    explosionOrigin = corpse.position || searchOrigin;
-    sourceMaxHp = Number(corpse.maxHealth) || 0;
-    consumeCorpse(corpse.id);
-    corpse.consumed = true;
-    if (typeof corpse.destroyCorpse === 'function') {
-      try { corpse.destroyCorpse(); } catch {}
-    }
-    if (typeof globalThis.__sceneContext?.destroyCorpse === 'function') {
-      try { globalThis.__sceneContext.destroyCorpse(corpse); } catch {}
-    }
-  } else if (minionTarget) {
-    const sacrificed = detonateMinion(minionTarget) || minionTarget;
-    sacrificed.dead = true;
-    if (sacrificed.sceneBody) {
-      sacrificed.sceneBody.dead = true;
-      globalThis.__sceneContext?.killMinionBody?.(sacrificed.sceneBody);
-    }
-    explosionOrigin = sacrificed.position || sacrificed.pos || sacrificed.feet || searchOrigin;
-    sourceMaxHp = Number(sacrificed.maxHealth ?? sacrificed.entity?.maxHealth) || 60;
+  if (typeof globalThis.__sceneContext?.destroyCorpse === 'function') {
+    try { globalThis.__sceneContext.destroyCorpse(corpse); } catch {}
   }
 
   // Damage = 5x source maxHealth when maxHealth is tracked; fallback to skill-scaled baseDamage for legacy mocks
@@ -484,7 +452,7 @@ export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDama
     const dist = Math.hypot(fx - cx, fy - cy, fz - cz);
     if (dist <= radius) {
       if (typeof foe.hurt === 'function') {
-        foe.hurt(damage);
+        foe.hurt(damage, { fromPlayer: true, element: 2 });
       } else if (typeof foe.health === 'number') {
         foe.health = Math.max(0, foe.health - damage);
         if (foe.health <= 0) foe.dead = true;
@@ -497,7 +465,9 @@ export function castCorpseExplosion(caster, targetCorpse, { radius = 6, baseDama
     success: true,
     hitCount,
     damage,
-    sacrificedMinion: !!minionTarget,
+    sacrificedMinion: false,
+    corpse,
+    explosionOrigin,
   };
 }
 

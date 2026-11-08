@@ -147,6 +147,33 @@ test('NecroSpells: castCorpseExplosion damages enemies in radius', () => {
   assert.equal(getCorpse(corpse.id), null);
 });
 
+test('NecroSpells: corpseExplosionSpell uses poison element (2)', () => {
+  const spell = corpseExplosionSpell();
+  assert.equal(spell.element, 2, 'Corpse Explosion must use DiseaseOrPoison (2) element');
+});
+
+test('NecroSpells: castCorpseExplosion fails and deals 0 damage when no corpse in 2m radius', () => {
+  // Place corpse at 5m (outside 2m radius)
+  const farCorpse = registerCorpse({
+    position: [5, 0, 0],
+    entityName: 'Distant Corpse',
+  });
+
+  const caster = {
+    skills: { [SKILLS.Destruction]: 50 },
+  };
+
+  const foeNear = { feet: [1, 0, 0], health: 100, dead: false };
+
+  // Impact at [0, 0, 0]
+  const res = castCorpseExplosion(caster, [0, 0, 0], { radius: 6, baseDamage: 40, nearbyFoes: [foeNear] });
+  assert.equal(res.success, false);
+  assert.equal(res.hitCount, 0);
+  assert.equal(res.damage, 0);
+  assert.equal(foeNear.health, 100, 'Foe health untouched');
+  assert.equal(getCorpse(farCorpse.id) !== null, true, 'Far corpse must not be consumed');
+});
+
 test('NecroSpells: castLifeTap siphons target HP to caster', () => {
   const caster = {
     currentHealth: 50,

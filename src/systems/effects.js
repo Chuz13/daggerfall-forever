@@ -49,6 +49,7 @@ import { breakNormalPowerConcealment, handleAttackFromSource } from './concealme
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
 import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor } from './necromancy/necromanticSpells.js';
+import { corpsesNear } from './necromancy/corpseRegistry.js';
 import { regenShare } from './courtRules.js';   // WBX6 / EVENT-RULES: a made level holds regeneration
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { HEAL_SPELL_POINTS_KEY } from './potionRecipes.js';   // PROF12: Heal-SpellPoints' key, beside the one recipe that names it
@@ -1443,16 +1444,22 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       continue;
     }
     if (e.type === 48 && classicSub(e) === 255) {
+      const targetPos = target?.necroTargetPos ?? target?.pos ?? target?.feet ?? [0, 0, 0];
+      const corpse = corpsesNear(targetPos, 2.0)[0] ?? null;
+      if (!corpse) {
+        continue;
+      }
       const n = casterDamageScaled(magnitude(e), caster?.entity, target, schoolOf(e));
       out.damage += n;
       const isSelfTarget = target && (target === caster || target === caster?.entity);
-      if (n > 0 && sinks.hurt && !isSelfTarget) sinks.hurt(n, { element: spell.element ?? null });
+      if (n > 0 && sinks.hurt && !isSelfTarget) sinks.hurt(n, { element: spell.element ?? 2 });
       if (ctx.corpseExplosion) {
-        ctx.corpseExplosion(e, target, n);
+        ctx.corpseExplosion(e, target, n, corpse);
       } else {
         castCorpseExplosion({
           casterEntity: caster?.entity ?? target,
-          originPosition: target?.necroTargetPos ?? target?.pos ?? target?.feet ?? [0, 0, 0],
+          targetCorpse: corpse,
+          originPosition: corpse.position ?? targetPos,
           radius: 6,
           damage: n,
           nearbyFoes: ctx?.nearbyFoes ?? [],

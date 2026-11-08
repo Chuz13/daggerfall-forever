@@ -54,6 +54,7 @@ import '../systems/arcanePowers.js';   // AUDIT SCHOOLS L2 F8: what the paths DO
 import '../systems/firmamentPowers.js';   // FIRM1: what the Firmament DOES, registered with the one cast engine every page builds, as the paths' are
 import { applySpell, spellReflectedText, hasActiveEffect, isSoulTrapEffect, spellSways } from '../systems/effects.js';   // WBX7: a soul trap meets the court's boss too
 import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js';
+import { corpsesNear } from '../systems/necromancy/corpseRegistry.js';
 import { spellToFoeOwner } from '../systems/enchantments.js';   // RPT1026-FIGHTS (TRAP-TO-OWNER): the session's door to a foe another player runs
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bundle
@@ -1052,12 +1053,13 @@ export function createPlayerMagic({
       const liveHostiles = playerTargets().map((f) => ({
         ...f,
         feet: f?.ai?.feet ?? f?.pos,
-        hurt: (dmg) => foeSinks(f, true)?.hurt?.(dmg, { fromPlayer: true, element: spell.element ?? 0 }),
+        hurt: (dmg) => foeSinks(f, true)?.hurt?.(dmg, { fromPlayer: true, element: spell.element ?? 2 }),
       }));
       const ceRes = castCorpseExplosion(playerEntity, pos, { radius: Math.max(6, EXPLOSION_RADIUS), nearbyFoes: liveHostiles });
       if (ceRes?.success) {
         say(`Corpse Explosion deals ${ceRes.damage} damage to ${ceRes.hitCount} foes!`);
       }
+      return;
     }
     // SHIPMATES: a blast of the player's own crew passes the player and the rest of the crew by (combat/friendlyFire.js)
     const crewBlast = isShipmate(caster?.foe);
@@ -1599,6 +1601,15 @@ export function createPlayerMagic({
       const hitWall = _cs.stop;
       if (Number.isFinite(hitWall) && hitWall <= reach) {
         const impact = [m.pos[0] + _unit[0] * hitWall, m.pos[1] + _unit[1] * hitWall, m.pos[2] + _unit[2] * hitWall];   // ROAD-H tail (review): the collider answers in the RAY's own units, and the ray is `_unit` - `m.dir` would scale the impact point by |dir| (`colliderPosition += direction.normalized * hitInfo.distance`, DaggerfallMissile.cs:347)
+        if (hasCorpseExplosion(m.spell)) {
+          const corpse = corpsesNear(impact, 2.0)[0] ?? null;
+          if (corpse) {
+            explodeAt(corpse.position, m.spell, m.fromPlayer === false ? (m.casterLevel ?? 1) : castingLevel(playerEntity), playerFeet, missileCaster(m), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });
+            showImpactFlash(m, corpse.position);
+          }
+          retireMissile(m);
+          continue;
+        }
         if (m.spell.rangeType === 4 && !m.visual) {   // SPELLFX1: a peer's DRAWN missile lands nothing
           // AUDIT WORLD6b-iii(a) A1: an ENEMY missile's blast on a wall is the ENEMY's - its caster's level and sinks
           // (the flight's own arm below had them); this arm credited every enemy blast to ME at MY level, with the
@@ -1670,6 +1681,15 @@ export function createPlayerMagic({
         const hitFoe = duelMarksFor(m.spell).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
         if (hitFoe) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
+          if (hasCorpseExplosion(m.spell)) {
+            const corpse = corpsesNear(at, 2.0)[0] ?? null;
+            if (corpse) {
+              explodeAt(corpse.position, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: true, boss: m.boss ?? true });
+              showImpactFlash(m, corpse.position);
+            }
+            retireMissile(m);
+            continue;
+          }
           if (m.spell.rangeType === 4) explodeAt(at, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: true, boss: m.boss ?? true });
           else giveToDuel(hitFoe, m.spell);
           showImpactFlash(m, at);
@@ -1683,6 +1703,15 @@ export function createPlayerMagic({
         const hitBoss = bossMarksFor(m.spell).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, p.ai.radius));
         if (hitBoss) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
+          if (hasCorpseExplosion(m.spell)) {
+            const corpse = corpsesNear(at, 2.0)[0] ?? null;
+            if (corpse) {
+              explodeAt(corpse.position, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: true });
+              showImpactFlash(m, corpse.position);
+            }
+            retireMissile(m);
+            continue;
+          }
           if (m.spell.rangeType === 4) explodeAt(at, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: true });
           else giveToBoss(hitBoss, m.spell, playerCaster(m.cast ?? null));
           showImpactFlash(m, at);
@@ -1703,7 +1732,16 @@ export function createPlayerMagic({
       for (const f of playerTargets()) {   // DISC19-F (AUDIT DISC19): my missile flies through a defender
         if (f.dead) continue;
         if (missileHitsFoe(m.pos, f)) {   // ROAD-H tail: DaggerfallMissile.cs:339's SphereCast meets the foe's CAPSULE (REVIEW 2026-09-05 had its centre as a point)
-          if (m.spell.rangeType === 4) explodeAt(m.pos, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });   // ROAD-H H2
+          if (hasCorpseExplosion(m.spell)) {
+            const corpse = corpsesNear(m.pos, 2.0)[0] ?? null;
+            if (corpse) {
+              explodeAt(corpse.position, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });
+              showImpactFlash(m, corpse.position);
+            }
+            retireMissile(m);
+            break;
+          }
+          if (m.spell.rangeType === 4) explodeAt(m.pos, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });
           else if (m.dragon) foeSinks(f, true)?.hurt?.(DRAGON_BOLT_DAMAGE, { fromPlayer: true });   // DRAGON-RIDE: no save, no resist
           else applySpellToFoe(m.spell, castingLevel(playerEntity), f, playerCaster(m.cast ?? null));
           showImpactFlash(m, [m.pos[0], m.pos[1], m.pos[2]]);   // F033
@@ -1716,6 +1754,15 @@ export function createPlayerMagic({
       // the body's own entity; an AreaAtRange one bursts there too (its OverlapSphere ignores triggers - no other body)
       const hitBody = m.dead || m.dragon ? null : corpsePrefabStruck(m.pos, foes(), MISSILE_COLLIDER_RADIUS);
       if (hitBody) {
+        if (hasCorpseExplosion(m.spell)) {
+          const corpse = corpsesNear(m.pos, 2.0)[0] ?? null;
+          if (corpse) {
+            explodeAt(corpse.position, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });
+            showImpactFlash(m, corpse.position);
+          }
+          retireMissile(m);
+          continue;
+        }
         hitBody.corpsePrefab.struck(m.spell, castingLevel(playerEntity), playerCaster(m.cast ?? null));
         if (m.spell.rangeType === 4) explodeAt(m.pos, m.spell, castingLevel(playerEntity), playerFeet, playerCaster(m.cast ?? null), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });
         showImpactFlash(m, [m.pos[0], m.pos[1], m.pos[2]]);

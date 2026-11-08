@@ -12,6 +12,7 @@ import { SKILLS } from '../../src/systems/skills.js';
 import { MISSILE_SPEED, MISSILE_LIFESPAN_S } from '../../src/systems/spellcast.js';
 import { SpellCastAnim, RELEASE_FRAME, CAST_FRAME_PERIOD, CAST_RECOVER_S } from '../../src/combat/fpsSpellCasting.js';
 import { SPELLBOOK_TEMPLATE_INDEX } from '../../src/systems/spell/spellMaker.js';   // CAST-SPEED: RecastSpell's book
+import { registerCorpse, getCorpse, _resetCorpseRegistryForTests } from '../../src/systems/necromancy/corpseRegistry.js';
 
 const damageEffect = (mag = 20) => ({
   type: 4, subType: 0,
@@ -198,6 +199,45 @@ test('hostMagic missiles: a wall retires; an AreaAtRange wall hit EXPLODES at th
   aoe.magic.update(0.05, [0, 0, 0]);
   assert.ok(aoe.world.foeHurt.get(aoe.world.foes[0]) > 0, 'the blast caught the foe');
   assert.ok(aoe.world.hurtPlayer > 0, 'and the too-close caster');
+});
+
+test('hostMagic missiles: Corpse Explosion missile fizzles and despawns on wall hit if no corpse within 2m', () => {
+  const { magic, world } = rig({ raycast: () => 0.4 });
+  const ceSpell = {
+    index: -48,
+    name: 'Corpse Explosion',
+    rangeType: 4,
+    element: 2,
+    effects: [{ type: 48, subType: 255, durationBase: 0, magnitudeBaseLow: 40, magnitudeBaseHigh: 40, chanceBase: 100 }],
+  };
+  magic.setReadied(ceSpell);
+  assert.equal(magic.castInput([0, 0.9, 0], [0, 0, 1]), true);
+  assert.equal(magic.missileCount(), 1);
+  magic.update(0.05, [0, 0, 0]); // hits wall at 0.4
+  assert.equal(magic.missileCount(), 0, 'missile retired');
+  assert.equal(world.batchesFreed, world.batchesMade, 'billboard batch cleaned up');
+  assert.equal(world.hurtPlayer, 0, 'no explosion damage');
+});
+
+test('hostMagic missiles: Corpse Explosion missile explodes at corpse.position when corpse is within 2m', () => {
+  _resetCorpseRegistryForTests();
+  const corpse = registerCorpse({
+    position: [0, 0.9, 1.2],
+    entityName: 'Near Corpse',
+  });
+  const { magic, world } = rig({ raycast: () => 0.4 });
+  const ceSpell = {
+    index: -48,
+    name: 'Corpse Explosion',
+    rangeType: 4,
+    element: 2,
+    effects: [{ type: 48, subType: 255, durationBase: 0, magnitudeBaseLow: 40, magnitudeBaseHigh: 40, chanceBase: 100 }],
+  };
+  magic.setReadied(ceSpell);
+  assert.equal(magic.castInput([0, 0.9, 0], [0, 0, 1]), true);
+  magic.update(0.05, [0, 0, 0]); // hits wall at [0, 0.9, 0.4]; corpse at [0, 0.9, 1.2] is 0.8m away (<= 2m)
+  assert.equal(magic.missileCount(), 0, 'missile retired');
+  assert.equal(getCorpse(corpse.id), null, 'corpse consumed');
 });
 
 test('AUDIT 39: the impact flash uploads on the FRAME key, which is the key the draw looks for', async () => {

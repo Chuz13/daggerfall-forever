@@ -93,7 +93,7 @@ test('NecroIntegration: applySpell executes Corpse Explosion and damages targets
   raiseEnemyDeath({ id: 'explodable_corpse_1', mobileType: 140, feet: [0, 0, 0] });
 
   const explosionSpell = {
-    element: 0, // Fire
+    element: 2, // DiseaseOrPoison
     rangeType: 1, // Target
     effects: [
       {
@@ -125,6 +125,50 @@ test('NecroIntegration: applySpell executes Corpse Explosion and damages targets
 
   assert.equal(res.corpseExplosion, 1, 'Corpse explosion must execute');
   assert.ok(hurtDamage > 0, 'Target must receive explosion damage');
+});
+
+test('NecroIntegration: applySpell with Corpse Explosion fizzles and deals 0 damage without corpse within 2m', () => {
+  _resetCorpseRegistryForTests();
+
+  // Corpse is far away at 10m
+  raiseEnemyDeath({ id: 'far_corpse_1', mobileType: 140, feet: [10, 0, 0] });
+
+  const explosionSpell = {
+    element: 2, // DiseaseOrPoison
+    rangeType: 1, // Target
+    effects: [
+      {
+        type: 48,
+        subType: 255,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 25,
+        magnitudeBaseHigh: 25,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+      },
+    ],
+  };
+
+  let hurtDamage = 0;
+  const sinks = {
+    hurt: (dmg) => { hurtDamage += dmg; },
+    say: () => {},
+  };
+
+  const targetEnemy = { pos: [0, 0, 0], feet: [0, 0, 0], health: 50 };
+  const res = applySpell(explosionSpell, 5, targetEnemy, sinks, () => 0.5, null);
+
+  assert.equal(res.corpseExplosion ?? 0, 0, 'Corpse explosion must not execute');
+  assert.equal(hurtDamage, 0, 'Target must receive zero damage when no corpse is in 2m');
 });
 
 test('NecroIntegration: undeadParty bridges minions to crewAshore', () => {
@@ -279,8 +323,8 @@ test('NecroIntegration: Bone Armor consumes nearest skeleton for 3x maxHealth sh
   assert.equal(armorRes.consumedSkeleton, true);
   assert.equal(armorRes.shieldRemaining, skel.maxHealth * 3, 'Bone Armor shield must equal 3x skeleton maxHealth');
 
-  // Register a corpse with maxHealth = 80 and a friendly minion nearby
-  registerCorpse({ id: 'corpse_80hp', maxHealth: 80, position: [3, 0, 0] });
+  // Register a corpse with maxHealth = 80 within 2m radius and a friendly minion nearby
+  registerCorpse({ id: 'corpse_80hp', maxHealth: 80, position: [1.5, 0, 0] });
   const zomb = spawnMinion({ masterEntity: caster, type: 'zombie', position: [1, 0, 0] });
 
   let enemyDamage = 0;
