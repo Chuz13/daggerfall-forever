@@ -593,3 +593,49 @@ test('Time Skip: Numpad 5 Status readout date advances by 1 calendar month upon 
   const afterRows = statusReadoutRows({ lines, macroContext: machine.macroContext(), entity: { activeEffects: [] } });
   assert.ok(afterRows[0].includes("Sun's Dawn"), `Expected Sun's Dawn (1 month later) after death, got: ${afterRows[0]}`);
 });
+
+test('Console: date and advance_time / advance_days commands report and advance Tamriel calendar correctly', async () => {
+  const { getConsoleCommand } = await import('../../src/systems/consoleCommands.js');
+  const dateCmd = getConsoleCommand('date');
+  const advDaysCmd = getConsoleCommand('advance_days');
+
+  const beforeDate = dateCmd.callback();
+  assert.match(beforeDate, /Current Date:/);
+
+  const advRes = advDaysCmd.callback(['30']);
+  assert.match(advRes, /Advanced time by 30 day\(s\)/);
+
+  const afterDate = dateCmd.callback();
+  assert.match(afterDate, /Current Date:/);
+  assert.notEqual(beforeDate, afterDate);
+});
+
+test('Console: date and advance_time / advance_days commands advance Tamriel calendar', async () => {
+  const { getConsoleCommand, registerConsoleSceneContext } = await import('../../src/systems/consoleCommands.js');
+  const { worldMinutes, setWorldMinutes } = await import('../../src/systems/worldTick.js');
+
+  setWorldMinutes(523530); // Start date: 13:30 4th Morning Star 3E405
+  const dateCmd = getConsoleCommand('date');
+  assert.ok(dateCmd, 'date command must be registered');
+  const initialDateStr = dateCmd.callback();
+  assert.ok(initialDateStr.includes('Morning Star'), 'Initial date must include Morning Star');
+
+  // Register mock scene context
+  let advancedBy = 0;
+  registerConsoleSceneContext({
+    advanceMinutes: (n) => {
+      advancedBy += n;
+      setWorldMinutes(worldMinutes() + n);
+    },
+  });
+
+  const advanceTimeCmd = getConsoleCommand('advance_time');
+  const advanceTimeRes = advanceTimeCmd.callback(['24']); // 24 hours
+  assert.equal(advancedBy, 1440);
+  assert.ok(advanceTimeRes.includes('1440 mins'));
+
+  const advanceDaysCmd = getConsoleCommand('advance_days');
+  const advanceDaysRes = advanceDaysCmd.callback(['29']); // 29 more days -> now in Sun's Dawn!
+  assert.equal(advancedBy, 1440 + 29 * 1440);
+  assert.ok(advanceDaysRes.includes("Sun's Dawn"));
+});

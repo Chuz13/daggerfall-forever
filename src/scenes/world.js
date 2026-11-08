@@ -10867,6 +10867,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
     openUndeadCommandMenu,
     applyUndeadCommand,
+    advanceMinutes: (n) => {
+      setSyntheticTimeIncrease(true);
+      playerTicker.advance(n);
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
+      return worldMinutes();
+    },
+    advanceTime: (n) => {
+      setSyntheticTimeIncrease(true);
+      playerTicker.advance(n);
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
+      return worldMinutes();
+    },
+    playerTicker,
     spawnCorpse: async (pos, mobType = null) => {
       const targetMob = typeof mobType === 'number' ? mobType : (typeof mobType === 'string' && MOBILE_TYPES[mobType] != null ? MOBILE_TYPES[mobType] : MOBILE_TYPES.Rogue);
       const p = (pos && (pos[0] !== 0 || pos[2] !== 0)) ? pos : (walkMode && playerSpawned ? player.pos : cam.pos);
@@ -29496,6 +29509,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   // mint (Come Sail Away's giveboat and placeboat, a deed each).
   if (!params.has('online')) installConsoleProbe();
   setDebugSceneContext({
+    advanceTime: (minutes) => {
+      setSyntheticTimeIncrease(true);
+      playerTicker.advance(minutes);
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
+      return playerTicker.classicMinutes;
+    },
     getActiveFamily: () => legacyHost?.family ?? null,
     triggerWildernessEncounter: (kind) => triggerWildernessEncounter(kind),
     triggerCrimeResponse: () => {

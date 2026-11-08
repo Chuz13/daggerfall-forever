@@ -44,7 +44,9 @@ import { getBool } from './settings/settings.js';
 import { staffPowers, setStaffPowers, staffNoclip, playerEntity, surfacePlayer, forcePlayerDeath } from '../characters/playerEntity.js';
 import { addGoldPieces, addItem } from './inventory.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
-import { worldMinutes, setWorldMinutes } from './worldTick.js';
+import { worldMinutes, setWorldMinutes, advanceOwnMinutes } from './worldTick.js';
+import { setSyntheticTimeIncrease } from './effectBroker.js';
+import { dateFromClassicMinutes, dateTimeString, dayOfMonth, monthName, seasonName } from './gameDate.js';
 import { setWeather, currentWeather } from './weather/weatherSim.js';
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
@@ -483,6 +485,58 @@ function handleTimeCommand(args = []) {
 }
 registerCommand('set_time', 'Set in-game time of day: set_time <hour> [minute]', 'set_time <hour> [minute]', handleTimeCommand);
 registerCommand('time', 'Set in-game time of day: time <hour> [minute]', 'time <hour> [minute]', handleTimeCommand);
+
+function handleDateCommand() {
+  const m = worldMinutes();
+  const d = dateFromClassicMinutes(m);
+  return `Current Date: ${dateTimeString(d)} (Day ${dayOfMonth(d)} of ${monthName(d)}, Year 3E${d.year}, Season: ${seasonName(d)}).`;
+}
+registerCommand('date', 'Display current Tamriel calendar date and time', 'date', handleDateCommand);
+registerCommand('calendar', 'Display current Tamriel calendar date and time', 'calendar', handleDateCommand);
+registerCommand('get_time', 'Display current Tamriel calendar date and time', 'get_time', handleDateCommand);
+
+function handleAdvanceTimeCommand(args = []) {
+  if (!args || !args.length) return 'Usage: advance_time <hours>';
+  const hours = parseFloat(args[0]);
+  if (!Number.isFinite(hours) || hours <= 0) return 'Invalid hours. Must be a positive number.';
+  const minutes = Math.round(hours * 60);
+  const scene = getDebugSceneContext();
+  const advance = scene?.advanceMinutes ?? scene?.advanceTime;
+  if (typeof advance === 'function') {
+    advance(minutes);
+  } else {
+    setSyntheticTimeIncrease(true);
+    advanceOwnMinutes(minutes);
+  }
+  const m = worldMinutes();
+  const d = dateFromClassicMinutes(m);
+  return `Advanced time by ${hours} hr(s) (${minutes} mins). New Date: ${dateTimeString(d)}`;
+}
+registerCommand('advance_time', 'Advance in-game time by hours: advance_time <hours>', 'advance_time <hours>', handleAdvanceTimeCommand);
+registerCommand('advancetime', 'Advance in-game time by hours: advancetime <hours>', 'advancetime <hours>', handleAdvanceTimeCommand);
+registerCommand('pass_time', 'Advance in-game time by hours: pass_time <hours>', 'pass_time <hours>', handleAdvanceTimeCommand);
+registerCommand('passtime', 'Advance in-game time by hours: passtime <hours>', 'passtime <hours>', handleAdvanceTimeCommand);
+
+function handleAdvanceDaysCommand(args = []) {
+  if (!args || !args.length) return 'Usage: advance_days <days>';
+  const days = parseFloat(args[0]);
+  if (!Number.isFinite(days) || days <= 0) return 'Invalid days. Must be a positive number.';
+  const minutes = Math.round(days * 1440);
+  const scene = getDebugSceneContext();
+  const advance = scene?.advanceMinutes ?? scene?.advanceTime;
+  if (typeof advance === 'function') {
+    advance(minutes);
+  } else {
+    setSyntheticTimeIncrease(true);
+    advanceOwnMinutes(minutes);
+  }
+  const m = worldMinutes();
+  const d = dateFromClassicMinutes(m);
+  return `Advanced time by ${days} day(s) (${minutes} mins). New Date: ${dateTimeString(d)}`;
+}
+registerCommand('advance_days', 'Advance in-game time by days: advance_days <days>', 'advance_days <days>', handleAdvanceDaysCommand);
+registerCommand('advancedays', 'Advance in-game time by days: advancedays <days>', 'advancedays <days>', handleAdvanceDaysCommand);
+registerCommand('pass_days', 'Advance in-game time by days: pass_days <days>', 'pass_days <days>', handleAdvanceDaysCommand);
 
 const WEATHER_NAMES = ['Sunny', 'Cloudy', 'Overcast', 'Fog', 'Rain', 'Thunderstorm', 'Snow'];
 const WEATHER_MAP = {
