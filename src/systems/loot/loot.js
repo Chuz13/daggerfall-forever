@@ -59,7 +59,7 @@ import {
 } from './lootDataTables.js'; // G5: DaggerfallLootDataTables.cs, its own file again
 import { themedIngredientPool } from './lootThemes.js'; // MOD: a monster's CreatureIngredients roll draws from ITS OWN curated subset, not the full mismatched pool
 import { pathOfSignatureIndex } from '../arcanePaths.js'; // AUDIT SCHOOLS: a signature spell's name, by its index band
-import { getLocalizedSpellName } from '../textManager.js'; // L10N3e: a stock spell's name, by its SPELLS.STD index (shownSpellName)
+import { getLocalizedSpellName, t } from '../textManager.js'; // L10N3e: a stock spell's name, by its SPELLS.STD index (shownSpellName)
 import { isOnlinePage } from '../online/onlineLane.js'; // REALM P0.4: online, a pile's gold is not the level's
 import {
   rriLootMatrix,
@@ -710,6 +710,21 @@ export const spellRecordOfIndex = (index) => _spellsByIndex?.get?.(index) ?? nul
  *  name as it is. */
 export function shownSpellName(spell) {
   const name = spell?.name;
+  if (name === 'Arch-Lichdom' || spell?.index === -52) {
+    return t('spell.necro.archLichdom', 'Arch-Lichdom');
+  }
+  if (name === 'Animate Dead' || spell?.index === -47) {
+    return t('spell.necro.animateDead', 'Animate Dead');
+  }
+  if (name === 'Corpse Explosion' || spell?.index === -48) {
+    return t('spell.necro.corpseExplosion', 'Corpse Explosion');
+  }
+  if (name === 'Life Tap' || spell?.index === -49) {
+    return t('spell.necro.lifeTap', 'Life Tap');
+  }
+  if (name === 'Bone Armor' || spell?.index === -51) {
+    return t('spell.necro.boneArmor', 'Bone Armor');
+  }
   // AUDIT SCHOOLS L4 4: a path's signature spell (its own index band) under its canonical name reads in the player's
   // language, as a stock spell does below; a name the player gave it in the book stays theirs
   const sig = Number.isInteger(spell?.index) ? pathOfSignatureIndex(spell.index) : null;

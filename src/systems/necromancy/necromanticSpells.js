@@ -76,7 +76,46 @@ export const NECRO_SPELL_KEYS = Object.freeze({
   CORPSE_EXPLOSION: '48,255',
   LIFE_TAP: '49,255',
   BONE_ARMOR: '51,255',
+  ARCH_LICHDOM: '52,255',
 });
+
+/**
+ * Creates a ready-made spell record for Arch-Lichdom ritual.
+ * Cannot be crafted in the Spell Maker.
+ * At Mysticism 200, costs exactly 500 magicka.
+ * @returns {object}
+ */
+export function archLichdomSpell() {
+  return {
+    index: -52,
+    name: 'Arch-Lichdom',
+    icon: 25,
+    rangeType: 0, // CasterOnly
+    element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
+    craftable: false,
+    effects: [
+      {
+        type: 52,
+        subType: 255,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 0,
+        magnitudeBaseHigh: 0,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
+      },
+    ],
+  };
+}
 
 /**
  * Creates a ready-made spell record for Animate Dead.

@@ -400,6 +400,9 @@ export function defineLiveMaxMagicka(entity) {
     configurable: true,
     enumerable: true,
     get() {
+      if (this.maxMagickaOverride != null && Number.isFinite(this.maxMagickaOverride)) {
+        return Math.max(0, this.maxMagickaOverride);
+      }
       const career = this.career;
       const raw = career
         ? spellPoints(

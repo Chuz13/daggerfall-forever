@@ -49,6 +49,7 @@ import { breakNormalPowerConcealment, handleAttackFromSource } from './concealme
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
 import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor } from './necromancy/necromanticSpells.js';
+import { performArchLichdomRitual } from './necromancy/lichdomRitual.js';
 import { corpsesNear } from './necromancy/corpseRegistry.js';
 import { regenShare } from './courtRules.js';   // WBX6 / EVENT-RULES: a made level holds regeneration
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
@@ -1498,6 +1499,20 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         }
       }
       pushInstantMarker(target, 'lifeTap', e);
+      continue;
+    }
+    if (e.type === 52 && classicSub(e) === 255) {
+      const actualCaster = caster?.entity ?? target;
+      const res = performArchLichdomRitual(actualCaster, {
+        hurtPlayer: sinks?.hurt ?? ctx?.hurtPlayer,
+        sinks,
+      });
+      if (res?.success && res.message) {
+        sinks?.say?.(res.message);
+      } else if (res && !res.success && res.reason) {
+        sinks?.say?.(res.reason);
+      }
+      pushInstantMarker(target, 'archLichdom', e);
       continue;
     }
     // X1: SPELL ABSORPTION (20) and SPELL RESISTANCE (22) - both are

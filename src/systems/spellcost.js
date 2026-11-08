@@ -28,7 +28,7 @@
 // it contributes nothing to the cost. Every one of the 60 distinct
 // keys the shipping SPELLS.STD uses has a class here.
 
-import { skillValue, SKILLS } from './skills.js';
+import { skillValue, displaySkillValue, realSkillValue, SKILLS } from './skills.js';
 import { isOnlinePage } from './online/onlineLane.js'; // SPELL-COST-PAST: online, a skill past 100 never prices a spell under nothing
 import { pathCastSchool } from './arcanePaths.js'; // SCHOOLS3: a signature spell is cast in its path's two schools (a leaf)
 
@@ -109,6 +109,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '43,255': row(SKILLS.Mysticism, {}), // Teleport - NO components (the fudge, at Mysticism)
   '46,255': row(SKILLS.Mysticism, { duration: costs(8, 8) }), // PARTY-MAP: Shared Cartography - the port's own; Light's cheap per-round price, cheap enough to keep up
   '47,255': row(SKILLS.Mysticism, { chance: costs(0, 100), magnitude: costs(0, 120) }), // AnimateDead (1000 gold)
+  '52,255': row(SKILLS.Mysticism, {}), // Arch-Lichdom ritual (Mysticism)
   '44,255': row(SKILLS.Mysticism, { duration: costs(60, 68), chance: costs(40, 68) }), // ComprehendLanguages
 
   // ---- Restoration ----
@@ -211,6 +212,21 @@ export function registerSpellFreeCast(name, fn) {
 /** The full casting cost of a classic spell record for a caster:
  *  per-effect sums, target multiplier, the floor. SET2: and the port's cost modifiers, for a player's own cast. */
 export function calculateCastCost(spell, casterEntity, { portMods = true, online = isOnlinePage() } = {}) {
+  // Dedicated ritual spell: Arch-Lichdom (effect 52,255)
+  // At Mysticism 200, costs exactly 500 magicka:
+  if (spell?.effects?.some((e) => e.type === 52 && (e.subType & 0xff) === 255)) {
+    const myst = casterEntity
+      ? Math.max(
+          displaySkillValue(casterEntity, SKILLS.Mysticism),
+          realSkillValue(casterEntity, SKILLS.Mysticism),
+          skillValue(casterEntity, SKILLS.Mysticism),
+          casterEntity.skills?.[SKILLS.Mysticism] ?? 0,
+        )
+      : 200;
+    const sp = Math.max(1, Math.round(500 * (200 / Math.max(1, myst))));
+    return { gold: 40000, sp };
+  }
+
   const skillOf = (id) => skillValue(casterEntity, pathCastSchool(casterEntity, spell, id)); // SCHOOLS3: the school it is cast in
   let gold = 0,
     sp = 0;

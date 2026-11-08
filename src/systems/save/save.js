@@ -143,6 +143,7 @@ const ENTITY_FIELDS = [
   // between sessions. Twelve hours of a law, undone by a reload.
   'timeOfLastSkillTraining',
   'NecroGrimoireRead', 'necroGrimoireRead',
+  'maxMagickaOverride',
   // AUDIT 23 (save-load + entity-laws lanes): timeOfLastSkillIncreaseCheck,
   // persisted one-for-one by DFU (SerializablePlayer.cs:124, :293). Without
   // it a backward load left a FUTURE marker that froze all skill-raise

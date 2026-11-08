@@ -48,7 +48,8 @@ import { worldMinutes, setWorldMinutes } from './worldTick.js';
 import { setWeather, currentWeather } from './weather/weatherSim.js';
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
-import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell } from './necromancy/necromanticSpells.js';
+import { defineLiveMaxMagicka } from './chargen.js';
+import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell, archLichdomSpell } from './necromancy/necromanticSpells.js';
 import { NECRO_GRIMOIRE_TEMPLATE } from './necromancy/necroGrimoire.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -832,12 +833,39 @@ registerCommand('setstat', 'Set player attribute: setstat <name> <value>', 'sets
 registerCommand('setattr', 'Set player attribute: setattr <name> <value>', 'setattr <attribute> <value>', (args = []) => getConsoleCommand('set_attr').callback(args));
 registerCommand('stat', 'Set player attribute: stat <name> <value>', 'stat <attribute> <value>', (args = []) => getConsoleCommand('set_attr').callback(args));
 
+function handleSetMaxMagicka(args = []) {
+  if (!playerEntity) return 'No player entity found.';
+  defineLiveMaxMagicka(playerEntity);
+  if (!args || args.length === 0) return 'Usage: set_max_magicka <value|reset>';
+  const raw = String(args[0]).toLowerCase();
+  if (raw === 'reset' || raw === 'auto' || raw === 'default') {
+    delete playerEntity.maxMagickaOverride;
+    computeEntityMods(playerEntity);
+    surfacePlayer?.();
+    return `Player max magicka reset to normal: ${playerEntity.maxMagicka}.`;
+  }
+  const val = parseInt(args[0], 10);
+  if (Number.isNaN(val) || val < 0) return 'Usage: set_max_magicka <value>';
+  playerEntity.maxMagickaOverride = val;
+  playerEntity.magicka = val;
+  surfacePlayer?.();
+  return `Player max magicka set to ${val} (current magicka filled to ${val}).`;
+}
+
+registerCommand('set_max_magicka', 'Set player maximum magicka: set_max_magicka <value|reset>', 'set_max_magicka <value|reset>', handleSetMaxMagicka);
+registerCommand('max_magicka', 'Set player maximum magicka: max_magicka <value|reset>', 'max_magicka <value|reset>', handleSetMaxMagicka);
+registerCommand('setmaxmagicka', 'Set player maximum magicka: setmaxmagicka <value|reset>', 'setmaxmagicka <value|reset>', handleSetMaxMagicka);
+registerCommand('maxmagicka', 'Set player maximum magicka: maxmagicka <value|reset>', 'maxmagicka <value|reset>', handleSetMaxMagicka);
+registerCommand('set_mana', 'Set player maximum magicka: set_mana <value|reset>', 'set_mana <value|reset>', handleSetMaxMagicka);
+registerCommand('set_max_mana', 'Set player maximum magicka: set_max_mana <value|reset>', 'set_max_mana <value|reset>', handleSetMaxMagicka);
+registerCommand('max_mana', 'Set player maximum magicka: max_mana <value|reset>', 'max_mana <value|reset>', handleSetMaxMagicka);
+
 registerCommand(
   'set',
-  'Set skill, stat, or level: set <skill|stat|attr|level> <name> [value]',
-  'set <skill|stat|attr|level> <name> [value]',
+  'Set skill, stat, level, or max magicka: set <skill|stat|attr|level|maxmagicka> <name> [value]',
+  'set <skill|stat|attr|level|maxmagicka> <name> [value]',
   (args = []) => {
-    if (!args || args.length === 0) return 'Usage: set <skill|stat|attr|level> <name> [value]';
+    if (!args || args.length === 0) return 'Usage: set <skill|stat|attr|level|maxmagicka> <name> [value]';
     const sub = String(args[0]).toLowerCase();
     if (sub === 'skill') {
       return getConsoleCommand('set_skill').callback(args.slice(1));
@@ -847,6 +875,9 @@ registerCommand(
     }
     if (sub === 'level') {
       return getConsoleCommand('set_level').callback(args.slice(1));
+    }
+    if (sub === 'maxmagicka' || sub === 'max_magicka' || sub === 'maxmana' || sub === 'max_mana' || sub === 'magicka' || sub === 'mana') {
+      return handleSetMaxMagicka(args.slice(1));
     }
     const resolved = resolveSkillId(sub);
     if (resolved) {
@@ -858,8 +889,8 @@ registerCommand(
 
 registerCommand(
   'addspell',
-  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|all_necro>',
-  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|all_necro>',
+  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|all_necro>',
+  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|all_necro>',
   (args = []) => {
     const key = String(args[0] || 'all_necro').toLowerCase().replace(/[\s_-]/g, '');
     const map = {
@@ -867,6 +898,8 @@ registerCommand(
       corpseexplosion: corpseExplosionSpell,
       lifetap: lifeTapSpell,
       bonearmor: boneArmorSpell,
+      archlichdom: archLichdomSpell,
+      archlich: archLichdomSpell,
     };
     playerEntity.spells = Array.isArray(playerEntity.spells) ? playerEntity.spells : [];
     const addOne = (fn) => {
@@ -886,7 +919,7 @@ registerCommand(
       surfacePlayer?.();
       return `Added spell "${name}" to spellbook.`;
     }
-    return 'Usage: addspell <animate_dead | corpse_explosion | life_tap | bone_armor | all_necro>';
+    return 'Usage: addspell <animate_dead | corpse_explosion | life_tap | bone_armor | arch_lichdom | all_necro>';
   }
 );
 
@@ -1705,6 +1738,19 @@ registerCommand(
         handleAddItemCommand(['lich_ingredients']);
         handleAddItemCommand(['elixir_unlife', '1']);
         return '<b>[Necro Test: Lich]</b> Set Level 20, Mysticism 100, INT/WIL 100, added 4 Elixir reagents (38, 39, 45, 53) + 1 brewed Potion of Elixir of Unlife!';
+      }
+      if (preset === 'archlich' || preset === 'arch_lich') {
+        getConsoleCommand('necro').callback(['lich', 'on']);
+        handleLevelCommand(['30']);
+        if (!playerEntity.skills || !Array.isArray(playerEntity.skills)) {
+          playerEntity.skills = new Array(35).fill(30);
+        }
+        playerEntity.skills[SKILLS.Mysticism] = 200;
+        getConsoleCommand('set_attr').callback(['intelligence', '115']);
+        getConsoleCommand('set_attr').callback(['willpower', '115']);
+        handleSetMaxMagicka(['500']);
+        getConsoleCommand('addspell').callback(['arch_lichdom']);
+        return '<b>[Necro Test: Arch-Lich Ritual]</b> Player set as Lich, Level 30, Mysticism 200, INT/WIL 115, Max Magicka 500, Arch-Lichdom spell added to spellbook!';
       }
       if (preset === 'harvest') {
         handleAddItemCommand(['603', '1']);

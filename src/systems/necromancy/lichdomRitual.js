@@ -9,8 +9,9 @@
 // 3. Reconstitution: If a Lich player is defeated in combat, the soul retreats
 //    to the bound phylactery rather than suffering permanent demise.
 
-import { applyLichdom, isLich, isAnyLich } from './lichdomStatus.js';
-import { skillValue, SKILLS } from '../skills.js';
+import { applyLichdom, applyAncientLichdom, isLich, isAncientLich, isAnyLich, liveLichdom } from './lichdomStatus.js';
+import { skillValue, displaySkillValue, realSkillValue, SKILLS } from '../skills.js';
+import { liveStat } from '../statMods.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 
 export const PHYLACTERY_STATE = Object.freeze({
@@ -242,4 +243,128 @@ export function handleLichMortalFall(playerEntity, phylactery) {
 }
 
 export const reconstituteLich = handleLichMortalFall;
+
+export const ARCH_LICH_MIN_LEVEL = 30;
+export const ARCH_LICH_MIN_MYSTICISM = 200;
+export const ARCH_LICH_MIN_INTELLIGENCE = 115;
+export const ARCH_LICH_MIN_WILLPOWER = 115;
+
+/**
+ * Validates prerequisites for Arch-Lichdom ascension:
+ * 1. Must ALREADY be an active Lich (liveLichdom).
+ * 2. Character level >= 30.
+ * 3. Mysticism skill >= 200.
+ * 4. Intelligence stat >= 115.
+ * 5. Willpower stat >= 115.
+ * @param {object} caster
+ * @returns {{ eligible: boolean, isMortal: boolean, reasons: string[] }}
+ */
+export function canAscendToArchLichdom(caster) {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY) {
+    return { eligible: false, isMortal: false, reasons: ['Necromancy is disabled.'] };
+  }
+  if (!caster) {
+    return { eligible: false, isMortal: true, reasons: ['Invalid caster.'] };
+  }
+
+  // Must ALREADY be a Lich
+  if (!isLich(caster)) {
+    const isMortal = !isAnyLich(caster);
+    return {
+      eligible: false,
+      isMortal,
+      reasons: [isMortal ? 'You are mortal. The ritual requires having already achieved Lichdom.' : 'You have already ascended to Ancient Lichdom.'],
+    };
+  }
+
+  const reasons = [];
+  const level = caster.level || 1;
+  if (level < ARCH_LICH_MIN_LEVEL) {
+    reasons.push(`Level ${ARCH_LICH_MIN_LEVEL} required (current: ${level}).`);
+  }
+
+  const myst = Math.max(
+    displaySkillValue(caster, SKILLS.Mysticism),
+    realSkillValue(caster, SKILLS.Mysticism),
+    skillValue(caster, SKILLS.Mysticism),
+    caster.skills?.[SKILLS.Mysticism] ?? 0,
+  );
+  if (myst < ARCH_LICH_MIN_MYSTICISM) {
+    reasons.push(`Mysticism ${ARCH_LICH_MIN_MYSTICISM} required (current: ${myst}).`);
+  }
+
+  const intStat = Math.max(
+    liveStat(caster, 'intelligence'),
+    caster.stats?.intelligence ?? 0,
+  );
+  if (intStat < ARCH_LICH_MIN_INTELLIGENCE) {
+    reasons.push(`Intelligence ${ARCH_LICH_MIN_INTELLIGENCE} required (current: ${intStat}).`);
+  }
+
+  const wilStat = Math.max(
+    liveStat(caster, 'willpower'),
+    caster.stats?.willpower ?? 0,
+  );
+  if (wilStat < ARCH_LICH_MIN_WILLPOWER) {
+    reasons.push(`Willpower ${ARCH_LICH_MIN_WILLPOWER} required (current: ${wilStat}).`);
+  }
+
+  return {
+    eligible: reasons.length === 0,
+    isMortal: false,
+    reasons,
+  };
+}
+
+/**
+ * Performs the Arch-Lichdom transformation ritual.
+ * If requirements are met, ascends the Lich into an Ancient Lich.
+ * If requirements are NOT met, or if invoked by a mortal, triggers lethal collapse:
+ * - Mortal caster: instant lethal death.
+ * - Lich caster: normal Lich death, triggering phylactery reconstitution if charged.
+ * @param {object} caster
+ * @param {object} [options]
+ * @returns {{ success: boolean, reason?: string, message?: string, racialOverride?: object }}
+ */
+export function performArchLichdomRitual(caster, { hurtPlayer = null, sinks = null, nowMinutes = 0 } = {}) {
+  const check = canAscendToArchLichdom(caster);
+  if (!check.eligible) {
+    const hurtFn = hurtPlayer ?? sinks?.hurt;
+    const lethalDmg = Math.max(99999, (caster?.maxHealth ?? 100) * 20);
+    if (typeof hurtFn === 'function') {
+      hurtFn(lethalDmg, { bypassShield: true });
+    }
+    if (caster && typeof caster.health === 'number') {
+      caster.health = 0;
+      if (caster.currentHealth != null) caster.currentHealth = 0;
+    }
+    if (caster?.phylacteryAnchor && isLich(caster)) {
+      handleLichMortalFall(caster, caster.phylacteryAnchor);
+    }
+
+    const failReason = check.reasons.join(' ');
+    return {
+      success: false,
+      reason: check.isMortal
+        ? 'A mortal vessel cannot channel the ancient cosmos! You are destroyed by the catastrophic surge.'
+        : `The unholy ritual turns upon you with fatal fury! (${failReason})`,
+    };
+  }
+
+  const phylacteryId = caster.phylacteryAnchor?.id ?? 'phylactery_ancient';
+  const override = applyAncientLichdom(caster, { phylacteryId, nowMinutes });
+  if (!override) {
+    return {
+      success: false,
+      reason: 'The ancient apotheosis refused to take hold.',
+    };
+  }
+
+  return {
+    success: true,
+    message: 'The veil of eternity tears asunder. You have ascended to Ancient Lichdom!',
+    racialOverride: override,
+  };
+}
+
 
