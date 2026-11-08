@@ -1940,7 +1940,21 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     releaseGuardBatch(g);
     g.dead = true;   // no `corpse` - a removed guard is destroyed, not killed
   }
-  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, frighten, guardSeesPlayer, update, offsetAll, groundMoved, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, drawBodies, drawVeiledBodies, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), physicalCorpses: () => physicalCorpseSources(guards, 'guardCorpse', corpseLens), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab; PI1: physicalCorpses, the bodies whose items stand round them (scenes/physicalItemsLayer.js)
+  function removeCorpse(g) {
+    if (!g) return;
+    if (g.corpseMarker) {
+      const idx = corpseBatches.indexOf(g.corpseMarker);
+      if (idx >= 0) {
+        renderer.destroyBillboardBatch(corpseBatches[idx].batch);
+        corpseBatches.splice(idx, 1);
+      }
+      g.corpseMarker = null;
+    }
+    g.corpse = false;
+    g.corpseDisabled = true;
+    g.corpseDestroyed = true;
+  }
+  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, frighten, guardSeesPlayer, update, offsetAll, groundMoved, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, drawBodies, drawVeiledBodies, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), physicalCorpses: () => physicalCorpseSources(guards, 'guardCorpse', corpseLens), snapshotWorld, restoreWorld, removeGuard, removeCorpse, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab; PI1: physicalCorpses, the bodies whose items stand round them (scenes/physicalItemsLayer.js)
     /** RR2: PlayerEntity.SpawnCityGuard(position, direction) (PlayerEntity.cs:678-694) for a caller
      *  outside the watch's own call - the ONE watchman minted where a walker stood, facing their
      *  way, hostile to the player. Resolves to the guard record (or null when the world moved on). */

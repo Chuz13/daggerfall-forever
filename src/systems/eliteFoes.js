@@ -331,13 +331,15 @@ export const eliteCorpseSize = (size, entity) =>
 
 /** The size a sprite is drawn at (STAFF-EVENT: a mini boss's its event's). */
 export const eliteSize = (entity) =>
-  entity?.staffBoss
-    ? entity.staffBoss.size
-    : entity?.raidLeader
-      ? RAID_LEADER_SIZE
-      : entity?.eliteFoe
-        ? ELITE_FOE_SIZE
-        : 1; // RAID5: a raid's leader, larger
+  Number.isFinite(entity?.profile?.scale) && entity.profile.scale > 0
+    ? entity.profile.scale
+    : entity?.staffBoss
+      ? entity.staffBoss.size
+      : entity?.raidLeader
+        ? RAID_LEADER_SIZE
+        : entity?.eliteFoe
+          ? ELITE_FOE_SIZE
+          : 1; // RAID5: a raid's leader, larger
 
 // ═══ RAID5: A RAID'S LEADER (bible/03-World/Raiding-Parties.md RAID5) ═══════════════════════════════════════════════
 /** How much larger a raid's leader is drawn than its kind. */

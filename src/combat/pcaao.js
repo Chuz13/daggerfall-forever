@@ -1736,11 +1736,14 @@ export function pcaaoAttackDamage(
         if (skillID === SKILLS.BluntWeapon) bluntWep = true;
       }
       const b = AIAttacker.basics ?? {};
-      const spans = [
-        [b.minDamage ?? 0, b.maxDamage ?? 0],
-        [b.minDamage2 ?? 0, b.maxDamage2 ?? 0],
-        [b.minDamage3 ?? 0, b.maxDamage3 ?? 0],
-      ];
+      const atkProf = AIAttacker.profile ?? AIAttacker.minion?.profile;
+      const spans = (atkProf?.minDmg != null && atkProf?.maxDmg != null)
+        ? [[atkProf.minDmg, atkProf.maxDmg]]
+        : [
+            [b.minDamage ?? 0, b.maxDamage ?? 0],
+            [b.minDamage2 ?? 0, b.maxDamage2 ?? 0],
+            [b.minDamage3 ?? 0, b.maxDamage3 ?? 0],
+          ];
       const reflexes = playerReflexes ?? (isPlayer(target) ? target.reflexes : null) ?? 2;
       const reflexesChance = 50 - 10 * (reflexes - 2);
       for (const [min, max] of spans) {

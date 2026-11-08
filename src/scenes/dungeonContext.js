@@ -9460,6 +9460,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     automapCommand(name) { return executeConsoleCommand(name, []); },
     enemies,
     foes,
+    freeCorpse,
+    removeCorpse: freeCorpse,
     corpseAt: (f) => corpseAt(f),   // AUDIT 32 H3: where a body lies (Hunting's bodies)
     /** AUDIT 32 H8: a body's loot key (`corpse:<i>`, the ladder's own) while it may be searched - its loot target's test -
      *  or null. */

@@ -3585,3 +3585,8 @@ necro.cmd.noneControlled,"Sinulla ei ole hallittuja epäkuolleita vapautettavaks
 necro.cmd.releaseControlled,"Vapautettiin {0} hallittua epäkuollutta! Ne muuttuvat vihamielisiksi!"
 necro.menu.optReleaseControlled,"[Vapauta hallitut] Luovu hallituista epäkuolleista ({0})"
 necro.tip.disguise,"Peittää epäkuolleen luontosi ja nekromanttisen turmeluksesi kuolevaisilta."
+spell.necro.sutureCadaver,"Ruumiin ompelu"
+spell.necro.fingerOfDeath,"Kuoleman sormi"
+sutureCadaver,"Ruumiin ompelu"
+HUD_SUTURE_FAIL,"Ei tarpeeksi lihaa kolossin ompelemiseen. Vaatii vähintään 3 ruumista lähellä."
+HUD_SUTURE_SUCCESS,"Luut rutisevat ja liha kuroutuu yhteen... Lihakolossi nousee {0} ruumiista!"

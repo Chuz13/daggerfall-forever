@@ -48,7 +48,7 @@ import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify match
 import { breakNormalPowerConcealment, handleAttackFromSource } from './concealment.js';
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
-import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor, castControlUndead } from './necromancy/necromanticSpells.js';
+import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor, castControlUndead, castSutureCadaver } from './necromancy/necromanticSpells.js';
 import { performArchLichdomRitual, performLichdomRitual } from './necromancy/lichdomRitual.js';
 import { lichdomMagicRound } from './necromancy/lichdomStatus.js';
 import { corpsesNear } from './necromancy/corpseRegistry.js';
@@ -269,6 +269,7 @@ export const MAGIC_ONLY_KEYS = new Set([
   '51,255',   // NECROMANCY: Bone Armor (Alteration)
   '53,255',   // NECROMANCY: Control Undead (Mysticism)
   '54,255',   // NECROMANCY: Mortal Disguise (Illusion)
+  '55,255',   // NECROMANCY: Suture Cadaver (Mysticism)
 ]);
 
 /** THE BUFF LANDING ALERTS - every line DFU speaks on the frame a
@@ -1563,6 +1564,41 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         sinks?.say?.(res.reason);
       }
       pushInstantMarker(target, 'controlUndead', e);
+      continue;
+    }
+    if (e.type === 55 && classicSub(e) === 255) {
+      const actualCaster = caster?.entity ?? target;
+      const res = castSutureCadaver(actualCaster, target, {
+        radius: 8,
+        spellMagnitude: magnitude(e),
+        rolls,
+        sinks,
+      });
+      if (res?.success && res.minion) {
+        out.sutureCadaver = (out.sutureCadaver ?? 0) + 1;
+        out.sutureCadaverMinion = res.minion;
+        out.sutureCadaverConsumed = res.consumedCount;
+        const msg = localizedText(
+          'HUD_SUTURE_SUCCESS',
+          'Bones crack and flesh knits together... A Flesh Colossus rises from {0} corpses!',
+        ).replace('{0}', String(res.consumedCount));
+        sinks?.say?.(msg);
+      } else {
+        out.sutureCadaverFailed = true;
+        const failMsg =
+          res?.reasonCode === 'NOT_ENOUGH_CORPSES'
+            ? localizedText(
+                'HUD_SUTURE_FAIL',
+                'Not enough flesh to stitch a colossus. Requires at least 3 corpses nearby.',
+              )
+            : (res?.reason ||
+              localizedText(
+                'HUD_SUTURE_FAIL',
+                'Not enough flesh to stitch a colossus. Requires at least 3 corpses nearby.',
+              ));
+        sinks?.say?.(failMsg);
+      }
+      pushInstantMarker(target, 'sutureCadaver', e);
       continue;
     }
     // X1: SPELL ABSORPTION (20) and SPELL RESISTANCE (22) - both are

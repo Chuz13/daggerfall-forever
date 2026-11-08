@@ -1479,3 +1479,8 @@ necro.cmd.noneControlled,"Bạn không có xác sống bị khống chế nào �
 necro.cmd.releaseControlled,"Đã giải phóng {0} xác sống bị khống chế! Chúng trở nên thù địch!"
 necro.menu.optReleaseControlled,"[Giải Phóng Khống Chế] Mất quyền kiểm soát xác sống bị thu phục ({0})"
 necro.tip.disguise,"Che giấu bản chất bất tử và vết nhơ tử linh của bạn khỏi người phàm."
+spell.necro.sutureCadaver,"Khâu Xác"
+spell.necro.fingerOfDeath,"Ngón Tay Tử Thần"
+sutureCadaver,"Khâu Xác"
+HUD_SUTURE_FAIL,"Không đủ xác thịt để khâu thành khổng lồ. Cần ít nhất 3 xác chết gần đó."
+HUD_SUTURE_SUCCESS,"Xương cốt răng rắc và thịt da gắn kết... Một Khổng Lồ Xác Thịt trỗi dậy từ {0} cái xác!"

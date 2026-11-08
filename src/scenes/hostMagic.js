@@ -1038,7 +1038,7 @@ export function createPlayerMagic({
    *  one law with the shaft's and the swing's (combat/friendlyFire.js). */
   const sparedFromPlayer = (t) => sparedByPlayer(t);
   const playerTargets = () => foes().filter((t) => !sparedFromPlayer(t));
-  const hasNecroTouch = (sp) => (sp?.effects ?? []).some((e) => e && (e.type === 47 || e.type === 48 || e.type === 49));
+  const hasNecroTouch = (sp) => (sp?.effects ?? []).some((e) => e && (e.type === 47 || e.type === 48 || e.type === 49 || e.type === 55));
   const hasCorpseExplosion = (sp) => (sp?.effects ?? []).some((e) => e && e.type === 48);
   /** AREA-CASTER (FIELD BUGS 2026-10-01; asked, Mac: "Include the caster"): AN AREA SPELL MADE ONLY OF GIFTS LANDS ON ITS
    *  CASTER TOO - an Area Around Caster's (DFU's ignoreCaster passed them by) and an Area at Range's wherever its missile
@@ -1261,6 +1261,9 @@ export function createPlayerMagic({
       tallyCastSkills(sp);
       if (sp.pvpKit) declareKitSelf(sp.pvpKit);   // PVP-VITALS: the referee pays for it and credits its heal
       const r = applySpellToPlayer(sp, castingLevel(playerEntity), playerCaster(cast));
+      if (r?.sutureCadaverFailed && cost > 0) {
+        playerEntity.magicka = Math.min(playerEntity.maxMagicka ?? Infinity, (playerEntity.magicka ?? 0) + cost);
+      }
       // AUDIT 24 scenes: PlayerSpellCasting_OnReleaseFrame assigns the
       // CasterOnly bundle at :2117 and only stamps
       // `lastReadySpellCastingCost = readySpellCastingCost` at :2138 -
@@ -1289,7 +1292,10 @@ export function createPlayerMagic({
       else if (t) applySpellToFoe(sp, castingLevel(playerEntity), t, playerCaster(cast));
       else if (hasNecroTouch(sp)) {
         playerEntity.necroTargetPos = alongAim(eye, dir, 2.0);
-        applySpellToPlayer({ ...sp, rangeType: 0 }, castingLevel(playerEntity), playerCaster(cast));
+        const r = applySpellToPlayer({ ...sp, rangeType: 0 }, castingLevel(playerEntity), playerCaster(cast));
+        if (r?.sutureCadaverFailed && cost > 0) {
+          playerEntity.magicka = Math.min(playerEntity.maxMagicka ?? Infinity, (playerEntity.magicka ?? 0) + cost);
+        }
       }
       // IMPACTFX: the touch, seen where it met - a heal rising at whoever took it, the element's small spray on a foe
       if (t || hasNecroTouch(sp)) {
@@ -1610,6 +1616,16 @@ export function createPlayerMagic({
             explodeAt(corpse.position, m.spell, m.fromPlayer === false ? (m.casterLevel ?? 1) : castingLevel(playerEntity), playerFeet, missileCaster(m), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });
             showImpactFlash(m, corpse.position);
           }
+          retireMissile(m);
+          continue;
+        }
+        if (m.fromPlayer !== false && !m.visual && (m.spell?.effects ?? []).some((e) => e && (e.type === 47 || e.type === 55))) {
+          playerEntity.necroTargetPos = impact;
+          const r = applySpellToPlayer({ ...m.spell, rangeType: 0 }, castingLevel(playerEntity), playerCaster(m.cast ?? null));
+          if (r?.sutureCadaverFailed && m.cast?.cost > 0) {
+            playerEntity.magicka = Math.min(playerEntity.maxMagicka ?? Infinity, (playerEntity.magicka ?? 0) + m.cast.cost);
+          }
+          showImpactFlash(m, impact);
           retireMissile(m);
           continue;
         }

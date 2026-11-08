@@ -80,6 +80,7 @@ export const NECRO_SPELL_KEYS = Object.freeze({
   ARCH_LICHDOM: '52,255',
   CONTROL_UNDEAD: '53,255',
   DISGUISE: '54,255',
+  SUTURE_CADAVER: '55,255',
 });
 
 export const UNDEAD_CONTROL_MAGNITUDE_TIERS = Object.freeze({
@@ -448,6 +449,88 @@ export function mortalDisguiseSpell() {
         durationMod: 10,
         durationPerLevel: 1,
         chanceBase: 0,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 0,
+        magnitudeBaseHigh: 0,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
+      },
+    ],
+  };
+}
+
+/**
+ * Creates a ready-made spell record for Suture Cadaver (stitching 3-5 corpses into a Flesh Colossus).
+ * Granted on reading the Grimoire of the Worm and craftable in the Spell Maker once unlocked.
+ * @param {object} [params]
+ * @returns {object}
+ */
+export function sutureCadaverSpell({
+  name = 'Suture Cadaver',
+  chanceBase = 80,
+  chanceMod = 5,
+  magnitudeBaseLow = 25,
+  magnitudeBaseHigh = 45,
+} = {}) {
+  return {
+    index: -57,
+    name,
+    icon: 25,
+    rangeType: 0, // CasterOnly (scans 8m around caster)
+    element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
+    effects: [
+      {
+        type: 55,
+        subType: 255,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase,
+        chanceMod,
+        chancePerLevel: 1,
+        magnitudeBaseLow,
+        magnitudeBaseHigh,
+        magnitudeLevelBase: 5,
+        magnitudeLevelHigh: 5,
+        magnitudePerLevel: 1,
+      },
+    ],
+  };
+}
+
+/**
+ * Creates the innate Finger of Death spell granted upon ascending to Ancient Lich.
+ * Single Target at Range Disintegrate (type 5, subType 255) with fixed 50 base magicka cost.
+ * NOT a Spell Maker effect and NOT granted by the Grimoire.
+ * @returns {object}
+ */
+export function fingerOfDeathSpell() {
+  return {
+    index: -58,
+    name: 'Finger of Death',
+    icon: 12,
+    rangeType: 2, // SingleTargetAtRange
+    element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
+    craftable: false,
+    baseCastingCost: 50,
+    effects: [
+      {
+        type: 5,
+        subType: 255,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase: 100,
         chanceMod: 0,
         chancePerLevel: 1,
         magnitudeBaseLow: 0,
@@ -996,5 +1079,95 @@ export function castControlUndead(
     magnitude,
   };
 }
+
+/**
+ * Executes Suture Cadaver: requires 3 to 5 corpses within 8m of the caster/target.
+ * If fewer than 3 corpses are nearby, fails without consuming any corpses.
+ * If 3 or more corpses are nearby, consumes and destroys strictly 3 to 5 corpses (leaving any 6th+ untouched)
+ * and spawns a Flesh Colossus ('cadaver') minion with HP = max(250, round(sum(corpse.maxHealth) * 0.8)).
+ * @param {object} caster
+ * @param {object|null} [targetCorpse]
+ * @param {object} [options]
+ * @returns {{ success: boolean, minion?: object, consumedCount: number, consumedCorpses?: Array<object>, reason?: string, reasonCode?: string }}
+ */
+export function castSutureCadaver(caster, targetCorpse = null, options = {}) {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY) {
+    return { success: false, consumedCount: 0, reason: 'Necromancy is disabled', reasonCode: 'DISABLED' };
+  }
+
+  let opts = options;
+  if (caster && typeof caster === 'object' && !targetCorpse && ('casterEntity' in caster || 'targetCorpse' in caster)) {
+    opts = { ...caster, ...options };
+    targetCorpse = caster.targetCorpse || caster.position || null;
+    caster = caster.casterEntity;
+  }
+
+  const casterEntity = caster?.entity || caster;
+  const radius = Number(opts?.radius) > 0 ? Number(opts.radius) : 8;
+
+  const searchPos =
+    targetCorpse?.necroTargetPos ||
+    targetCorpse?.position ||
+    targetCorpse?.pos ||
+    targetCorpse?.feet ||
+    (Array.isArray(targetCorpse) ? targetCorpse : null) ||
+    casterEntity?.position ||
+    casterEntity?.pos ||
+    casterEntity?.feet ||
+    globalThis.__sceneContext?.getPlayerPos?.() ||
+    [0, 0, 0];
+
+  const viable = corpsesNear(searchPos, radius);
+
+  if (viable.length < 3) {
+    return {
+      success: false,
+      consumedCount: 0,
+      reasonCode: 'NOT_ENOUGH_CORPSES',
+      reason: 'Not enough flesh to stitch a colossus. Requires at least 3 corpses nearby.',
+    };
+  }
+
+  if (!canAffordUndead(casterEntity, 'cadaver')) {
+    return {
+      success: false,
+      consumedCount: 0,
+      reasonCode: 'INSUFFICIENT_CAPACITY',
+      reason: 'Insufficient undead control capacity',
+    };
+  }
+
+  // Strictly consume 3 to 5 nearest corpses (never more than 5!)
+  const toConsume = viable.slice(0, 5);
+  let totalCorpseHp = 0;
+
+  for (const c of toConsume) {
+    totalCorpseHp += Number(c.maxHealth) || 60;
+    consumeCorpse(c.id);
+    c.destroyCorpse?.();
+    opts?.sinks?.destroyCorpse?.(c);
+    globalThis.__sceneContext?.destroyCorpse?.(c);
+  }
+
+  const maxHealth = Math.max(250, Math.round(totalCorpseHp * 0.8));
+  const firstPos = toConsume[0]?.position || searchPos;
+  const spawnPos = Array.isArray(firstPos) ? [...firstPos] : [0, 0, 0];
+
+  const minion = spawnMinion({
+    type: 'cadaver',
+    position: spawnPos,
+    masterEntity: casterEntity,
+    health: maxHealth,
+    maxHealth,
+  });
+
+  return {
+    success: true,
+    minion,
+    consumedCount: toConsume.length,
+    consumedCorpses: toConsume,
+  };
+}
+
 
 

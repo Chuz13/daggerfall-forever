@@ -9312,3 +9312,8 @@ necro.cmd.noneControlled,"Você não tem mortos-vivos controlados para libertar.
 necro.cmd.releaseControlled,"{0} mortos-vivos controlados libertados! Eles se tornam hostis!"
 necro.menu.optReleaseControlled,"[Libertar Controlados] Perder o controle sobre mortos-vivos dominados ({0})"
 necro.tip.disguise,"Mascara sua natureza morta-viva e mácula necromântica dos mortais."
+spell.necro.sutureCadaver,"Suturar Cadáver"
+spell.necro.fingerOfDeath,"Dedo da Morte"
+sutureCadaver,"Suturar Cadáver"
+HUD_SUTURE_FAIL,"Carne insuficiente para costurar um colosso. Requer pelo menos 3 cadáveres próximos."
+HUD_SUTURE_SUCCESS,"Ossos estalam e a carne se une... Um Colosso de Carne se ergue de {0} cadáveres!"

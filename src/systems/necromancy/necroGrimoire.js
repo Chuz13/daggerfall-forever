@@ -18,6 +18,7 @@ import {
   archLichdomSpell,
   necroLevitateSpell,
   controlUndeadSpell,
+  sutureCadaverSpell,
 } from './necromanticSpells.js';
 
 export const NECRO_GRIMOIRE_TEMPLATE = 585;
@@ -77,6 +78,7 @@ export function getAllNecroSpells() {
     archLichdomSpell(),
     necroLevitateSpell(),
     controlUndeadSpell(),
+    sutureCadaverSpell(),
   ];
 }
 

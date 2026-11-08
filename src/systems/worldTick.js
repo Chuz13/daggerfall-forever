@@ -755,7 +755,7 @@ function tickPlayerMinutesOnce({
     if (minions.length > 0 && NecroConfig.minionUpkeep && !isNecroRestManaLocked(entity)) {
       if (!entity._lastMinionUpkeepMs || nowMs - entity._lastMinionUpkeepMs >= 5000) {
         entity._lastMinionUpkeepMs = nowMs;
-        const upkeepCost = minions.reduce((sum, m) => sum + (Number(m.tier ?? m.slotCost ?? 1)), 0);
+        const upkeepCost = minions.reduce((sum, m) => sum + (Number(m.upkeep ?? m.tier ?? m.slotCost ?? 1)), 0);
         if (typeof entity.magicka === 'number' && upkeepCost > 0) {
           if (sinks && sinks.drainMagicka) {
             sinks.drainMagicka(upkeepCost);

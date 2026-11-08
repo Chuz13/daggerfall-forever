@@ -77,9 +77,11 @@ test('Necro spells: Grimoire grants Arch-Lichdom along with core spells, but exc
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Arch-Lichdom'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Dark Flight'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Control Undead'));
+  assert.ok(dummyPlayer.spells.some((s) => s.name === 'Suture Cadaver'));
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Paralyzing Touch'));
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Mortal Disguise'));
-  assert.equal(dummyPlayer.spells.length, 7, '4 standard necro spells + Arch-Lichdom + Dark Flight + Control Undead');
+  assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Finger of Death'));
+  assert.equal(dummyPlayer.spells.length, 8, '4 standard necro spells + Arch-Lichdom + Dark Flight + Control Undead + Suture Cadaver');
 });
 
 test('Arch-Lichdom ritual: mortal casting triggers death', () => {
@@ -792,4 +794,133 @@ test('Lich Innate Spells & Grimoire Spells: Paralyzing Touch, Dark Flight, Contr
   assert.equal(allSpawnedMinions().length, 1, 'Expired controlled undead removed while summon stays');
 
   dismissAllMinions();
+});
+
+test('Suture Cadaver & Finger of Death: corpse consumption (3-5 corpses), sunder armor, and Ancient Lich 50 SP Finger of Death', async () => {
+  const {
+    sutureCadaverSpell,
+    fingerOfDeathSpell,
+    castSutureCadaver,
+  } = await import('../../src/systems/necromancy/necromanticSpells.js');
+  const {
+    registerCorpse,
+    corpsesNear,
+    _resetCorpseRegistryForTests,
+  } = await import('../../src/systems/necromancy/corpseRegistry.js');
+  const {
+    MINION_PROFILES,
+    dismissAllMinions,
+  } = await import('../../src/systems/necromancy/minionController.js');
+  const { usedUndeadPoints, _resetUndeadCapacityForTests } = await import('../../src/systems/necromancy/undeadCapacity.js');
+  const { spellMakerGroups } = await import('../../src/systems/spell/spellEffects.js');
+  const { eliteSize } = await import('../../src/systems/eliteFoes.js');
+  const { calculateAttackDamage } = await import('../../src/combat/formulas.js');
+
+  // 1. Finger of Death: granted ONLY on Ancient Lich ascension, costs 50 SP even at Destruction 200
+  const fod = fingerOfDeathSpell();
+  assert.equal(fod.index, -58);
+  assert.equal(fod.name, 'Finger of Death');
+  assert.equal(fod.rangeType, 2, 'SingleTargetAtRange');
+  assert.equal(fod.element, 4, 'Magic');
+  assert.equal(fod.baseCastingCost, 50);
+  assert.equal(fod.effects[0].type, 5, 'Disintegrate');
+  assert.equal(fod.effects[0].subType, 255);
+  assert.ok(shownSpellName(fod).length > 0);
+
+  const lich = {
+    level: 30,
+    skills: { [SKILLS.Destruction]: 200, [SKILLS.Mysticism]: 200 },
+    stats: { intelligence: 150, willpower: 150 },
+    spells: [],
+  };
+  applyLichdom(lich);
+  assert.ok(!lich.spells.some((s) => s.index === -58), 'Regular Lich must NOT receive Finger of Death');
+
+  applyAncientLichdom(lich);
+  assert.ok(lich.spells.some((s) => s.index === -58 && s.name === 'Finger of Death'), 'Ancient Lich must receive Finger of Death');
+  assert.ok(!spellMakerGroups({ NecroGrimoireRead: true }).includes('Finger of Death'), 'Finger of Death must NOT be in Spell Maker');
+
+  const fodCost = calculateCastCost(fod, lich);
+  assert.equal(fodCost.sp, 50, 'Finger of Death must cost 50 SP in base and never drop to 5 SP floor');
+
+  // 2. Suture Cadaver: Spell Maker & Grimoire check
+  const cadaverSpell = sutureCadaverSpell();
+  assert.equal(cadaverSpell.index, -57);
+  assert.equal(cadaverSpell.name, 'Suture Cadaver');
+  assert.equal(cadaverSpell.effects[0].type, 55);
+  assert.equal(cadaverSpell.effects[0].subType, 255);
+  assert.ok(shownSpellName(cadaverSpell).length > 0);
+  assert.ok(!spellMakerGroups({ NecroGrimoireRead: false }).includes('Suture Cadaver'));
+  assert.ok(spellMakerGroups({ NecroGrimoireRead: true }).includes('Suture Cadaver'));
+
+  // 3. Suture Cadaver fail when < 3 corpses within 8m (0 corpses consumed)
+  _resetCorpseRegistryForTests();
+  _resetUndeadCapacityForTests();
+  dismissAllMinions();
+  registerCorpse({ id: 'c1', entityName: 'Bandit 1', maxHealth: 100, position: [1, 0, 1] });
+  registerCorpse({ id: 'c2', entityName: 'Bandit 2', maxHealth: 100, position: [2, 0, 1] });
+
+  let destroyedCount = 0;
+  let hudMsg = '';
+  const failRes = applySpell(
+    cadaverSpell,
+    30,
+    lich,
+    {
+      say: (m) => { hudMsg = m; },
+      destroyCorpse: () => { destroyedCount++; },
+    },
+    () => 0.5,
+    { entity: lich },
+    { position: [0, 0, 0] },
+  );
+  assert.equal(failRes.sutureCadaverFailed, true);
+  assert.equal(destroyedCount, 0, 'Must NOT destroy any corpses when < 3 available');
+  assert.equal(corpsesNear([0, 0, 0], 8).length, 2, 'Both corpses must remain unconsumed');
+  assert.ok(hudMsg.length > 0, 'Must emit localized failure notification');
+
+  // 4. Suture Cadaver with 6 corpses within 8m consumes STRICTLY 5 corpses (leaving the 6th intact)
+  for (let i = 3; i <= 6; i++) {
+    registerCorpse({ id: `c${i}`, entityName: `Bandit ${i}`, maxHealth: 100, position: [i * 0.5, 0, 1] });
+  }
+  assert.equal(corpsesNear([0, 0, 0], 8).length, 6);
+
+  destroyedCount = 0;
+  hudMsg = '';
+  const okRes = castSutureCadaver(lich, [0, 0, 0], {
+    sinks: {
+      say: (m) => { hudMsg = m; },
+      destroyCorpse: () => { destroyedCount++; },
+    },
+  });
+  assert.equal(okRes.success, true);
+  assert.equal(okRes.consumedCount, 5, 'Must consume at most 5 corpses');
+  assert.equal(destroyedCount, 5, 'Must call destroyCorpse strictly 5 times');
+  assert.equal(corpsesNear([0, 0, 0], 8).length, 1, 'The 6th corpse must remain untouched');
+  assert.equal(usedUndeadPoints(), 6, 'Cadaver must consume 6 undead capacity slots');
+  assert.equal(okRes.minion.maxHealth, 400, '80% of 5 * 100 HP = 400 HP');
+  assert.equal(okRes.minion.upkeep, 4, 'Cadaver upkeep must be 4 SP/min');
+  assert.equal(eliteSize({ profile: MINION_PROFILES.cadaver }), 1.35, 'Cadaver visual scale must be 1.35');
+
+  // 5. Sunder Armor on hit (+2 to target.armorValue and target.armorValues per hit)
+  const cadaverAttacker = {
+    level: 12,
+    isClass: false,
+    skills: { [SKILLS.HandToHand]: 100 },
+    stats: { luck: 50, agility: 50 },
+    profile: MINION_PROFILES.cadaver,
+  };
+  const targetEnemy = {
+    isClass: false,
+    stats: { luck: 50, agility: 50 },
+    armorValue: 50,
+    armorValues: [50, 50, 50, 50, 50, 50, 50],
+  };
+  const dmg = calculateAttackDamage(cadaverAttacker, targetEnemy, { rolls: () => 0.01, dfRand: () => 0 });
+  assert.ok(dmg >= 25 && dmg <= 45, `Expected damage in [25, 45], got ${dmg}`);
+  assert.equal(targetEnemy.armorValue, 52, 'Sunder Armor must worsen target armorValue by +2 on hit');
+  assert.equal(targetEnemy.armorValues[0], 52, 'Sunder Armor must worsen target armorValues by +2 on hit');
+
+  dismissAllMinions();
+  _resetCorpseRegistryForTests();
 });

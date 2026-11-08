@@ -10404,7 +10404,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       rec.undeadStance = c.stance || 'follow';
       const prof = c?.profile || MINION_PROFILES[c?.type] || MINION_PROFILES.skeleton;
       rec.profile = prof;
-      if (rec.entity) rec.entity.profile = prof;
+      if (rec.entity) {
+        rec.entity.profile = prof;
+        if (prof.immunePoison) rec.entity.immuneToPoison = true;
+        if (prof.immuneParalysis) rec.entity.immuneToParalysis = true;
+        if (typeof prof.resistMagic === 'number') rec.entity.resistMagic = prof.resistMagic;
+        if (typeof prof.speed === 'number' && prof.speed > 0 && prof.speed !== 1 && rec.entity.stats && !rec.entity._necroSpeedScaled) {
+          rec.entity._necroSpeedScaled = true;
+          rec.entity.stats.speed = Math.max(10, Math.round((rec.entity.stats.speed || 50) * prof.speed));
+        }
+      }
       _undeadMinionFoes.add(rec);
     },
     onLeave: (c, rec) => {
@@ -10967,14 +10976,15 @@ export async function bootWorld(canvas, renderer, params, status) {
       return worldMinutes();
     },
     playerTicker,
-    spawnCorpse: async (pos, mobType = null) => {
+    spawnCorpse: async (pos, mobType = null, idxOffset = 0) => {
       const targetMob = typeof mobType === 'number' ? mobType : (typeof mobType === 'string' && MOBILE_TYPES[mobType] != null ? MOBILE_TYPES[mobType] : MOBILE_TYPES.Rogue);
       const p = (pos && (pos[0] !== 0 || pos[2] !== 0)) ? pos : (walkMode && playerSpawned ? player.pos : cam.pos);
-      const yaw = cam?.yaw ?? 0;
+      const yaw = (cam?.yaw ?? 0) + (idxOffset ? (idxOffset % 2 === 1 ? 1 : -1) * Math.ceil(idxOffset / 2) * 0.35 : 0);
+      const dist = 2.5 + (idxOffset ? Math.floor(idxOffset / 2) * 0.6 : 0);
       const fwdX = Math.sin(yaw);
       const fwdZ = Math.cos(yaw);
-      const corpseX = p[0] + fwdX * 2.5;
-      const corpseZ = p[2] + fwdZ * 2.5;
+      const corpseX = p[0] + fwdX * dist;
+      const corpseZ = p[2] + fwdZ * dist;
       const corpseY = (collider?.heightAt?.(corpseX, corpseZ) ?? p[1]) || p[1];
       const corpsePos = [corpseX, corpseY, corpseZ];
 
@@ -11003,30 +11013,34 @@ export async function bootWorld(canvas, renderer, params, status) {
       const p = corpse?.position;
       const id = corpse?.id;
       const destroyFoe = (f, pool) => {
+        f._corpseBatchRemoved = true;
         f.corpseDisabled = true;
         f.corpse = false;
         f.corpseDestroyed = true;
         if (f.corpseMarker) f.corpseMarker.corpseDisabled = true;
         pool?.removeCorpse?.(f);
+        pool?.freeCorpse?.(f);
       };
       const pools = [
         { list: exteriorFoes?.foes, pool: exteriorFoes },
         { list: modes?.dungeonCtx?.foes, pool: modes?.dungeonCtx },
         { list: modes?.interiorFoes?.foes, pool: modes?.interiorFoes },
+        { list: cityGuards?.guards, pool: cityGuards },
       ];
       // 1. First priority: match exact corpse by ID (destroy ONLY that one)
       if (id) {
         for (const { list, pool } of pools) {
           if (!list) continue;
           for (const f of list) {
-            if (f?.entity?._necroCorpseId === id || f?.id === id || f?.entity?.id === id) {
+            if (f?._corpseBatchRemoved) continue;
+            if (f?._necroCorpseId === id || f?.entity?._necroCorpseId === id || f?.id === id || f?.entity?.id === id) {
               destroyFoe(f, pool);
               return;
             }
           }
         }
       }
-      // 2. Second priority: if no exact ID match, destroy ONLY the single closest corpse within 3.0m
+      // 2. Second priority: if no exact ID match, destroy ONLY the single closest unremoved corpse within 3.0m
       if (p) {
         let closest = null;
         let closestDist = 3.0;
@@ -11034,8 +11048,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         for (const { list, pool } of pools) {
           if (!list) continue;
           for (const f of list) {
-            if (f.corpseDisabled || f.corpseDestroyed) continue;
-            const fp = f.corpseMarker?.pos ?? f.pos ?? f.feet;
+            if (f._corpseBatchRemoved || f.corpseDisabled || f.corpseDestroyed) continue;
+            const fp = f.corpseMarker?.pos ?? f.corpsePos ?? f.ai?.feet ?? f.pos ?? f.feet;
             if (!fp) continue;
             const dist = Math.hypot(fp[0] - p[0], fp[2] - p[2]);
             if (dist < closestDist) {

@@ -740,6 +740,12 @@ export function shownSpellName(spell) {
   if (name === 'Dark Flight' || spell?.index === -56) {
     return t('spell.necro.darkFlight', 'Dark Flight');
   }
+  if (name === 'Suture Cadaver' || spell?.index === -57) {
+    return t('spell.necro.sutureCadaver', 'Suture Cadaver');
+  }
+  if (name === 'Finger of Death' || spell?.index === -58) {
+    return t('spell.necro.fingerOfDeath', 'Finger of Death');
+  }
   // AUDIT SCHOOLS L4 4: a path's signature spell (its own index band) under its canonical name reads in the player's
   // language, as a stock spell does below; a name the player gave it in the book stays theirs
   const sig = Number.isInteger(spell?.index) ? pathOfSignatureIndex(spell.index) : null;

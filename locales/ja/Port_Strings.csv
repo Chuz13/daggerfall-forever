@@ -3711,3 +3711,8 @@ necro.cmd.noneControlled,"解放できる支配下のアンデッドがいませ
 necro.cmd.releaseControlled,"{0}体の支配下アンデッドを解放した！敵対状態になった！"
 necro.menu.optReleaseControlled,"[支配解除] 精神支配したアンデッドの制御を解く ({0})"
 necro.tip.disguise,"定命の者からあなたの不死の本性と死霊術の穢れを隠します。"
+spell.necro.sutureCadaver,"死体縫合"
+spell.necro.fingerOfDeath,"死の指"
+sutureCadaver,"死体縫合"
+HUD_SUTURE_FAIL,"巨像を縫い合わせるための肉が足りません。近くに最低3体の死体が必要です。"
+HUD_SUTURE_SUCCESS,"骨が軋み、肉が結合する… {0}体の死体から肉の巨像が立ち上がった！"

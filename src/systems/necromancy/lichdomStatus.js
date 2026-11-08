@@ -19,7 +19,7 @@ import { WEAPON_MATERIALS } from '../../characters/weapons.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { registerBlowTakenMod } from '../blowTaken.js';
 import { lockLichTaint } from './necroTaint.js';
-import { lichParalyzingTouchSpell, mortalDisguiseSpell } from './necromanticSpells.js';
+import { lichParalyzingTouchSpell, mortalDisguiseSpell, fingerOfDeathSpell } from './necromanticSpells.js';
 
 export const LICHDOM_CURSE_KEY = 'Lichdom';
 export const ANCIENT_LICHDOM_CURSE_KEY = 'AncientLichdom';
@@ -174,6 +174,24 @@ export function grantLichInnateSpells(entity) {
     if (!exists) {
       entity.spells.push(sp);
     }
+  }
+}
+
+/**
+ * Grants the Ancient Lich exclusive innate spell (Finger of Death) to an entity's spellbook.
+ * @param {object} entity
+ */
+export function grantAncientLichInnateSpells(entity) {
+  if (!entity) return;
+  if (!Array.isArray(entity.spells)) {
+    entity.spells = [];
+  }
+  const sp = fingerOfDeathSpell();
+  const exists = entity.spells.some(
+    (s) => s && (s.name === sp.name || (s.index != null && s.index === sp.index)),
+  );
+  if (!exists) {
+    entity.spells.push(sp);
   }
 }
 
@@ -357,6 +375,7 @@ export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient
   entity.necroTaint = 100;
   lockLichTaint();
   grantLichInnateSpells(entity);
+  grantAncientLichInnateSpells(entity);
 
   return entry;
 }

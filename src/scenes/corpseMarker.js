@@ -67,7 +67,7 @@ import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemy/enemyBasics.
 import { FlatAnim, isAnimatedFlat } from '../render/flatAnimation.js'; // AUDIT DEX B3: a corpse of more than one frame animates, as DFU's billboard does
 import { localizedText, getLocalizedEnemyName } from '../systems/textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the enemy's name
 import { silverFindAt } from '../systems/silverFinds.js'; // SILVER-FINDS: a body opened holds silver now and then
-import { registerCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
+import { registerCorpse, getCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
 import { hideOfFoe } from '../net/professionLaw.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 
@@ -206,8 +206,11 @@ registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
   const lvl = entity.level ?? 1;
   const maxHp = entity.maxHealth ?? entity.entity?.maxHealth ?? (lvl * 20 + 15);
   const entName = entity.name || entity.displayName || (mobType != null ? corpseEntityName(mobType) : 'Fallen Foe');
+  const uniqueCorpseId = (entity.id != null && !getCorpse(String(entity.id)))
+    ? entity.id
+    : `corpse_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
   const rec = registerCorpse({
-    id: entity.id ?? `corpse_${Math.random().toString(36).slice(2, 9)}`,
+    id: uniqueCorpseId,
     entityType,
     mobileType: mobType,
     entityName: entName,
@@ -221,6 +224,7 @@ registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
   if (rec && entity) {
     entity._necroCorpseId = rec.id;
     entity._necroEntityType = entityType;
+    if (opts?.foe) opts.foe._necroCorpseId = rec.id;
     rec.destroyCorpse = () => {
       entity.corpseDisabled = true;
       if (Array.isArray(entity.items)) entity.items.length = 0;

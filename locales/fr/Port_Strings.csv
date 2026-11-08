@@ -9312,3 +9312,8 @@ necro.cmd.noneControlled,"Vous n’avez aucun mort-vivant contrôlé à libérer
 necro.cmd.releaseControlled,"{0} morts-vivants contrôlés libérés ! Ils deviennent hostiles !"
 necro.menu.optReleaseControlled,"[Libérer les contrôlés] Perdre le contrôle des morts-vivants asservis ({0})"
 necro.tip.disguise,"Masque votre nature de mort-vivant et votre souillure nécromantique aux yeux des mortels."
+spell.necro.sutureCadaver,"Suturer un cadavre"
+spell.necro.fingerOfDeath,"Doigt de la mort"
+sutureCadaver,"Suturer un cadavre"
+HUD_SUTURE_FAIL,"Pas assez de chair pour coudre un colosse. Nécessite au moins 3 cadavres à proximité."
+HUD_SUTURE_SUCCESS,"Les os craquent et la chair se soude... Un Colosse de Chair se dresse à partir de {0} cadavres !"

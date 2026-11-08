@@ -723,13 +723,16 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     // bonus lands PER HIT. onMonsterHit = the special-attack rider
     // seam (S18 diseases.js) - fired per hit BEFORE the damage sums,
     // exactly at FormulaHelper.cs:662.
-    if (!attacker.isPlayer && attacker.isClass === false && attacker.basics) {
-      const b = attacker.basics;
-      const spans = [
-        [b.minDamage ?? 0, b.maxDamage ?? 0],
-        [b.minDamage2 ?? 0, b.maxDamage2 ?? 0],
-        [b.minDamage3 ?? 0, b.maxDamage3 ?? 0],
-      ];
+    const atkProf = attacker.profile ?? attacker.minion?.profile;
+    if (!attacker.isPlayer && attacker.isClass === false && (attacker.basics || (atkProf?.minDmg != null && atkProf?.maxDmg != null))) {
+      const b = attacker.basics || {};
+      const spans = (atkProf?.minDmg != null && atkProf?.maxDmg != null)
+        ? [[atkProf.minDmg, atkProf.maxDmg]]
+        : [
+            [b.minDamage ?? 0, b.maxDamage ?? 0],
+            [b.minDamage2 ?? 0, b.maxDamage2 ?? 0],
+            [b.minDamage3 ?? 0, b.maxDamage3 ?? 0],
+          ];
       // AUDIT 39: the gate is the PLAYER'S Reflexes setting, whoever is
       // being bitten. FormulaHelper.cs:551 binds `player` from the game
       // and :654 reads `player.Reflexes` regardless of `target`, so a
@@ -786,7 +789,43 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     if (onInflictPoison) onInflictPoison(attacker, target, weapon.poisonType);
     weapon.poisonType = -1;
   }
-  // Necromancy MINION_PROFILES: target vulnerabilities/resistances & attacker on-hit effects
+  // Weapons Reforged: material multipliers, armor penetration, sunder, stamina drain, holy burn
+  const tgtProfile = target?.profile ?? target?.entity?.profile;
+  if (weapon && weapon.material !== undefined && damage > 0) {
+    const matMult = getMaterialDamageMultiplier(weapon.material);
+    if (Number.isFinite(matMult) && matMult !== 1) {
+      damage = Math.max(1, Math.round(damage * matMult));
+    }
+    const pen = getMaterialArmorPenetration(weapon.material);
+    if (pen > 0) {
+      damage += Math.max(1, Math.round(damage * pen));
+    }
+    const sunderChance = getMaterialSunderArmorChance(weapon.material);
+    if (sunderChance > 0 && rolls() < sunderChance && target) {
+      target.armorSundered = true;
+      if (typeof target.armorValue === 'number') target.armorValue += 2;
+    }
+    const stamDrain = getMaterialStaminaDrain(weapon.material);
+    if (stamDrain > 0 && target && typeof target.fatigue === 'number') {
+      target.fatigue = Math.max(0, target.fatigue - stamDrain);
+    }
+    if (getMaterialHolyBurn(weapon.material)) {
+      const isUndeadTarget =
+        enemyEntityGroup(target) === ENEMY_GROUPS.Undead ||
+        target?.entityType === 'undead' ||
+        target?.livingRole === 'undead_minion' ||
+        !!tgtProfile;
+      if (isUndeadTarget) {
+        damage += 5;
+      }
+    }
+  }
+  damage = shared(Math.max(0, damage));
+  // FormulaHelper.cs:699-701: the equipment damages at the TAIL with
+  // the clamped value, whatever the hit rolled.
+  damageEquipment(attacker, target, damage, weapon, struck, { rolls, say });
+  }   // PCO1: the stock core ends here; the tail is the callers' law
+  // Necromancy MINION_PROFILES: target vulnerabilities/resistances & attacker on-hit effects (runs after both stock and PCAAO cores)
   const tgtProfile = target?.profile ?? target?.entity?.profile;
   if (tgtProfile) {
     if (tgtProfile.ethereal) {
@@ -826,42 +865,18 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     if (atkProfile.curseOnHit) {
       target.cursed = true;
     }
-  }
-  // Weapons Reforged: material multipliers, armor penetration, sunder, stamina drain, holy burn
-  if (weapon && weapon.material !== undefined && damage > 0) {
-    const matMult = getMaterialDamageMultiplier(weapon.material);
-    if (Number.isFinite(matMult) && matMult !== 1) {
-      damage = Math.max(1, Math.round(damage * matMult));
-    }
-    const pen = getMaterialArmorPenetration(weapon.material);
-    if (pen > 0) {
-      damage += Math.max(1, Math.round(damage * pen));
-    }
-    const sunderChance = getMaterialSunderArmorChance(weapon.material);
-    if (sunderChance > 0 && rolls() < sunderChance && target) {
+    if (typeof atkProfile.sunderOnHit === 'number' && atkProfile.sunderOnHit > 0) {
       target.armorSundered = true;
-      if (typeof target.armorValue === 'number') target.armorValue += 2;
-    }
-    const stamDrain = getMaterialStaminaDrain(weapon.material);
-    if (stamDrain > 0 && target && typeof target.fatigue === 'number') {
-      target.fatigue = Math.max(0, target.fatigue - stamDrain);
-    }
-    if (getMaterialHolyBurn(weapon.material)) {
-      const isUndeadTarget =
-        enemyEntityGroup(target) === ENEMY_GROUPS.Undead ||
-        target?.entityType === 'undead' ||
-        target?.livingRole === 'undead_minion' ||
-        !!tgtProfile;
-      if (isUndeadTarget) {
-        damage += 5;
+      if (typeof target.armorValue === 'number') {
+        target.armorValue = Math.min(100, target.armorValue + atkProfile.sunderOnHit);
+      }
+      if (Array.isArray(target.armorValues)) {
+        for (let i = 0; i < target.armorValues.length; i++) {
+          target.armorValues[i] = Math.min(100, (target.armorValues[i] ?? 0) + atkProfile.sunderOnHit);
+        }
       }
     }
   }
-  damage = shared(Math.max(0, damage));
-  // FormulaHelper.cs:699-701: the equipment damages at the TAIL with
-  // the clamped value, whatever the hit rolled.
-  damageEquipment(attacker, target, damage, weapon, struck, { rolls, say });
-  }   // PCO1: the stock core ends here; the tail is the callers' law
   // ELITE DUNGEONS: an elite foe's blows land at `damageScale` times (scenes/dungeonContext.js
   // applyEliteScaling). After either core - stock or a mod's override - so the multiplier holds
   // whichever formula rolled the hit; the concealment break and the HUD below see the real number.

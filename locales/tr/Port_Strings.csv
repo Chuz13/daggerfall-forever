@@ -1586,3 +1586,8 @@ necro.cmd.noneControlled,"Serbest bırakılacak zihin kontrolünde hortlağın y
 necro.cmd.releaseControlled,"{0} kontrol edilen hortlak serbest bırakıldı! Düşman kesildiler!"
 necro.menu.optReleaseControlled,"[Kontrol Edilenleri Bırak] Zihin kontrolündeki hortlakların kontrolünü bırak ({0})"
 necro.tip.disguise,"Hortlak doğanı ve nekromantik lekeni ölümlülerden gizler."
+spell.necro.sutureCadaver,"Kadavra Dikme"
+spell.necro.fingerOfDeath,"Ölüm Parmağı"
+sutureCadaver,"Kadavra Dikme"
+HUD_SUTURE_FAIL,"Bir dev dikmek için yeterli et yok. Yakında en az 3 ceset gerekiyor."
+HUD_SUTURE_SUCCESS,"Kemikler çatırdıyor ve etler birbirine kaynıyor... {0} cesetten bir Et Devi yükseliyor!"

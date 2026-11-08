@@ -141,6 +141,8 @@ const ROWS = [
   [53, 255, 'Control Undead', '', [D, C, M]],
   // 54,255: Mortal Disguise (Illusion) - shrouds Lich identity and suppresses Necro Taint
   [54, 255, 'Mortal Disguise', '', [D]],
+  // 55,255: Suture Cadaver (Mysticism) - stitches 3-5 nearby corpses into a Flesh Colossus
+  [55, 255, 'Suture Cadaver', '', [C, M]],
   [30, 255, 'Water Breathing', '', [D]],
   [31, 255, 'Water Walking', '', [D]],
   [33, 0, 'Pacify', 'Animal', [C]],
@@ -220,6 +222,7 @@ const GROUP_NAMES = localizedTable({
   'Bone Armor': ['boneArmor', 'Bone Armor'],
   'Control Undead': ['controlUndead', 'Control Undead'],
   'Mortal Disguise': ['mortalDisguise', 'Mortal Disguise'],
+  'Suture Cadaver': ['sutureCadaver', 'Suture Cadaver'],
 });
 const SUBGROUP_NAMES = localizedTable({
   Health: ['health', 'Health'],
@@ -348,6 +351,7 @@ export const PORTED_KEYS = new Set([
   '51,255', // Bone Armor (NECROMANCY)
   '53,255', // Control Undead (NECROMANCY)
   '54,255', // Mortal Disguise (NECROMANCY)
+  '55,255', // Suture Cadaver (NECROMANCY)
   '30,255', // Water Breathing
   '31,255', // Water Walking
   '6,0',
@@ -448,7 +452,7 @@ export const SPELL_MAKER_EFFECTS = Object.freeze(
   })(),
 );
 
-export const NECRO_EFFECT_KEYS = Object.freeze(new Set(['47,255', '48,255', '49,255', '51,255', '53,255', '54,255']));
+export const NECRO_EFFECT_KEYS = Object.freeze(new Set(['47,255', '48,255', '49,255', '51,255', '53,255', '54,255', '55,255']));
 export const isNecroEffectKey = (key) => NECRO_EFFECT_KEYS.has(key);
 export const isNecroEffect = (type, subType) => {
   const k = `${type},${subType ?? 255}`;
@@ -751,6 +755,15 @@ export const PORT_EFFECT_DESCRIPTIONS = new Map([
       'Weaves an illusion of living flesh over the',
       'caster, concealing Lichdom from guards and',
       'masking Necromantic Taint during trade.',
+    ]),
+  ],
+  [
+    '55,255',
+    Object.freeze([
+      'Suture Cadaver',
+      'Stitches 3 to 5 nearby corpses together into a',
+      'towering Flesh Colossus whose heavy blows sunder',
+      'enemy armor on impact.',
     ]),
   ],
 ]);

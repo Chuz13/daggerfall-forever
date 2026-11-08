@@ -61,6 +61,8 @@ import {
   necroLevitateSpell,
   controlUndeadSpell,
   mortalDisguiseSpell,
+  sutureCadaverSpell,
+  fingerOfDeathSpell,
   castControlUndead,
 } from './necromancy/necromanticSpells.js';
 import { NECRO_GRIMOIRE_TEMPLATE } from './necromancy/necroGrimoire.js';
@@ -972,8 +974,8 @@ registerCommand(
 
 registerCommand(
   'addspell',
-  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
-  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
+  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
+  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
   (args = []) => {
     const key = String(args[0] || 'all_necro').toLowerCase().replace(/[\s_-]/g, '');
     const map = {
@@ -991,12 +993,16 @@ registerCommand(
       controlundead: controlUndeadSpell,
       mortaldisguise: mortalDisguiseSpell,
       disguise: mortalDisguiseSpell,
+      suturecadaver: sutureCadaverSpell,
+      cadaver: sutureCadaverSpell,
+      fingerofdeath: fingerOfDeathSpell,
     };
     const coreSuite = [
       animateDeadSpell,
       corpseExplosionSpell,
       lifeTapSpell,
       boneArmorSpell,
+      sutureCadaverSpell,
       archLichdomSpell,
       necroLevitateSpell,
       controlUndeadSpell,
@@ -1725,11 +1731,12 @@ registerCommand(
       }
       return `Current Soul Taint: ${getPlayerTaint(playerEntity)}/100 (${getTaintTier(playerEntity)}).`;
     }
-    const validMinionTypes = ['skeleton', 'zombie', 'ghost', 'mummy', 'lich', 'ancient_lich', 'ancientlich'];
+    const validMinionTypes = ['skeleton', 'zombie', 'ghost', 'mummy', 'cadaver', 'flesh_colossus', 'lich', 'ancient_lich', 'ancientlich'];
     if (sub === 'spawn' || validMinionTypes.includes(sub) || sub === 'corpse') {
       let target = (sub === 'spawn' ? String(args[1] || 'skeleton') : sub).toLowerCase();
       if (target === 'ancientlich') target = 'ancient_lich';
-      if (['skeleton', 'zombie', 'ghost', 'mummy', 'lich', 'ancient_lich'].includes(target)) {
+      if (target === 'flesh_colossus') target = 'cadaver';
+      if (['skeleton', 'zombie', 'ghost', 'mummy', 'cadaver', 'lich', 'ancient_lich'].includes(target)) {
         const playerPos = _sceneContext?.getPlayerPos?.();
         const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
         const m = spawnMinion({
@@ -1742,7 +1749,12 @@ registerCommand(
       if (target === 'corpse') {
         const playerPos = _sceneContext?.getPlayerPos?.();
         const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
-        const spec = (sub === 'spawn' ? String(args[2] || 'humanoid') : String(args[1] || 'humanoid')).toLowerCase();
+        const argA = sub === 'spawn' ? args[2] : args[1];
+        const argB = sub === 'spawn' ? args[3] : args[2];
+        const isFirstNumeric = argA != null && /^\d+$/.test(String(argA));
+        const spec = (isFirstNumeric ? 'humanoid' : String(argA || 'humanoid')).toLowerCase();
+        const countRaw = isFirstNumeric ? parseInt(String(argA), 10) : (argB != null ? parseInt(String(argB), 10) : 1);
+        const count = Math.max(1, Math.min(20, Number.isFinite(countRaw) ? countRaw : 1));
         let entityType = 'humanoid';
         let entityName = 'Slain Adventurer';
         let mobType = MOBILE_TYPES.Warrior; // 144
@@ -1818,21 +1830,28 @@ registerCommand(
         }
 
         if (_sceneContext?.spawnCorpse) {
-          _sceneContext.spawnCorpse(pos, mobType);
-          return `Spawned physical ${entityName} corpse (MobileType: ${mobType}) in front of player. Ready for harvesting or reanimation.`;
+          for (let i = 0; i < count; i++) {
+            _sceneContext.spawnCorpse(pos, mobType, i);
+          }
+          return `Spawned ${count}x physical ${entityName} corpse(s) (MobileType: ${mobType}) in front of player. Ready for harvesting or reanimation.`;
         }
 
-        const rec = registerCorpse({
-          entityType,
-          mobileType: mobType,
-          entityName,
-          position: pos,
-          sceneKey: 'current_scene',
-          worldTimeMinutes: worldMinutes(),
-        });
-        return `Spawned physical ${entityName} corpse (ID: ${rec.id}, MobileType: ${mobType}) in front of player. Ready for harvesting or reanimation.`;
+        const ids = [];
+        for (let i = 0; i < count; i++) {
+          const offsetPos = [pos[0] + (i % 3) * 0.6, pos[1], pos[2] + Math.floor(i / 3) * 0.6];
+          const rec = registerCorpse({
+            entityType,
+            mobileType: mobType,
+            entityName,
+            position: offsetPos,
+            sceneKey: 'current_scene',
+            worldTimeMinutes: worldMinutes(),
+          });
+          if (rec) ids.push(rec.id);
+        }
+        return `Spawned ${count}x physical ${entityName} corpse(s) (IDs: ${ids.join(', ')}, MobileType: ${mobType}) in front of player. Ready for harvesting or reanimation.`;
       }
-      return 'Usage: necro spawn <skeleton | zombie | ghost | mummy | lich | ancient_lich | corpse [mob]>';
+      return 'Usage: necro spawn <skeleton | zombie | ghost | mummy | cadaver | lich | ancient_lich | corpse [mob] [count]>';
     }
     if (sub === 'menu') {
       _sceneContext?.openUndeadCommandMenu?.();
@@ -1936,6 +1955,20 @@ registerCommand(
         getConsoleCommand('necro').callback(['minions', 'raise', 'skeleton']);
         getConsoleCommand('necro').callback(['spawn', 'corpse']);
         return '<b>[Necro Test: Synergy]</b> Added all Necro spells, raised a Skeleton minion (for Bone Armor 3x HP / Numpad 4 Detonate), and spawned a corpse (for 5x HP Corpse Explosion).';
+      }
+      if (preset === 'cadaver') {
+        if (playerEntity) {
+          playerEntity.NecroGrimoireRead = true;
+          playerEntity.necroGrimoireRead = true;
+        }
+        handleLevelCommand(['20']);
+        getConsoleCommand('set_skill').callback(['Mysticism', '100']);
+        getConsoleCommand('set_attr').callback(['intelligence', '100']);
+        getConsoleCommand('set_attr').callback(['willpower', '100']);
+        handleHealCommand();
+        getConsoleCommand('addspell').callback(['suture_cadaver']);
+        getConsoleCommand('necro').callback(['spawn', 'corpse', '5']);
+        return '<b>[Necro Test: Suture Cadaver]</b> Level 20, Mysticism 100, INT/WIL 100 (11 control slots), Suture Cadaver spell added, and 5 corpses spawned in front of you!';
       }
       // default 'kit'
       if (playerEntity) {

@@ -113,6 +113,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '50,255': row(SKILLS.Mysticism, {}), // Lichdom ritual (Mysticism)
   '52,255': row(SKILLS.Mysticism, {}), // Arch-Lichdom ritual (Mysticism)
   '53,255': row(SKILLS.Mysticism, { duration: costs(12, 24), chance: costs(10, 20), magnitude: costs(10, 20) }), // ControlUndead (Mysticism)
+  '55,255': row(SKILLS.Mysticism, { chance: costs(40, 100), magnitude: costs(40, 120) }), // SutureCadaver (Mysticism)
   '44,255': row(SKILLS.Mysticism, { duration: costs(60, 68), chance: costs(40, 68) }), // ComprehendLanguages
 
   // ---- Restoration ----
@@ -243,6 +244,12 @@ export function calculateCastCost(spell, casterEntity, { portMods = true, online
       : 200;
     const sp = Math.max(1, Math.round(500 * (200 / Math.max(1, myst))));
     return { gold: 40000, sp };
+  }
+
+  // Fixed base casting cost spells (e.g. Ancient Lich's innate Finger of Death: 50 mana base, never dropping to 5 SP floor)
+  if (Number.isFinite(spell?.baseCastingCost) && spell.baseCastingCost > 0) {
+    const baseSp = Math.max(CAST_COST_FLOOR, Math.round(spell.baseCastingCost));
+    return { gold: baseSp * 400, sp: baseSp };
   }
 
   const skillOf = (id) => skillValue(casterEntity, pathCastSchool(casterEntity, spell, id)); // SCHOOLS3: the school it is cast in

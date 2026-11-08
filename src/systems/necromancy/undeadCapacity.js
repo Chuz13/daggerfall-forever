@@ -18,6 +18,7 @@ export const UNDEAD_SLOT_COST = Object.freeze({
   zombie: 2,
   ghost: 3,
   mummy: 4,
+  cadaver: 6,
   lich: 8,
   ancient_lich: 12,
 });
@@ -132,10 +133,13 @@ export function addUndeadMinion(minion) {
     name: minion.name || `Raised ${minion.type || 'Undead'}`,
     health: minion.health || 50,
     maxHealth: minion.maxHealth || minion.health || 50,
+    slotCost: minion.slotCost ?? UNDEAD_SLOT_COST[minion.type] ?? 1,
+    upkeep: minion.upkeep ?? null,
+    profile: minion.profile || null,
     dead: false,
     controlled: !!minion.controlled,
     roundsRemaining: minion.roundsRemaining ?? null,
-    mobile: minion.mobile || minionMobileType(minion.type),
+    mobile: minion.mobile ?? minionMobileType(minion.type),
     sceneBody: minion.sceneBody || null,
     stance: minion.stance || 'follow',
     raisedTimestamp: Date.now(),
@@ -232,6 +236,8 @@ function minionMobileType(type) {
     case 'lich': return MOBILE_TYPES.Lich;
     case 'ancient_lich':
     case 'ancientlich': return MOBILE_TYPES.AncientLich;
+    case 'cadaver':
+    case 'flesh_colossus': return MOBILE_TYPES.FleshAtronach;
     case 'skeleton':
     default:
       return MOBILE_TYPES.SkeletalWarrior;

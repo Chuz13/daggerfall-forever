@@ -9312,3 +9312,8 @@ necro.cmd.noneControlled,"Kamu tidak memiliki mayat hidup terkendali untuk dilep
 necro.cmd.releaseControlled,"Melepaskan {0} mayat hidup terkendali! Mereka berubah menjadi musuh!"
 necro.menu.optReleaseControlled,"[Lepaskan Kendali] Lepaskan kendali atas mayat hidup yang dikuasai ({0})"
 necro.tip.disguise,"Menyembunyikan sifat mayat hidup dan noda nekromansimu dari kaum fana."
+spell.necro.sutureCadaver,"Jahit Mayat"
+spell.necro.fingerOfDeath,"Jari Kematian"
+sutureCadaver,"Jahit Mayat"
+HUD_SUTURE_FAIL,"Daging tidak cukup untuk menjahit kolosus. Butuh setidaknya 3 mayat di sekitar."
+HUD_SUTURE_SUCCESS,"Tulang berderak dan daging menyatu... Kolosus Daging bangkit dari {0} mayat!"
