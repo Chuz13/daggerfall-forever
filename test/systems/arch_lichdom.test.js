@@ -262,7 +262,6 @@ test('Lichdom ritual: qualified mortal ascends to Lich', () => {
 
   assert.equal(isLich(mortal), true);
   assert.ok(saidMessage.includes('Lich'));
-  assert.ok(mortal.phylacteryAnchor);
 });
 
 test('Lichdom ritual: unqualified mortal triggers lethal failure', () => {

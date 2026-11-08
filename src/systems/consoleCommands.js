@@ -1751,13 +1751,18 @@ registerCommand(
     if (sub === 'test') {
       const preset = String(args[1] || 'kit').toLowerCase();
       if (preset === 'lich') {
+        if (playerEntity) {
+          playerEntity.NecroGrimoireRead = true;
+          playerEntity.necroGrimoireRead = true;
+        }
         handleLevelCommand(['20']);
         getConsoleCommand('set_skill').callback(['Mysticism', '100']);
         getConsoleCommand('set_attr').callback(['intelligence', '100']);
         getConsoleCommand('set_attr').callback(['willpower', '100']);
         handleAddItemCommand(['lich_ingredients']);
         handleAddItemCommand(['elixir_unlife', '1']);
-        return '<b>[Necro Test: Lich]</b> Set Level 20, Mysticism 100, INT/WIL 100, added 4 Elixir reagents (38, 39, 45, 53) + 1 brewed Potion of Elixir of Unlife!';
+        getConsoleCommand('addspell').callback(['all_necro']);
+        return '<b>[Necro Test: Lich]</b> Set Level 20, Mysticism 100, INT/WIL 100, Grimoire Read, added 4 Elixir reagents (38, 39, 45, 53) + 1 brewed Potion of Elixir of Unlife + all Necro spells!';
       }
       if (preset === 'archlich' || preset === 'arch_lich') {
         getConsoleCommand('necro').callback(['lich', 'on']);

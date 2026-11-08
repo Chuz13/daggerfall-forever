@@ -191,14 +191,11 @@ export function applyLichdom(entity, { phylacteryId = 'phylactery_main', nowMinu
  * @param {number} [params.nowMinutes]
  * @returns {object|null} The created racialOverride entry or null if refused
  */
-export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient', nowMinutes = 0, force = false } = {}) {
+export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient', nowMinutes = 0 } = {}) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return null;
   if (!entity) return null;
   if (liveLichdom(entity) || entity.racialOverride?.racial === 'lichdom') {
     cureLichdom(entity);
-  } else if (!force) {
-    // Ancient Lichdom strictly requires having already achieved Lichdom.
-    return null;
   }
 
   const entry = {
@@ -288,6 +285,10 @@ export function cureAncientLichdom(entity) {
   if (Array.isArray(entity.activeEffects)) {
     entity.activeEffects = entity.activeEffects.filter((a) => a !== entry && a.racial !== 'ancient_lichdom');
   }
+  if (entity?.phylacteryAnchor) {
+    entity.phylacteryAnchor.state = 'unbound';
+    delete entity.phylacteryAnchor;
+  }
   entity.minMetalToHit = 0;
   return true;
 }
@@ -307,6 +308,10 @@ export function cureLichdom(entity) {
   }
   if (Array.isArray(entity.activeEffects)) {
     entity.activeEffects = entity.activeEffects.filter((a) => a !== entry && a.racial !== 'lichdom' && a.racial !== 'ancient_lichdom');
+  }
+  if (entity?.phylacteryAnchor) {
+    entity.phylacteryAnchor.state = 'unbound';
+    delete entity.phylacteryAnchor;
   }
   entity.minMetalToHit = 0;
   return true;

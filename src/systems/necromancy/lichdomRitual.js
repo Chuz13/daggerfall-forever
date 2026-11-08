@@ -14,6 +14,7 @@ import { skillValue, displaySkillValue, realSkillValue, SKILLS } from '../skills
 import { liveStat, maxFatigue } from '../statMods.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { t } from '../textManager.js';
+import { hurtPlayer, forcePlayerDeath, playerEntity } from '../../characters/playerEntity.js';
 
 export const hasReadGrimoire = (entity) => !!(entity?.NecroGrimoireRead || entity?.necroGrimoireRead);
 
@@ -32,6 +33,46 @@ export const ELIXIR_LICHDOM_MIN_STAT = 100;
 let _forceDeathHook = null;
 export function setForceDeathHook(fn) {
   _forceDeathHook = typeof fn === 'function' ? fn : null;
+}
+
+/**
+ * Delivers lethal damage to the target on ritual failure.
+ * Routes through the standard player damage pipeline (with shield bypass) so hit
+ * sounds, blood flash, and death/reconstitution hooks trigger consistently.
+ */
+function dealRitualFailureDamage(entity, { isLich = false, hurtPlayer: hurtPlayerOpt = null, sinks = null, forceDeath = null } = {}) {
+  const target = entity || playerEntity;
+  const lethalDmg = Math.max(99999, (target?.maxHealth ?? 100) * 20);
+
+  const hurtFn = hurtPlayerOpt ?? sinks?.hurt;
+  if (typeof hurtFn === 'function') {
+    try {
+      if (hurtFn.length === 1) {
+        hurtFn(lethalDmg);
+      } else {
+        hurtFn(target, lethalDmg, { bypassShield: true });
+      }
+    } catch {
+      try { hurtFn(lethalDmg); } catch {}
+    }
+  } else if (typeof hurtPlayer === 'function' && target) {
+    hurtPlayer(target, lethalDmg, { bypassShield: true });
+  }
+
+  if (!isLich) {
+    if (target && typeof target.health === 'number') {
+      target.health = 0;
+      if (typeof target.currentHealth === 'number') target.currentHealth = 0;
+    }
+    const killer = forceDeath || _forceDeathHook || forcePlayerDeath;
+    if (typeof killer === 'function' && target) {
+      try { killer(target); } catch {}
+    }
+  } else {
+    if (target) {
+      handleLichMortalFall(target);
+    }
+  }
 }
 
 /**
@@ -104,26 +145,16 @@ export function canDrinkElixirOfUnlife(playerEntity) {
 
 /**
  * Drinks the Elixir of Unlife.
- * If requirements are met, binds a Phylactery and ascends to Lichdom.
+ * If requirements are met, ascends directly to Lichdom.
  * Otherwise, the elixir acts as a lethal poison that kills the drinker's mortal body.
  * @param {object} playerEntity
  * @param {object} [options]
  * @returns {{ success: boolean, lichdom: boolean, poisonDamage?: number, reason?: string, message?: string }}
  */
-export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, forceDeath = null, nowMinutes = 0 } = {}) {
+export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, forceDeath = null, sinks = null, nowMinutes = 0 } = {}) {
   const check = canDrinkElixirOfUnlife(playerEntity);
   if (!check.eligible) {
-    const triggerDeath = forceDeath ?? _forceDeathHook;
-    if (typeof triggerDeath === 'function') {
-      triggerDeath(playerEntity);
-    } else {
-      const lethalDmg = Math.max(99999, (playerEntity?.maxHealth ?? 100) * 10);
-      if (typeof hurtPlayer === 'function') {
-        hurtPlayer(lethalDmg, { bypassShield: true });
-      } else if (playerEntity && typeof playerEntity.health === 'number') {
-        playerEntity.health = 0;
-      }
-    }
+    dealRitualFailureDamage(playerEntity, { isLich: false, hurtPlayer, forceDeath, sinks });
     return {
       success: false,
       lichdom: false,
@@ -131,30 +162,33 @@ export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, forceDeat
       reason: check.reason,
     };
   }
-  if (!playerEntity.phylacteryAnchor || playerEntity.phylacteryAnchor.destroyed) {
-    playerEntity.phylacteryAnchor = createPhylactery({
-      anchorPosition: playerEntity.position || playerEntity.pos || [0, 0, 0],
-      anchorScene: playerEntity.sceneKey || 'interior_sanctum',
-    });
+
+  const override = applyLichdom(playerEntity, { nowMinutes });
+  if (!override) {
+    return {
+      success: false,
+      lichdom: false,
+      reason: 'The unholy ritual failed to take hold.',
+    };
   }
-  const res = performRitualOfUnlife(playerEntity, playerEntity.phylacteryAnchor, { nowMinutes });
+
   return {
-    success: res.success,
-    lichdom: res.success,
-    reason: res.reason,
-    message: res.message,
+    success: true,
+    lichdom: true,
+    message: t('necro.lich.success', 'The mortal spark is snuffed. You rise as an immortal Lich of the Iliac Bay.'),
+    racialOverride: override,
   };
 }
 
 /**
  * Performs the Lichdom transformation ritual via dedicated spell.
- * Requires mortal caster, Level >= 20, Mysticism >= 100.
+ * Requires mortal caster, Level >= 20, Mysticism >= 100, INT >= 100, WIL >= 100.
  * If requirements are NOT met, triggers lethal collapse (just like Elixir of Unlife).
  * @param {object} caster
  * @param {object} [options]
  * @returns {{ success: boolean, reason?: string, message?: string, racialOverride?: object }}
  */
-export function performLichdomRitual(caster, { hurtPlayer = null, sinks = null, nowMinutes = 0 } = {}) {
+export function performLichdomRitual(caster, { hurtPlayer = null, forceDeath = null, sinks = null, nowMinutes = 0 } = {}) {
   const check = canDrinkElixirOfUnlife(caster);
   if (check.alreadyLich) {
     const msg = t('spell.necro.alreadyLich', 'You have already ascended to Lichdom. Do not squander your power in vain.');
@@ -166,34 +200,25 @@ export function performLichdomRitual(caster, { hurtPlayer = null, sinks = null, 
     };
   }
   if (!check.eligible) {
-    const hurtFn = hurtPlayer ?? sinks?.hurt;
-    const lethalDmg = Math.max(99999, (caster?.maxHealth ?? 100) * 10);
-    if (typeof hurtFn === 'function') {
-      hurtFn(lethalDmg, { bypassShield: true });
-    }
-    if (caster && typeof caster.health === 'number') {
-      caster.health = 0;
-      if (caster.currentHealth != null) caster.currentHealth = 0;
-    }
+    dealRitualFailureDamage(caster, { isLich: false, hurtPlayer, forceDeath, sinks });
     return {
       success: false,
       reason: check.reason || 'The unholy dark forces overwhelm your mortal vessel!',
     };
   }
 
-  if (!caster.phylacteryAnchor || caster.phylacteryAnchor.destroyed) {
-    caster.phylacteryAnchor = createPhylactery({
-      anchorPosition: caster.position || caster.pos || [0, 0, 0],
-      anchorScene: caster.sceneKey || 'interior_sanctum',
-    });
+  const override = applyLichdom(caster, { nowMinutes });
+  if (!override) {
+    return {
+      success: false,
+      reason: 'The unholy ritual failed to take hold.',
+    };
   }
 
-  const res = performRitualOfUnlife(caster, caster.phylacteryAnchor, { nowMinutes });
   return {
-    success: res.success,
-    reason: res.reason,
-    message: res.message,
-    racialOverride: res.racialOverride,
+    success: true,
+    message: t('necro.lich.success', 'The mortal spark is snuffed. You rise as an immortal Lich of the Iliac Bay.'),
+    racialOverride: override,
   };
 }
 
@@ -226,10 +251,10 @@ export function createPhylactery({
 /**
  * Checks whether player meets all prerequisites for the Lichdom ritual.
  * @param {object} playerEntity
- * @param {object} phylactery
+ * @param {object} [phylactery]
  * @returns {{ valid: boolean, reasons: Array<string> }}
  */
-export function validateRitualPrerequisites(playerEntity, phylactery) {
+export function validateRitualPrerequisites(playerEntity, phylactery = null) {
   const reasons = [];
 
   if (!FORK_FLAGS.ENABLE_NECROMANCY) {
@@ -255,12 +280,6 @@ export function validateRitualPrerequisites(playerEntity, phylactery) {
     reasons.push(`Requires Mysticism skill ${MIN_LICHDOM_MYSTICISM} (current: ${myst}).`);
   }
 
-  if (!phylactery || phylactery.state === PHYLACTERY_STATE.SHATTERED) {
-    reasons.push('Phylactery is missing or shattered.');
-  } else if (phylactery.state === PHYLACTERY_STATE.BOUND) {
-    reasons.push('Phylactery is already bound to another soul.');
-  }
-
   return {
     valid: reasons.length === 0,
     reasons,
@@ -270,32 +289,34 @@ export function validateRitualPrerequisites(playerEntity, phylactery) {
 /**
  * Performs the dark ritual of unlife, transforming the player into a Lich.
  * @param {object} playerEntity
- * @param {object} phylactery
+ * @param {object} [phylactery]
  * @param {object} [options]
  * @param {number} [options.nowMinutes=0]
  * @returns {{ success: boolean, message: string, racialOverride?: object }}
  */
-export function performRitualOfUnlife(playerEntity, phylactery, { nowMinutes = 0 } = {}) {
+export function performRitualOfUnlife(playerEntity, phylactery = null, { nowMinutes = 0 } = {}) {
   const check = validateRitualPrerequisites(playerEntity, phylactery);
   if (!check.valid) {
+    const reasonStr = check.reasons.join(' ');
     return {
       success: false,
-      message: check.reasons.join(' '),
+      reason: reasonStr,
+      message: reasonStr,
     };
   }
 
-  // Bind phylactery
-  phylactery.state = PHYLACTERY_STATE.BOUND;
-  phylactery.boundTimestamp = nowMinutes;
+  if (phylactery) {
+    phylactery.state = PHYLACTERY_STATE.BOUND;
+    phylactery.boundTimestamp = nowMinutes;
+  }
 
   // Apply Lichdom status
   const override = applyLichdom(playerEntity, {
-    phylacteryId: phylactery.id,
     nowMinutes,
   });
 
   if (!override) {
-    phylactery.state = PHYLACTERY_STATE.UNBOUND;
+    if (phylactery) phylactery.state = PHYLACTERY_STATE.UNBOUND;
     return {
       success: false,
       message: 'The unholy ritual failed to take hold.',
@@ -350,9 +371,7 @@ export function handleLichMortalFall(playerEntity, options = {}) {
     }
   }
 
-  // Phylactery anchor position fallback if passed
-  const phylactery = options?.anchorPosition ? options : (playerEntity.phylacteryAnchor ?? null);
-  const respawnPosition = phylactery?.anchorPosition ? [...phylactery.anchorPosition] : null;
+  const respawnPosition = options?.anchorPosition ? [...options.anchorPosition] : null;
 
   // 2. Delegate cemetery relocation to registered hook (in world scene context):
   let cemetery = null;
@@ -462,12 +481,12 @@ export function canAscendToArchLichdom(caster) {
  * If requirements are met, ascends the Lich into an Ancient Lich.
  * If requirements are NOT met, or if invoked by a mortal, triggers lethal collapse:
  * - Mortal caster: instant lethal death.
- * - Lich caster: normal Lich death, triggering phylactery reconstitution if charged.
+ * - Lich caster: lethal ritual backfire, triggering Lich cemetery reconstitution.
  * @param {object} caster
  * @param {object} [options]
  * @returns {{ success: boolean, reason?: string, message?: string, racialOverride?: object }}
  */
-export function performArchLichdomRitual(caster, { hurtPlayer = null, sinks = null, forceDeath = null, nowMinutes = 0 } = {}) {
+export function performArchLichdomRitual(caster, { hurtPlayer = null, forceDeath = null, sinks = null, nowMinutes = 0 } = {}) {
   const check = canAscendToArchLichdom(caster);
   if (check.alreadyAncient) {
     const msg = t('spell.necro.alreadyAncientLich', 'You have already achieved Ancient Lichdom. Do not squander your power in vain.');
@@ -479,23 +498,8 @@ export function performArchLichdomRitual(caster, { hurtPlayer = null, sinks = nu
     };
   }
   if (!check.eligible) {
-    const triggerDeath = forceDeath ?? _forceDeathHook;
-    if (typeof triggerDeath === 'function') {
-      triggerDeath(caster);
-    } else {
-      const hurtFn = hurtPlayer ?? sinks?.hurt;
-      const lethalDmg = Math.max(99999, (caster?.maxHealth ?? 100) * 20);
-      if (typeof hurtFn === 'function') {
-        hurtFn(lethalDmg, { bypassShield: true });
-      }
-      if (caster && typeof caster.health === 'number') {
-        caster.health = 0;
-        if (caster.currentHealth != null) caster.currentHealth = 0;
-      }
-      if (caster?.phylacteryAnchor && isLich(caster)) {
-        handleLichMortalFall(caster, caster.phylacteryAnchor);
-      }
-    }
+    const isLichCaster = isLich(caster);
+    dealRitualFailureDamage(caster, { isLich: isLichCaster, hurtPlayer, forceDeath, sinks });
 
     const failReason = check.reasons.join(' ');
     return {
@@ -506,8 +510,7 @@ export function performArchLichdomRitual(caster, { hurtPlayer = null, sinks = nu
     };
   }
 
-  const phylacteryId = caster.phylacteryAnchor?.id ?? 'phylactery_ancient';
-  const override = applyAncientLichdom(caster, { phylacteryId, nowMinutes });
+  const override = applyAncientLichdom(caster, { nowMinutes });
   if (!override) {
     return {
       success: false,
