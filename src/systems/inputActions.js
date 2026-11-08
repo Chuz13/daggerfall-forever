@@ -643,13 +643,13 @@ export const ACTION_GROUPS = Object.freeze([
   ], 'project-legacy'),
   g('Necromancy', [
     ['UndeadNexus', t('input.action.undeadNexus', 'Undead Command Nexus Menu')],
-    ['UndeadRecall', t('input.action.undeadRecall', 'Order Minions: Recall to Heel (Numpad 7)')],
-    ['UndeadAttack', t('input.action.undeadAttack', 'Order Minions: Attack / Focus (Numpad 8)')],
-    ['UndeadFeignDeath', t('input.action.undeadFeignDeath', 'Order Minions: Ambush / Feign Death (Numpad 9)')],
-    // ['UndeadDetonate', t('input.action.undeadDetonate', 'Order Minions: Detonate Nearest (Numpad 4)')], // Hidden: replaced by Corpse Explosion
-    ['UndeadFollow', t('input.action.undeadFollow', 'Order Minions: Follow (Numpad 1)')],
-    ['UndeadGuard', t('input.action.undeadGuard', 'Order Minions: Guard (Numpad 2)')],
-    ['UndeadDismiss', t('input.action.undeadDismiss', 'Order Minions: Dismiss All (Numpad 3)')],
+    ['UndeadRecall', t('input.action.undeadRecall', 'Order Minions: Recall to Heel')],
+    ['UndeadAttack', t('input.action.undeadAttack', 'Order Minions: Attack / Focus')],
+    ['UndeadFeignDeath', t('input.action.undeadFeignDeath', 'Order Minions: Ambush / Feign Death')],
+    // ['UndeadDetonate', t('input.action.undeadDetonate', 'Order Minions: Detonate Nearest')], // Hidden: replaced by Corpse Explosion
+    ['UndeadFollow', t('input.action.undeadFollow', 'Order Minions: Follow')],
+    ['UndeadGuard', t('input.action.undeadGuard', 'Order Minions: Guard')],
+    ['UndeadDismiss', t('input.action.undeadDismiss', 'Order Minions: Dismiss All')],
   ]),
 ]);
 const _groupOf = new Map(ACTION_GROUPS.flatMap((grp) => grp.rows.map((r) => [r.action, grp])));

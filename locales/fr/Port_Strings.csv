@@ -9226,13 +9226,13 @@ living.merchant.sell,"[Vendre] Vendre du butin contre des pièces"
 living.roadAdv.noGold,"Je ne peux prêter ma lame sans le paiement de l'avance ({gold} pièces d'or)."
 living.roadAdv.contractExpired,"Le contrat de 24 heures de votre compagnon a expiré. Il prend congé et reprend la route."
 input.action.undeadNexus,Undead Command Nexus Menu
-input.action.undeadRecall,Order Minions: Recall to Heel (Numpad 7)
-input.action.undeadAttack,Order Minions: Attack / Focus (Numpad 8)
-input.action.undeadFeignDeath,Order Minions: Ambush / Feign Death (Numpad 9)
-input.action.undeadDetonate,Order Minions: Detonate Nearest (Numpad 4)
-input.action.undeadFollow,Order Minions: Follow (Numpad 1)
-input.action.undeadGuard,Order Minions: Guard (Numpad 2)
-input.action.undeadDismiss,Order Minions: Dismiss All (Numpad 3)
+input.action.undeadRecall,Order Minions: Recall to Heel
+input.action.undeadAttack,Order Minions: Attack / Focus
+input.action.undeadFeignDeath,Order Minions: Ambush / Feign Death
+input.action.undeadDetonate,Order Minions: Detonate Nearest
+input.action.undeadFollow,Order Minions: Follow
+input.action.undeadGuard,Order Minions: Guard
+input.action.undeadDismiss,Order Minions: Dismiss All
 necro.cmd.none,You have no active undead minions to command.
 necro.cmd.follow,Undead Minions: Following at your heel.
 necro.cmd.guard,Undead Minions: Holding ground and guarding position.
@@ -9247,15 +9247,15 @@ necro.menu.title,=== UNDEAD COMMAND NEXUS ===
 necro.menu.active,Active Minions: {0} ({1})
 necro.menu.stance,Current Stance: [{0}]
 necro.menu.prompt,Issue a mental order to your commanded minions:
-necro.menu.optRecall,1. [Recall to Heel] Teleport all minions to your side (Numpad 7)
-necro.menu.optAttack,2. [Attack / Focus] Charge nearest enemies on sight (Numpad 8)
-necro.menu.optAmbush,3. [Ambush / Wait] Collapse & hold position (Numpad 9)
-necro.menu.optDetonate,4. [Detonate Minion] Sacrifice nearest minion for 5x HP AoE (Numpad 4)
-necro.menu.optFollow,5. [Follow] Follow close behind master (Numpad 1)
-necro.menu.optGuard,6. [Guard] Hold ground and guard area (Numpad 2)
-necro.menu.optDismiss,7. [Dismiss] Destroy all active minions (Numpad 3)
-necro.menu.optHarvest,8. [Harvest Remains] Carve reagents from nearby corpse
-necro.menu.optClose,0. [Close] (Numpad 6 / Esc)
+necro.menu.optRecall,[Recall to Heel] Teleport all minions to your side
+necro.menu.optAttack,[Attack / Focus] Charge nearest enemies on sight
+necro.menu.optAmbush,[Ambush / Wait] Collapse & hold position
+necro.menu.optDetonate,[Detonate Minion] Sacrifice nearest minion for 5x HP AoE
+necro.menu.optFollow,[Follow] Follow close behind master
+necro.menu.optGuard,[Guard] Hold ground and guard area
+necro.menu.optDismiss,[Dismiss] Destroy all active minions
+necro.menu.optHarvest,[Harvest Remains] Carve reagents from nearby corpse
+necro.menu.optClose,[Close]
 necro.harvest.none,No fresh or skeletal corpses nearby to harvest.
 necro.harvest.noBlade,You need a Skinning Knife or Dagger in your inventory to harvest remains.
 necro.harvest.done,You harvest necromantic reagents from {0}: {1}.
