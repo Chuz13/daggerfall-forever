@@ -332,6 +332,9 @@ test('Lichdom & Arch-Lichdom buff tiles and status tips: permanent, no blinking,
 
   // Tooltip lines check
   const tipLines = spellTipLines(lich, 91001);
+  assert.ok(tipLines.some((l) => l.includes('100') && (l.includes('Health') || l.includes('здоров'))));
+  assert.ok(tipLines.some((l) => l.includes('250') && (l.includes('Spell Points') || l.includes('ман'))));
+  assert.ok(tipLines.some((l) => l.includes('5')));
   assert.ok(tipLines.some((l) => l.includes('25') && l.includes('Intelligence')));
   assert.ok(tipLines.some((l) => l.includes('15') && l.includes('Mysticism')));
   assert.ok(tipLines.some((l) => l.includes('Silver+')));
@@ -346,6 +349,9 @@ test('Lichdom & Arch-Lichdom buff tiles and status tips: permanent, no blinking,
   applyAncientLichdom(lich);
   assert.equal(liveStat(lich, 'intelligence'), 150);
   const ancientTipLines = spellTipLines(lich, 91002);
+  assert.ok(ancientTipLines.some((l) => l.includes('250') && (l.includes('Health') || l.includes('здоров'))));
+  assert.ok(ancientTipLines.some((l) => l.includes('500') && (l.includes('Spell Points') || l.includes('ман'))));
+  assert.ok(ancientTipLines.some((l) => l.includes('15')));
   assert.ok(ancientTipLines.some((l) => l.includes('50') && l.includes('Intelligence')));
   assert.ok(ancientTipLines.some((l) => l.includes('30') && l.includes('Mysticism')));
   assert.ok(ancientTipLines.some((l) => l.includes('Mithril') || l.includes('мифрила')));

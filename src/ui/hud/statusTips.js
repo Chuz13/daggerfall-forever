@@ -113,6 +113,7 @@ export function spellTipLines(entity, bundleId) {
     if (a.kind === 'racialOverride') {
       if (a.racial === 'ancient_lichdom') {
         const lichLines = [
+          t('necro.tip.ancientLich.vitals', 'Vitals: +250 Health, +500 Spell Points, +15 Magicka regen per round.'),
           t('necro.tip.ancientLich.stats', 'Attributes: +50 Intelligence & Willpower, -40 Personality.'),
           t('necro.tip.ancientLich.skills', 'Skills: +30 Mysticism, Destruction, Alteration.'),
           t('necro.tip.ancientLich.combat', 'Combat: Immune to weapons below Mithril; 80% arrow mitigation; Immune to Paralysis, Disease, Poison.'),
@@ -127,6 +128,7 @@ export function spellTipLines(entity, bundleId) {
       }
       if (a.racial === 'lichdom') {
         const lichLines = [
+          t('necro.tip.lich.vitals', 'Vitals: +100 Health, +250 Spell Points, +5 Magicka regen per round.'),
           t('necro.tip.lich.stats', 'Attributes: +25 Intelligence & Willpower, -20 Personality.'),
           t('necro.tip.lich.skills', 'Skills: +15 Mysticism, Destruction, Alteration.'),
           t('necro.tip.lich.combat', 'Combat: Immune to normal weapons (Silver+ required); 50% arrow mitigation; Immune to Paralysis, Disease, Poison.'),

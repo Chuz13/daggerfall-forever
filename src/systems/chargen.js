@@ -4,6 +4,7 @@ import { mintCharacterId } from './characterId.js'; // CHARID1
 import { CLASSIC_GAME_START_TIME } from './gameDate.js'; // AUDIT 23: the skill-check anchor
 import { liveStat, STAT_KEYS_ORDER, FATIGUE_MULTIPLIER } from './statMods.js'; // wave 28: MaxMagicka reads LiveIntelligence
 import { renownHpOf, renownMpOf, foldMpOf, spireHpOf } from './renownLayer.js'; // RENOWN1: Renown's online health and magicka, on top of both live maximums; EG15: and the folds' magicka; EG-ZR: and the Spire's Stoneskin
+import { lichHpOf, lichMpOf } from './necromancy/lichdomStatus.js';
 
 // Character creation (Systems S3). Verbatim ports from DFU
 // StatsRollout.cs / SkillsRollout.cs / DaggerfallSkills.cs /
@@ -350,7 +351,7 @@ export function defineLiveMaxHealth(entity) {
       // rides above whatever Daggerfall allows ("On top").
       const limiter = this.maxHealthLimiter;
       const own = limiter >= 1 && limiter < stored ? limiter : stored; // "Limiter must be 1 or greater"
-      return own + renownHpOf(this) + spireHpOf(this); // EG-ZR: and the Spire's Stoneskin, on the same terms
+      return own + renownHpOf(this) + spireHpOf(this) + lichHpOf(this); // EG-ZR: and the Spire's Stoneskin, on the same terms; Lichdom HP bonus
     },
     set(v) {
       stored = v;
@@ -413,7 +414,8 @@ export function defineLiveMaxMagicka(entity) {
       // RENOWN1: and Renown's online magicka, a term of the sum the magic round never rewrites
       // (systems/renownLayer.js) - inside the floor, so a magery that makes the character unable still leaves 0.
       // EG15: and the folds' magicka beside it (entityMods.js's channel - the Battlemage's Bearing), on the same terms
-      const effective = raw + (this.maxMagickaModifier ?? 0) + renownMpOf(this) + foldMpOf(this);
+      // NECRO: and Lichdom's magicka bonus (+250 for Lich, +500 for Ancient Lich)
+      const effective = raw + (this.maxMagickaModifier ?? 0) + renownMpOf(this) + foldMpOf(this) + lichMpOf(this);
       return effective < 0 ? 0 : effective;
     },
     set(v) {

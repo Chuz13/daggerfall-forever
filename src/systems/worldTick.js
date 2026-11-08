@@ -44,6 +44,7 @@ import { activeUndead } from './necromancy/undeadCapacity.js';
 import { checkMinionRebellion } from './necromancy/minionController.js';
 import { tickTaintDaily } from './necromancy/necroTaint.js';
 import { NecroConfig } from './necromancy/necroConfig.js';
+import { lichdomMagicRound } from './necromancy/lichdomStatus.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 
 let _necroRestManaLocked = false;
@@ -438,6 +439,7 @@ export function runMagicRoundsFor(entity, from, to, { sinks, rolls = Math.random
     consumeVampirismPending(entity, { now: clockMinutes });
     lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, moonNight: Number.isFinite(skyMinutes), say });   // DISC10-E V1: the round for the nag's cadence, the clock for the kill; LIVED1: the sky's for the moon; TIME2: a sky handed is the online lane, where the full moon forces its night alone
     vampirismMagicRound(entity, { nowMinutes: clockMinutes, skyMinutes: sky });   // DISC10-D V1: IsSatiated reads the clock (VampirismEffect.cs:238-241); LIVED1: VAMP-DAY's day the sky's
+    lichdomMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, sinks, say });
     updatePoisons(entity, r + 1, sinks, rolls, say);
     tickActiveEffects(entity, sinks);
     // E1: the enchantment pump rides the SAME round (DoMagicRound's

@@ -22,6 +22,14 @@ import { registerBlowTakenMod } from '../blowTaken.js';
 export const LICHDOM_CURSE_KEY = 'Lichdom';
 export const ANCIENT_LICHDOM_CURSE_KEY = 'AncientLichdom';
 
+export const LICH_HP_BONUS = 100;
+export const LICH_MANA_BONUS = 250;
+export const LICH_MANA_REGEN = 5;
+
+export const ANCIENT_LICH_HP_BONUS = 250; // relative to mortal (+150 over Lich)
+export const ANCIENT_LICH_MANA_BONUS = 500; // relative to mortal (+250 over Lich)
+export const ANCIENT_LICH_MANA_REGEN = 15; // flat per round (+10 over Lich)
+
 export const LICH_STAT_MODS = Object.freeze({
   intelligence: 25,
   Intelligence: 25,
@@ -119,6 +127,48 @@ export function isAnyLich(entity) {
 }
 
 /**
+ * Returns HP bonus granted by Lichdom or Ancient Lichdom.
+ * Lich: +100 HP.
+ * Ancient Lich: +250 HP (+150 over Lich).
+ * @param {object} entity
+ * @returns {number}
+ */
+export function lichHpOf(entity) {
+  if (!entity) return 0;
+  if (isAncientLich(entity)) return entity.racialOverride?.hpBonus ?? ANCIENT_LICH_HP_BONUS;
+  if (isLich(entity)) return entity.racialOverride?.hpBonus ?? LICH_HP_BONUS;
+  return 0;
+}
+
+/**
+ * Returns Max Magicka (Mana) bonus granted by Lichdom or Ancient Lichdom.
+ * Lich: +250 Mana.
+ * Ancient Lich: +500 Mana (+250 over Lich).
+ * @param {object} entity
+ * @returns {number}
+ */
+export function lichMpOf(entity) {
+  if (!entity) return 0;
+  if (isAncientLich(entity)) return entity.racialOverride?.manaBonus ?? ANCIENT_LICH_MANA_BONUS;
+  if (isLich(entity)) return entity.racialOverride?.manaBonus ?? LICH_MANA_BONUS;
+  return 0;
+}
+
+/**
+ * Returns flat Mana regeneration per magic round granted by Lichdom or Ancient Lichdom.
+ * Lich: 5 mana/round.
+ * Ancient Lich: 15 mana/round (+10 over Lich).
+ * @param {object} entity
+ * @returns {number}
+ */
+export function lichManaRegenOf(entity) {
+  if (!entity) return 0;
+  if (isAncientLich(entity)) return entity.racialOverride?.manaRegen ?? ANCIENT_LICH_MANA_REGEN;
+  if (isLich(entity)) return entity.racialOverride?.manaRegen ?? LICH_MANA_REGEN;
+  return 0;
+}
+
+/**
  * Deploys the Lichdom transformation onto an entity.
  * Fails if the entity is already a Vampire, Werewolf, Lich, or Ancient Lich.
  * @param {object} entity
@@ -157,6 +207,9 @@ export function applyLichdom(entity, { phylacteryId = 'phylactery_main', nowMinu
     statMods: { ...LICH_STAT_MODS },
     statMaxMods: { intelligence: 25, willpower: 25 },
     skillMods: { ...LICH_SKILL_MODS },
+    hpBonus: LICH_HP_BONUS,
+    manaBonus: LICH_MANA_BONUS,
+    manaRegen: LICH_MANA_REGEN,
     ended: false,
   };
 
@@ -224,6 +277,9 @@ export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient
     statMods: { ...ANCIENT_LICH_STAT_MODS },
     statMaxMods: { intelligence: 50, willpower: 50 },
     skillMods: { ...ANCIENT_LICH_SKILL_MODS },
+    hpBonus: ANCIENT_LICH_HP_BONUS,
+    manaBonus: ANCIENT_LICH_MANA_BONUS,
+    manaRegen: ANCIENT_LICH_MANA_REGEN,
     ended: false,
   };
 
@@ -250,12 +306,14 @@ export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient
 
 /**
  * Constant magic round tick for a Lich or Ancient Lich.
- * Re-asserts immunities, stat mods, and weapon metal requirements.
+ * Re-asserts immunities, stat mods, and weapon metal requirements,
+ * and regenerates flat magicka (5 for Lich, 15 for Ancient Lich) per magic round.
  * @param {object} entity
  * @param {object} [options]
  * @param {number} [options.nowMinutes]
+ * @param {object} [options.sinks]
  */
-export function lichdomMagicRound(entity, { nowMinutes = 0 } = {}) {
+export function lichdomMagicRound(entity, { nowMinutes = 0, sinks = null } = {}) {
   const entry = liveLichdom(entity) || liveAncientLichdom(entity);
   if (!entry) return;
 
@@ -267,6 +325,22 @@ export function lichdomMagicRound(entity, { nowMinutes = 0 } = {}) {
     entry.statMods = { ...LICH_STAT_MODS };
     entry.skillMods = { ...LICH_SKILL_MODS };
     entity.minMetalToHit = WEAPON_MATERIALS.Silver;
+  }
+
+  // Flat mana regen: 5/round for Lich, 15/round for Ancient Lich (+10 over Lich)
+  const regenAmount = entry.racial === 'ancient_lichdom'
+    ? (entry.manaRegen ?? ANCIENT_LICH_MANA_REGEN)
+    : (entry.manaRegen ?? LICH_MANA_REGEN);
+
+  if (regenAmount > 0 && Number.isFinite(entity.magicka) && (entity.health == null || entity.health > 0)) {
+    const maxMp = Number.isFinite(entity.maxMagicka) ? entity.maxMagicka : Infinity;
+    if (entity.magicka < maxMp) {
+      if (sinks && typeof sinks.restoreMagicka === 'function') {
+        sinks.restoreMagicka(regenAmount);
+      } else {
+        entity.magicka = Math.min(maxMp, entity.magicka + regenAmount);
+      }
+    }
   }
 }
 
