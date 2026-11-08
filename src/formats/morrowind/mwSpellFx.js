@@ -93,7 +93,7 @@ const E = MW_EFFECT;
 export const ELEMENT_DAMAGE = Object.freeze([E.FireDamage, E.FrostDamage, E.Poison, E.ShockDamage, E.DamageHealth]);
 
 /** The Daggerfall families whose look is the spell's ELEMENT where the element is not magic (Daggerfall's harm). */
-const ELEMENTAL = new Set([1, 4, 5, 7, 11]);
+const ELEMENTAL = new Set([1, 4, 5, 7, 11, 48]);
 
 /** Daggerfall's classic effect key (`type,subType`, spellcost.js's EFFECT_COST_TABLE) to the Morrowind effect it is
  *  drawn as. A family keyed `type,*` takes every subtype. */
@@ -157,6 +157,7 @@ const DF_TO_MW = Object.freeze({
   '44,*': E.Sound, // Comprehend Languages
   '45,*': E.RestoreHealth, // RESURRECT1: the port's own Resurrect
   '46,*': E.Mark, // PARTY-MAP: the port's own Shared Cartography
+  '48,*': E.Poison, // NECROMANCY: Corpse Explosion
 });
 
 /** A family the table has no row for: its school's plainest member, by Daggerfall's skill (skills.js SKILLS) -

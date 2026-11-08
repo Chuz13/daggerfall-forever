@@ -318,6 +318,8 @@ test('MW-SPELLFX1: the mapping is only a look - Daggerfall\'s harm wears its ele
     const [type, subType] = key.split(',').map(Number);
     assert.ok(Number.isInteger(mwEffectOf({ type, subType }, 4, effectSchool({ type, subType }))), key);
   }
+  assert.equal(mwEffectOf({ type: 48, subType: 255 }, 2), MW_EFFECT.Poison, 'Corpse Explosion with element 2 maps to Poison');
+  assert.equal(mwEffectOf({ type: 48, subType: 255 }, 4), MW_EFFECT.Poison, 'Corpse Explosion with magic element still maps to Poison');
   assert.deepEqual(mwEffectsOfSpell({ element: 3, effects: [] }), [MW_EFFECT.ShockDamage], 'a peer\'s cast carries an element alone');
   assert.deepEqual(mwEffectsOfSpell({ element: 0, effects: [damage(), damage(10, 8)] }), [14, 75]);
 });

@@ -361,6 +361,86 @@ test('NecroIntegration: Bone Armor consumes nearest skeleton for 3x maxHealth sh
   assert.equal(allyDamage, 0, 'Allied minion takes zero friendly fire damage');
 });
 
+test('NecroIntegration: Corpse Explosion consumes only ONE corpse when multiple corpses are within proximity', () => {
+  _resetCorpseRegistryForTests();
+  _resetUndeadCapacityForTests();
+
+  const caster = { isPlayer: true, stats: { intelligence: 100, willpower: 100 }, skills: new Array(35).fill(100), pos: [0, 0, 0] };
+
+  // Register two corpses close to impact origin:
+  // corpse_near at 1.0m, corpse_far at 1.8m
+  const cNear = registerCorpse({ id: 'corpse_near', maxHealth: 50, position: [1.0, 0, 0] });
+  const cFar = registerCorpse({ id: 'corpse_far', maxHealth: 60, position: [1.8, 0, 0] });
+
+  // Mock sceneContext.destroyCorpse behavior
+  const foe1 = { id: 'foe_1', entity: { _necroCorpseId: 'corpse_near' }, pos: [1.0, 0, 0], corpse: true, corpseDisabled: false };
+  const foe2 = { id: 'foe_2', entity: { _necroCorpseId: 'corpse_far' }, pos: [1.8, 0, 0], corpse: true, corpseDisabled: false };
+  const pool = {
+    foes: [foe1, foe2],
+    removeCorpse: (f) => { f.removed = true; },
+  };
+
+  const savedSceneContext = globalThis.__sceneContext;
+  globalThis.__sceneContext = {
+    destroyCorpse: (corpse) => {
+      const p = corpse?.position;
+      const id = corpse?.id;
+      const destroyFoe = (f) => {
+        f.corpseDisabled = true;
+        f.corpse = false;
+        f.corpseDestroyed = true;
+        if (f.corpseMarker) f.corpseMarker.corpseDisabled = true;
+        pool.removeCorpse(f);
+      };
+      if (id) {
+        for (const f of pool.foes) {
+          if (f?.entity?._necroCorpseId === id || f?.id === id || f?.entity?.id === id) {
+            destroyFoe(f);
+            return;
+          }
+        }
+      }
+      if (p) {
+        let closest = null;
+        let closestDist = 3.0;
+        for (const f of pool.foes) {
+          if (f.corpseDisabled || f.corpseDestroyed) continue;
+          const fp = f.corpseMarker?.pos ?? f.pos ?? f.feet;
+          if (!fp) continue;
+          const dist = Math.hypot(fp[0] - p[0], fp[2] - p[2]);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closest = f;
+          }
+        }
+        if (closest) destroyFoe(closest);
+      }
+    },
+  };
+
+  try {
+    const res = castCorpseExplosion({
+      casterEntity: caster,
+      originPosition: [0, 0, 0],
+      nearbyFoes: [],
+    });
+
+    assert.equal(res.success, true);
+    // Nearest corpse was consumed
+    assert.equal(cNear.consumed, true, 'Nearest corpse should be consumed');
+    assert.equal(foe1.corpseDisabled, true, 'foe1 corpseDisabled should be set');
+    assert.equal(foe1.corpse, false, 'foe1 corpse flag cleared');
+
+    // Second corpse MUST NOT be consumed
+    assert.equal(cFar.consumed, false, 'Second corpse must remain unconsumed');
+    assert.equal(foe2.corpseDisabled, false, 'Second foe corpse must remain intact');
+    assert.equal(foe2.corpse, true, 'Second foe corpse flag must remain true');
+    assert.equal(foe2.removed, undefined, 'Second foe must not be removed from pool');
+  } finally {
+    globalThis.__sceneContext = savedSceneContext;
+  }
+});
+
 test('NecroIntegration: Rest Mana Lock pauses minion upkeep during rest and unblocks after', () => {
   _resetUndeadCapacityForTests();
   const caster = {

@@ -10915,24 +10915,53 @@ export async function bootWorld(canvas, renderer, params, status) {
     destroyCorpse: (corpse) => {
       const p = corpse?.position;
       const id = corpse?.id;
-      const destroyInList = (list, pool) => {
-        if (!list) return;
-        for (const f of list) {
-          const matchId = id && f.entity?._necroCorpseId === id;
-          const fp = f.corpseMarker?.pos ?? f.pos ?? f.feet;
-          const matchPos = p && fp && Math.hypot(fp[0] - p[0], fp[2] - p[2]) < 3.0;
-          if (matchId || matchPos) {
-            f.corpseDisabled = true;
-            f.corpse = false;
-            f.corpseDestroyed = true;
-            if (f.corpseMarker) f.corpseMarker.corpseDisabled = true;
-            pool?.removeCorpse?.(f);
+      const destroyFoe = (f, pool) => {
+        f.corpseDisabled = true;
+        f.corpse = false;
+        f.corpseDestroyed = true;
+        if (f.corpseMarker) f.corpseMarker.corpseDisabled = true;
+        pool?.removeCorpse?.(f);
+      };
+      const pools = [
+        { list: exteriorFoes?.foes, pool: exteriorFoes },
+        { list: modes?.dungeonCtx?.foes, pool: modes?.dungeonCtx },
+        { list: modes?.interiorFoes?.foes, pool: modes?.interiorFoes },
+      ];
+      // 1. First priority: match exact corpse by ID (destroy ONLY that one)
+      if (id) {
+        for (const { list, pool } of pools) {
+          if (!list) continue;
+          for (const f of list) {
+            if (f?.entity?._necroCorpseId === id || f?.id === id || f?.entity?.id === id) {
+              destroyFoe(f, pool);
+              return;
+            }
           }
         }
-      };
-      destroyInList(exteriorFoes?.foes, exteriorFoes);
-      destroyInList(modes?.dungeonCtx?.foes, modes?.dungeonCtx);
-      destroyInList(modes?.interiorFoes?.foes, modes?.interiorFoes);
+      }
+      // 2. Second priority: if no exact ID match, destroy ONLY the single closest corpse within 3.0m
+      if (p) {
+        let closest = null;
+        let closestDist = 3.0;
+        let closestPool = null;
+        for (const { list, pool } of pools) {
+          if (!list) continue;
+          for (const f of list) {
+            if (f.corpseDisabled || f.corpseDestroyed) continue;
+            const fp = f.corpseMarker?.pos ?? f.pos ?? f.feet;
+            if (!fp) continue;
+            const dist = Math.hypot(fp[0] - p[0], fp[2] - p[2]);
+            if (dist < closestDist) {
+              closestDist = dist;
+              closest = f;
+              closestPool = pool;
+            }
+          }
+        }
+        if (closest) {
+          destroyFoe(closest, closestPool);
+        }
+      }
     },
     killMinionBody: (body) => {
       if (body) {
