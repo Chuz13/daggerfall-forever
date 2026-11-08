@@ -6634,13 +6634,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       return null;
     }
 
-    const mode = modes?.mode ?? 'exterior';
-    if (mode !== 'exterior') {
-      modes?.forceExitToExterior();
-    }
-
-    Promise.resolve().then(async () => {
+    setTimeout(async () => {
       try {
+        const mode = modes?.mode ?? 'exterior';
+        if (mode !== 'exterior') {
+          modes?.forceExitToExterior();
+        }
         await _teleportToPixel(cemetery.x, cemetery.y, null, {
           arriveMinutes: skyMinutes(),
           reposition: REPOSITION.RandomStartMarker,
@@ -6650,7 +6649,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       } catch (err) {
         console.error('[necro] teleport error on lich cemetery respawn:', err);
       }
-    });
+    }, 0);
 
     return cemetery;
   });
