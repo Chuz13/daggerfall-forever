@@ -92,6 +92,7 @@ export const ENTRY_WORDS = Object.freeze({
   silenced: () => 'You cannot cast spells.',
   light: () => 'A light follows you.',
   soulTrap: () => 'A creature that dies under it gives up its soul to an empty soul gem.',
+  disguise: () => t('necro.tip.disguise', 'Masks your undead nature and necromantic taint from mortals.'),
   openArmed: () => null,
   lockArmed: () => null,
 });

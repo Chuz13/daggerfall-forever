@@ -70,7 +70,7 @@ export function calculateUndeadCapacity(playerEntity, { fixedCap = null } = {}) 
 export function usedUndeadPoints() {
   let sum = 0;
   for (const m of _activeMinions) {
-    if (!m.dead) {
+    if (!m.dead && !m.controlled) {
       sum += UNDEAD_SLOT_COST[m.type] || 1;
     }
   }
@@ -87,16 +87,17 @@ export function activeUndeadCount() {
 
 /**
  * Returns list of active minions formatted for the companion roster.
- * @returns {Array<{ name: string, role: string, type: string, id: string }>}
+ * @returns {Array<{ name: string, role: string, type: string, id: string, controlled?: boolean }>}
  */
 export function activeUndeadRoster() {
   return _activeMinions
     .filter((m) => !m.dead)
     .map((m) => ({
       name: m.name || `Undead ${m.type}`,
-      role: `Minion (${m.type})`,
+      role: m.controlled ? `Controlled (${m.type})` : `Minion (${m.type})`,
       type: m.type,
       id: m.id,
+      controlled: !!m.controlled,
     }));
 }
 
@@ -125,16 +126,64 @@ export function canAffordUndead(playerEntity, minionType, options = {}) {
  */
 export function addUndeadMinion(minion) {
   if (!minion || !minion.id) return false;
-  _activeMinions.push({
+  const entry = {
     id: minion.id,
     type: minion.type || 'skeleton',
     name: minion.name || `Raised ${minion.type || 'Undead'}`,
     health: minion.health || 50,
+    maxHealth: minion.maxHealth || minion.health || 50,
     dead: false,
+    controlled: !!minion.controlled,
+    roundsRemaining: minion.roundsRemaining ?? null,
+    mobile: minion.mobile || minionMobileType(minion.type),
+    sceneBody: minion.sceneBody || null,
     stance: minion.stance || 'follow',
     raisedTimestamp: Date.now(),
-  });
+  };
+  _activeMinions.push(entry);
   return true;
+}
+
+/**
+ * Finds the capacity record for a given minion ID.
+ * @param {string} minionId
+ * @returns {object|null}
+ */
+export function getUndeadCapacityEntry(minionId) {
+  return _activeMinions.find((m) => m.id === minionId) || null;
+}
+
+/**
+ * Releases a controlled undead from capacity without marking it dead,
+ * flagging `releasedFromControl = true` so `crewAshore` leaves its 3D body in scene to turn hostile.
+ * @param {string} minionId
+ * @returns {object|null}
+ */
+export function releaseControlledUndeadFromCapacity(minionId) {
+  const idx = _activeMinions.findIndex((m) => m.id === minionId && m.controlled);
+  if (idx !== -1) {
+    const [m] = _activeMinions.splice(idx, 1);
+    m.releasedFromControl = true;
+    return m;
+  }
+  return null;
+}
+
+/**
+ * Releases all controlled undead (acquired via Control Undead spell) without affecting raised summons.
+ * @returns {Array<object>}
+ */
+export function releaseAllControlledUndeadFromCapacity() {
+  const released = [];
+  for (let i = _activeMinions.length - 1; i >= 0; i--) {
+    const m = _activeMinions[i];
+    if (m.controlled) {
+      m.releasedFromControl = true;
+      released.push(m);
+      _activeMinions.splice(i, 1);
+    }
+  }
+  return released;
 }
 
 /**
@@ -177,6 +226,9 @@ function minionMobileType(type) {
     case 'ghost': return MOBILE_TYPES.Ghost;
     case 'mummy': return MOBILE_TYPES.Mummy;
     case 'wraith': return MOBILE_TYPES.Wraith;
+    case 'vampire': return MOBILE_TYPES.Vampire;
+    case 'vampire_ancient':
+    case 'vampireancient': return MOBILE_TYPES.VampireAncient;
     case 'lich': return MOBILE_TYPES.Lich;
     case 'ancient_lich':
     case 'ancientlich': return MOBILE_TYPES.AncientLich;

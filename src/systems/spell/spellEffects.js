@@ -137,6 +137,10 @@ const ROWS = [
   [50, 255, 'Lichdom', '', [], false],
   // 52,255: Arch-Lichdom (Mysticism) - ancient ritual apotheosis; craftable: false
   [52, 255, 'Arch-Lichdom', '', [], false],
+  // 53,255: Control Undead (Mysticism) - dominates an undead creature into a temporary companion
+  [53, 255, 'Control Undead', '', [D, C, M]],
+  // 54,255: Mortal Disguise (Illusion) - shrouds Lich identity and suppresses Necro Taint
+  [54, 255, 'Mortal Disguise', '', [D]],
   [30, 255, 'Water Breathing', '', [D]],
   [31, 255, 'Water Walking', '', [D]],
   [33, 0, 'Pacify', 'Animal', [C]],
@@ -210,6 +214,12 @@ const GROUP_NAMES = localizedTable({
   Identify: ['identify', 'Identify'],
   Teleport: ['teleport', 'Teleport'],
   'Comprehend Languages': ['comprehendLanguages', 'Comprehend Languages'],
+  'Animate Dead': ['animateDead', 'Animate Dead'],
+  'Corpse Explosion': ['corpseExplosion', 'Corpse Explosion'],
+  'Life Tap': ['lifeTap', 'Life Tap'],
+  'Bone Armor': ['boneArmor', 'Bone Armor'],
+  'Control Undead': ['controlUndead', 'Control Undead'],
+  'Mortal Disguise': ['mortalDisguise', 'Mortal Disguise'],
 });
 const SUBGROUP_NAMES = localizedTable({
   Health: ['health', 'Health'],
@@ -336,6 +346,8 @@ export const PORTED_KEYS = new Set([
   '48,255', // Corpse Explosion (NECROMANCY)
   '49,255', // Life Tap (NECROMANCY)
   '51,255', // Bone Armor (NECROMANCY)
+  '53,255', // Control Undead (NECROMANCY)
+  '54,255', // Mortal Disguise (NECROMANCY)
   '30,255', // Water Breathing
   '31,255', // Water Walking
   '6,0',
@@ -436,7 +448,7 @@ export const SPELL_MAKER_EFFECTS = Object.freeze(
   })(),
 );
 
-export const NECRO_EFFECT_KEYS = Object.freeze(new Set(['47,255', '48,255', '49,255', '51,255']));
+export const NECRO_EFFECT_KEYS = Object.freeze(new Set(['47,255', '48,255', '49,255', '51,255', '53,255', '54,255']));
 export const isNecroEffectKey = (key) => NECRO_EFFECT_KEYS.has(key);
 export const isNecroEffect = (type, subType) => {
   const k = `${type},${subType ?? 255}`;
@@ -721,6 +733,24 @@ export const PORT_EFFECT_DESCRIPTIONS = new Map([
       'Wreathes the caster in plates of calcified',
       'bone that absorb incoming damage until the',
       'ward shatters or expires.',
+    ]),
+  ],
+  [
+    '53,255',
+    Object.freeze([
+      'Control Undead',
+      'Binds a hostile undead creature to the caster\'s',
+      'will for the spell\'s duration. Magnitude sets',
+      'the maximum tier of undead that can be enslaved.',
+    ]),
+  ],
+  [
+    '54,255',
+    Object.freeze([
+      'Mortal Disguise',
+      'Weaves an illusion of living flesh over the',
+      'caster, concealing Lichdom from guards and',
+      'masking Necromantic Taint during trade.',
     ]),
   ],
 ]);

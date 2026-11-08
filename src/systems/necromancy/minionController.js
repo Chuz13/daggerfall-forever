@@ -9,7 +9,15 @@
 // 4. Rebellion: If master's mental stamina breaks (0 Magicka/Fatigue),
 //    undead can break the leash and attack the caster.
 
-import { addUndeadMinion, removeUndeadMinion, usedUndeadPoints, setUndeadMinionsStance } from './undeadCapacity.js';
+import {
+  addUndeadMinion,
+  removeUndeadMinion,
+  usedUndeadPoints,
+  setUndeadMinionsStance,
+  getUndeadCapacityEntry,
+  releaseControlledUndeadFromCapacity,
+  releaseAllControlledUndeadFromCapacity,
+} from './undeadCapacity.js';
 import { liveStat } from '../statMods.js';
 import { NecroConfig } from './necroConfig.js';
 
@@ -56,6 +64,28 @@ export const MINION_PROFILES = Object.freeze({
     curseOnHit: true,
     weaknessFire: 2.0,
   },
+  wraith: {
+    type: 'wraith',
+    name: 'Bound Wraith',
+    baseHealth: 180,
+    speed: 1.0,
+    ethereal: true,
+    spellCaster: true,
+  },
+  vampire: {
+    type: 'vampire',
+    name: 'Thrall Vampire',
+    baseHealth: 260,
+    speed: 1.15,
+    spellCaster: true,
+  },
+  vampire_ancient: {
+    type: 'vampire_ancient',
+    name: 'Ancient Vampire Thrall',
+    baseHealth: 420,
+    speed: 1.2,
+    spellCaster: true,
+  },
   lich: {
     type: 'lich',
     name: 'Bound Lich',
@@ -79,14 +109,29 @@ export const MINION_PROFILES = Object.freeze({
 const _spawnedMinions = new Map();
 
 let _minionIdCounter = 1;
+let _controlledReleaseHook = null;
+
+/**
+ * Registers a scene callback invoked when a controlled undead loses control (timer expiry or console command).
+ * @param {((minion: object, capEntry: object|null) => void)|null} fn
+ */
+export function registerControlledReleaseHook(fn) {
+  _controlledReleaseHook = typeof fn === 'function' ? fn : null;
+}
 
 /**
  * Spawns an undead minion in the game world.
  * @param {object} params
- * @param {'skeleton'|'zombie'|'ghost'|'mummy'|'lich'} params.type
- * @param {[number, number, number]} params.position
- * @param {object} params.masterEntity
+ * @param {string} [params.type]
+ * @param {[number, number, number]} [params.position]
+ * @param {object} [params.masterEntity]
  * @param {string} [params.name]
+ * @param {boolean} [params.controlled]
+ * @param {number|null} [params.roundsRemaining]
+ * @param {number|null} [params.mobile]
+ * @param {object|null} [params.sceneBody]
+ * @param {number|null} [params.health]
+ * @param {number|null} [params.maxHealth]
  * @returns {object} The spawned minion instance
  */
 export function spawnMinion({
@@ -94,16 +139,24 @@ export function spawnMinion({
   position = [0, 0, 0],
   masterEntity = null,
   name = null,
+  controlled = false,
+  roundsRemaining = null,
+  mobile = null,
+  sceneBody = null,
+  health = null,
+  maxHealth = null,
 } = {}) {
   const profile = MINION_PROFILES[type] || MINION_PROFILES.skeleton;
   const id = `minion_${Date.now().toString(36)}_${_minionIdCounter++}`;
+  const hp = Number.isFinite(health) && health > 0 ? health : profile.baseHealth;
+  const maxHp = Number.isFinite(maxHealth) && maxHealth > 0 ? maxHealth : Math.max(hp, profile.baseHealth);
 
   const minion = {
     id,
     type,
     name: name || profile.name,
-    health: profile.baseHealth,
-    maxHealth: profile.baseHealth,
+    health: hp,
+    maxHealth: maxHp,
     position: [...position],
     feet: [...position],
     stance: MINION_STANCES.FOLLOW,
@@ -111,6 +164,10 @@ export function spawnMinion({
     profile,
     dead: false,
     rebelled: false,
+    controlled: !!controlled,
+    roundsRemaining: controlled && Number.isFinite(roundsRemaining) ? Math.max(1, Math.round(roundsRemaining)) : null,
+    mobile: mobile ?? null,
+    sceneBody: sceneBody ?? null,
     spawnTime: Date.now(),
   };
 
@@ -120,6 +177,11 @@ export function spawnMinion({
     type,
     name: minion.name,
     health: minion.health,
+    maxHealth: minion.maxHealth,
+    controlled: minion.controlled,
+    roundsRemaining: minion.roundsRemaining,
+    mobile: minion.mobile,
+    sceneBody: minion.sceneBody,
   });
 
   return minion;
@@ -261,8 +323,17 @@ export function detonateMinion(minionId = null, { radius = 6, damage = 50, nearb
  */
 export function checkMinionRebellion(playerEntity, minion, { rolls = Math.random } = {}) {
   if (!NecroConfig.minionRebellion) return false;
-  if (!minion || minion.dead || minion.rebelled) return false;
   if (!playerEntity) return false;
+  if (Array.isArray(minion)) {
+    let anyRebelled = false;
+    for (const m of minion) {
+      if (m && !m.controlled && checkMinionRebellion(playerEntity, m, { rolls })) {
+        anyRebelled = true;
+      }
+    }
+    return anyRebelled;
+  }
+  if (!minion || minion.dead || minion.rebelled || minion.controlled) return false;
 
   const curFatigue = playerEntity.fatigue ?? playerEntity.currentFatigue ?? 100;
   const curMagicka = playerEntity.magicka ?? playerEntity.currentMagicka ?? 100;
@@ -291,6 +362,79 @@ export function checkMinionRebellion(playerEntity, minion, { rolls = Math.random
   }
 
   return false;
+}
+
+/**
+ * Releases a single controlled undead minion (acquired via Control Undead spell),
+ * turning it back into a hostile enemy without affecting corpse-raised summons.
+ * @param {string} minionId
+ * @returns {object|null}
+ */
+export function releaseControlledUndead(minionId) {
+  const m = getSpawnedMinion(minionId);
+  if (!m || !m.controlled) return null;
+  m.rebelled = true;
+  m.releasedFromControl = true;
+  m.stance = MINION_STANCES.ATTACK;
+  _spawnedMinions.delete(minionId);
+  const capEntry = releaseControlledUndeadFromCapacity(minionId);
+  if (_controlledReleaseHook) {
+    _controlledReleaseHook(m, capEntry);
+  }
+  return m;
+}
+
+/**
+ * Releases ALL undead minions that were acquired via the Control Undead spell effect.
+ * Corpse-raised summons (controlled === false) are completely untouched.
+ * @returns {Array<object>} List of released controlled minions
+ */
+export function releaseAllControlledUndead() {
+  const released = [];
+  for (const [id, m] of Array.from(_spawnedMinions.entries())) {
+    if (m && m.controlled && !m.dead) {
+      const r = releaseControlledUndead(id);
+      if (r) released.push(r);
+    }
+  }
+  // Also ensure any orphan capacity entries marked controlled are released
+  const orphanCap = releaseAllControlledUndeadFromCapacity();
+  for (const cap of orphanCap) {
+    if (!released.some((r) => r.id === cap.id)) {
+      if (_controlledReleaseHook) _controlledReleaseHook(cap, cap);
+      released.push(cap);
+    }
+  }
+  return released;
+}
+
+/**
+ * Ticks duration for all active controlled undead once per magic round.
+ * Corpse-raised summons (controlled === false) do not have roundsRemaining and never expire on timer.
+ * @param {object} [opts]
+ * @param {((msg: string) => void)|null} [opts.say]
+ * @returns {Array<object>} List of controlled minions whose duration expired this round
+ */
+export function tickControlledUndeadRound({ say = null } = {}) {
+  const expired = [];
+  for (const [id, m] of Array.from(_spawnedMinions.entries())) {
+    if (!m || m.dead || !m.controlled) continue;
+    if (typeof m.roundsRemaining === 'number') {
+      m.roundsRemaining -= 1;
+      const capEntry = getUndeadCapacityEntry(id);
+      if (capEntry) capEntry.roundsRemaining = m.roundsRemaining;
+      if (m.roundsRemaining <= 0) {
+        const r = releaseControlledUndead(id);
+        if (r) {
+          expired.push(r);
+          if (typeof say === 'function') {
+            say(`${r.name || 'Controlled undead'} breaks free from your control!`);
+          }
+        }
+      }
+    }
+  }
+  return expired;
 }
 
 /**

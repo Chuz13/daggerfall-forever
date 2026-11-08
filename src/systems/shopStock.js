@@ -74,6 +74,9 @@ import { isOnlinePage } from './online/onlineLane.js'; // REALM P0.4: online, a 
 import { isOfflineProfessionsActive } from './offlineProfessions.js';
 import { BAG_TEMPLATE, isBagItem } from '../net/bagLaw.js'; // BAG1: the Materials Bag, at every General Store online
 import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE } from './comeSailAway/comeSailAwayItems.js'; // SHIPYARDS: a ship's parts and deed, which no shop buys - a port's shipyard does
+import { FORK_FLAGS } from '../config/forkFlags.js';
+import { playerEntity } from '../characters/playerEntity.js';
+import { getEffectiveTradeTaint, applyTaintDisposition } from './necromancy/necroTaint.js';
 
 // ItemGroups ids used by the shelf tables (DaggerfallUnityEnums).
 const GROUP_NAMES = Object.freeze({
@@ -1180,10 +1183,18 @@ export const ONLINE_SALE_SKILL_WEIGHT = 0.5;
 export function calculateTradePrice(
   cost,
   shopQuality,
-  { mercantile = 0, personality = 50 } = {},
+  { mercantile = 0, personality = 50, entity = null } = {},
   selling = false,
   { online = isOnlinePage() } = {},
 ) {
+  const tradeEntity = entity ?? playerEntity;
+  if (
+    FORK_FLAGS.ENABLE_NECROMANCY &&
+    !(mercantile === ONLINE_HAGGLE_MAX && personality === ONLINE_HAGGLE_MAX) &&
+    getEffectiveTradeTaint(tradeEntity) > 0
+  ) {
+    personality = applyTaintDisposition(personality, tradeEntity);
+  }
   if (online) {
     // MERC-CAP: the haggle's own range
     mercantile = Math.min(Math.max(mercantile, 0), ONLINE_HAGGLE_MAX);

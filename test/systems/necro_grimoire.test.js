@@ -116,14 +116,18 @@ test('NecroGrimoire 6 & 8: Reading grimoire sets NecroGrimoireRead and grants al
   assert.equal(res.kind, 'text');
   assert.equal(dummyPlayer.NecroGrimoireRead, true, 'NecroGrimoireRead flag must be true');
   assert.equal(dummyPlayer.necroGrimoireRead, true, 'necroGrimoireRead flag must be true');
-  assert.equal(dummyPlayer.spells.length, 5, 'Must have granted all 5 necro spells (including Arch-Lichdom)');
+  assert.equal(dummyPlayer.spells.length, 7, 'Must have granted all 7 grimoire spells (including Arch-Lichdom, Dark Flight, Control Undead)');
 
   const names = dummyPlayer.spells.map((s) => s.name);
   assert.ok(names.includes('Animate Dead'));
   assert.ok(names.includes('Corpse Explosion'));
   assert.ok(names.includes('Life Tap'));
   assert.ok(names.includes('Bone Armor'));
+  assert.ok(names.includes('Dark Flight'));
+  assert.ok(names.includes('Control Undead'));
   assert.ok(!names.includes('Lichdom'), 'Lichdom spell must not be granted');
+  assert.ok(!names.includes('Paralyzing Touch'), 'Paralyzing Touch must not be granted by Grimoire');
+  assert.ok(!names.includes('Mortal Disguise'), 'Mortal Disguise ready-made spell must not be granted by Grimoire');
   assert.ok(names.includes('Arch-Lichdom'));
 
   for (const sp of dummyPlayer.spells) {
@@ -132,7 +136,7 @@ test('NecroGrimoire 6 & 8: Reading grimoire sets NecroGrimoireRead and grants al
 
   // Reading again should not duplicate spells
   const res2 = useItem(item, [item], { entity: dummyPlayer });
-  assert.equal(dummyPlayer.spells.length, 5);
+  assert.equal(dummyPlayer.spells.length, 7);
   assert.ok(res2.text.includes('already deciphered'));
 });
 

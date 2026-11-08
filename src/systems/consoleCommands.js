@@ -51,7 +51,18 @@ import { setWeather, currentWeather } from './weather/weatherSim.js';
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
 import { defineLiveMaxMagicka } from './chargen.js';
-import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell, archLichdomSpell } from './necromancy/necromanticSpells.js';
+import {
+  animateDeadSpell,
+  corpseExplosionSpell,
+  lifeTapSpell,
+  boneArmorSpell,
+  archLichdomSpell,
+  lichParalyzingTouchSpell,
+  necroLevitateSpell,
+  controlUndeadSpell,
+  mortalDisguiseSpell,
+  castControlUndead,
+} from './necromancy/necromanticSpells.js';
 import { NECRO_GRIMOIRE_TEMPLATE } from './necromancy/necroGrimoire.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -74,9 +85,9 @@ import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.j
 import { REGION_NAMES } from '../formats/mapsTables.js';
 import { foundFamily, addChild, recordDeath, successors, currentOf, fullNameOf } from './legacy/family.js';
 import { setRegionCrisis, getRegionState, getActiveCrises, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
-import { applyLichdom, cureLichdom, isLich, applyAncientLichdom, cureAncientLichdom, isAncientLich } from './necromancy/lichdomStatus.js';
-import { getPlayerTaint, getTaintTier, addNecroTaint } from './necromancy/necroTaint.js';
-import { allSpawnedMinions, spawnMinion } from './necromancy/minionController.js';
+import { applyLichdom, cureLichdom, isLich, applyAncientLichdom, cureAncientLichdom, isAncientLich, isPlayerDisguised, lichdomMagicRound } from './necromancy/lichdomStatus.js';
+import { getPlayerTaint, getEffectiveTradeTaint, getTaintTier, addNecroTaint } from './necromancy/necroTaint.js';
+import { allSpawnedMinions, spawnMinion, releaseAllControlledUndead } from './necromancy/minionController.js';
 import { _resetUndeadCapacityForTests as clearUndeadPool, usedUndeadPoints, calculateUndeadCapacity } from './necromancy/undeadCapacity.js';
 import { registerCorpse } from './necromancy/corpseRegistry.js';
 import { generatePurifierParty } from './necromancy/witchHunters.js';
@@ -961,8 +972,8 @@ registerCommand(
 
 registerCommand(
   'addspell',
-  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|all_necro>',
-  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|all_necro>',
+  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
+  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
   (args = []) => {
     const key = String(args[0] || 'all_necro').toLowerCase().replace(/[\s_-]/g, '');
     const map = {
@@ -972,7 +983,26 @@ registerCommand(
       bonearmor: boneArmorSpell,
       archlichdom: archLichdomSpell,
       archlich: archLichdomSpell,
+      paralyzingtouch: lichParalyzingTouchSpell,
+      paralyze: lichParalyzingTouchSpell,
+      darkflight: necroLevitateSpell,
+      levitate: necroLevitateSpell,
+      necrolevitate: necroLevitateSpell,
+      controlundead: controlUndeadSpell,
+      mortaldisguise: mortalDisguiseSpell,
+      disguise: mortalDisguiseSpell,
     };
+    const coreSuite = [
+      animateDeadSpell,
+      corpseExplosionSpell,
+      lifeTapSpell,
+      boneArmorSpell,
+      archLichdomSpell,
+      necroLevitateSpell,
+      controlUndeadSpell,
+      mortalDisguiseSpell,
+      lichParalyzingTouchSpell,
+    ];
     playerEntity.spells = Array.isArray(playerEntity.spells) ? playerEntity.spells : [];
     const addOne = (fn) => {
       const sp = fn();
@@ -982,7 +1012,7 @@ registerCommand(
       return sp.name;
     };
     if (key === 'allnecro' || key === 'all' || key === 'necro') {
-      const added = Object.values(map).map(addOne);
+      const added = coreSuite.map(addOne);
       surfacePlayer?.();
       return `Added Necromancy spell suite to spellbook: ${added.join(', ')}.`;
     }
@@ -991,7 +1021,7 @@ registerCommand(
       surfacePlayer?.();
       return `Added spell "${name}" to spellbook.`;
     }
-    return 'Usage: addspell <animate_dead | corpse_explosion | life_tap | bone_armor | arch_lichdom | all_necro>';
+    return 'Usage: addspell <animate_dead | corpse_explosion | life_tap | bone_armor | arch_lichdom | paralyzing_touch | dark_flight | control_undead | disguise | all_necro>';
   }
 );
 
@@ -1573,19 +1603,80 @@ registerCommand(
     if (sub === 'status') {
       const lich = isLich(playerEntity);
       const ancientLich = isAncientLich(playerEntity);
+      const disguised = isPlayerDisguised(playerEntity);
       const taint = getPlayerTaint(playerEntity);
+      const tradeTaint = getEffectiveTradeTaint(playerEntity);
       const tier = getTaintTier(playerEntity);
       const used = usedUndeadPoints();
       const max = calculateUndeadCapacity(playerEntity);
       const minions = allSpawnedMinions();
+      const controlledCount = minions.filter((m) => m.controlled).length;
+      const raisedCount = minions.filter((m) => !m.controlled).length;
       const lichStatus = ancientLich ? 'ACTIVE (Ancient Lich)' : lich ? 'ACTIVE (Immortal Undead)' : 'Inactive (Mortal)';
       return [
         `<b>Necromancy Occult Status:</b>`,
         `- Lichdom: ${lichStatus}`,
-        `- Soul Taint: ${taint}/100 (${tier.toUpperCase()})`,
+        `- Mortal Disguise: ${disguised ? 'ACTIVE (Lich hidden, Trade Taint = 0)' : 'Inactive'}`,
+        `- Soul Taint: ${taint}/100 (${tier.toUpperCase()}) | Effective Trade Taint: ${tradeTaint}/100`,
         `- Undead Command Capacity: ${used}/${max} points`,
-        `- Active Minions: ${minions.length}`,
+        `- Active Minions: ${minions.length} (Summoned: ${raisedCount}, Controlled via spell: ${controlledCount})`,
       ].join('\n');
+    }
+    if (sub === 'disguise') {
+      const mode = String(args[1] || 'toggle').toLowerCase();
+      playerEntity.activeEffects = Array.isArray(playerEntity.activeEffects) ? playerEntity.activeEffects : [];
+      const existing = playerEntity.activeEffects.find((a) => a && !a.ended && a.kind === 'disguise');
+      if (mode === 'off' || (mode === 'toggle' && existing)) {
+        for (const a of playerEntity.activeEffects) {
+          if (a && a.kind === 'disguise') a.ended = true;
+        }
+        playerEntity.activeEffects = playerEntity.activeEffects.filter((a) => a && !a.ended);
+        playerEntity.isDisguised = false;
+        lichdomMagicRound(playerEntity);
+        surfacePlayer?.();
+        return 'Mortal Disguise removed. Your true undead aura and Necro Taint are exposed.';
+      }
+      const rounds = Number.isFinite(Number(args[1])) ? Math.max(1, Number(args[1])) : 30;
+      if (existing) {
+        existing.roundsRemaining = rounds;
+      } else {
+        playerEntity.activeEffects.push({
+          kind: 'disguise',
+          key: '54,255',
+          bundleName: 'Mortal Disguise',
+          bundleSpellIndex: -54,
+          bundleIcon: 13,
+          bundleSelfCast: true,
+          roundsRemaining: rounds,
+          ended: false,
+        });
+      }
+      lichdomMagicRound(playerEntity);
+      surfacePlayer?.();
+      return `Mortal Disguise active for ${rounds} rounds! Guards ignore Lichdom (unless minions walk openly) and Trade Taint is 0.`;
+    }
+    if (sub === 'lose_control' || sub === 'release_control' || sub === 'release_controlled') {
+      const released = releaseAllControlledUndead();
+      const remainingSummons = allSpawnedMinions().filter((m) => !m.controlled);
+      if (released.length === 0) {
+        return `No undead under Control Undead effect to release. (Corpse-raised summons untouched: ${remainingSummons.length}).`;
+      }
+      return `Lost control over ${released.length} enslaved undead (${released.map((m) => m.name).join(', ')})! They are now hostile. Corpse-raised summons untouched: ${remainingSummons.length}.`;
+    }
+    if (sub === 'control') {
+      const type = String(args[1] || 'skeleton').toLowerCase();
+      const rounds = Number.isFinite(Number(args[2])) ? Math.max(1, Number(args[2])) : 15;
+      const playerPos = _sceneContext?.getPlayerPos?.();
+      const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
+      const res = castControlUndead(
+        playerEntity,
+        { type, isUndead: true, position: pos, feet: pos, name: `Controlled ${type}` },
+        { magnitude: 100, duration: rounds, chance: 100 },
+      );
+      if (res.success && res.minion) {
+        return `Enslaved ${res.minion.name} (${res.minion.type}, ID: ${res.minion.id}) via Control Undead for ${rounds} rounds (0 pool points used; current pool: ${usedUndeadPoints()}/${calculateUndeadCapacity(playerEntity)}).`;
+      }
+      return `Control Undead failed: ${res.reason || 'unknown'}`;
     }
     if (sub === 'lich') {
       const val = String(args[1] || 'toggle').toLowerCase();
@@ -1781,7 +1872,7 @@ registerCommand(
       if (list.length === 0) return 'No active undead minions.';
       return [
         `<b>Active Undead Minions (${list.length}):</b>`,
-        ...list.map((m) => `- ${m.name} (${m.type}): HP ${m.health}/${m.maxHealth}, Stance: ${m.stance === 'feign_death' ? 'Feigning Death' : m.stance}`),
+        ...list.map((m) => `- ${m.name} (${m.type}) [${m.controlled ? `CONTROLLED: ${m.roundsRemaining ?? '?'}r` : 'SUMMONED'}]: HP ${m.health}/${m.maxHealth}, Stance: ${m.stance === 'feign_death' ? 'Feigning Death' : m.stance}`),
       ].join('\n');
     }
     if (sub === 'ambush') {
@@ -1876,6 +1967,10 @@ registerCommand('lich', 'Toggle Lich transformation: lich [on|off]', 'lich [on|o
 registerCommand('necro_spawn', 'Spawn minion or corpse: necro_spawn <skeleton|zombie|ghost|mummy|lich|ancient_lich|corpse>', 'necro_spawn <type>', (args = []) => getConsoleCommand('necro').callback(['spawn', ...args]));
 registerCommand('necro_corpse', 'Spawn a corpse in front of player: necro_corpse [mob]', 'necro_corpse [mob]', (args = []) => getConsoleCommand('necro').callback(['spawn', 'corpse', ...args]));
 registerCommand('necro_menu', 'Open Undead Command Menu', 'necro_menu', () => getConsoleCommand('necro').callback(['menu']));
+registerCommand('necro_lose_control', 'Lose control over all undead enslaved via Control Undead spell (leaves raised summons intact)', 'necro_lose_control', () => getConsoleCommand('necro').callback(['lose_control']));
+registerCommand('lose_control', 'Lose control over all undead enslaved via Control Undead spell (leaves raised summons intact)', 'lose_control', () => getConsoleCommand('necro').callback(['lose_control']));
+registerCommand('release_control', 'Lose control over all undead enslaved via Control Undead spell (leaves raised summons intact)', 'release_control', () => getConsoleCommand('necro').callback(['lose_control']));
+registerCommand('necro_disguise', 'Toggle Mortal Disguise spell effect on player: necro_disguise [on|off|rounds]', 'necro_disguise [on|off|rounds]', (args = []) => getConsoleCommand('necro').callback(['disguise', ...args]));
 registerCommand('necro_spells', 'Add all necromancy spells to spellbook', 'necro_spells', () => getConsoleCommand('addspell').callback(['all_necro']));
 registerCommand('necrospells', 'Add all necromancy spells to spellbook', 'necrospells', () => getConsoleCommand('addspell').callback(['all_necro']));
 

@@ -18,6 +18,8 @@ import { SKILLS } from '../skills.js';
 import { WEAPON_MATERIALS } from '../../characters/weapons.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { registerBlowTakenMod } from '../blowTaken.js';
+import { lockLichTaint } from './necroTaint.js';
+import { lichParalyzingTouchSpell, mortalDisguiseSpell } from './necromanticSpells.js';
 
 export const LICHDOM_CURSE_KEY = 'Lichdom';
 export const ANCIENT_LICHDOM_CURSE_KEY = 'AncientLichdom';
@@ -127,6 +129,55 @@ export function isAnyLich(entity) {
 }
 
 /**
+ * Checks whether the entity is currently disguised as a mortal (via Mortal Disguise spell effect 54,255,
+ * an equipped item enchanted with Disguise param -54, or a drawn hood).
+ * @param {object} entity
+ * @returns {boolean}
+ */
+export function isPlayerDisguised(entity) {
+  if (!entity) return false;
+  if (entity.isHooded || entity.isDisguised) return true;
+  if (Array.isArray(entity.activeEffects)) {
+    if (entity.activeEffects.some((a) => a && !a.ended && (a.kind === 'disguise' || a.key === '54,255'))) {
+      return true;
+    }
+  }
+  if (Array.isArray(entity.items)) {
+    if (
+      entity.items.some(
+        (it) =>
+          it &&
+          it.equipSlot != null &&
+          (it.disguiseEnchant ||
+            (Array.isArray(it.enchantments) && it.enchantments.some((e) => e && Number(e.param) === -54)))
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Grants the Lich-exclusive innate spells (Paralyzing Touch and Mortal Disguise) to an entity's spellbook.
+ * @param {object} entity
+ */
+export function grantLichInnateSpells(entity) {
+  if (!entity) return;
+  if (!Array.isArray(entity.spells)) {
+    entity.spells = [];
+  }
+  for (const sp of [lichParalyzingTouchSpell(), mortalDisguiseSpell()]) {
+    const exists = entity.spells.some(
+      (s) => s && (s.name === sp.name || (s.index != null && s.index === sp.index)),
+    );
+    if (!exists) {
+      entity.spells.push(sp);
+    }
+  }
+}
+
+/**
  * Returns HP bonus granted by Lichdom or Ancient Lichdom.
  * Lich: +100 HP.
  * Ancient Lich: +250 HP (+150 over Lich).
@@ -231,6 +282,9 @@ export function applyLichdom(entity, { phylacteryId = 'phylactery_main', nowMinu
 
   // Set weapon vulnerability threshold
   entity.minMetalToHit = WEAPON_MATERIALS.Silver;
+  entity.necroTaint = 100;
+  lockLichTaint();
+  grantLichInnateSpells(entity);
 
   return entry;
 }
@@ -300,6 +354,9 @@ export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient
   }
 
   entity.minMetalToHit = WEAPON_MATERIALS.Mithril;
+  entity.necroTaint = 100;
+  lockLichTaint();
+  grantLichInnateSpells(entity);
 
   return entry;
 }
@@ -317,12 +374,17 @@ export function lichdomMagicRound(entity, { nowMinutes = 0, sinks = null } = {})
   const entry = liveLichdom(entity) || liveAncientLichdom(entity);
   if (!entry) return;
 
+  const disguised = isPlayerDisguised(entity);
   if (entry.racial === 'ancient_lichdom') {
-    entry.statMods = { ...ANCIENT_LICH_STAT_MODS };
+    entry.statMods = disguised
+      ? { ...ANCIENT_LICH_STAT_MODS, personality: 0, Personality: 0 }
+      : { ...ANCIENT_LICH_STAT_MODS };
     entry.skillMods = { ...ANCIENT_LICH_SKILL_MODS };
     entity.minMetalToHit = WEAPON_MATERIALS.Mithril;
   } else {
-    entry.statMods = { ...LICH_STAT_MODS };
+    entry.statMods = disguised
+      ? { ...LICH_STAT_MODS, personality: 0, Personality: 0 }
+      : { ...LICH_STAT_MODS };
     entry.skillMods = { ...LICH_SKILL_MODS };
     entity.minMetalToHit = WEAPON_MATERIALS.Silver;
   }

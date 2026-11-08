@@ -233,6 +233,7 @@ export function enchantmentCost(type, param) {
   const row = ENCHANTMENT_COSTS[type];
   if (!row) return null;
   const p = param === undefined ? defaultParam(type) : param;
+  if (p === -54 && (type === 'CastWhenHeld' || type === 'CastWhenUsed')) return 200;
   if (row.costs) {
     const cost = row.costs[p];
     return Number.isInteger(p) && p >= 0 && cost !== undefined ? cost : null;
@@ -346,6 +347,9 @@ export const enchantmentTypes = () => Object.keys(ENCHANTMENT_COSTS);
  *  spell id, where the label list is dense. Empty when the effect
  *  mints no label there. */
 export function enchantmentParamName(type, param) {
+  if (param === -54 && (type === 'CastWhenHeld' || type === 'CastWhenUsed')) {
+    return getLocalizedSpellName(-54, 'Mortal Disguise');
+  }
   const at = enchantmentParamValues(type).indexOf(param);
   return at >= 0 ? (enchantmentParams(type)[at] ?? '') : '';
 }

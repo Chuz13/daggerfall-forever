@@ -78,6 +78,20 @@ export const NECRO_SPELL_KEYS = Object.freeze({
   BONE_ARMOR: '51,255',
   LICHDOM: '50,255',
   ARCH_LICHDOM: '52,255',
+  CONTROL_UNDEAD: '53,255',
+  DISGUISE: '54,255',
+});
+
+export const UNDEAD_CONTROL_MAGNITUDE_TIERS = Object.freeze({
+  skeleton: 10,
+  zombie: 15,
+  ghost: 20,
+  mummy: 25,
+  wraith: 30,
+  vampire: 35,
+  lich: 45,
+  vampire_ancient: 55,
+  ancient_lich: 65,
 });
 
 /**
@@ -289,6 +303,155 @@ export function boneArmorSpell() {
         chancePerLevel: 1,
         magnitudeBaseLow: 50, // 50 damage shield
         magnitudeBaseHigh: 50,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
+      },
+    ],
+  };
+}
+
+/**
+ * Creates a ready-made spell record for Paralyzing Touch (granted upon becoming a Lich).
+ * Uses existing Paralyze effect (0,255) ByTouch, minimal mana cost (5 SP), maximum duration.
+ * Not added to Spell Maker or Grimoire.
+ * @returns {object}
+ */
+export function lichParalyzingTouchSpell() {
+  return {
+    index: -55,
+    name: 'Paralyzing Touch',
+    icon: 18,
+    rangeType: 1, // ByTouch
+    element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
+    craftable: false,
+    minimumCastingCost: true,
+    effects: [
+      {
+        type: 0,
+        subType: 255,
+        durationBase: 60,
+        durationMod: 20,
+        durationPerLevel: 1,
+        chanceBase: 100,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 0,
+        magnitudeBaseHigh: 0,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
+      },
+    ],
+  };
+}
+
+/**
+ * Creates a ready-made spell record for Dark Flight (Levitation at will, granted by Grimoire).
+ * Uses existing Levitate effect (14,255) CasterOnly, minimal mana cost (5 SP), maximum duration.
+ * @returns {object}
+ */
+export function necroLevitateSpell() {
+  return {
+    index: -56,
+    name: 'Dark Flight',
+    icon: 12,
+    rangeType: 0, // CasterOnly
+    element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
+    craftable: false,
+    minimumCastingCost: true,
+    effects: [
+      {
+        type: 14,
+        subType: 255,
+        durationBase: 60,
+        durationMod: 20,
+        durationPerLevel: 1,
+        chanceBase: 0,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 0,
+        magnitudeBaseHigh: 0,
+        magnitudeLevelBase: 0,
+        magnitudeLevelHigh: 0,
+        magnitudePerLevel: 1,
+      },
+    ],
+  };
+}
+
+/**
+ * Creates a ready-made spell record for Control Undead (53,255).
+ * Granted by the Grimoire and unlocked in Spell Maker under Necromancy tag.
+ * @returns {object}
+ */
+export function controlUndeadSpell() {
+  return {
+    index: -53,
+    name: 'Control Undead',
+    icon: 16,
+    rangeType: 2, // SingleTargetAtRange
+    element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
+    effects: [
+      {
+        type: 53,
+        subType: 255,
+        durationBase: 15,
+        durationMod: 5,
+        durationPerLevel: 1,
+        chanceBase: 75,
+        chanceMod: 5,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 20,
+        magnitudeBaseHigh: 20,
+        magnitudeLevelBase: 2,
+        magnitudeLevelHigh: 2,
+        magnitudePerLevel: 1,
+      },
+    ],
+  };
+}
+
+/**
+ * Creates a ready-made spell record for Mortal Disguise (54,255).
+ * Granted upon becoming a Lich; effect unlocked in Spell Maker upon reading the Grimoire.
+ * @returns {object}
+ */
+export function mortalDisguiseSpell() {
+  return {
+    index: -54,
+    name: 'Mortal Disguise',
+    icon: 13,
+    rangeType: 0, // CasterOnly
+    element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
+    effects: [
+      {
+        type: 54,
+        subType: 255,
+        durationBase: 30,
+        durationMod: 10,
+        durationPerLevel: 1,
+        chanceBase: 0,
+        chanceMod: 0,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 0,
+        magnitudeBaseHigh: 0,
         magnitudeLevelBase: 0,
         magnitudeLevelHigh: 0,
         magnitudePerLevel: 1,
@@ -673,4 +836,165 @@ export function castBoneArmor(caster, duration = 15, pool = 50) {
     consumedSkeleton,
   };
 }
+
+/**
+ * Resolves whether a target is undead and what minion type + magnitude threshold it corresponds to.
+ * @param {object} target
+ * @returns {{ isUndead: boolean, type: string, requiredMagnitude: number, mobile: number|null, name: string }}
+ */
+export function resolveUndeadControlTarget(target) {
+  if (!target) {
+    return { isUndead: false, type: 'skeleton', requiredMagnitude: 10, mobile: null, name: 'Undead' };
+  }
+  const ent = target.entity || target;
+  const mobileId = Number(
+    target.mobileType ?? target.mobile ?? ent.mobileType ?? ent.mobile ?? ent.careerIndex ?? -1
+  );
+  const rawType = String(target.type || ent.type || target.name || ent.name || '').toLowerCase();
+
+  let type = null;
+  let mobile = Number.isFinite(mobileId) && mobileId >= 0 ? mobileId : null;
+
+  if (mobileId === 9 || rawType.includes('skeleton') || rawType.includes('skeletal')) {
+    type = 'skeleton';
+    if (mobile == null) mobile = 9;
+  } else if (mobileId === 17 || rawType.includes('zombie')) {
+    type = 'zombie';
+    if (mobile == null) mobile = 17;
+  } else if (mobileId === 15 || rawType.includes('ghost')) {
+    type = 'ghost';
+    if (mobile == null) mobile = 15;
+  } else if (mobileId === 16 || rawType.includes('mummy')) {
+    type = 'mummy';
+    if (mobile == null) mobile = 16;
+  } else if (mobileId === 20 || rawType.includes('wraith')) {
+    type = 'wraith';
+    if (mobile == null) mobile = 20;
+  } else if (mobileId === 29 || rawType.includes('vampire_ancient') || rawType.includes('vampire ancient') || rawType.includes('ancient vampire')) {
+    type = 'vampire_ancient';
+    if (mobile == null) mobile = 29;
+  } else if (mobileId === 28 || rawType.includes('vampire')) {
+    type = 'vampire';
+    if (mobile == null) mobile = 28;
+  } else if (mobileId === 31 || rawType.includes('ancient_lich') || rawType.includes('ancient lich')) {
+    type = 'ancient_lich';
+    if (mobile == null) mobile = 31;
+  } else if (mobileId === 30 || rawType.includes('lich')) {
+    type = 'lich';
+    if (mobile == null) mobile = 30;
+  } else if (
+    target.isUndead ||
+    ent.isUndead ||
+    target.mobileTeam === 'Undead' ||
+    ent.mobileTeam === 'Undead' ||
+    ent.affinity === 'Undead'
+  ) {
+    type = 'skeleton';
+    if (mobile == null) mobile = 9;
+  }
+
+  if (!type) {
+    return { isUndead: false, type: 'skeleton', requiredMagnitude: 10, mobile: null, name: target.name || ent.name || 'Target' };
+  }
+
+  const requiredMagnitude = Number(
+    target.requiredMagnitude ?? ent.requiredMagnitude ?? UNDEAD_CONTROL_MAGNITUDE_TIERS[type] ?? 10
+  );
+  const name = target.name || ent.name || `Controlled ${type.replace('_', ' ')}`;
+  return { isUndead: true, type, requiredMagnitude, mobile, name };
+}
+
+/**
+ * Executes the Control Undead spell effect on a target undead creature.
+ * Does NOT consume the permanent undead summon capacity pool.
+ * @param {object} caster
+ * @param {object} target
+ * @param {object} [options]
+ * @param {number} [options.magnitude=20]
+ * @param {number} [options.duration=15]
+ * @param {number} [options.chance=100]
+ * @param {() => number} [options.rolls]
+ * @returns {{ success: boolean, minion?: object, reason?: string, requiredMagnitude?: number, magnitude?: number }}
+ */
+export function castControlUndead(
+  caster,
+  target,
+  { magnitude = 20, duration = 15, chance = 100, rolls = Math.random } = {},
+) {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY) {
+    return { success: false, reason: 'Necromancy is disabled' };
+  }
+  if (!target || target.dead || target.entity?.dead) {
+    return { success: false, reason: 'Invalid target' };
+  }
+  if (target.isPlayer || target.entity?.isPlayer) {
+    return { success: false, reason: 'Cannot control player' };
+  }
+
+  const resolved = resolveUndeadControlTarget(target);
+  if (!resolved.isUndead) {
+    return { success: false, reason: 'Target is not undead' };
+  }
+
+  if (magnitude < resolved.requiredMagnitude) {
+    return {
+      success: false,
+      reason: 'Target undead tier is too powerful for this spell magnitude',
+      requiredMagnitude: resolved.requiredMagnitude,
+      magnitude,
+    };
+  }
+
+  const clampedChance = Math.max(0, Math.min(100, Number(chance) || 0));
+  if (clampedChance < 100 && rolls() * 100 >= clampedChance) {
+    return { success: false, reason: 'Target resisted Control Undead' };
+  }
+
+  const casterEntity = caster?.entity || caster;
+  const pos = target.feet || target.position || target.pos || casterEntity?.position || [0, 0, 0];
+  const rounds = Math.max(1, Math.round(Number(duration) || 15));
+  const ent = target.entity || target;
+
+  // If already controlled by us, refresh its duration
+  if (target.controlledUndead && target.controlledMinionId) {
+    const existing = allSpawnedMinions().find((m) => m.id === target.controlledMinionId);
+    if (existing) {
+      existing.roundsRemaining = rounds;
+      return { success: true, minion: existing, refreshed: true };
+    }
+  }
+
+  const minion = spawnMinion({
+    type: resolved.type,
+    position: Array.isArray(pos) ? [...pos] : [0, 0, 0],
+    masterEntity: casterEntity,
+    name: resolved.name,
+    controlled: true,
+    roundsRemaining: rounds,
+    mobile: resolved.mobile,
+    sceneBody: target.sceneBody || (target.ai ? target : null),
+    health: ent.health ?? target.health ?? null,
+    maxHealth: ent.maxHealth ?? target.maxHealth ?? null,
+  });
+
+  target.controlledUndead = true;
+  target.controlledMinionId = minion.id;
+  target.livingRole = 'undead_minion';
+  target.undeadStance = 'follow';
+  if (target.entity && typeof target.entity === 'object') {
+    target.entity.team = 'PlayerAlly';
+    target.entity.mobileTeam = 'PlayerAlly';
+  } else {
+    target.team = 'PlayerAlly';
+    target.mobileTeam = 'PlayerAlly';
+  }
+
+  return {
+    success: true,
+    minion,
+    requiredMagnitude: resolved.requiredMagnitude,
+    magnitude,
+  };
+}
+
 

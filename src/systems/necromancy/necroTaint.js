@@ -7,7 +7,7 @@
 // 3. Lichdom locks taint at maximum (100).
 // 4. Inactivity slowly washes taint away (-1 per classic game day) unless Lich.
 
-import { isLich, isAnyLich } from './lichdomStatus.js';
+import { isLich, isAnyLich, isPlayerDisguised } from './lichdomStatus.js';
 
 export const TAINT_TIERS = Object.freeze({
   PRISTINE: 'pristine',     // 0..25: Untainted mortal
@@ -20,15 +20,38 @@ let _playerTaint = 0;
 let _lastDecayDay = 0;
 
 /**
+ * Locks global taint at 100 upon becoming a Lich or Ancient Lich.
+ */
+export function lockLichTaint() {
+  _playerTaint = 100;
+}
+
+/**
  * Returns the current numerical taint (0..100).
  * @param {object} [playerEntity]
  * @returns {number}
  */
 export function getPlayerTaint(playerEntity = null) {
   if (playerEntity && isAnyLich(playerEntity)) {
+    _playerTaint = 100;
     return 100;
   }
+  if (playerEntity && typeof playerEntity.necroTaint === 'number' && playerEntity.necroTaint > _playerTaint) {
+    return Math.min(100, playerEntity.necroTaint);
+  }
   return _playerTaint;
+}
+
+/**
+ * Returns the effective taint for trade/disposition (0 when disguised via Mortal Disguise spell or enchantment).
+ * @param {object} [playerEntity]
+ * @returns {number}
+ */
+export function getEffectiveTradeTaint(playerEntity = null) {
+  if (playerEntity && isPlayerDisguised(playerEntity)) {
+    return 0;
+  }
+  return getPlayerTaint(playerEntity);
 }
 
 /**
@@ -83,6 +106,9 @@ export function tickTaintDaily(currentDay, playerEntity = null) {
  * @returns {number} Modified disposition
  */
 export function applyTaintDisposition(baseDisposition, playerEntity = null) {
+  if (playerEntity && isPlayerDisguised(playerEntity)) {
+    return baseDisposition;
+  }
   const tier = getTaintTier(playerEntity);
   switch (tier) {
     case TAINT_TIERS.TAINTED:

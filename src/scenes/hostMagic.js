@@ -913,6 +913,9 @@ export function createPlayerMagic({
     // (MakeEnemyHostileToAttacker), which is classic's own
     // "until player attacks them".
     if (r.pacify && foe.ai && !foe.entity?.pacifyImmune) foe.ai.isHostile = false;   // WB8a: never the gate's Warden
+    if (r?.controlledUndead && foe) {
+      globalThis.__sceneContext?.adoptControlledUndead?.(r.controlledUndead, foe);
+    }
     // X11: SPELL REFLECTION - the FOE is the reflector here, so no HUD
     // line (TryReflection's "Spell was reflected." is gated on
     // `IsPlayerEntity` on the REFLECTING manager, EEM:1231-1233), and

@@ -95,6 +95,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '24,0': row(SKILLS.Illusion, { duration: costs(20, 80) }), // ShadowNormal - S21
   '24,1': row(SKILLS.Illusion, { duration: costs(40, 120) }), // ShadowTrue - S21
   '29,255': row(SKILLS.Illusion, {}), // MorphSelf - NO components (the fudge, at Illusion)
+  '54,255': row(SKILLS.Illusion, { duration: costs(12, 20) }), // MortalDisguise (Illusion)
   '45,255': row(SKILLS.Restoration, {}), // RESURRECT1: Resurrect - the port's own; no components (the fudge, at Restoration)
 
   // ---- Mysticism ----
@@ -111,6 +112,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '47,255': row(SKILLS.Mysticism, { chance: costs(0, 100), magnitude: costs(0, 120) }), // AnimateDead (1000 gold)
   '50,255': row(SKILLS.Mysticism, {}), // Lichdom ritual (Mysticism)
   '52,255': row(SKILLS.Mysticism, {}), // Arch-Lichdom ritual (Mysticism)
+  '53,255': row(SKILLS.Mysticism, { duration: costs(12, 24), chance: costs(10, 20), magnitude: costs(10, 20) }), // ControlUndead (Mysticism)
   '44,255': row(SKILLS.Mysticism, { duration: costs(60, 68), chance: costs(40, 68) }), // ComprehendLanguages
 
   // ---- Restoration ----

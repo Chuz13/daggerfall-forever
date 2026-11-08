@@ -75,7 +75,11 @@ test('Necro spells: Grimoire grants Arch-Lichdom along with core spells, but exc
   readNecroGrimoire(dummyPlayer);
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Lichdom'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Arch-Lichdom'));
-  assert.equal(dummyPlayer.spells.length, 5, '4 standard necro spells + 1 Arch-Lichdom');
+  assert.ok(dummyPlayer.spells.some((s) => s.name === 'Dark Flight'));
+  assert.ok(dummyPlayer.spells.some((s) => s.name === 'Control Undead'));
+  assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Paralyzing Touch'));
+  assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Mortal Disguise'));
+  assert.equal(dummyPlayer.spells.length, 7, '4 standard necro spells + Arch-Lichdom + Dark Flight + Control Undead');
 });
 
 test('Arch-Lichdom ritual: mortal casting triggers death', () => {
@@ -644,4 +648,148 @@ test('Console: date and advance_time / advance_days commands advance Tamriel cal
   const advanceDaysRes = advanceDaysCmd.callback(['29']); // 29 more days -> now in Sun's Dawn!
   assert.equal(advancedBy, 1440 + 29 * 1440);
   assert.ok(advanceDaysRes.includes("Sun's Dawn"));
+});
+
+test('Lich Innate Spells & Grimoire Spells: Paralyzing Touch, Dark Flight, Control Undead, Mortal Disguise', async () => {
+  const {
+    lichParalyzingTouchSpell,
+    necroLevitateSpell,
+    controlUndeadSpell,
+    mortalDisguiseSpell,
+    castControlUndead,
+  } = await import('../../src/systems/necromancy/necromanticSpells.js');
+  const { isPlayerDisguised, lichdomMagicRound } = await import('../../src/systems/necromancy/lichdomStatus.js');
+  const { getPlayerTaint, getEffectiveTradeTaint, _resetTaintForTests } = await import('../../src/systems/necromancy/necroTaint.js');
+  const { checkSettlementInfraction, CRIME_TYPE } = await import('../../src/systems/necromancy/cityLaw.js');
+  const {
+    usedUndeadPoints,
+  } = await import('../../src/systems/necromancy/undeadCapacity.js');
+  const {
+    spawnMinion,
+    allSpawnedMinions,
+    dismissAllMinions,
+    releaseAllControlledUndead,
+    tickControlledUndeadRound,
+  } = await import('../../src/systems/necromancy/minionController.js');
+  const { spellMakerGroups } = await import('../../src/systems/spell/spellEffects.js');
+  const { allowedTargetsOf, TARGET_FLAGS, TARGET_FLAGS_OTHER, TARGET_FLAGS_SELF } = await import('../../src/systems/spell/spellMaker.js');
+
+  // 1. Paralyzing Touch & Dark Flight cost 5 SP (minimumCastingCost) and have max duration (60 + 20 per 1 level)
+  const para = lichParalyzingTouchSpell();
+  const darkFlight = necroLevitateSpell();
+  assert.equal(para.minimumCastingCost, true);
+  assert.equal(para.rangeType, 1, 'ByTouch');
+  assert.equal(para.effects[0].type, 0);
+  assert.equal(para.effects[0].subType, 255);
+  assert.equal(para.effects[0].durationBase, 60);
+  assert.equal(calculateCastCost(para, { skills: {}, stats: {} }).sp, 5);
+
+  assert.equal(darkFlight.minimumCastingCost, true);
+  assert.equal(darkFlight.rangeType, 0, 'CasterOnly');
+  assert.equal(darkFlight.effects[0].type, 14);
+  assert.equal(darkFlight.effects[0].subType, 255);
+  assert.equal(darkFlight.effects[0].durationBase, 60);
+  assert.equal(calculateCastCost(darkFlight, { skills: {}, stats: {} }).sp, 5);
+
+  // 2. Lichdom grants Paralyzing Touch & Mortal Disguise, locks taint at 100, and Arch-Lichdom keeps taint at 100
+  _resetTaintForTests();
+  const lichPlayer = {
+    level: 30,
+    health: 200,
+    maxHealth: 200,
+    skills: { [SKILLS.Mysticism]: 200 },
+    stats: { intelligence: 120, willpower: 120, personality: 50 },
+    spells: [],
+    activeEffects: [],
+  };
+  applyLichdom(lichPlayer);
+  assert.ok(lichPlayer.spells.some((s) => s.index === -55 && s.name === 'Paralyzing Touch'));
+  assert.ok(lichPlayer.spells.some((s) => s.index === -54 && s.name === 'Mortal Disguise'));
+  assert.equal(lichPlayer.necroTaint, 100);
+  assert.equal(getPlayerTaint(lichPlayer), 100);
+
+  // Ascend to Arch-Lich: taint must remain 100
+  applyAncientLichdom(lichPlayer);
+  assert.equal(lichPlayer.necroTaint, 100, 'Taint must stay 100 on Arch-Lich ascension');
+  assert.equal(getPlayerTaint(lichPlayer), 100, 'Global taint must stay 100 on Arch-Lich ascension');
+
+  // 3. Spell Maker: Control Undead (53,255) and Mortal Disguise (54,255) locked before Grimoire, unlocked after
+  const uninitiated = { NecroGrimoireRead: false };
+  const initiated = { NecroGrimoireRead: true };
+  assert.ok(!spellMakerGroups(uninitiated).includes('Control Undead'));
+  assert.ok(!spellMakerGroups(uninitiated).includes('Mortal Disguise'));
+  assert.ok(spellMakerGroups(initiated).includes('Control Undead'));
+  assert.ok(spellMakerGroups(initiated).includes('Mortal Disguise'));
+
+  // Control Undead allows all target forms EXCEPT CasterOnly
+  const controlTargets = allowedTargetsOf(53, 255);
+  assert.equal(controlTargets, TARGET_FLAGS_OTHER);
+  assert.equal(controlTargets & TARGET_FLAGS.CasterOnly, 0, 'Control Undead must NOT allow CasterOnly');
+  assert.ok(controlTargets & TARGET_FLAGS.ByTouch);
+  assert.ok(controlTargets & TARGET_FLAGS.SingleTargetAtRange);
+
+  // Mortal Disguise allows CasterOnly
+  const disguiseTargets = allowedTargetsOf(54, 255);
+  assert.equal(disguiseTargets, TARGET_FLAGS_SELF);
+
+  // 4. Mortal Disguise: hides Lich/Arch-Lich from guards (unless visible minions present) and zeroes trade taint
+  dismissAllMinions();
+  const guardBefore = checkSettlementInfraction(lichPlayer, { isInsideSettlement: true });
+  assert.equal(guardBefore.infraction, true);
+  assert.equal(getEffectiveTradeTaint(lichPlayer), 100);
+
+  // Cast Mortal Disguise
+  applySpell(mortalDisguiseSpell(), 30, lichPlayer, {});
+  assert.equal(isPlayerDisguised(lichPlayer), true);
+  assert.equal(getEffectiveTradeTaint(lichPlayer), 0, 'Disguised Lich must have 0 effective trade taint');
+  lichdomMagicRound(lichPlayer);
+  assert.equal(lichPlayer.racialOverride?.statMods?.personality, 0, 'Disguised Lich must have 0 personality penalty');
+
+  const guardDisguisedAlone = checkSettlementInfraction(lichPlayer, { isInsideSettlement: true });
+  assert.equal(guardDisguisedAlone.infraction, false, 'Guards must not detect disguised Lich without minions');
+
+  spawnMinion({ type: 'skeleton', position: [0, 0, 0] });
+  const guardDisguisedWithMinions = checkSettlementInfraction(lichPlayer, { isInsideSettlement: true });
+  assert.equal(guardDisguisedWithMinions.infraction, true, 'Guards must still react to visible minions even when disguised');
+
+  // 5. Control Undead: does not consume pool, and lose_control releases ONLY controlled undead
+  dismissAllMinions();
+  // Raise 1 regular skeleton summon (consumes 2 points)
+  const regularSummon = spawnMinion({ type: 'skeleton', position: [0, 0, 0] });
+  assert.equal(usedUndeadPoints(), 2);
+
+  // Mind-control a Vampire Ancient (does NOT consume pool)
+  const foeMobile = { mobileType: 29, name: 'Vampire Ancient', health: 120, maxHealth: 120, entity: { team: 'PlayerEnemy' } };
+  const ctrlRes = castControlUndead(lichPlayer, foeMobile, {
+    magnitude: 90,
+    chance: 100,
+    duration: 2,
+    rolls: () => 0.01,
+  });
+  assert.equal(ctrlRes.success, true);
+  assert.equal(usedUndeadPoints(), 2, 'Controlled undead must NOT consume undead capacity pool');
+  assert.equal(allSpawnedMinions().length, 2);
+  assert.equal(foeMobile.entity.team, 'PlayerAlly');
+
+  // Release all controlled undead -> regular summon stays, controlled vampire is released and turns hostile
+  const released = releaseAllControlledUndead();
+  assert.equal(released.length, 1);
+  assert.equal(released[0].controlled, true);
+  assert.equal(allSpawnedMinions().length, 1, 'Corpse-raised summon must remain under control');
+  assert.equal(allSpawnedMinions()[0].id, regularSummon.id);
+
+  // Test duration expiration via tickControlledUndeadRound
+  const foeMobile2 = { mobileType: 9, name: 'Skeleton', health: 40, maxHealth: 40, entity: { team: 'PlayerEnemy' } };
+  castControlUndead(lichPlayer, foeMobile2, {
+    magnitude: 50,
+    chance: 100,
+    duration: 1,
+    rolls: () => 0.01,
+  });
+  assert.equal(allSpawnedMinions().length, 2);
+  const expired = tickControlledUndeadRound();
+  assert.equal(expired.length, 1);
+  assert.equal(allSpawnedMinions().length, 1, 'Expired controlled undead removed while summon stays');
+
+  dismissAllMinions();
 });

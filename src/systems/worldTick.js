@@ -41,7 +41,7 @@ import { onVampireHit } from './vampirism.js';
 import { onPlayerStruckByEnemy } from './artifactEffects.js';   // V3: the Ring of Namira's reflection
 import { onLivingWorldTick } from './living/livingDirector.js';
 import { activeUndead } from './necromancy/undeadCapacity.js';
-import { checkMinionRebellion } from './necromancy/minionController.js';
+import { checkMinionRebellion, tickControlledUndeadRound } from './necromancy/minionController.js';
 import { tickTaintDaily } from './necromancy/necroTaint.js';
 import { NecroConfig } from './necromancy/necroConfig.js';
 import { lichdomMagicRound } from './necromancy/lichdomStatus.js';
@@ -442,6 +442,9 @@ export function runMagicRoundsFor(entity, from, to, { sinks, rolls = Math.random
     lichdomMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, sinks, say });
     updatePoisons(entity, r + 1, sinks, rolls, say);
     tickActiveEffects(entity, sinks);
+    if (FORK_FLAGS.ENABLE_NECROMANCY && entity.isPlayer) {
+      tickControlledUndeadRound({ say });
+    }
     // E1: the enchantment pump rides the SAME round (DoMagicRound's
     // tail runs the MagicRound item payloads, EntityEffectManager.cs
     // :1755-1770) - one home here means every host's player AND foes
@@ -747,7 +750,7 @@ function tickPlayerMinutesOnce({
   // NECROMANCY: minion upkeep magicka drain (1 mana per 5-second combat round per minion tier), exhaustion rebellion, and taint decay
   // Blocked while resting so necromancers can recover magicka peacefully; unblocked on any rest exit.
   if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.enabled) {
-    const minions = activeUndead();
+    const minions = activeUndead().filter((m) => !m.controlled);
     const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (minions.length > 0 && NecroConfig.minionUpkeep && !isNecroRestManaLocked(entity)) {
       if (!entity._lastMinionUpkeepMs || nowMs - entity._lastMinionUpkeepMs >= 5000) {

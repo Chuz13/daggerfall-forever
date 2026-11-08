@@ -227,7 +227,11 @@ export function createCrewAshore(deps) {
       if (i < 0) {
         stood.delete(k);
         deps.onLeave?.(s.c, rec);
-        leave(s);
+        if (s.c?.releasedFromControl) {
+          deps.onReleased?.(s.c, rec);
+        } else {
+          leave(s);
+        }
         continue;
       } // sent back aboard - COMPANION-PORTAL: through a portal
       if (rec.entity) {
@@ -332,6 +336,18 @@ export function createCrewAshore(deps) {
 
   return {
     frame,
+    /** Adopt an already-spawned scene body `rec` into `stood` for companion `c` (e.g. Control Undead). */
+    adopt(c, rec) {
+      const place = deps.place();
+      if (!place || !c || !rec) return false;
+      placeKey = place.key;
+      const k = companionKeyOf(c);
+      rec.companion = k;
+      rec.shipmate = true;
+      stood.set(k, { c, rec, remove: place.remove, has: place.has ?? null, fx: place.fx ?? null });
+      deps.onStood?.(c, rec);
+      return true;
+    },
     /** The companions standing here - their bodies (the bars' list). */
     bodies: () => [...stood.values()].map((s) => s.rec),
     /** WAGON-ALIGHT: their capsules (`{ feet, height }`) - the parked wagon's box never stands round one

@@ -380,8 +380,37 @@ export function heldEquipBill(item, cost) {
   return Math.max(0, Math.min(cost, left - 1));
 }
 
+const DISGUISE_ENCHANT_SPELL = Object.freeze({
+  index: -54,
+  name: 'Mortal Disguise',
+  icon: 13,
+  rangeType: 0,
+  element: 4,
+  tag: 'некро',
+  tags: ['некро', 'necro'],
+  necro: true,
+  custom: true,
+  effects: [
+    {
+      type: 54,
+      subType: 255,
+      durationBase: 30,
+      durationMod: 10,
+      durationPerLevel: 1,
+      chanceBase: 0,
+      chanceMod: 0,
+      chancePerLevel: 1,
+      magnitudeBaseLow: 0,
+      magnitudeBaseHigh: 0,
+      magnitudeLevelBase: 0,
+      magnitudeLevelHigh: 0,
+      magnitudePerLevel: 1,
+    },
+  ],
+});
+
 function instantiateHeldSpell({ param, entity, item, ctx, nowMinutes }, recast) {
-  const record = ctx?.spellsByIndex?.()?.get?.(param);
+  const record = ctx?.spellsByIndex?.()?.get?.(param) ?? (param === -54 ? DISGUISE_ENCHANT_SPELL : null);
   if (!record) return;
   (ctx?.assignHeldSpell ?? assignHeldSpell)(record, entity, item, { ctx, nowMinutes, recast });
 }
@@ -521,7 +550,7 @@ const REGISTRY = new Map([
         // HOME-MAGIC (not DFU's: a departure, Port-Ledger A): where the host bars casting (a visitor in another's online
         // home), the item's spell does not go - the host says why - and the item spends no durability on it
         if (ctx?.castBarred?.()) return null;
-        const record = ctx?.spellsByIndex?.()?.get?.(param);
+        const record = ctx?.spellsByIndex?.()?.get?.(param) ?? (param === -54 ? DISGUISE_ENCHANT_SPELL : null);
         if (record) {
           if (record.rangeType === 0) ctx?.applySpellToSelf?.(record, entity, item);
           else ctx?.setReadySpell?.(record, item);

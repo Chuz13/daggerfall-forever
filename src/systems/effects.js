@@ -48,8 +48,9 @@ import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify match
 import { breakNormalPowerConcealment, handleAttackFromSource } from './concealment.js';
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
-import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor } from './necromancy/necromanticSpells.js';
+import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor, castControlUndead } from './necromancy/necromanticSpells.js';
 import { performArchLichdomRitual, performLichdomRitual } from './necromancy/lichdomRitual.js';
+import { lichdomMagicRound } from './necromancy/lichdomStatus.js';
 import { corpsesNear } from './necromancy/corpseRegistry.js';
 import { regenShare } from './courtRules.js';   // WBX6 / EVENT-RULES: a made level holds regeneration
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
@@ -167,6 +168,7 @@ export const BUFF_KINDS = Object.freeze({
   // its rounds on a re-cast as every row here does (STACK-CAP); the entry's PRESENCE is the share -
   // systems/party/partyMap.js reads it, and a caster in no party (offline, solo) holds a buff that does nothing at all.
   '46,255': 'sharedCartography',
+  '54,255': 'disguise',   // NECROMANCY: Mortal Disguise (Illusion) - conceals Lich status and suppresses Taint in trade
 });
 
 /** DaggerfallEntity.IsInvisible / IsBlending / IsAShade, verbatim:
@@ -265,6 +267,8 @@ export const MAGIC_ONLY_KEYS = new Set([
   '47,255',   // NECROMANCY: Animate Dead (Mysticism)
   '49,255',   // NECROMANCY: Life Tap (Restoration)
   '51,255',   // NECROMANCY: Bone Armor (Alteration)
+  '53,255',   // NECROMANCY: Control Undead (Mysticism)
+  '54,255',   // NECROMANCY: Mortal Disguise (Illusion)
 ]);
 
 /** THE BUFF LANDING ALERTS - every line DFU speaks on the frame a
@@ -287,6 +291,7 @@ export const BUFF_START_TEXT = localizedTable({
   shadeNormal: ['youAreAShade', 'You are a shade.'], shadeTrue: ['youAreAShade', 'You are a shade.'],
   silenced: ['youAreSilenced', 'You are silenced.'],   // Silence.cs:91-95
   sharedCartography: () => 'Your map is shared with your party.',   // PARTY-MAP: the port's own line
+  disguise: ['disguiseActive', 'An illusion of living flesh masks your unlife.'],
 });
 /** The name this table shipped under, kept live for its importers. */
 export const CONCEALMENT_START_TEXT = BUFF_START_TEXT;
@@ -1537,6 +1542,29 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       pushInstantMarker(target, 'archLichdom', e);
       continue;
     }
+    if (e.type === 53 && classicSub(e) === 255) {
+      const chance = chanceOf(e, false);
+      const mag = magnitude(e);
+      const rounds = Math.max(1, rollDuration(e, casterLevel));
+      const res = castControlUndead(caster?.entity ?? target, target, {
+        magnitude: mag,
+        duration: rounds,
+        chance: ctx.bypassChance === true ? 100 : chance,
+        rolls,
+      });
+      if (res?.success && res.minion) {
+        out.controlledUndead = res.minion;
+        out.controlUndead = (out.controlUndead ?? 0) + 1;
+        sinks?.say?.(localizedText('controlUndeadSuccess', 'The undead bows to your dark will!'));
+      } else if (res?.reason === 'Target resisted Control Undead') {
+        out.chanceFailed = (out.chanceFailed ?? 0) + 1;
+        sinks?.say?.(res.reason);
+      } else if (res && !res.success && res.reason) {
+        sinks?.say?.(res.reason);
+      }
+      pushInstantMarker(target, 'controlUndead', e);
+      continue;
+    }
     // X1: SPELL ABSORPTION (20) and SPELL RESISTANCE (22) - both are
     // chance-carrying duration buffs the INCOMING-spell chain reads,
     // not effects that act when cast. Absorption's chance is consulted
@@ -1909,6 +1937,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
             continue;
           }
           pushActive(target, { kind, roundsRemaining: rounds }, sinks, rolls);
+          if (kind === 'disguise') lichdomMagicRound(target);
           // S21: the start message fires once on NEW incumbency
           // (ConcealmentEffect awakeAlert; Silence.cs:91-95 for the
           // silence row) and a renewal is silent - which is not a

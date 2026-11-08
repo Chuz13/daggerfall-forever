@@ -99,6 +99,7 @@ const SELF_TARGET_KEYS = new Set([
   '44,255',
   '46,255', // PARTY-MAP: Shared Cartography, the port's own - the caster's map is the one shared
   '51,255', // NECROMANCY: Bone Armor (CasterOnly buff)
+  '54,255', // NECROMANCY: Mortal Disguise (CasterOnly buff)
 ]);
 const OTHER_TARGET_KEYS = new Set([
   '0,255',
@@ -136,6 +137,7 @@ const OTHER_TARGET_KEYS = new Set([
   '47,255', // NECROMANCY: Animate Dead
   '48,255', // NECROMANCY: Corpse Explosion
   '49,255', // NECROMANCY: Life Tap
+  '53,255', // NECROMANCY: Control Undead (any target except CasterOnly)
 ]);
 
 export const allowedTargetsOf = (type, subType) => {

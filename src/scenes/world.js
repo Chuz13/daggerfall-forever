@@ -730,8 +730,8 @@ import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './naval/navalCrew.js';  
 import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' sleeping hours
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
-import { undeadParty, initUndeadCompanionAdapter, clearAllUndeadMinions } from '../systems/necromancy/undeadCapacity.js';
-import { MINION_STANCES, MINION_PROFILES, allSpawnedMinions, setAllMinionsStance, orderRecall, dismissAllMinions, detonateMinion } from '../systems/necromancy/minionController.js';
+import { undeadParty, initUndeadCompanionAdapter, clearAllUndeadMinions, getUndeadCapacityEntry } from '../systems/necromancy/undeadCapacity.js';
+import { MINION_STANCES, MINION_PROFILES, allSpawnedMinions, setAllMinionsStance, orderRecall, dismissAllMinions, detonateMinion, registerControlledReleaseHook, releaseAllControlledUndead } from '../systems/necromancy/minionController.js';
 import { corpsesNear, harvestAllFromCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
 import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js';
 import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush, generatePurifierParty, HUNTER_TYPES } from '../systems/necromancy/witchHunters.js';
@@ -10410,6 +10410,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     onLeave: (c, rec) => {
       _undeadMinionFoes.delete(rec);
     },
+    onReleased: (c, rec) => {
+      turnMinionHostile(rec, c);
+    },
     allowCatchUp: (c, rec) => {
       const s = rec.undeadStance || c.stance || 'follow';
       return s === 'follow';
@@ -10509,13 +10512,15 @@ export async function bootWorld(canvas, renderer, params, status) {
           rec.ai.moving = true;
         }
       } else {
-        // follow stance
+        // follow stance: default companion AI (follows player and attacks player's enemies)
         if (rec.ai) {
           rec.ai.canAct = true;
-          rec.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
-          rec.ai.target = null;
-          rec.ai.secondaryTarget = null;
-          rec.ai.isHostile = false;
+          const curTgt = rec.ai.target;
+          if (curTgt && (curTgt.isPlayer || curTgt.dead || (curTgt.entity?.health ?? 1) <= 0 || curTgt.entity?.team === 'PlayerAlly' || curTgt.companion != null)) {
+            rec.ai.target = null;
+            rec.ai.secondaryTarget = null;
+          }
+          rec.ai.isHostile = true;
         }
         if (rec.entity) {
           rec.entity.team = 'PlayerAlly';
@@ -10526,6 +10531,75 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
 
   const _undeadMinionFoes = new Set();
+
+  function turnMinionHostile(rec, minionRecord = null) {
+    const body =
+      rec ||
+      minionRecord?.sceneBody ||
+      [..._undeadMinionFoes].find(
+        (f) => f && (f.controlledMinionId === minionRecord?.id || f.companion === `undead:${minionRecord?.id || minionRecord?.name}`),
+      );
+    if (!body || body.dead) return false;
+    _undeadMinionFoes.delete(body);
+    body.companion = null;
+    body.shipmate = false;
+    body.livingRole = undefined;
+    body.controlledUndead = false;
+    body.controlledMinionId = null;
+    body.undeadStance = null;
+    if (body.entity) {
+      body.entity.team = 'PlayerEnemy';
+      body.entity.mobileTeam = 'PlayerEnemy';
+    }
+    if (body.ai) {
+      body.ai.follow = null;
+      body.ai._following = false;
+      body.ai._followWalking = false;
+      body.ai.canAct = true;
+      body.ai.isHostile = true;
+      const pFeet = walkMode && playerSpawned ? player.pos : cam.pos;
+      if (typeof body.ai.makeHostileToPlayer === 'function') {
+        body.ai.makeHostileToPlayer(undefined, pFeet);
+      } else {
+        body.ai.target = null;
+      }
+      if (typeof body.ai.resumeLive === 'function') body.ai.resumeLive();
+    }
+    return true;
+  }
+
+  registerControlledReleaseHook((m, cap) => {
+    turnMinionHostile(m?.sceneBody || cap?.sceneBody || null, m || cap);
+  });
+
+  function adoptControlledUndeadInScene(minion, foe) {
+    if (!minion || !foe) return false;
+    minion.sceneBody = foe;
+    const cap = getUndeadCapacityEntry(minion.id);
+    if (cap) {
+      cap.sceneBody = foe;
+      cap.key = cap.key || cap.id;
+      cap.boat = 'undead';
+    }
+    foe.controlledUndead = true;
+    foe.controlledMinionId = minion.id;
+    foe.livingRole = 'undead_minion';
+    foe.undeadStance = 'follow';
+    if (foe.entity) {
+      foe.entity.team = 'PlayerAlly';
+      foe.entity.mobileTeam = 'PlayerAlly';
+    }
+    if (foe.ai) {
+      foe.ai.target = null;
+      foe.ai.secondaryTarget = null;
+      foe.ai.canAct = true;
+      foe.ai.isHostile = true;
+      if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
+    }
+    undeadAshore?.adopt?.(cap || minion, foe);
+    _undeadMinionFoes.add(foe);
+    return true;
+  }
 
   function applyUndeadCommand(cmd) {
     const leaderPos = walkMode && playerSpawned ? player.pos : cam.pos;
@@ -10568,7 +10642,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             if (f.ai) {
               f.ai.canAct = true;
               f.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
-              f.ai.isHostile = false;
+              f.ai.isHostile = true;
               f.ai.target = null;
               f.ai.secondaryTarget = null;
               if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
@@ -10744,6 +10818,16 @@ export async function bootWorld(canvas, renderer, params, status) {
         return true;
       }
 
+      case 'release_controlled': {
+        const released = releaseAllControlledUndead();
+        if (released.length === 0) {
+          townTalk.say(t('necro.cmd.noneControlled', 'No controlled undead to release.'));
+          return false;
+        }
+        townTalk.say(t('necro.cmd.releaseControlled', 'Released {0} controlled undead! They turn hostile!', released.length));
+        return true;
+      }
+
       case 'dismiss':
         dismissAllMinions();
         clearAllUndeadMinions();
@@ -10795,6 +10879,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       { code: '4', label: t('necro.menu.optFollow', '[Follow] Follow close behind master'), action: () => applyUndeadCommand('follow') },
       { code: '5', label: t('necro.menu.optGuard', '[Guard] Hold ground and guard area'), action: () => applyUndeadCommand('guard') },
       { code: '6', label: t('necro.menu.optDismiss', '[Dismiss] Destroy all active minions'), action: () => applyUndeadCommand('dismiss') },
+      { code: '7', label: t('necro.menu.optReleaseControlled', '[Release Controlled] Lose control over enslaved undead'), action: () => applyUndeadCommand('release_controlled') },
       // [Harvest Remains] done via direct interaction with corpse
       // { code: '7', label: t('necro.menu.optHarvest', '[Harvest Remains] Carve reagents from nearby corpse'), action: () => applyUndeadCommand('harvest') },
       { code: '0', label: t('necro.menu.optClose', '[Close]'), action: () => {} },
@@ -29645,6 +29730,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     applyUndeadCommand: (cmd) => applyUndeadCommand(cmd),
     openUndeadCommandMenu: () => openUndeadCommandMenu(),
+    adoptControlledUndead: (minion, foe) => adoptControlledUndeadInScene(minion, foe),
+    releaseAllControlledUndead: () => releaseAllControlledUndead(),
     killMinionBody: (body) => {
       if (!body) return;
       body.dead = true;
