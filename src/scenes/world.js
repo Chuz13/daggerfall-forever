@@ -734,7 +734,8 @@ import { undeadParty, initUndeadCompanionAdapter, clearAllUndeadMinions } from '
 import { MINION_STANCES, MINION_PROFILES, allSpawnedMinions, setAllMinionsStance, orderRecall, dismissAllMinions, detonateMinion } from '../systems/necromancy/minionController.js';
 import { corpsesNear, harvestAllFromCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
 import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js';
-import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush } from '../systems/necromancy/witchHunters.js';
+import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush, generatePurifierParty, HUNTER_TYPES } from '../systems/necromancy/witchHunters.js';
+import { getTaintTier } from '../systems/necromancy/necroTaint.js';
 import { NecroConfig } from '../systems/necromancy/necroConfig.js';
 import { registerConsoleSceneContext } from '../systems/consoleCommands.js';
 import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength, sendRevenantAway, forgetSwornMember, swornFightStep, swornFightWon, devotedWithYou } from '../systems/revenant/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
@@ -10753,6 +10754,67 @@ export async function bootWorld(canvas, renderer, params, status) {
     return true;
   }
 
+  const spawnPurifiers = async (party) => {
+    if (!Array.isArray(party) || !party.length) return [];
+    const p = (walkMode && playerSpawned ? player.pos : cam.pos) || [0, 0, 0];
+    const yaw = cam?.yaw ?? 0;
+    townTalk?.say?.(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
+
+    const dCtx = modes?.dungeonCtx;
+    const iFoes = modes?.interiorFoes;
+    const spawner = modes?.mode === 'dungeon' && dCtx?.spawnFoe
+      ? dCtx
+      : modes?.mode === 'interior' && iFoes?.spawnFoe
+        ? iFoes
+        : exteriorFoes;
+
+    if (!spawner?.spawnFoe) return [];
+
+    const spawned = [];
+    for (let i = 0; i < party.length; i++) {
+      const member = party[i];
+      let mobType = MOBILE_TYPES.Knight;
+      if (member.type === HUNTER_TYPES.ARCHER) mobType = MOBILE_TYPES.Archer;
+      else if (member.type === HUNTER_TYPES.INQUISITOR) mobType = MOBILE_TYPES.Spellsword;
+      else if (member.type === HUNTER_TYPES.TEMPLAR) mobType = MOBILE_TYPES.Knight;
+
+      const angle = yaw + (i - (party.length - 1) / 2) * 0.45;
+      const dist = 7.0 + (i % 2) * 2.5;
+      const sx = p[0] + Math.sin(angle) * dist;
+      const sz = p[2] + Math.cos(angle) * dist;
+      const sy = (collider?.heightAt?.(sx, sz) ?? p[1]) || p[1];
+      const spawnPos = [sx, sy, sz];
+
+      try {
+        const f = await spawner.spawnFoe(mobType, spawnPos, {
+          yaw: angle + Math.PI,
+          loose: true,
+          transient: true,
+          managed: true,
+          feetGiven: true,
+          allied: false,
+        });
+        if (f) {
+          if (f.entity) {
+            f.entity.name = member.name;
+            f.entity.currentHealth = member.health;
+            f.entity.maxHealth = member.health;
+            f.entity.team = 'Enemy';
+            f.entity.mobileTeam = 'Enemy';
+            f.entity.weaponMaterial = member.weaponMaterial ?? 2;
+          }
+          if (f.ai) {
+            f.ai.hostile = true;
+          }
+          spawned.push(f);
+        }
+      } catch (err) {
+        console.error('[witchHunters] spawn error:', err);
+      }
+    }
+    return spawned;
+  };
+
   globalThis.__sceneContext = {
     say: (msg) => townTalk?.say?.(msg),
     getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
@@ -10789,6 +10851,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       return f;
     },
+    spawnPurifiers,
     destroyCorpse: (corpse) => {
       const p = corpse?.position;
       const id = corpse?.id;
@@ -13399,7 +13462,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.witchHunters !== 'off') {
         const restAmbush = checkRestWitchHunterAmbush(playerEntity, 8);
         if (restAmbush.ambush) {
-          townTalk.say(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
+          const party = generatePurifierParty(getTaintTier(playerEntity) || 'tainted');
+          spawnPurifiers(party);
         }
       }
     },
@@ -15114,10 +15178,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       hccPostDue = false; hccRuntimeOn()?.handlePostFastTravel();
       if (interruptedEventType) {
-        const pf = walkMode && playerSpawned ? player.feetAt() : cam.pos;
-        const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
-          ? LIVING_SITE_KINDS.BANDIT_CAMP
-          : LIVING_SITE_KINDS.TRAVELER_REST;
+        if (interruptedEventType === 'witch_hunter_ambush') {
+          const party = generatePurifierParty(getTaintTier(playerEntity) || 'tainted');
+          spawnPurifiers(party);
+        } else {
+          const pf = walkMode && playerSpawned ? player.feetAt() : cam.pos;
+          const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
+            ? LIVING_SITE_KINDS.BANDIT_CAMP
+            : LIVING_SITE_KINDS.TRAVELER_REST;
         const stealthSkill = Number(playerEntity?.skills?.stealth ?? playerEntity?.skills?.Stealth ?? 25);
         const playerLuck = liveStat(playerEntity, 'luck') || 50;
         const ambushDetectedByStealth =
@@ -15133,6 +15201,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           nowMinutes: worldMinutes(),
           ambushDetectedByStealth,
         }));
+        }
       }
       // cautious arrival heals in full; magicka honors NoRegenSpellPoints
       // AUDIT WORLD5 C14: the heal is the trip's NIGHTS - DFU's cautious traveller arrives rested because the days
@@ -29418,6 +29487,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       return f;
     },
+    spawnPurifiers: (party) => spawnPurifiers(party),
     spawnUndeadMinion: async (type, pos, name) => {
       const p = (pos && (pos[0] !== 0 || pos[2] !== 0)) ? pos : (walkMode && playerSpawned ? player.pos : cam.pos);
       const yaw = cam?.yaw ?? 0;

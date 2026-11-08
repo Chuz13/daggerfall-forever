@@ -9275,3 +9275,4 @@ perks.iron_constitution.name,Железное здоровье
 perks.iron_constitution.desc,Снижает уязвимость к болезням и ядам на 30% и даёт +15 к макс. здоровью (Требуется Уровень 5).
 perks.treasure_hunter.name,Охотник за сокровищами
 perks.treasure_hunter.desc,Увеличивает количество золота в сундуках и на трупах на 20% (Требуется Торговля 40).
+pause.stats.perks,Перки

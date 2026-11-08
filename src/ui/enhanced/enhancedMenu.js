@@ -200,6 +200,8 @@ import { resolveVariantGuild } from '../../systems/guild/guildVariants.js';   //
 import { playerEntity } from '../../characters/playerEntity.js';
 // PX6: the Stats page's skill labels - the one home (systems/skills.js).
 import { SKILLS, SKILL_NAMES } from '../../systems/skills.js';
+import { getAllPerks, getUnlockedPerks } from '../../systems/perks/perkRegistry.js';
+import { getAllRegisteredPerks } from '../../systems/mods/modPluginApi.js';
 import { overlayAction, bindings, eventMeans } from '../input.js';   // U51: Escape, through the shared table; UXB1-F: the live keys a tile names; DISC28-A: the pause action's own key
 import { bindings as liveBindings } from '../input.js';   // PADPLUS1: the store the layout reset writes
 import { resetPlusPadLayout } from '../plus/plusPad.js';   // PADPLUS1
@@ -5081,6 +5083,7 @@ const PAUSE_TEXT = Object.freeze({
   attributes: () => localizedText('helpAttributes', 'Attributes'),
   skills: () => localizedText('helpSkills', 'Skills'),
   specials: () => t('pause.stats.advantages', 'Advantages'),
+  perks: () => t('pause.stats.perks', 'Perks'),
   standing: () => t('pause.stats.standing', 'Standing'),
   effects: () => t('pause.stats.effects', 'Effects'),
 });
@@ -5262,7 +5265,9 @@ function pauseSystem(body) {
 // the three reputation stores the talk and court systems read.
 const STATS_SECTIONS = Object.freeze([
   ['character', 'Character'], ['attributes', 'Attributes'],
-  ['skills', 'Skills'], ['specials', 'Advantages'], ['standing', 'Standing'],
+  ['skills', 'Skills'], ['specials', 'Advantages'],
+  ['perks', 'Perks'],
+  ['standing', 'Standing'],
   ['effects', 'Effects'],   // BUFF-END: the spells on you, and an End on the ones that are yours to end
 ]);
 // The five NAMED social groups getReactionToPlayer reads
@@ -5347,7 +5352,7 @@ function pauseStats(body) {
   if (statsSec === 'professions' || statsSec === 'crafting' || statsSec === 'stores') detail.classList.add('prof-detail');
   const profKit = { el, divider: pxDivider, meter: pxMeter, go: profGo, keyName: (/** @type {string} */ a) => boundKeyName(a) };   // CRAFT-HALL: page links and the key's name
   ({
-    character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects, master: statsMaster,   // SOFTCAP4: `master` - the Master Skills door's page
+    character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, perks: statsPerks, standing: statsStanding, effects: statsEffects, master: statsMaster,   // SOFTCAP4: `master` - the Master Skills door's page
     professions: (d) => drawProfessionsPage(d, render, profKit),
     crafting: (d) => drawCraftingPage(d, render, profKit),   // CRAFT-HALL
     vendor: (d) => drawVendorPage(d, render, profKit),   // HOME-VENDOR
@@ -5452,6 +5457,33 @@ function statsCharacter(detail, m) {
     }
     detail.append(a);
   }
+}
+
+function statsPerks(detail) {
+  detail.append(pxDivider(t('pause.stats.perks', 'Perks & Feats')));
+  detail.append(el('p', 'px-note', t('perks.ui.lead', 'Passive combat, magic, and survival feats unlocked by mastering skills and surviving the Iliac Bay.')));
+  const unlockedSet = new Set(playerEntity ? getUnlockedPerks(playerEntity) : []);
+  const corePerks = getAllPerks();
+  const modPerks = getAllRegisteredPerks();
+  const allPerks = [...corePerks, ...modPerks.filter((mp) => !corePerks.some((cp) => cp.id === mp.id))];
+  const listWrap = el('div', 'px-perks-list');
+  for (const p of allPerks) {
+    const isUnlocked = unlockedSet.has(p.id);
+    const row = el('div', `px-stat gr-perk-row${isUnlocked ? ' on' : ''}`);
+    const nameStr = t(`perks.${p.id}.name`, p.name);
+    const descStr = t(`perks.${p.id}.desc`, p.desc || p.description || '');
+    const statusStr = isUnlocked ? t('perks.ui.unlocked', 'Unlocked') : t('perks.ui.locked', 'Locked');
+    row.append(
+      el('span', 'k', `${isUnlocked ? '★ ' : '☆ '}${nameStr}`),
+      el('span', `v px-src${isUnlocked ? ' won' : ''}`, statusStr),
+    );
+    const descEl = el('p', 'meta', descStr);
+    descEl.style.margin = '2px 0 8px 18px';
+    descEl.style.fontSize = '12px';
+    descEl.style.color = isUnlocked ? 'var(--cp-text, #e0e0e0)' : 'var(--cp-dim, #777)';
+    listWrap.append(row, descEl);
+  }
+  detail.append(listWrap);
 }
 
 /** BUFF-END (Leafen on Discord: "Could there be a way to dispel magic for non-magic users?"): EFFECTS - every spell on

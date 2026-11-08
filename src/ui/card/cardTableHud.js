@@ -88,16 +88,9 @@ export function cardHudModel({
   packPrice = null,
   refused = null,
 }) {
-  const unit = friendly ? 'chips' : 'gold';
+  const unit = 'gold';
   const title = `Card table - ${stakes.sb}/${stakes.bb} ${unit}`;
-  // CARDS6: online, a realm character's table plays for gold - the realm holds the stake, the relay deals
-  const note = gold
-    ? 'A gold table. The realm holds your stake, and you keep what you have when you stand up.'
-    : online
-      ? 'A friendly game with the room. No gold changes hands.'
-      : friendly
-        ? "A friendly game. Online, no gold changes hands at a patrons' table."
-        : null;
+  const note = null;
   if (phase === 'buyin') {
     return {
       phase,
@@ -206,24 +199,18 @@ export function cardHudModel({
       actions.push({ id: 'allin', label: `All in (${legal.raise.max})`, enabled: true, to: legal.raise.max });
     }
   }
-  // CARDS5: alone at the relay's table, the regulars are a game too
-  if (online?.waiting && online.regulars !== false)
-    actions.push({ id: 'regulars', label: 'Play the regulars', enabled: true }); // AUDIT CARDS-3 B11: only with a chair for one
   if (phase === 'playing' && topUp > 0) actions.push({ id: 'topup', label: `Top up ${topUp}`, enabled: !staking }); // CARDS6 follow-up: between hands, a gold seat
-  // AUDIT CARDS-6 E7: the other game and the house's packs whenever he is not in a hand at the relay's table - it sits
-  // him at once (no buy-in panel, where alone they stood), so a player online never saw "Play Iliac Hand"; and on the
-  // panel that says a cloth plays Iliac Hand already (E8: 'other game')
   const inHand = !!hand && view.handSeats.includes(you);
   if ((online && !inHand) || (phase === 'over' && why === 'other game')) {
     if (iliac) actions.push({ id: 'iliac', label: 'Play Iliac Hand', enabled: !staking });
-    if (gambit) actions.push({ id: 'gambit', label: playGambitWord(), enabled: !staking }); // KG3: the third game - the tavern's regulars, never the relay's table
+    if (gambit) actions.push({ id: 'gambit', label: playGambitWord(), enabled: !staking });
     if (packPrice) actions.push({ id: 'pack', label: `Buy a card pack (${packPrice} gold)`, enabled: !staking });
   }
   actions.push({ id: 'stand', label: phase === 'over' ? 'Leave the table' : 'Stand up', enabled: true });
   const message =
     phase === 'over'
       ? why === 'broke'
-        ? 'You are out of chips.'
+        ? 'You are out of gold.'
         : why === 'empty'
           ? 'The table has emptied. Every patron is broke.'
           : why === 'stood'
@@ -237,15 +224,11 @@ export function cardHudModel({
             view.seats.map((x) => x.name),
             you,
           )
-        : online?.waiting
-          ? 'Waiting for another player to sit down.'
-          : !hand
-            ? 'The next hand is being dealt...'
-            : legal
-              ? online?.clock
-                ? `Your turn - ${online.clock} s.`
-                : 'Your turn.'
-              : `Waiting on ${seats.find((s) => s.state === 'to act')?.name ?? 'the table'}...`;
+        : !hand
+          ? 'The next hand is being dealt...'
+          : legal
+            ? 'Your turn.'
+            : `Waiting on ${seats.find((s) => s.state === 'to act')?.name ?? 'the table'}...`;
   return {
     phase,
     title,
@@ -255,11 +238,9 @@ export function cardHudModel({
     pot,
     board: hand ? hand.board.map(cardFace) : sd ? sd.board.map(cardFace) : [],
     street: hand?.street ?? (sd ? 'showdown' : null),
-    // CARDS-PANEL: the relay's refusal is a warning, your turn the line to look at
-    tone: online?.error && !legal ? 'warn' : phase === 'playing' && legal ? 'turn' : null,
+    tone: phase === 'playing' && legal ? 'turn' : null,
     actions,
-    message:
-      online?.error && !legal ? `${message} (${HOLDEM_REFUSALS[online.error] ?? 'The table refused that.'})` : message,
+    message,
     log: log.slice(-6),
   };
 }
@@ -323,8 +304,8 @@ export const HOLDEM_REFUSALS = Object.freeze({
   'table differs': 'That table is set up for different seats or stakes.',
   'account seated': 'You already sit at a table here.',
   busy: 'The table is busy. Try again.',
-  'gold table': 'That table plays for gold. Only a realm character can stake there.',
-  'friendly table': 'That table plays for chips.',
+  'gold table': 'That table plays for gold.',
+  'friendly table': 'That table plays for gold.',
   'bad stake': "That stake is outside the table's buy-in.",
   'stake spent': 'That stake has been spent. Buy in again to sit.',
   'stake refused': 'The table will not take that stake.',
@@ -361,11 +342,11 @@ export function eventLine(e, names, you = -1) {
         ? `${e.name} is broke and leaves for the night.`
         : me
           ? e.broke
-            ? 'You are out of chips and stand up.'
+            ? 'You are out of gold and stand up.'
             : 'You stand up.'
           : e.broke
-            ? `${e.name} is out of chips and stands up.`
-            : `${e.name} stands up.`; // CARDS5: a player at the relay's table, not a regular; AUDIT CARDS-3 B7: said to me when it is me
+            ? `${e.name} is out of gold and stands up.`
+            : `${e.name} stands up.`;
     case 'sit':
       return me ? 'You sit down.' : `${e.name} sits down.`;
     case 'topup':

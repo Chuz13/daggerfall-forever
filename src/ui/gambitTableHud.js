@@ -234,39 +234,8 @@ export function gambitHudModel(p) {
   };
   let next = 'chooseRegular',
     nextArgs = {};
-  /** @type {string|null} */ let line = null; // KG5: an online next step, said as it is
-  const online = p.online ?? null;
-  if (phase === 'setup' && online) {
-    out.title = gambitTitle({ phase });
-    out.setup = {
-      heads: { regulars: GAMBIT_HEADS.regulars, stake: GAMBIT_HEADS.stake, crown: GAMBIT_HEADS.crown },
-      online: {
-        head: onlineHead(),
-        seats: online.seats.map((/** @type {any} */ x) => ({ line: onlineSeat(x), mine: !!x?.mine })),
-      },
-      regulars: [],
-      stakes: null,
-      stakeLine: null,
-      crowns: GAMBIT_CROWNS.map((key, i) => ({ key, i, name: kingName(key), chosen: crownIndex(p.crown) === i })),
-      kingLine: kingLine(),
-    };
-    line = onlineStep(online.step, online.stepArgs);
-    out.actions.push({
-      id: 'sit',
-      label: GAMBIT_ONLINE_PRESS.sit,
-      enabled: !!online.canSit,
-      kind: 'primary',
-      why: online.canSit ? null : onlineStep('full'),
-    });
-    if (online.canBoard)
-      out.actions.push({ id: 'board', label: p.boardOpen ? boardHide() : GAMBIT_ONLINE_PRESS.board, enabled: true }); // KG6; AUDIT KG II D18
-    out.actions.push({ id: 'regulars', label: GAMBIT_ONLINE_PRESS.regulars, enabled: true });
-    out.actions.push(
-      { id: 'holdem', label: GAMBIT_PRESS.holdem, enabled: true },
-      { id: 'iliac', label: GAMBIT_PRESS.iliac, enabled: true },
-    );
-    out.actions.push({ id: 'stand', label: GAMBIT_PRESS.stand, enabled: true, kind: 'quiet' });
-  } else if (phase === 'setup') {
+  /** @type {string|null} */ let line = null;
+  if (phase === 'setup') {
     out.title = gambitTitle({ phase });
     out.setup = {
       heads: { regulars: GAMBIT_HEADS.regulars, stake: GAMBIT_HEADS.stake, crown: GAMBIT_HEADS.crown },
@@ -276,7 +245,7 @@ export function gambitHudModel(p) {
         tierKey: r.tier.key,
         step: tierStep(r.tier.key),
         chosen: chosen?.i === r.i,
-        ...regularLines(r, friendly),
+        ...regularLines(r, false),
       })),
       stakes: picks,
       stakeLine: chosen && !forFun && stake ? stakeWhat(stake, chosen.name) : null,
@@ -285,7 +254,6 @@ export function gambitHudModel(p) {
     };
     if (!regs.length) next = 'noRegular';
     else if (!chosen) next = 'chooseRegular';
-    else if (friendly) next = 'online';
     else if (chosen.forFun) {
       next = 'forFun';
       nextArgs = { name: chosen.name };
@@ -302,7 +270,6 @@ export function gambitHudModel(p) {
       kind: 'primary',
       why: ready ? null : nextStep(next, nextArgs),
     });
-    if (p.canOnline) out.actions.push({ id: 'online', label: GAMBIT_ONLINE_PRESS.online, enabled: true });
     out.actions.push(
       { id: 'holdem', label: GAMBIT_PRESS.holdem, enabled: true },
       { id: 'iliac', label: GAMBIT_PRESS.iliac, enabled: true },
@@ -610,57 +577,13 @@ export function gambitHudModel(p) {
         night: game.nightSpent ? nightSpent(name) : null,
       };
       next = 'over';
-      if (online) {
-        // KG5: another game is the army built again and Ready said again; or the regulars
-        if (!watching) {
-          line = onlineStep('over');
-          out.actions.push({ id: 'again', label: GAMBIT_PRESS.again, enabled: true, kind: 'primary' });
-        } else {
-          line = onlineStep(online.step, online.stepArgs);
-          // AUDIT KG II B7: the step a watcher is told - a seat free - is a press here
-          if (online.canSit)
-            out.actions.push({ id: 'sit', label: GAMBIT_ONLINE_PRESS.sit, enabled: true, kind: 'primary' });
-        }
-        if (online.canBoard)
-          out.actions.push({
-            id: 'board',
-            label: p.boardOpen ? boardHide() : GAMBIT_ONLINE_PRESS.board,
-            enabled: true,
-          }); // KG6; AUDIT KG II D18: open, it hides
-        out.actions.push({ id: 'regulars', label: GAMBIT_ONLINE_PRESS.regulars, enabled: true });
-      } else {
-        out.actions.push({ id: 'again', label: GAMBIT_PRESS.again, enabled: true, kind: 'primary' });
-        out.actions.push({ id: 'army', label: GAMBIT_PRESS.changeArmy, enabled: true });
-        out.actions.push({ id: 'regulars', label: GAMBIT_PRESS.otherRegular, enabled: true });
-      }
+      out.actions.push({ id: 'again', label: GAMBIT_PRESS.again, enabled: true, kind: 'primary' });
+      out.actions.push({ id: 'army', label: GAMBIT_PRESS.changeArmy, enabled: true });
+      out.actions.push({ id: 'regulars', label: GAMBIT_PRESS.otherRegular, enabled: true });
       out.actions.push({ id: 'stand', label: GAMBIT_PRESS.leave, enabled: true, kind: 'quiet' });
     }
   }
-  // KG6: THE SEASON BOARD, as read - a top ten, the reader's own, its Grandmaster, what the title needs
-  if (online && p.boardOpen && p.board) {
-    const b = p.board;
-    out.board =
-      b === 'reading' || b === 'failed'
-        ? { head: GAMBIT_ONLINE_PRESS.board, rows: [], lines: [b === 'reading' ? boardReading() : boardFailed()] }
-        : {
-            head: boardHead(b.season?.n ?? 0),
-            rows: (b.rows ?? []).map((/** @type {any} */ r) => ({ line: boardRow(r), you: !!r.you })),
-            lines: [
-              boardYou(
-                b.me && b.me.games
-                  ? {
-                      ...b.me,
-                      rank:
-                        (b.rows ?? []).concat(b.pinned ? [b.pinned] : []).find((/** @type {any} */ r) => r.you)?.rank ??
-                        0,
-                    }
-                  : null,
-              ),
-              boardChampion(b.champion?.name ?? null),
-              boardNeeds(b.titleNeeds?.games ?? 0, b.titleNeeds?.foes ?? 0),
-            ],
-          };
-  }
+
   out.next = line ?? nextStep(next, nextArgs);
   out.message = p.why ?? out.next;
   // the line's tone is the chrome's three (a refusal, your turn, theirs): the line says the next step - at the end too,

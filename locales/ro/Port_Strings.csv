@@ -9275,3 +9275,4 @@ perks.iron_constitution.name,Iron Constitution
 perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% and grants +15 Max HP (Requires Level 5).
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
+pause.stats.perks,Avantaje

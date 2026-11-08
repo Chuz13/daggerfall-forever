@@ -198,38 +198,27 @@ export function iliacHudModel({
   gambit = false,
 }) {
   const title = 'Card table: Iliac Hand';
-  const note = online
-    ? online.ranked
-      ? 'A ranked game against another player. The result counts on the season board.'
-      : 'A game against another player in the room.'
-    : friendly
-      ? "A friendly game. Online, no cards change hands at a regulars' table."
-      : null;
+  const note = null;
   const pack = packPrice ? [{ id: 'pack', label: `Buy a card pack (${packPrice} gold)`, enabled: true }] : [];
   if (phase === 'setup') {
     const s = setup ?? { decks: [], foes: [] };
     const deckOk = s.deck != null && s.decks[s.deck] && !s.decks[s.deck].word;
-    const foeOk = online ? true : s.foe != null && !!s.foes[s.foe];
+    const foeOk = s.foe != null && !!s.foes[s.foe];
     return {
       phase,
       title,
       note,
       decks: s.decks.map((d, i) => ({ i, name: d.name, word: d.word ?? null, chosen: i === s.deck })),
-      foes: online
-        ? []
-        : s.foes.map((f, i) => ({
-            i,
-            name: f.name,
-            temper: TEMPER_WORDS[f.temper] ?? f.temper,
-            paid: !!f.paid,
-            chosen: i === s.foe,
-          })),
-      keeps: online ? null : { on: !!s.forKeeps && !!s.keepsOk, enabled: !!s.keepsOk, why: s.keepsWhy ?? null },
-      // CARDS10: online, the season's board - a deck the service vouches the realm character holds (the relay seats it ranked)
-      ranked: online
-        ? { on: !!online.rankedOn && !!online.rankedOk, enabled: !!online.rankedOk, why: online.rankedWhy ?? null }
-        : null,
-      board: online?.board ? boardLines(online.board) : null,
+      foes: s.foes.map((f, i) => ({
+        i,
+        name: f.name,
+        temper: TEMPER_WORDS[f.temper] ?? f.temper,
+        paid: !!f.paid,
+        chosen: i === s.foe,
+      })),
+      keeps: { on: !!s.forKeeps && !!s.keepsOk, enabled: !!s.keepsOk, why: s.keepsWhy ?? null },
+      ranked: null,
+      board: null,
       message:
         why ??
         (!s.decks.length
@@ -238,32 +227,17 @@ export function iliacHudModel({
             ? 'Choose a valid deck from your binder.'
             : !foeOk
               ? 'Choose a regular to play.'
-              : online?.busy
-                ? 'Checking your deck with the realm...'
-                : online
-                  ? [online.lastLine, 'Sit down and wait for another player.'].filter(Boolean).join(' ')
-                  : 'Ready to deal.'), // AUDIT CARDS-6 E10: a watched game's end said as its chair frees
-      // CARDS-PLUS: what the line is - a refusal, or no deck to play, a warning; the realm vouching a wait
-      tone: why || !deckOk ? 'warn' : online?.busy ? 'wait' : null,
+              : 'Ready to deal.'),
+      tone: why || !deckOk ? 'warn' : null,
       actions: [
         {
           id: 'deal',
-          label: online ? 'Sit at the table' : 'Deal',
-          enabled: !!(deckOk && foeOk) && !online?.busy,
+          label: 'Deal',
+          enabled: !!(deckOk && foeOk),
           kind: 'primary',
         },
-        ...(online ? [{ id: 'regulars', label: 'Play a regular instead', enabled: !!online.regularsOk }] : []), // CARDS10: the tavern's own, while he holds no seat at the relay's (AUDIT CARDS-6 E20: not "alone in the room")
-        ...(online
-          ? [
-              {
-                id: 'board',
-                label: online.board ? 'Hide the season board' : 'Season board',
-                enabled: !online.boardBusy,
-              },
-            ]
-          : []), // CARDS10: the ladder
         { id: 'holdem', label: "Play Hold'em instead", enabled: true },
-        ...(gambit ? [{ id: 'gambit', label: playGambitWord(), enabled: true }] : []), // KG3: the third game, its Features switch on
+        ...(gambit ? [{ id: 'gambit', label: playGambitWord(), enabled: true }] : []),
         ...pack,
         { id: 'stand', label: 'Stand up', enabled: true, kind: 'quiet' },
       ],
