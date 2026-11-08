@@ -11037,6 +11037,10 @@ export function createWorldModes(host) {
     // the world sleeps untouched underneath (the modal frame also
     // freezes streaming - the interior-local player position must
     // never feed the recenter logic).
+    if (!interiorCtx) {
+      setMode('exterior');
+      return false;
+    }
     // UNSTUCK1: exitInteriorNow's own deferral, F-A5's exact shape -
     // outside any overlay dispatch, same reasoning as pendingDungeonExit
     // just above: tearing the interior down from INSIDE a click/command

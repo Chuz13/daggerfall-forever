@@ -1765,6 +1765,10 @@ registerCommand(
         return '<b>[Necro Test: Lich]</b> Set Level 20, Mysticism 100, INT/WIL 100, Grimoire Read, added 4 Elixir reagents (38, 39, 45, 53) + 1 brewed Potion of Elixir of Unlife + all Necro spells!';
       }
       if (preset === 'archlich' || preset === 'arch_lich') {
+        if (playerEntity) {
+          playerEntity.NecroGrimoireRead = true;
+          playerEntity.necroGrimoireRead = true;
+        }
         getConsoleCommand('necro').callback(['lich', 'on']);
         handleLevelCommand(['30']);
         if (!playerEntity.skills || !Array.isArray(playerEntity.skills)) {
@@ -1774,6 +1778,7 @@ registerCommand(
         getConsoleCommand('set_attr').callback(['intelligence', '115']);
         getConsoleCommand('set_attr').callback(['willpower', '115']);
         handleSetMaxMagicka(['500']);
+        handleHealCommand();
         getConsoleCommand('addspell').callback(['arch_lichdom']);
         return '<b>[Necro Test: Arch-Lich Ritual]</b> Player set as Lich, Level 30, Mysticism 200, INT/WIL 115, Max Magicka 500, Arch-Lichdom spell added to spellbook!';
       }
@@ -1790,6 +1795,10 @@ registerCommand(
         return '<b>[Necro Test: Synergy]</b> Added all Necro spells, raised a Skeleton minion (for Bone Armor 3x HP / Numpad 4 Detonate), and spawned a corpse (for 5x HP Corpse Explosion).';
       }
       // default 'kit'
+      if (playerEntity) {
+        playerEntity.NecroGrimoireRead = true;
+        playerEntity.necroGrimoireRead = true;
+      }
       handleLevelCommand(['20']);
       getConsoleCommand('set_skill').callback(['Mysticism', '100']);
       getConsoleCommand('set_skill').callback(['Destruction', '100']);
@@ -1800,7 +1809,7 @@ registerCommand(
       handleAddItemCommand(['lich_ingredients']);
       handleAddItemCommand(['elixir_unlife', '1']);
       getConsoleCommand('addspell').callback(['all_necro']);
-      return '<b>[Necro Full Test Kit]</b> Level 20, Mysticism/Destruction 100, INT/WIL 100, Skinning Knife (603), Elixir of Unlife + 4 reagents, and all 4 Necromancy spells granted!';
+      return '<b>[Necro Full Test Kit]</b> Level 20, Mysticism/Destruction 100, INT/WIL 100, Grimoire Read, Skinning Knife (603), Elixir of Unlife + 4 reagents, and all 4 Necromancy spells granted!';
     }
     return 'Usage: necro <status | lich [on|off] | ancient_lich [on|off] | taint [add <n>|set <n>] | spawn <type|corpse> | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
   }

@@ -9262,7 +9262,7 @@ necro.harvest.done,You harvest necromantic reagents from {0}: {1}.
 necro.harvest.empty,Nothing useful remains on this corpse.
 necro.elixir.brewed,Dark alchemy coalesces! You distil the Elixir of Unlife from the four occult reagents.
 necro.lich.success,The mortal spark is snuffed. You rise as an immortal Lich of the Iliac Bay.
-necro.lich.fail,Your body rejects the Elixir of Unlife! Lethal poison courses through your veins (Requires Level 20 & 100 Mysticism).
+necro.lich.fail,Your body rejects the Elixir of Unlife! Lethal poison courses through your veins (Requires Grimoire, Level 20, 100 Mysticism, 100 Intelligence and 100 Willpower).
 perks.ui.title,Perks & Milestones
 perks.ui.lead,"Passive combat, magic, and survival feats unlocked by mastering skills and surviving the Iliac Bay."
 perks.ui.unlocked,Unlocked
