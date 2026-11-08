@@ -69,8 +69,9 @@ export const ENTRY_WORDS = Object.freeze({
   paralyze: () => 'You cannot move.',
   shield: (a) =>
     Number.isFinite(a.shieldRemaining)
-      ? `Absorbs ${Math.max(0, Math.round(a.shieldRemaining))} more damage.`
-      : 'Absorbs damage.',
+      ? t('status.absorbsMore', 'Absorbs {n} more damage.', { n: Math.max(0, Math.round(a.shieldRemaining)) })
+      : t('status.absorbs', 'Absorbs damage.'),
+  boneArmor: (a) => ENTRY_WORDS.shield(a),
   elementalResistance: (a) =>
     `Resists ${RESIST_WORDS[a.element] ?? 'the element'}${Number.isFinite(a.chance) ? ` (${a.chance}% chance)` : ''}.`,
   slowfall: () => 'You fall slowly and take no damage from a fall.',

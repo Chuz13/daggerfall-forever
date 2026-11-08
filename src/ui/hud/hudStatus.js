@@ -716,6 +716,7 @@ export function statusTiles({
       spell: Number.isInteger(e.icon) && e.icon >= 0 ? e.icon : null,
       bundle: e.bundleId ?? null,
       endable: !!e.endable && e.bundleId != null, // BUFF-END: a right-click ends it (ui/enhanced/enhancedHud.js)
+      shield: e.shield ?? null,
     }),
   );
   for (const c of powers)

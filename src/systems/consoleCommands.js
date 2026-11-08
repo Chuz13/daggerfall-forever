@@ -1672,8 +1672,42 @@ registerCommand(
     if (sub === 'control') {
       const type = String(args[1] || 'skeleton').toLowerCase();
       const rounds = Number.isFinite(Number(args[2])) ? Math.max(1, Number(args[2])) : 15;
+
+      // 1. Try controlling targeted live undead in front of player
+      const targetFoe = _sceneContext?.findTargetUndeadFoe?.();
+      if (targetFoe) {
+        const res = castControlUndead(playerEntity, targetFoe, {
+          magnitude: 100,
+          duration: rounds,
+          chance: 100,
+        });
+        if (res.success && res.minion) {
+          _sceneContext?.adoptControlledUndead?.(res.minion, targetFoe);
+          return `Enslaved targeted ${res.minion.name} (${res.minion.type}, ID: ${res.minion.id}) via Control Undead for ${rounds} rounds!`;
+        }
+        return `Control Undead on target failed: ${res.reason || 'unknown'}`;
+      }
+
+      // 2. If no target in front of player, spawn the correct 3D undead mob and take control
       const playerPos = _sceneContext?.getPlayerPos?.();
       const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
+      if (_sceneContext?.spawnUndeadMinion) {
+        Promise.resolve(_sceneContext.spawnUndeadMinion(type, pos, `Controlled ${type}`)).then((spawnedFoe) => {
+          if (spawnedFoe) {
+            const res = castControlUndead(playerEntity, spawnedFoe, {
+              magnitude: 100,
+              duration: rounds,
+              chance: 100,
+            });
+            if (res.success && res.minion) {
+              _sceneContext?.adoptControlledUndead?.(res.minion, spawnedFoe);
+            }
+          }
+        }).catch((e) => console.error('[necro control]', e));
+        return `Spawned and enslaved Controlled ${type} via Control Undead for ${rounds} rounds (0 pool points used; current pool: ${usedUndeadPoints()}/${calculateUndeadCapacity(playerEntity)}).`;
+      }
+
+      // 3. Fallback without 3D scene spawner (e.g. headless unit tests)
       const res = castControlUndead(
         playerEntity,
         { type, isUndead: true, position: pos, feet: pos, name: `Controlled ${type}` },

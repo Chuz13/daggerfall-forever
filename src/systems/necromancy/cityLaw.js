@@ -94,7 +94,7 @@ export function checkSettlementInfraction(
       infraction: true,
       crime,
       alertText,
-      isHostile: isHammerfell,
+      isHostile: true,
     };
   }
 

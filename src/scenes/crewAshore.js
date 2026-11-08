@@ -344,6 +344,16 @@ export function createCrewAshore(deps) {
       const k = companionKeyOf(c);
       rec.companion = k;
       rec.shipmate = true;
+      if (rec.ai) {
+        const party = deps.party?.();
+        const list = party?.party ?? [];
+        const idx = Math.max(0, list.indexOf(c));
+        rec.ai.follow = deps.follow ? deps.follow(c, idx, followOf(idx)) : followOf(idx);
+        rec.ai.isHostile = false;
+        rec.ai.target = null;
+        rec.ai.secondaryTarget = null;
+        rec.ai.giveUpTimer = 0;
+      }
       stood.set(k, { c, rec, remove: place.remove, has: place.has ?? null, fx: place.fx ?? null });
       deps.onStood?.(c, rec);
       return true;

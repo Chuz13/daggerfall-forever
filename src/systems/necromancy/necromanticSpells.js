@@ -938,33 +938,33 @@ export function resolveUndeadControlTarget(target) {
   let type = null;
   let mobile = Number.isFinite(mobileId) && mobileId >= 0 ? mobileId : null;
 
-  if (mobileId === 9 || rawType.includes('skeleton') || rawType.includes('skeletal')) {
+  if (mobileId === 15 || rawType.includes('skeleton') || rawType.includes('skeletal')) {
     type = 'skeleton';
-    if (mobile == null) mobile = 9;
+    if (mobile == null) mobile = 15;
   } else if (mobileId === 17 || rawType.includes('zombie')) {
     type = 'zombie';
     if (mobile == null) mobile = 17;
-  } else if (mobileId === 15 || rawType.includes('ghost')) {
+  } else if (mobileId === 18 || rawType.includes('ghost')) {
     type = 'ghost';
-    if (mobile == null) mobile = 15;
-  } else if (mobileId === 16 || rawType.includes('mummy')) {
+    if (mobile == null) mobile = 18;
+  } else if (mobileId === 19 || rawType.includes('mummy')) {
     type = 'mummy';
-    if (mobile == null) mobile = 16;
-  } else if (mobileId === 20 || rawType.includes('wraith')) {
+    if (mobile == null) mobile = 19;
+  } else if (mobileId === 23 || rawType.includes('wraith')) {
     type = 'wraith';
-    if (mobile == null) mobile = 20;
-  } else if (mobileId === 29 || rawType.includes('vampire_ancient') || rawType.includes('vampire ancient') || rawType.includes('ancient vampire')) {
+    if (mobile == null) mobile = 23;
+  } else if (mobileId === 30 || rawType.includes('vampire_ancient') || rawType.includes('vampire ancient') || rawType.includes('ancient vampire')) {
     type = 'vampire_ancient';
-    if (mobile == null) mobile = 29;
+    if (mobile == null) mobile = 30;
   } else if (mobileId === 28 || rawType.includes('vampire')) {
     type = 'vampire';
     if (mobile == null) mobile = 28;
-  } else if (mobileId === 31 || rawType.includes('ancient_lich') || rawType.includes('ancient lich')) {
+  } else if (mobileId === 33 || rawType.includes('ancient_lich') || rawType.includes('ancient lich')) {
     type = 'ancient_lich';
-    if (mobile == null) mobile = 31;
-  } else if (mobileId === 30 || rawType.includes('lich')) {
+    if (mobile == null) mobile = 33;
+  } else if (mobileId === 32 || rawType.includes('lich')) {
     type = 'lich';
-    if (mobile == null) mobile = 30;
+    if (mobile == null) mobile = 32;
   } else if (
     target.isUndead ||
     ent.isUndead ||
@@ -973,7 +973,7 @@ export function resolveUndeadControlTarget(target) {
     ent.affinity === 'Undead'
   ) {
     type = 'skeleton';
-    if (mobile == null) mobile = 9;
+    if (mobile == null) mobile = 15;
   }
 
   if (!type) {
@@ -1070,6 +1070,18 @@ export function castControlUndead(
   } else {
     target.team = 'PlayerAlly';
     target.mobileTeam = 'PlayerAlly';
+  }
+  if (target.ai) {
+    target.ai.isHostile = false;
+    target.ai.target = null;
+    target.ai.secondaryTarget = null;
+    target.ai.giveUpTimer = 0;
+  }
+  if (target.sceneBody?.ai) {
+    target.sceneBody.ai.isHostile = false;
+    target.sceneBody.ai.target = null;
+    target.sceneBody.ai.secondaryTarget = null;
+    target.sceneBody.ai.giveUpTimer = 0;
   }
 
   return {

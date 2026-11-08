@@ -48,8 +48,9 @@ import { liveStat } from '../systems/statMods.js';   // AUDIT 23 (characters-11)
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { damageShieldPool } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice, isTransformedLycanthrope } from '../systems/lycanthropy.js';   // V4: the beast's attack voice   // GUARD1: EnemyEntity.cs:188's FOURTH despawn term
-import { isLich, isAnyLich } from '../systems/necromancy/lichdomStatus.js';
+import { isLich, isAnyLich, isPlayerDisguised } from '../systems/necromancy/lichdomStatus.js';
 import { activeUndead } from '../systems/necromancy/undeadCapacity.js';
+import { allSpawnedMinions } from '../systems/necromancy/minionController.js';
 import { checkCityLawViolation } from '../systems/necromancy/cityLaw.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 import { playerWeaponHitEntity } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher
@@ -1168,19 +1169,23 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // walks away for the trial in both modes (arrestFlow's inCourt).
     // DISC19-F: a CRIME turns the town's defenders into that watch
     // first - they are guards, and the law below is theirs from here on.
-    const isUndisguisedLich = FORK_FLAGS.ENABLE_NECROMANCY && isAnyLich(playerEntity) && !playerEntity.isHooded;
-    const hasVisibleMinions = FORK_FLAGS.ENABLE_NECROMANCY && activeUndead().some((m) => m.stance !== 'feign_death');
+    const isUndisguisedLich = FORK_FLAGS.ENABLE_NECROMANCY && isAnyLich(playerEntity) && !isPlayerDisguised(playerEntity);
+    const hasVisibleMinions = FORK_FLAGS.ENABLE_NECROMANCY && (
+      activeUndead().some((m) => !m.dead && m.stance !== 'feign_death') ||
+      allSpawnedMinions().some((m) => !m.dead && m.stance !== 'feign_death')
+    );
 
     if (FORK_FLAGS.ENABLE_NECROMANCY && (isUndisguisedLich || hasVisibleMinions) && !playerEntity.crimeCommitted) {
       const necroLaw = checkCityLawViolation({
         playerEntity,
         isInsideSettlement: true,
         minions: activeUndead(),
-        isDisguised: !!playerEntity.isHooded,
+        isDisguised: isPlayerDisguised(playerEntity),
         crimeAlertSink: (alert) => { say?.(alert); },
         crimeSeveritySink: (crime) => setCrimeCommitted(playerEntity, crime),
       });
-      if (necroLaw.isHostile) {
+      if (necroLaw.infraction) {
+        spawnCityGuards(true, { playerFeet, pool: [] }).catch((e) => console.error('[guards]', e));
         for (const g of guards) if (!g.dead) { g.ai.isHostile = true; enlistDefender(g, playerFeet); }
       }
     }

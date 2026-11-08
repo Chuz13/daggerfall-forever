@@ -1547,7 +1547,8 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       const chance = chanceOf(e, false);
       const mag = magnitude(e);
       const rounds = Math.max(1, rollDuration(e, casterLevel));
-      const res = castControlUndead(caster?.entity ?? target, target, {
+      const targetObj = ctx?.foe || target;
+      const res = castControlUndead(caster?.entity ?? target, targetObj, {
         magnitude: mag,
         duration: rounds,
         chance: ctx.bypassChance === true ? 100 : chance,

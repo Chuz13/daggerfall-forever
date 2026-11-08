@@ -162,6 +162,7 @@ export function spawnMinion({
   sceneBody = null,
   health = null,
   maxHealth = null,
+  stance = null,
 } = {}) {
   const profile = MINION_PROFILES[type] || MINION_PROFILES.skeleton;
   const id = `minion_${Date.now().toString(36)}_${_minionIdCounter++}`;
@@ -178,7 +179,7 @@ export function spawnMinion({
     upkeep: profile.upkeep ?? null,
     position: [...position],
     feet: [...position],
-    stance: MINION_STANCES.FOLLOW,
+    stance: stance || MINION_STANCES.FOLLOW,
     master: masterEntity,
     profile,
     dead: false,

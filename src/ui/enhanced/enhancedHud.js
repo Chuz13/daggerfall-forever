@@ -512,6 +512,8 @@ export function effectRows(entity) {
   const row = (b) => {
     const rounds = maxRoundsRemaining(b);
     const permanent = !!(b.permanent || b.entries?.some((e) => e.permanent) || rounds === null);
+    const shieldVal = b.entries?.find((e) => Number.isFinite(e.shieldRemaining))?.shieldRemaining;
+    const shield = Number.isFinite(shieldVal) ? Math.max(0, Math.round(shieldVal)) : null;
     return {
       name: String(shownSpellName({ index: b.spellIndex, name: b.name }) ?? '').replace(/^!+/, ''),   // L10N3e: bundle.name, a stock spell's in the player's language (HUDActiveSpells.cs:304, EntityEffectBroker.cs:877)
       rounds: permanent ? null : rounds,
@@ -523,6 +525,7 @@ export function effectRows(entity) {
       ally: !!b.ally,        // ...or a party mate's gift, a buff (AUDIT UI C3)
       bundleId: b.bundleId,  // BUFF-END: the tile's own bundle...
       endable: canEndBundle(b),   // ...and whether it is the player's to end
+      shield,
     };
   };
   return [...bundles.filter((b) => b.selfCast).map(row), ...bundles.filter((b) => !b.selfCast).map(row)];
@@ -1533,7 +1536,7 @@ function drawStatus(vitals, opts, live = null) {
   const top = side ? `${last.statSideOffset ?? 0}px` : '';   // beside the diamond: from under what stands above
   if (last.statTop !== top) { last.statTop = top; parts.stat.style.top = top; }
   const dpr = clampDpr(screenDpr() * (last.scale ?? 1));   // the block rides the HUD's scale: a spell's icon is fitted at it
-  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}:${t.endable ? t.bundle : ''}`).join('|')}#${dpr}#${metrics.pic}`;   // BUFF-END: a tile's bundle rides the key - it is what a right-click ends   // AUDIT UI C: the ratio, not the scale alone - a zoom or a new monitor refits
+  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.shield ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}:${t.endable ? t.bundle : ''}`).join('|')}#${dpr}#${metrics.pic}`;   // BUFF-END: a tile's bundle rides the key - it is what a right-click ends   // AUDIT UI C: the ratio, not the scale alone - a zoom or a new monitor refits
   if (last.stat === key) return;
   last.stat = key;
   parts.stat.replaceChildren(...tiles.map((t) => statTile(t, dpr, metrics.pic)));
@@ -1615,7 +1618,7 @@ function bindStatTips(stat) {
     if (!stat.classList.contains('ending')) return null;
     const cell = target?.closest?.('.hst-cell');
     if (!cell?._tip) return null;
-    return { node: cell, tip: statTipOf(cell), key: `stat:${cell._tip.key}` };
+    return { node: cell, tip: statTipOf(cell), key: `stat:${cell._tip.key}:${cell._tip.shield ?? ''}` };
   });
   holds.push({ off });   // the HUD's teardown takes it
 }
@@ -1624,9 +1627,11 @@ function bindStatTips(stat) {
 function refreshStatTip() {
   const up = hudTipShowing();
   if (typeof up !== 'string' || !up.startsWith('stat:')) return;
-  const cell = [...parts.stat.children].find((c) => c._tip && `stat:${c._tip.key}` === up);
+  const cell = [...parts.stat.children].find((c) => c._tip && (`stat:${c._tip.key}` === up || `stat:${c._tip.key}:${c._tip.shield ?? ''}` === up));
   hideHudTip();
-  if (cell && parts.stat.classList.contains('ending')) showHudTip(cell, statTipOf(cell), up);
+  if (cell && parts.stat.classList.contains('ending')) {
+    showHudTip(cell, statTipOf(cell), `stat:${cell._tip.key}:${cell._tip.shield ?? ''}`);
+  }
 }
 
 /** UI3: one tile - its frame's kind, its picture (a spell's icon, a set's rune, a glyph), its foot and its name. */

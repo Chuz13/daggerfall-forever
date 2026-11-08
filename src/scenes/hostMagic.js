@@ -884,7 +884,7 @@ export function createPlayerMagic({
       return sinks.hurt(d, { ...(o ?? {}), element: spell?.element ?? null });   // RVN3: the element rides to the door (its weakness's weight)
     } } : sinks;
     const healthBefore = foe?.entity?.health;
-    const r = applySpell(spell, casterLevel, foe.entity, landing, rolls, caster, ctx);
+    const r = applySpell(spell, casterLevel, foe.entity, landing, rolls, caster, { ...ctx, foe });
     // SCHOOLS3 (bible/06-Systems/Arcane-Specialisations.md section 5): MY OWN cast landed on a foe - the paths' riders
     // answer it (systems/arcanePowers.js). Never a peer's strike spell landed here (its caster is a stand-in), nor a foe's.
     // AUDIT SCHOOLS L1 M6: `took` is what the foe could lose - a 3-point rat takes 3 of a 95-point bolt
@@ -914,6 +914,12 @@ export function createPlayerMagic({
     // "until player attacks them".
     if (r.pacify && foe.ai && !foe.entity?.pacifyImmune) foe.ai.isHostile = false;   // WB8a: never the gate's Warden
     if (r?.controlledUndead && foe) {
+      if (foe.ai) {
+        foe.ai.isHostile = false;
+        foe.ai.target = null;
+        foe.ai.secondaryTarget = null;
+        foe.ai.giveUpTimer = 0;
+      }
       globalThis.__sceneContext?.adoptControlledUndead?.(r.controlledUndead, foe);
     }
     // X11: SPELL REFLECTION - the FOE is the reflector here, so no HUD

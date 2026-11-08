@@ -72,6 +72,7 @@ export function createStandingWatch({
         crimeAlertSink: (alert) => townTalk?.say?.(alert, 5),
       });
       if (necroInf.infraction) {
+        cityGuards.makeNpcGuardsIntoEnemies({ pool: guardPool(), playerFeet: playerFeet() }).catch((e) => console.error('[guards]', e));
         crimeResponse();
         return true;
       }

@@ -10405,6 +10405,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       const prof = c?.profile || MINION_PROFILES[c?.type] || MINION_PROFILES.skeleton;
       rec.profile = prof;
       if (rec.entity) {
+        rec.entity.team = 'PlayerAlly';
+        rec.entity.mobileTeam = 'PlayerAlly';
         rec.entity.profile = prof;
         if (prof.immunePoison) rec.entity.immuneToPoison = true;
         if (prof.immuneParalysis) rec.entity.immuneToParalysis = true;
@@ -10413,6 +10415,12 @@ export async function bootWorld(canvas, renderer, params, status) {
           rec.entity._necroSpeedScaled = true;
           rec.entity.stats.speed = Math.max(10, Math.round((rec.entity.stats.speed || 50) * prof.speed));
         }
+      }
+      if (rec.ai) {
+        rec.ai.isHostile = false;
+        rec.ai.target = null;
+        rec.ai.secondaryTarget = null;
+        rec.ai.giveUpTimer = 0;
       }
       _undeadMinionFoes.add(rec);
     },
@@ -10602,7 +10610,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       foe.ai.target = null;
       foe.ai.secondaryTarget = null;
       foe.ai.canAct = true;
-      foe.ai.isHostile = true;
+      foe.ai.isHostile = false;
+      foe.ai.giveUpTimer = 0;
       if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
     }
     undeadAshore?.adopt?.(cap || minion, foe);
@@ -29746,6 +29755,34 @@ export async function bootWorld(canvas, renderer, params, status) {
     openUndeadCommandMenu: () => openUndeadCommandMenu(),
     adoptControlledUndead: (minion, foe) => adoptControlledUndeadInScene(minion, foe),
     releaseAllControlledUndead: () => releaseAllControlledUndead(),
+    findTargetUndeadFoe: () => {
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      const yaw = cam?.yaw ?? 0;
+      const fwd = [Math.sin(yaw), 0, Math.cos(yaw)];
+      const activePool = modes?.mode === 'dungeon' ? modes?.dungeonCtx?.foes : modes?.mode === 'interior' ? modes?.interiorFoes?.foes : exteriorFoes?.foes;
+      const list = (activePool ?? []).filter((f) => f && !f.dead && !f.companion && !f.controlledUndead && (f.entity?.health ?? 1) > 0);
+      let best = null;
+      let bestScore = Infinity;
+      for (const f of list) {
+        const fPos = f.ai?.feet ?? f.pos;
+        if (!fPos) continue;
+        const dx = fPos[0] - p[0];
+        const dy = fPos[1] - p[1];
+        const dz = fPos[2] - p[2];
+        const dist = Math.hypot(dx, dy, dz);
+        if (dist > 30) continue;
+        const dist2d = Math.hypot(dx, dz) || 1;
+        const dot = (dx * fwd[0] + dz * fwd[2]) / dist2d;
+        if (dot > 0.4) {
+          const score = dist - dot * 5;
+          if (score < bestScore) {
+            bestScore = score;
+            best = f;
+          }
+        }
+      }
+      return best;
+    },
     killMinionBody: (body) => {
       if (!body) return;
       body.dead = true;
