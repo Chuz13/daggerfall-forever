@@ -86,3 +86,21 @@ export function nearestBayCemetery(maps, px, py) {
   }
   return best;
 }
+
+/**
+ * Resolves the nearest cemetery (Bay or Tamriel-wide) for a coordinate.
+ * @param {{ x: number, y: number }} at
+ * @param {any} maps
+ * @param {any} [places]
+ * @returns {{ x: number, y: number, name?: string }|null}
+ */
+export function findNearestCemetery(at, maps, places = null) {
+  if (!at) return null;
+  const t = theatreAt(at.x, at.y);
+  if (t > BAY_THEATRE && places) {
+    const c = cemeteryPastBay(places, at.x, at.y);
+    if (c) return { x: c.px, y: c.py, name: c.name };
+  }
+  const bay = nearestBayCemetery(maps, at.x, at.y);
+  return bay ? { x: bay.px, y: bay.py, name: bay.name } : null;
+}

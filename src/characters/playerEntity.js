@@ -375,6 +375,13 @@ function tellHurt(entity, dmg, before, after, saved = false) {
  */
 export function forcePlayerDeath(entity) {
   if (!((entity?.health ?? 0) > 0)) return false;
+  if (FORK_FLAGS.ENABLE_NECROMANCY && isAnyLich(entity)) {
+    const re = reconstituteLich(entity);
+    if (re.reconstituted) {
+      surfacePlayer();
+      return false;
+    }
+  }
   entity.health = 0;
   surfacePlayer();
   hearDeath(entity);
@@ -470,8 +477,7 @@ export function hurtPlayer(entity, dmg, { bypassShield = false, spare = null } =
   // load-bearing and every future presenter's problem.
   if (wasAlive && entity.health === 0) {
     if (FORK_FLAGS.ENABLE_NECROMANCY && isAnyLich(entity)) {
-      const anchor = entity.phylacteryAnchor;
-      const re = reconstituteLich(entity, anchor);
+      const re = reconstituteLich(entity);
       if (re.reconstituted) {
         surfacePlayer();
         return false;

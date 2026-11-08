@@ -295,9 +295,8 @@ test('NecroIntegration: hurtPlayer restores Lich at phylactery instead of dying'
   // Fatal blow
   const died = hurtPlayer(mortalLich, 50);
 
-  assert.equal(died, false, 'Lich must NOT die when phylactery has charges');
-  assert.ok(mortalLich.health > 0, 'Health must be restored by reconstitution');
-  assert.equal(phylactery.charges, 2, 'Phylactery must consume 1 charge');
+  assert.equal(died, false, 'Lich must NOT die upon lethal blow');
+  assert.equal(mortalLich.health, 100, 'Health must be fully restored by reconstitution');
 });
 
 test('NecroIntegration: harvesting requires dagger or skinning knife and mints reagents', () => {

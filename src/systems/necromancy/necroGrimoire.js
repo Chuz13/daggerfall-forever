@@ -10,7 +10,7 @@ import { enemyLootSpawned } from '../../characters/enemy/enemyEntity.js';
 import { ENEMY_BASICS } from '../../characters/enemy/enemyBasics.js';
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { playerEntity, surfacePlayer } from '../../characters/playerEntity.js';
-import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell, archLichdomSpell, lichdomSpell } from './necromanticSpells.js';
+import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell, archLichdomSpell } from './necromanticSpells.js';
 
 export const NECRO_GRIMOIRE_TEMPLATE = 585;
 export const NECRO_GRIMOIRE_NAME = 'Grimoire of the Worm';
@@ -59,7 +59,6 @@ export function getAllNecroSpells() {
     corpseExplosionSpell(),
     lifeTapSpell(),
     boneArmorSpell(),
-    lichdomSpell(),
     archLichdomSpell(),
   ];
 }

@@ -304,8 +304,8 @@ test('LichdomRitual: prerequisites check and transformation', () => {
   const fallRes = handleLichMortalFall(archmage, phylactery);
   assert.equal(fallRes.reconstituted, true);
   assert.deepEqual(fallRes.respawnPosition, [100, 10, 200]);
-  assert.equal(archmage.currentHealth, 60); // Restored to 50% max HP
-  assert.equal(phylactery.charges, 2); // 1 charge consumed
+  assert.equal(archmage.currentHealth, 120); // Restored to 100% full max HP
+  assert.equal(phylactery.charges, 3); // No charges consumed per new cemetery reconstitution law
 });
 
 test('NecroSpells: Target gold costs match 1000/500/500/1000', () => {

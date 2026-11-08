@@ -11,7 +11,7 @@
 
 import { applyLichdom, applyAncientLichdom, isLich, isAncientLich, isAnyLich, liveLichdom } from './lichdomStatus.js';
 import { skillValue, displaySkillValue, realSkillValue, SKILLS } from '../skills.js';
-import { liveStat } from '../statMods.js';
+import { liveStat, maxFatigue } from '../statMods.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { t } from '../textManager.js';
 
@@ -261,36 +261,67 @@ export function performRitualOfUnlife(playerEntity, phylactery, { nowMinutes = 0
   };
 }
 
+export const LICH_RESPAWN_MONTH_MINUTES = 30 * 1440; // 43,200 in-game minutes (1 calendar month)
+
+let _lichCemeteryRespawnHook = null;
+export function setLichCemeteryRespawnHook(fn) {
+  _lichCemeteryRespawnHook = fn ?? null;
+}
+
 /**
- * Handles physical death of a Lich. If phylactery has charges, reconstitutes the player.
+ * Handles physical death of a Lich or Ancient Lich.
+ * Intercepts death:
+ * - Restores full vitals (health, magicka, fatigue)
+ * - Advances calendar time by 1 in-game month (30 days / 43,200 minutes)
+ * - Relocates to the nearest cemetery (no charges required, infinite reconstitutions)
+ * - Bypasses all other death penalties (no gold loss, no permadeath, no lost years).
  * @param {object} playerEntity
- * @param {object} phylactery
- * @returns {{ reconstituted: boolean, respawnPosition: [number, number, number]|null, reason?: string }}
+ * @param {object} [options]
+ * @returns {{ reconstituted: boolean, minutesAdvanced?: number, daysAdvanced?: number, reason?: string, cemetery?: object }}
  */
-export function handleLichMortalFall(playerEntity, phylactery) {
+export function handleLichMortalFall(playerEntity, options = {}) {
   if (!isAnyLich(playerEntity)) {
-    return { reconstituted: false, respawnPosition: null, reason: 'Not a Lich' };
+    return { reconstituted: false, reason: 'Not a Lich' };
   }
 
-  if (!phylactery || phylactery.state !== PHYLACTERY_STATE.BOUND) {
-    return { reconstituted: false, respawnPosition: null, reason: 'Phylactery is not bound or destroyed' };
+  // 1. Full vitals restored:
+  const maxHp = playerEntity.maxHealth ?? 100;
+  playerEntity.health = maxHp;
+  if (typeof playerEntity.currentHealth === 'number') playerEntity.currentHealth = maxHp;
+  playerEntity.magicka = playerEntity.maxMagicka ?? 100;
+  const maxFat = Number.isFinite(playerEntity.maxFatigue)
+    ? playerEntity.maxFatigue
+    : (maxFatigue(playerEntity) || 1000);
+  playerEntity.fatigue = maxFat;
+
+  if (Array.isArray(playerEntity.activeEffects)) {
+    for (const a of playerEntity.activeEffects) {
+      if (a && (a.kind === 'poison' || a.kind === 'disease' || a.kind === 'drainAttribute')) {
+        a.ended = true;
+      }
+    }
   }
 
-  if (phylactery.charges <= 0) {
-    phylactery.state = PHYLACTERY_STATE.SHATTERED;
-    return { reconstituted: false, respawnPosition: null, reason: 'Phylactery soul energy exhausted' };
-  }
+  // Phylactery anchor position fallback if passed
+  const phylactery = options?.anchorPosition ? options : (playerEntity.phylacteryAnchor ?? null);
+  const respawnPosition = phylactery?.anchorPosition ? [...phylactery.anchorPosition] : null;
 
-  // Consume a charge and restore the Lich
-  phylactery.charges--;
-  const maxHp = playerEntity.maxHealth || 100;
-  const restoredHp = Math.floor(maxHp * 0.5);
-  playerEntity.health = restoredHp;
-  playerEntity.currentHealth = restoredHp;
+  // 2. Delegate cemetery relocation to registered hook (in world scene context):
+  let cemetery = null;
+  if (typeof _lichCemeteryRespawnHook === 'function') {
+    try {
+      cemetery = _lichCemeteryRespawnHook(playerEntity, options);
+    } catch (e) {
+      console.error('[necro] lich cemetery respawn hook error:', e);
+    }
+  }
 
   return {
     reconstituted: true,
-    respawnPosition: [...phylactery.anchorPosition],
+    minutesAdvanced: LICH_RESPAWN_MONTH_MINUTES,
+    daysAdvanced: 30,
+    respawnPosition,
+    cemetery,
   };
 }
 

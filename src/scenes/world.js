@@ -842,6 +842,8 @@ import { lateSolidsOf } from '../player/lateSolid.js';   // ROCK-CLEAR: the worl
 import { floorLanding, doorWorldPosition, dungeonEntranceLanding, repositionFeetY, openGroundNear, heldInSolid, safeGroundAt, safeGroundNear } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27); SD2b: where a Hollow's mouth stands, to find it at
 import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
 import { playerEntity, surfacePlayer, hurtPlayer, forcePlayerDeath, presentHeardDeath, playerBlowCameToNothing, setDeathPresenter, presentPlayerDeath, setDeathListener, setAvoidDeathHook, setStaffPowers, staffPowers, registerPlayerDamageMod, registerLevitateWard, registerFreeFlight } from '../characters/playerEntity.js';   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
+import { setLichCemeteryRespawnHook, LICH_RESPAWN_MONTH_MINUTES } from '../systems/necromancy/lichdomRitual.js';
+import { findNearestCemetery } from '../world/worldWide/worldCemetery.js';
 import { bodySayer } from '../net/bossBody.js';   // INT15: my body, said to a boss fight's room
 import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, prebuildArmsForSave } from '../combat/weapon/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
@@ -6598,6 +6600,43 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!avoidDeath(activeMemberships(playerEntity), { submerged: !!dwPlayer?.submerged })) return false;
     townTalk.say(avoidDeathText());
     return true;
+  });
+
+  setLichCemeteryRespawnHook((entity) => {
+    endPlayerFights();
+    player.stopAutorun();
+    wagonRiders?.leave();
+
+    try {
+      setSyntheticTimeIncrease(true);
+      playerTicker.advance(LICH_RESPAWN_MONTH_MINUTES);
+    } catch (e) {
+      console.error('[necro] ticker advance error on lich respawn:', e);
+    }
+
+    const atPixel = playerTravelPixel();
+    const cemetery = findNearestCemetery(atPixel, maps, worldPlaces);
+    if (!cemetery) {
+      console.warn('[necro] no cemetery found; lich reconstituted at current position');
+      return null;
+    }
+
+    const mode = modes?.mode ?? 'exterior';
+    if (mode !== 'exterior') {
+      modes?.forceExitToExterior();
+    }
+
+    Promise.resolve().then(async () => {
+      try {
+        await _teleportToPixel(cemetery.x, cemetery.y, null, { reposition: REPOSITION.RandomStartMarker });
+        _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
+        townTalk.say(t('necro.respawnAtCemetery', 'A month has passed. Your undead essence reconstitutes in a nearby cemetery.'));
+      } catch (err) {
+        console.error('[necro] teleport error on lich cemetery respawn:', err);
+      }
+    });
+
+    return cemetery;
   });
 
   // AUDIT 19 F4: the CUMULATIVE game-day count, for the music seed. The

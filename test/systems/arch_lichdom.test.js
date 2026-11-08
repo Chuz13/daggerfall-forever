@@ -16,6 +16,8 @@ import {
   ARCH_LICH_MIN_WILLPOWER,
   createPhylactery,
   PHYLACTERY_STATE,
+  setLichCemeteryRespawnHook,
+  LICH_RESPAWN_MONTH_MINUTES,
 } from '../../src/systems/necromancy/lichdomRitual.js';
 import {
   applyLichdom,
@@ -28,7 +30,8 @@ import { calculateCastCost } from '../../src/systems/spellcost.js';
 import { SKILLS } from '../../src/systems/skills.js';
 import { readNecroGrimoire, getAllNecroSpells } from '../../src/systems/necromancy/necroGrimoire.js';
 import { getConsoleCommand } from '../../src/systems/consoleCommands.js';
-import { playerEntity } from '../../src/characters/playerEntity.js';
+import { playerEntity, hurtPlayer, setDeathPresenter, setDeathListener } from '../../src/characters/playerEntity.js';
+import { ownMinutes, advanceOwnMinutes } from '../../src/systems/worldTick.js';
 import { shownSpellName } from '../../src/systems/loot/loot.js';
 import { applySpell } from '../../src/systems/effects.js';
 import { spellTipLines, statusTip } from '../../src/ui/hud/statusTips.js';
@@ -59,16 +62,16 @@ test('Arch-Lichdom: spell costs exactly 500 magicka at Mysticism 200', () => {
   assert.equal(cost.sp, 500, 'Must cost exactly 500 magicka at Mysticism 200');
 });
 
-test('Necro spells: Grimoire grants both Lichdom and Arch-Lichdom along with core spells', () => {
+test('Necro spells: Grimoire grants Arch-Lichdom along with core spells, but excludes Lichdom spell', () => {
   const allSpells = getAllNecroSpells();
-  assert.ok(allSpells.some((s) => s.name === 'Lichdom'));
+  assert.ok(!allSpells.some((s) => s.name === 'Lichdom'), 'Lichdom spell must not be in grimoire');
   assert.ok(allSpells.some((s) => s.name === 'Arch-Lichdom'));
 
   const dummyPlayer = { spells: [] };
   readNecroGrimoire(dummyPlayer);
-  assert.ok(dummyPlayer.spells.some((s) => s.name === 'Lichdom'));
+  assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Lichdom'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Arch-Lichdom'));
-  assert.equal(dummyPlayer.spells.length, 6, '4 standard necro spells + 1 Lichdom + 1 Arch-Lichdom');
+  assert.equal(dummyPlayer.spells.length, 5, '4 standard necro spells + 1 Arch-Lichdom');
 });
 
 test('Arch-Lichdom ritual: mortal casting triggers death', () => {
@@ -121,9 +124,8 @@ test('Arch-Lichdom ritual: Lich with unmet requirements triggers death/reconstit
 
   assert.equal(res.success, false);
   assert.ok(hurtDamage > 0);
-  // Reconstitution hook consumed 1 charge and restored half health at phylactery
-  assert.equal(phylactery.charges, 0);
-  assert.equal(lich.health, 50);
+  // Reconstitution hook restores full health and bypasses death
+  assert.equal(lich.health, 100);
 });
 
 test('Arch-Lichdom ritual: Lich with all requirements met ascends to Ancient Lich', () => {
@@ -342,4 +344,79 @@ test('Lichdom & Arch-Lichdom buff tiles and status tips: permanent, no blinking,
   assert.ok(ancientTipLines.some((l) => l.includes('50') && l.includes('Intelligence')));
   assert.ok(ancientTipLines.some((l) => l.includes('30') && l.includes('Mysticism')));
   assert.ok(ancientTipLines.some((l) => l.includes('Mithril') || l.includes('мифрила')));
+});
+
+test('Lich & Ancient Lich cemetery death interception: full vitals, 30 days time skip, no penalties', () => {
+  let cemeteryHookCalled = false;
+  let hookEntity = null;
+  setLichCemeteryRespawnHook((entity) => {
+    cemeteryHookCalled = true;
+    hookEntity = entity;
+    advanceOwnMinutes(LICH_RESPAWN_MONTH_MINUTES);
+    return { x: 100, y: 200, name: 'The Tombs of Daggerfall' };
+  });
+
+  let deathHeard = false;
+  setDeathListener('test_legacy_listener', () => {
+    deathHeard = true;
+  });
+
+  let presenterCalled = false;
+  setDeathPresenter(() => {
+    presenterCalled = true;
+  });
+
+  // Test 1: Mortal dies normally
+  const mortal = {
+    isPlayer: true,
+    health: 50,
+    maxHealth: 100,
+    magicka: 10,
+    maxMagicka: 100,
+    fatigue: 50,
+  };
+  const mortalDied = hurtPlayer(mortal, 100);
+  assert.equal(mortalDied, true, 'Mortal must die');
+  assert.equal(deathHeard, true, 'Death listener must be notified for mortal');
+  assert.equal(presenterCalled, true, 'Death presenter must be invoked for mortal');
+  assert.equal(cemeteryHookCalled, false, 'Cemetery hook must not be called for mortal');
+
+  // Reset flags
+  deathHeard = false;
+  presenterCalled = false;
+  cemeteryHookCalled = false;
+
+  // Test 2: Lich intercepts death
+  const startMinutes = ownMinutes();
+  const lich = {
+    isPlayer: true,
+    health: 50,
+    maxHealth: 150,
+    magicka: 20,
+    maxMagicka: 200,
+    fatigue: 100,
+  };
+  applyLichdom(lich);
+  assert.equal(isLich(lich), true);
+
+  const lichDied = hurtPlayer(lich, 100);
+  assert.equal(lichDied, false, 'Lich death must be intercepted (returns false)');
+  assert.equal(deathHeard, false, 'Death listener (Project Legacy) must NOT be notified');
+  assert.equal(presenterCalled, false, 'Death presenter (DeathScreen/gold loss) must NOT be invoked');
+  assert.equal(cemeteryHookCalled, true, 'Cemetery respawn hook must be invoked');
+  assert.equal(hookEntity, lich);
+
+  // Full vitals verification
+  assert.equal(lich.health, 150, 'Health must be fully restored');
+  assert.equal(lich.magicka, 200, 'Magicka must be fully restored');
+  assert.ok(lich.fatigue > 0, 'Fatigue must be restored');
+
+  // 1 Month (30 days / 43,200 minutes) advanced verification
+  const elapsed = ownMinutes() - startMinutes;
+  assert.equal(elapsed, LICH_RESPAWN_MONTH_MINUTES, 'Must advance exactly 43,200 minutes (1 calendar month)');
+
+  // Clean up hooks
+  setLichCemeteryRespawnHook(null);
+  setDeathListener('test_legacy_listener', null);
+  setDeathPresenter(null);
 });
