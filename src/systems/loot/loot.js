@@ -710,6 +710,9 @@ export const spellRecordOfIndex = (index) => _spellsByIndex?.get?.(index) ?? nul
  *  name as it is. */
 export function shownSpellName(spell) {
   const name = spell?.name;
+  if (name === 'Lichdom' || spell?.index === -50) {
+    return t('spell.necro.lichdom', 'Lichdom');
+  }
   if (name === 'Arch-Lichdom' || spell?.index === -52) {
     return t('spell.necro.archLichdom', 'Arch-Lichdom');
   }

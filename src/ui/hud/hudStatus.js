@@ -709,8 +709,9 @@ export function statusTiles({
       name: String(e.name ?? ''),
       // AUDIT UI C5: and an item's held magic has no time at its foot - it runs while the item is held, its rounds are no
       // clock (they count down to nothing and it runs on)
-      foot: Number.isFinite(e.rounds) && !e.item ? String(e.rounds) : null,
-      blink: !!e.expiring && !e.item, // SetIconBlinkState: an item's never blinks
+      foot: e.permanent ? '∞' : (Number.isFinite(e.rounds) && !e.item ? String(e.rounds) : null),
+      blink: !e.permanent && !e.item && !!e.expiring, // SetIconBlinkState: an item's never blinks, permanent never blinks
+      permanent: !!e.permanent,
       item: !!e.item,
       spell: Number.isInteger(e.icon) && e.icon >= 0 ? e.icon : null,
       bundle: e.bundleId ?? null,

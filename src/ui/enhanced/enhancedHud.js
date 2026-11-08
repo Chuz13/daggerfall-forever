@@ -511,10 +511,12 @@ export function effectRows(entity) {
   const bundles = liveBundles(entity).filter((b) => b?.showIcon);
   const row = (b) => {
     const rounds = maxRoundsRemaining(b);
+    const permanent = !!(b.permanent || b.entries?.some((e) => e.permanent) || rounds === null);
     return {
       name: String(shownSpellName({ index: b.spellIndex, name: b.name }) ?? '').replace(/^!+/, ''),   // L10N3e: bundle.name, a stock spell's in the player's language (HUDActiveSpells.cs:304, EntityEffectBroker.cs:877)
-      rounds,
-      expiring: rounds < 2,
+      rounds: permanent ? null : rounds,
+      expiring: !permanent && rounds < 2,
+      permanent,
       item: b.bundleType === 'HeldMagicItem',
       icon: b.icon ?? 0,     // UI3: the widget draws the spell's own icon
       self: !!b.selfCast,    // UI3: a buff (mine on me) or a debuff (another's)...

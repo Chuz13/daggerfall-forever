@@ -267,6 +267,7 @@ import { serviceBase, storedSession } from '../../net/accountClient.js';
 import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../../systems/bounty/bountyJournal.js';   // BOUNTY1: a bounty in the journal - its Abandon and its Share
 import { isHuntQuestId, abandonHuntQuest } from '../../systems/huntJournal.js';   // RVN7c: a revenant's hunt in the journal - its Abandon
 import { liveBundles, canEndBundle, endBundle } from '../../systems/mysticism.js';   // BUFF-END: the Stats page's Effects - the ONE bundle walk, and which the player may end
+import { shownSpellName } from '../../systems/loot/loot.js';
 import { listenWindowKeys } from '../windowStack.js';   // COVERED-KEYS: the window's keys, gated while a box covers it
 import { maxRoundsRemaining } from '../hud/hudActiveSpells.js';   // BUFF-END: a bundle's rounds, as the HUD reads them
 
@@ -5500,9 +5501,17 @@ function statsEffects(detail) {
   for (const b of bundles) {
     const r = el('div', 'px-stat px-effect');
     const held = b.bundleType === 'HeldMagicItem';
+    const permanent = b.permanent || b.entries?.some((e) => e.permanent) || maxRoundsRemaining(b) === null;
     const rounds = maxRoundsRemaining(b);
-    r.append(el('span', 'k', String(b.name ?? '').replace(/^!+/, '') || t('pause.effects.aSpell', 'A spell')),
-      el('span', 'v px-src', held ? t('pause.effects.whileHeld', 'While held') : t('pause.effects.rounds', '{n, plural, one {# round} other {# rounds}}', { n: rounds })));
+    const durationText = held
+      ? t('pause.effects.whileHeld', 'While held')
+      : permanent
+      ? t('necro.tip.permanent', 'Permanent')
+      : t('pause.effects.rounds', '{n, plural, one {# round} other {# rounds}}', { n: rounds });
+    r.append(
+      el('span', 'k', String(shownSpellName({ index: b.spellIndex, name: b.name }) ?? b.name ?? '').replace(/^!+/, '') || t('pause.effects.aSpell', 'A spell')),
+      el('span', 'v px-src', durationText),
+    );
     if (canEndBundle(b)) {
       const end = el('button', 'act', t('pause.effects.end', 'End'));
       end.type = 'button';
@@ -5520,7 +5529,8 @@ function statsEffects(detail) {
 function statsAttributes(detail, m) {
   detail.append(pxDivider(localizedText('helpAttributes', 'Attributes')));
   for (const a of m.attributes) {
-    detail.append(meterRow(localizedText(a.key, a.key[0].toUpperCase() + a.key.slice(1)), a.value, 100, ''));   // L10N4: DFU's own attribute keys (strength..luck)
+    const cap = Math.max(100, a.value);
+    detail.append(meterRow(localizedText(a.key, a.key[0].toUpperCase() + a.key.slice(1)), a.value, cap, ''));   // L10N4: DFU's own attribute keys (strength..luck)
   }
   const boons = boonStatRows(playerEntity);
   if (!boons.length) return;

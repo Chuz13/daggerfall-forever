@@ -109,6 +109,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '43,255': row(SKILLS.Mysticism, {}), // Teleport - NO components (the fudge, at Mysticism)
   '46,255': row(SKILLS.Mysticism, { duration: costs(8, 8) }), // PARTY-MAP: Shared Cartography - the port's own; Light's cheap per-round price, cheap enough to keep up
   '47,255': row(SKILLS.Mysticism, { chance: costs(0, 100), magnitude: costs(0, 120) }), // AnimateDead (1000 gold)
+  '50,255': row(SKILLS.Mysticism, {}), // Lichdom ritual (Mysticism)
   '52,255': row(SKILLS.Mysticism, {}), // Arch-Lichdom ritual (Mysticism)
   '44,255': row(SKILLS.Mysticism, { duration: costs(60, 68), chance: costs(40, 68) }), // ComprehendLanguages
 
@@ -212,6 +213,21 @@ export function registerSpellFreeCast(name, fn) {
 /** The full casting cost of a classic spell record for a caster:
  *  per-effect sums, target multiplier, the floor. SET2: and the port's cost modifiers, for a player's own cast. */
 export function calculateCastCost(spell, casterEntity, { portMods = true, online = isOnlinePage() } = {}) {
+  // Dedicated ritual spell: Lichdom (effect 50,255)
+  // At Mysticism 100, costs exactly 250 magicka:
+  if (spell?.effects?.some((e) => e.type === 50 && (e.subType & 0xff) === 255)) {
+    const myst = casterEntity
+      ? Math.max(
+          displaySkillValue(casterEntity, SKILLS.Mysticism),
+          realSkillValue(casterEntity, SKILLS.Mysticism),
+          skillValue(casterEntity, SKILLS.Mysticism),
+          casterEntity.skills?.[SKILLS.Mysticism] ?? 0,
+        )
+      : 100;
+    const sp = Math.max(1, Math.round(250 * (100 / Math.max(1, myst))));
+    return { gold: 20000, sp };
+  }
+
   // Dedicated ritual spell: Arch-Lichdom (effect 52,255)
   // At Mysticism 200, costs exactly 500 magicka:
   if (spell?.effects?.some((e) => e.type === 52 && (e.subType & 0xff) === 255)) {

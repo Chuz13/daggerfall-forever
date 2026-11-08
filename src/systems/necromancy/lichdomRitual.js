@@ -40,7 +40,7 @@ export function canDrinkElixirOfUnlife(playerEntity) {
     return { eligible: false, reason: 'Invalid player entity.' };
   }
   if (isAnyLich(playerEntity)) {
-    return { eligible: false, reason: 'You have already ascended to Lichdom.' };
+    return { eligible: false, alreadyLich: true, reason: 'You have already ascended to Lichdom.' };
   }
   const level = playerEntity.level || 1;
   if (level < ELIXIR_LICHDOM_LEVEL) {
@@ -95,6 +95,57 @@ export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, nowMinute
     lichdom: res.success,
     reason: res.reason,
     message: res.message,
+  };
+}
+
+/**
+ * Performs the Lichdom transformation ritual via dedicated spell.
+ * Requires mortal caster, Level >= 20, Mysticism >= 100.
+ * If requirements are NOT met, triggers lethal collapse (just like Elixir of Unlife).
+ * @param {object} caster
+ * @param {object} [options]
+ * @returns {{ success: boolean, reason?: string, message?: string, racialOverride?: object }}
+ */
+export function performLichdomRitual(caster, { hurtPlayer = null, sinks = null, nowMinutes = 0 } = {}) {
+  const check = canDrinkElixirOfUnlife(caster);
+  if (check.alreadyLich) {
+    const msg = t('spell.necro.alreadyLich', 'You have already ascended to Lichdom. Do not squander your power in vain.');
+    return {
+      success: false,
+      alreadyLich: true,
+      reason: msg,
+      message: msg,
+    };
+  }
+  if (!check.eligible) {
+    const hurtFn = hurtPlayer ?? sinks?.hurt;
+    const lethalDmg = Math.max(99999, (caster?.maxHealth ?? 100) * 10);
+    if (typeof hurtFn === 'function') {
+      hurtFn(lethalDmg, { bypassShield: true });
+    }
+    if (caster && typeof caster.health === 'number') {
+      caster.health = 0;
+      if (caster.currentHealth != null) caster.currentHealth = 0;
+    }
+    return {
+      success: false,
+      reason: check.reason || 'The unholy dark forces overwhelm your mortal vessel!',
+    };
+  }
+
+  if (!caster.phylacteryAnchor || caster.phylacteryAnchor.destroyed) {
+    caster.phylacteryAnchor = createPhylactery({
+      anchorPosition: caster.position || caster.pos || [0, 0, 0],
+      anchorScene: caster.sceneKey || 'interior_sanctum',
+    });
+  }
+
+  const res = performRitualOfUnlife(caster, caster.phylacteryAnchor, { nowMinutes });
+  return {
+    success: res.success,
+    reason: res.reason,
+    message: res.message,
+    racialOverride: res.racialOverride,
   };
 }
 

@@ -148,12 +148,14 @@ export function activeSpellIcons(entity) {
   let poolIndex = 0;
   for (const bundle of liveBundles(entity)) {
     if (!bundle.showIcon) continue;
+    const permanent = !!(bundle.permanent || bundle.entries?.some((e) => e.permanent) || maxRoundsRemaining(bundle) === null);
     const item = {
       iconIndex: bundle.icon ?? 0,
       displayName: String(shownSpellName({ index: bundle.spellIndex, name: bundle.name }) ?? '').replace(/^!+/, ''),
       poolIndex: poolIndex++,
-      expiring: maxRoundsRemaining(bundle) < 2,
+      expiring: !permanent && maxRoundsRemaining(bundle) < 2,
       isItem: bundle.bundleType === 'HeldMagicItem',
+      permanent,
       bundleId: bundle.bundleId, // BUFF-END: the bundle a right-click ends...
       endable: canEndBundle(bundle), // ...when it is the player's to end (ui/hud/hudLarge.js routeSpellIconClick)
     };

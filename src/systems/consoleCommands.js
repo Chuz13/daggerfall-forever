@@ -49,7 +49,7 @@ import { setWeather, currentWeather } from './weather/weatherSim.js';
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
 import { defineLiveMaxMagicka } from './chargen.js';
-import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell, archLichdomSpell } from './necromancy/necromanticSpells.js';
+import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell, archLichdomSpell, lichdomSpell } from './necromancy/necromanticSpells.js';
 import { NECRO_GRIMOIRE_TEMPLATE } from './necromancy/necroGrimoire.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -889,8 +889,8 @@ registerCommand(
 
 registerCommand(
   'addspell',
-  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|all_necro>',
-  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|arch_lichdom|all_necro>',
+  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|lichdom|arch_lichdom|all_necro>',
+  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|lichdom|arch_lichdom|all_necro>',
   (args = []) => {
     const key = String(args[0] || 'all_necro').toLowerCase().replace(/[\s_-]/g, '');
     const map = {
@@ -898,6 +898,8 @@ registerCommand(
       corpseexplosion: corpseExplosionSpell,
       lifetap: lifeTapSpell,
       bonearmor: boneArmorSpell,
+      lichdom: lichdomSpell,
+      lich: lichdomSpell,
       archlichdom: archLichdomSpell,
       archlich: archLichdomSpell,
     };
@@ -919,7 +921,7 @@ registerCommand(
       surfacePlayer?.();
       return `Added spell "${name}" to spellbook.`;
     }
-    return 'Usage: addspell <animate_dead | corpse_explosion | life_tap | bone_armor | arch_lichdom | all_necro>';
+    return 'Usage: addspell <animate_dead | corpse_explosion | life_tap | bone_armor | lichdom | arch_lichdom | all_necro>';
   }
 );
 

@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 
 import {
   archLichdomSpell,
+  lichdomSpell,
   NECRO_SPELL_KEYS,
 } from '../../src/systems/necromancy/necromanticSpells.js';
 import {
   canAscendToArchLichdom,
   performArchLichdomRitual,
+  performLichdomRitual,
   ARCH_LICH_MIN_LEVEL,
   ARCH_LICH_MIN_MYSTICISM,
   ARCH_LICH_MIN_INTELLIGENCE,
@@ -29,6 +31,9 @@ import { getConsoleCommand } from '../../src/systems/consoleCommands.js';
 import { playerEntity } from '../../src/characters/playerEntity.js';
 import { shownSpellName } from '../../src/systems/loot/loot.js';
 import { applySpell } from '../../src/systems/effects.js';
+import { spellTipLines, statusTip } from '../../src/ui/hud/statusTips.js';
+import { effectRows } from '../../src/ui/enhanced/enhancedHud.js';
+import { liveStat } from '../../src/systems/statMods.js';
 
 test('Arch-Lichdom: spell definition has correct metadata and is not craftable', () => {
   const sp = archLichdomSpell();
@@ -54,14 +59,16 @@ test('Arch-Lichdom: spell costs exactly 500 magicka at Mysticism 200', () => {
   assert.equal(cost.sp, 500, 'Must cost exactly 500 magicka at Mysticism 200');
 });
 
-test('Arch-Lichdom: Grimoire grants Arch-Lichdom along with other necro spells', () => {
+test('Necro spells: Grimoire grants both Lichdom and Arch-Lichdom along with core spells', () => {
   const allSpells = getAllNecroSpells();
+  assert.ok(allSpells.some((s) => s.name === 'Lichdom'));
   assert.ok(allSpells.some((s) => s.name === 'Arch-Lichdom'));
 
   const dummyPlayer = { spells: [] };
   readNecroGrimoire(dummyPlayer);
+  assert.ok(dummyPlayer.spells.some((s) => s.name === 'Lichdom'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Arch-Lichdom'));
-  assert.equal(dummyPlayer.spells.length, 5, '4 standard necro spells + 1 Arch-Lichdom');
+  assert.equal(dummyPlayer.spells.length, 6, '4 standard necro spells + 1 Lichdom + 1 Arch-Lichdom');
 });
 
 test('Arch-Lichdom ritual: mortal casting triggers death', () => {
@@ -93,7 +100,7 @@ test('Arch-Lichdom ritual: Lich with unmet requirements triggers death/reconstit
     health: 100,
     maxHealth: 100,
     skills: { [SKILLS.Mysticism]: 180 }, // Too low (< 200)
-    stats: { intelligence: 100, willpower: 100 }, // Too low (< 115)
+    stats: { intelligence: 70, willpower: 70 }, // 70 + 25 = 95 (< 115)
   };
   applyLichdom(lich);
   assert.equal(isLich(lich), true);
@@ -208,4 +215,131 @@ test('Localization: shownSpellName localizes Arch-Lichdom', () => {
   const sp = archLichdomSpell();
   const name = shownSpellName(sp);
   assert.ok(typeof name === 'string' && name.length > 0);
+});
+
+test('Lichdom: spell definition has correct metadata and is not craftable', () => {
+  const sp = lichdomSpell();
+  assert.equal(sp.name, 'Lichdom');
+  assert.equal(sp.index, -50);
+  assert.equal(sp.rangeType, 0, 'CasterOnly');
+  assert.equal(sp.element, 4, 'Magic');
+  assert.equal(sp.tag, 'некро');
+  assert.ok(sp.tags.includes('некро'));
+  assert.equal(sp.craftable, false, 'Must NOT be craftable in Spell Maker');
+  assert.equal(sp.effects[0].type, 50);
+  assert.equal(sp.effects[0].subType, 255);
+  assert.equal(NECRO_SPELL_KEYS.LICHDOM, '50,255');
+  assert.ok(shownSpellName(sp).length > 0);
+});
+
+test('Lichdom: spell costs exactly 250 magicka at Mysticism 100', () => {
+  const sp = lichdomSpell();
+  const caster = {
+    skills: { [SKILLS.Mysticism]: 100 },
+    stats: {},
+  };
+  const cost = calculateCastCost(sp, caster);
+  assert.equal(cost.sp, 250, 'Must cost exactly 250 magicka at Mysticism 100');
+});
+
+test('Lichdom ritual: qualified mortal ascends to Lich', () => {
+  const mortal = {
+    level: 20,
+    health: 120,
+    maxHealth: 120,
+    skills: { [SKILLS.Mysticism]: 100 },
+    stats: { intelligence: 70, willpower: 70 },
+  };
+  let saidMessage = '';
+  const sinks = { say: (msg) => { saidMessage = msg; }, hurt: () => {} };
+  const sp = lichdomSpell();
+
+  applySpell(sp, 20, mortal, sinks, () => 1.0, { entity: mortal }, {});
+
+  assert.equal(isLich(mortal), true);
+  assert.ok(saidMessage.includes('Lich'));
+  assert.ok(mortal.phylacteryAnchor);
+});
+
+test('Lichdom ritual: unqualified mortal triggers lethal failure', () => {
+  const weakMortal = {
+    level: 10, // < 20
+    health: 80,
+    maxHealth: 80,
+    skills: { [SKILLS.Mysticism]: 30 }, // < 100
+    stats: { intelligence: 50, willpower: 50 },
+  };
+  let hurtCalled = false;
+  const sinks = { hurt: () => { hurtCalled = true; }, say: () => {} };
+  const sp = lichdomSpell();
+
+  applySpell(sp, 10, weakMortal, sinks, () => 1.0, { entity: weakMortal }, {});
+
+  assert.equal(isLich(weakMortal), false);
+  assert.equal(hurtCalled, true);
+  assert.equal(weakMortal.health, 0);
+});
+
+test('Lichdom ritual: casting while already a Lich deals no harm and displays gentle refusal', () => {
+  const lich = {
+    level: 25,
+    health: 150,
+    maxHealth: 150,
+    skills: { [SKILLS.Mysticism]: 120 },
+    stats: { intelligence: 80, willpower: 80 },
+  };
+  applyLichdom(lich);
+  assert.equal(isLich(lich), true);
+
+  let hurtCalled = false;
+  let saidMsg = '';
+  const sinks = { say: (m) => { saidMsg = m; }, hurt: () => { hurtCalled = true; } };
+
+  const res = performLichdomRitual(lich, { sinks });
+  assert.equal(res.success, false);
+  assert.equal(res.alreadyLich, true);
+  assert.equal(hurtCalled, false);
+  assert.equal(lich.health, 150);
+});
+
+test('Lichdom & Arch-Lichdom buff tiles and status tips: permanent, no blinking, detailed breakdown', () => {
+  const lich = {
+    level: 20,
+    stats: { intelligence: 100, willpower: 100 },
+    skills: { [SKILLS.Mysticism]: 100 },
+  };
+  applyLichdom(lich);
+
+  // Check statMaxMods raised the ceiling to 125
+  assert.equal(liveStat(lich, 'intelligence'), 125);
+  assert.equal(liveStat(lich, 'willpower'), 125);
+
+  // HUD rows check
+  const hudRows = effectRows(lich);
+  assert.ok(hudRows.length > 0);
+  const lichRow = hudRows.find((r) => r.bundleId === 91001);
+  assert.ok(lichRow);
+  assert.equal(lichRow.permanent, true);
+  assert.equal(lichRow.expiring, false);
+  assert.equal(lichRow.rounds, null);
+
+  // Tooltip lines check
+  const tipLines = spellTipLines(lich, 91001);
+  assert.ok(tipLines.some((l) => l.includes('25') && l.includes('Intelligence')));
+  assert.ok(tipLines.some((l) => l.includes('15') && l.includes('Mysticism')));
+  assert.ok(tipLines.some((l) => l.includes('Silver+')));
+  assert.ok(tipLines.some((l) => l.includes('breathe') || l.includes('пище')));
+  assert.ok(tipLines.some((l) => l.includes('burns') || l.includes('Аркея')));
+  assert.ok(tipLines.some((l) => l.includes('soul') || l.includes('душа')));
+
+  const tip = statusTip({ key: 'spell0', bundle: 91001, permanent: true }, lich, {});
+  assert.ok(tip.foot.length > 0);
+
+  // Now Ancient Lich (ceiling raised to 150)
+  applyAncientLichdom(lich);
+  assert.equal(liveStat(lich, 'intelligence'), 150);
+  const ancientTipLines = spellTipLines(lich, 91002);
+  assert.ok(ancientTipLines.some((l) => l.includes('50') && l.includes('Intelligence')));
+  assert.ok(ancientTipLines.some((l) => l.includes('30') && l.includes('Mysticism')));
+  assert.ok(ancientTipLines.some((l) => l.includes('Mithril') || l.includes('мифрила')));
 });

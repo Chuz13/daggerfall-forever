@@ -110,6 +110,36 @@ export function spellTipLines(entity, bundleId) {
   if (bundleId == null) return out;
   for (const a of entity?.activeEffects ?? []) {
     if (!a || a.ended || a.bundleId !== bundleId || a.instant) continue;
+    if (a.kind === 'racialOverride') {
+      if (a.racial === 'ancient_lichdom') {
+        const lichLines = [
+          t('necro.tip.ancientLich.stats', 'Attributes: +50 Intelligence & Willpower, -40 Personality.'),
+          t('necro.tip.ancientLich.skills', 'Skills: +30 Mysticism, Destruction, Alteration.'),
+          t('necro.tip.ancientLich.combat', 'Combat: Immune to weapons below Mithril; 80% arrow mitigation; Immune to Paralysis, Disease, Poison.'),
+          t('necro.tip.ancientLich.survival', 'Undeath: No need to eat, drink, breathe or sleep; immune to climate exposure.'),
+          t('necro.tip.holy', 'Weakness: Holy ground burns the undead soul.'),
+          t('necro.tip.phylactery', 'Phylactery: Bound soul reconstitutes upon mortal destruction.'),
+        ];
+        for (const line of lichLines) {
+          if (!out.includes(line)) out.push(line);
+        }
+        continue;
+      }
+      if (a.racial === 'lichdom') {
+        const lichLines = [
+          t('necro.tip.lich.stats', 'Attributes: +25 Intelligence & Willpower, -20 Personality.'),
+          t('necro.tip.lich.skills', 'Skills: +15 Mysticism, Destruction, Alteration.'),
+          t('necro.tip.lich.combat', 'Combat: Immune to normal weapons (Silver+ required); 50% arrow mitigation; Immune to Paralysis, Disease, Poison.'),
+          t('necro.tip.lich.survival', 'Undeath: No need to eat, drink, breathe or sleep; immune to climate exposure.'),
+          t('necro.tip.holy', 'Weakness: Holy ground burns the undead soul.'),
+          t('necro.tip.phylactery', 'Phylactery: Bound soul reconstitutes upon mortal destruction.'),
+        ];
+        for (const line of lichLines) {
+          if (!out.includes(line)) out.push(line);
+        }
+        continue;
+      }
+    }
     const say = Object.hasOwn(ENTRY_WORDS, a.kind) ? ENTRY_WORDS[a.kind](a) : kindSaid(a.kind);
     if (say && !out.includes(say)) out.push(say);
   }
@@ -264,6 +294,7 @@ export function statusTip(tile, entity, extra = {}) {
     lines.push(...spellTipLines(entity, tile.bundle));
     if (!lines.length) lines.push(tile.kind === 'buff' ? 'A spell on you.' : 'A spell cast on you.');
     if (tile.item) foot = 'Lasts while you wear the item.';
+    else if (tile.permanent || tile.foot === '∞') foot = t('necro.tip.permanent', 'Permanent');
     else if (tile.foot) foot = `${tile.foot} ${tile.foot === '1' ? 'round' : 'rounds'} left`;
     if (tile.endable && extra.endHint) lines.push(extra.endHint);
     return { title, meta, lines, foot };
