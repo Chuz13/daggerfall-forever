@@ -13,6 +13,7 @@ import { applyLichdom, applyAncientLichdom, isLich, isAncientLich, isAnyLich, li
 import { skillValue, displaySkillValue, realSkillValue, SKILLS } from '../skills.js';
 import { liveStat } from '../statMods.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
+import { t } from '../textManager.js';
 
 export const PHYLACTERY_STATE = Object.freeze({
   UNBOUND: 'unbound',
@@ -261,19 +262,29 @@ export const ARCH_LICH_MIN_WILLPOWER = 115;
  */
 export function canAscendToArchLichdom(caster) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) {
-    return { eligible: false, isMortal: false, reasons: ['Necromancy is disabled.'] };
+    return { eligible: false, isMortal: false, alreadyAncient: false, reasons: ['Necromancy is disabled.'] };
   }
   if (!caster) {
-    return { eligible: false, isMortal: true, reasons: ['Invalid caster.'] };
+    return { eligible: false, isMortal: true, alreadyAncient: false, reasons: ['Invalid caster.'] };
+  }
+
+  // Already Ancient Lich: no harm, no effect
+  if (isAncientLich(caster)) {
+    return {
+      eligible: false,
+      isMortal: false,
+      alreadyAncient: true,
+      reasons: ['You have already ascended to Ancient Lichdom.'],
+    };
   }
 
   // Must ALREADY be a Lich
   if (!isLich(caster)) {
-    const isMortal = !isAnyLich(caster);
     return {
       eligible: false,
-      isMortal,
-      reasons: [isMortal ? 'You are mortal. The ritual requires having already achieved Lichdom.' : 'You have already ascended to Ancient Lichdom.'],
+      isMortal: true,
+      alreadyAncient: false,
+      reasons: ['You are mortal. The ritual requires having already achieved Lichdom.'],
     };
   }
 
@@ -328,6 +339,15 @@ export function canAscendToArchLichdom(caster) {
  */
 export function performArchLichdomRitual(caster, { hurtPlayer = null, sinks = null, nowMinutes = 0 } = {}) {
   const check = canAscendToArchLichdom(caster);
+  if (check.alreadyAncient) {
+    const msg = t('spell.necro.alreadyAncientLich', 'You have already achieved Ancient Lichdom. Do not squander your power in vain.');
+    return {
+      success: false,
+      alreadyAncient: true,
+      reason: msg,
+      message: msg,
+    };
+  }
   if (!check.eligible) {
     const hurtFn = hurtPlayer ?? sinks?.hurt;
     const lethalDmg = Math.max(99999, (caster?.maxHealth ?? 100) * 20);

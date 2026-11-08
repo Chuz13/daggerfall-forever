@@ -1507,6 +1507,10 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         hurtPlayer: sinks?.hurt ?? ctx?.hurtPlayer,
         sinks,
       });
+      if (res?.alreadyAncient) {
+        sinks?.say?.(res.message);
+        continue;
+      }
       if (res?.success && res.message) {
         sinks?.say?.(res.message);
       } else if (res && !res.success && res.reason) {

@@ -176,6 +176,34 @@ test('Console: set_max_magicka command overrides and resets max magicka', () => 
   assert.equal(playerEntity.maxMagickaOverride, undefined);
 });
 
+test('Arch-Lichdom ritual: casting as Ancient Lich deals no harm and displays gentle refusal', () => {
+  const ancient = {
+    level: 35,
+    health: 250,
+    maxHealth: 250,
+    skills: { [SKILLS.Mysticism]: 200 },
+    stats: { intelligence: 150, willpower: 150 },
+  };
+  applyAncientLichdom(ancient);
+  assert.equal(isAncientLich(ancient), true);
+
+  let hurtCalled = false;
+  let saidMsg = '';
+  const sinks = { say: (m) => { saidMsg = m; }, hurt: () => { hurtCalled = true; } };
+
+  const res = performArchLichdomRitual(ancient, { sinks });
+  assert.equal(res.success, false);
+  assert.equal(res.alreadyAncient, true);
+  assert.equal(hurtCalled, false, 'Must not hurt player who is already Ancient Lich');
+  assert.equal(ancient.health, 250, 'Health must remain untouched');
+
+  // Also via applySpell
+  const sp = archLichdomSpell();
+  applySpell(sp, 35, ancient, sinks, () => 1.0, { entity: ancient }, {});
+  assert.equal(hurtCalled, false);
+  assert.ok(saidMsg.length > 0);
+});
+
 test('Localization: shownSpellName localizes Arch-Lichdom', () => {
   const sp = archLichdomSpell();
   const name = shownSpellName(sp);
