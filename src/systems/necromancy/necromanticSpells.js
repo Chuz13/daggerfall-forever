@@ -89,6 +89,10 @@ export function animateDeadSpell() {
     icon: 25,
     rangeType: 1, // ByTouch / Target
     element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
     effects: [
       {
         type: 47,
@@ -120,6 +124,10 @@ export function corpseExplosionSpell() {
     icon: 12,
     rangeType: 4, // AreaAtRange
     element: 2,   // DiseaseOrPoison (Poison damage & projectile)
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
     effects: [
       {
         type: 48,
@@ -151,6 +159,10 @@ export function lifeTapSpell() {
     icon: 8,
     rangeType: 2, // SingleTargetAtRange
     element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
     effects: [
       {
         type: 49,
@@ -182,6 +194,10 @@ export function boneArmorSpell() {
     icon: 17,
     rangeType: 0, // CasterOnly
     element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
     effects: [
       {
         type: 51,

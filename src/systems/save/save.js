@@ -142,6 +142,7 @@ const ENTITY_FIELDS = [
   // player could train every skill to its cap by saving and loading
   // between sessions. Twelve hours of a law, undone by a reload.
   'timeOfLastSkillTraining',
+  'NecroGrimoireRead', 'necroGrimoireRead',
   // AUDIT 23 (save-load + entity-laws lanes): timeOfLastSkillIncreaseCheck,
   // persisted one-for-one by DFU (SerializablePlayer.cs:124, :293). Without
   // it a backward load left a FUTURE marker that froze all skill-raise
@@ -467,7 +468,7 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // back out UNCHANGED beside them. Without this the holding in
   // `restorePlayer` would only postpone the loss by one save.
   snap.spells = [
-    ...(entity.spells ?? []).map((sp) => ((sp?.custom || sp?.rri) ? JSON.parse(JSON.stringify(sp)) : sp.index)),   // AUDIT-RR F9: a mod's spell (RRI's nine, past SPELLS.STD) is serialised whole, as DFU serialises every EffectBundleSettings - an index no file answers would be held forever
+    ...(entity.spells ?? []).map((sp) => ((sp?.custom || sp?.rri || sp?.necro || sp?.tag === 'некро' || sp?.tag === 'necro' || sp?.tags?.includes('некро')) ? JSON.parse(JSON.stringify(sp)) : sp.index)),   // AUDIT-RR F9: a mod's spell (RRI's nine, past SPELLS.STD) is serialised whole, as DFU serialises every EffectBundleSettings - an index no file answers would be held forever
     ...(entity.spellsPending ?? []),
   ];
   // E2: ITEM-PINNED entries (held enchantments) are NOT serialized -
@@ -838,6 +839,10 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   defineLiveMaxMagicka(entity);
   defineLiveMaxHealth(entity);   // DISC10-E L4: the same law for MaxHealth - the setter below writes the RAW value
   for (const k of ENTITY_FIELDS) entity[k] = snap[k];
+  if (snap.NecroGrimoireRead || snap.necroGrimoireRead) {
+    entity.NecroGrimoireRead = true;
+    entity.necroGrimoireRead = true;
+  }
   resetBlowEffects(entity);   // AUDIT TELL L2: the last game's landings - a bleed, a knockdown, a push queued - are nobody's in this one
   entity.oghmaLevelUp = false;   // AUDIT FB1026d II C2: the Oghma Infinium's latch is never saved - a load ends it, as a fresh entity's; restored in place, the last game's turned this game's next level into the book's thirty points, the book back in the pack
   releaseCapLatch(entity);   // LEVEL-45 (AUDIT FB1026d C1): a level owed past the cap, saved before it, is no window to open

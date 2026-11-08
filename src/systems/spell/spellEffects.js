@@ -35,6 +35,7 @@
 // the truth about its own residue rather than taking the money quietly.
 
 import { localizedStrings, localizedTable } from '../textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
+import { playerEntity } from '../../characters/playerEntity.js';
 
 /** The 8 attributes in DFCareer.Stats order - note PERSONALITY is 5,
  *  ahead of Speed, which is the order the classic subType uses. */
@@ -431,21 +432,36 @@ export const SPELL_MAKER_EFFECTS = Object.freeze(
   })(),
 );
 
+export const NECRO_EFFECT_KEYS = Object.freeze(new Set(['47,255', '48,255', '49,255', '51,255']));
+export const isNecroEffectKey = (key) => NECRO_EFFECT_KEYS.has(key);
+export const isNecroEffect = (type, subType) => {
+  const k = `${type},${subType ?? 255}`;
+  return NECRO_EFFECT_KEYS.has(k) || NECRO_EFFECT_KEYS.has(`${type},255`);
+};
+
 /** The group picker's list: de-duplicated group names, alpha-sorted
  *  (EntityEffectBroker.GetGroupNames(sortAlpha: true)). GetGroupNames
  *  filters on the crafting station, so a registry-only row (MorphSelf)
  *  is not offered. The names are the shown GroupNames - DFU collects,
- *  sorts and matches the localized ones (:512-533, :568-582). */
-export const spellMakerGroups = () =>
-  [...new Set(SPELL_MAKER_EFFECTS.filter((e) => e.craftable).map((e) => e.group))].sort();
+ *  sorts and matches the localized ones (:512-533, :568-582).
+ *  Necromantic spell effects are hidden unless the player has read the Grimoire of the Worm. */
+export const spellMakerGroups = (entity = null) => {
+  const ent = entity ?? playerEntity;
+  const necroAllowed = !!(ent?.NecroGrimoireRead || ent?.necroGrimoireRead);
+  return [...new Set(SPELL_MAKER_EFFECTS.filter((e) => e.craftable && (necroAllowed || !isNecroEffectKey(e.key))).map((e) => e.group))].sort();
+};
 
 /** The subgroup picker's list for one group, sorted by SubGroupName
  *  as DFU sorts before populating. A group whose single effect has
- *  no subgroup skips the picker entirely (the window's own arm). */
-export const spellMakerSubgroups = (group) =>
-  SPELL_MAKER_EFFECTS.filter((e) => e.group === group && e.craftable).sort((a, b) =>
+ *  no subgroup skips the picker entirely (the window's own arm).
+ *  Necromantic spell effects are hidden unless the player has read the Grimoire of the Worm. */
+export const spellMakerSubgroups = (group, entity = null) => {
+  const ent = entity ?? playerEntity;
+  const necroAllowed = !!(ent?.NecroGrimoireRead || ent?.necroGrimoireRead);
+  return SPELL_MAKER_EFFECTS.filter((e) => e.group === group && e.craftable && (necroAllowed || !isNecroEffectKey(e.key))).sort((a, b) =>
     a.subgroup.localeCompare(b.subgroup),
   );
+};
 
 /** EntityEffectBroker.GetEffectTemplate (:641) - the whole REGISTRY,
  *  including the rows no crafting station offers. The spellbook names

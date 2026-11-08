@@ -42,6 +42,7 @@ import { setLightSource } from './lightSource.js';   // DISC7: the light in hand
 import { localizedStrings, t } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
 import { drinkElixirOfUnlife } from './necromancy/lichdomRitual.js';
+import { isNecroGrimoire, readNecroGrimoire } from './necromancy/necroGrimoire.js';
 import { corpsesNear, harvestAllFromCorpse } from './necromancy/corpseRegistry.js';
 import { hoodCapable, hoodUp } from './survival/temperature.js';   // HOOD-SAID: the one hood law, for toggleHood
 import { sandPotionRefusal } from './arena/arenaKit.js';   // AUDIT ARENA-LADDER: no potion on the sand

@@ -49,6 +49,7 @@ import { setWeather, currentWeather } from './weather/weatherSim.js';
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
 import { animateDeadSpell, corpseExplosionSpell, lifeTapSpell, boneArmorSpell } from './necromancy/necromanticSpells.js';
+import { NECRO_GRIMOIRE_TEMPLATE } from './necromancy/necroGrimoire.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
 import { weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';
@@ -553,6 +554,10 @@ export function findItemTemplate(query) {
   if (clean === 'skinningknife' || clean === 'flayingknife') {
     const t = templateByIndex(603);
     if (t) return { template: t, index: 603 };
+  }
+  if (clean === 'grimoire' || clean === 'grimoireoftheworm' || clean === 'necrogrimoire' || clean === 'tomeofunlife' || clean === 'necrobook' || clean === 'bookofunlife') {
+    const t = templateByIndex(NECRO_GRIMOIRE_TEMPLATE);
+    if (t) return { template: t, index: NECRO_GRIMOIRE_TEMPLATE };
   }
   for (let i = 0; i < 288; i++) {
     const t = templateByIndex(i);
@@ -1754,6 +1759,12 @@ registerCommand('give_knife', 'Add a Skinning Knife (603) to inventory', 'give_k
   return 'Added Skinning Knife (603) to inventory.';
 });
 registerCommand('giveknife', 'Add a Skinning Knife (603) to inventory', 'giveknife', () => getConsoleCommand('give_knife').callback([]));
+
+registerCommand('give_grimoire', 'Add Grimoire of the Worm (585) to inventory', 'give_grimoire', () => {
+  handleAddItemCommand([String(NECRO_GRIMOIRE_TEMPLATE), '1']);
+  return 'Added Grimoire of the Worm (585) to inventory.';
+});
+registerCommand('givegrimoire', 'Add Grimoire of the Worm (585) to inventory', 'givegrimoire', () => getConsoleCommand('give_grimoire').callback([]));
 
 registerCommand('give_elixir', 'Add 1x Elixir of Unlife potion to inventory', 'give_elixir', () => handleAddItemCommand(['elixir_unlife', '1']));
 registerCommand('giveelixir', 'Add 1x Elixir of Unlife potion to inventory', 'giveelixir', () => handleAddItemCommand(['elixir_unlife', '1']));

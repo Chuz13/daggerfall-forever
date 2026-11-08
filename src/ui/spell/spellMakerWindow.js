@@ -635,7 +635,7 @@ export class SpellMakerWindow {
       return;
     }
     this.tip = ''; // tipLabel.Text = string.Empty (:719)
-    const groups = spellMakerGroups();
+    const groups = spellMakerGroups(this.entity);
     this.picker = new ListPickerWindow({
       items: groups,
       selectedIndex: 0, // ListBox.SelectedIndex = 0 (:727)
@@ -648,7 +648,7 @@ export class SpellMakerWindow {
 
   /** AddEffectGroupListBox_OnUseSelectedItem (:934-969). */
   _pickGroup(group) {
-    const subs = spellMakerSubgroups(group);
+    const subs = spellMakerSubgroups(group, this.entity);
     if (subs.length === 1 && !subs[0].subgroup) {
       // "If this is a solo effect without any subgroups names defined
       // (e.g. "Regenerate") then go straight to effect editor" (:945)
@@ -675,7 +675,7 @@ export class SpellMakerWindow {
   /** The group picker reopened by the subgroup picker's Escape - the
    *  same window, without AddEffectButton's click sound. */
   _addEffectNoSound() {
-    const groups = spellMakerGroups();
+    const groups = spellMakerGroups(this.entity);
     this.picker = new ListPickerWindow({
       items: groups,
       selectedIndex: 0,

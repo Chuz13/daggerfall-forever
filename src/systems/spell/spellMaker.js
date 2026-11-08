@@ -31,6 +31,7 @@ import { skillValue } from '../skills.js'; // E8: the editor's per-effect cost r
 import { MAGIC_ONLY_KEYS } from '../effects.js'; // AUDIT 26 F181: the AllowedElements set, already read off the effect classes
 import { totalGoldAmount, deductGold } from '../court.js';
 import { localizedText } from '../textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
+import { isNecroEffect } from './spellEffects.js';
 
 /** AUDIT 26 F181 - THE ALLOWED TARGET AND ELEMENT SETS.
  *
@@ -442,6 +443,10 @@ export function validateSpellPurchase({ entity, slots, goldCost, name }) {
   if (!hasSpellbook(entity)) return { ok: false, textId: NO_SPELLBOOK_ID };
   const used = (slots ?? []).filter((s) => s && s.type != null && s.type >= 0);
   if (!used.length) return { ok: false, text: noEffectsText() };
+  const necroAllowed = !!(entity?.NecroGrimoireRead || entity?.necroGrimoireRead);
+  if (!necroAllowed && used.some((s) => isNecroEffect(s.type, s.subType))) {
+    return { ok: false, text: 'You cannot craft necromancy spells without deciphering the Grimoire of the Worm.' };
+  }
   // ROAD-E E8: GetGoldAmount, not GoldPieces. BuyButton reads
   // `PlayerEntity.GetGoldAmount()` (:748-751) - coins PLUS letters of
   // credit - and then spends through DeductGoldAmount, which the port
