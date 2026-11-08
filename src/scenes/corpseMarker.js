@@ -192,19 +192,25 @@ registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return;
   const pos = opts?.feet ?? entity.feet ?? entity.pos ?? [0, 0, 0];
   const rawType = opts?.mobileType ?? entity.mobileType ?? entity.career ?? 'humanoid';
+  const mobType = typeof rawType === 'number' ? rawType : (typeof opts?.mobileType === 'number' ? opts.mobileType : null);
   const entityType =
     typeof rawType === 'number'
-      ? [9, 12, 13, 15, 16, 17, 18, 28, 30].includes(rawType)
+      ? [15, 17, 18, 19, 23, 28, 30, 32, 33].includes(rawType)
         ? 'undead'
-        : [19, 20, 21, 22, 23].includes(rawType)
+        : [1, 25, 26, 27, 29, 31].includes(rawType)
           ? 'daedra'
-          : 'humanoid'
+          : [0, 3, 4, 5, 6, 11, 20, 34, 40].includes(rawType)
+            ? 'beast'
+            : 'humanoid'
       : String(rawType);
   const lvl = entity.level ?? 1;
   const maxHp = entity.maxHealth ?? entity.entity?.maxHealth ?? (lvl * 20 + 15);
+  const entName = entity.name || entity.displayName || (mobType != null ? corpseEntityName(mobType) : 'Fallen Foe');
   const rec = registerCorpse({
     id: entity.id ?? `corpse_${Math.random().toString(36).slice(2, 9)}`,
     entityType,
+    mobileType: mobType,
+    entityName: entName,
     level: lvl,
     maxHealth: maxHp,
     position: [pos[0] ?? 0, pos[1] ?? 0, pos[2] ?? 0],

@@ -1520,17 +1520,93 @@ registerCommand(
       if (target === 'corpse') {
         const playerPos = _sceneContext?.getPlayerPos?.();
         const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
+        const spec = String(args[1] || 'humanoid').toLowerCase();
+        let entityType = 'humanoid';
+        let entityName = 'Slain Adventurer';
+        let mobType = 144; // Warrior
+
+        if (spec === 'lich') {
+          entityType = 'undead';
+          entityName = 'Lich';
+          mobType = 32;
+        } else if (spec === 'ancient_lich') {
+          entityType = 'undead';
+          entityName = 'Ancient Lich';
+          mobType = 33;
+        } else if (spec === 'skeleton') {
+          entityType = 'undead';
+          entityName = 'Skeletal Warrior';
+          mobType = 15;
+        } else if (spec === 'zombie') {
+          entityType = 'undead';
+          entityName = 'Zombie';
+          mobType = 17;
+        } else if (spec === 'ghost') {
+          entityType = 'undead';
+          entityName = 'Ghost';
+          mobType = 18;
+        } else if (spec === 'mummy') {
+          entityType = 'undead';
+          entityName = 'Mummy';
+          mobType = 19;
+        } else if (spec === 'wraith') {
+          entityType = 'undead';
+          entityName = 'Wraith';
+          mobType = 23;
+        } else if (spec === 'vampire') {
+          entityType = 'undead';
+          entityName = 'Vampire';
+          mobType = 28;
+        } else if (spec === 'daedra' || spec === 'daedra_lord') {
+          entityType = 'daedra';
+          entityName = 'Daedra Lord';
+          mobType = 31;
+        } else if (spec === 'imp') {
+          entityType = 'daedra';
+          entityName = 'Imp';
+          mobType = 1;
+        } else if (spec === 'spider') {
+          entityType = 'beast';
+          entityName = 'Giant Spider';
+          mobType = 6;
+        } else if (spec === 'werewolf') {
+          entityType = 'beast';
+          entityName = 'Werewolf';
+          mobType = 9;
+        } else if (spec === 'wereboar') {
+          entityType = 'beast';
+          entityName = 'Wereboar';
+          mobType = 14;
+        } else if (spec === 'orc') {
+          entityType = 'humanoid';
+          entityName = 'Orc';
+          mobType = 7;
+        } else if (spec === 'bear') {
+          entityType = 'beast';
+          entityName = 'Grizzly Bear';
+          mobType = 4;
+        } else if (spec === 'tiger') {
+          entityType = 'beast';
+          entityName = 'Sabertooth Tiger';
+          mobType = 5;
+        } else if (spec === 'rat') {
+          entityType = 'beast';
+          entityName = 'Giant Rat';
+          mobType = 0;
+        }
+
         const rec = registerCorpse({
-          entityType: 'humanoid',
-          entityName: 'Slain Adventurer',
+          entityType,
+          mobileType: mobType,
+          entityName,
           position: pos,
           sceneKey: 'current_scene',
           worldTimeMinutes: worldMinutes(),
         });
         _sceneContext?.spawnCorpse?.(pos);
-        return `Spawned physical humanoid corpse (ID: ${rec.id}) in front of player. Ready for reanimation.`;
+        return `Spawned physical ${entityName} corpse (ID: ${rec.id}, MobileType: ${mobType}) in front of player. Ready for harvesting or reanimation.`;
       }
-      return 'Usage: necro spawn <skeleton | zombie | ghost | mummy | lich | ancient_lich | corpse>';
+      return 'Usage: necro spawn <skeleton | zombie | ghost | mummy | lich | ancient_lich | corpse [mob]>';
     }
     if (sub === 'menu') {
       _sceneContext?.openUndeadCommandMenu?.();

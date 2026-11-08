@@ -288,19 +288,28 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
           profession: 'hunting',
           ready: true,
           open: () => {
-            const res = harvestAllFromCorpse(corpseRecord || {
+            const targetCorpse = corpseRecord || {
               id: corpseId || b.key,
-              entityType: b.entity?._necroEntityType || (b.foe >= 128 ? 'undead' : 'humanoid'),
+              entityType: b.entity?._necroEntityType || (b.foe >= 128 ? 'humanoid' : 'undead'),
+              mobileType: b.foe,
+              entityName: name,
               level: b.entity?.level || 1,
               position: b.at?.() || [0, 0, 0],
-            }, entity);
+            };
+            if (targetCorpse && targetCorpse.mobileType == null && b.foe != null) {
+              targetCorpse.mobileType = b.foe;
+            }
+            if (targetCorpse && !targetCorpse.entityName && name) {
+              targetCorpse.entityName = name;
+            }
+            const res = harvestAllFromCorpse(targetCorpse, entity);
             if (b.foeRef) b.foeRef._necroHarvested = true;
             if (b.entity) b.entity._necroHarvested = true;
             if (corpseRecord) {
               corpseRecord.harvestedAll = true;
               corpseRecord.corpseState = 'desecrated';
             }
-            if (res.success) {
+            if (res.success && res.yields && res.yields.length > 0) {
               const msg = t('necro.harvest.done', 'You harvest necromantic reagents from {0}: {1}.', name, (res.yields || []).join(', '));
               globalThis.__sceneContext?.say?.(msg);
             } else {

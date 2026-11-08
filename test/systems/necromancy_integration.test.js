@@ -386,7 +386,7 @@ test('NecroIntegration: Wave 2 real-world corpse position via opts.feet, openCor
   const playerWithDagger = { items: [{ templateIndex: 113, name: 'Dagger' }], goldPieces: 0 };
   const harvestRes = harvestAllFromCorpse(nearby[0], playerWithDagger);
   assert.equal(harvestRes.success, true, 'Harvesting undead corpse with Dagger succeeds');
-  assert.ok(playerWithDagger.items.length >= 3, 'Undead corpse harvested with Dagger in inventory yields necromantic reagents');
+  assert.ok(playerWithDagger.items.length >= 2, 'Undead corpse harvested with Dagger in inventory yields necromantic reagents');
 
   // 3. castAnimateDead spawns 3D minion body via __sceneContext and castBoneArmor cleans it up
   const spawned3d = [];

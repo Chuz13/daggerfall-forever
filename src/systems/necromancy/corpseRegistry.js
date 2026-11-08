@@ -16,6 +16,7 @@ import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { setItemFields, templateByIndex } from '../item/itemTemplates.js';
 import { addItem } from '../inventory.js';
 import { t } from '../textManager.js';
+import { rollHarvestReagents } from './necroDropTable.js';
 
 export const HARVEST_BLADE_TEMPLATES = Object.freeze(new Set([
   603, // Skinning Knife
@@ -97,6 +98,7 @@ export function registerCorpse({
   id = generateCorpseId(),
   sourceEntityId = null,
   entityType = 'humanoid',
+  mobileType = null,
   entityName = 'Fallen Foe',
   preferredType = null,
   corpseState = CORPSE_STATE.FRESH,
@@ -116,6 +118,7 @@ export function registerCorpse({
     id,
     sourceEntityId,
     entityType,
+    mobileType: typeof mobileType === 'number' ? mobileType : null,
     entityName,
     preferredType,
     level: resolvedLevel,
@@ -125,6 +128,7 @@ export function registerCorpse({
     deathTimestamp: Number(deathTimestamp) || 0,
     corpseState,
     harvested: {
+      reagents: false,
       bones: false,
       flesh: false,
       skull: false,
@@ -320,24 +324,7 @@ export function harvestAllFromCorpse(corpseOrId, playerEntity) {
     };
   }
 
-  if (!corpse.harvested || typeof corpse.harvested !== 'object') {
-    corpse.harvested = {};
-  }
-  if (!corpse.corpseState) {
-    corpse.corpseState = CORPSE_STATE.FRESH;
-  }
-
-  const yields = [];
-  const itemsAdded = [];
-  const parts = ['bones', 'skull', 'flesh', 'ectoplasm'];
-  for (const part of parts) {
-    const res = harvestCorpse(corpse, /** @type {any} */ (part), { tool: 'dagger' });
-    if (res.success && res.itemYield) {
-      yields.push(res.itemYield);
-    }
-  }
-
-  if (yields.length === 0) {
+  if (corpse.harvestedAll || corpse.corpseState === CORPSE_STATE.DESECRATED || corpse.harvested?.reagents) {
     return {
       success: false,
       yields: [],
@@ -346,24 +333,33 @@ export function harvestAllFromCorpse(corpseOrId, playerEntity) {
     };
   }
 
-  playerEntity.items = playerEntity.items || [];
-  const reagentTemplates = [49, 40, 39]; // Mummy Wrappings (49), Ghoul's Tongue (40), Ectoplasm (39)
-  if ((corpse.level ?? 1) >= 8 || corpse.entityType === 'undead') {
-    reagentTemplates.push(45, 38); // Lich Dust (45), Wraith Essence (38)
+  if (!corpse.harvested || typeof corpse.harvested !== 'object') {
+    corpse.harvested = {};
   }
-  for (const tmplIdx of reagentTemplates.slice(0, Math.min(3, yields.length))) {
-    const tmpl = templateByIndex(tmplIdx);
-    const item = setItemFields({
-      group: 'CreatureIngredients1',
-      templateIndex: tmplIdx,
-      currentCondition: tmpl?.hitPoints ?? 1,
-      maxCondition: tmpl?.hitPoints ?? 1,
-      stackCount: 1,
-    });
-    if (item) {
-      addItem(playerEntity.items, item);
-      itemsAdded.push(item);
-    }
+  corpse.harvestedAll = true;
+  corpse.corpseState = CORPSE_STATE.DESECRATED;
+  corpse.harvested.reagents = true;
+  corpse.harvested.bones = true;
+  corpse.harvested.flesh = true;
+
+  playerEntity.items = playerEntity.items || [];
+  const rollRes = rollHarvestReagents(corpse, playerEntity);
+  const itemsAdded = [];
+  for (const item of rollRes.items) {
+    addItem(playerEntity.items, item);
+    itemsAdded.push(item);
+  }
+
+  const yields = rollRes.yields;
+  if (itemsAdded.length === 0) {
+    return {
+      success: true,
+      yields: [],
+      harvested: [],
+      itemsAdded: [],
+      multiplier: rollRes.multiplier,
+      reason: t('necro.harvest.empty', 'No usable reagents could be extracted from this corpse.'),
+    };
   }
 
   return {
@@ -371,6 +367,7 @@ export function harvestAllFromCorpse(corpseOrId, playerEntity) {
     yields,
     harvested: yields,
     itemsAdded,
+    multiplier: rollRes.multiplier,
   };
 }
 
