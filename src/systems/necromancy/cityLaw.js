@@ -30,6 +30,34 @@ export const HAMMERFELL_REGIONS = Object.freeze(new Set([
 ]));
 
 /**
+ * Pure read-only check whether the player currently has an open necromancy/lichdom violation
+ * in a settlement (without mutating crimeCommitted or firing alert sinks).
+ * @param {object} playerEntity
+ * @param {object} [options]
+ * @param {boolean} [options.isInsideSettlement=true]
+ * @param {boolean} [options.isDisguised=false]
+ * @returns {boolean}
+ */
+export function hasOpenNecroViolation(
+  playerEntity,
+  { isInsideSettlement = true, isDisguised = false } = {},
+) {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY || !isInsideSettlement || !playerEntity) {
+    return false;
+  }
+  if (NecroConfig.socialLaw === SOCIAL_LAW_MODES.OFF) {
+    return false;
+  }
+  const effectiveDisguised = isDisguised || isPlayerDisguised(playerEntity);
+  if (isAnyLich(playerEntity) && !effectiveDisguised) {
+    return true;
+  }
+  return allSpawnedMinions().some(
+    (m) => m && !m.dead && !m.rebelled && m.stance !== MINION_STANCES.FEIGN_DEATH,
+  );
+}
+
+/**
  * Checks whether the player or their minions commit an open crime against settlement law.
  * @param {object} playerEntity
  * @param {object} [options]
@@ -77,9 +105,8 @@ export function checkSettlementInfraction(
   }
 
   // 2. Check active undead minions
-  const activeMinions = allSpawnedMinions();
-  const visibleMinions = activeMinions.filter(
-    (m) => !m.dead && !m.rebelled && m.stance !== MINION_STANCES.FEIGN_DEATH,
+  const visibleMinions = allSpawnedMinions().filter(
+    (m) => m && !m.dead && !m.rebelled && m.stance !== MINION_STANCES.FEIGN_DEATH,
   );
 
   if (visibleMinions.length > 0) {

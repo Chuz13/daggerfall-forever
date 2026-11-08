@@ -27,7 +27,7 @@ import { racialSuppressCrime } from '../systems/lycanthropy.js';
 import { legalStandingWord } from '../systems/legalBands.js';
 import { t } from '../systems/textManager.js';
 import { isInvisible } from '../systems/effects.js';
-import { checkSettlementInfraction } from '../systems/necromancy/cityLaw.js';
+import { checkSettlementInfraction, hasOpenNecroViolation } from '../systems/necromancy/cityLaw.js';
 
 /** How often the street is looked over for a guard who can see a known criminal: once a second, not every frame. */
 export const STANDING_LOOK_MS = 1000;
@@ -56,28 +56,44 @@ export function createStandingWatch({
     const t = clock();
     if (t < next) return false;
     next = t + STANDING_LOOK_MS;
-    if (box || !onStreet() || blocked()) return false;
-    if (playerEntity.crimeCommitted || playerEntity.arrested || arrestFlow.inCourt()) return false;
+    if (box || !onStreet()) return false;
+    if (playerEntity.arrested || arrestFlow.inCourt()) return false;
     if ((playerEntity.health ?? 0) <= 0 || racialSuppressCrime(playerEntity)) return false;
     // AUDIT REP F7: an invisible criminal is nobody's face either - the witness arm's own gate (town.gate's isInvisible,
     // DFU's S19); guardSeesPlayer measures a line and a cone, not a spell, and the watch stopped a player it cannot see
     if (isInvisible(playerEntity)) return false;
     const region = regionIndex();
 
-    // Necromancy & Lichdom settlement infraction check
-    if (cityGuards.guardSeesPlayer({ playerFeet: playerFeet(), pool: guardPool() })) {
-      const necroInf = checkSettlementInfraction(playerEntity, {
-        isInsideSettlement: onStreet(),
-        regionName: regionName(region),
-        crimeAlertSink: (alert) => townTalk?.say?.(alert, 5),
-      });
-      if (necroInf.infraction) {
-        cityGuards.makeNpcGuardsIntoEnemies({ pool: guardPool(), playerFeet: playerFeet() }).catch((e) => console.error('[guards]', e));
-        crimeResponse();
-        return true;
+    // Necromancy & Lichdom settlement infraction check (runs even if crimeCommitted or nearby foes exist)
+    if (hasOpenNecroViolation(playerEntity, { isInsideSettlement: onStreet() })) {
+      const pool = guardPool();
+      const feet = playerFeet();
+      const seesPlayer =
+        !!cityGuards.guardSeesPlayer({ playerFeet: feet, pool }) ||
+        !!cityGuards.guardSpotsPlayerNear?.({ playerFeet: feet, pool });
+      const hasDefender = !!cityGuards.guards?.some((g) => !g.dead && g.defender);
+      if (seesPlayer || hasDefender) {
+        const prevCrime = playerEntity.crimeCommitted || 0;
+        let alertMsg = null;
+        const necroInf = checkSettlementInfraction(playerEntity, {
+          isInsideSettlement: onStreet(),
+          regionName: regionName(region),
+          crimeAlertSink: (alert) => { alertMsg = alert; },
+        });
+        if (necroInf.infraction) {
+          if (alertMsg && (!prevCrime || prevCrime !== necroInf.crime)) {
+            townTalk?.say?.(alertMsg, 5);
+          }
+          cityGuards.makeNpcGuardsIntoEnemies?.({ pool, playerFeet: feet })?.catch?.((e) => console.error('[guards]', e));
+          if (!prevCrime || prevCrime !== necroInf.crime || seesPlayer || hasDefender || !cityGuards.anyWatchStanding?.()) {
+            crimeResponse();
+          }
+          return true;
+        }
       }
     }
 
+    if (blocked() || playerEntity.crimeCommitted) return false;
     const clocks = { ownNow: ownNow(), worldNow: worldNow() };
     if (!challengeDue(playerEntity, region, clocks)) return false;
     if (!cityGuards.guardSeesPlayer({ playerFeet: playerFeet(), pool: guardPool() })) return false;

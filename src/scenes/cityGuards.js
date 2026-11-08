@@ -719,6 +719,25 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     return null;
   }
 
+  /** Close-range or polite-idle guard awareness for blatant open violations (undisguised Lich / undead minions).
+   *  When a guard stands within 12m (or paused in politeness idle facing the camera) with an unobstructed line of sight,
+   *  their conversation-circle yaw does not blind them to a Lich or skeleton standing right next to them. */
+  function guardSpotsPlayerNear({ playerFeet, pool = [], nearRange = 12 }) {
+    for (const p of pool) {
+      if (!p?.guard || !p.pos) continue;
+      const toPlayer = [playerFeet[0] - p.pos[0], playerFeet[1] - p.pos[1], playerFeet[2] - p.pos[2]];
+      const dist = Math.hypot(...toPlayer);
+      if (dist > GUARD_NPC_SPAWN_RANGE) continue;
+      const isCloseOrIdle = dist <= nearRange || p.person?.state === 'idle';
+      if (!isCloseOrIdle && angleDeg(toPlayer, [Math.sin(p.fwdYaw), 0, Math.cos(p.fwdYaw)]) > GUARD_SEEN_ANGLE) continue;
+      const eye = [p.pos[0], p.pos[1] + 0.7, p.pos[2]];
+      const dir = [toPlayer[0] / (dist || 1), (toPlayer[1] + 0.6) / (dist || 1), toPlayer[2] / (dist || 1)];
+      const hit = collider.raycast(eye, dir, dist);
+      if ((!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist, true) < dist - 1e-3)) return p;
+    }
+    return null;
+  }
+
   /** DISC19-F: THE WATCH DEFENDS THE TOWN (systems/town/townWatch.js
    *  decides when; this is the arrival). The crime response's own two
    *  arms, with the defenders minted as the player's allies and sent at
@@ -1169,29 +1188,8 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // walks away for the trial in both modes (arrestFlow's inCourt).
     // DISC19-F: a CRIME turns the town's defenders into that watch
     // first - they are guards, and the law below is theirs from here on.
-    const isUndisguisedLich = FORK_FLAGS.ENABLE_NECROMANCY && isAnyLich(playerEntity) && !isPlayerDisguised(playerEntity);
-    const hasVisibleMinions = FORK_FLAGS.ENABLE_NECROMANCY && (
-      activeUndead().some((m) => !m.dead && m.stance !== 'feign_death') ||
-      allSpawnedMinions().some((m) => !m.dead && m.stance !== 'feign_death')
-    );
-
-    if (FORK_FLAGS.ENABLE_NECROMANCY && (isUndisguisedLich || hasVisibleMinions) && !playerEntity.crimeCommitted) {
-      const necroLaw = checkCityLawViolation({
-        playerEntity,
-        isInsideSettlement: true,
-        minions: activeUndead(),
-        isDisguised: isPlayerDisguised(playerEntity),
-        crimeAlertSink: (alert) => { say?.(alert); },
-        crimeSeveritySink: (crime) => setCrimeCommitted(playerEntity, crime),
-      });
-      if (necroLaw.infraction) {
-        spawnCityGuards(true, { playerFeet, pool: [] }).catch((e) => console.error('[guards]', e));
-        for (const g of guards) if (!g.dead) { g.ai.isHostile = true; enlistDefender(g, playerFeet); }
-      }
-    }
-
     if (playerEntity.crimeCommitted) for (const g of guards) if (!g.dead && g.defender) enlistDefender(g, playerFeet);
-    if ((!playerEntity.crimeCommitted || playerEntity.arrested) && !isTransformedLycanthrope(playerEntity) && !isUndisguisedLich && !hasVisibleMinions) {
+    if ((!playerEntity.crimeCommitted || playerEntity.arrested) && !isTransformedLycanthrope(playerEntity)) {
       for (const g of guards) if (!g.dead && !g.defender && !g.hunter) { g.dead = true; releaseGuardBatch(g); }   // no corpse - they walk away; DISC19-F: a defender is not the crime's and leaves on the town watch's word; PVP-GUARDS: nor a villain's hunter (its host stands it down)
     }
     // AUDIT 17e F7 - PlayerEntity.cs:533-537 verbatim: the surrender
@@ -1959,7 +1957,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     g.corpseDisabled = true;
     g.corpseDestroyed = true;
   }
-  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, frighten, guardSeesPlayer, update, offsetAll, groundMoved, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, drawBodies, drawVeiledBodies, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), physicalCorpses: () => physicalCorpseSources(guards, 'guardCorpse', corpseLens), snapshotWorld, restoreWorld, removeGuard, removeCorpse, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab; PI1: physicalCorpses, the bodies whose items stand round them (scenes/physicalItemsLayer.js)
+  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, frighten, guardSeesPlayer, guardSpotsPlayerNear, update, offsetAll, groundMoved, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, drawBodies, drawVeiledBodies, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), physicalCorpses: () => physicalCorpseSources(guards, 'guardCorpse', corpseLens), snapshotWorld, restoreWorld, removeGuard, removeCorpse, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab; PI1: physicalCorpses, the bodies whose items stand round them (scenes/physicalItemsLayer.js)
     /** RR2: PlayerEntity.SpawnCityGuard(position, direction) (PlayerEntity.cs:678-694) for a caller
      *  outside the watch's own call - the ONE watchman minted where a walker stood, facing their
      *  way, hostile to the player. Resolves to the guard record (or null when the world moved on). */

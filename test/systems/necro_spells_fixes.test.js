@@ -18,6 +18,8 @@ import { checkSettlementInfraction } from '../../src/systems/necromancy/cityLaw.
 import { CRIMES } from '../../src/systems/crimes.js';
 import { spawnMinion, dismissAllMinions, MINION_STANCES } from '../../src/systems/necromancy/minionController.js';
 import { getConsoleCommand } from '../../src/systems/consoleCommands.js';
+import { createStandingWatch, STANDING_LOOK_MS } from '../../src/scenes/standingHost.js';
+import { createCityGuards } from '../../src/scenes/cityGuards.js';
 
 test('Bone Armor HUD Card: ENTRY_WORDS.boneArmor mirrors shield with real-time remaining values', () => {
   assert.equal(typeof ENTRY_WORDS.boneArmor, 'function');
@@ -174,5 +176,105 @@ test('Console Command necro control: works for both targeted live undead and sta
   const res = necroCmd.callback(['control', 'skeleton', '15']);
   assert.match(res, /Enslaved Controlled skeleton \(skeleton/);
   assert.match(res, /for 15 rounds/);
+  dismissAllMinions();
+});
+
+test('StandingWatch & Named Guards in guardPool: two named guards in a conversation circle or idle react to undisguised Arch-Lich and visible minions', () => {
+  dismissAllMinions();
+  const player = {
+    isPlayer: true,
+    name: 'ArchLichTester',
+    health: 100,
+    activeEffects: [],
+    crimeCommitted: 0,
+    legalRep: { 3: 0 },
+  };
+  applyAncientLichdom(player, { nowMinutes: 500 });
+
+  // Two named guards standing 3m in front of the player, facing sideways/away in a conversation circle
+  const namedGuards = [
+    { pos: [0, 0, 3], fwdYaw: 0, guard: true, person: { guard: true, nameNPC: 'Sir Gallant', state: 'idle' } },
+    { pos: [1, 0, 3], fwdYaw: Math.PI / 2, guard: true, person: { guard: true, nameNPC: 'Sir Cedric', state: 'circle' } },
+  ];
+
+  const cg = createCityGuards({
+    renderer: { createBillboardBatch: () => ({}), textures: new Map(), destroyBillboardBatch: () => {} },
+    collider: { heightAt: () => 0, raycast: () => Infinity, raycastHit: () => ({ dist: Infinity, normal: null }), sphereOverlaps: () => false },
+    fetchBytes: async () => { throw new Error('no art'); },
+    getTexture: async () => null,
+    uploadRecordFrame: () => {},
+    currentMinute: () => 0,
+    playerEntity: player,
+    audio: null,
+    onPlayerHurt: () => {},
+    rand: () => 0.5,
+  });
+
+  // Verify guardSpotsPlayerNear detects the named guards at 3m even though fwdYaw is facing away
+  assert.equal(cg.guardSeesPlayer({ playerFeet: [0, 0, 0], pool: namedGuards }), null, 'Strict 95-deg cone misses sideways/back-turned guards');
+  assert.equal(cg.guardSpotsPlayerNear({ playerFeet: [0, 0, 0], pool: namedGuards }), namedGuards[0], 'Close-range/idle awareness spots the player right in front of the guard');
+
+  let convertedCalls = 0;
+  let crimeResponses = 0;
+  const alerts = [];
+  let clockMs = 1000;
+
+  const watch = createStandingWatch({
+    playerEntity: player,
+    townTalk: { say: (msg) => alerts.push(msg) },
+    arrestFlow: { inCourt: () => false, surrenderToChallenge: () => true },
+    cityGuards: {
+      guardSeesPlayer: (o) => cg.guardSeesPlayer(o),
+      guardSpotsPlayerNear: (o) => cg.guardSpotsPlayerNear(o),
+      makeNpcGuardsIntoEnemies: async () => { convertedCalls++; },
+      anyWatchStanding: () => convertedCalls > 0,
+      guards: [],
+    },
+    guardPool: () => namedGuards,
+    playerFeet: () => [0, 0, 0],
+    regionIndex: () => 3,
+    regionName: () => 'Daggerfall',
+    ownNow: () => 1000,
+    worldNow: () => 1000,
+    crimeResponse: () => { crimeResponses++; },
+    onStreet: () => true,
+    blocked: () => true, // Even when blocked() is true (e.g. a hostile foe or minion is near)
+    clock: () => clockMs,
+  });
+
+  // 1. Undisguised Arch-Lich approaches the two named guards
+  assert.equal(watch.frame(), true, 'StandingWatch must trigger for undisguised Arch-Lich near named guards');
+  assert.equal(player.crimeCommitted, CRIMES.Treason);
+  assert.equal(convertedCalls, 1, 'Named guards in pool must be converted into hostile watchmen');
+  assert.equal(crimeResponses, 1, 'crimeResponse must be invoked');
+  assert.equal(alerts.length, 1);
+  assert.match(alerts[0], /A foul Lich walks our streets/);
+
+  // 2. Next second while still standing there: converts any remaining unconverted guards without spamming HUD alert
+  clockMs += STANDING_LOOK_MS;
+  assert.equal(watch.frame(), true);
+  assert.equal(alerts.length, 1, 'HUD alert must not spam every second for the same crime');
+
+  // 3. Disguised Arch-Lich with no minions -> no reaction
+  player.crimeCommitted = 0;
+  convertedCalls = 0;
+  crimeResponses = 0;
+  player.activeEffects.push({ kind: 'disguise', roundsRemaining: 20, ended: false });
+  clockMs += STANDING_LOOK_MS;
+  assert.equal(watch.frame(), false, 'Disguised Arch-Lich without minions should not trigger guards');
+  assert.equal(convertedCalls, 0);
+
+  // 4. Disguised Arch-Lich spawns a skeleton minion -> guards immediately react to the minion!
+  spawnMinion({ type: 'skeleton', masterEntity: player, stance: MINION_STANCES.FOLLOW });
+  clockMs += STANDING_LOOK_MS;
+  assert.equal(watch.frame(), true, 'Disguised Arch-Lich with a visible skeleton must trigger guards');
+  assert.equal(player.crimeCommitted, CRIMES.Criminal_Conspiracy);
+  assert.equal(convertedCalls, 1);
+  assert.equal(crimeResponses, 1);
+  assert.equal(alerts.length, 2);
+  assert.match(alerts[1], /Necromancy in the city square/);
+
+  dismissAllMinions();
+  cureAncientLichdom(player);
 });
 
