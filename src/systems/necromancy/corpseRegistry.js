@@ -17,27 +17,41 @@ import { setItemFields, templateByIndex } from '../item/itemTemplates.js';
 import { addItem } from '../inventory.js';
 import { t } from '../textManager.js';
 
-export const HARVEST_BLADE_TEMPLATES = Object.freeze(new Set([603, 113, 114, 116, 117])); // Skinning Knife (603), Dagger (113), Tanto (114), Shortsword (116), Wakazashi (117)
+export const HARVEST_BLADE_TEMPLATES = Object.freeze(new Set([
+  603, // Skinning Knife
+  113, 114, 116, 117, // Dagger, Tanto, Shortsword, Wakazashi
+  118, 119, 120, 121, 122, 123, // Broadsword, Saber, Longsword, Katana, Claymore, Dai-Katana
+  127, 128, // Battle Axe, War Axe
+]));
 
 /**
- * Checks whether an entity carries a Skinning Knife (603) or any dagger/short blade in inventory or equipped slots.
+ * Checks whether an entity carries a Skinning Knife (603), dagger, sword, or axe in inventory or equipped slots.
  * @param {object} playerEntity
  * @returns {boolean}
  */
 export function canHarvestCorpseWithInventory(playerEntity) {
   if (!playerEntity) return false;
+  const isBlade = (it) => {
+    if (!it) return false;
+    const tpl = Number(it.templateIndex ?? it.itemTemplateIndex);
+    if (HARVEST_BLADE_TEMPLATES.has(tpl)) return true;
+    const name = String(it.name || '').toLowerCase();
+    return name.includes('dagger') || name.includes('tanto') || name.includes('skinning')
+      || name.includes('knife') || name.includes('sword') || name.includes('saber')
+      || name.includes('katana') || name.includes('blade') || name.includes('axe');
+  };
+
   const items = Array.isArray(playerEntity.items) ? playerEntity.items : [];
   for (const it of items) {
-    if (it && HARVEST_BLADE_TEMPLATES.has(Number(it.templateIndex))) return true;
-    const name = String(it?.name || '').toLowerCase();
-    if (name.includes('dagger') || name.includes('tanto') || name.includes('skinning')) return true;
+    if (isBlade(it)) return true;
   }
   const slots = playerEntity.equip?.slots || playerEntity.equipSlots || null;
   if (slots && typeof slots === 'object') {
     for (const it of Object.values(slots)) {
-      if (it && HARVEST_BLADE_TEMPLATES.has(Number(it.templateIndex))) return true;
+      if (isBlade(it)) return true;
     }
   }
+  if (isBlade(playerEntity.weapon)) return true;
   return false;
 }
 

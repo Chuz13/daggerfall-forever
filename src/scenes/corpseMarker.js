@@ -68,6 +68,7 @@ import { FlatAnim, isAnimatedFlat } from '../render/flatAnimation.js'; // AUDIT 
 import { localizedText, getLocalizedEnemyName } from '../systems/textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the enemy's name
 import { silverFindAt } from '../systems/silverFinds.js'; // SILVER-FINDS: a body opened holds silver now and then
 import { registerCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
+import { hideOfFoe } from '../net/professionLaw.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 
 /** ItemTemplates Arrow - the auto-pickup arm keys on it. */
@@ -547,9 +548,15 @@ function corpsePrelude(entry, playerEntity, say) {
   if (!entry || entry.corpseDisabled) return 0;
   const items = entry.entity?.items;
   // :942-947 - the body has no treasure, and the container is
-  // DISABLED: an emptied corpse stops being activatable.
+  // DISABLED: an emptied corpse stops being activatable for loot.
   if (!items?.length) {
-    entry.corpseDisabled = true;
+    entry.lootDisabled = true;
+    const canSkin = entry.hide || (entry.entity?.mobileType != null && hideOfFoe(entry.entity.mobileType) != null);
+    const canHarvest = !entry._necroHarvested && !entry.entity?._necroHarvested;
+    // Only completely disable the corpse billboard if neither skinning nor harvesting remains
+    if (!canSkin && !canHarvest) {
+      entry.corpseDisabled = true;
+    }
     say(localizedText('theBodyHasNoTreasure', 'The body has no treasure.'));
     return 0;
   }

@@ -822,8 +822,34 @@ registerCommand('set_level', 'Set player character level: set_level <level>', 's
 registerCommand('setlevel', 'Set player character level: setlevel <level>', 'setlevel <level>', handleLevelCommand);
 registerCommand('level', 'Set player character level: level <level>', 'level <level>', handleLevelCommand);
 registerCommand('setskill', 'Set player skill value: setskill <name> <value>', 'setskill <skillName> <value>', (args = []) => getConsoleCommand('set_skill').callback(args));
+registerCommand('skill', 'Set player skill value: skill <name> <value>', 'skill <skillName> <value>', (args = []) => getConsoleCommand('set_skill').callback(args));
 registerCommand('setstat', 'Set player attribute: setstat <name> <value>', 'setstat <attribute> <value>', (args = []) => getConsoleCommand('set_attr').callback(args));
 registerCommand('setattr', 'Set player attribute: setattr <name> <value>', 'setattr <attribute> <value>', (args = []) => getConsoleCommand('set_attr').callback(args));
+registerCommand('stat', 'Set player attribute: stat <name> <value>', 'stat <attribute> <value>', (args = []) => getConsoleCommand('set_attr').callback(args));
+
+registerCommand(
+  'set',
+  'Set skill, stat, or level: set <skill|stat|attr|level> <name> [value]',
+  'set <skill|stat|attr|level> <name> [value]',
+  (args = []) => {
+    if (!args || args.length === 0) return 'Usage: set <skill|stat|attr|level> <name> [value]';
+    const sub = String(args[0]).toLowerCase();
+    if (sub === 'skill') {
+      return getConsoleCommand('set_skill').callback(args.slice(1));
+    }
+    if (sub === 'stat' || sub === 'attr') {
+      return getConsoleCommand('set_attr').callback(args.slice(1));
+    }
+    if (sub === 'level') {
+      return getConsoleCommand('set_level').callback(args.slice(1));
+    }
+    const resolved = resolveSkillId(sub);
+    if (resolved) {
+      return getConsoleCommand('set_skill').callback(args);
+    }
+    return getConsoleCommand('set_attr').callback(args);
+  }
+);
 
 registerCommand(
   'addspell',
@@ -1477,9 +1503,11 @@ registerCommand(
       }
       return `Current Soul Taint: ${getPlayerTaint(playerEntity)}/100 (${getTaintTier(playerEntity)}).`;
     }
-    if (sub === 'spawn' || ['skeleton', 'zombie', 'ghost', 'mummy', 'lich', 'corpse'].includes(sub)) {
-      const target = (sub === 'spawn' ? String(args[1] || 'skeleton') : sub).toLowerCase();
-      if (['skeleton', 'zombie', 'ghost', 'mummy', 'lich'].includes(target)) {
+    const validMinionTypes = ['skeleton', 'zombie', 'ghost', 'mummy', 'lich', 'ancient_lich', 'ancientlich'];
+    if (sub === 'spawn' || validMinionTypes.includes(sub) || sub === 'corpse') {
+      let target = (sub === 'spawn' ? String(args[1] || 'skeleton') : sub).toLowerCase();
+      if (target === 'ancientlich') target = 'ancient_lich';
+      if (['skeleton', 'zombie', 'ghost', 'mummy', 'lich', 'ancient_lich'].includes(target)) {
         const playerPos = _sceneContext?.getPlayerPos?.();
         const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
         const m = spawnMinion({
@@ -1502,7 +1530,7 @@ registerCommand(
         _sceneContext?.spawnCorpse?.(pos);
         return `Spawned physical humanoid corpse (ID: ${rec.id}) in front of player. Ready for reanimation.`;
       }
-      return 'Usage: necro spawn <skeleton | zombie | ghost | mummy | lich | corpse>';
+      return 'Usage: necro spawn <skeleton | zombie | ghost | mummy | lich | ancient_lich | corpse>';
     }
     if (sub === 'menu') {
       _sceneContext?.openUndeadCommandMenu?.();
@@ -1597,11 +1625,11 @@ registerCommand(
       getConsoleCommand('addspell').callback(['all_necro']);
       return '<b>[Necro Full Test Kit]</b> Level 20, Mysticism/Destruction 100, INT/WIL 100, Skinning Knife (603), Elixir of Unlife + 4 reagents, and all 4 Necromancy spells granted!';
     }
-    return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
+    return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn <type|corpse> | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
   }
 );
 
-registerCommand('necro_spawn', 'Spawn minion or corpse: necro_spawn <skeleton|zombie|ghost|mummy|lich|corpse>', 'necro_spawn <type>', (args = []) => getConsoleCommand('necro').callback(['spawn', ...args]));
+registerCommand('necro_spawn', 'Spawn minion or corpse: necro_spawn <skeleton|zombie|ghost|mummy|lich|ancient_lich|corpse>', 'necro_spawn <type>', (args = []) => getConsoleCommand('necro').callback(['spawn', ...args]));
 registerCommand('necro_corpse', 'Spawn a corpse in front of player', 'necro_corpse', () => getConsoleCommand('necro').callback(['spawn', 'corpse']));
 registerCommand('necro_menu', 'Open Undead Command Menu', 'necro_menu', () => getConsoleCommand('necro').callback(['menu']));
 registerCommand('necro_spells', 'Add all necromancy spells to spellbook', 'necro_spells', () => getConsoleCommand('addspell').callback(['all_necro']));

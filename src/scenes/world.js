@@ -10418,10 +10418,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         const validTgt = curTgt && !curTgt.dead && (curTgt.entity?.health ?? 1) > 0;
         if (!validTgt) {
           const pFeet = walkMode && playerSpawned ? player.pos : cam.pos;
-          const foes = exteriorFoes?.foes ?? [];
+          const activePoolFoes = (modes?.mode === 'dungeon' ? modes?.dungeonCtx?.foes : modes?.mode === 'interior' ? modes?.interiorFoes?.foes : exteriorFoes?.foes) ?? exteriorFoes?.foes ?? [];
           let nearest = null;
           let nearestDist = 45;
-          for (const f of foes) {
+          for (const f of activePoolFoes) {
             if (f && !f.dead && f !== rec && f.entity?.team !== 'PlayerAlly' && f.livingRole !== 'undead_minion' && !f.puppet) {
               const ff = f.ai?.feet ?? f.pos;
               if (ff) {
@@ -10442,6 +10442,9 @@ export async function bootWorld(canvas, renderer, params, status) {
             rec.ai.secondaryTarget = nearest;
             rec.ai.targetSenses = nearest;
             rec.ai._armedTargeting = true;
+            rec.ai.inSight = true;
+            rec.ai.detected = true;
+            rec.ai.giveUpTimer = 9999;
             rec.ai.follow = null;
             rec.ai.isHostile = false;
             rec.ai.moving = true;
@@ -10583,6 +10586,9 @@ export async function bootWorld(canvas, renderer, params, status) {
                 f.ai.secondaryTarget = nearestHostile;
                 f.ai.targetSenses = nearestHostile;
                 f.ai._armedTargeting = true;
+                f.ai.inSight = true;
+                f.ai.detected = true;
+                f.ai.giveUpTimer = 9999;
                 f.ai.follow = null;
                 f.ai.moving = true;
               } else {

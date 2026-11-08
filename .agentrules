@@ -38,14 +38,11 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
    
    
    Also always add any new text in all languages currently present in the game. 
-   
    Don't tun npm test on your own without expicit request from "13".
-   
    When adding strings for localization, add the minimal amount. Always add for all currently present languages.
-   
    Don't add or change unnecessary strings in localization files. 
-   
    When implementing gameplay systems always make sure new functions actually get called - so the player can interact with new systems.
+   When developing new gameplay mechanics and features, first always use existing code: logic, methods, math. If somethins new is needed - specify this to the user. 
    
 # Repository Integrity & Destructive Command Restrictions
 1. FORBIDDEN GIT COMMANDS: Never execute destructive git operations:

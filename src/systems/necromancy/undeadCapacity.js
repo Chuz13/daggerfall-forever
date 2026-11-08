@@ -178,6 +178,8 @@ function minionMobileType(type) {
     case 'mummy': return MOBILE_TYPES.Mummy;
     case 'wraith': return MOBILE_TYPES.Wraith;
     case 'lich': return MOBILE_TYPES.Lich;
+    case 'ancient_lich':
+    case 'ancientlich': return MOBILE_TYPES.AncientLich;
     case 'skeleton':
     default:
       return MOBILE_TYPES.SkeletalWarrior;

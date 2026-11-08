@@ -8078,7 +8078,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // spell branch and DoTouchSpell both sit BELOW TakeAction's
       // return at EnemyMotor.cs:466, so a transforming Seducer - which
       // carries a spell table - casts nothing.
-      if (_tgt && f.caster && !_fParalyzed && !_fPaused && f.ai.isHostile) {
+      if (_tgt && f.caster && !_fParalyzed && !_fPaused && (f.ai.isHostile || f.entity?.team === 'PlayerAlly' || f.livingRole === 'undead_minion' || f.shipmate || f.allied || !!f.ai.target)) {
         // MT-iv: the decision aims at the SELECTED target and reads
         // that target's own entity, so a foe duelling another foe
         // neither picks its school off the player's effects nor

@@ -1838,7 +1838,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // ROAD-U: DoRangedAttack's spell branch and DoTouchSpell both sit
       // BELOW TakeAction's pause return (EnemyMotor.cs:466), so a
       // transforming Seducer casts nothing either.
-      if (_tgt && f.caster && !_fParalyzed && !_fPaused && f.ai.isHostile) {
+      if (_tgt && f.caster && !_fParalyzed && !_fPaused && (f.ai.isHostile || f.entity?.team === 'PlayerAlly' || f.livingRole === 'undead_minion' || f.shipmate || f.allied || !!f.ai.target)) {
         // WORLD6b-iii: the cast at a PEER - the decision runs as at me (AUDIT WORLD6b-ii A1: never gated off, or the pick
         // latches and the stand-off band roots the foe), the missile leaves toward the peer, and the cast rides the
         // stream (c the count, s the spell) so the peer's puppet casts the spell itself at the peer
