@@ -143,16 +143,17 @@ export function survivalHudChips(entity, now, { vampire = false, endurance = 50,
       of: ladder.length,
     });
   };
-  if (!vampire) push('hunger', HUD_NEED_WORDS.hunger, hungerStage(hungerMinutes(s, now))); // AUDIT SURV C: no need for food or sleep
-  if (!vampire) push('thirst', HUD_NEED_WORDS.thirst, thirstStage(s.thirst)); // AUDIT SURV-TIERS (the third pass): nor drink - the law freezes it, and its red chip never cost
-  if (!vampire) push('sleep', HUD_NEED_WORDS.sleep, sleepStage(s.sleepDebt), { held: wakingHeld(s, now) });
+  const isLich = !!entity?.racialOverride && (entity.racialOverride.racial === 'lichdom' || entity.racialOverride.racial === 'ancient_lichdom');
+  if (!vampire && !isLich) push('hunger', HUD_NEED_WORDS.hunger, hungerStage(hungerMinutes(s, now))); // AUDIT SURV C: no need for food or sleep
+  if (!vampire && !isLich) push('thirst', HUD_NEED_WORDS.thirst, thirstStage(s.thirst)); // AUDIT SURV-TIERS (the third pass): nor drink - the law freezes it, and its red chip never cost
+  if (!vampire && !isLich) push('sleep', HUD_NEED_WORDS.sleep, sleepStage(s.sleepDebt), { held: wakingHeld(s, now) });
   push('wet', HUD_NEED_WORDS.wet, wetStage(s.wet));
   // AUDIT C&C S9 (decision D3): ONE TEMPERATURE READING ON THE HUD - the live one the plate shows, where the HUD hands it
   // in (env.js feltNow), its fire read off the live air (needs.js warmedByFire); the record's last minute with no feed.
   // The chip read the record and the plate the live air, and for up to a game minute the strip said Freezing beside a
   // plate's -51 Deadly cold, and a step to a fire left the plate red until the minute turned
-  const felt = live ? live.felt : s.felt;
-  if (Number.isFinite(felt)) {
+  const felt = isLich ? 0 : (live ? live.felt : s.felt);
+  if (!isLich && Number.isFinite(felt)) {
     const word = temperatureWord(felt);
     push('temp', HUD_NEED_WORDS.temp, word, {
       felt,
@@ -319,7 +320,9 @@ export function survivalStatusLines(entity, now, { vampire = false, endurance = 
   const kept = !!tierOf(s, rules).boons;
   const boons = kept && Array.isArray(s.boons) ? s.boons : [];
   const lines = [];
-  if (vampire) lines.push(STATUS_TEXT.vampire);
+  const isLich = !!entity?.racialOverride && (entity.racialOverride.racial === 'lichdom' || entity.racialOverride.racial === 'ancient_lichdom');
+  if (isLich) lines.push('You are an immortal Lich: you have no need for food, drink, sleep or warmth.');
+  else if (vampire) lines.push(STATUS_TEXT.vampire);
   else {
     const hunger = hungerStage(hungerMinutes(s, now));
     lines.push(
@@ -337,7 +340,7 @@ export function survivalStatusLines(entity, now, { vampire = false, endurance = 
   // strip said so while the page said only that it needs no food or sleep
   const wet = STATUS_TEXT.wet[wetStage(s.wet)];
   if (wet) lines.push(wet);
-  if (Number.isFinite(s.felt)) {
+  if (!isLich && Number.isFinite(s.felt)) {
     const word = temperatureWord(s.felt);
     lines.push(warmedBy(s, word) ? STATUS_TEXT.warmedByFire : STATUS_TEXT.temp(word), STATUS_TEXT.felt(s.felt));
   } // TEMP-UI: and its number

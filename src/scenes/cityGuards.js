@@ -48,7 +48,7 @@ import { liveStat } from '../systems/statMods.js';   // AUDIT 23 (characters-11)
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { damageShieldPool } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice, isTransformedLycanthrope } from '../systems/lycanthropy.js';   // V4: the beast's attack voice   // GUARD1: EnemyEntity.cs:188's FOURTH despawn term
-import { isLich } from '../systems/necromancy/lichdomStatus.js';
+import { isLich, isAnyLich } from '../systems/necromancy/lichdomStatus.js';
 import { activeUndead } from '../systems/necromancy/undeadCapacity.js';
 import { checkCityLawViolation } from '../systems/necromancy/cityLaw.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
@@ -1168,7 +1168,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // walks away for the trial in both modes (arrestFlow's inCourt).
     // DISC19-F: a CRIME turns the town's defenders into that watch
     // first - they are guards, and the law below is theirs from here on.
-    const isUndisguisedLich = FORK_FLAGS.ENABLE_NECROMANCY && isLich(playerEntity) && !playerEntity.isHooded;
+    const isUndisguisedLich = FORK_FLAGS.ENABLE_NECROMANCY && isAnyLich(playerEntity) && !playerEntity.isHooded;
     const hasVisibleMinions = FORK_FLAGS.ENABLE_NECROMANCY && activeUndead().some((m) => m.stance !== 'feign_death');
 
     if (FORK_FLAGS.ENABLE_NECROMANCY && (isUndisguisedLich || hasVisibleMinions) && !playerEntity.crimeCommitted) {

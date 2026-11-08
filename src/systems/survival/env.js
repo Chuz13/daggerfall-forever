@@ -28,6 +28,7 @@ import { temperatureWord, feltTemperature, temperatureBreakdown } from './temper
 import { installSurvivalRestGate } from './rest.js';
 import { survivalRules } from './switch.js';
 import { liveVampirism } from '../racialLive.js';
+import { isAnyLich } from '../necromancy/lichdomStatus.js';
 import { raceById } from '../races.js';
 
 /** TEMP-UI: the last feed built for each entity (feltNow, at the end of this file) - weak, never on the entity. */
@@ -46,6 +47,7 @@ export const ENV_DEFAULTS = Object.freeze({
 export function survivalCtx(entity, env = {}) {
   return {
     vampire: !!liveVampirism(entity),
+    lich: !!isAnyLich(entity),
     raceId: entity?.raceId ?? 1,
     raceTemplate: raceById(entity?.raceId ?? 1) ?? {},
     lycanthrope: !!env.lycanthrope, beastForm: !!env.beastForm,

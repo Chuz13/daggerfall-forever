@@ -9,7 +9,7 @@
 // 3. Reconstitution: If a Lich player is defeated in combat, the soul retreats
 //    to the bound phylactery rather than suffering permanent demise.
 
-import { applyLichdom, isLich } from './lichdomStatus.js';
+import { applyLichdom, isLich, isAnyLich } from './lichdomStatus.js';
 import { skillValue, SKILLS } from '../skills.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 
@@ -37,7 +37,7 @@ export function canDrinkElixirOfUnlife(playerEntity) {
   if (!playerEntity) {
     return { eligible: false, reason: 'Invalid player entity.' };
   }
-  if (isLich(playerEntity)) {
+  if (isAnyLich(playerEntity)) {
     return { eligible: false, reason: 'You have already ascended to Lichdom.' };
   }
   const level = playerEntity.level || 1;
@@ -215,7 +215,7 @@ export function performRitualOfUnlife(playerEntity, phylactery, { nowMinutes = 0
  * @returns {{ reconstituted: boolean, respawnPosition: [number, number, number]|null, reason?: string }}
  */
 export function handleLichMortalFall(playerEntity, phylactery) {
-  if (!isLich(playerEntity)) {
+  if (!isAnyLich(playerEntity)) {
     return { reconstituted: false, respawnPosition: null, reason: 'Not a Lich' };
   }
 

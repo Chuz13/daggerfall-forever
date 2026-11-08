@@ -16,7 +16,7 @@ import { bankedGold, isUnifiedBankActive } from '../banking.js';
 import { currentOf, readFamily } from '../legacy/family.js';
 import { getRegionState, CRISIS_TYPE } from '../living/regionState.js';
 import { getPref } from '../uiPrefs.js';
-import { isLich } from '../necromancy/lichdomStatus.js';
+import { isLich, isAncientLich } from '../necromancy/lichdomStatus.js';
 import { getPlayerTaint } from '../necromancy/necroTaint.js';
 import { activeUndeadCount, usedUndeadPoints, calculateUndeadCapacity } from '../necromancy/undeadCapacity.js';
 import { NecroConfig } from '../necromancy/necroConfig.js';
@@ -212,6 +212,7 @@ export function buildDiagnosticSnapshot(triggerReason = 'manual') {
       necromancy: {
         enabled: NecroConfig.enabled,
         isLich: isLich(p),
+        isAncientLich: isAncientLich(p),
         taint: getPlayerTaint(p),
         minions: activeUndeadCount(),
         usedSlots: usedUndeadPoints(),

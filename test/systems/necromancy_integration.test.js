@@ -6,7 +6,11 @@ import { getCorpse, corpsesNear, registerCorpse, canHarvestCorpseWithInventory, 
 import { applySpell } from '../../src/systems/effects.js';
 import { activeUndead, _resetUndeadCapacityForTests, undeadParty } from '../../src/systems/necromancy/undeadCapacity.js';
 import { checkCityLawViolation } from '../../src/systems/necromancy/cityLaw.js';
-import { isLich } from '../../src/systems/necromancy/lichdomStatus.js';
+import { isLich, isAncientLich, isAnyLich, applyLichdom, applyAncientLichdom, cureLichdom, cureAncientLichdom } from '../../src/systems/necromancy/lichdomStatus.js';
+import { blowTaken } from '../../src/systems/blowTaken.js';
+import { survivalCtx } from '../../src/systems/survival/env.js';
+import { feltTemperature, resistTemperature } from '../../src/systems/survival/temperature.js';
+import { survivalHudChips } from '../../src/systems/survival/status.js';
 import { createPhylactery, performRitualOfUnlife, reconstituteLich, drinkElixirOfUnlife, PHYLACTERY_STATE } from '../../src/systems/necromancy/lichdomRitual.js';
 import { castAnimateDead, castCorpseExplosion, castBoneArmor } from '../../src/systems/necromancy/necromanticSpells.js';
 import { spawnMinion } from '../../src/systems/necromancy/minionController.js';
@@ -467,5 +471,96 @@ test('NecroIntegration: Wave 2 real-world corpse position via opts.feet, openCor
     globalThis.__sceneContext = prevCtx;
   }
 });
+
+test('NecroIntegration: Ancient Lich console command transforms and cures player', () => {
+  // Ensure clean mortal baseline
+  cureLichdom(playerEntity);
+  cureAncientLichdom(playerEntity);
+  assert.equal(isAncientLich(playerEntity), false);
+  assert.equal(isLich(playerEntity), false);
+
+  // 1. Transform via `ancient_lich` command
+  const res1 = executeConsoleLine('ancient_lich');
+  assert.ok(res1.includes('Ancient Lichdom transformation complete'));
+  assert.equal(isAncientLich(playerEntity), true);
+  assert.equal(playerEntity.racialOverride?.racial, 'ancient_lichdom');
+  assert.equal(playerEntity.racialOverride?.raceNameOverride, 'Ancient Lich');
+
+  // Status check in console
+  const statusRes = executeConsoleLine('necro status');
+  assert.ok(statusRes.includes('ACTIVE (Ancient Lich)'));
+
+  // 2. Untransform via `ancient_lich off`
+  const resOff = executeConsoleLine('ancient_lich off');
+  assert.ok(resOff.includes('Ancient Lichdom stripped'));
+  assert.equal(isAncientLich(playerEntity), false);
+  assert.equal(playerEntity.racialOverride, null);
+
+  // 3. Transform via `necro ancient_lich`
+  const resNecro = executeConsoleLine('necro ancient_lich');
+  assert.ok(resNecro.includes('Ancient Lichdom transformation complete'));
+  assert.equal(isAncientLich(playerEntity), true);
+
+  // 4. Toggle off via `ancientlich`
+  const resToggle = executeConsoleLine('ancientlich');
+  assert.ok(resToggle.includes('Ancient Lichdom stripped'));
+  assert.equal(isAncientLich(playerEntity), false);
+});
+
+test('NecroIntegration: Arrow mitigation for Lich (50%) and Ancient Lich (80%)', () => {
+  cureLichdom(playerEntity);
+  cureAncientLichdom(playerEntity);
+  const attacker = { isPlayer: false };
+  const arrowInfo = { kind: 'arrow' };
+  const meleeInfo = { kind: 'melee' };
+
+  // Mortal baseline
+  assert.equal(blowTaken(100, attacker, playerEntity, null, arrowInfo), 100);
+  assert.equal(blowTaken(100, attacker, playerEntity, null, meleeInfo), 100);
+
+  // Lichdom -> 50% arrow damage
+  applyLichdom(playerEntity);
+  assert.equal(blowTaken(100, attacker, playerEntity, null, arrowInfo), 50);
+  assert.equal(blowTaken(100, attacker, playerEntity, null, meleeInfo), 100);
+  assert.equal(playerEntity.racialOverride.minMetalToHit, 2); // Silver
+
+  // Ancient Lichdom -> 80% mitigation (takes 20% damage)
+  applyAncientLichdom(playerEntity);
+  assert.equal(blowTaken(100, attacker, playerEntity, null, arrowInfo), 20);
+  assert.equal(blowTaken(100, attacker, playerEntity, null, meleeInfo), 100);
+  assert.equal(playerEntity.racialOverride.minMetalToHit, 5); // Mithril
+
+  cureAncientLichdom(playerEntity);
+  assert.equal(blowTaken(100, attacker, playerEntity, null, arrowInfo), 100);
+});
+
+test('NecroIntegration: Lich & Ancient Lich survival and climate immunity', () => {
+  applyLichdom(playerEntity);
+  const ctxLich = survivalCtx(playerEntity);
+  assert.equal(ctxLich.lich, true);
+  assert.equal(feltTemperature({}, null, ctxLich).felt, 0);
+  assert.equal(feltTemperature({}, null, ctxLich).abs, 0);
+  assert.equal(resistTemperature(50, ctxLich), 0);
+  assert.equal(resistTemperature(-50, ctxLich), 0);
+
+  // HUD chips suppressed
+  const chipsLich = survivalHudChips({ thirst: 100, sleepDebt: 100, exposure: 100 }, { abs: 60, felt: 60 }, { lich: true });
+  assert.equal(chipsLich.length, 0);
+
+  cureLichdom(playerEntity);
+  applyAncientLichdom(playerEntity);
+  const ctxAncient = survivalCtx(playerEntity);
+  assert.equal(ctxAncient.lich, true);
+  assert.equal(feltTemperature({}, null, ctxAncient).felt, 0);
+  assert.equal(feltTemperature({}, null, ctxAncient).abs, 0);
+  assert.equal(resistTemperature(50, ctxAncient), 0);
+  assert.equal(resistTemperature(-50, ctxAncient), 0);
+
+  const chipsAncient = survivalHudChips({ thirst: 100, sleepDebt: 100, exposure: 100 }, { abs: 60, felt: 60 }, { lich: true });
+  assert.equal(chipsAncient.length, 0);
+
+  cureAncientLichdom(playerEntity);
+});
+
 
 

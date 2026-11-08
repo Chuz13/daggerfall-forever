@@ -7,7 +7,7 @@
 // 3. Lichdom locks taint at maximum (100).
 // 4. Inactivity slowly washes taint away (-1 per classic game day) unless Lich.
 
-import { isLich } from './lichdomStatus.js';
+import { isLich, isAnyLich } from './lichdomStatus.js';
 
 export const TAINT_TIERS = Object.freeze({
   PRISTINE: 'pristine',     // 0..25: Untainted mortal
@@ -25,7 +25,7 @@ let _lastDecayDay = 0;
  * @returns {number}
  */
 export function getPlayerTaint(playerEntity = null) {
-  if (playerEntity && isLich(playerEntity)) {
+  if (playerEntity && isAnyLich(playerEntity)) {
     return 100;
   }
   return _playerTaint;
@@ -51,7 +51,7 @@ export function getTaintTier(playerEntity = null) {
  * @returns {number} New taint level
  */
 export function addNecroTaint(amount, playerEntity = null) {
-  if (playerEntity && isLich(playerEntity)) {
+  if (playerEntity && isAnyLich(playerEntity)) {
     _playerTaint = 100;
     return 100;
   }
@@ -65,7 +65,7 @@ export function addNecroTaint(amount, playerEntity = null) {
  * @param {object} [playerEntity]
  */
 export function tickTaintDaily(currentDay, playerEntity = null) {
-  if (playerEntity && isLich(playerEntity)) {
+  if (playerEntity && isAnyLich(playerEntity)) {
     _playerTaint = 100;
     return;
   }

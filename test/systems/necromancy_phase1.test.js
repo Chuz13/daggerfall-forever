@@ -34,6 +34,11 @@ import {
   liveLichdom,
   isLich,
   cureLichdom,
+  applyAncientLichdom,
+  liveAncientLichdom,
+  isAncientLich,
+  cureAncientLichdom,
+  isAnyLich,
   LICH_STAT_MODS,
   LICH_SKILL_MODS,
 } from '../../src/systems/necromancy/lichdomStatus.js';
@@ -246,5 +251,54 @@ test('Lichdom: mutual exclusivity with existing curses and cure', () => {
   assert.equal(cureLichdom(mortal), true);
   assert.equal(isLich(mortal), false);
   assert.equal(mortal.racialOverride, null);
+});
+
+test('Ancient Lichdom: applies racialOverride with full immunities and stat mods', () => {
+  const player = {
+    level: 25,
+    activeEffects: [],
+    racialOverride: null,
+    stats: {
+      Intelligence: 50,
+      Willpower: 50,
+      Personality: 50,
+    },
+    skills: {
+      [SKILLS.Mysticism]: 40,
+      [SKILLS.Destruction]: 30,
+      [SKILLS.Alteration]: 25,
+    },
+  };
+
+  const entry = applyAncientLichdom(player, { phylacteryId: 'urn_of_ancient' });
+  assert.ok(entry);
+  assert.equal(player.racialOverride?.racial, 'ancient_lichdom');
+  assert.equal(player.racialOverride?.raceNameOverride, 'Ancient Lich');
+  assert.equal(isAncientLich(player), true);
+  assert.equal(isAnyLich(player), true);
+  assert.equal(isLich(player), false); // specific check
+
+  // Immunities check
+  assert.equal(entry.immuneParalysis, true);
+  assert.equal(entry.immuneDisease, true);
+  assert.equal(entry.immunePoison, true);
+  assert.equal(entry.immuneDrowning, true);
+  assert.equal(entry.minMetalToHit, WEAPON_MATERIALS.Mithril);
+
+  // Live Stat checks through DFF's liveStat() (with 100 max cap and 1 min floor)
+  assert.equal(liveStat(player, 'Intelligence'), 100);
+  assert.equal(liveStat(player, 'Willpower'), 100);
+  assert.equal(liveStat(player, 'Personality'), 1);
+
+  // Live Skill checks through DFF's skillValue()
+  assert.equal(skillValue(player, SKILLS.Mysticism), 40 + 60);
+  assert.equal(skillValue(player, SKILLS.Destruction), 30 + 40);
+  assert.equal(skillValue(player, SKILLS.Alteration), 25 + 40);
+
+  // Cure Ancient Lichdom
+  assert.equal(cureAncientLichdom(player), true);
+  assert.equal(isAncientLich(player), false);
+  assert.equal(isAnyLich(player), false);
+  assert.equal(player.racialOverride, null);
 });
 

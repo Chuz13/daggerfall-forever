@@ -393,7 +393,7 @@ export const environmentWet = ({ submerged = false, wading = false } = {}) =>
  *  raised toward zero by frost resistance, a hot one lowered toward zero
  *  by fire resistance, and neither crosses it. */
 export function resistTemperature(temp, ctx = {}) {
-  if (temp === 0) return 0;
+  if (temp === 0 || ctx.lich) return 0;
   const cold = temp < 0;
   const bit = cold ? FLAG_FROST : FLAG_FIRE;
   const rt = ctx.raceTemplate ?? {};
@@ -558,6 +558,7 @@ export function feltTemperature(env = {}, worn = null, ctx = {}) {
     heatLess = Math.max(0, Number(ctx.heatDegrees) || 0);
   if (felt < 0) felt = Math.min(felt + coldLess, 0);
   else if (felt > 0) felt = Math.max(felt - heatLess, 0);
+  if (ctx.lich) felt = 0;
   return {
     natural,
     natTemp,

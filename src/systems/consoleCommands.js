@@ -70,7 +70,7 @@ import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.j
 import { REGION_NAMES } from '../formats/mapsTables.js';
 import { foundFamily, addChild, recordDeath, successors, currentOf, fullNameOf } from './legacy/family.js';
 import { setRegionCrisis, getRegionState, getActiveCrises, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
-import { applyLichdom, cureLichdom, isLich } from './necromancy/lichdomStatus.js';
+import { applyLichdom, cureLichdom, isLich, applyAncientLichdom, cureAncientLichdom, isAncientLich } from './necromancy/lichdomStatus.js';
 import { getPlayerTaint, getTaintTier, addNecroTaint } from './necromancy/necroTaint.js';
 import { allSpawnedMinions, spawnMinion } from './necromancy/minionController.js';
 import { _resetUndeadCapacityForTests as clearUndeadPool, usedUndeadPoints, calculateUndeadCapacity } from './necromancy/undeadCapacity.js';
@@ -1456,20 +1456,22 @@ registerCommand(
 
 registerCommand(
   'necro',
-  'Necromancy testing suite: necro <status|lich|taint|spawn|minions|ambush>',
-  'necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | ambush>',
+  'Necromancy testing suite: necro <status|lich|ancient_lich|taint|spawn|minions|ambush>',
+  'necro <status | lich [on|off] | ancient_lich [on|off] | taint [add <n>|set <n>] | spawn corpse | minions [list|clear|raise <type>] | ambush>',
   (args = []) => {
     const sub = String(args[0] || 'status').toLowerCase();
     if (sub === 'status') {
       const lich = isLich(playerEntity);
+      const ancientLich = isAncientLich(playerEntity);
       const taint = getPlayerTaint(playerEntity);
       const tier = getTaintTier(playerEntity);
       const used = usedUndeadPoints();
       const max = calculateUndeadCapacity(playerEntity);
       const minions = allSpawnedMinions();
+      const lichStatus = ancientLich ? 'ACTIVE (Ancient Lich)' : lich ? 'ACTIVE (Immortal Undead)' : 'Inactive (Mortal)';
       return [
         `<b>Necromancy Occult Status:</b>`,
-        `- Lichdom: ${lich ? 'ACTIVE (Immortal Undead)' : 'Inactive (Mortal)'}`,
+        `- Lichdom: ${lichStatus}`,
         `- Soul Taint: ${taint}/100 (${tier.toUpperCase()})`,
         `- Undead Command Capacity: ${used}/${max} points`,
         `- Active Minions: ${minions.length}`,
@@ -1478,12 +1480,31 @@ registerCommand(
     if (sub === 'lich') {
       const val = String(args[1] || 'toggle').toLowerCase();
       const currentlyLich = isLich(playerEntity);
-      if (val === 'off' || (val === 'toggle' && currentlyLich)) {
+      const currentlyAncientLich = isAncientLich(playerEntity);
+      if (val === 'off' || (val === 'toggle' && (currentlyLich || currentlyAncientLich))) {
         cureLichdom(playerEntity);
+        cureAncientLichdom(playerEntity);
         return 'Lichdom stripped. You have returned to mortal flesh.';
+      }
+      if (currentlyAncientLich) {
+        cureAncientLichdom(playerEntity);
       }
       applyLichdom(playerEntity, { nowMinutes: worldMinutes() });
       return 'Lichdom transformation complete! You are now an immortal creature of darkness.';
+    }
+    if (sub === 'ancient_lich' || sub === 'ancientlich') {
+      const val = String(args[1] || 'toggle').toLowerCase();
+      const currentlyAncientLich = isAncientLich(playerEntity);
+      const currentlyLich = isLich(playerEntity);
+      if (val === 'off' || (val === 'toggle' && currentlyAncientLich)) {
+        cureAncientLichdom(playerEntity);
+        return 'Ancient Lichdom stripped. You have returned to mortal flesh.';
+      }
+      if (currentlyLich) {
+        cureLichdom(playerEntity);
+      }
+      applyAncientLichdom(playerEntity, { nowMinutes: worldMinutes() });
+      return 'Ancient Lichdom transformation complete! You are now an ancient immortal terror.';
     }
     if (sub === 'taint') {
       const action = String(args[1] || 'get').toLowerCase();
@@ -1496,7 +1517,7 @@ registerCommand(
         const amt = parseInt(args[2] || '0', 10);
         addNecroTaint(-100, playerEntity);
         const newTaint = addNecroTaint(amt, playerEntity);
-        const lichNote = isLich(playerEntity)
+        const lichNote = (isLich(playerEntity) || isAncientLich(playerEntity))
           ? ' (Note: Lichdom active; lore permanently locks passive soul taint at 100/100 ABOMINATION unless mortal)'
           : '';
         return `Set Soul Taint to ${newTaint}/100 (${getTaintTier(playerEntity)})${lichNote}.`;
@@ -1705,9 +1726,15 @@ registerCommand(
       getConsoleCommand('addspell').callback(['all_necro']);
       return '<b>[Necro Full Test Kit]</b> Level 20, Mysticism/Destruction 100, INT/WIL 100, Skinning Knife (603), Elixir of Unlife + 4 reagents, and all 4 Necromancy spells granted!';
     }
-    return 'Usage: necro <status | lich [on|off] | taint [add <n>|set <n>] | spawn <type|corpse> | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
+    return 'Usage: necro <status | lich [on|off] | ancient_lich [on|off] | taint [add <n>|set <n>] | spawn <type|corpse> | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
   }
 );
+
+registerCommand('necro_ancient_lich', 'Toggle Ancient Lich transformation: necro_ancient_lich [on|off]', 'necro_ancient_lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
+registerCommand('ancient_lich', 'Toggle Ancient Lich transformation: ancient_lich [on|off]', 'ancient_lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
+registerCommand('ancientlich', 'Toggle Ancient Lich transformation: ancientlich [on|off]', 'ancientlich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
+registerCommand('necro_lich', 'Toggle Lich transformation: necro_lich [on|off]', 'necro_lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['lich', ...args]));
+registerCommand('lich', 'Toggle Lich transformation: lich [on|off]', 'lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['lich', ...args]));
 
 registerCommand('necro_spawn', 'Spawn minion or corpse: necro_spawn <skeleton|zombie|ghost|mummy|lich|ancient_lich|corpse>', 'necro_spawn <type>', (args = []) => getConsoleCommand('necro').callback(['spawn', ...args]));
 registerCommand('necro_corpse', 'Spawn a corpse in front of player: necro_corpse [mob]', 'necro_corpse [mob]', (args = []) => getConsoleCommand('necro').callback(['spawn', 'corpse', ...args]));

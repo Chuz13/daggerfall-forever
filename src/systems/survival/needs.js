@@ -293,9 +293,9 @@ export function paySleep(s, sleeping, minutes, now, rules = HARD_RULES) {
  * food, drink or sleep (the minute law freezes them), so it earns none of theirs; the hearth is anyone's, and is the
  * minute law's to say (`hearth`, a waking minute beside a lit fire).
  */
-export function survivalBoons(s, now, { vampire = false, hearth = false } = {}) {
+export function survivalBoons(s, now, { vampire = false, lich = false, hearth = false } = {}) {
   const out = [];
-  if (!vampire) {
+  if (!vampire && !lich) {
     if (hungerStage(hungerMinutes(s, now)) === 'fed') out.push('fed');
     if (thirstStage(s.thirst ?? 0) === 'fine') out.push('quenched');
     if (s.wellRested > 0 && sleepStage(s.sleepDebt ?? 0) === 'rested') out.push('rested');   // AUDIT SURV-BOONS A1: a bank beside an unpaid debt is no rest - a short night from Exhausted woke Well rested (and Thriving) under an Exhausted chip
@@ -306,6 +306,7 @@ export function survivalBoons(s, now, { vampire = false, hearth = false } = {}) 
 }
 
 export function survivalStatMods(s, temp, now, { endurance = 50, rules = HARD_RULES, vampire = false, beast = false } = {}) {
+  const lich = arguments[3]?.lich ?? false;
   const mods = {};
   const sub = (keys, n) => { if (n > 0) for (const k of keys) mods[k] = (mods[k] ?? 0) - n; };
   const ALL = ['strength', 'intelligence', 'willpower', 'agility', 'endurance', 'personality', 'speed'];
@@ -313,11 +314,11 @@ export function survivalStatMods(s, temp, now, { endurance = 50, rules = HARD_RU
     // AUDIT SURV-TIERS (the third pass): a VAMPIRE has no need for food, drink or sleep (the minute law calls them
     // fed and freezes the thirst and the debt; the page says so) - and these read the frozen markers, so a Hard
     // vampire lost two from every attribute but luck a day to a hunger it cannot have, down to twenty. Since SURV1.
-    const starve = vampire || beast ? 0 : starvingDays(hungerMinutes(s, now));   // AUDIT C&C N4: the beast is fed, as the mod's
+    const starve = vampire || beast || lich ? 0 : starvingDays(hungerMinutes(s, now));   // AUDIT C&C N4: the beast is fed, as the mod's
     if (starve > 0) sub(ALL, Math.min(20, starve * 2));
-    if (temp && temp.abs > NEED.EXPOSURE_AT) sub(ALL, Math.trunc(Math.min(s.exposure, temp.abs - NEED.EXPOSURE_AT) / 4));
-    if (!vampire && !beast && s.thirst >= NEED.DEHYDRATED) sub(ALL, Math.trunc((s.thirst - 90) / 10));
-    const sleep = vampire || wakingHeld(s, now) ? 'rested' : sleepStage(s.sleepDebt);   // REST6: the salts hold the penalties
+    if (!lich && temp && temp.abs > NEED.EXPOSURE_AT) sub(ALL, Math.trunc(Math.min(s.exposure, temp.abs - NEED.EXPOSURE_AT) / 4));
+    if (!vampire && !beast && !lich && s.thirst >= NEED.DEHYDRATED) sub(ALL, Math.trunc((s.thirst - 90) / 10));
+    const sleep = vampire || lich || wakingHeld(s, now) ? 'rested' : sleepStage(s.sleepDebt);   // REST6: the salts hold the penalties
     if (sleep === 'tired') sub(ALL, 2); else if (sleep === 'drowsy') sub(ALL, 5); else if (sleep === 'exhausted') sub(ALL, 10);
     if (Number.isFinite(s.stiffUntil) && now < s.stiffUntil) sub(['speed', 'agility'], STIFF_PENALTY);   // SURV4: the rough night's morning
   }
@@ -472,15 +473,24 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   const resting = !!env.resting;
   const sleeping = env.sleeping ?? null;
   const vampire = !!ctx.vampire;
+  const lich = !!ctx.lich;
   // AUDIT C&C N4: A BODY THAT DOES NOT EAT DOES NOT HUNGER. A vampire has no need for food or sleep and a beast in its
   // form eats as it hunts (the mod's Hunger.cs Starvation reads a beast fed, its thirst line skips one - and a
   // vampire's sleep, Sleep.cs): the minute law called them fed, and the timestamps that ARE hunger and wakefulness ran
   // on under them - a vampire cured after ten days was Starving and 240 hours awake in its first minute. Both stand
   // still while the need does, as Off's do (pauseSurvival): the minutes since the last paid one are carried.
   const beast = !!ctx.beastForm;
+  if (lich) {
+    s.thirst = 0;
+    s.sleepDebt = 0;
+    s.exposure = 0;
+    s.lastAte = now;
+    s.awakeSince = now;
+    if (s.borrowed) { delete s.borrowed; delete s.loanPool; }
+  }
   const step = Number.isFinite(s.lastMinute) ? Math.max(0, now - s.lastMinute) : 0;
-  if ((vampire || beast) && step > 0 && Number.isFinite(s.lastAte)) s.lastAte += step;
-  if (vampire && step > 0 && Number.isFinite(s.awakeSince)) s.awakeSince += step;
+  if ((vampire || beast || lich) && step > 0 && Number.isFinite(s.lastAte)) s.lastAte += step;
+  if ((vampire || lich) && step > 0 && Number.isFinite(s.awakeSince)) s.awakeSince += step;
   // SURV-TIERS: THE ONE DOOR THE NEEDS' STAMINA LEAVES BY. A tier with no
   // floor (Hard) hands every charge to the sink as it always did; a tier
   // with one (Casual, half the pool) spends only what lies above it, read
@@ -541,22 +551,22 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   if (hearty) { s.lastAte = Math.max(s.lastAte ?? now, now - 10); s.thirst = 0; }
   // HUNGER: the marker stands; the tallies move.
   const hunger = hungerMinutes(s, now);
-  const hungerNow = vampire || beast ? 'fed' : hungerStage(hunger);   // AUDIT C&C N4: the beast's too, as the mod's
+  const hungerNow = vampire || beast || lich ? 'fed' : hungerStage(hunger);   // AUDIT C&C N4: the beast's too, as the mod's
   let refunded = 0;   // AUDIT SURV-TIERS (the third pass): the fed hour's refund is a refill the loan is settled by (loanPool)
-  if (hungerNow === 'fed' && !vampire) { s.fed += 1; if (s.fed >= WELL_FED_MINUTES) { s.fed = 0; sinks.restoreFatigue?.(DRAIN.wellFed); refunded = DRAIN.wellFed; } }
+  if (hungerNow === 'fed' && !vampire && !lich) { s.fed += 1; if (s.fed >= WELL_FED_MINUTES) { s.fed = 0; sinks.restoreFatigue?.(DRAIN.wellFed); refunded = DRAIN.wellFed; } }
   // RATIONS-HUNGRY (2026-10-03, Mac: "With C&C let it auto consume any rations in inventory when hungry"): a sack in
   // the pack is eaten as the player turns Hungry, not left until they starve - the Hungry line never said over food
-  if (AUTO_EAT_STAGES.includes(hungerNow) && autoEat) {
+  if (AUTO_EAT_STAGES.includes(hungerNow) && autoEat && !lich) {
     const sack = items.find((i) => i.templateIndex === TEMPLATE.Rations && isFood(i));
     if (sack) { eatRations(entity, sack, now, say); }
   }
-  const hungerAfter = vampire || beast ? 'fed' : hungerStage(hungerMinutes(s, now));
-  stageNote(s, 'hunger', hungerAfter === 'fed' ? null : hungerAfter, say, SURVIVAL_TEXT[hungerAfter], replay, now);
-  if (hungerAfter === 'starving' && !resting) tire(DRAIN.starving, 'hunger');
+  const hungerAfter = vampire || beast || lich ? 'fed' : hungerStage(hungerMinutes(s, now));
+  if (!lich) stageNote(s, 'hunger', hungerAfter === 'fed' ? null : hungerAfter, say, SURVIVAL_TEXT[hungerAfter], replay, now);
+  if (!lich && hungerAfter === 'starving' && !resting) tire(DRAIN.starving, 'hunger');
 
   // THIRST: the heat drives it; a skin in the pack answers it.
   let thirstRed = false;   // AUDIT SURV-TIERS: the stage a repaying tier charges (and repays when it lifts)
-  if (!vampire && !beast) {   // AUDIT C&C N4: the beast drinks as it hunts - the mod's thirst line skips its form
+  if (!vampire && !beast && !lich) {   // AUDIT C&C N4: the beast drinks as it hunts - the mod's thirst line skips its form
     // AUDIT C&C N8: the base rate in the cold too - a body loses water in any weather, as the mod's rises at its least
     // (`Math.Max(totalTemp - 10, 1)`); a floor meant to halve it there sat over a factor never under one, and is gone
     const rate = hearty ? 0 : THIRST_PER_MINUTE * (1 + Math.max(0, temp.felt - 10) / 10);   // HEARTY-MEAL: no thirst while the meal holds
@@ -620,7 +630,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
 
   // SLEEP: the debt grows past the free hours; sleep pays it by quality.
   let sleepRed = false;
-  if (!vampire) {
+  if (!vampire && !lich) {
     if (landWakingDebt(s, now)) say?.(SURVIVAL_TEXT.wakingEnd);   // REST6: the salts' hour is over
     if (sleeping) {
       paySleep(s, sleeping, 1, now, rules);
@@ -642,8 +652,9 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   // (Hard, whose gate refuses the worst of it). Casual has no gate, so a Casual rest in a blizzard charged the band
   // faster than DFU's hour restored it: the sleeper woke more tired than they lay down, and a rest until healed
   // never ended. In Casual a rest is a rest.
-  const abs = temp.abs;
-  if (abs > NEED.EXPOSURE_AT) s.exposure = Math.min(s.exposure + 1, 600); else s.exposure = Math.max(0, s.exposure - 2);
+  const abs = lich ? 0 : temp.abs;
+  if (lich) { s.exposure = 0; }
+  else if (abs > NEED.EXPOSURE_AT) s.exposure = Math.min(s.exposure + 1, 600); else s.exposure = Math.max(0, s.exposure - 2);
   const harmTick = now % HARM_EVERY_MINUTES === 0;
   const hurtFloored = (n) => { if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(n); };
   // AUDIT SURV-TIERS (the second pass): and in a tier whose `fireWarms` says so (Casual), a lit fire answers the cold
@@ -651,8 +662,8 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   // cold's loan never repaid. The felt reading stays the world's; the body is warm.
   const warmed = warmedByFire(rules, env, temp.felt);   // AUDIT C&C S9: the one law the HUD reads live too
   if (warmed) s.warmed = true; else if (s.warmed) delete s.warmed;   // AUDIT SURV-TIERS (the third pass): the strip's word for it (status.js)
-  const tempRed = !warmed && (temp.felt >= rules.stamina.hotFrom || temp.felt <= rules.stamina.coldFrom);
-  if (!resting || !env.byFire) {
+  const tempRed = !lich && !warmed && (temp.felt >= rules.stamina.hotFrom || temp.felt <= rules.stamina.coldFrom);
+  if (!lich && (!resting || !env.byFire)) {
     if (tempRed && (!resting || rules.stamina.duringRest)) tire(DRAIN.heatPer20 * Math.trunc(abs / 20), 'temp');
     // AUDIT SURV-TIERS (the second pass): SURV-THIRST1's law for a harm that can kill (above), which this one never
     // had - a REPLAYED minute (a jump) and the one a jump lands in wound to the floor and no further (AUDIT TEMP-UI E6),
@@ -666,8 +677,8 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   }
   // AUDIT SURV A/E: the strip's own words (temperature.js temperatureWord), one note a word said once - an escalation
   // speaks at once and a held reading never repeats (a cold afternoon said three lines every five minutes)
-  const word = tempStage(temp.felt);
-  stageNote(s, 'temp', word && !(env.insideDungeon && word === 'warm') ? word : null, say, SURVIVAL_TEXT[word], replay, now);
+  const word = lich ? null : tempStage(temp.felt);
+  if (!lich) stageNote(s, 'temp', word && !(env.insideDungeon && word === 'warm') ? word : null, say, SURVIVAL_TEXT[word], replay, now);
 
   // BARE SKIN: naked in the cold, bare feet, the sun on uncovered skin.
   // AUDIT SURV E: never asleep or sat resting (the bedroll and the fire), once every ten minutes, never the last five points;
@@ -675,7 +686,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   // SURV-TIERS: the lines are the world's and said in every tier; the wound and the barefoot tax are the tier's. In
   // Casual the cold and the sun on bare skin are already in the felt temperature the band above charges.
   let naked = false, sun = false, feet0 = false;
-  if (!env.insideBuilding && !vampire && !ctx.beastForm && !sleeping && !resting) {
+  if (!env.insideBuilding && !vampire && !lich && !ctx.beastForm && !sleeping && !resting) {
     const chest = worn?.[17] ?? null, chestArmor = worn?.[18] ?? null, legs = worn?.[24] ?? null, legsArmor = worn?.[23] ?? null, feet = worn?.[26] ?? null;
     const bareTop = !chest && !chestArmor && !temp.cloak, bareLegs = !legs && !legsArmor && !temp.cloak;
     if ((bareTop || bareLegs) && temp.natTemp < -10) { naked = true; if (harmTick && rules.health) hurtFloored(1); note(s, 'naked', now, say, SURVIVAL_TEXT.nakedCold, { once: true }); }
@@ -751,7 +762,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
       const give = Math.min(HEARTH_FATIGUE, Math.max(0, maxFatigue(entity) - (entity.fatigue ?? 0)));
       if (give > 0) sinks.restoreFatigue?.(give);
     }
-    s.boons = survivalBoons(s, now, { vampire, hearth });
+    s.boons = survivalBoons(s, now, { vampire, lich, hearth });
     // AUDIT SURV-BOONS C1/A5: and said as the minute the player stands in has them - a jump's replayed minutes said boons
     // gained and lost inside it, beside the chips that said they were gone
     if (!replay) for (const id of SAID_BOONS) { if (s.boons.includes(id)) note(s, `boon:${id}`, now, say, SURVIVAL_TEXT.boon[id], { once: true }); else clearNote(s, `boon:${id}`); }
@@ -759,7 +770,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
 
   // AUDIT SURV-TIERS: the drink's bands on the LIVE endurance - the mod's LiveEndurance, the one the tavern, the HUD
   // and the status page already read (the permanent stat here put the swing out of step with the word that named it)
-  applySurvivalMods(entity, survivalStatMods(s, temp, now, { endurance: liveStat(entity, 'endurance'), rules, vampire, beast }));
+  applySurvivalMods(entity, survivalStatMods(s, temp, now, { endurance: liveStat(entity, 'endurance'), rules, vampire, beast, lich }));
   s.lastMinute = now;   // AUDIT SURV B: the last minute paid - a span run under a rest is not run again by the frame
   s.felt = temp.felt;   // SURV5: the last felt reading rides the record - the HUD strip and the status page read it without the env
   return temp;

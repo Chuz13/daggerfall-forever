@@ -9,7 +9,7 @@
 
 import { CRIMES } from '../crimes.js';
 import { setCrimeCommitted } from '../court.js';
-import { isLich } from './lichdomStatus.js';
+import { isLich, isAnyLich } from './lichdomStatus.js';
 import { allSpawnedMinions, MINION_STANCES } from './minionController.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { NecroConfig, SOCIAL_LAW_MODES } from './necroConfig.js';
@@ -59,7 +59,7 @@ export function checkSettlementInfraction(
   const isHammerfell = HAMMERFELL_REGIONS.has(regionName);
 
   // 1. Check Lich status
-  if (isLich(playerEntity) && !isDisguised) {
+  if (isAnyLich(playerEntity) && !isDisguised) {
     const crime = isHammerfell ? CRIMES.High_Treason : CRIMES.Treason;
     setCrimeCommitted(playerEntity, crime);
     const alertText = isHammerfell
