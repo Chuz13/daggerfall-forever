@@ -10758,11 +10758,36 @@ export async function bootWorld(canvas, renderer, params, status) {
     getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
     openUndeadCommandMenu,
     applyUndeadCommand,
-    spawnCorpse: (pos) => {
-      // Spawn a corpse in front of player
-      if (exteriorFoes?.foes) {
-        // Can be registered as a local foe or handled via corpseRegistry
+    spawnCorpse: async (pos, mobType = null) => {
+      const targetMob = typeof mobType === 'number' ? mobType : (typeof mobType === 'string' && MOBILE_TYPES[mobType] != null ? MOBILE_TYPES[mobType] : MOBILE_TYPES.Rogue);
+      const p = (pos && (pos[0] !== 0 || pos[2] !== 0)) ? pos : (walkMode && playerSpawned ? player.pos : cam.pos);
+      const yaw = cam?.yaw ?? 0;
+      const fwdX = Math.sin(yaw);
+      const fwdZ = Math.cos(yaw);
+      const corpseX = p[0] + fwdX * 2.5;
+      const corpseZ = p[2] + fwdZ * 2.5;
+      const corpseY = (collider?.heightAt?.(corpseX, corpseZ) ?? p[1]) || p[1];
+      const corpsePos = [corpseX, corpseY, corpseZ];
+
+      const dCtx = modes?.dungeonCtx;
+      const iFoes = modes?.interiorFoes;
+      let f = null;
+      if (modes?.mode === 'dungeon' && dCtx?.spawnFoe) {
+        f = await dCtx.spawnFoe(targetMob, corpsePos, { yaw: yaw + Math.PI });
+        if (f) dCtx.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      } else if (modes?.mode === 'interior' && iFoes?.spawnFoe) {
+        f = await iFoes.spawnFoe(targetMob, corpsePos, { yaw: yaw + Math.PI, loose: true, feetGiven: true });
+        if (f) iFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      } else if (exteriorFoes?.spawnFoe) {
+        f = await exteriorFoes.spawnFoe(targetMob, corpsePos, {
+          loose: true,
+          transient: true,
+          managed: true,
+          feetGiven: true,
+        });
+        if (f) exteriorFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
       }
+      return f;
     },
     destroyCorpse: (corpse) => {
       const p = corpse?.position;
@@ -29362,7 +29387,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       cityGuards.makeNpcGuardsIntoEnemies({ pool: _guardPool(), playerFeet: [...feet] }).catch((e) => console.error('[guards]', e));
       _spawnGuards(true);
     },
-    spawnCorpse: async (pos) => {
+    spawnCorpse: async (pos, mobType = null) => {
       const p = (pos && (pos[0] !== 0 || pos[2] !== 0)) ? pos : (walkMode && playerSpawned ? player.pos : cam.pos);
       const yaw = cam?.yaw ?? 0;
       const fwdX = Math.sin(yaw);
@@ -29372,17 +29397,18 @@ export async function bootWorld(canvas, renderer, params, status) {
       const corpseY = (collider?.heightAt?.(corpseX, corpseZ) ?? p[1]) || p[1];
       const corpsePos = [corpseX, corpseY, corpseZ];
 
+      const targetMob = typeof mobType === 'number' ? mobType : (typeof mobType === 'string' && MOBILE_TYPES[mobType] != null ? MOBILE_TYPES[mobType] : MOBILE_TYPES.Rogue);
       const dCtx = modes?.dungeonCtx;
       const iFoes = modes?.interiorFoes;
       let f = null;
       if (modes?.mode === 'dungeon' && dCtx?.spawnFoe) {
-        f = await dCtx.spawnFoe(MOBILE_TYPES.Rogue, corpsePos, { yaw: yaw + Math.PI });
+        f = await dCtx.spawnFoe(targetMob, corpsePos, { yaw: yaw + Math.PI });
         if (f) dCtx.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
       } else if (modes?.mode === 'interior' && iFoes?.spawnFoe) {
-        f = await iFoes.spawnFoe(MOBILE_TYPES.Rogue, corpsePos, { yaw: yaw + Math.PI, loose: true, feetGiven: true });
+        f = await iFoes.spawnFoe(targetMob, corpsePos, { yaw: yaw + Math.PI, loose: true, feetGiven: true });
         if (f) iFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: false, bypassShield: true });
       } else if (exteriorFoes?.spawnFoe) {
-        f = await exteriorFoes.spawnFoe(MOBILE_TYPES.Rogue, corpsePos, {
+        f = await exteriorFoes.spawnFoe(targetMob, corpsePos, {
           loose: true,
           transient: true,
           managed: true,

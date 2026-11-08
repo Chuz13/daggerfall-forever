@@ -1520,10 +1520,10 @@ registerCommand(
       if (target === 'corpse') {
         const playerPos = _sceneContext?.getPlayerPos?.();
         const pos = playerPos ? [playerPos[0], playerPos[1], playerPos[2]] : [0, 0, 0];
-        const spec = String(args[1] || 'humanoid').toLowerCase();
+        const spec = (sub === 'spawn' ? String(args[2] || 'humanoid') : String(args[1] || 'humanoid')).toLowerCase();
         let entityType = 'humanoid';
         let entityName = 'Slain Adventurer';
-        let mobType = 144; // Warrior
+        let mobType = MOBILE_TYPES.Warrior; // 144
 
         if (spec === 'lich') {
           entityType = 'undead';
@@ -1595,6 +1595,11 @@ registerCommand(
           mobType = 0;
         }
 
+        if (_sceneContext?.spawnCorpse) {
+          _sceneContext.spawnCorpse(pos, mobType);
+          return `Spawned physical ${entityName} corpse (MobileType: ${mobType}) in front of player. Ready for harvesting or reanimation.`;
+        }
+
         const rec = registerCorpse({
           entityType,
           mobileType: mobType,
@@ -1603,7 +1608,6 @@ registerCommand(
           sceneKey: 'current_scene',
           worldTimeMinutes: worldMinutes(),
         });
-        _sceneContext?.spawnCorpse?.(pos);
         return `Spawned physical ${entityName} corpse (ID: ${rec.id}, MobileType: ${mobType}) in front of player. Ready for harvesting or reanimation.`;
       }
       return 'Usage: necro spawn <skeleton | zombie | ghost | mummy | lich | ancient_lich | corpse [mob]>';
@@ -1706,7 +1710,7 @@ registerCommand(
 );
 
 registerCommand('necro_spawn', 'Spawn minion or corpse: necro_spawn <skeleton|zombie|ghost|mummy|lich|ancient_lich|corpse>', 'necro_spawn <type>', (args = []) => getConsoleCommand('necro').callback(['spawn', ...args]));
-registerCommand('necro_corpse', 'Spawn a corpse in front of player', 'necro_corpse', () => getConsoleCommand('necro').callback(['spawn', 'corpse']));
+registerCommand('necro_corpse', 'Spawn a corpse in front of player: necro_corpse [mob]', 'necro_corpse [mob]', (args = []) => getConsoleCommand('necro').callback(['spawn', 'corpse', ...args]));
 registerCommand('necro_menu', 'Open Undead Command Menu', 'necro_menu', () => getConsoleCommand('necro').callback(['menu']));
 registerCommand('necro_spells', 'Add all necromancy spells to spellbook', 'necro_spells', () => getConsoleCommand('addspell').callback(['all_necro']));
 registerCommand('necrospells', 'Add all necromancy spells to spellbook', 'necrospells', () => getConsoleCommand('addspell').callback(['all_necro']));
