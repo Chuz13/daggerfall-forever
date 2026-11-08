@@ -179,6 +179,8 @@ import { evaluateTravelInterruption, canEvadeAmbushWithStealth, TRAVEL_EVENT_TYP
 import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
+import { getActiveCrises, CRISIS_TYPE } from '../systems/living/regionState.js';
+import { REGION_FLAGS } from '../systems/region/regionConditions.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { stockTravelingMerchantTrunk, executeRoadsideFenceSale } from '../systems/living/travelingMerchant.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
@@ -6509,7 +6511,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // Mac's word, and the whole of it: `resting` is not a fatigue knob,
     // it is the needs' one word for "sat still", and other laws read
     // it. It held the bare-skin block's naked-cold and sunburn ticks
-    // and the byFire exposure damage (needs.js:"&& !vampire && !ctx.beastForm", needs.js:"if (!resting || !env.byFire)") - the health
+    // and the byFire exposure damage (needs.js:"&& !vampire && !lich && !ctx.beastForm", needs.js:"if (!lich && (!resting || !env.byFire))") - the health
     // Mac wants ticking. One flag, several laws; the journey takes the
     // world as it finds it.
     //
@@ -12251,7 +12253,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  them, and so does the broker fan-out below - one set of doors per
    *  entity, exactly as one EntityEffectManager per entity. */
   const foeSinks = (g, fromPlayer = true) => ({   // AUDIT WORLD6b-iii(a) B2: the provenance the engine hands (AUDIT WORLD2 B7: a foe's spell is not the player's blow) - this host ignored it, so an enemy blast over a puppet went to its owner as MY hit
-    hurt: (n, o) => { const fp = o?.fromPlayer ?? fromPlayer; if (n > 0) { if (fp && _livingSceneHost?.isCriminalTarget(g)) { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); } (g._encounter ? exteriorFoes.damageFoe(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', whole: !!o?.whole, round: !!o?.round, element: o?.element ?? null }) : cityGuards.hurtGuard(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', round: !!o?.round })); } },   // RVN3: a landing's element (its weakness's weight)   // AUDIT 68 review: a round's tick says whose it is (effects.js runEffectRound), as the dungeon's sink reads it   // X-slice: route by pool
+    hurt: (n, o) => { const fp = o?.fromPlayer ?? fromPlayer; if (n > 0) { if (fp && (typeof _livingSceneHost !== 'undefined' ? _livingSceneHost : null)?.isCriminalTarget(g)) { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); } (g._encounter ? exteriorFoes.damageFoe(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', whole: !!o?.whole, round: !!o?.round, element: o?.element ?? null }) : cityGuards.hurtGuard(g, n, player.pos, null, { fromPlayer: fp, kind: 'spell', round: !!o?.round })); } },   // RVN3: a landing's element (its weakness's weight)   // AUDIT 68 review: a round's tick says whose it is (effects.js runEffectRound), as the dungeon's sink reads it   // X-slice: route by pool
     heal: (n) => { if (!(n > 0)) return; if (g._encounter) exteriorFoes.healFoe(g, n); else g.entity.health = Math.min(g.entity.maxHealth ?? Infinity, g.entity.health + n); },   // AUDIT PSCALE1 DOORS-5: an encounter foe's heal through its pool, weighed as its damage is
     drainMagicka: (n) => { if (n > 0) g.entity.magicka = Math.max(0, (g.entity.magicka ?? 0) - n); },
     restoreMagicka: (n) => { if (n > 0) g.entity.magicka = Math.min(g.entity.maxMagicka ?? Infinity, (g.entity.magicka ?? 0) + n); },
@@ -29925,6 +29927,108 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!ok) hudFade.clearFade();
       return ok ? `Teleported to ${name} (${x}, ${y})` : `Failed to teleport to (${x}, ${y})`;
     },
+    tele2crisis: async (filterType = null) => {
+      const cleanFilter = filterType ? String(filterType).toLowerCase().trim() : null;
+      const candidateRegions = [];
+
+      for (let r = 0; r < 62; r++) {
+        const crises = getActiveCrises(r);
+        const condFlags = playerEntity?.regionConditions?.[r]?.flags ?? [];
+
+        let matches = false;
+        let matchedLabel = '';
+
+        if (!cleanFilter) {
+          if (crises.length > 0) {
+            matches = true;
+            matchedLabel = crises.map((c) => `${c.type}.${c.phase}`).join(', ');
+          } else if (condFlags.some(Boolean)) {
+            matches = true;
+            matchedLabel = 'Regional Condition Active';
+          }
+        } else {
+          if (cleanFilter === 'war') {
+            if (crises.some((c) => c.type === CRISIS_TYPE.WAR) || condFlags[REGION_FLAGS.WarBeginning] || condFlags[REGION_FLAGS.WarOngoing]) {
+              matches = true;
+              matchedLabel = 'WAR';
+            }
+          } else if (cleanFilter === 'plague') {
+            if (crises.some((c) => c.type === CRISIS_TYPE.PLAGUE) || condFlags[REGION_FLAGS.PlagueBeginning] || condFlags[REGION_FLAGS.PlagueOngoing]) {
+              matches = true;
+              matchedLabel = 'PLAGUE';
+            }
+          } else if (cleanFilter === 'famine') {
+            if (crises.some((c) => c.type === CRISIS_TYPE.FAMINE) || condFlags[REGION_FLAGS.FamineBeginning] || condFlags[REGION_FLAGS.FamineOngoing]) {
+              matches = true;
+              matchedLabel = 'FAMINE';
+            }
+          } else if (cleanFilter === 'crime' || cleanFilter === 'strife' || cleanFilter === 'civil_strife') {
+            if (crises.some((c) => c.type === CRISIS_TYPE.CIVIL_STRIFE) || condFlags[REGION_FLAGS.CrimeWave]) {
+              matches = true;
+              matchedLabel = 'CRIME / CIVIL STRIFE';
+            }
+          } else if (cleanFilter === 'witch') {
+            if (condFlags[REGION_FLAGS.WitchBurnings]) {
+              matches = true;
+              matchedLabel = 'WITCH BURNINGS';
+            }
+          } else if (cleanFilter === 'ruler') {
+            if (condFlags[REGION_FLAGS.NewRuler]) {
+              matches = true;
+              matchedLabel = 'NEW RULER';
+            }
+          } else if (cleanFilter === 'holiday') {
+            if (condFlags[REGION_FLAGS.HappyHoliday] || condFlags[REGION_FLAGS.ScaryHoliday] || condFlags[REGION_FLAGS.HolyHoliday]) {
+              matches = true;
+              matchedLabel = 'HOLIDAY';
+            }
+          } else if (cleanFilter === 'prices' || cleanFilter === 'tax') {
+            if (condFlags[REGION_FLAGS.PricesHigh] || condFlags[REGION_FLAGS.PricesLow]) {
+              matches = true;
+              matchedLabel = 'PRICES';
+            }
+          }
+        }
+
+        if (matches) {
+          candidateRegions.push({ regionIndex: r, label: matchedLabel });
+        }
+      }
+
+      if (candidateRegions.length === 0) {
+        return cleanFilter
+          ? `[Crisis TP] No active region currently experiencing "${cleanFilter}". Use 'crisis start ${cleanFilter}' or wait for world simulation.`
+          : `[Crisis TP] No active regional crises currently occurring in the Bay.`;
+      }
+
+      const chosen = candidateRegions[Math.floor(Math.random() * candidateRegions.length)];
+      const r = chosen.regionIndex;
+
+      const settlements = [];
+      for (const [k, loc] of locationIndex.entries()) {
+        if (loc.regionIndex === r && loc.name) {
+          settlements.push({ loc, key: k });
+        }
+      }
+
+      if (settlements.length === 0) {
+        return `[Crisis TP] Region "${REGION_NAMES[r]}" has active ${chosen.label}, but no mapped settlement could be located.`;
+      }
+
+      const target = settlements[Math.floor(Math.random() * settlements.length)];
+      const [pxStr, pyStr] = target.key.split(',');
+      const px = Number(pxStr);
+      const py = Number(pyStr);
+      const name = target.loc.name;
+
+      hudFade.smashHUDToBlack();
+      const ok = await teleportTo({ pixel: { x: px, y: py }, name }, { zoneFree: true });
+      if (!ok) hudFade.clearFade();
+
+      return ok
+        ? `[Crisis TP] Teleported to ${name} in ${REGION_NAMES[r]} (${px}, ${py}) | Active: ${chosen.label}`
+        : `[Crisis TP] Failed to teleport to ${name}`;
+    },
     spawnFoe: async (mobileType, count = 1) => {
       const p = player?.pos ? [...player.pos] : [0, 0, 0];
       const yaw = cam?.yaw ?? 0;
@@ -33611,7 +33715,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // DW-D: UnderwaterPresentationEffects.SuppressPlayerTorch - EnablePlayerTorch's light dark under the fog (the fuel burns on, the light is the only thing it takes)
       meterFor(renderer.gl)?.markCpu('lightset');   // PERF-SIM3: the hand lights, the peers' torches, the camps' fires added, the set handed to the renderer
       const lit = withPlayerLights(wodSel ? wodSel.data : _lanterns,   // EL1: the installed set's cap (16 classic, 48 on the lane); PERF-LIGHTS: `n` is how much of the pool is live
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...(_livingSceneHost?.lights() ?? []), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...((typeof _livingSceneHost !== 'undefined' ? _livingSceneHost : null)?.lights() ?? []), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32, renderer.lightingLane ? capFadeColors(lit, lit.length / 4 - _lanterns.length / 4, cam.pos, renderer.maxPointLights, CITY_LIGHT_COLOR_F32) : null);   // LA-LIGHTS2
     } else {
@@ -33622,7 +33726,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // WOD2: ...and the mod's lights, which burn at every hour.
       const wodSel = wodLit || csaLit.length ? _wodSelect(0, _csaFill(wodLit ? _wodFill(0) : 0, csaLit)) : null;   // AUDIT PRE-MERGE 0928 R2: the boats' lanterns by day too (DungeonLightHandler lights them near)
       const lit = withPlayerLights(wodSel ? wodSel.data : new Float32Array(0),
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...(_livingSceneHost?.lights() ?? []), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...(starfall?.lights() ?? []), ...(passSeason?.lights() ?? []), ...camps.lights(), ...((typeof _livingSceneHost !== 'undefined' ? _livingSceneHost : null)?.lights() ?? []), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32);
     }
@@ -34818,7 +34922,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // response; wandering guard NPC -> Assault + conversion with
         // the swing carried onto the fresh foe).
         const lookFwd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
-        const guardHitSound = (g) => { if (_livingSceneHost?.isCriminalTarget(g)) { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); } audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 }); };   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
+        const guardHitSound = (g) => { if ((typeof _livingSceneHost !== 'undefined' ? _livingSceneHost : null)?.isCriminalTarget(g)) { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); } audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 }); };   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
         // AUDIT 23 (combat-4): the host-side double tallies are gone -
         // resolvePlayerHit runs DFU's tally arm itself.
         // DISC19-F / FB0929: under friendly protection the watch's pool

@@ -1547,11 +1547,17 @@ registerCommand(
 
 registerCommand(
   'crisis',
-  'Trigger or inspect Living Tamriel regional crisis: crisis <start|stop|status>',
-  'crisis <start <war|plague|famine|civil_strife> [region]|stop [war|plague|famine|civil_strife] [region]|status [region]>',
-  (args = []) => {
+  'Trigger or inspect Living Tamriel regional crisis: crisis <start|stop|status|tp>',
+  'crisis <start <war|plague|famine|civil_strife> [region]|stop [war|plague|famine|civil_strife] [region]|status [region]|tp [type]>',
+  async (args = []) => {
     const sub = String(args[0] || 'status').toLowerCase();
     const reg = args[2] ? parseInt(args[2], 10) : (args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : 17);
+    if (sub === 'tp' || sub === 'goto' || sub === 'jump') {
+      const filter = args[1] ? String(args[1]).toLowerCase() : null;
+      const ctx = getDebugSceneContext();
+      if (!ctx?.tele2crisis) return 'Crisis teleport is only available in world mode.';
+      return await ctx.tele2crisis(filter);
+    }
     if (sub === 'status') {
       const st = getRegionState(reg);
       const active = getActiveCrises(reg);
@@ -1596,7 +1602,18 @@ registerCommand(
       setRegionCrisis(regionIndex, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
       return `Stopped all crises in Region ${regionIndex}. Peace restored.`;
     }
-    return 'Usage: crisis <start <war|plague|famine|civil_strife> [region] | stop [type] [region] | status [region]>';
+    return 'Usage: crisis <start <war|plague|famine|civil_strife> [region] | stop [type] [region] | status [region] | tp [type]>';
+  }
+);
+
+registerCommand(
+  'telecrisis',
+  'Teleport to a random settlement with an active regional crisis: telecrisis [war|plague|famine|crime|witch|ruler|holiday]',
+  'telecrisis [type]',
+  async (args = []) => {
+    const ctx = getDebugSceneContext();
+    if (!ctx?.tele2crisis) return 'Crisis teleport is only available in world mode.';
+    return await ctx.tele2crisis(args[0] ? String(args[0]).toLowerCase() : null);
   }
 );
 

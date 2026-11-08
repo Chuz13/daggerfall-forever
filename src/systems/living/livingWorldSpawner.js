@@ -571,6 +571,8 @@ export function buildLivingSiteBlueprint({
   ambushDetectedByStealth = false,
   rng = Math.random,
   adv: passedAdv = null,
+  dfLocation = null,
+  locationType = 0,
 }) {
   const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
   const y0 = snapPropToGround(heightAt, centerX, centerZ, 0);
@@ -784,8 +786,15 @@ export function buildLivingSiteBlueprint({
       doorwayPositions: [],
       heightSampler: heightAt,
       rng,
+      regionIndex,
+      locationType,
+      dfLocation,
+      playerEntity,
     });
     if (plan) {
+      meta.event = plan.event;
+      meta.faction1Name = plan.faction1Name;
+      meta.faction2Name = plan.faction2Name;
       meshes.push(
         { modelId: LIVING_MODELS.CRATES, feet: [plan.props[0].x, plan.props[0].y, plan.props[0].z], yawDeg: 35 },
       );
@@ -801,8 +810,8 @@ export function buildLivingSiteBlueprint({
         const gx = centerX + g.dx;
         const gz = centerZ + g.dz;
         actors.push({
-          mobileType: MOBILE_TYPES.Knight,
-          name: 'Loyalist Watchman',
+          mobileType: g.mobileType ?? MOBILE_TYPES.Knight,
+          name: `${plan.faction1Name ?? 'Guard'} Defender`,
           level: Math.max(4, playerLevel),
           feet: [gx, snapPropToGround(heightAt, gx, gz), gz],
           yaw: 0,
@@ -812,14 +821,13 @@ export function buildLivingSiteBlueprint({
           team: SKIRMISH_TEAMS.CITY_WATCH,
         });
       }
-      const rebelTypes = [MOBILE_TYPES.Rogue, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Warrior];
       for (let i = 0; i < plan.rebels.length; i++) {
         const rb = plan.rebels[i];
         const rx = centerX + rb.dx;
         const rz = centerZ + rb.dz;
         actors.push({
-          mobileType: rebelTypes[i % rebelTypes.length],
-          name: 'Rebel Insurgent',
+          mobileType: rb.mobileType ?? MOBILE_TYPES.Rogue,
+          name: `${plan.faction2Name ?? 'Rebel'} Fighter`,
           level: Math.max(3, playerLevel),
           feet: [rx, snapPropToGround(heightAt, rx, rz), rz],
           yaw: Math.PI,
@@ -1114,6 +1122,8 @@ export function createLivingSceneHost(deps) {
   let checkTimer = 0;
   let lastSpawnMinute = -999999;
   let lastSkirmishRegion = -1;
+  const locationSkirmishCooldowns = new Map();
+  const SKIRMISH_LOCATION_COOLDOWN_MINUTES = 4320; // 3 in-game days
   let lastQuarantineRegion = -1;
   let companionFoe = /** @type {any} */ (null);
   let companionId = /** @type {number|string|null} */ (null);
@@ -1943,15 +1953,43 @@ export function createLivingSceneHost(deps) {
       });
     } else if (s.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
       deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
-      deps.openChoice({
-        lines: [
-          LIVING_WORDS.urbanSkirmishPrompt(),
-        ],
-        options: [
-          {
-            code: 'Digit1',
-            label: `1. ${LIVING_WORDS.urbanSkirmishOptionWatch()}`,
-            action: () => {
+      const evt = s.blueprint.meta?.event;
+      const f1Name = s.blueprint.meta?.faction1Name ?? 'Guard';
+      const f2Name = s.blueprint.meta?.faction2Name ?? 'Rebel';
+
+      if (evt && typeof evt.getChoices === 'function') {
+        const rawChoices = evt.getChoices(f1Name, f2Name);
+        const options = rawChoices.map((c, idx) => ({
+          code: `Digit${idx + 1}`,
+          label: c.text,
+          action: () => {
+            if (c.skillCheck) {
+              const skillVal = Number(player?.skills?.[c.skillCheck.skill] ?? 40);
+              const roll = Math.floor(rng() * 20);
+              const passed = (skillVal + roll) >= c.skillCheck.target;
+              if (!passed) {
+                deps.say(`[Провал проверки: ${skillVal} < ${c.skillCheck.target}] Мирные переговоры сорваны! Стычка неизбежна!`, 5);
+                s.skirmishStance = 'chaos';
+                for (const f of s.foes) {
+                  if (f?.ai) { f.ai.isHostile = true; f.ai.detected = true; f.ai.target = deps.playerEntity(); }
+                }
+                return;
+              }
+              deps.say(`[Успех проверки: ${skillVal} >= ${c.skillCheck.target}] Конфликт урегулирован миром! (+${c.xp ?? 100} XP)`, 5);
+            }
+
+            if (c.goldCost && player) {
+              player.goldPieces = Math.max(0, (player.goldPieces ?? 0) - c.goldCost);
+            }
+            if (c.goldReward && player) {
+              player.goldPieces = (player.goldPieces ?? 0) + c.goldReward;
+            }
+
+            if (player?.regionalReputations) {
+              if (c.repF1) player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) + c.repF1;
+            }
+
+            if (c.stance === 'defenders' || c.stance === 'bodyguard') {
               s.skirmishStance = 'watch';
               for (const f of s.foes) {
                 if (f?.livingRole === 'skirmish_guard') {
@@ -1959,23 +1997,11 @@ export function createLivingSceneHost(deps) {
                   if (f.ai) f.ai.isHostile = false;
                 } else if (f?.livingRole === 'skirmish_rebel') {
                   f.allied = false;
-                  if (f.ai) {
-                    f.ai.isHostile = true;
-                    f.ai.detected = true;
-                    f.ai.target = deps.playerEntity();
-                  }
+                  if (f.ai) { f.ai.isHostile = true; f.ai.detected = true; f.ai.target = deps.playerEntity(); }
                 }
               }
-              if (player?.regionalReputations) {
-                player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) + 5;
-              }
-              deps.say('You joined the City Watch! Defend the town against the rebels! (+5 Regional Rep)', 5);
-            },
-          },
-          {
-            code: 'Digit2',
-            label: `2. ${LIVING_WORDS.urbanSkirmishOptionRebels()}`,
-            action: () => {
+              deps.say(`Вы встали на сторону [${f1Name}]! Защитите порядок!`, 5);
+            } else if (c.stance === 'attackers') {
               s.skirmishStance = 'rebels';
               for (const f of s.foes) {
                 if (f?.livingRole === 'skirmish_rebel') {
@@ -1983,38 +2009,109 @@ export function createLivingSceneHost(deps) {
                   if (f.ai) f.ai.isHostile = false;
                 } else if (f?.livingRole === 'skirmish_guard') {
                   f.allied = false;
-                  if (f.ai) {
-                    f.ai.isHostile = true;
-                    f.ai.detected = true;
-                    f.ai.target = deps.playerEntity();
-                  }
+                  if (f.ai) { f.ai.isHostile = true; f.ai.detected = true; f.ai.target = deps.playerEntity(); }
                 }
               }
-              if (player?.regionalReputations) {
-                player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) - 15;
+              deps.say(`Вы встали на сторону [${f2Name}]! Сокрушите стражу!`, 5);
+            } else if (c.stance === 'peace' || c.stance === 'bribe' || c.stance === 'ransom' || c.stance === 'purify' || c.stance === 'cure' || c.stance === 'consecrate' || c.stance === 'tame' || c.stance === 'chess_move') {
+              s.skirmishStance = 'peace';
+              for (const f of s.foes) {
+                f.allied = false;
+                if (f?.ai) { f.ai.isHostile = false; f.ai.idle = true; }
               }
-              if (player?.guildMemberships?.[9]) {
-                player.guildMemberships[9].reputation = (player.guildMemberships[9].reputation ?? 0) + 10;
-              }
-              deps.say('You joined the Insurgents! Overthrow the guards! (-15 Regional Rep, +10 Underworld)', 5);
-            },
-          },
-          {
-            code: 'Digit3',
-            label: `3. ${LIVING_WORDS.urbanSkirmishOptionChaos()}`,
-            action: () => {
+              if (c.goldReward) deps.say(`Получена награда: ${c.goldReward} золотых монет!`, 5);
+            } else {
               s.skirmishStance = 'chaos';
               for (const f of s.foes) {
                 f.allied = false;
-                if (f?.ai) {
-                  f.ai.isHostile = false;
-                }
+                if (f?.ai) f.ai.isHostile = false;
               }
-              deps.say('You choose Chaos! Both sides remain neutral to you unless struck, and crossfire is not a crime.', 5);
-            },
+              deps.say('Вы решили не вмешиваться. Схватка идет своим чередом.', 5);
+            }
           },
-        ],
-      });
+        }));
+
+        deps.openChoice({
+          lines: [
+            `[СОБЫТИЕ: ${evt.name}]`,
+            `Стороны конфликта: [${f1Name}] против [${f2Name}]. Сделайте выбор:`,
+          ],
+          options,
+        });
+      } else {
+        deps.openChoice({
+          lines: [
+            LIVING_WORDS.urbanSkirmishPrompt(),
+          ],
+          options: [
+            {
+              code: 'Digit1',
+              label: `1. ${LIVING_WORDS.urbanSkirmishOptionWatch()}`,
+              action: () => {
+                s.skirmishStance = 'watch';
+                for (const f of s.foes) {
+                  if (f?.livingRole === 'skirmish_guard') {
+                    f.allied = true;
+                    if (f.ai) f.ai.isHostile = false;
+                  } else if (f?.livingRole === 'skirmish_rebel') {
+                    f.allied = false;
+                    if (f.ai) {
+                      f.ai.isHostile = true;
+                      f.ai.detected = true;
+                      f.ai.target = deps.playerEntity();
+                    }
+                  }
+                }
+                if (player?.regionalReputations) {
+                  player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) + 5;
+                }
+                deps.say('You joined the City Watch! Defend the town against the rebels! (+5 Regional Rep)', 5);
+              },
+            },
+            {
+              code: 'Digit2',
+              label: `2. ${LIVING_WORDS.urbanSkirmishOptionRebels()}`,
+              action: () => {
+                s.skirmishStance = 'rebels';
+                for (const f of s.foes) {
+                  if (f?.livingRole === 'skirmish_rebel') {
+                    f.allied = true;
+                    if (f.ai) f.ai.isHostile = false;
+                  } else if (f?.livingRole === 'skirmish_guard') {
+                    f.allied = false;
+                    if (f.ai) {
+                      f.ai.isHostile = true;
+                      f.ai.detected = true;
+                      f.ai.target = deps.playerEntity();
+                    }
+                  }
+                }
+                if (player?.regionalReputations) {
+                  player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) - 15;
+                }
+                if (player?.guildMemberships?.[9]) {
+                  player.guildMemberships[9].reputation = (player.guildMemberships[9].reputation ?? 0) + 10;
+                }
+                deps.say('You joined the Insurgents! Overthrow the guards! (-15 Regional Rep, +10 Underworld)', 5);
+              },
+            },
+            {
+              code: 'Digit3',
+              label: `3. ${LIVING_WORDS.urbanSkirmishOptionChaos()}`,
+              action: () => {
+                s.skirmishStance = 'chaos';
+                for (const f of s.foes) {
+                  f.allied = false;
+                  if (f?.ai) {
+                    f.ai.isHostile = false;
+                  }
+                }
+                deps.say('You choose Chaos! Both sides remain neutral to you unless struck, and crossfire is not a crime.', 5);
+              },
+            },
+          ],
+        });
+      }
     }
   }
 
@@ -2066,6 +2163,13 @@ export function createLivingSceneHost(deps) {
               rec.entity.suppressInfighting = true;
             }
           }
+          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || a.role?.startsWith('skirmish_')) {
+            rec.lootDropped = true; // suppresses corpse loot generation to protect economy
+            rec._suppressLoot = true;
+            if (rec.entity?.items) {
+              rec.entity.items = [];
+            }
+          }
           if (site.hostile || a.hostile) {
             if (rec.ai) {
               rec.ai.isHostile = true;
@@ -2091,11 +2195,18 @@ export function createLivingSceneHost(deps) {
     const player = deps.playerEntity();
     const regState = getRegionState(regIdx);
 
-    // 1. Inside a Settlement during WAR.MID or CIVIL_STRIFE.MID -> Urban Skirmish
+    const loc = deps.locationRecord?.() ?? null;
+    const locKey = loc?.mapTableData?.mapId != null
+      ? String(loc.mapTableData.mapId)
+      : `${regIdx}:${Math.round(feet[0] / 100)}:${Math.round(feet[2] / 100)}`;
+    const lastSkirmishTime = locationSkirmishCooldowns.get(locKey) ?? -999999;
+    const canSkirmishHere = (nowMin - lastSkirmishTime) >= SKIRMISH_LOCATION_COOLDOWN_MINUTES;
+
+    // 1. Inside a Settlement during a crisis or regional condition -> Urban Skirmish
     if (
       inTown &&
-      lastSkirmishRegion !== regIdx &&
-      shouldSpawnUrbanSkirmish({ regionIndex: regIdx, isInsideBuilding: false, existingActiveSkirmishes: 0 })
+      canSkirmishHere &&
+      shouldSpawnUrbanSkirmish({ regionIndex: regIdx, isInsideBuilding: false, existingActiveSkirmishes: 0, playerEntity: player })
     ) {
       const angle = rng() * Math.PI * 2;
       const sx = feet[0] + Math.sin(angle) * 28;
@@ -2103,6 +2214,7 @@ export function createLivingSceneHost(deps) {
       const slope = checkCampFootprintSlope(deps.heightAt, sx, sz, 4.0);
       if (slope.suitable) {
         lastSkirmishRegion = regIdx;
+        locationSkirmishCooldowns.set(locKey, nowMin);
         lastSpawnMinute = nowMin;
         const bp = buildLivingSiteBlueprint({
           kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
@@ -2112,11 +2224,16 @@ export function createLivingSceneHost(deps) {
           regionIndex: regIdx,
           playerEntity: player,
           nowMinutes: nowMin,
+          dfLocation: loc,
+          locationType: loc?.mapTableData?.locationType ?? 0,
           rng,
         });
         if (bp.actors.length > 0) {
           standSite(bp);
-          deps.say(LIVING_WORDS.urbanSkirmishAlert(), 5);
+          const alertText = bp.meta?.event?.name
+            ? `[Living Tamriel] ${bp.meta.event.name}: ${bp.meta.faction1Name ?? 'Защитники'} против ${bp.meta.faction2Name ?? 'Нападающие'}!`
+            : LIVING_WORDS.urbanSkirmishAlert();
+          deps.say(alertText, 5);
           return;
         }
       }
