@@ -191,12 +191,13 @@ export function applyLichdom(entity, { phylacteryId = 'phylactery_main', nowMinu
  * @param {number} [params.nowMinutes]
  * @returns {object|null} The created racialOverride entry or null if refused
  */
-export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient', nowMinutes = 0 } = {}) {
+export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient', nowMinutes = 0, force = false } = {}) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return null;
   if (!entity) return null;
   if (liveLichdom(entity) || entity.racialOverride?.racial === 'lichdom') {
     cureLichdom(entity);
-  } else if (entity.racialOverride || liveAncientLichdom(entity)) {
+  } else if (!force) {
+    // Ancient Lichdom strictly requires having already achieved Lichdom.
     return null;
   }
 
@@ -278,14 +279,14 @@ export function lichdomMagicRound(entity, { nowMinutes = 0 } = {}) {
  */
 export function cureAncientLichdom(entity) {
   const entry = liveAncientLichdom(entity);
-  if (!entry) return false;
+  if (!entry && entity?.racialOverride !== 'ancient_lichdom' && entity?.racialOverride?.racial !== 'ancient_lichdom') return false;
 
-  entry.ended = true;
-  if (entity.racialOverride === entry) {
+  if (entry) entry.ended = true;
+  if (entity.racialOverride === entry || entity.racialOverride === 'ancient_lichdom' || entity.racialOverride?.racial === 'ancient_lichdom') {
     entity.racialOverride = null;
   }
   if (Array.isArray(entity.activeEffects)) {
-    entity.activeEffects = entity.activeEffects.filter((a) => a !== entry);
+    entity.activeEffects = entity.activeEffects.filter((a) => a !== entry && a.racial !== 'ancient_lichdom');
   }
   entity.minMetalToHit = 0;
   return true;
@@ -298,14 +299,14 @@ export function cureAncientLichdom(entity) {
  */
 export function cureLichdom(entity) {
   const entry = liveLichdom(entity) || liveAncientLichdom(entity);
-  if (!entry) return false;
+  if (!entry && entity?.racialOverride !== 'lichdom' && entity?.racialOverride?.racial !== 'lichdom' && entity?.racialOverride !== 'ancient_lichdom' && entity?.racialOverride?.racial !== 'ancient_lichdom') return false;
 
-  entry.ended = true;
-  if (entity.racialOverride === entry) {
+  if (entry) entry.ended = true;
+  if (entity.racialOverride === entry || entity.racialOverride === 'lichdom' || entity.racialOverride?.racial === 'lichdom' || entity.racialOverride === 'ancient_lichdom' || entity.racialOverride?.racial === 'ancient_lichdom') {
     entity.racialOverride = null;
   }
   if (Array.isArray(entity.activeEffects)) {
-    entity.activeEffects = entity.activeEffects.filter((a) => a !== entry);
+    entity.activeEffects = entity.activeEffects.filter((a) => a !== entry && a.racial !== 'lichdom' && a.racial !== 'ancient_lichdom');
   }
   entity.minMetalToHit = 0;
   return true;

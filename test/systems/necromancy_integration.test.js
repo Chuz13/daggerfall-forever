@@ -411,7 +411,7 @@ test('NecroIntegration: Elixir of Unlife cauldron recipe & Level 20 + Mysticism 
   assert.equal(failDrink.success, false);
   assert.ok(poisonHurt > 0, 'Drinking Elixir below requirements inflicts lethal poison damage');
 
-  const archmage = { level: 20, skills: new Array(35).fill(100), stats: { intelligence: 100, willpower: 100 }, health: 100, maxHealth: 100, items: [] };
+  const archmage = { level: 20, skills: new Array(35).fill(100), stats: { intelligence: 100, willpower: 100 }, NecroGrimoireRead: true, health: 100, maxHealth: 100, items: [] };
   const okDrink = drinkElixirOfUnlife(archmage, {});
   assert.equal(okDrink.success, true);
   assert.equal(isLich(archmage), true);
@@ -524,7 +524,7 @@ test('NecroIntegration: Arrow mitigation for Lich (50%) and Ancient Lich (80%)',
   assert.equal(playerEntity.racialOverride.minMetalToHit, 2); // Silver
 
   // Ancient Lichdom -> 80% mitigation (takes 20% damage)
-  applyAncientLichdom(playerEntity);
+  applyAncientLichdom(playerEntity, { force: true });
   assert.equal(blowTaken(100, attacker, playerEntity, null, arrowInfo), 20);
   assert.equal(blowTaken(100, attacker, playerEntity, null, meleeInfo), 100);
   assert.equal(playerEntity.racialOverride.minMetalToHit, 5); // Mithril
@@ -547,7 +547,7 @@ test('NecroIntegration: Lich & Ancient Lich survival and climate immunity', () =
   assert.equal(chipsLich.length, 0);
 
   cureLichdom(playerEntity);
-  applyAncientLichdom(playerEntity);
+  applyAncientLichdom(playerEntity, { force: true });
   const ctxAncient = survivalCtx(playerEntity);
   assert.equal(ctxAncient.lich, true);
   assert.equal(feltTemperature({}, null, ctxAncient).felt, 0);

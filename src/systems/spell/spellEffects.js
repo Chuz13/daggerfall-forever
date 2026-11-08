@@ -133,6 +133,10 @@ const ROWS = [
   [49, 255, 'Life Tap', '', [M]],
   // 51,255: Bone Armor (Alteration) - binds bone splinters into a protective damage shield
   [51, 255, 'Bone Armor', '', [D, M]],
+  // 50,255: Lichdom (Mysticism) - ritual apotheosis; craftable: false
+  [50, 255, 'Lichdom', '', [], false],
+  // 52,255: Arch-Lichdom (Mysticism) - ancient ritual apotheosis; craftable: false
+  [52, 255, 'Arch-Lichdom', '', [], false],
   [30, 255, 'Water Breathing', '', [D]],
   [31, 255, 'Water Walking', '', [D]],
   [33, 0, 'Pacify', 'Animal', [C]],

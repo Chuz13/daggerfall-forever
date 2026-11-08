@@ -193,6 +193,7 @@ test('Arch-Lichdom ritual: casting as Ancient Lich deals no harm and displays ge
     skills: { [SKILLS.Mysticism]: 200 },
     stats: { intelligence: 150, willpower: 150 },
   };
+  applyLichdom(ancient);
   applyAncientLichdom(ancient);
   assert.equal(isAncientLich(ancient), true);
 
@@ -250,7 +251,8 @@ test('Lichdom ritual: qualified mortal ascends to Lich', () => {
     health: 120,
     maxHealth: 120,
     skills: { [SKILLS.Mysticism]: 100 },
-    stats: { intelligence: 70, willpower: 70 },
+    stats: { intelligence: 100, willpower: 100 },
+    NecroGrimoireRead: true,
   };
   let saidMessage = '';
   const sinks = { say: (msg) => { saidMessage = msg; }, hurt: () => {} };

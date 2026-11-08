@@ -1543,7 +1543,7 @@ registerCommand(
       if (currentlyLich) {
         cureLichdom(playerEntity);
       }
-      applyAncientLichdom(playerEntity, { nowMinutes: worldMinutes() });
+      applyAncientLichdom(playerEntity, { nowMinutes: worldMinutes(), force: true });
       return 'Ancient Lichdom transformation complete! You are now an ancient immortal terror.';
     }
     if (sub === 'taint') {

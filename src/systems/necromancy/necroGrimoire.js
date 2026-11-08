@@ -50,6 +50,13 @@ export function mintNecroGrimoire() {
 export const isNecroGrimoire = (item) => item?.templateIndex === NECRO_GRIMOIRE_TEMPLATE;
 
 /**
+ * Checks whether an entity has read the Grimoire of the Worm.
+ * @param {object} [entity]
+ * @returns {boolean}
+ */
+export const hasReadGrimoire = (entity) => !!(entity?.NecroGrimoireRead || entity?.necroGrimoireRead);
+
+/**
  * Returns all ready-made necromancy spell records with the 'некро' tag.
  * @returns {Array<object>}
  */

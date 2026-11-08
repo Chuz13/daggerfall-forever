@@ -15,6 +15,8 @@ import { liveStat, maxFatigue } from '../statMods.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { t } from '../textManager.js';
 
+export const hasReadGrimoire = (entity) => !!(entity?.NecroGrimoireRead || entity?.necroGrimoireRead);
+
 export const PHYLACTERY_STATE = Object.freeze({
   UNBOUND: 'unbound',
   BOUND: 'bound',
@@ -25,12 +27,22 @@ export const MIN_LICHDOM_LEVEL = 5;
 export const MIN_LICHDOM_MYSTICISM = 40;
 export const ELIXIR_LICHDOM_LEVEL = 20;
 export const ELIXIR_LICHDOM_MYSTICISM = 100;
+export const ELIXIR_LICHDOM_MIN_STAT = 100;
+
+let _forceDeathHook = null;
+export function setForceDeathHook(fn) {
+  _forceDeathHook = typeof fn === 'function' ? fn : null;
+}
 
 /**
  * Checks whether the player meets the strict Elixir of Unlife alchemy ascension requirements:
- * Level >= 20 and Mysticism >= 100.
+ * 1. Has read the Grimoire of the Worm
+ * 2. Level >= 20
+ * 3. Mysticism >= 100
+ * 4. Intelligence >= 100
+ * 5. Willpower >= 100
  * @param {object} playerEntity
- * @returns {{ eligible: boolean, reason?: string }}
+ * @returns {{ eligible: boolean, alreadyLich?: boolean, reason?: string }}
  */
 export function canDrinkElixirOfUnlife(playerEntity) {
   if (!FORK_FLAGS.ENABLE_NECROMANCY) {
@@ -42,6 +54,12 @@ export function canDrinkElixirOfUnlife(playerEntity) {
   if (isAnyLich(playerEntity)) {
     return { eligible: false, alreadyLich: true, reason: 'You have already ascended to Lichdom.' };
   }
+  if (!hasReadGrimoire(playerEntity)) {
+    return {
+      eligible: false,
+      reason: 'You have not unlocked the dark secrets of the Grimoire of the Worm.',
+    };
+  }
   const level = playerEntity.level || 1;
   if (level < ELIXIR_LICHDOM_LEVEL) {
     return {
@@ -49,11 +67,36 @@ export function canDrinkElixirOfUnlife(playerEntity) {
       reason: `Your mortal vessel is too weak for the Elixir of Unlife (Requires Level ${ELIXIR_LICHDOM_LEVEL}, current: ${level}).`,
     };
   }
-  const mystSkill = skillValue(playerEntity, SKILLS.Mysticism) || 15;
+  const mystSkill = Math.max(
+    displaySkillValue(playerEntity, SKILLS.Mysticism),
+    realSkillValue(playerEntity, SKILLS.Mysticism),
+    skillValue(playerEntity, SKILLS.Mysticism),
+    playerEntity.skills?.[SKILLS.Mysticism] ?? 0,
+  );
   if (mystSkill < ELIXIR_LICHDOM_MYSTICISM) {
     return {
       eligible: false,
       reason: `Your mastery of Mysticism is insufficient to bind your soul (Requires ${ELIXIR_LICHDOM_MYSTICISM}, current: ${mystSkill}).`,
+    };
+  }
+  const intStat = Math.max(
+    liveStat(playerEntity, 'intelligence'),
+    playerEntity.stats?.intelligence ?? 0,
+  );
+  if (intStat < ELIXIR_LICHDOM_MIN_STAT) {
+    return {
+      eligible: false,
+      reason: `Your Intelligence is insufficient to preserve your consciousness (Requires ${ELIXIR_LICHDOM_MIN_STAT}, current: ${intStat}).`,
+    };
+  }
+  const wilStat = Math.max(
+    liveStat(playerEntity, 'willpower'),
+    playerEntity.stats?.willpower ?? 0,
+  );
+  if (wilStat < ELIXIR_LICHDOM_MIN_STAT) {
+    return {
+      eligible: false,
+      reason: `Your Willpower is insufficient to anchor your soul (Requires ${ELIXIR_LICHDOM_MIN_STAT}, current: ${wilStat}).`,
     };
   }
   return { eligible: true };
@@ -61,25 +104,30 @@ export function canDrinkElixirOfUnlife(playerEntity) {
 
 /**
  * Drinks the Elixir of Unlife.
- * If Level >= 20 and Mysticism >= 100, binds a Phylactery and ascends to Lichdom.
- * Otherwise, the elixir acts as a lethal poison that ravages the drinker's mortal body.
+ * If requirements are met, binds a Phylactery and ascends to Lichdom.
+ * Otherwise, the elixir acts as a lethal poison that kills the drinker's mortal body.
  * @param {object} playerEntity
  * @param {object} [options]
  * @returns {{ success: boolean, lichdom: boolean, poisonDamage?: number, reason?: string, message?: string }}
  */
-export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, nowMinutes = 0 } = {}) {
+export function drinkElixirOfUnlife(playerEntity, { hurtPlayer = null, forceDeath = null, nowMinutes = 0 } = {}) {
   const check = canDrinkElixirOfUnlife(playerEntity);
   if (!check.eligible) {
-    const lethalDmg = Math.max(100, (playerEntity?.maxHealth ?? 100) * 2);
-    if (typeof hurtPlayer === 'function') {
-      hurtPlayer(lethalDmg);
-    } else if (playerEntity && typeof playerEntity.health === 'number') {
-      playerEntity.health = Math.max(0, playerEntity.health - lethalDmg);
+    const triggerDeath = forceDeath ?? _forceDeathHook;
+    if (typeof triggerDeath === 'function') {
+      triggerDeath(playerEntity);
+    } else {
+      const lethalDmg = Math.max(99999, (playerEntity?.maxHealth ?? 100) * 10);
+      if (typeof hurtPlayer === 'function') {
+        hurtPlayer(lethalDmg, { bypassShield: true });
+      } else if (playerEntity && typeof playerEntity.health === 'number') {
+        playerEntity.health = 0;
+      }
     }
     return {
       success: false,
       lichdom: false,
-      poisonDamage: lethalDmg,
+      poisonDamage: 99999,
       reason: check.reason,
     };
   }
@@ -419,7 +467,7 @@ export function canAscendToArchLichdom(caster) {
  * @param {object} [options]
  * @returns {{ success: boolean, reason?: string, message?: string, racialOverride?: object }}
  */
-export function performArchLichdomRitual(caster, { hurtPlayer = null, sinks = null, nowMinutes = 0 } = {}) {
+export function performArchLichdomRitual(caster, { hurtPlayer = null, sinks = null, forceDeath = null, nowMinutes = 0 } = {}) {
   const check = canAscendToArchLichdom(caster);
   if (check.alreadyAncient) {
     const msg = t('spell.necro.alreadyAncientLich', 'You have already achieved Ancient Lichdom. Do not squander your power in vain.');
@@ -431,17 +479,22 @@ export function performArchLichdomRitual(caster, { hurtPlayer = null, sinks = nu
     };
   }
   if (!check.eligible) {
-    const hurtFn = hurtPlayer ?? sinks?.hurt;
-    const lethalDmg = Math.max(99999, (caster?.maxHealth ?? 100) * 20);
-    if (typeof hurtFn === 'function') {
-      hurtFn(lethalDmg, { bypassShield: true });
-    }
-    if (caster && typeof caster.health === 'number') {
-      caster.health = 0;
-      if (caster.currentHealth != null) caster.currentHealth = 0;
-    }
-    if (caster?.phylacteryAnchor && isLich(caster)) {
-      handleLichMortalFall(caster, caster.phylacteryAnchor);
+    const triggerDeath = forceDeath ?? _forceDeathHook;
+    if (typeof triggerDeath === 'function') {
+      triggerDeath(caster);
+    } else {
+      const hurtFn = hurtPlayer ?? sinks?.hurt;
+      const lethalDmg = Math.max(99999, (caster?.maxHealth ?? 100) * 20);
+      if (typeof hurtFn === 'function') {
+        hurtFn(lethalDmg, { bypassShield: true });
+      }
+      if (caster && typeof caster.health === 'number') {
+        caster.health = 0;
+        if (caster.currentHealth != null) caster.currentHealth = 0;
+      }
+      if (caster?.phylacteryAnchor && isLich(caster)) {
+        handleLichMortalFall(caster, caster.phylacteryAnchor);
+      }
     }
 
     const failReason = check.reasons.join(' ');

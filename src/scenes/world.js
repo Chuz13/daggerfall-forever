@@ -842,7 +842,7 @@ import { lateSolidsOf } from '../player/lateSolid.js';   // ROCK-CLEAR: the worl
 import { floorLanding, doorWorldPosition, dungeonEntranceLanding, repositionFeetY, openGroundNear, heldInSolid, safeGroundAt, safeGroundNear } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27); SD2b: where a Hollow's mouth stands, to find it at
 import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
 import { playerEntity, surfacePlayer, hurtPlayer, forcePlayerDeath, presentHeardDeath, playerBlowCameToNothing, setDeathPresenter, presentPlayerDeath, setDeathListener, setAvoidDeathHook, setStaffPowers, staffPowers, registerPlayerDamageMod, registerLevitateWard, registerFreeFlight } from '../characters/playerEntity.js';   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
-import { setLichCemeteryRespawnHook, LICH_RESPAWN_MONTH_MINUTES } from '../systems/necromancy/lichdomRitual.js';
+import { setLichCemeteryRespawnHook, setForceDeathHook, LICH_RESPAWN_MONTH_MINUTES } from '../systems/necromancy/lichdomRitual.js';
 import { findNearestCemetery } from '../world/worldWide/worldCemetery.js';
 import { bodySayer } from '../net/bossBody.js';   // INT15: my body, said to a boss fight's room
 import { SOUND } from '../systems/soundClips.js';
@@ -6602,6 +6602,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     return true;
   });
 
+  setForceDeathHook(forcePlayerDeath);
+
   setLichCemeteryRespawnHook((entity) => {
     endPlayerFights();
     player.stopAutorun();
@@ -6609,6 +6611,17 @@ export async function bootWorld(canvas, renderer, params, status) {
 
     try {
       setSyntheticTimeIncrease(true);
+      if (sharedClockOn()) {
+        const curSky = skyMinutes();
+        const targetSky = curSky + LICH_RESPAWN_MONTH_MINUTES;
+        const curWall = wallMsForSkyMinutes(curSky);
+        const targetWall = wallMsForSkyMinutes(targetSky);
+        if (Number.isFinite(curWall) && Number.isFinite(targetWall)) {
+          _sharedOffsetMs += Math.round(targetWall - curWall);
+        }
+      }
+      setWorldMinutes(worldMinutes() + LICH_RESPAWN_MONTH_MINUTES);
+      advanceOwnMinutes(LICH_RESPAWN_MONTH_MINUTES);
       playerTicker.advance(LICH_RESPAWN_MONTH_MINUTES);
     } catch (e) {
       console.error('[necro] ticker advance error on lich respawn:', e);
@@ -6628,7 +6641,10 @@ export async function bootWorld(canvas, renderer, params, status) {
 
     Promise.resolve().then(async () => {
       try {
-        await _teleportToPixel(cemetery.x, cemetery.y, null, { reposition: REPOSITION.RandomStartMarker });
+        await _teleportToPixel(cemetery.x, cemetery.y, null, {
+          arriveMinutes: skyMinutes(),
+          reposition: REPOSITION.RandomStartMarker,
+        });
         _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
         townTalk.say(t('necro.respawnAtCemetery', 'A month has passed. Your undead essence reconstitutes in a nearby cemetery.'));
       } catch (err) {
