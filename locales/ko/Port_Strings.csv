@@ -9276,3 +9276,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,특전
+
+survival.status.undeadVessel,"언데드의 그릇 — 굶주림, 갈증, 수면에 면역입니다."
+survival.status.deathlyCold,"죽음의 냉기 — 날씨와 온도에 면역입니다."
+survival.status.lich,"당신은 불멸의 리치입니다. 음식, 물, 수면, 온기가 필요하지 않습니다."

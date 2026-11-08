@@ -9276,3 +9276,7 @@ perks.iron_constitution.desc,Снижает уязвимость к болезн
 perks.treasure_hunter.name,Охотник за сокровищами
 perks.treasure_hunter.desc,Увеличивает количество золота в сундуках и на трупах на 20% (Требуется Торговля 40).
 pause.stats.perks,Перки
+
+survival.status.undeadVessel,"Сосуд нежити — не знает голода, жажды и сна."
+survival.status.deathlyCold,"Хлад могилы — неуязвим к погоде и температуре."
+survival.status.lich,"Вы бессмертный Лич: вам не нужны пища, питье, сон или тепло."

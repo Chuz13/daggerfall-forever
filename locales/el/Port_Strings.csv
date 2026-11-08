@@ -3008,3 +3008,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Προνόμια
+
+survival.status.undeadVessel,"Απέθαντο δοχείο – άτρωτο σε πείνα, δίψα και ύπνο."
+survival.status.deathlyCold,"Θανάσιμο ψύχος – άτρωτο στις καιρικές συνθήκες και τη θερμοκρασία."
+survival.status.lich,"Είστε ένας αθάνατος Λιτς: δεν έχετε ανάγκη από φαγητό, νερό, ύπνο ή ζεστασιά."

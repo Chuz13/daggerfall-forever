@@ -3350,3 +3350,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Képességek
+
+survival.status.undeadVessel,"Élőhalott porhüvely – immunis az éhségre, szomjúságra és alvásra."
+survival.status.deathlyCold,"Halálos hideg – immunis az időjárásra és a hőmérsékletre."
+survival.status.lich,"Halhatatlan Lich vagy: nincs szükséged ételre, italra, alvásra vagy melegre."

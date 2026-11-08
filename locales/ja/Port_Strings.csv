@@ -3675,3 +3675,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,パーク
+
+survival.status.undeadVessel,"不死の器 — 飢え、渇き、睡眠を寄せ付けない。"
+survival.status.deathlyCold,"死の冷気 — 天候や気温を寄せ付けない。"
+survival.status.lich,"あなたは不死のリッチです。食料、水、睡眠、暖かさを必要としません。"

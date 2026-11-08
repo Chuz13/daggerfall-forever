@@ -1443,3 +1443,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,特長
+
+survival.status.undeadVessel,"亡靈之軀——免疫飢餓、口渴與睡眠。"
+survival.status.deathlyCold,"死亡寒意——免疫天氣與極端氣溫。"
+survival.status.lich,"你是永生的巫妖：無需食物、飲水、睡眠或溫暖。"

@@ -1550,3 +1550,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Yetenekler
+
+survival.status.undeadVessel,"Ölümsüz beden – açlık, susuzluk ve uykuya bağışık."
+survival.status.deathlyCold,"Ölümcül soğuk – hava durumuna ve sıcaklığa bağışık."
+survival.status.lich,"Ölümsüz bir Liçsin: yiyeceğe, içeceğe, uykuya veya sıcaklığa ihtiyacın yok."

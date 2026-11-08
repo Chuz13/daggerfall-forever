@@ -1443,3 +1443,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Đặc quyền
+
+survival.status.undeadVessel,"Thân xác bất tử – miễn nhiễm với đói, khát và buồn ngủ."
+survival.status.deathlyCold,"Giá lạnh tử khí – miễn nhiễm với thời tiết và nhiệt độ."
+survival.status.lich,"Bạn là một Lich bất tử: bạn không cần thức ăn, nước uống, giấc ngủ hay hơi ấm."

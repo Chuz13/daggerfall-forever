@@ -9276,3 +9276,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Talenti
+
+survival.status.undeadVessel,"Ricettacolo non morto: immune a fame, sete e sonno."
+survival.status.deathlyCold,"Freddo spettrale: immune alle intemperie e alla temperatura."
+survival.status.lich,"Sei un Lich immortale: non hai bisogno di cibo, bevande, sonno o calore."

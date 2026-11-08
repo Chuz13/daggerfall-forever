@@ -9276,3 +9276,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Avantaje
+
+survival.status.undeadVessel,"Vas strigoi – imun la foame, sete și somn."
+survival.status.deathlyCold,"Frig de moarte – imun la vreme și temperatură."
+survival.status.lich,"Ești un Lich nemuritor: nu ai nevoie de mâncare, băutură, somn sau căldură."

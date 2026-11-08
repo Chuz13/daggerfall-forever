@@ -2928,3 +2928,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Fördelar
+
+survival.status.undeadVessel,"Odöd kärl – immun mot hunger, törst och sömn."
+survival.status.deathlyCold,"Dödskyla – immun mot väder och temperatur."
+survival.status.lich,"Du är en odödlig Lich: du har inget behov av mat, dryck, sömn eller värme."

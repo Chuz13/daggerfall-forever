@@ -9276,3 +9276,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Perky
+
+survival.status.undeadVessel,"Nemrtvá schránka – imunní vůči hladu, žízni a spánku."
+survival.status.deathlyCold,"Hrobový chlad – imunní vůči počasí a teplotě."
+survival.status.lich,"Jste nesmrtelný Lich: nepotřebujete jídlo, pití, spánek ani teplo."

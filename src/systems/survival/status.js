@@ -321,8 +321,12 @@ export function survivalStatusLines(entity, now, { vampire = false, endurance = 
   const boons = kept && Array.isArray(s.boons) ? s.boons : [];
   const lines = [];
   const isLich = !!entity?.racialOverride && (entity.racialOverride.racial === 'lichdom' || entity.racialOverride.racial === 'ancient_lichdom');
-  if (isLich) lines.push('You are an immortal Lich: you have no need for food, drink, sleep or warmth.');
-  else if (vampire) lines.push(STATUS_TEXT.vampire);
+  if (isLich) {
+    lines.push(
+      t('survival.status.undeadVessel', 'Undead vessel - immune to hunger, thirst and sleep.'),
+      t('survival.status.deathlyCold', 'Deathly cold - immune to weather and temperature.')
+    );
+  } else if (vampire) lines.push(STATUS_TEXT.vampire);
   else {
     const hunger = hungerStage(hungerMinutes(s, now));
     lines.push(

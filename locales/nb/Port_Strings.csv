@@ -9276,3 +9276,7 @@ perks.iron_constitution.desc,Reduces disease and poison susceptibility by 30% an
 perks.treasure_hunter.name,Treasure Hunter
 perks.treasure_hunter.desc,Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).
 pause.stats.perks,Talenter
+
+survival.status.undeadVessel,"Udødt kar – immun mot sult, tørst og søvn."
+survival.status.deathlyCold,"Dødskulde – immun mot vær og temperatur."
+survival.status.lich,"Du er en udødelig Lich: du har ikke behov for mat, drikke, søvn eller varme."
