@@ -100,20 +100,25 @@ let _standInWas = false;
 let _beastInSprite = false;
 function standInEdge({ fpEye, feet, yaw, pitch }) {
   const now = !!fpArm.standingIn?.();
-  if (now) _beastInSprite = _beastInSprite || eotbLane();
   if (now === _standInWas) return;
   _standInWas = now;
   if (now) {
     _beastInSprite = eotbLane();
     if (!_beastInSprite) return;
     const third = mwCamera.thirdPerson();
+    if (third) {
+      mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
+    }
     eotbCamera.toggleOffset(false);
     eotbCamera.eye({ fpEye, feet, yaw, pitch }); // the head the view leaves from
     if (third) eotbCamera.toggleOffset(true);
     return;
   }
-  if (_beastInSprite && !mounted)
-    mwCamera.restore({ firstPerson: !eotbCamera.thirdPerson(), baseDistance: mwCamera.baseDistance() });
+  if (_beastInSprite && !mounted) {
+    const third = eotbCamera.thirdPerson();
+    if (third) eotbCamera.toggleOffset(false);
+    mwCamera.restore({ firstPerson: !third, baseDistance: mwCamera.baseDistance() });
+  }
   _beastInSprite = false;
 }
 export function setEotbCartYields(fn) {
@@ -405,7 +410,7 @@ export function mwViewFrame({
     mwIntoHead();
     pendingClicks = 0;
   }
-  if (eotbCamera.thirdPerson() && !mwCamera.thirdPerson()) {
+  if (mwCanThirdPerson() && !mounted && eotbCamera.thirdPerson() && !mwCamera.thirdPerson()) {
     eotbCamera.toggleOffset(false);
     mwCamera.restore({ firstPerson: false, baseDistance: mwCamera.baseDistance() });
   }
@@ -424,10 +429,14 @@ export function mwViewFrame({
   if (onDragon && !wasThird && mwCamera.thirdPerson())
     mwCamera.restore({ firstPerson: false, baseDistance: MAX_DISTANCE });
   if (mwCamera.thirdPerson()) {
-    if (!fpArm.setViewMode('third')) {
-      // The body refused (or was never built): third person does not
-      // exist for this player. Fall back rather than float an empty
-      // camera - the card carries the body's own refusal sentence.
+    if (!mwCanThirdPerson() || !fpArm.setViewMode('third')) {
+      // The body refused, was turned off, or was never built: fall back
+      // rather than float an empty camera - and if EOTB is enabled while
+      // the Morrowind body is off, hand third person over to it so its
+      // sprite camera stays armed even while its first sprite decodes.
+      let eotbOn = false;
+      try { eotbOn = !!modSetting('eye-of-the-beholder', 'Enabled'); } catch { eotbOn = false; }
+      if (!mwCanThirdPerson() && eotbOn && !eotbCamera.thirdPerson()) eotbCamera.toggleOffset(true);
       mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
       fpArm.setViewMode('first');
     }

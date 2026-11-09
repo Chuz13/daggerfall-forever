@@ -14,6 +14,7 @@ import { LYCANTHROPY_TYPES } from '../../src/systems/infection.js';
 import { mwViewFrame, setEotbBodyReady, setEotbDrawBody } from '../../src/player/mwView.js';
 import { mwCamera } from '../../src/player/mwCamera.js';
 import { eotbCamera } from '../../src/player/eyeOfTheBeholder/eotbCamera.js';
+import { setPref, getPref } from '../../src/systems/uiPrefs.js';
 
 const rd = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
 const f = (n) => new Uint8Array(readFileSync(new URL(`../fixtures/mw/${n}`, import.meta.url)));
@@ -103,8 +104,11 @@ test('BEAST-SELF: the weapon rig stands the arm aside from the curse itself - tr
 });
 
 test('BEAST-SELF: at the edge the view carries over - the sprite camera takes the Morrowind camera\'s person and pulls out from the head, not from wherever it last stood; and back', () => {
-  const real = { standingIn: fpArm.standingIn, canThirdPerson: fpArm.canThirdPerson, setViewMode: fpArm.setViewMode };
+  const real = { standingIn: fpArm.standingIn, canThirdPerson: fpArm.canThirdPerson, setViewMode: fpArm.setViewMode, ready: fpArm.ready };
+  const origBody = getPref('mwPlayerBody');
   let beast = false;
+  setPref('mwPlayerBody', true);
+  fpArm.ready = () => true;
   fpArm.standingIn = () => beast;
   fpArm.canThirdPerson = () => !beast;   // the Morrowind body while a person
   fpArm.setViewMode = (m) => m !== 'third' || !beast;   // ...which takes the third person while a person
@@ -132,6 +136,7 @@ test('BEAST-SELF: at the edge the view carries over - the sprite camera takes th
     mwViewFrame(at(0));
     assert.equal(eotbCamera.thirdPerson(), false, 'in the head, the claws');
   } finally {
+    setPref('mwPlayerBody', origBody);
     Object.assign(fpArm, real);
     setEotbBodyReady(null);
     eotbCamera.toggleOffset(false);

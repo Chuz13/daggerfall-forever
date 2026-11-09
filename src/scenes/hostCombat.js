@@ -722,7 +722,6 @@ export function applyDamageToNonPlayer(attacker, target, {
   // health write is the pool's own damageFoe, so death runs whole.
   dealDamage?.(target, damage);
   // :389-391 - and the struck foe turns on whoever hit it (unless friendly/campmates).
-  const aEnt = attacker?.entity, tEnt = target?.entity;
   const sCamp = tEnt?.campId ?? target?.campId;
   const aCamp = aEnt?.campId ?? attacker?.campId;
   const sameCamp = sCamp != null && aCamp != null && sCamp === aCamp;

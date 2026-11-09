@@ -318,7 +318,9 @@ export function foeBodiesOn() {
 
 /** Is the player's 3D Morrowind body wanted - the enhanced skin, Morrowind data attached, and the toggle not false? */
 export function playerBodyOn() {
-  return isEnhanced() && (morrowindDataCount() > 0 || !!fpArm?.ready?.()) && getPref('mwPlayerBody') !== false;
+  const on = isEnhanced() && (morrowindDataCount() > 0 || !!fpArm?.ready?.()) && getPref('mwPlayerBody') !== false;
+  fpArm?.setBodyOff?.(!on);
+  return on;
 }
 
 /** Is the player's 3D Morrowind figure wanted in the inventory - following mwPlayerBody, forced to 3D, or forced to paperdoll? */

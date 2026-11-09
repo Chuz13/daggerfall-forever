@@ -780,7 +780,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     // while the person rebuilds after the turn back stand aside - never the person on a beast, nor the beast on a person
     const beast = !!entity && isTransformedLycanthrope(entity), wolf = !!fpArm.wolfStanding?.();
     fpArm.setStandIn?.(beast ? !(wolf && isMwWerewolf(entity)) : wolf);
-    if (!playerBodyOn()) fpArm.setStandIn?.(true);
+    fpArm.setBodyOff?.(!playerBodyOn());
   };
   bindArm();
   // LAYERED-DUAL (2026-10-30, the owner: "We need to find a way to implement duel wielding perfectly"): a pair's right
@@ -1114,8 +1114,8 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
    *  spell hands' disable (ToggleOffset, IL_22f9), for the surfaces this
    *  rig draws: the sprite body is on screen and the Morrowind arm is
    *  not the one answering. */
-  const eotbHidesWeapon = () => !fpArm.canThirdPerson() && eotbBody.hides().weapon;
-  const eotbHidesSpellHands = () => !fpArm.canThirdPerson() && eotbBody.hides().spellHands;
+  const eotbHidesWeapon = () => !(playerBodyOn() && fpArm.canThirdPerson()) && eotbBody.hides().weapon;
+  const eotbHidesSpellHands = () => !(playerBodyOn() && fpArm.canThirdPerson()) && eotbBody.hides().spellHands;
 
   /** MAC7 #1: the wire's swing - counted at every strike the machine starts, before the Morrowind arm's own gate
    *  (a classic-skin player swings too, and the peers in Morrowind bodies must see it); the host reads it into the pose. */

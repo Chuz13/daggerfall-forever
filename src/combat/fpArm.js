@@ -3910,6 +3910,7 @@ export function createFpArm() {
   let viewMode = 'first';
   /** BEAST-SELF: the arm and the body stand aside for a transformed lycanthrope (setStandIn) - no Morrowind beast */
   let standIn = false;
+  let bodyOff = false;
   let thirdBuilt = null;
   let thirdMesh = null;
   let thirdPacked = null;
@@ -3929,11 +3930,11 @@ export function createFpArm() {
     return nonBiped() && !isRealWeapon(t) ? MW_WEAPON_TYPE.None : t;
   };
 
-  const active = () => !standIn && !!(built && built.ok && mesh && renderer && camera && (actionState || movementState || jumpState || idleState)
+  const active = () => !standIn && !!(built && built.ok && !bodyOff && mesh && renderer && camera && (actionState || movementState || jumpState || idleState)
     && viewMode === 'first');
   // MWNPC4 (AUDIT, 2026-10-09): a body in its recoil or its death stands too - die() resets every other state, so a
   // dying body answered false here, its lane let it go (PeerBodies._standing) and its corpse flat drew instead
-  const thirdActive = () => !standIn && !!(built && built.ok && thirdBuilt && thirdBuilt.ok && thirdMesh
+  const thirdActive = () => !standIn && !!(built && built.ok && !bodyOff && thirdBuilt && thirdBuilt.ok && thirdMesh
     && renderer && (actionState || movementState || jumpState || idleState || hitState || deathState) && viewMode === 'third');
 
   /**
@@ -6921,6 +6922,8 @@ export function createFpArm() {
      */
     setStandIn(v) { const was = standIn; standIn = !!v; return was !== standIn; },
     standingIn: () => standIn,
+    setBodyOff(off) { const was = bodyOff; bodyOff = !!off; return was !== bodyOff; },
+    bodyOff: () => bodyOff,
     /** SHADOW-FANG (the merge): whether the rig standing is Bloodmoon's wolf - built, and built as the wolf. */
     wolfStanding: () => !!(built && built.ok && built.werewolf),
     /** SHADOW-CLOAK: THE BODY'S BONES WHERE THEY STAND THIS FRAME - each named bone's origin in the third-person body's

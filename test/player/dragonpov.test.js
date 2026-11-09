@@ -14,6 +14,7 @@ import { mwCamera, MAX_DISTANCE, MW_UNITS_PER_METER } from '../../src/player/mwC
 import { fpArm } from '../../src/combat/fpArm.js';
 import { eotbCamera } from '../../src/player/eyeOfTheBeholder/eotbCamera.js';
 import { _resetModSettings } from '../../src/systems/modSettings.js';
+import { setPref } from '../../src/systems/uiPrefs.js';
 import { createDragonViewHost, dragonRidden, DRAGON_VIEW_REACH_M, DRAGON_VIEW_SEAT_M } from '../../src/scenes/dragonViewHost.js';
 import { TRANSPORT_MODES } from '../../src/systems/transport.js';
 import { DRAGON_MOUNT_TEMPLATE } from '../../src/systems/dragon/dragonMount.js';
@@ -29,9 +30,11 @@ function arm() {
   setEotbBodyReady(null); setEotbDrawBody(null);
   eotbCamera.loadSettings(null); eotbCamera.toggleOffset(false);
   _resetModSettings();
-  const real = { canThirdPerson: fpArm.canThirdPerson, setViewMode: fpArm.setViewMode, drawThird: fpArm.drawThird };
+  setPref('mwPlayerBody', true);
+  const real = { canThirdPerson: fpArm.canThirdPerson, setViewMode: fpArm.setViewMode, drawThird: fpArm.drawThird, ready: fpArm.ready };
   fpArm.canThirdPerson = () => true;
   fpArm.setViewMode = () => true;
+  fpArm.ready = () => true;
   mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
   frame(false);
   return () => { Object.assign(fpArm, real); mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() }); frame(false); };

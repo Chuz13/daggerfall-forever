@@ -157,3 +157,160 @@ test('mwPlayerBody=false: classic first-person weapon draws when Morrowind arm i
   }
 });
 
+test('all combinations of mwPlayerBody + mwInventoryBody keep 3rd-person body and inventory figure working across live toggles', async () => {
+  const { fpArm } = await import('../../src/combat/fpArm.js');
+  const { mwCamera } = await import('../../src/player/mwCamera.js');
+  const { eotbCamera } = await import('../../src/player/eyeOfTheBeholder/eotbCamera.js');
+  const {
+    mwViewFrame,
+    mwViewDrawBody,
+    mwViewThirdPerson,
+    mwViewTogglePerspective,
+    setEotbBodyReady,
+    setEotbDrawBody,
+  } = await import('../../src/player/mwView.js');
+  const { setModSetting, modSetting } = await import('../../src/systems/modSettings.js');
+
+  const origBody = getPref('mwPlayerBody');
+  const origInv = getPref('mwInventoryBody');
+  const origEotb = modSetting('eye-of-the-beholder', 'Enabled');
+  const savedCanThird = fpArm.canThirdPerson;
+  const savedSetViewMode = fpArm.setViewMode;
+  const savedDrawThird = fpArm.drawThird;
+  const savedReady = fpArm.ready;
+  const savedUpperReady = fpArm.upperBodyReady;
+
+  let mwBodyBuilt = true;
+  let mwDraws = 0;
+  let eotbDraws = 0;
+
+  try {
+    setModSetting('eye-of-the-beholder', 'Enabled', true);
+    setEotbBodyReady(() => true);
+    setEotbDrawBody(() => { eotbDraws += 1; return true; });
+
+    fpArm.ready = () => mwBodyBuilt;
+    fpArm.canThirdPerson = () => mwBodyBuilt && !fpArm.standingIn();
+    fpArm.upperBodyReady = () => true;
+    fpArm.setViewMode = () => mwBodyBuilt && !fpArm.standingIn();
+    fpArm.drawThird = () => { mwDraws += 1; return true; };
+
+    const stepFrame = () => {
+      const out = mwViewFrame({
+        fpEye: [0, 1.7, 0],
+        feet: [0, 0, 0],
+        yaw: 0,
+        pitch: 0,
+        dt: 1 / 60,
+      });
+      // Simulate weaponRig.frame() running at the end of the host frame after mwViewFrame()
+      const beastStand = false;
+      fpArm.setStandIn(beastStand);
+      fpArm.setBodyOff(!playerBodyOn());
+      const drew = mwViewDrawBody({}, { proj: [], view: [], eye: out.eye, feet: [0, 0, 0], yaw: 0 });
+      return { out, drew };
+    };
+
+    // Boot/load scenario: StartInThirdPerson=true (eotbCamera.thirdPerson()=true) while EOTB's first sprite PNG is still decoding
+    // (eotbBodyReady=false on Frame 1, true on Frame 2) and mwPlayerBody=false + mwInventoryBody='3d' (Screenshot 1):
+    setPref('mwPlayerBody', false);
+    setPref('mwInventoryBody', '3d');
+    mwBodyBuilt = true;
+    setEotbBodyReady(() => false); // Frame 1: PNG decode still in flight
+    eotbCamera.toggleOffset(true);
+    mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
+    stepFrame();
+    assert.equal(eotbCamera.thirdPerson(), true, 'boot Frame 1 before EOTB PNG decode finishes must not wipe eotbCamera.thirdPerson()');
+    setEotbBodyReady(() => true); // Frame 2: PNG decode finished
+    eotbDraws = 0;
+    const bootF2 = stepFrame();
+    assert.equal(mwViewThirdPerson(), true, 'boot Frame 2 is in 3rd person once EOTB sprite is ready');
+    assert.equal(bootF2.drew, true, 'boot Frame 2 draws EOTB 3rd-person body');
+    assert.ok(eotbDraws > 0, 'boot Frame 2 invoked EOTB draw');
+
+    // Start in 1st person with Morrowind body on, then toggle to 3rd person
+    setPref('mwPlayerBody', true);
+    setPref('mwInventoryBody', 'follow');
+    fpArm.setStandIn(false);
+    eotbCamera.toggleOffset(false);
+    mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
+    stepFrame();
+    assert.equal(mwViewThirdPerson(), false);
+
+    assert.equal(mwViewTogglePerspective(), true, 'toggle into 3rd person succeeds');
+    stepFrame();
+    assert.equal(mwViewThirdPerson(), true, 'in 3rd person with Morrowind body');
+
+    // Check all 6 combinations of (mwPlayerBody x mwInventoryBody) with Morrowind data present while in 3rd person,
+    // including Screenshot 1: mwPlayerBody=false + mwInventoryBody='3d'
+    const combos = [
+      { body: true, inv: 'follow', expectInv3d: true, expectLane: 'mw' },
+      { body: false, inv: '3d', expectInv3d: true, expectLane: 'eotb' },     // Screenshot 1 exact combo
+      { body: false, inv: 'follow', expectInv3d: false, expectLane: 'eotb' },
+      { body: false, inv: 'paperdoll', expectInv3d: false, expectLane: 'eotb' },
+      { body: true, inv: '3d', expectInv3d: true, expectLane: 'mw' },
+      { body: true, inv: 'paperdoll', expectInv3d: false, expectLane: 'mw' },
+      { body: false, inv: '3d', expectInv3d: true, expectLane: 'eotb' },     // Switch back to Screenshot 1 combo again
+    ];
+
+    for (const c of combos) {
+      mwDraws = 0;
+      eotbDraws = 0;
+      setPref('mwPlayerBody', c.body);
+      setPref('mwInventoryBody', c.inv);
+
+      // Run multiple frames (Frame 1 + Frame 2 + Frame 3) to catch any multi-frame standInEdge desync
+      const f1 = stepFrame();
+      const f2 = stepFrame();
+      const f3 = stepFrame();
+
+      const tag = `mwPlayerBody=${c.body}, mwInventoryBody=${c.inv}`;
+      assert.equal(inventoryBodyOn(), c.expectInv3d, `${tag}: inventoryBodyOn()`);
+      assert.equal(mwViewThirdPerson(), true, `${tag}: 3rd person remains active across frames`);
+      assert.equal(f1.out.thirdPerson, true, `${tag}: frame 1 eye is 3rd person`);
+      assert.equal(f2.out.thirdPerson, true, `${tag}: frame 2 eye is 3rd person`);
+      assert.equal(f3.out.thirdPerson, true, `${tag}: frame 3 eye is 3rd person`);
+      assert.equal(f3.drew, true, `${tag}: 3rd-person body draws on frame 3`);
+
+      if (c.expectLane === 'mw') {
+        assert.equal(eotbLane(), false, `${tag}: on Morrowind 3D lane`);
+        assert.ok(mwDraws >= 3 && eotbDraws === 0, `${tag}: drew Morrowind 3D body`);
+      } else {
+        assert.equal(eotbLane(), true, `${tag}: on EOTB sprite 3rd-person lane`);
+        assert.ok(eotbDraws >= 3 && mwDraws === 0, `${tag}: drew EOTB 3rd-person body`);
+      }
+    }
+
+    // Without Morrowind data (mwBodyBuilt = false): 3rd person still works via EOTB and inventoryBodyOn() safely returns false
+    mwBodyBuilt = false;
+    for (const body of [true, false]) {
+      for (const inv of ['follow', '3d', 'paperdoll']) {
+        eotbDraws = 0;
+        setPref('mwPlayerBody', body);
+        setPref('mwInventoryBody', inv);
+        const f = stepFrame();
+        const tag = `no-MW-data, mwPlayerBody=${body}, mwInventoryBody=${inv}`;
+        assert.equal(inventoryBodyOn(), false, `${tag}: inventoryBodyOn() is false without MW data`);
+        assert.equal(mwViewThirdPerson(), true, `${tag}: EOTB 3rd person stays active`);
+        assert.equal(f.drew, true, `${tag}: EOTB 3rd-person body draws`);
+        assert.ok(eotbDraws > 0, `${tag}: EOTB draw callback invoked`);
+      }
+    }
+  } finally {
+    setPref('mwPlayerBody', origBody);
+    setPref('mwInventoryBody', origInv);
+    setModSetting('eye-of-the-beholder', 'Enabled', origEotb);
+    fpArm.setStandIn(false);
+    fpArm.canThirdPerson = savedCanThird;
+    fpArm.setViewMode = savedSetViewMode;
+    fpArm.drawThird = savedDrawThird;
+    fpArm.ready = savedReady;
+    fpArm.upperBodyReady = savedUpperReady;
+    setEotbBodyReady(null);
+    setEotbDrawBody(null);
+    eotbCamera.toggleOffset(false);
+    mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
+  }
+});
+
+
