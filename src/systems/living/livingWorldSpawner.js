@@ -31,6 +31,7 @@ import {
   evaluateCheckpointEncounter,
   resolveCheckpointInteraction,
   hasRegionalCheckpointPass,
+  grantRegionalCheckpointPass,
   CHECKPOINT_OUTCOME,
 } from './roadCheckpointHost.js';
 import {
@@ -39,6 +40,12 @@ import {
   isSkirmishBlowCriminal,
   SKIRMISH_TEAMS,
 } from './urbanDirector.js';
+import { resolveCrisisChoiceCheck } from './crisisRegistry.js';
+import {
+  LIVING_ROLL_DEGREE,
+  LIVING_FORMULAS,
+  resolveLivingRoll,
+} from './livingRolls.js';
 import {
   planSquadronEncounter,
   shouldPromptSideChoice,
@@ -1357,10 +1364,20 @@ export function createLivingSceneHost(deps) {
               nowMinutes: nowMin,
               rng,
             });
-            deps.say(res.message, 5);
             if (res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
-              setSiteHostile(s, true);
+              const haveGold = Number(player?.goldPieces ?? 0);
+              if (res.compromiseToll && res.compromiseToll > 0 && haveGold >= res.compromiseToll && player) {
+                player.goldPieces = Math.max(0, haveGold - res.compromiseToll);
+                grantRegionalCheckpointPass(regIdx, nowMin);
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                deps.say(LIVING_WORDS.checkpointCompromise(res.compromiseToll), 5);
+                return;
+              }
+              if (res.rollResult?.isCatastrophe) {
+                setSiteHostile(s, true);
+              }
             }
+            deps.say(res.message, 5);
           },
         },
         {
@@ -1896,7 +1913,12 @@ export function createLivingSceneHost(deps) {
               if (res.outcome === WANDERING_OUTCOME.EXTORTED_SPOILS) {
                 deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
                 recordAdventurerGrudge(adv.name);
-                deps.say(LIVING_WORDS.roadAdvExtorted(adv.name), 5);
+                deps.say(
+                  res.messageKey === 'living.roadAdv.extortPartial'
+                    ? LIVING_WORDS.roadAdvExtortPartial(adv.name)
+                    : LIVING_WORDS.roadAdvExtorted(adv.name),
+                  5,
+                );
               } else if (res.hostile) {
                 for (const f of s.foes) {
                   if (f?.livingRole === 'wandering_adventurer' && f.ai) {
@@ -1963,30 +1985,59 @@ export function createLivingSceneHost(deps) {
           code: `Digit${idx + 1}`,
           label: c.text,
           action: () => {
-            if (c.skillCheck) {
-              const skillVal = Number(player?.skills?.[c.skillCheck.skill] ?? 40);
-              const roll = Math.floor(rng() * 20);
-              const passed = (skillVal + roll) >= c.skillCheck.target;
-              if (!passed) {
-                deps.say(`[Провал проверки: ${skillVal} < ${c.skillCheck.target}] Мирные переговоры сорваны! Стычка неизбежна!`, 5);
+            const checkRes = resolveCrisisChoiceCheck(player, c, {
+              regionIndex: regIdx,
+              rng,
+            });
+
+            if (checkRes.hasSkillCheck) {
+              const score = checkRes.rollResult?.totalScore ?? 50;
+              const dc = checkRes.rollResult?.targetScore ?? c.skillCheck?.target ?? 50;
+              if (!checkRes.passed) {
                 s.skirmishStance = 'chaos';
-                for (const f of s.foes) {
-                  if (f?.ai) { f.ai.isHostile = true; f.ai.detected = true; f.ai.target = deps.playerEntity(); }
+                if (checkRes.hostileToPlayer) {
+                  for (const f of s.foes) {
+                    if (f?.ai) {
+                      f.ai.isHostile = true;
+                      f.ai.detected = true;
+                      f.ai.target = deps.playerEntity();
+                    }
+                  }
+                  deps.say(LIVING_WORDS.rollCriticalFailure(score, dc), 5);
+                } else {
+                  for (const f of s.foes) {
+                    f.allied = false;
+                    if (f?.ai) f.ai.isHostile = false;
+                  }
+                  deps.say(LIVING_WORDS.rollFailure(score, dc), 5);
                 }
                 return;
               }
-              deps.say(`[Успех проверки: ${skillVal} >= ${c.skillCheck.target}] Конфликт урегулирован миром! (+${c.xp ?? 100} XP)`, 5);
+
+              if (checkRes.degree === LIVING_ROLL_DEGREE.TRIUMPH) {
+                deps.say(LIVING_WORDS.rollTriumph(score, dc, checkRes.xpAwarded), 5);
+              } else if (checkRes.degree === LIVING_ROLL_DEGREE.PARTIAL) {
+                if (player && typeof player.fatigue === 'number') {
+                  player.fatigue = Math.max(1, player.fatigue - checkRes.fatigueCost);
+                }
+                deps.say(LIVING_WORDS.rollPartial(score, dc, checkRes.xpAwarded), 5);
+              } else {
+                deps.say(LIVING_WORDS.rollSuccess(score, dc, checkRes.xpAwarded), 5);
+              }
             }
 
-            if (c.goldCost && player) {
-              player.goldPieces = Math.max(0, (player.goldPieces ?? 0) - c.goldCost);
+            if (checkRes.goldCost > 0 && player) {
+              player.goldPieces = Math.max(0, (player.goldPieces ?? 0) - checkRes.goldCost);
             }
-            if (c.goldReward && player) {
-              player.goldPieces = (player.goldPieces ?? 0) + c.goldReward;
+            if (checkRes.goldReward > 0 && player) {
+              player.goldPieces = (player.goldPieces ?? 0) + checkRes.goldReward;
             }
 
             if (player?.regionalReputations) {
-              if (c.repF1) player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) + c.repF1;
+              if (checkRes.repF1Delta) {
+                player.regionalReputations[regIdx] =
+                  (player.regionalReputations[regIdx] ?? 0) + checkRes.repF1Delta;
+              }
             }
 
             if (c.stance === 'defenders' || c.stance === 'bodyguard') {
@@ -3228,6 +3279,29 @@ export function executeLivingConsoleCommand(args, ctx) {
     return `[Living Tamriel] Accepted crisis contract: ${accepted.title} (${accepted.rewardGold}g).`;
   }
 
-  return 'Usage: /living <status | crisis <TYPE> [PHASE] | [site] spawn <KIND> | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | quest>';
+  if (sub === 'formulas' || sub === 'formula') {
+    return Object.values(LIVING_FORMULAS)
+      .map(
+        (f) =>
+          `- ${f.id} (${f.label}): skill*${f.skillWeight.toFixed(2)} + ${f.defaultStat}*${f.statWeight.toFixed(2)} + luck*${f.luckWeight.toFixed(2)} + roll*${f.rollWeight.toFixed(2)} vs DC+${f.targetOffset}`,
+      )
+      .join('\n');
+  }
+
+  if (sub === 'roll' || sub === 'check') {
+    const rawSkill = String(cleanArgs[1] ?? 'Etiquette');
+    const dc = Number(cleanArgs[2] ?? 50);
+    const formulaId = String(cleanArgs[3] ?? 'SOCIAL_DIPLOMACY').toUpperCase();
+    const res = resolveLivingRoll({
+      formulaId,
+      playerEntity: ctx?.playerEntity ?? null,
+      skillId: rawSkill,
+      difficulty: Number.isFinite(dc) ? dc : 50,
+      regionIndex: regIdx,
+    });
+    return `[Living Roll: ${res.formulaId}] Skill=${res.skill}, Stat=${res.stat}, Luck=${res.luck}, d100=${res.roll} -> Total=${res.totalScore} vs Target=${res.targetScore} (Margin=${res.margin >= 0 ? '+' : ''}${res.margin}) => ${res.degree}`;
+  }
+
+  return 'Usage: /living <status | crisis <TYPE> [PHASE] | [site] spawn <KIND> | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | roll [Skill] [DC] [Formula] | formulas | quest>';
 }
 

@@ -22,6 +22,12 @@ import { LEVEL_CAP } from '../levelCap.js';
 import { isMainStoryDungeon } from '../../world/dungeon/dungeonTextures.js';
 import { SKILLS, skillValue } from '../skills.js';
 import { dice100 } from '../../combat/formulas.js';
+import {
+  resolveLivingRoll,
+  computeRoleplayBribeMultiplier,
+  readPlayerSkill,
+  readPlayerStat,
+} from './livingRolls.js';
 
 export const TOTAL_REGION_COUNT = REGION_NAMES.length;
 
@@ -512,8 +518,7 @@ export function resolveAdventurerEncounter({
   wagerGold = 50,
   rng = Math.random,
 }) {
-  const playerLevel = Number(playerEntity?.level ?? 1);
-  const playerLuck = Number(playerEntity?.stats?.Luck ?? 50);
+  const playerLuck = readPlayerStat(playerEntity, 'luck', 50);
 
   if (action === 'DECLINE') {
     return {
@@ -524,14 +529,24 @@ export function resolveAdventurerEncounter({
   }
 
   if (action === 'ACCEPT_DUEL' || action === 'ACCEPT_DARE') {
-    const playerCombatScore = playerLevel * 4 + Math.floor(rng() * 40);
     const advCombatScore = adv.level * 4 + Math.floor(rng() * 40);
-    const margin = playerCombatScore - advCombatScore;
+    const duelRes = resolveLivingRoll({
+      formulaId: 'TACTICAL_DUEL_WAGER',
+      playerEntity,
+      statName: 'strength',
+      difficulty: advCombatScore,
+      targetLevel: adv.level,
+      allowLuckReroll: false,
+      rng,
+    });
+    const margin = duelRes.margin;
 
     if (margin >= 0) {
       adv.duelsLost = (adv.duelsLost || 0) + 1;
       return {
         outcome: DUEL_OUTCOME.PLAYER_WON,
+        degree: duelRes.degree,
+        rollResult: duelRes,
         goldDelta: wagerGold,
         messageKey: 'living.adventurer.duelWon',
       };
@@ -542,6 +557,8 @@ export function resolveAdventurerEncounter({
       adv.duelsLost = (adv.duelsLost || 0) + 1;
       return {
         outcome: DUEL_OUTCOME.LUCK_REVERSAL,
+        degree: 'PARTIAL',
+        rollResult: duelRes,
         goldDelta: wagerGold,
         messageKey: 'living.adventurer.duelWon',
       };
@@ -550,20 +567,23 @@ export function resolveAdventurerEncounter({
     adv.duelsWon = (adv.duelsWon || 0) + 1;
     return {
       outcome: DUEL_OUTCOME.PLAYER_LOST,
+      degree: duelRes.degree,
+      rollResult: duelRes,
       goldDelta: -wagerGold,
       messageKey: 'living.adventurer.duelLost',
     };
   }
 
   if (action === 'INTIMIDATE') {
-    const sw =
-      skillValue(playerEntity, SKILLS.Streetwise) ||
-      Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
+    const sw = readPlayerSkill(playerEntity, SKILLS.Streetwise, 30);
+    const pers = readPlayerStat(playerEntity, 'personality', 50);
+    const statMod = Math.trunc((pers - 50) * 0.25);
     const difficulty = Math.min(95, adv.level * 3 + 30);
     const roll = Math.floor(rng() * 100) + 1;
-    const margin = sw - difficulty;
+    const effectivePool = sw + statMod;
+    const margin = effectivePool - difficulty;
 
-    if (roll <= sw || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
+    if (roll <= effectivePool || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
       return {
         outcome: DUEL_OUTCOME.DIPLOMACY_PEACE,
         goldDelta: 0,
@@ -578,15 +598,16 @@ export function resolveAdventurerEncounter({
   }
 
   if (action === 'APPEAL_ETIQUETTE') {
-    const et =
-      skillValue(playerEntity, SKILLS.Etiquette) ||
-      Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
+    const et = readPlayerSkill(playerEntity, SKILLS.Etiquette, 30);
+    const pers = readPlayerStat(playerEntity, 'personality', 50);
+    const statMod = Math.trunc((pers - 50) * 0.25);
     const bonus = adv.trait === 'HONORABLE' ? 20 : 0;
     const difficulty = Math.min(95, adv.level * 3 + 25 - bonus);
     const roll = Math.floor(rng() * 100) + 1;
-    const margin = (et + bonus) - difficulty;
+    const effectivePool = et + bonus + statMod;
+    const margin = effectivePool - difficulty;
 
-    if (roll <= et + bonus || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
+    if (roll <= effectivePool || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
       return {
         outcome: DUEL_OUTCOME.DIPLOMACY_PEACE,
         goldDelta: 0,
@@ -695,7 +716,7 @@ export function confrontInterceptingAdventurer({
   const record = hit?.record;
   if (!record || record.recovered) return null;
 
-  const playerLuck = Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
+  const playerLuck = readPlayerStat(playerEntity, 'luck', 50);
 
   if (method === 'FORFEIT') {
     record.forfeited = true;
@@ -707,13 +728,24 @@ export function confrontInterceptingAdventurer({
   }
 
   if (method === 'DUEL') {
-    const playerLevel = Number(playerEntity?.level ?? 1);
-    const margin = (playerLevel * 4 + Math.floor(rng() * 35)) - (record.adventurerLevel * 4 + Math.floor(rng() * 35));
+    const advScore = record.adventurerLevel * 4 + Math.floor(rng() * 35);
+    const duelRes = resolveLivingRoll({
+      formulaId: 'TACTICAL_DUEL_WAGER',
+      playerEntity,
+      statName: 'strength',
+      difficulty: advScore,
+      targetLevel: record.adventurerLevel,
+      allowLuckReroll: false,
+      rng,
+    });
+    const margin = duelRes.margin;
 
     if (margin >= 0 || (Math.abs(margin) <= LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
       record.recovered = true;
       return {
         outcome: RECLAIM_OUTCOME.DUEL_WON,
+        degree: duelRes.degree,
+        rollResult: duelRes,
         recovered: true,
         messageKey: 'living.adventurer.reclaimSuccess',
       };
@@ -721,18 +753,17 @@ export function confrontInterceptingAdventurer({
 
     return {
       outcome: RECLAIM_OUTCOME.DUEL_LOST,
+      degree: duelRes.degree,
+      rollResult: duelRes,
       recovered: false,
       messageKey: 'living.adventurer.duelLost',
     };
   }
 
   if (method === 'BUYOUT') {
-    const sw =
-      skillValue(playerEntity, SKILLS.Streetwise) ||
-      Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
     const baseDemand = Math.max(100, record.adventurerLevel * 35);
-    const discount = Math.min(0.40, sw * 0.004); // Up to 40% discount with high streetwise
-    const requiredGold = Math.floor(baseDemand * (1 - discount));
+    const mult = computeRoleplayBribeMultiplier(playerEntity, SKILLS.Streetwise);
+    const requiredGold = Math.floor(baseDemand * mult);
 
     if (goldOffered >= requiredGold) {
       record.recovered = true;
@@ -753,15 +784,16 @@ export function confrontInterceptingAdventurer({
   }
 
   if (method === 'APPEAL') {
-    const et =
-      skillValue(playerEntity, SKILLS.Etiquette) ||
-      Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
+    const et = readPlayerSkill(playerEntity, SKILLS.Etiquette, 30);
+    const pers = readPlayerStat(playerEntity, 'personality', 50);
+    const statMod = Math.trunc((pers - 50) * 0.25);
     const bonus = record.adventurerTrait === 'HONORABLE' ? 25 : 0;
     const difficulty = Math.min(90, record.adventurerLevel * 3 + 20 - bonus);
     const roll = Math.floor(rng() * 100) + 1;
-    const margin = (et + bonus) - difficulty;
+    const effectivePool = et + bonus + statMod;
+    const margin = effectivePool - difficulty;
 
-    if (roll <= et + bonus || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
+    if (roll <= effectivePool || (margin >= -LivingTamrielConfig.luckRerollThreshold && rng() * 100 < playerLuck)) {
       record.recovered = true;
       return {
         outcome: RECLAIM_OUTCOME.CONVINCED_ETIQUETTE,
@@ -1095,15 +1127,25 @@ export function resolveWanderingAdventurerInteraction({
   }
 
   if (action === 'EXTORT_SPOILS') {
-    const sw =
-      skillValue(playerEntity, SKILLS.Streetwise) ||
-      Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
+    const sw = readPlayerSkill(playerEntity, SKILLS.Streetwise, 30);
     const traitMod = adv?.trait === 'CAUTIOUS' ? -15 : adv?.trait === 'HONORABLE' || adv?.trait === 'DUELIST' ? 20 : 0;
     const difficulty = Math.min(95, Math.max(15, advLevel * 3 + 30 + traitMod));
-    const roll = Math.floor(rng() * 100) + 1;
+    const rollRes = resolveLivingRoll({
+      formulaId: 'STREETWISE_LEVERAGE',
+      playerEntity,
+      skillId: SKILLS.Streetwise,
+      statName: 'personality',
+      difficulty,
+      contextBonus: -traitMod,
+      targetLevel: advLevel,
+      regionIndex,
+      rng,
+    });
+    const roll = rollRes.roll + 1;
 
-    if (roll <= sw) {
-      const extortedGold = Math.max(30, advLevel * 20);
+    if (roll <= sw || rollRes.cleanSuccess) {
+      const baseGold = Math.max(30, advLevel * 20);
+      const extortedGold = rollRes.isTriumph ? Math.round(baseGold * 1.25) : baseGold;
       if (playerEntity && typeof playerEntity.goldPieces === 'number') {
         playerEntity.goldPieces += extortedGold;
       }
@@ -1120,6 +1162,8 @@ export function resolveWanderingAdventurerInteraction({
       applyRep(-2);
       return {
         outcome: WANDERING_OUTCOME.EXTORTED_SPOILS,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         goldDelta: extortedGold,
         repDelta: -2,
         healed: false,
@@ -1130,9 +1174,31 @@ export function resolveWanderingAdventurerInteraction({
       };
     }
 
+    if (rollRes.isPartial) {
+      const partialGold = Math.max(15, advLevel * 10);
+      if (playerEntity && typeof playerEntity.goldPieces === 'number') {
+        playerEntity.goldPieces += partialGold;
+      }
+      applyRep(-1);
+      return {
+        outcome: WANDERING_OUTCOME.EXTORTED_SPOILS,
+        degree: rollRes.degree,
+        rollResult: rollRes,
+        goldDelta: partialGold,
+        repDelta: -1,
+        healed: false,
+        allied: false,
+        hostile: false,
+        spoilsItem: false,
+        messageKey: 'living.roadAdv.extortPartial',
+      };
+    }
+
     applyRep(-1);
     return {
       outcome: WANDERING_OUTCOME.HOSTILE_DRAW,
+      degree: rollRes.degree,
+      rollResult: rollRes,
       goldDelta: 0,
       repDelta: -1,
       healed: false,

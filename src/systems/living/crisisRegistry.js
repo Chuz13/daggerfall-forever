@@ -20,6 +20,12 @@ import { SKILLS } from '../skills.js';
 import { REGION_FLAGS } from '../region/regionConditions.js';
 import { CRISIS_TYPE, CRISIS_PHASE, getRegionState, getActiveCrises } from './regionState.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import {
+  LIVING_ROLL_DEGREE,
+  resolveLivingRoll,
+  computeRoleplayBribeMultiplier,
+  getPlayerRoleplayContextMod,
+} from './livingRolls.js';
 
 /** Prosperity Tiers */
 export const PROSPERITY_TIER = Object.freeze({
@@ -911,4 +917,163 @@ export function matchLivingCrisisEvent({
 
   const pickIdx = Math.floor(rng() * candidates.length);
   return candidates[pickIdx];
+}
+
+/**
+ * Resolves a roleplay choice from one of the 39 Crisis & Exploration Encounters
+ * using the typed formula engine (`livingRolls.js`).
+ *
+ * Instead of a flat binary threshold, produces 5 degrees of outcome:
+ *  - TRIUMPH: Bonus XP (1.5x), +3 bonus rep, +50g gratitude reward, peaceful resolution
+ *  - SUCCESS: Full XP, standard rep, peaceful resolution
+ *  - PARTIAL: Compromise — bloodshed averted at a minor cost (half XP, +1 rep, -15 fatigue)
+ *  - FAILURE: Words go unheeded; NPCs continue fighting each other while player stays neutral
+ *  - CRITICAL_FAILURE: Both factions turn hostile toward the player
+ *
+ * @param {any} playerEntity
+ * @param {any} choice
+ * @param {{ regionIndex?: number, rng?: () => number }} [opts]
+ */
+export function resolveCrisisChoiceCheck(
+  playerEntity,
+  choice,
+  { regionIndex = 0, rng = Math.random } = {},
+) {
+  const baseGoldCost = Number(choice?.goldCost ?? 0);
+  const effectiveGoldCost =
+    baseGoldCost > 0
+      ? Math.max(10, Math.round(baseGoldCost * computeRoleplayBribeMultiplier(playerEntity, SKILLS.Mercantile)))
+      : 0;
+
+  if (!choice?.skillCheck) {
+    return {
+      hasSkillCheck: false,
+      degree: LIVING_ROLL_DEGREE.SUCCESS,
+      passed: true,
+      peaceResolved: true,
+      hostileToPlayer: false,
+      xpAwarded: Number(choice?.xp ?? 0),
+      repF1Delta: Number(choice?.repF1 ?? 0),
+      repF2Delta: Number(choice?.repF2 ?? 0),
+      goldCost: effectiveGoldCost,
+      goldReward: Number(choice?.goldReward ?? 0),
+      fatigueCost: 0,
+      rollResult: null,
+    };
+  }
+
+  const skillId = choice.skillCheck.skill;
+  const target = Number(choice.skillCheck.target ?? 45);
+  let formulaId = 'CRISIS_SPECIALIST';
+  if (skillId === SKILLS.Etiquette) formulaId = 'SOCIAL_DIPLOMACY';
+  else if (skillId === SKILLS.Streetwise) formulaId = 'STREETWISE_LEVERAGE';
+  else if (skillId === SKILLS.Stealth) formulaId = 'STEALTH_INFILTRATION';
+
+  // Normalize difficulty so target 45..55 maps cleanly into the formula's targetOffset
+  const difficulty =
+    formulaId === 'CRISIS_SPECIALIST'
+      ? target
+      : formulaId === 'STEALTH_INFILTRATION'
+        ? Math.max(0, target - 45)
+        : Math.max(20, target - 10);
+
+  const rollRes = resolveLivingRoll({
+    formulaId,
+    playerEntity,
+    skillId,
+    difficulty,
+    contextBonus: getPlayerRoleplayContextMod(playerEntity),
+    regionIndex,
+    fallbackSkill: 35,
+    rng,
+  });
+
+  const baseXp = Number(choice?.xp ?? 100);
+  const baseRep1 = Number(choice?.repF1 ?? 3);
+  const baseRep2 = Number(choice?.repF2 ?? 0);
+  const baseGoldReward = Number(choice?.goldReward ?? 0);
+
+  if (rollRes.degree === LIVING_ROLL_DEGREE.TRIUMPH) {
+    return {
+      hasSkillCheck: true,
+      degree: rollRes.degree,
+      passed: true,
+      peaceResolved: true,
+      hostileToPlayer: false,
+      xpAwarded: Math.round(baseXp * 1.5),
+      repF1Delta: baseRep1 + 3,
+      repF2Delta: baseRep2 > 0 ? baseRep2 + 3 : 2,
+      goldCost: effectiveGoldCost,
+      goldReward: baseGoldReward + 50,
+      fatigueCost: 0,
+      rollResult: rollRes,
+    };
+  }
+
+  if (rollRes.degree === LIVING_ROLL_DEGREE.SUCCESS) {
+    return {
+      hasSkillCheck: true,
+      degree: rollRes.degree,
+      passed: true,
+      peaceResolved: true,
+      hostileToPlayer: false,
+      xpAwarded: baseXp,
+      repF1Delta: baseRep1,
+      repF2Delta: baseRep2,
+      goldCost: effectiveGoldCost,
+      goldReward: baseGoldReward,
+      fatigueCost: 0,
+      rollResult: rollRes,
+    };
+  }
+
+  if (rollRes.degree === LIVING_ROLL_DEGREE.PARTIAL) {
+    return {
+      hasSkillCheck: true,
+      degree: rollRes.degree,
+      passed: true,
+      peaceResolved: true,
+      hostileToPlayer: false,
+      xpAwarded: Math.max(25, Math.round(baseXp * 0.5)),
+      repF1Delta: Math.max(1, Math.trunc(baseRep1 / 2)),
+      repF2Delta: Math.trunc(baseRep2 / 2),
+      goldCost: effectiveGoldCost,
+      goldReward: Math.round(baseGoldReward * 0.5),
+      fatigueCost: 15,
+      rollResult: rollRes,
+    };
+  }
+
+  if (rollRes.degree === LIVING_ROLL_DEGREE.CRITICAL_FAILURE) {
+    return {
+      hasSkillCheck: true,
+      degree: rollRes.degree,
+      passed: false,
+      peaceResolved: false,
+      hostileToPlayer: true,
+      xpAwarded: 0,
+      repF1Delta: -2,
+      repF2Delta: -2,
+      goldCost: 0,
+      goldReward: 0,
+      fatigueCost: 0,
+      rollResult: rollRes,
+    };
+  }
+
+  // Standard FAILURE: sides ignore the player and continue clashing with each other
+  return {
+    hasSkillCheck: true,
+    degree: rollRes.degree,
+    passed: false,
+    peaceResolved: false,
+    hostileToPlayer: false,
+    xpAwarded: 0,
+    repF1Delta: 0,
+    repF2Delta: 0,
+    goldCost: 0,
+    goldReward: 0,
+    fatigueCost: 0,
+    rollResult: rollRes,
+  };
 }

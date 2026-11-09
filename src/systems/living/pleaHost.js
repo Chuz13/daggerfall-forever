@@ -12,9 +12,8 @@
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getRegionState, CRISIS_TYPE } from './regionState.js';
 import { getLivingDirectorState } from './livingDirector.js';
-import { SKILLS, skillValue } from '../skills.js';
-import { liveStat } from '../statMods.js';
-import { dice100 } from '../../combat/formulas.js';
+import { SKILLS } from '../skills.js';
+import { resolveLivingRoll } from './livingRolls.js';
 
 export const PLEA_TYPE = Object.freeze({
   PLAGUE_CURE: 'PLAGUE_CURE',         // Asking for a cure or remedy in plague outbreak
@@ -189,36 +188,21 @@ export function resolvePleaResponse({
 
   if (response === 'REFUSE_POLITE') {
     root.subsystems.pleas.lastPleaMinute = nowMinutes;
-    const etVal =
-      skillValue(playerEntity, SKILLS.Etiquette) ||
-      Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30);
-    const pers =
-      liveStat(playerEntity, 'personality') ||
-      Number(playerEntity?.stats?.Personality ?? playerEntity?.stats?.personality ?? 50);
-    const luck =
-      liveStat(playerEntity, 'luck') ||
-      Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
+    const rollRes = resolveLivingRoll({
+      formulaId: 'SOCIAL_DIPLOMACY',
+      playerEntity,
+      skillId: SKILLS.Etiquette,
+      statName: 'personality',
+      difficulty: 25, // targetOffset 50 -> targetScore 75
+      regionIndex,
+      rng,
+    });
 
-    const total = etVal + Math.trunc(pers / 3);
-    const roll = rng() * 100;
-
-    if (roll + total >= 75) {
+    if (rollRes.passed) {
       return {
         outcome: PLEA_OUTCOME.PARTED_PEACEFULLY,
-        messageKey: 'living.plea.parted',
-        repDelta: 0,
-        goldSpent: 0,
-        potionUsed: false,
-        blessed: false,
-        spawnMugger: false,
-      };
-    }
-
-    // Near failure Luck reroll
-    const delta = 75 - (roll + total);
-    if (delta <= LivingTamrielConfig.luckRerollThreshold && dice100(Math.trunc(luck / 2), rng())) {
-      return {
-        outcome: PLEA_OUTCOME.PARTED_PEACEFULLY,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         messageKey: 'living.plea.parted',
         repDelta: 0,
         goldSpent: 0,
@@ -230,6 +214,8 @@ export function resolvePleaResponse({
 
     return {
       outcome: PLEA_OUTCOME.REBUFFED,
+      degree: rollRes.degree,
+      rollResult: rollRes,
       messageKey: 'living.plea.rebuffed',
       repDelta: 0,
       goldSpent: 0,

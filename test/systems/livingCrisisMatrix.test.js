@@ -7,8 +7,17 @@ import {
   calculateLocationProsperity,
   getEnemyProvinceName,
   matchLivingCrisisEvent,
+  resolveCrisisChoiceCheck,
   PROSPERITY_TIER,
 } from '../../src/systems/living/crisisRegistry.js';
+import {
+  LIVING_ROLL_DEGREE,
+  LIVING_FORMULAS,
+  resolveLivingRoll,
+  configureLivingFormula,
+  resetLivingFormulas,
+} from '../../src/systems/living/livingRolls.js';
+import { SKILLS } from '../../src/systems/skills.js';
 import { MOBILE_TYPES } from '../../src/characters/mobile/mobileTypes.js';
 import {
   planUrbanSkirmish,
@@ -151,4 +160,81 @@ test('LT-39-Matrix: console commands "crisis tp" and "telecrisis" are registered
 
   const tpSub = await executeConsoleCommand('crisis', ['tp', 'plague']);
   assert.ok(tpSub.includes('only available in world mode') || tpSub.includes('Crisis TP'));
+});
+
+test('LT-Typed-Rolls: Editable formula registry resolves graded outcomes (TRIUMPH, SUCCESS, PARTIAL, FAILURE, CRITICAL_FAILURE)', () => {
+  resetLivingFormulas();
+  assert.ok(LIVING_FORMULAS.SOCIAL_DIPLOMACY);
+  assert.ok(LIVING_FORMULAS.CRISIS_SPECIALIST);
+  assert.ok(LIVING_FORMULAS.STREETWISE_LEVERAGE);
+
+  const player = {
+    level: 8,
+    skills: { [SKILLS.Medical]: 50, [SKILLS.Etiquette]: 55 },
+    stats: { Intelligence: 60, Personality: 60, Luck: 55 },
+    regionalReputations: { 17: 10 },
+  };
+
+  const medicalChoice = {
+    text: 'Check water for poison (Medical)',
+    stance: 'test_water',
+    skillCheck: { skill: SKILLS.Medical, target: 45 },
+    repF1: 8,
+    xp: 100,
+  };
+
+  // 1. High roll -> TRIUMPH (bonus XP 1.5x and bonus gold/rep)
+  const triumphRes = resolveCrisisChoiceCheck(player, medicalChoice, {
+    regionIndex: 17,
+    rng: () => 0.98,
+  });
+  assert.equal(triumphRes.degree, LIVING_ROLL_DEGREE.TRIUMPH);
+  assert.equal(triumphRes.passed, true);
+  assert.equal(triumphRes.xpAwarded, 150);
+  assert.ok(triumphRes.goldReward >= 50);
+
+  // 2. Moderate roll -> SUCCESS
+  const successRes = resolveCrisisChoiceCheck(player, medicalChoice, {
+    regionIndex: 17,
+    rng: () => 0.35,
+  });
+  assert.equal(successRes.degree, LIVING_ROLL_DEGREE.SUCCESS);
+  assert.equal(successRes.passed, true);
+  assert.equal(successRes.xpAwarded, 100);
+
+  // 3. Narrow miss on weaker character -> PARTIAL (compromise, no hostility!)
+  const novicePlayer = {
+    level: 2,
+    skills: { [SKILLS.Medical]: 30 },
+    stats: { Intelligence: 45, Luck: 50 },
+  };
+  const partialRes = resolveCrisisChoiceCheck(novicePlayer, medicalChoice, {
+    regionIndex: 17,
+    rng: () => 0.45,
+  });
+  assert.equal(partialRes.degree, LIVING_ROLL_DEGREE.PARTIAL);
+  assert.equal(partialRes.passed, true);
+  assert.equal(partialRes.hostileToPlayer, false);
+  assert.ok(partialRes.fatigueCost > 0);
+
+  // 4. Catastrophic roll (nat 1) -> CRITICAL_FAILURE (hostile escalation)
+  const critFailRes = resolveCrisisChoiceCheck(novicePlayer, medicalChoice, {
+    regionIndex: 17,
+    rng: () => 0.01,
+  });
+  assert.equal(critFailRes.degree, LIVING_ROLL_DEGREE.CRITICAL_FAILURE);
+  assert.equal(critFailRes.passed, false);
+  assert.equal(critFailRes.hostileToPlayer, true);
+
+  // 5. Formula customization via configureLivingFormula
+  configureLivingFormula('CRISIS_SPECIALIST', { skillWeight: 2.0 });
+  const boosted = resolveLivingRoll({
+    formulaId: 'CRISIS_SPECIALIST',
+    playerEntity: novicePlayer,
+    skillId: SKILLS.Medical,
+    difficulty: 45,
+    rng: () => 0.1,
+  });
+  assert.equal(boosted.cleanSuccess, true, 'Boosted skillWeight turns low roll into clean success');
+  resetLivingFormulas();
 });

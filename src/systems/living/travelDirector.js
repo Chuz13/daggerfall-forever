@@ -9,6 +9,8 @@
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getRegionState } from './regionState.js';
 import { getLivingDirectorState } from './livingDirector.js';
+import { SKILLS } from '../skills.js';
+import { resolveLivingRoll } from './livingRolls.js';
 
 export const TRAVEL_EVENT_TYPE = Object.freeze({
   PEACEFUL_CARAVAN: 'PEACEFUL_CARAVAN', // 40% Friendly merchants, pilgrims, bards
@@ -90,13 +92,36 @@ export function evaluateTravelInterruption({
 }
 
 /**
+ * Evaluates a typed Stealth + Agility + Luck ambush detection & evasion check.
+ *
+ * @param {any} playerOrStealth Player entity or numeric Stealth skill value
+ * @param {number} [luck=50] Player Luck fallback
+ * @param {() => number} [rng=Math.random]
+ */
+export function evaluateAmbushStealthRoll(playerOrStealth, luck = 50, rng = Math.random) {
+  const playerEntity =
+    typeof playerOrStealth === 'number'
+      ? { skills: { [SKILLS.Stealth]: playerOrStealth }, stats: { Luck: luck, Agility: 50 } }
+      : playerOrStealth;
+  return resolveLivingRoll({
+    formulaId: 'STEALTH_INFILTRATION',
+    playerEntity,
+    skillId: SKILLS.Stealth,
+    statName: 'agility',
+    difficulty: 0,
+    allowLuckReroll: false,
+    rng,
+  });
+}
+
+/**
  * Checks whether high Stealth allows player to detect an ambush early and bypass it safely.
- * @param {number} stealthSkill Player Stealth skill value
+ * @param {number|any} stealthSkill Player Stealth skill value or player entity
  * @param {number} [luck=50] Player Luck
  * @param {() => number} [rng]
  * @returns {boolean} True if player spots and evades the threat peacefully
  */
 export function canEvadeAmbushWithStealth(stealthSkill, luck = 50, rng = Math.random) {
-  const evadeChance = Math.trunc(stealthSkill / 2) + Math.trunc(luck / 5);
-  return rng() * 100 < evadeChance;
+  const res = evaluateAmbushStealthRoll(stealthSkill, luck, rng);
+  return res.margin > 0;
 }

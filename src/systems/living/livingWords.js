@@ -205,7 +205,7 @@ export const LIVING_WORDS = Object.freeze({
   roadAdvOptionSpar: (gold) =>
     t('living.roadAdv.optionSpar', 'Propose a friendly wager match of blades ({gold}g).', { gold }),
   roadAdvOptionExtort: () =>
-    t('living.roadAdv.optionExtort', 'Intimidate (Streetwise): demand a share of their dungeon spoils.'),
+    t('living.roadAdv.optionExtort', 'Intimidate (Streetwise + Personality roll): demand a share of their dungeon spoils.'),
   roadAdvIntelShared: () =>
     t('living.roadAdv.intelShared', 'You exchange maps and road warnings over the fire, feeling refreshed for the journey ahead.'),
   roadAdvRecruited: (name) =>
@@ -252,13 +252,15 @@ export const LIVING_WORDS = Object.freeze({
   // Composite helpers for 3D scene interactions (ChoiceWindow)
   urbanSkirmishAlert: () => LIVING_WORDS.urbanSkirmishStart(),
   checkpointOptionKnight: () =>
-    t('living.checkpoint.optKnight', 'Present Knight credentials or Regional renown (+Free passage)'),
-  checkpointOptionToll: (gold) =>
+    t('living.checkpoint.optKnight', 'Present Knight credentials or Regional renown (Etiquette + Personality roll if unranked)'),
+  checkpointOptionToll: (gold = 50) =>
     t('living.checkpoint.optToll', 'Pay wartime transit toll of {gold}g (+Safe passage)', { gold }),
   checkpointOptionDiplomacy: () =>
-    t('living.checkpoint.optDiplomacy', 'Persuade the guard with Etiquette (+Chance of free pass)'),
+    t('living.checkpoint.optDiplomacy', 'Persuade the guard (Etiquette + Personality + Luck roll)'),
   checkpointOptionForce: () =>
     t('living.checkpoint.optForce', 'Refuse authorization and draw weapon (+Fight guards)'),
+  checkpointCompromise: (gold = 25) =>
+    t('living.checkpoint.compromise', 'The guard sighs: "Your story barely holds, but pay a reduced toll ({gold}g) and move along."', { gold }),
   nemesisMotive: (archetype) => {
     if (archetype === 'SHADOW_ASSASSIN') return LIVING_WORDS.nemesisMotiveAssassin();
     if (archetype === 'GLORY_CHALLENGER') return LIVING_WORDS.nemesisMotiveGlory();
@@ -268,24 +270,24 @@ export const LIVING_WORDS = Object.freeze({
     return LIVING_WORDS.nemesisMotiveBounty();
   },
   nemesisOptionTaunt: () =>
-    t('living.nemesis.optTaunt', 'Taunt rival into single combat (+1v1 duel, minions stay back)'),
+    t('living.nemesis.optTaunt', 'Taunt rival into single combat (Streetwise + Personality roll, minions stay back)'),
   nemesisOptionEtiquette: () =>
-    t('living.nemesis.optEtiquette', 'Appeal to warrior honor (Etiquette check to pacify)'),
+    t('living.nemesis.optEtiquette', 'Appeal to warrior honor (Etiquette + Personality + Luck roll to pacify)'),
   nemesisOptionStreetwise: () =>
-    t('living.nemesis.optStreetwise', 'Negotiate a buyout / bribe (-Gold, avert combat)'),
+    t('living.nemesis.optStreetwise', 'Bargain or intimidate (Streetwise + Personality roll, discount or stand-down)'),
   nemesisOptionFight: () =>
     t('living.nemesis.optFight', 'Draw steel and attack! (+Immediate battle)'),
-  adventurerGreeting: (trait, gold) => {
+  adventurerGreeting: (trait, gold = 50) => {
     if (trait === 'ENVIOUS' || trait === 'CUTTHROAT') return LIVING_WORDS.adventurerEnviousTaunt();
     if (trait === 'ARROGANT' || trait === 'MERCENARY') return LIVING_WORDS.adventurerDareChallenge(gold);
     return LIVING_WORDS.adventurerDuelChallenge();
   },
-  adventurerOptionDuel: (gold) =>
-    t('living.adventurer.optDuel', 'Accept wager duel for {gold}g (+Combat match)', { gold }),
+  adventurerOptionDuel: (gold = 50) =>
+    t('living.adventurer.optDuel', 'Accept wager duel for {gold}g (+Combat & Luck roll)', { gold }),
   adventurerOptionEtiquette: () =>
-    t('living.adventurer.optEtiquette', 'Propose fellowship / peace (Etiquette check to recruit)'),
+    t('living.adventurer.optEtiquette', 'Propose fellowship / peace (Etiquette + Personality roll to recruit)'),
   adventurerOptionIntimidate: () =>
-    t('living.adventurer.optIntimidate', 'Intimidate to back down (Streetwise check)'),
+    t('living.adventurer.optIntimidate', 'Intimidate to back down (Streetwise + Personality roll)'),
   adventurerOptionDecline: () =>
     t('living.adventurer.optDecline', 'Politely decline and walk away (Leave peacefully)'),
   adventurerOutcome: (outcome, _name, _gold) => {
@@ -296,16 +298,18 @@ export const LIVING_WORDS = Object.freeze({
     if (outcome === 'HOSTILE_DRAW') return LIVING_WORDS.adventurerEnviousTaunt();
     return LIVING_WORDS.adventurerReclaimFailed();
   },
+  roadAdvExtortPartial: (name = 'Adventurer') =>
+    t('living.roadAdv.extortPartial', '{name} tosses a small pouch of coins to avoid bloodshed, keeping the main spoils.', { name }),
   pleaPrompt: (type, _gold) => {
     if (type === 'PLAGUE_CURE') return LIVING_WORDS.pleaPlague();
     if (type === 'FAMINE_BREAD') return LIVING_WORDS.pleaFamine();
     if (type === 'WAR_REFUGEE') return LIVING_WORDS.pleaWar();
     return LIVING_WORDS.pleaEscort();
   },
-  pleaOptionHelp: (gold) =>
+  pleaOptionHelp: (gold = 25) =>
     t('living.plea.optHelp', 'Offer assistance and alms (-{gold}g, +Renown, +Virtue)', { gold }),
   pleaOptionPolite: () =>
-    t('living.plea.optPolite', 'Politely decline assistance (Part peacefully)'),
+    t('living.plea.optPolite', 'Politely decline assistance (Etiquette + Personality + Luck roll)'),
   pleaOptionRude: () =>
     t('living.plea.optRude', 'Bruskly brush them off (Risk provoking confrontation)'),
   pleaOutcome: (outcome) => {
@@ -313,5 +317,17 @@ export const LIVING_WORDS = Object.freeze({
     if (outcome === 'PARTED_PEACEFULLY') return LIVING_WORDS.pleaParted();
     return LIVING_WORDS.pleaRebuffed();
   },
+
+  // Typed Roleplay Roll Degree Outcomes (Crisis & Encounter Checks)
+  rollTriumph: (score = 80, dc = 50, xp = 150) =>
+    t('living.roll.triumph', '[Triumph: {score} vs {dc}] Brilliant mastery! Conflict resolved with honor and bonus renown! (+{xp} XP)', { score, dc, xp }),
+  rollSuccess: (score = 60, dc = 50, xp = 100) =>
+    t('living.roll.success', '[Success: {score} vs {dc}] Negotiations succeeded peacefully! (+{xp} XP)', { score, dc, xp }),
+  rollPartial: (score = 45, dc = 50, xp = 50) =>
+    t('living.roll.partial', '[Partial Success: {score} vs {dc}] Bloodshed averted through a hard compromise. (+{xp} XP)', { score, dc, xp }),
+  rollFailure: (score = 30, dc = 50) =>
+    t('living.roll.failure', '[Check Failed: {score} vs {dc}] Neither side heeds your words; the clash continues without you.', { score, dc }),
+  rollCriticalFailure: (score = 10, dc = 50) =>
+    t('living.roll.criticalFailure', '[Critical Failure: {score} vs {dc}] Your words enrage both factions — they turn their weapons on you!', { score, dc }),
 });
 

@@ -17,12 +17,15 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { SKILLS, skillValue } from '../skills.js';
-import { liveStat } from '../statMods.js';
-import { dice100 } from '../../combat/formulas.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getLivingDirectorState } from './livingDirector.js';
 import { LEVEL_CAP } from '../levelCap.js';
 import { GUILD_GROUPS } from '../../formats/factionFile.js';
+import {
+  resolveLivingRoll,
+  computeRoleplayBribeMultiplier,
+  readPlayerSkill,
+} from './livingRolls.js';
 
 export const NEMESIS_ARCHETYPES = Object.freeze({
   BOUNTY_HUNTER: 'BOUNTY_HUNTER',       // Enforcer hunting legal bounties & criminals
@@ -282,32 +285,39 @@ export function resolveNemesisConfrontation(
     };
   }
 
-  const personality = liveStat(player, 'personality') || Number(player?.stats?.Personality ?? player?.stats?.personality ?? 50);
-  const luck = liveStat(player, 'luck') || Number(player?.stats?.Luck ?? player?.stats?.luck ?? 50);
   const difficulty = 40 + (nemesis.level * 3);
 
   // 1. Etiquette: Appeal to honor, heraldry, or chivalry
   if (approach === 'etiquette') {
-    const etVal = skillValue(player, SKILLS.Etiquette) || Number(player?.skills?.Etiquette ?? player?.skills?.etiquette ?? 30);
     // Glory Challengers and Knights respect etiquette greatly (+20 bonus)
     const bonus = nemesis.archetype === NEMESIS_ARCHETYPES.GLORY_CHALLENGER ? 20 : 0;
-    const totalScore = etVal + bonus + Math.trunc(personality / 3);
-    const roll = rng() * 100;
+    const rollRes = resolveLivingRoll({
+      formulaId: 'SOCIAL_DIPLOMACY',
+      playerEntity: player,
+      skillId: SKILLS.Etiquette,
+      statName: 'personality',
+      difficulty,
+      contextBonus: bonus,
+      targetLevel: nemesis.level,
+      rng,
+    });
 
-    if (roll + totalScore >= difficulty + 50) {
+    if (rollRes.cleanSuccess) {
       recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.PACIFIED);
       return {
         resolution: NEMESIS_RESOLUTION.PACIFIED,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         message: `${nemesis.name} lowers their weapon. "A person of honour. This contract is dishonourable — I shall take my leave."`,
       };
     }
 
-    // Near failure Luck reroll
-    const delta = (difficulty + 50) - (roll + totalScore);
-    if (delta <= LivingTamrielConfig.luckRerollThreshold && dice100(Math.trunc(luck / 2), rng())) {
+    if (rollRes.luckSaved) {
       recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.LUCK_SAVED);
       return {
         resolution: NEMESIS_RESOLUTION.LUCK_SAVED,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         message: `By blind fortune, a distraction turns ${nemesis.name}'s attention away, breaking their resolve to strike!`,
       };
     }
@@ -315,36 +325,55 @@ export function resolveNemesisConfrontation(
 
   // 2. Streetwise: Buyout, underworld negotiation, or intimidation
   if (approach === 'streetwise') {
-    const swVal = skillValue(player, SKILLS.Streetwise) || Number(player?.skills?.Streetwise ?? player?.skills?.streetwise ?? 30);
     // Bounty Hunters and Marauders are susceptible to gold/negotiation
-    const bonus = (nemesis.archetype === NEMESIS_ARCHETYPES.BOUNTY_HUNTER || nemesis.archetype === NEMESIS_ARCHETYPES.CHAOTIC_MARAUDER) ? 15 : 0;
-    const totalScore = swVal + bonus + Math.trunc(personality / 3);
-    const roll = rng() * 100;
+    const bonus =
+      nemesis.archetype === NEMESIS_ARCHETYPES.BOUNTY_HUNTER ||
+      nemesis.archetype === NEMESIS_ARCHETYPES.CHAOTIC_MARAUDER
+        ? 15
+        : 0;
+    const rollRes = resolveLivingRoll({
+      formulaId: 'STREETWISE_LEVERAGE',
+      playerEntity: player,
+      skillId: SKILLS.Streetwise,
+      statName: 'personality',
+      difficulty,
+      contextBonus: bonus,
+      targetLevel: nemesis.level,
+      rng,
+    });
 
-    if (roll + totalScore >= difficulty + 50) {
-      if (nemesis.archetype === NEMESIS_ARCHETYPES.CHAOTIC_MARAUDER) {
+    if (rollRes.cleanSuccess) {
+      if (nemesis.archetype === NEMESIS_ARCHETYPES.CHAOTIC_MARAUDER || rollRes.isTriumph && nemesis.archetype === NEMESIS_ARCHETYPES.GRUDGE_AVENGER) {
         recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.INTIMIDATED);
         return {
           resolution: NEMESIS_RESOLUTION.INTIMIDATED,
+          degree: rollRes.degree,
+          rollResult: rollRes,
           bribeGold: 0,
           message: `${nemesis.name} blanches at your cold stare and backs away into the shadows.`,
         };
       }
-      const bribeGold = Math.max(50, (nemesis.level || 1) * 40);
+      const baseBribe = Math.max(50, (nemesis.level || 1) * 40);
+      const discountMult = rollRes.isTriumph
+        ? Math.min(0.65, computeRoleplayBribeMultiplier(player, SKILLS.Streetwise))
+        : computeRoleplayBribeMultiplier(player, SKILLS.Streetwise);
+      const bribeGold = Math.max(50, Math.floor(baseBribe * discountMult));
       recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.BRIBED);
       return {
         resolution: NEMESIS_RESOLUTION.BRIBED,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         bribeGold,
         message: `${nemesis.name} smirks and accepts your pouch. "Good business doing business with you. I'll tell the employer you perished in the bay."`,
       };
     }
 
-    // Near failure Luck reroll
-    const delta = (difficulty + 50) - (roll + totalScore);
-    if (delta <= LivingTamrielConfig.luckRerollThreshold && dice100(Math.trunc(luck / 2), rng())) {
+    if (rollRes.luckSaved) {
       recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.LUCK_SAVED);
       return {
         resolution: NEMESIS_RESOLUTION.LUCK_SAVED,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         message: `By blind fortune, a distraction turns ${nemesis.name}'s attention away, breaking their resolve to strike!`,
       };
     }
@@ -352,28 +381,36 @@ export function resolveNemesisConfrontation(
 
   // 3. Taunt: "На слабо" dare that forces the Nemesis to dismiss minions and fight 1v1
   if (approach === 'taunt') {
-    const swVal = skillValue(player, SKILLS.Streetwise) || Number(player?.skills?.Streetwise ?? player?.skills?.streetwise ?? 30);
-    const totalScore = swVal + Math.trunc(personality / 3);
-    const roll = rng() * 100;
-    const chance = Math.max(15, Math.min(95, totalScore - difficulty + 50));
+    const rollRes = resolveLivingRoll({
+      formulaId: 'STREETWISE_LEVERAGE',
+      playerEntity: player,
+      skillId: SKILLS.Streetwise,
+      statName: 'personality',
+      difficulty: difficulty - 10,
+      targetLevel: nemesis.level,
+      rng,
+    });
+    const chance = Math.max(15, Math.min(95, rollRes.playerScore - difficulty + 50));
 
-    if (roll + totalScore >= difficulty + 40 || dice100(chance, roll / 100)) {
+    if (rollRes.cleanSuccess || rollRes.roll < chance) {
       // Strips minions out of the encounter!
       nemesis.minions = [];
       recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED);
       return {
         resolution: NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         message: `${nemesis.name} sneers and gestures for their retinue to step back. "Stay out of this, fools! This cur is mine alone!"`,
       };
     }
 
-    // Near failure Luck reroll
-    const delta = (difficulty + 40) - (roll + totalScore);
-    if (delta <= LivingTamrielConfig.luckRerollThreshold && dice100(Math.trunc(luck / 2), rng())) {
+    if (rollRes.luckSaved) {
       nemesis.minions = [];
       recordNemesisMemory(nemesis, NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED);
       return {
         resolution: NEMESIS_RESOLUTION.SOLO_DUEL_ACCEPTED,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         message: `${nemesis.name} waves their minions away in frustration. "One on one, coward!"`,
       };
     }

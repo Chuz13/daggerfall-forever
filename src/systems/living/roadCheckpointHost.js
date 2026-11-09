@@ -10,16 +10,21 @@ import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
 import { getLivingDirectorState } from './livingDirector.js';
 import { GUILD_GROUPS } from '../../formats/factionFile.js';
-import { SKILLS, skillValue } from '../skills.js';
-import { dice100 } from '../../combat/formulas.js';
+import { SKILLS } from '../skills.js';
+import {
+  LIVING_ROLL_DEGREE,
+  resolveLivingRoll,
+  computeRoleplayBribeMultiplier,
+  getPlayerRoleplayContextMod,
+} from './livingRolls.js';
 
 export const CHECKPOINT_OUTCOME = Object.freeze({
-  PASSED_FREE: 'PASSED_FREE',       // Knightly order or noble standing
-  TOLL_PAID: 'TOLL_PAID',           // Paid the wartime transit fee
+  PASSED_FREE: 'PASSED_FREE',           // Knightly order or noble standing
+  TOLL_PAID: 'TOLL_PAID',               // Paid the wartime transit fee
   PASSED_DIPLOMACY: 'PASSED_DIPLOMACY', // Succeeded on Etiquette or Streetwise check
-  LUCK_SAVED: 'LUCK_SAVED',         // Saved by second chance of Luck
-  REFUSED: 'REFUSED',               // Access denied; turned back
-  HOSTILE: 'HOSTILE',               // Forced entry / attacked guards
+  LUCK_SAVED: 'LUCK_SAVED',             // Saved by second chance of Luck or narrow compromise
+  REFUSED: 'REFUSED',                   // Access denied; turned back without bloodshed
+  HOSTILE: 'HOSTILE',                   // Forced entry / critical blunder / attacked guards
 });
 
 export const CHECKPOINT_PASS_DURATION_MINUTES = 1440; // 24 in-game hours
@@ -145,7 +150,6 @@ export function resolveCheckpointInteraction({
     playerEntity?.guilds?.KnightlyOrder?.rank > 0
   );
   const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
-  const luck = Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
 
   if (method === 'knight') {
     if (isKnight) {
@@ -176,10 +180,15 @@ export function resolveCheckpointInteraction({
   }
 
   if (method === 'toll') {
-    if (tollPaid >= tollGoldRequired) {
+    const discountMult = computeRoleplayBribeMultiplier(playerEntity, SKILLS.Mercantile);
+    const effectiveRequired = tollPaid >= tollGoldRequired
+      ? tollGoldRequired
+      : Math.max(15, Math.floor(tollGoldRequired * discountMult));
+    if (tollPaid >= tollGoldRequired || (tollPaid >= effectiveRequired && discountMult < 0.85)) {
       grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.TOLL_PAID,
+        tollCost: Math.min(tollGoldRequired, tollPaid),
         message: 'The guard stamps your pass and pockets the gold. "Your papers are in order. Move along, traveller."',
       };
     }
@@ -191,43 +200,45 @@ export function resolveCheckpointInteraction({
 
   if (method === 'etiquette' || method === 'streetwise') {
     const isEtiquette = method === 'etiquette';
-    const skillId = isEtiquette ? SKILLS.Etiquette : SKILLS.Streetwise;
-    const fallbackSkill = isEtiquette
-      ? Number(playerEntity?.skills?.Etiquette ?? playerEntity?.skills?.etiquette ?? 30)
-      : Number(playerEntity?.skills?.Streetwise ?? playerEntity?.skills?.streetwise ?? 30);
-    const skillVal = Number(skillValue(playerEntity, skillId) || fallbackSkill || 30);
-    const statVal = isEtiquette
-      ? Number(playerEntity?.stats?.Personality ?? playerEntity?.stats?.personality ?? 50)
-      : Number(playerEntity?.stats?.Intelligence ?? playerEntity?.stats?.intelligence ?? 50);
+    const rollRes = resolveLivingRoll({
+      formulaId: 'CHECKPOINT_INSPECTION',
+      playerEntity,
+      skillId: isEtiquette ? SKILLS.Etiquette : SKILLS.Streetwise,
+      statName: isEtiquette ? 'personality' : 'intelligence',
+      difficulty: isEtiquette ? 55 : 50,
+      regionIndex,
+      contextBonus: getPlayerRoleplayContextMod(playerEntity) + (isKnight ? 15 : 0),
+      rng,
+    });
 
-    const difficulty = isEtiquette ? 55 : 50;
-    const roll = Math.floor(rng() * 100);
-    const score = Math.floor(skillVal * 0.7 + statVal * 0.3);
-
-    if (roll + score >= difficulty + 50) {
+    if (rollRes.cleanSuccess) {
       grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.PASSED_DIPLOMACY,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         message: isEtiquette
           ? 'Your authoritative poise and noble diction convince the guard this is urgent official business. "Understood, pass through."'
           : 'With quiet wit and street knowledge, you convince the guards you pose no threat. "Alright, slip through, quietly."',
       };
     }
 
-    // Check narrow failure for Luck reroll
-    const delta = (difficulty + 50) - (roll + score);
-    const luckThreshold = LivingTamrielConfig.luckRerollThreshold || 5;
-
-    if (delta <= luckThreshold && dice100(Math.trunc(luck / 2), rng())) {
+    if (rollRes.luckSaved) {
       grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.LUCK_SAVED,
+        degree: rollRes.degree,
+        rollResult: rollRes,
         message: 'By blind fortune, a courier horn sounds in the distance, distracting the guards and waving you through!',
       };
     }
 
+    const compromiseToll = Math.max(10, Math.floor(tollGoldRequired * 0.5));
     return {
       outcome: CHECKPOINT_OUTCOME.REFUSED,
+      degree: rollRes.degree,
+      compromiseToll: rollRes.degree === LIVING_ROLL_DEGREE.PARTIAL ? compromiseToll : 0,
+      rollResult: rollRes,
       message: 'The guards are unimpressed by your words. "Nice speech, but regulations are regulations. Halt!"',
     };
   }

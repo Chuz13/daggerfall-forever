@@ -9,6 +9,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import { SKILLS } from '../skills.js';
+import { resolveLivingRoll } from './livingRolls.js';
 
 /** Spawn ring bounds around the player, metres (spec: 200-300 m). */
 export const NAVAL_SPAWN_MIN_M = 200;
@@ -90,16 +92,40 @@ export const shouldPromptSideChoice = (distanceToNearestShip) =>
 
 /**
  * Applies the player's choice to a plan. Returns the consequences for the host to apply.
+ * When `playerEntity` is provided, evaluates a typed roleplay roll (Etiquette for Crown Navy,
+ * Streetwise for Pirate Corsairs, Mercantile/Luck for Wreckage Salvage).
+ *
  * @param {{law:Array<any>, pirates:Array<any>}} plan
  * @param {string} choice NAVAL_CHOICE
+ * @param {any} [playerEntity=null]
+ * @param {() => number} [rng=Math.random]
  */
-export function resolveSideChoice(plan, choice) {
+export function resolveSideChoice(plan, choice, playerEntity = null, rng = Math.random) {
+  const skillId =
+    choice === NAVAL_CHOICE.LAW
+      ? SKILLS.Etiquette
+      : choice === NAVAL_CHOICE.PIRATES
+        ? SKILLS.Streetwise
+        : SKILLS.Mercantile;
+  const rollResult = playerEntity
+    ? resolveLivingRoll({
+        formulaId: choice === NAVAL_CHOICE.PIRATES ? 'STREETWISE_LEVERAGE' : 'SOCIAL_DIPLOMACY',
+        playerEntity,
+        skillId,
+        difficulty: 45,
+        rng,
+      })
+    : null;
+
   const out = {
     lawHostileToPlayer: false,
     piratesHostileToPlayer: false,
     underworldRep: 0,
     regionalBountyIssued: false,
     scavenge: false,
+    salvageBonusMult: rollResult?.isTriumph ? 1.5 : rollResult?.cleanSuccess ? 1.2 : 1.0,
+    degree: rollResult?.degree ?? 'SUCCESS',
+    rollResult,
   };
   if (choice === NAVAL_CHOICE.LAW) {
     for (const s of plan.law) s.isAlly = true;
@@ -107,8 +133,8 @@ export function resolveSideChoice(plan, choice) {
   } else if (choice === NAVAL_CHOICE.PIRATES) {
     for (const s of plan.pirates) s.isAlly = true;
     out.lawHostileToPlayer = true;
-    out.underworldRep = 5;
-    out.regionalBountyIssued = true;
+    out.underworldRep = rollResult?.isTriumph ? 8 : 5;
+    out.regionalBountyIssued = !rollResult?.isTriumph;
   } else {
     out.scavenge = true; // watch the battle, scavenge wreckage and cargo
   }
