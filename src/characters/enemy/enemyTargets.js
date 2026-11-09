@@ -259,7 +259,15 @@ export function getTargets(self, candidates, playerFeet, {
     // Can't target ally (:792-803) - the three-arm chain, verbatim
     if (isPlayer && selfTeam === 'PlayerAlly') {
       continue;
-    } else if (infighting && !self.entity?.suppressInfighting && targetEntity && !targetEntity.suppressInfighting) {
+    }
+    // ALLY/CAMP COHESION: Allies and campmates never fight each other
+    if (!isPlayer && selfTeam === 'PlayerAlly' && targetEntity?.team === 'PlayerAlly') continue;
+    const selfCamp = self.entity?.campId ?? self.campId;
+    const targetCamp = targetEntity?.campId ?? c.campId;
+    if (!isPlayer && selfCamp != null && targetCamp != null && selfCamp === targetCamp) continue;
+    if (!isPlayer && selfTeam != null && selfTeam !== 'PlayerEnemy' && targetEntity?.team != null && targetEntity.team === selfTeam) continue;
+
+    if (infighting && !self.entity?.suppressInfighting && targetEntity && !targetEntity.suppressInfighting) {
       // CAMP-RIVALS (2026-09-25, Mac: "if not the same kind they attack each other"): two
       // wilderness groups of the SAME kind (combat Team) keep the classic truce and never fight;
       // groups of different kinds fight on sight through this ordinary infighting arm.
@@ -516,6 +524,20 @@ export function runTargetMachine(self, candidates, playerFeet, classicDt, {
   // exhibition fighter: MakeEnemyHostileToAttacker writes the striker in) and a fighter out of the bout are dropped
   if (ai.target && boutGate(self, ai.target, isPlayerTarget(ai.target), playerBout) === false) ai.target = null;
   if (ai.secondaryTarget && boutGate(self, ai.secondaryTarget, isPlayerTarget(ai.secondaryTarget), playerBout) === false) ai.secondaryTarget = null;
+  // Drop friendly/campmate targets that might have been assigned via damage or proximity
+  if (ai.target && !isPlayerTarget(ai.target)) {
+    const selfTeam = self.entity?.team ?? 'PlayerEnemy';
+    const tEnt = ai.target.entity;
+    const sCamp = self.entity?.campId ?? self.campId;
+    const tCamp = tEnt?.campId ?? ai.target.campId;
+    const sameCamp = sCamp != null && tCamp != null && sCamp === tCamp;
+    const sameTeam = selfTeam !== 'PlayerEnemy' && tEnt?.team != null && tEnt.team === selfTeam;
+    const bothAllies = selfTeam === 'PlayerAlly' && tEnt?.team === 'PlayerAlly';
+    if (sameCamp || sameTeam || bothAllies) {
+      ai.target = null;
+      if (ai.secondaryTarget === ai.target) ai.secondaryTarget = null;
+    }
+  }
   // Reset these values if no target (:330-345). The secondary-switch
   // arm survives on the classic path because MakeEnemyHostileToAttacker
   // writes SecondaryTarget (:197) - DFU's comment ("only if using

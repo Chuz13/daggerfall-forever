@@ -26,6 +26,7 @@ import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getRegionState, isRegionInQuarantine, getActiveCrises, setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
 import { getQuarantineReliefPostInfo } from './quarantineGate.js';
 import { checkCampFootprintSlope, snapPropToGround } from './campInjector.js';
+import { lodgedIn, freeLodgedFeet } from '../../characters/foeSpacing.js';
 import {
   shouldSpawnRoadCheckpoint,
   evaluateCheckpointEncounter,
@@ -551,6 +552,64 @@ export function rollLivingChunkCampRoster(ctx, rolls = Math.random) {
 }
 
 /**
+ * Finds a safe, open ground location for a living site (clear of building boxes, walls, and excessive slope).
+ * @param {any} deps
+ * @param {number[]} originFeet
+ * @param {number} [preferredDist=16]
+ * @param {number} [preferredAngle=0]
+ * @param {number} [radius=4.0]
+ * @returns {{ x: number, z: number, suitable: boolean }}
+ */
+export function findSafeSiteCenter(deps, originFeet, preferredDist = 16, preferredAngle = 0, radius = 4.0) {
+  const p = originFeet || [0, 0, 0];
+  const angles = [
+    preferredAngle,
+    preferredAngle + Math.PI * 0.25,
+    preferredAngle - Math.PI * 0.25,
+    preferredAngle + Math.PI * 0.5,
+    preferredAngle - Math.PI * 0.5,
+    preferredAngle + Math.PI * 0.75,
+    preferredAngle - Math.PI * 0.75,
+    preferredAngle + Math.PI,
+  ];
+  for (const ang of angles) {
+    const dx = Math.sin(ang);
+    const dz = Math.cos(ang);
+    let dist = preferredDist;
+
+    if (deps?.raycastHit) {
+      const eyeY = p[1] + 1.2;
+      const hit = deps.raycastHit([p[0], eyeY, p[2]], [dx, 0, dz], dist + radius);
+      if (hit && Number.isFinite(hit.dist) && hit.back !== true && hit.dist < dist + radius) {
+        if (hit.dist >= radius * 2.0) {
+          dist = Math.max(radius * 1.5, hit.dist - radius);
+        } else {
+          continue; // Blocked by wall/building in this direction
+        }
+      }
+    }
+
+    const cx = p[0] + dx * dist;
+    const cz = p[2] + dz * dist;
+    const slope = checkCampFootprintSlope(deps?.heightAt, cx, cz, radius);
+    if (!slope.suitable) continue;
+    const cy = slope.centerHeight;
+    const centerSpot = [cx, cy, cz];
+    if (deps?.lodgedIn?.(centerSpot) || (deps?.collider && lodgedIn(deps.collider, centerSpot))) {
+      continue; // Inside a building box
+    }
+    return { x: cx, z: cz, suitable: true };
+  }
+
+  // Fallback
+  return {
+    x: p[0] + Math.sin(preferredAngle) * preferredDist,
+    z: p[2] + Math.cos(preferredAngle) * preferredDist,
+    suitable: false,
+  };
+}
+
+/**
  * Creates a site blueprint (3D meshes, billboard flats, point lights, and actor spawns)
  * snapped to the terrain at `(centerX, centerZ)`.
  *
@@ -624,6 +683,8 @@ export function buildLivingSiteBlueprint({
         allied: false,
         hostile: false,
         role: 'checkpoint_guard',
+        team: SKIRMISH_TEAMS.CITY_WATCH,
+        suppressInfighting: true,
       });
     }
   } else if (kind === LIVING_SITE_KINDS.BANDIT_CAMP) {
@@ -660,6 +721,7 @@ export function buildLivingSiteBlueprint({
         hostile: !ambushDetectedByStealth,
         role: 'bandit_camp',
         team: 'Criminals',
+        suppressInfighting: true,
       });
     }
   } else if (kind === LIVING_SITE_KINDS.TRAVELER_REST) {
@@ -687,6 +749,7 @@ export function buildLivingSiteBlueprint({
         hostile: false,
         role: 'traveler',
         team: 'Traveler',
+        suppressInfighting: true,
       },
       {
         mobileType: MOBILE_TYPES.Ranger,
@@ -698,6 +761,7 @@ export function buildLivingSiteBlueprint({
         hostile: false,
         role: 'traveler_guard',
         team: 'Traveler',
+        suppressInfighting: true,
       },
     );
   } else if (kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
@@ -733,6 +797,8 @@ export function buildLivingSiteBlueprint({
         allied: false,
         hostile: false,
         role: 'quarantine_healer',
+        team: 'Civilian',
+        suppressInfighting: true,
       },
       {
         mobileType: MOBILE_TYPES.Monk,
@@ -743,6 +809,8 @@ export function buildLivingSiteBlueprint({
         allied: false,
         hostile: false,
         role: 'quarantine_healer',
+        team: 'Civilian',
+        suppressInfighting: true,
       },
     );
   } else if (kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER) {
@@ -785,6 +853,8 @@ export function buildLivingSiteBlueprint({
       allied: false,
       hostile: false,
       role: 'plea_supplicant',
+      team: 'Civilian',
+      suppressInfighting: true,
     });
   } else if (kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
     const plan = planUrbanSkirmish({
@@ -826,6 +896,8 @@ export function buildLivingSiteBlueprint({
           hostile: false,
           role: 'skirmish_guard',
           team: SKIRMISH_TEAMS.CITY_WATCH,
+          factionSide: 'guards',
+          suppressInfighting: true,
         });
       }
       for (let i = 0; i < plan.rebels.length; i++) {
@@ -842,6 +914,8 @@ export function buildLivingSiteBlueprint({
           hostile: true,
           role: 'skirmish_rebel',
           team: SKIRMISH_TEAMS.INSURGENTS,
+          factionSide: 'rebels',
+          suppressInfighting: true,
         });
       }
     }
@@ -876,6 +950,8 @@ export function buildLivingSiteBlueprint({
       allied: false,
       hostile: false, // Held until ChoiceWindow resolves!
       role: 'nemesis_leader',
+      team: 'NemesisGang',
+      suppressInfighting: true,
     });
 
     const minionTypes = [MOBILE_TYPES.Rogue, MOBILE_TYPES.Archer, MOBILE_TYPES.Warrior];
@@ -893,6 +969,8 @@ export function buildLivingSiteBlueprint({
         allied: false,
         hostile: false,
         role: 'nemesis_minion',
+        team: 'NemesisGang',
+        suppressInfighting: true,
       });
     }
   } else if (kind === LIVING_SITE_KINDS.ADVENTURER_MEETING) {
@@ -929,6 +1007,8 @@ export function buildLivingSiteBlueprint({
       allied: false,
       hostile: false,
       role: 'rival_adventurer',
+      team: 'Adventurer',
+      suppressInfighting: true,
     });
   } else if (kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER) {
     const wandering = pickWanderingAdventurerEncounter({
@@ -993,6 +1073,9 @@ export function buildLivingSiteBlueprint({
           allied: false,
           hostile: true,
           role: 'skirmish_monster',
+          team: 'SkirmishMonsters',
+          factionSide: 'monsters',
+          suppressInfighting: true,
         },
         {
           mobileType: m2,
@@ -1003,6 +1086,9 @@ export function buildLivingSiteBlueprint({
           allied: false,
           hostile: true,
           role: 'skirmish_monster',
+          team: 'SkirmishMonsters',
+          factionSide: 'monsters',
+          suppressInfighting: true,
         },
       );
     }
@@ -1017,7 +1103,8 @@ export function buildLivingSiteBlueprint({
       allied: isFightingMonsters,
       hostile: false,
       role: 'wandering_adventurer',
-      team: isFightingMonsters ? 'PlayerAlly' : undefined,
+      team: isFightingMonsters ? 'PlayerAlly' : 'Adventurer',
+      suppressInfighting: true,
     });
   } else if (kind === LIVING_SITE_KINDS.NAVAL_SQUADRON) {
     const regState = getRegionState(regionIndex);
@@ -1052,6 +1139,8 @@ export function buildLivingSiteBlueprint({
         hostile: false,
         role: 'naval_law',
         team: s.isAlly ? 'PlayerAlly' : 'NavalLaw',
+        factionSide: 'law',
+        suppressInfighting: true,
       });
     }
 
@@ -1070,6 +1159,8 @@ export function buildLivingSiteBlueprint({
         hostile: false,
         role: 'naval_pirate',
         team: s.isAlly ? 'PlayerAlly' : 'NavalPirate',
+        factionSide: 'pirates',
+        suppressInfighting: true,
       });
     }
   }
@@ -2181,13 +2272,28 @@ export function createLivingSceneHost(deps) {
     };
     stood = site;
 
+    const siteCampId = `lt_${blueprint.kind}_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+    site.campId = siteCampId;
+
     if (blueprint.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON && deps.spawnNavalSquadron) {
       site.navalSquadron = deps.spawnNavalSquadron(blueprint.meta?.squadron);
     }
 
     for (const a of blueprint.actors) {
+      const actorCampId = a.factionSide ? `${siteCampId}_${a.factionSide}` : siteCampId;
+      a.campId = actorCampId;
+
+      const actorFeet = [...a.feet];
+      if (deps.lodgedIn?.(actorFeet) || (deps.collider && lodgedIn(deps.collider, actorFeet))) {
+        if (deps.freeLodgedFeet) {
+          deps.freeLodgedFeet(actorFeet);
+        } else if (deps.collider) {
+          freeLodgedFeet(deps.collider, actorFeet);
+        }
+      }
+
       Promise.resolve(
-        deps.spawn(a.mobileType, [...a.feet], {
+        deps.spawn(a.mobileType, actorFeet, {
           yaw: a.yaw,
           level: a.level,
           allied: a.allied,
@@ -2204,13 +2310,15 @@ export function createLivingSceneHost(deps) {
             if (deps.inPool(rec)) deps.remove(rec);
             return;
           }
+          rec.campId = a.campId;
           if (rec.entity) {
             rec.entity.name = a.name;
+            rec.entity.campId = a.campId;
             if (a.team) {
               rec.entity.team = a.team;
               rec.entity.mobileTeam = a.team;
             }
-            if (a.role === 'bandit_camp') {
+            if (a.suppressInfighting || a.role === 'bandit_camp') {
               rec.entity.suppressInfighting = true;
             }
           }
@@ -2260,17 +2368,15 @@ export function createLivingSceneHost(deps) {
       shouldSpawnUrbanSkirmish({ regionIndex: regIdx, isInsideBuilding: false, existingActiveSkirmishes: 0, playerEntity: player })
     ) {
       const angle = rng() * Math.PI * 2;
-      const sx = feet[0] + Math.sin(angle) * 28;
-      const sz = feet[2] + Math.cos(angle) * 28;
-      const slope = checkCampFootprintSlope(deps.heightAt, sx, sz, 4.0);
-      if (slope.suitable) {
+      const safe = findSafeSiteCenter(deps, feet, 28, angle, 4.0);
+      if (safe.suitable) {
         lastSkirmishRegion = regIdx;
         locationSkirmishCooldowns.set(locKey, nowMin);
         lastSpawnMinute = nowMin;
         const bp = buildLivingSiteBlueprint({
           kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
-          centerX: sx,
-          centerZ: sz,
+          centerX: safe.x,
+          centerZ: safe.z,
           heightAt: deps.heightAt,
           regionIndex: regIdx,
           playerEntity: player,
@@ -2295,11 +2401,12 @@ export function createLivingSceneHost(deps) {
         lastQuarantineRegion = regIdx;
         lastSpawnMinute = nowMin;
         const qAngle = rng() * Math.PI * 2;
+        const safe = findSafeSiteCenter(deps, feet, 16, qAngle, 4.0);
         standSite(
           buildLivingSiteBlueprint({
             kind: LIVING_SITE_KINDS.QUARANTINE_TENT,
-            centerX: feet[0] + Math.sin(qAngle) * 16,
-            centerZ: feet[2] + Math.cos(qAngle) * 16,
+            centerX: safe.x,
+            centerZ: safe.z,
             heightAt: deps.heightAt,
             regionIndex: regIdx,
             playerEntity: player,
@@ -2326,11 +2433,12 @@ export function createLivingSceneHost(deps) {
         rng() < 0.20
       ) {
         lastSpawnMinute = nowMin;
+        const safe = findSafeSiteCenter(deps, feet, 11, angle, 3.0);
         const site = standSite(
           buildLivingSiteBlueprint({
             kind: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
-            centerX: feet[0] + Math.sin(angle) * 11,
-            centerZ: feet[2] + Math.cos(angle) * 11,
+            centerX: safe.x,
+            centerZ: safe.z,
             heightAt: deps.heightAt,
             regionIndex: regIdx,
             playerEntity: player,
@@ -2350,11 +2458,12 @@ export function createLivingSceneHost(deps) {
       });
       if (pleaEval.shouldPlea) {
         lastSpawnMinute = nowMin;
+        const safe = findSafeSiteCenter(deps, feet, 10, angle, 3.0);
         standSite(
           buildLivingSiteBlueprint({
             kind: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
-            centerX: feet[0] + Math.sin(angle) * 10,
-            centerZ: feet[2] + Math.cos(angle) * 10,
+            centerX: safe.x,
+            centerZ: safe.z,
             heightAt: deps.heightAt,
             regionIndex: regIdx,
             playerEntity: player,
@@ -2371,10 +2480,10 @@ export function createLivingSceneHost(deps) {
 
     const angle = rng() * Math.PI * 2;
     const dist = 32 + rng() * 18; // 32..50m ahead/around player
-    const cx = feet[0] + Math.sin(angle) * dist;
-    const cz = feet[2] + Math.cos(angle) * dist;
-    const slope = checkCampFootprintSlope(deps.heightAt, cx, cz, 6.0);
-    if (!slope.suitable) return;
+    const safe = findSafeSiteCenter(deps, feet, dist, angle, 6.0);
+    if (!safe.suitable) return;
+    const cx = safe.x;
+    const cz = safe.z;
 
     // 2. Quarantine Tent outside Plague regions
     if (
@@ -3185,10 +3294,11 @@ export function executeLivingConsoleCommand(args, ctx) {
 
       const feet = ctx?.playerFeet ?? [0, 0, 0];
       const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
+      const safe = findSafeSiteCenter(ctx, feet, 4, 0, 2.0);
       const bp = buildLivingSiteBlueprint({
         kind: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
-        centerX: feet[0] + 3,
-        centerZ: feet[2] + 3,
+        centerX: safe.x,
+        centerZ: safe.z,
         heightAt,
         regionIndex: regIdx,
         playerEntity: ctx?.playerEntity ?? null,
@@ -3240,10 +3350,11 @@ export function executeLivingConsoleCommand(args, ctx) {
       : LIVING_SITE_KINDS.CHECKPOINT;
     const feet = ctx?.playerFeet ?? [0, 0, 0];
     const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
+    const safe = findSafeSiteCenter(ctx, feet, 14, Math.PI * 0.25, 4.0);
     const bp = buildLivingSiteBlueprint({
       kind: validKind,
-      centerX: feet[0] + 16,
-      centerZ: feet[2] + 16,
+      centerX: safe.x,
+      centerZ: safe.z,
       heightAt,
       regionIndex: regIdx,
       playerEntity: ctx?.playerEntity ?? null,

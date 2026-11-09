@@ -859,7 +859,7 @@ import { orderRows } from '../systems/naval/shipCrew.js';   // SHIP-CREW: the or
 import { calculateAttackDamage } from '../combat/formulas.js';   // X2-slice: enemy-arrow impacts
 import { inflictPoison } from '../systems/poisons.js';   // X2-slice: poisoned enemy arrows
 import { weaponTypeForItem } from '../combat/fpsWeapon.js';
-import { spaceAcross, clearDoorways, doorSpotsNear, spacingSkips } from '../characters/foeSpacing.js';   // TACT3: the crowd and the door
+import { spaceAcross, clearDoorways, doorSpotsNear, spacingSkips, lodgedIn, freeLodgedFeet } from '../characters/foeSpacing.js';   // TACT3: the crowd and the door
 import { Collider } from '../player/collider.js';
 import { onFloatingFrame } from '../player/collider.js';   // PERF-COL2: a streamed pixel's buckets ride the floating origin
 import { createPoiHost } from './poiHost.js';   // POI-2: the approved POIs, standing in the streamed world
@@ -4124,6 +4124,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     onRoad: () => _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16) || onTheRoad(),
     afloat: () => (!!csaRuntime?.isSailing?.() || !!csaAboard?.aboard?.boat || !!naval?.aboard?.()) && !_musicInLocationRect(),
     heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
+    collider,
+    raycastHit: (o, d, m) => collider?.raycastHit?.(o, d, m),
+    lodgedIn: (feet) => (collider ? lodgedIn(collider, feet) : false),
+    freeLodgedFeet: (feet, opts) => (collider ? freeLodgedFeet(collider, feet, opts) : false),
     playerEntity: () => playerEntity,
     spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, o),
     remove: (f) => exteriorFoes.removeFoe(f),
@@ -4154,6 +4158,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
         playerFeet: walkMode && playerSpawned ? player.feetAt() : cam.pos,
         heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
+    collider,
+    raycastHit: (o, d, m) => collider?.raycastHit?.(o, d, m),
+    lodgedIn: (feet) => (collider ? lodgedIn(collider, feet) : false),
+    freeLodgedFeet: (feet, opts) => (collider ? freeLodgedFeet(collider, feet, opts) : false),
         playerEntity,
         nowMinutes: skyMinutes(),
         sceneHost: livingSceneHostOf(),
@@ -10930,6 +10938,59 @@ export async function bootWorld(canvas, renderer, params, status) {
 
     if (!spawner?.spawnFoe) return [];
 
+    const partyCampId = `purifiers_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+
+    const findSafePurifierSpot = (baseAngle, baseDist) => {
+      const angles = [
+        baseAngle,
+        baseAngle + 0.35,
+        baseAngle - 0.35,
+        baseAngle + 0.7,
+        baseAngle - 0.7,
+        baseAngle + 1.2,
+        baseAngle - 1.2,
+        baseAngle + Math.PI * 0.5,
+        baseAngle - Math.PI * 0.5,
+        baseAngle + Math.PI,
+      ];
+      for (const ang of angles) {
+        const dx = Math.sin(ang);
+        const dz = Math.cos(ang);
+        let dist = baseDist;
+        if (collider?.raycastHit) {
+          const eyeY = p[1] + 1.2;
+          const hit = collider.raycastHit([p[0], eyeY, p[2]], [dx, 0, dz], dist + 1.0);
+          if (hit && Number.isFinite(hit.dist) && hit.back !== true && hit.dist < dist + 0.5) {
+            if (hit.dist >= 3.0) {
+              dist = Math.max(2.0, hit.dist - 1.2);
+            } else {
+              continue; // Wall/building is right in front at this angle
+            }
+          }
+        }
+        const sx = p[0] + dx * dist;
+        const sz = p[2] + dz * dist;
+        const sy = (collider?.heightAt?.(sx, sz) ?? p[1]) || p[1];
+        const spot = [sx, sy, sz];
+        if (typeof lodgedIn === 'function' && lodgedIn(collider, spot)) {
+          if (typeof freeLodgedFeet === 'function' && freeLodgedFeet(collider, spot)) {
+            // Freed onto clear ground
+          } else {
+            continue; // Inside building geometry
+          }
+        }
+        if (collider?.sphereOverlaps?.([spot[0], spot[1] + 0.9, spot[2]], 0.35)) {
+          continue;
+        }
+        return { pos: spot, yaw: ang };
+      }
+      // Fallback
+      const fX = p[0] + Math.sin(baseAngle) * 2.0;
+      const fZ = p[2] + Math.cos(baseAngle) * 2.0;
+      const fY = (collider?.heightAt?.(fX, fZ) ?? p[1]) || p[1];
+      return { pos: [fX, fY, fZ], yaw: baseAngle };
+    };
+
     const spawned = [];
     for (let i = 0; i < party.length; i++) {
       const member = party[i];
@@ -10940,31 +11001,36 @@ export async function bootWorld(canvas, renderer, params, status) {
 
       const angle = yaw + (i - (party.length - 1) / 2) * 0.45;
       const dist = 7.0 + (i % 2) * 2.5;
-      const sx = p[0] + Math.sin(angle) * dist;
-      const sz = p[2] + Math.cos(angle) * dist;
-      const sy = (collider?.heightAt?.(sx, sz) ?? p[1]) || p[1];
-      const spawnPos = [sx, sy, sz];
+      const spotInfo = findSafePurifierSpot(angle, dist);
+      const spawnPos = spotInfo.pos;
+      const spawnYaw = spotInfo.yaw + Math.PI;
 
       try {
         const f = await spawner.spawnFoe(mobType, spawnPos, {
-          yaw: angle + Math.PI,
+          yaw: spawnYaw,
           loose: true,
           transient: true,
           managed: true,
           feetGiven: true,
           allied: false,
+          team: 'ArkayPurifiers',
         });
         if (f) {
+          f.campId = partyCampId;
           if (f.entity) {
             f.entity.name = member.name;
             f.entity.currentHealth = member.health;
             f.entity.maxHealth = member.health;
-            f.entity.team = 'Enemy';
-            f.entity.mobileTeam = 'Enemy';
+            f.entity.campId = partyCampId;
+            f.entity.team = 'ArkayPurifiers';
+            f.entity.mobileTeam = 'ArkayPurifiers';
+            f.entity.suppressInfighting = true;
             f.entity.weaponMaterial = member.weaponMaterial ?? 2;
           }
           if (f.ai) {
-            f.ai.hostile = true;
+            f.ai.isHostile = true;
+            f.ai.detected = true;
+            f.ai.target = playerEntity;
           }
           spawned.push(f);
         }
@@ -29706,10 +29772,20 @@ export async function bootWorld(canvas, renderer, params, status) {
       const yaw = cam?.yaw ?? 0;
       const fwdX = Math.sin(yaw);
       const fwdZ = Math.cos(yaw);
-      const spawnX = p[0] + fwdX * 2.5;
-      const spawnZ = p[2] + fwdZ * 2.5;
+      let dist = 2.5;
+      if (collider?.raycastHit) {
+        const hit = collider.raycastHit([p[0], p[1] + 1.2, p[2]], [fwdX, 0, fwdZ], dist + 0.5);
+        if (hit && Number.isFinite(hit.dist) && hit.back !== true && hit.dist < dist) {
+          dist = Math.max(1.0, hit.dist - 0.5);
+        }
+      }
+      const spawnX = p[0] + fwdX * dist;
+      const spawnZ = p[2] + fwdZ * dist;
       const spawnY = (collider?.heightAt?.(spawnX, spawnZ) ?? p[1]) || p[1];
       const spawnPos = [spawnX, spawnY, spawnZ];
+      if (typeof lodgedIn === 'function' && lodgedIn(collider, spawnPos)) {
+        if (typeof freeLodgedFeet === 'function') freeLodgedFeet(collider, spawnPos);
+      }
       const mobType =
         type === 'ancient_lich' ? MOBILE_TYPES.AncientLich :
         type === 'zombie' ? MOBILE_TYPES.Zombie :
@@ -29802,62 +29878,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         exteriorFoes.damageFoe(body, 99999, null, null, { fromPlayer: false, bypassShield: true });
       }
     },
-    spawnPurifiers: async (party) => {
-      const p = walkMode && playerSpawned ? player.pos : cam.pos;
-      const yaw = cam?.yaw ?? 0;
-      const squad = party && party.length ? party : [
-        { name: 'Inquisitor Knight', type: 'arkay_templar' },
-        { name: 'Mage Inquisitor', type: 'holy_inquisitor' },
-        { name: 'Purifier Healer', type: 'witch_hunter_archer' },
-      ];
-      const spawned = [];
-      const dCtx = modes?.dungeonCtx;
-      const iFoes = modes?.interiorFoes;
-      for (let i = 0; i < squad.length; i++) {
-        const angleOffset = ((i - (squad.length - 1) / 2) * 0.45);
-        const ang = yaw + angleOffset;
-        const px = p[0] + Math.sin(ang) * 5.5;
-        const pz = p[2] + Math.cos(ang) * 5.5;
-        const py = (collider?.heightAt?.(px, pz) ?? p[1]) || p[1];
-        let mobType = MOBILE_TYPES.Knight;
-        const t = squad[i].type;
-        if (typeof t === 'number') {
-          mobType = t;
-        } else if (typeof t === 'string') {
-          const s = t.toLowerCase();
-          if (s.includes('archer')) mobType = MOBILE_TYPES.Archer;
-          else if (s.includes('inquisitor') || s.includes('mage')) mobType = MOBILE_TYPES.Mage;
-          else if (s.includes('templar') || s.includes('knight')) mobType = MOBILE_TYPES.Knight;
-          else if (s.includes('healer')) mobType = MOBILE_TYPES.Healer;
-        }
-
-        let f = null;
-        if (modes?.mode === 'dungeon' && dCtx?.spawnFoe) {
-          f = await dCtx.spawnFoe(mobType, [px, py, pz], { yaw: ang + Math.PI });
-        } else if (modes?.mode === 'interior' && iFoes?.spawnFoe) {
-          f = await iFoes.spawnFoe(mobType, [px, py, pz], { yaw: ang + Math.PI, loose: true, feetGiven: true });
-        } else if (exteriorFoes?.spawnFoe) {
-          f = await exteriorFoes.spawnFoe(mobType, [px, py, pz], {
-            loose: true,
-            transient: true,
-            managed: true,
-            allied: false,
-            feetGiven: true,
-            yaw: ang + Math.PI,
-          });
-        }
-        if (f) {
-          if (f.entity && squad[i].name) f.entity.name = squad[i].name;
-          if (f.ai) {
-            f.ai.isHostile = true;
-            f.ai.detected = true;
-            f.ai.target = playerEntity;
-          }
-          spawned.push(f);
-        }
-      }
-      return spawned;
-    },
+    spawnPurifiers: (party) => spawnPurifiers(party),
     setPlayerPos: (x, y, z) => {
       if (typeof player?.spawn === 'function') player.spawn(x, y, z);
       else if (player?.pos) { player.pos[0] = x; player.pos[1] = y; player.pos[2] = z; }

@@ -721,8 +721,16 @@ export function applyDamageToNonPlayer(attacker, target, {
   // enchantment door is the caller's (it owns the item seam); the
   // health write is the pool's own damageFoe, so death runs whole.
   dealDamage?.(target, damage);
-  // :389-391 - and the struck foe turns on whoever hit it.
-  target.ai?.makeEnemyHostileToAttacker?.(attacker, attacker.ai?.feet ?? null);
+  // :389-391 - and the struck foe turns on whoever hit it (unless friendly/campmates).
+  const aEnt = attacker?.entity, tEnt = target?.entity;
+  const sCamp = tEnt?.campId ?? target?.campId;
+  const aCamp = aEnt?.campId ?? attacker?.campId;
+  const sameCamp = sCamp != null && aCamp != null && sCamp === aCamp;
+  const sameTeam = tEnt?.team && aEnt?.team && tEnt.team !== 'PlayerEnemy' && tEnt.team === aEnt.team;
+  const bothAllies = tEnt?.team === 'PlayerAlly' && aEnt?.team === 'PlayerAlly';
+  if (!sameCamp && !sameTeam && !bothAllies) {
+    target.ai?.makeEnemyHostileToAttacker?.(attacker, attacker.ai?.feet ?? null);
+  }
   return damage;
 }
 
