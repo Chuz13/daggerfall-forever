@@ -71,8 +71,8 @@ test('Necro spells: Grimoire grants Arch-Lichdom along with core spells, but exc
   assert.ok(!allSpells.some((s) => s.name === 'Lichdom'), 'Lichdom spell must not be in grimoire');
   assert.ok(allSpells.some((s) => s.name === 'Arch-Lichdom'));
 
-  const dummyPlayer = { spells: [] };
-  readNecroGrimoire(dummyPlayer);
+  const dummyPlayer = { spells: [], items: [] };
+  const res = readNecroGrimoire(dummyPlayer);
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Lichdom'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Arch-Lichdom'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Dark Flight'));
@@ -82,6 +82,18 @@ test('Necro spells: Grimoire grants Arch-Lichdom along with core spells, but exc
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Mortal Disguise'));
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Finger of Death'));
   assert.equal(dummyPlayer.spells.length, 8, '4 standard necro spells + Arch-Lichdom + Dark Flight + Control Undead + Suture Cadaver');
+
+  // Verify Elixir of Unlife Potion Recipe is granted to items
+  assert.equal(dummyPlayer.items.length, 1);
+  const recipeItem = dummyPlayer.items[0];
+  assert.equal(recipeItem.templateIndex, 278);
+  assert.equal(recipeItem.potionRecipeKey, ELIXIR_OF_UNLIFE_KEY);
+  assert.equal(res.grantedRecipe, true);
+
+  // Subsequent reading doesn't duplicate the recipe
+  const res2 = readNecroGrimoire(dummyPlayer);
+  assert.equal(dummyPlayer.items.length, 1);
+  assert.equal(res2.grantedRecipe, false);
 });
 
 test('Arch-Lichdom ritual: mortal casting triggers death', () => {

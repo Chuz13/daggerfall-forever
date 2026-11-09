@@ -5,6 +5,8 @@
 // Drops from Liches (25%) and Ancient Liches (50%).
 
 import { registerCustomTemplates, mintCondition, setItemFields, registerItemUseHandler } from '../item/itemTemplates.js';
+import { TEMPLATES } from '../item/itemKinds.js';
+import { ELIXIR_OF_UNLIFE_KEY, potionRecipeByKey } from '../potions.js';
 import { registerEnemyLootExtra } from '../loot/loot.js';
 import { enemyLootSpawned } from '../../characters/enemy/enemyEntity.js';
 import { ENEMY_BASICS } from '../../characters/enemy/enemyBasics.js';
@@ -114,19 +116,44 @@ export function readNecroGrimoire(entity = null) {
     }
   }
 
+  // Grant Potion Recipe for Elixir of Unlife to target's inventory if not already present
+  let grantedRecipe = false;
+  if (!Array.isArray(target.items)) {
+    target.items = [];
+  }
+  const hasRecipe = target.items.some(
+    (it) => it?.group === 'MiscItems' && it?.templateIndex === TEMPLATES.Potion_recipe && it?.potionRecipeKey === ELIXIR_OF_UNLIFE_KEY,
+  );
+  if (!hasRecipe) {
+    const recipeMeta = potionRecipeByKey(ELIXIR_OF_UNLIFE_KEY);
+    const recipeItem = mintCondition(
+      setItemFields({
+        group: 'MiscItems',
+        templateIndex: TEMPLATES.Potion_recipe,
+        potionRecipeKey: ELIXIR_OF_UNLIFE_KEY,
+        shortName: 'Potion Recipe',
+        longName: 'Potion Recipe',
+        value: recipeMeta?.price ?? 1000,
+      }),
+    );
+    target.items.push(recipeItem);
+    grantedRecipe = true;
+  }
+
   surfacePlayer?.();
 
   const text = wasRead
-    ? (addedCount > 0
-        ? `You review the forbidden runes of the Grimoire of the Worm, inscribing ${addedCount} missing necromantic spell(s) into your spellbook.`
+    ? (addedCount > 0 || grantedRecipe
+        ? `You review the forbidden runes of the Grimoire of the Worm, inscribing ${addedCount} missing necromantic spell(s) into your spellbook${grantedRecipe ? ' and recovering the recipe for the Elixir of Unlife' : ''}.`
         : 'You have already deciphered the eldritch rites within the Grimoire of the Worm. Its dark secrets remain etched upon your mind.')
-    : 'You break the black wax seal and study the Grimoire of the Worm. Forbidden rites of undeath flood your consciousness! All necromantic spells have been inscribed into your spellbook, and their creation is now unlocked at the Spell Maker.';
+    : 'You break the black wax seal and study the Grimoire of the Worm. Forbidden rites of undeath flood your consciousness! All necromantic spells have been inscribed into your spellbook, the formula for the Elixir of Unlife is revealed, and necromancy spell creation is now unlocked at the Spell Maker.';
 
   return {
     kind: 'text',
     text,
     grimoireRead: true,
     addedSpells: addedCount,
+    grantedRecipe,
   };
 }
 
