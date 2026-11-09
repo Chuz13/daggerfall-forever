@@ -615,6 +615,12 @@ export const mwViewHoldChanged = () => !!heldThird?.changed;
  *  its body (a save taken under the view came back in third person). */
 export function mwViewSaveCamera() {
   const s = mwCamera.state();
+  if (eotbLane()) {
+    const third = !!eotbCamera.thirdPerson();
+    if (heldFirst?.changed && heldFirst.lane === 'eotb') return { ...s, firstPerson: false };
+    if (heldThird?.changed && heldThird.lane === 'eotb') return { ...s, firstPerson: true };
+    return { ...s, firstPerson: !third };
+  }
   if (heldFirst?.changed && heldFirst.lane === 'mw') return { ...s, firstPerson: false }; // AUDIT CAPTAIN'S SEA S9: nor the head the glass borrowed
   return heldThird?.changed && heldThird.lane === 'mw' ? { ...s, firstPerson: true } : s;
 }
@@ -778,14 +784,29 @@ export function mwViewTransition(kind) {
 }
 
 /** The saved camera on a LOAD, both lanes: MW-D30's forced restore of
- *  the Morrowind camera, and the mod's own OnLoad - `StartInThirdPerson`
- *  decides the POV a loaded game takes (its description's own words:
- *  "Determines the POV when starting or loading a game"), so the sprite
- *  camera is re-seeded from the setting, not from the save. */
+ *  the Morrowind camera, and the mod's own OnLoad - if the save recorded
+ *  a firstPerson perspective, respect it for whichever body answers so
+ *  EOTB sprite perspective survives save and load; otherwise `StartInThirdPerson`
+ *  decides the POV. */
 export function mwViewLoadPose(pose, inside = false) {
   heldFirst = null; // AUDIT CAPTAIN'S SEA S8: a load decides the view - the glass hands nothing back over it
-  if (pose) mwCamera.restore(pose);
-  eotbCamera.onLoad(inside); // EOTB-IL: the mod's OnLoad (IL_0a08) - a transition row when the table is armed, StartInThirdPerson otherwise
+  if (pose) {
+    mwCamera.restore(pose);
+    if (typeof pose.firstPerson === 'boolean') {
+      if (!mwCanThirdPerson()) {
+        eotbCamera.toggleOffset(!pose.firstPerson);
+        if (!pose.firstPerson) {
+          mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
+        }
+      } else {
+        eotbCamera.toggleOffset(false);
+      }
+    } else {
+      eotbCamera.onLoad(inside);
+    }
+  } else {
+    eotbCamera.onLoad(inside);
+  }
 }
 
 /** [IL] StartGameBehaviour.OnNewGame (IL_0930), the new game's own
