@@ -124,8 +124,8 @@ export function bodiesOf(foes, stamps, placeOf, keyOf = () => null) {
         reach: BODY_REACH,
         lootKey: () => keyOf(f) ?? null,
       });
-    } else {
-      const id = f.entity?._necroCorpseId || f.id || `body_${out.length}`;
+    } else if (f.entity?._necroCorpseId || f._necroCorpseId) {
+      const id = f.entity?._necroCorpseId || f._necroCorpseId;
       out.push({
         key: `necro_corpse:${id}`,
         foe: foeType,
@@ -223,14 +223,21 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
     professions: Object.freeze(['hunting']),
     nodesOf: () => [],
     /** A body is a node while the pack holds a Skinning Knife or blade for harvesting. */
-    looseNodesOf: ({ entity }) => ((foragingToolIn(entity, SKINNING_KNIFE.templateIndex) || canHarvestCorpseWithInventory(entity)) ? bodies() : []),
+    looseNodesOf: ({ entity }) => {
+      const hasKnife = foragingToolIn(entity, SKINNING_KNIFE.templateIndex);
+      const hasBlade = canHarvestCorpseWithInventory(entity);
+      if (hasKnife && hasBlade) return bodies();
+      if (hasKnife) return bodies().filter((b) => b.hide);
+      if (hasBlade) return bodies().filter((b) => b.key?.startsWith('necro_corpse:') || b.entity?._necroCorpseId);
+      return [];
+    },
     flatsOf: () => [],   // the body is its own picture (DFU's corpse)
     gone: (b) => {
       const skinGone = b.hide ? goneIn(book, b.key, 'hide') : true;
       const corpseId = b.entity?._necroCorpseId;
       const corpseRecord = corpseId ? getCorpse(corpseId) : null;
       const isRecordHarvested = corpseRecord?.corpseState === 'desecrated' || corpseRecord?.harvestedAll || (corpseRecord?.harvested?.bones && corpseRecord?.harvested?.flesh);
-      const necroGone = b.foeRef?._necroHarvested || b.entity?._necroHarvested || isRecordHarvested;
+      const necroGone = corpseRecord ? (b.foeRef?._necroHarvested || b.entity?._necroHarvested || isRecordHarvested) : true;
       if (b.hide) return skinGone && necroGone;
       return necroGone;
     },
@@ -239,7 +246,7 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
       const corpseId = b.entity?._necroCorpseId;
       const corpseRecord = corpseId ? getCorpse(corpseId) : null;
       const isRecordHarvested = corpseRecord?.corpseState === 'desecrated' || corpseRecord?.harvestedAll || (corpseRecord?.harvested?.bones && corpseRecord?.harvested?.flesh);
-      const necroActive = !b.foeRef?._necroHarvested && !b.entity?._necroHarvested && !isRecordHarvested;
+      const necroActive = corpseRecord && !b.foeRef?._necroHarvested && !b.entity?._necroHarvested && !isRecordHarvested;
       return (skinActive || necroActive) ? BODY_MARK : null;
     },
     marksLoose: true,
@@ -268,8 +275,8 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
 
       const rows = [];
 
-      // 1. Skinning action (if corpse has hide and player has skinning knife)
-      if (b.hide && hasKnife) {
+      // 1. Skinning action (for any hunting body node)
+      if (!b.key?.startsWith('necro_corpse:') || b.hide) {
         const skin = { ...this.plan(b, ctx), id: 'hide' };
         rows.push(skin);
       }
@@ -280,7 +287,7 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
       const isRecordHarvested = corpseRecord?.corpseState === 'desecrated' || corpseRecord?.harvestedAll || (corpseRecord?.harvested?.bones && corpseRecord?.harvested?.flesh);
       const alreadyHarvested = b.foeRef?._necroHarvested || b.entity?._necroHarvested || isRecordHarvested;
 
-      if (hasBlade && !alreadyHarvested) {
+      if (corpseRecord && hasBlade && !alreadyHarvested) {
         const name = foeName(b.foe);
         rows.push({
           id: 'harvest_remains',

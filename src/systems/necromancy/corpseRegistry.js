@@ -358,7 +358,7 @@ export function harvestAllFromCorpse(corpseOrId, playerEntity) {
       harvested: [],
       itemsAdded: [],
       multiplier: rollRes.multiplier,
-      reason: t('necro.harvest.empty', 'No usable reagents could be extracted from this corpse.'),
+      reason: t('necro.harvest.empty', 'Nothing useful remains on this corpse.'),
     };
   }
 

@@ -161,7 +161,7 @@ ALLOWED_ORIGIN = "*"
 # the trade-freeze review's clear and roll back - and the staff panel's Admin role (server-account/src/staff.js), which is
 # this list. SHADOW_FANG_HANDLES still names them: that title, glyph and cloak stay theirs to wear.
 # STAFF-PANEL1 (2026-10-22): the account kpblca_1, with the same whole set.
-DEVELOPER_HANDLES = "HidmigMoonraven,13,Alex13Uslavtsev,Chuz13"
+DEVELOPER_HANDLES = "SirMcMobdon,HidmigMoonraven,13,Alex13Uslavtsev,Chuz13"
 # STAFF-PANEL1 (2026-10-22, server-account/src/staff.js): THE STAFF PANEL'S OWNERS (read the audit
 # log) - staff who may also read the audit log of every staff sign-in and act, invite a staff member to enrol one more
 # extension (a new invite replaces the member's unspent one; keys stay) and cut one off (every key and session ended). A handle here that no role list names is no owner (staff.js isOwner). Comma-separated,
@@ -318,7 +318,7 @@ HIEROPHANT_HANDLES = ""
 # for his account. A holo shadow cloak with red accents"): and the Holo
 # Shadow Cloak - the third list that grants an aura (titles.js TIER_AURA);
 # taking the handle off takes it too.
-SHADOW_FANG_HANDLES = "HidmigMoonraven,13,Alex13Uslavtsev,Chuz13"
+SHADOW_FANG_HANDLES = "SirMcMobdon,HidmigMoonraven,13,Alex13Uslavtsev,Chuz13"
 # MARKS1 (PROF0 20): Marks open by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped at "dev":
 # the currency is struck and spent by the developers first, and opened to everyone by this one line.
 # SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on"): "on" - Marks are everyone's.

@@ -191,7 +191,7 @@ export const LIVING_WORDS = Object.freeze({
 
   // Wandering Road & Wilderness Adventurers (Non-Seeking)
   roadAdvTraveling: (name) =>
-    t('living.roadAdv.traveling', '{name} nods along the highway: "Bound for the next delve. Keep your steel sharp on these roads."', { name }),
+    t('living.roadAdv.traveling', '{name} nods along the highway: "Bound for the next dungeon. Keep your steel sharp on these roads."', { name }),
   roadAdvCamp: (name) =>
     t('living.roadAdv.camp', '{name} tends a roadside campfire: "Rest your feet by the embers, traveler, if you come in peace."', { name }),
   roadAdvSkirmish: (name) =>

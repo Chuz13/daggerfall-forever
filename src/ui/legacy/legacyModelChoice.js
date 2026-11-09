@@ -62,7 +62,7 @@ export const BLOODLINE_ONLINE_LINE = 'Online, a death is final on every device.'
 export function legacyModelOptions({
   online = isOnlinePage(),
   tollShare = legacySettings().tollShare,
-  includeDynasty = true,
+  includeDynasty = legacySettings().model === MODELS.dynasty,
 } = {}) {
   const pct = Math.round(tollShare * 100);
   const dynasty = Object.freeze({

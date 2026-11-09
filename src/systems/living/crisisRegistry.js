@@ -14,7 +14,7 @@
 
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { LOCATION_TYPES } from '../../formats/mapsFile.js';
-import { REGION_NAMES } from '../../formats/mapsTables.js';
+import { REGION_NAMES, BAY_REGION_COUNT } from '../../formats/mapsTables.js';
 import { BORDER_REGIONS } from '../faction/factionRelations.js';
 import { SKILLS } from '../skills.js';
 import { REGION_FLAGS } from '../region/regionConditions.js';
@@ -61,7 +61,7 @@ export function calculateLocationProsperity(dfLocation) {
  * @returns {string}
  */
 export function getEnemyProvinceName(regionIndex, rng = Math.random) {
-  if (regionIndex >= 0 && regionIndex < 62) {
+  if (regionIndex >= 0 && regionIndex < BAY_REGION_COUNT) {
     const offset = regionIndex * 11;
     const candidates = [];
     for (let i = 0; i < 11; i++) {

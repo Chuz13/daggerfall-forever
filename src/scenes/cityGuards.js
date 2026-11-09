@@ -897,7 +897,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     g.ai.secondaryTarget = PLAYER_TARGET;
     g.ai.detected = true;
     g.ai.makeHostileToPlayer(600, playerFeet ?? null);
-    g.ai.makeEnemyHostileToAttacker?.(PLAYER_TARGET, playerFeet ?? null);
+    g.ai.makeEnemyHostileToAttacker?.(PLAYER_TARGET, playerFeet ?? null, 600);
   }
 
   /** AUDIT 24 (the seven-slice sweep): free a guard's LIVE billboard

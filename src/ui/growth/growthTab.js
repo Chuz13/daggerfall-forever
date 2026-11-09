@@ -189,8 +189,8 @@ function specsPage(detail, ctx) {
   for (const p of allPerks) {
     const isUnlocked = unlockedSet.has(p.id);
     const row = el('div', isUnlocked ? 'card gr-perk-card on' : 'card gr-perk-card');
-    const nameStr = t(`perks.${p.id}.name`, p.name);
-    const descStr = t(`perks.${p.id}.desc`, p.desc || p.description || '');
+    const nameStr = p.name;
+    const descStr = p.desc || p.description || '';
     const statusStr = isUnlocked ? t('perks.ui.unlocked', 'Unlocked') : t('perks.ui.locked', 'Locked');
     row.append(
       el('h4', 'gr-perk-head', `${isUnlocked ? '★' : '☆'} ${nameStr} [${statusStr}]`),

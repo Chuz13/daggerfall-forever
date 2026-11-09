@@ -5461,7 +5461,7 @@ function statsCharacter(detail, m) {
 }
 
 function statsPerks(detail) {
-  detail.append(pxDivider(t('pause.stats.perks', 'Perks & Feats')));
+  detail.append(pxDivider(t('pause.stats.perks', 'Perks')));
   detail.append(el('p', 'px-note', t('perks.ui.lead', 'Passive combat, magic, and survival feats unlocked by mastering skills and surviving the Iliac Bay.')));
   const unlockedSet = new Set(playerEntity ? getUnlockedPerks(playerEntity) : []);
   const corePerks = getAllPerks();
@@ -5471,8 +5471,8 @@ function statsPerks(detail) {
   for (const p of allPerks) {
     const isUnlocked = unlockedSet.has(p.id);
     const row = el('div', `px-stat gr-perk-row${isUnlocked ? ' on' : ''}`);
-    const nameStr = t(`perks.${p.id}.name`, p.name);
-    const descStr = t(`perks.${p.id}.desc`, p.desc || p.description || '');
+    const nameStr = p.name;
+    const descStr = p.desc || p.description || '';
     const statusStr = isUnlocked ? t('perks.ui.unlocked', 'Unlocked') : t('perks.ui.locked', 'Locked');
     row.append(
       el('span', 'k', `${isUnlocked ? '★ ' : '☆ '}${nameStr}`),

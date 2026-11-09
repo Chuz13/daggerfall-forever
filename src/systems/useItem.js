@@ -369,7 +369,7 @@ export function useItem(item, collection, {
         : (res.alreadyLich || res.alreadyAncient)
           ? (res.message || res.reason)
           : (res.reason
-              ? t('necro.lich.fail_reason', `Your body rejects the Elixir of Unlife! ${res.reason}`)
+              ? `Your body rejects the Elixir of Unlife! ${res.reason}`
               : t('necro.lich.fail', 'Your body rejects the Elixir of Unlife! Lethal poison courses through your veins (Requires Level 20, 100 Mysticism, 100 Intelligence and 100 Willpower).'));
       out = { kind: 'potion', potion: 'Elixir of Unlife', lichdom: res.lichdom, text };
     } else {

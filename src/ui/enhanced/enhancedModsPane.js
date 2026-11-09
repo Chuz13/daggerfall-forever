@@ -248,8 +248,8 @@ export function drawModsPane(body, rerender) {
     row.style.fontSize = '13px';
     row.style.marginTop = '4px';
     row.style.color = isUnlocked ? '#e0c36a' : '#999';
-    const nameStr = t(`perks.${p.id}.name`, p.name);
-    const descStr = t(`perks.${p.id}.desc`, p.desc || p.description || '');
+    const nameStr = p.name;
+    const descStr = p.desc || p.description || '';
     const statusStr = isUnlocked ? t('perks.ui.unlocked', 'Unlocked') : t('perks.ui.locked', 'Locked');
     row.textContent = `${isUnlocked ? '★' : '☆'} ${nameStr} [${statusStr}] — ${descStr}`;
     perksCard.append(row);
