@@ -321,6 +321,15 @@ export function playerBodyOn() {
   return isEnhanced() && (morrowindDataCount() > 0 || !!fpArm?.ready?.()) && getPref('mwPlayerBody') !== false;
 }
 
+/** Is the player's 3D Morrowind figure wanted in the inventory - following mwPlayerBody, forced to 3D, or forced to paperdoll? */
+export function inventoryBodyOn() {
+  if (!isEnhanced() || !(morrowindDataCount() > 0 || !!fpArm?.ready?.())) return false;
+  const mode = getPref('mwInventoryBody') ?? 'follow';
+  if (mode === 'paperdoll') return false;
+  if (mode === '3d') return true;
+  return playerBodyOn();
+}
+
 /** Are Morrowind 3D item icons wanted - the enhanced skin, Morrowind data attached, and the toggle not false? */
 export function itemIconsOn() {
   return isEnhanced() && morrowindDataCount() > 0 && getPref('mwItemIcons') !== false;

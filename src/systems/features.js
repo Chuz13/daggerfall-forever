@@ -1436,6 +1436,21 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'mwPlayerBody', initial: false, online: 'player' }),
   }),
+  // MW-INVENTORY-BODY: How the player character is shown in the inventory
+  Object.freeze({
+    id: 'mw-inventory-body',
+    group: 'world',
+    get title() { return t('features.mwInventoryBody.title', 'Inventory Player Figure'); },
+    get note() { return t('features.mwInventoryBody.note', 'Choose how your character is shown in the inventory: follow Morrowind Player Body, always use a 3D figure when Morrowind data is attached, or always use the classic 2D paperdoll.'); },
+    get effect() { return t('features.effect.atOnce', 'Takes effect at once.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'mwInventoryBody', initial: 'follow', online: 'player',
+      tiers: Object.freeze([
+        tier('follow', () => t('features.mwInventoryBody.follow', 'Follow Player Body')),
+        tier('3d', () => t('features.mwInventoryBody.3d', 'Always 3D')),
+        tier('paperdoll', () => t('features.mwInventoryBody.paperdoll', 'Always Paperdoll')),
+      ]) }),
+  }),
   // MW-ITEM-ICONS: 3D rendered item icons in inventory and quickslots
   Object.freeze({
     id: 'mw-item-icons',

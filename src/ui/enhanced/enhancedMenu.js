@@ -3943,6 +3943,7 @@ const TILE_AFTER = Object.freeze({
   mwBeastFeet: rebuildMorrowindBody,   // BEAST-BOOTS: a beast's footwear and helmet, on the standing body at once
   mwBeastHelm: rebuildMorrowindBody,
   mwPlayerBody: () => { render(); },
+  mwInventoryBody: () => { render(); },
   mwItemIcons: () => { render(); },
 });
 

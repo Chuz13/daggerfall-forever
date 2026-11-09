@@ -229,6 +229,7 @@ export const CATEGORIES = Object.freeze([
     ]),
     sec('morrowind', 'With Morrowind data', [
       'feat:mw-player-body',
+      'feat:mw-inventory-body',
       'feat:mw-item-icons',
       'feat:mod-weapon-sheathing',
       'feat:steel-helm',

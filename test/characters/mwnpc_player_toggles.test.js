@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { playerBodyOn, itemIconsOn } from '../../src/characters/npcBodies.js';
+import { playerBodyOn, inventoryBodyOn, itemIconsOn } from '../../src/characters/npcBodies.js';
 import { setPref, getPref } from '../../src/systems/uiPrefs.js';
 import { modelIconUrl } from '../../src/ui/item/itemIconUrl.js';
 import { mwCanThirdPerson, eotbLane } from '../../src/player/mwView.js';
@@ -20,6 +20,50 @@ test('mwPlayerBody toggle: player 3D body switches on and off live', () => {
     assert.equal(getPref('mwPlayerBody'), true);
   } finally {
     setPref('mwPlayerBody', origBody);
+  }
+});
+
+test('mwInventoryBody setting: follow, 3d, and paperdoll modes work with and without Morrowind data', async () => {
+  const { fpArm } = await import('../../src/combat/fpArm.js');
+  const origBody = getPref('mwPlayerBody');
+  const origInv = getPref('mwInventoryBody');
+  const savedReady = fpArm.ready;
+  try {
+    // 1. Without Morrowind data (morrowindDataCount() === 0 and fpArm.ready() === false)
+    fpArm.ready = () => false;
+    for (const mode of ['follow', '3d', 'paperdoll']) {
+      setPref('mwInventoryBody', mode);
+      setPref('mwPlayerBody', true);
+      assert.equal(inventoryBodyOn(), false, `without Morrowind data, mode=${mode} safely returns false`);
+    }
+
+    // 2. With Morrowind data (fpArm.ready() === true)
+    fpArm.ready = () => true;
+
+    // Mode: 'follow' (follows mwPlayerBody)
+    setPref('mwInventoryBody', 'follow');
+    setPref('mwPlayerBody', true);
+    assert.equal(inventoryBodyOn(), true, 'follow + mwPlayerBody=true -> true');
+    setPref('mwPlayerBody', false);
+    assert.equal(inventoryBodyOn(), false, 'follow + mwPlayerBody=false -> false');
+
+    // Mode: '3d' (always 3D when Morrowind data is available, even if mwPlayerBody is false)
+    setPref('mwInventoryBody', '3d');
+    setPref('mwPlayerBody', false);
+    assert.equal(inventoryBodyOn(), true, '3d + mwPlayerBody=false -> true');
+    setPref('mwPlayerBody', true);
+    assert.equal(inventoryBodyOn(), true, '3d + mwPlayerBody=true -> true');
+
+    // Mode: 'paperdoll' (always 2D paperdoll, even if mwPlayerBody is true)
+    setPref('mwInventoryBody', 'paperdoll');
+    setPref('mwPlayerBody', true);
+    assert.equal(inventoryBodyOn(), false, 'paperdoll + mwPlayerBody=true -> false');
+    setPref('mwPlayerBody', false);
+    assert.equal(inventoryBodyOn(), false, 'paperdoll + mwPlayerBody=false -> false');
+  } finally {
+    setPref('mwPlayerBody', origBody);
+    setPref('mwInventoryBody', origInv);
+    fpArm.ready = savedReady;
   }
 });
 
