@@ -45,6 +45,7 @@ import { silenceBlocksCast, attemptSoulTrap, SOUL_TRAP_TEXT, fillEmptyTrap, peer
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
 import { EnemyAttack } from '../characters/enemy/enemyAttack.js';
 import { makeEnemyEntity, loadEnemyCareer, KNIGHT_CITYWATCH_ID, applyProgressionScaling } from '../characters/enemy/enemyEntity.js';
+import { recordEntityPlacement } from '../systems/diagnostics/encounterLogger.js';
 import { combatStanding, foeShare, progressionScaling, wildernessShare, placeVeteran, wildernessThreat } from '../systems/skillSoftcap.js';   // SOFTCAP5: tougher foes in the wilds; BAL3: the wilds' own threat
 import { heroThreatOf } from '../systems/heroThreat.js';   // BAL11: the hero's threat
 import { isNight } from '../world/worldClock.js';   // SOFTCAP5: the wilds' night share   // AUDIT WATCH1 A1: the watch's own puppet allowance
@@ -496,6 +497,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // DW-E4: SetEnemyTeam - Entity.Team alone (the treasure guards' Undead), the MobileEnemy copy kept
       if (team) entity.team = team;
       entity._feudPlace = playerInside ? 'building' : 'street';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
+      recordEntityPlacement(entity, { pos, team: entity.team, allied, questBehaviour, site, placed, loose, eliteFoe: entity.eliteFoe, champion: entity.championTrait, revenant, zoneGiant, grantKind, eventFoe, puppet });
       if (!allied && !entity.eliteFoe) applyChampion(entity, champion !== undefined ? champion : revenant ? (revenant.trait ? championIndex(revenant.trait) : null) : (capped ? rollStreetChampion(pending.feet, mobileType) : null), { own: !puppet });   // LOOT7: a champion - before its loot, which reads the mark
       if (revenant && !puppet) applyRevenant(entity, revenant, { turned });   // REVENANT: its name and its rank - over its trait or its glow, before its loot; RVN11c: a betrayer's turning is no return
       // WILD1 (systems/wild/wildZone.js): a foe of the open zone - four times its health and its blows, over its elite's, its

@@ -408,18 +408,40 @@ export function calculateSuccessfulHit(attacker, target, chanceToHitMod, struckB
   // channels are the enchantment fold's (Strengthens/WeakensArmor,
   // BadReactionsFrom) - the audit-F5 zeros, live at last.
   // SOFTCAP1: a mentored target's armour keeps its gear-scale share of its protection (mentorMode.js)
-  chance += mentorArmorValue(target, target.armorValues?.[struckBodyPart] ?? 0) + entityArmorMod(target, struckBodyPart);   // RF1: the enchantment channels and the port's points on the struck part, one read
+  const armorMod = mentorArmorValue(target, target.armorValues?.[struckBodyPart] ?? 0) + entityArmorMod(target, struckBodyPart);
+  chance += armorMod;
   // AUDIT 21 F2: the adrenaline rush is APPLIED now, in DFU's own slot
   // (FormulaHelper.cs:811, between the armour term and the stats term).
-  chance += adrenalineRushToHit(attacker, target);
+  const adrenMod = adrenalineRushToHit(attacker, target);
+  chance += adrenMod;
   // E1: attacker.ChanceToHitModifier (FormulaHelper.cs:814) - the
   // audit-F4 zero. BadReactionsFrom is its one core writer.
-  chance += enchantChanceToHitMod(attacker);
-  chance += statsToHit(attacker, target);
-  chance += skillsToHit(attacker, target, rolls(), notes);
-  chance += adjustmentsToHit(target);   // the +40 monster mod and flat -50 (F1)
+  const enchMod = enchantChanceToHitMod(attacker);
+  chance += enchMod;
+  const statMod = statsToHit(attacker, target);
+  chance += statMod;
+  const skillRoll = rolls();
+  const skillMod = skillsToHit(attacker, target, skillRoll, notes);
+  chance += skillMod;
+  const adjMod = adjustmentsToHit(target);   // the +40 monster mod and flat -50 (F1)
+  chance += adjMod;
+  const rawChance = chance;
   chance = Math.max(3, Math.min(97, chance));
-  return dice100(chance, rolls());
+  const hitRoll01 = rolls();
+  const hit = dice100(chance, hitRoll01);
+  if (notes && typeof notes === 'object') {
+    if (!notes.diag) notes.diag = {};
+    notes.diag.toHit = {
+      chanceToHitMod,
+      struckPart: struckBodyPart,
+      rawChance,
+      finalChance: chance,
+      hitRoll: Math.floor(hitRoll01 * 100),
+      isHit: hit,
+      modifiers: { armorMod, adrenMod, enchMod, statMod, skillMod, adjMod },
+    };
+  }
+  return hit;
 }
 
 // ---- CalculateHandToHandAttackDamage ----
@@ -634,11 +656,33 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   // strike roll succeeded, whether it was a backstab. Nothing here
   // changes a roll or a value; the notes object is written by the hit
   // roll and read at the tail.
-  const notes = { critical: false, backstab: false, hit: false, ineffective: false };
+  const notes = {
+    critical: false,
+    backstab: false,
+    hit: false,
+    ineffective: false,
+    diag: {
+      toHit: null,
+      damage: {
+        rawDamage: 0,
+        finalDamage: 0,
+        mitigated: 0,
+        modsApplied: [],
+      },
+      hooks: [],
+      sideEffects: {},
+    },
+  };
   // SW1: the struck part, at the FUNCTION's scope - the resolution hook
   // at the tail is past the block the roll is made in.
   let struckPart = -1;
   const report = (damage) => {
+    if (notes.diag?.damage) {
+      notes.diag.damage.finalDamage = damage;
+      if (notes.diag.damage.rawDamage > damage) {
+        notes.diag.damage.mitigated = notes.diag.damage.rawDamage - damage;
+      }
+    }
     // DUEL1: a blow between players is rolled with a stub of the striker's sheet (combat/duelCombat.js duelStub -
     // `isPlayer`, and `peer`) - since INT8 on the striker's own machine, against a neutral stand-in (AUDIT C&C H5): the
     // stub's report stays quiet, and the host says a miss and the referee's word a hit (reportPlayerAttack, below)

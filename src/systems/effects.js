@@ -56,6 +56,7 @@ import { regenShare } from './courtRules.js';   // WBX6 / EVENT-RULES: a made le
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { HEAL_SPELL_POINTS_KEY } from './potionRecipes.js';   // PROF12: Heal-SpellPoints' key, beside the one recipe that names it
 import { isClassEnemyId } from '../characters/enemy/enemyBasics.js';   // DEX1: DFU's class test (DaggerfallEntity.IsClassEnemyId) - a mod's monster past 255 is no class
+import { emitModEvent } from './mods/modEventBus.js';
 
 export { breakNormalPowerConcealment, handleAttackFromSource, NORMAL_POWER_CONCEALMENTS } from './concealment.js';
 
@@ -2109,6 +2110,11 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       target.magicka = Math.min(target.maxMagicka, (target.magicka ?? 0) + absorbRefund(totalAbsorbed));
     }
     sinks?.say?.(localizedText('spellAbsorbed', SPELL_ABSORBED_TEXT));
+  }
+  try {
+    emitModEvent('combatSpellResolved', { spell, casterLevel, target, caster, out });
+  } catch {
+    /* telemetry is not the spell's problem */
   }
   return out;
 }

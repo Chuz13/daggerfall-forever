@@ -21,6 +21,7 @@ import { meanerMonstersRow as pcaaoMeanerMonstersRow } from '../../combat/pcaaoM
 import { applyMeanerMonsters } from '../meanerMonsters.js'; // MM1: Ralzar's Meaner Monsters, when its switch is on
 import { enemyEntityType, enemyCareerIndex } from './enemyBasics.js'; // DEX1: SetupDemoEnemy's entity type and SetEnemyCareer's careerIndex, one home
 import { customCareerTemplate } from './customEnemies.js'; // DEX1: DaggerfallEntity.CustomCareerTemplates
+import { recordEntityMint, recordEntityScaling } from '../../systems/diagnostics/encounterLogger.js';
 
 export { KNIGHT_CITY_WATCH as KNIGHT_CITYWATCH_ID } from '../mobile/mobileTypes.js'; // AUDIT 24 (wave 41): one home
 
@@ -148,6 +149,7 @@ export function applyProgressionScaling(entity, scaling) {
     edge: scaling.edge,
     hero: { damage: scaling.heroDamage ?? 1, health: scaling.heroHealth ?? 1 },
   }; // for a HUD or a debugger; nothing reads it as law (BAL3: the place's veteran beside the player's; BAL11: the hero's threat)
+  recordEntityScaling(entity, scaling);
   return entity;
 }
 
@@ -219,7 +221,7 @@ export function makeEnemyEntity(
     // emitted below so CalculateArmorToHit never needs a fallback -
     // equipEnemy overwrites it for anything that carries equipment.
   }
-  return {
+  const entity = {
     mobileType,
     isClass,
     isPlayer: false,
@@ -277,6 +279,8 @@ export function makeEnemyEntity(
     affinity: basics.affinity,
     name: isClass ? career.name : undefined,
   };
+  recordEntityMint(entity, basics, career, playerLevel);
+  return entity;
 }
 
 /**

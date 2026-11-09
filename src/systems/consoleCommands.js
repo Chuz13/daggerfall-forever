@@ -94,6 +94,8 @@ import { _resetUndeadCapacityForTests as clearUndeadPool, usedUndeadPoints, calc
 import { registerCorpse } from './necromancy/corpseRegistry.js';
 import { generatePurifierParty } from './necromancy/witchHunters.js';
 import { dumpSessionLog } from './diagnostics/sessionLogger.js';
+import { dumpCombatLog, isInCombat } from './diagnostics/combatLogger.js';
+import { dumpEncounterLog, getRecentSpawns } from './diagnostics/encounterLogger.js';
 
 let _sceneContext = null;
 /** Register active scene debug context (player control, enemy pools, travel). */
@@ -1398,6 +1400,31 @@ registerCommand(
     const reason = args.join(' ') || 'console-dumplog';
     const payload = dumpSessionLog(reason);
     return `Session diagnostic log dumped (Reason: "${reason}", Errors: ${payload.runtimeIssues?.errorCount ?? 0}, Warnings: ${payload.runtimeIssues?.warningCount ?? 0}).`;
+  }
+);
+
+registerCommand(
+  'dumpcombat',
+  'Dump current/last combat encounter telemetry log to disk: dumpcombat [reason]',
+  'dumpcombat [reason]',
+  (args = []) => {
+    const reason = args.join(' ') || 'console-dumpcombat';
+    const payload = dumpCombatLog(reason);
+    if (!payload) {
+      return 'No active combat encounter to dump. Start combat to generate a log.';
+    }
+    return `Combat encounter log dumped (Encounter: ${payload.encounterId}, Events: ${payload.events?.length ?? 0}, Outcome: ${payload.summary?.outcome ?? 'ongoing'}).`;
+  }
+);
+
+registerCommand(
+  'dumpspawns',
+  'Dump recent spawner and encounter generation logs to disk: dumpspawns [reason]',
+  'dumpspawns [reason]',
+  (args = []) => {
+    const reason = args.join(' ') || 'console-dumpspawns';
+    const payload = dumpEncounterLog(reason);
+    return `Spawner & encounter log dumped (Reason: "${reason}", Spawns Recorded: ${payload.recentSpawnsCount ?? 0}).`;
   }
 );
 
