@@ -96,6 +96,7 @@ import {
   ADVENTURER_STATUS,
 } from './adventurerSim.js';
 import { LIVING_WORDS } from './livingWords.js';
+import { mobTraitChance } from '../bossTraits.js';
 
 /** Existing ARCH3D.BSA 3D model IDs used for Living Tamriel props. */
 export const LIVING_MODELS = Object.freeze({
@@ -3246,6 +3247,24 @@ export function executeLivingConsoleCommand(args, ctx) {
     );
   }
 
+  if (sub === 'traits' || sub === 'mobtraits') {
+    const val = cleanArgs[1];
+    if (val !== undefined) {
+      let targetTier = PRESENCE.MID;
+      const s = String(val).toLowerCase();
+      if (s === 'off' || s === '0') targetTier = PRESENCE.OFF;
+      else if (s === 'light' || s === '1') targetTier = PRESENCE.LIGHT;
+      else if (s === 'mid' || s === '2') targetTier = PRESENCE.MID;
+      else if (s === 'high' || s === '3') targetTier = PRESENCE.HIGH;
+      LivingTamrielConfig.mobTraits = targetTier;
+    }
+    const currentTier = LivingTamrielConfig.mobTraits;
+    const tierNames = ['OFF', 'LIGHT', 'MID', 'HIGH'];
+    const pLvl = Number(ctx?.playerEntity?.level ?? 1);
+    const chance = mobTraitChance(currentTier, pLvl);
+    return `[Living Tamriel] Mob traits presence: ${tierNames[currentTier] ?? currentTier} (${currentTier}). Player Level: ${pLvl} -> Spawn Chance: ${(chance * 100).toFixed(1)}%.`;
+  }
+
   if (sub === 'crisis') {
     const rawType = String(cleanArgs[1] ?? 'WAR').toUpperCase();
     const rawPhase = String(cleanArgs[2] ?? 'MID').toUpperCase();
@@ -3413,6 +3432,6 @@ export function executeLivingConsoleCommand(args, ctx) {
     return `[Living Roll: ${res.formulaId}] Skill=${res.skill}, Stat=${res.stat}, Luck=${res.luck}, d100=${res.roll} -> Total=${res.totalScore} vs Target=${res.targetScore} (Margin=${res.margin >= 0 ? '+' : ''}${res.margin}) => ${res.degree}`;
   }
 
-  return 'Usage: /living <status | crisis <TYPE> [PHASE] | [site] spawn <KIND> | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | roll [Skill] [DC] [Formula] | formulas | quest>';
+  return 'Usage: /living <status | traits [0..3|off|light|mid|high] | crisis <TYPE> [PHASE] | [site] spawn <KIND> | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | roll [Skill] [DC] [Formula] | formulas | quest>';
 }
 

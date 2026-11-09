@@ -106,6 +106,9 @@ export const LivingTamrielConfig = {
   get nemesis() { return readTierPref('livingNemesis', PRESENCE.MID); },
   set nemesis(v) { setPref('livingNemesis', Number(v)); },
 
+  get mobTraits() { return readTierPref('livingMobTraits', PRESENCE.MID); },
+  set mobTraits(v) { setPref('livingMobTraits', Number(v)); },
+
   // Competition toggles
   get allowQuestCompetition() { return getPref('livingQuestCompetition') === true; },
   set allowQuestCompetition(v) { setPref('livingQuestCompetition', Boolean(v)); },
@@ -146,6 +149,7 @@ export function resetLivingConfig() {
   setPref('livingQuarantine', PRESENCE.HIGH);
   setPref('livingBounties', PRESENCE.MID);
   setPref('livingNemesis', PRESENCE.MID);
+  setPref('livingMobTraits', PRESENCE.MID);
   setPref('livingQuestCompetition', false);
 
   LivingTamrielConfig.adventurerPoolPerRegion = 13;

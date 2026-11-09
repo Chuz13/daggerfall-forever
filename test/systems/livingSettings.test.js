@@ -32,6 +32,7 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
     'feat:living-travel',
     'feat:living-camps',
     'feat:living-naval',
+    'feat:living-mob-traits',
   ];
 
   for (const featId of expectedFeatures) {
@@ -44,7 +45,7 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
 
 test('LT-07: Living Tamriel feature rows have valid controls, 4-tier presence, and quest competition part', () => {
   const livingFeats = FEATURES.filter((f) => f.id.startsWith('living-') && f.id !== 'living-world');
-  assert.equal(livingFeats.length, 10, 'Expected 10 living feature declarations');
+  assert.equal(livingFeats.length, 11, 'Expected 11 living feature declarations');
 
   for (const feat of livingFeats) {
     assert.equal(feat.group, 'world');
@@ -78,6 +79,14 @@ test('LT-07: LivingTamrielConfig is synchronized with uiPrefs and settings mutat
 
   setPref('livingPolitical', PRESENCE.OFF);
   assert.equal(LivingTamrielConfig.political, PRESENCE.OFF);
+
+  // Test mobTraits synchronization
+  assert.equal(LivingTamrielConfig.mobTraits, PRESENCE.MID);
+  LivingTamrielConfig.mobTraits = PRESENCE.HIGH;
+  assert.equal(LivingTamrielConfig.mobTraits, PRESENCE.HIGH);
+  assert.equal(getPref('livingMobTraits'), PRESENCE.HIGH);
+  setPref('livingMobTraits', PRESENCE.OFF);
+  assert.equal(LivingTamrielConfig.mobTraits, PRESENCE.OFF);
 
   // Test Quest competition toggle synchronization
   assert.equal(LivingTamrielConfig.allowQuestCompetition, false);
@@ -119,6 +128,8 @@ test('LT-07: Localization keys for all living settings are registered in en and 
     'features.livingCamps.note',
     'features.livingNaval.title',
     'features.livingNaval.note',
+    'features.livingMobTraits.title',
+    'features.livingMobTraits.note',
   ];
 
   for (const k of requiredKeys) {

@@ -2724,6 +2724,8 @@ features.livingCamps.note,"Спавнит придорожные стоянки,
 features.livingCamps.title,"Лагеря и блокпосты"
 features.livingNaval.note,"Наполняет прибрежные воды эскадренными сражениями между патрульными кораблями и пиратами."
 features.livingNaval.title,"Морские эскадры"
+features.livingMobTraits.note,"Позволяет обычным врагам появляться с боевыми трейтами и щитами, с масштабированием от уровня персонажа."
+features.livingMobTraits.title,"Особенности и трейты врагов"
 features.livingNemesis.note,"Отправляет за игроком охотников за головами, челленджеров и мстителей с ролевыми проверками в диалогах."
 features.livingNemesis.title,"Соперники-Немезиды"
 features.livingPolitical.note,"Управляет сменой состояний регионов между миром, войной, чумой и восстаниями по всему Тамриэлю."

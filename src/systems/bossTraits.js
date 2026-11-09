@@ -42,6 +42,7 @@ import { SKILLS } from './skills.js';
 import { eliteHash, eliteRng } from './eliteFoes.js'; // the seeded draw every client draws alike (a leaf of this one: it imports nothing of here)
 import { setTraitTitleFormat } from './foeTitle.js'; // AUDIT WORLD-EVENTS L5-12: the title's word composed in the player's language (a leaf)
 import { isHandWraps } from '../characters/handWrapsIds.js'; // HAND-WRAPS
+import { LivingTamrielConfig, PRESENCE } from './living/livingConfig.js';
 
 /** Every trait, in the mask's bit order (append only: the mask is on the wire). */
 export const BOSS_TRAITS = Object.freeze([
@@ -410,3 +411,92 @@ export function relayBossTraits(name, kind) {
 /** The line a relay boss's traits are said in, once when the fight is met. */
 export const bossTraitsMetLine = (name, words) =>
   t('bossTraits.say.met', '{name}: {traits}.', { name, traits: words.join(', ') });
+
+/**
+ * Calculates the chance (0.0 to 1.0) of a regular mob spawning with traits,
+ * based on Living Tamriel presence tier (0..3) and player character level.
+ *
+ * 4 Tiers:
+ * 0 (OFF):   0% (vanilla behavior, no extra traited foes)
+ * 1 (LIGHT): 8% base + 0.5% per player level (cap 25%)
+ * 2 (MID):   16% base + 1.0% per player level (cap 50%)
+ * 3 (HIGH):  30% base + 1.5% per player level (cap 75%)
+ *
+ * @param {number} tier
+ * @param {number} [playerLevel]
+ * @returns {number}
+ */
+export function mobTraitChance(tier, playerLevel = 1) {
+  if (!Number.isFinite(tier) || tier <= PRESENCE.OFF) return 0;
+  const lvl = Math.max(1, Math.min(50, Number.isFinite(playerLevel) ? Math.floor(playerLevel) : 1));
+  if (tier === PRESENCE.LIGHT) {
+    return Math.min(0.25, 0.08 + (lvl - 1) * 0.005);
+  }
+  if (tier === PRESENCE.MID) {
+    return Math.min(0.50, 0.16 + (lvl - 1) * 0.01);
+  }
+  return Math.min(0.75, 0.30 + (lvl - 1) * 0.015);
+}
+
+/**
+ * Checks if an entity is an undead minion or summoned ally.
+ * Must NOT receive hostile boss/mob traits.
+ *
+ * @param {any} entity
+ * @returns {boolean}
+ */
+export function isUndeadMinion(entity) {
+  if (!entity) return false;
+  return (
+    entity.livingRole === 'undead_minion' ||
+    entity.team === 'PlayerAlly' ||
+    entity.mobileTeam === 'PlayerAlly' ||
+    entity.allied === true ||
+    entity.controlledUndead === true ||
+    entity.isMinion === true ||
+    (typeof entity.companion === 'string' && entity.companion.startsWith('undead_'))
+  );
+}
+
+/**
+ * Evaluates and applies traits to a regular spawned mob if eligible,
+ * taking into account LivingTamrielConfig.mobTraits and player level.
+ *
+ * Safe & harmonious:
+ * - Does nothing if tier is OFF.
+ * - Does nothing if entity already has traits (e.g. elites, bosses).
+ * - Does nothing for allies, puppets, or undead minions.
+ * - Does nothing if roll does not succeed.
+ *
+ * @param {any} entity
+ * @param {{
+ *   playerLevel?: number,
+ *   tier?: number,
+ *   roll?: () => number,
+ *   seed?: number | null,
+ *   puppet?: boolean,
+ *   allied?: boolean,
+ * }} [opts]
+ * @returns {boolean} True if traits were assigned
+ */
+export function maybeApplyMobTraits(entity, {
+  playerLevel = 1,
+  tier = LivingTamrielConfig.mobTraits,
+  roll = Math.random,
+  seed = null,
+  puppet = false,
+  allied = false,
+} = {}) {
+  if (!entity || puppet || allied) return false;
+  if (isUndeadMinion(entity)) return false;
+  if (bossTraitsOf(entity).length > 0) return false;
+
+  const chance = mobTraitChance(tier, playerLevel);
+  if (chance <= 0) return false;
+
+  const rng = Number.isSafeInteger(seed) ? eliteRng(seed) : roll;
+  if (rng() >= chance) return false;
+
+  const traitCount = (tier >= PRESENCE.HIGH && playerLevel >= 15 && rng() < 0.15) ? 2 : 1;
+  return giveBossTraits(entity, rollBossTraits(traitCount, rng));
+}

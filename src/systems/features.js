@@ -2086,6 +2086,15 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'livingNaval', initial: 2, online: 'player', tiers: LIVING_TIERS }),
   }),
+  Object.freeze({
+    id: 'living-mob-traits',
+    group: 'world',
+    get title() { return t('features.livingMobTraits.title', 'Traited foes & affixes'); },
+    get note() { return t('features.livingMobTraits.note', 'Allows regular foes to spawn with combat traits and shields, scaling with player level.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingMobTraits', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
 ]);
 
 // ── RF4: the lanes, and what the stores derive ────────────────────

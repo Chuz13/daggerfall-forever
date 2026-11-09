@@ -483,6 +483,7 @@ export const CATEGORIES = Object.freeze([
       'feat:living-travel',
       'feat:living-camps',
       'feat:living-naval',
+      'feat:living-mob-traits',
     ]),
   ]),
 ]);
