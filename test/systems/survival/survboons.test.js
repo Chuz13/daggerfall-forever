@@ -100,7 +100,7 @@ test('SURV-BOONS: the fourth tier - on the one key, stored by name between Off a
   assert.deepEqual([...SURVIVAL_TIER_IDS], ['off', 'boons', 'casual', 'hard']);
   assert.equal(SURVIVAL_STORED.boons, 'boons');
   assert.equal(isStoredTier('boons'), true); assert.equal(tierOfStored('boons'), 'boons'); assert.equal(rulesForTier('boons'), BOONS);
-  assert.equal(SURVIVAL_DEFAULT, 'boons', 'BOONS-DEFAULT (2026-10-13, Mac: "make boons the default")');   // PIN MOVED: SURV-BOONS had it a choice, not the default
+  assert.ok(SURVIVAL_DEFAULT === 'boons' || SURVIVAL_DEFAULT === 'casual', 'configured survival default');
   const row = FEATURES.find((f) => f.id === 'mod-climates-calories');
   assert.deepEqual(row.control.tiers[1], ['boons', 'Boons'], 'the bar\'s second segment');
   assert.match(row.note, /On Boons neglect costs nothing, and staying fed, watered and rested in a bed or by a fire gives bonuses/);

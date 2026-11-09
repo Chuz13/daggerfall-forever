@@ -15,6 +15,7 @@ import { mwCamera } from '../../src/player/mwCamera.js';
 import { fpArm } from '../../src/combat/fpArm.js';
 import { eotbCamera } from '../../src/player/eyeOfTheBeholder/eotbCamera.js';
 import { setModSetting, _resetModSettings } from '../../src/systems/modSettings.js';
+import { setPref } from '../../src/systems/uiPrefs.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -29,12 +30,14 @@ function arm() {
   setEotbBodyReady(null); setEotbDrawBody(null);
   eotbCamera.loadSettings(null); eotbCamera.toggleOffset(false);
   _resetModSettings();
-  const real = { canThirdPerson: fpArm.canThirdPerson, setViewMode: fpArm.setViewMode };
+  setPref('mwPlayerBody', true);
+  const real = { canThirdPerson: fpArm.canThirdPerson, setViewMode: fpArm.setViewMode, ready: fpArm.ready };
   fpArm.canThirdPerson = () => true;
   fpArm.setViewMode = () => true;
+  fpArm.ready = () => true;
   mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
   frame(false);   // drain anything a previous test left queued
-  return () => { fpArm.canThirdPerson = real.canThirdPerson; fpArm.setViewMode = real.setViewMode; mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() }); frame(false); };
+  return () => { fpArm.canThirdPerson = real.canThirdPerson; fpArm.setViewMode = real.setViewMode; fpArm.ready = real.ready; mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() }); frame(false); };
 }
 
 test('RIDE-POV: a rider in third person is put in the head on the frame, keeps the zoom distance, and is left there on dismount (the wheel is where it was)', () => {
@@ -97,8 +100,8 @@ test('RIDE-POV by source: one door into the head for the Morrowind lane, shared 
   // up), the body has a saddle to show (test/formats/morrowind/coats3d_horse3d.test.js)
   // PIN MOVED, DRAGON-POV (2026-10-30): nor on a dragon (the host's `dragon`) - the dragon is what its third person shows
   // (test/player/dragonpov.test.js)
-  assert.match(s, /saddled = !!state\.riding && stepOwnHorse\(state\.horse, feet, yaw, state\.dt \?\? 0\);\n\s*onDragon = !!state\.dragon; \/\/ DRAGON-POV: on a dragon the dragon is what third person shows \(scenes\/dragonViewHost\.js\)\n\s*mounted = !!state\.riding && !saddled && !onDragon;\n\s*if \(mounted\) \{\n\s*mwIntoHead\(\);\n\s*pendingClicks = 0;\n\s*\}\n\s*const wasThird = mwCamera\.thirdPerson\(\);\n\s*if \(pendingClicks\) \{/, 'the saddle rules before the flush, and drops it');
-  assert.match(s, /clicks < 0 && \(!fpArm\.canThirdPerson\(\) \|\| mounted\)\) return false;/, 'the wheel reads the saddle');
+  assert.match(s, /saddled = !!state\.riding && stepOwnHorse\(state\.horse, feet, yaw, state\.dt \?\? 0\);\n\s*onDragon = !!state\.dragon; \/\/ DRAGON-POV: on a dragon the dragon is what third person shows \(scenes\/dragonViewHost\.js\)\n\s*mounted = !!state\.riding && !saddled && !onDragon;\n\s*if \(mounted\) \{\n\s*mwIntoHead\(\);\n\s*pendingClicks = 0;\n\s*\}\n[\s\S]*?const wasThird = mwCamera\.thirdPerson\(\);\n\s*if \(pendingClicks\) \{/, 'the saddle rules before the flush, and drops it');
+  assert.match(s, /clicks < 0 && \(!(?:fpArm\.canThirdPerson|mwCanThirdPerson)\(\) \|\| mounted\)\) return false;/, 'the wheel reads the saddle');
   // GENERATIVE, as AUDIT-EOTB F3b: every host that rides the seam hands it `riding`
   const callers = [];
   for (const h of ['exterior', 'world', 'worldModes', 'dungeon']) {

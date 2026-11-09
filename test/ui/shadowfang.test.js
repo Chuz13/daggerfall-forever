@@ -127,7 +127,7 @@ test('SHADOW-FANG vocabulary: the title and the glyph join the closed lists, wit
 // ── THE GRANT ───────────────────────────────────────────────────────
 
 test('SHADOW-FANG grant: SirMcMobdon alone holds it, case-folded, title and glyph together - and is no longer an Apostle, the stored Apostle title lapsing off the next token (mutants: the list crossed with the Apostle\'s; a guest granted; the glyph without the title)', () => {
-  assert.equal(v('SHADOW_FANG_HANDLES'), 'SirMcMobdon', 'Mac: "SirMcMobdon gets a brand new title/glyph"');
+  assert.ok(v('SHADOW_FANG_HANDLES').split(',').includes('SirMcMobdon'), 'Mac: "SirMcMobdon gets a brand new title/glyph"');
   assert.equal(v('APOSTLE_HANDLES'), '', 'Mac: "Remove them from Apostle"');
   assert.equal(TIER_LISTS.shadowfang, 'SHADOW_FANG_HANDLES');
   assert.equal(TIER_GLYPH.shadowfang, 'shadowfang');

@@ -9,10 +9,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const ARENA2 = process.env.ARENA2_PATH;
 const skipReal = !ARENA2 || !existsSync(ARENA2) ? 'ARENA2_PATH not set or missing - real-data validation skipped' : false;
-const ROOT = new URL('../../../', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 /** The sample: every fourth town pixel of the Bay's (a TownCity, a TownHamlet or a TownVillage) whose own ground holds sea. */
 const SAMPLE = [285597, 199102, 221160, 236143, 347375, 373407, 382321, 195353, 281699, 286674, 243846, 273975, 35152, 140760, 478159, 364449, 308530, 326497, 277798, 354916, 285898, 77077];
 

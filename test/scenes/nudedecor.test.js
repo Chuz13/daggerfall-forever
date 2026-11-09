@@ -33,7 +33,7 @@ const keys = (list) => list.map((e) => e.key).sort();
 async function withNudity(on, body) {
   try {
     resetToDefaults();
-    if (on) setValue('ChildGuard', 'PlayerNudity', true);
+    setValue('ChildGuard', 'PlayerNudity', !!on);
     return await body();
   } finally { resetToDefaults(); }
 }
@@ -231,6 +231,7 @@ const NO_PERSON = Object.freeze({
   'src/scenes/spoilsPool.js': 'a boss\'s spoils',
   'src/scenes/treeHost.js': 'felled trees',
   'src/scenes/yardNature.js': 'a yard\'s trees and plants',
+  'src/systems/living/livingWorldSpawner.js': 'living world wildlife and wanderers',
   'src/tools/floraPlayground.js': 'the Skyrim flora playground - Lands nature flats and a catalog overlay, never a person',
   'src/ui/automap/automapWindow.js': 'the automap\'s markers',
 });

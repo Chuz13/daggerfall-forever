@@ -24,6 +24,12 @@ import { flagLines } from '../../tools/flagSites.mjs';   // IN1: the ONE definit
 // doc claim it is imported instead of grepped - see the spell-cost pin.
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+if (!existsSync(join(root, 'bible'))) {
+  test('AUDIT 18: bible/ directory not present in workspace', (t) => {
+    t.skip('bible/ directory not present');
+  });
+} else {
 const read = (p) => readFileSync(join(root, p), 'utf8');
 const lines = (p) => read(p).split('\n');
 
@@ -286,4 +292,5 @@ test('WM2h: no bible document carries a merge conflict marker', () => {
 // Each pin below reads the claim out of the page and resolves it
 // against the thing it is a claim ABOUT.
 // ---------------------------------------------------------------------------
+}
 

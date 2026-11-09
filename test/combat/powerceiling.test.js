@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setPref, _resetForTests } from '../../src/systems/uiPrefs.js';
 import * as LR from '../../src/systems/loot/lootRarity.js';
 import * as LP from '../../src/systems/loot/lootPowers.js';
@@ -253,7 +254,7 @@ test('POWER-CEILING THE SETS\' OTHER GUARDS: Hold the Line and Gearward take the
 });
 
 test('POWER-CEILING THE SOURCE: every blow modifier the tree registers asks blowRoom, and every damage modifier but the three that land no blow at all asks guardRoom - a new power cannot step round the product, inline or named (mutants: a power that never asks; AUDIT HORIZONTAL D2: an inline blow power, a share added to a veto)', () => {
-  const root = new URL('../../', import.meta.url).pathname;
+  const root = fileURLToPath(new URL('../../', import.meta.url));
   const files = readdirSync(join(root, 'src'), { recursive: true }).filter((f) => f.endsWith('.js')).map((f) => join('src', f));
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
   // AUDIT HORIZONTAL D2: every call by its name, its arguments read to the closing paren - a pattern on the arguments' shape

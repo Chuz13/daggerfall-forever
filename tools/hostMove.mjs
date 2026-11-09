@@ -28,7 +28,7 @@
 // What it cannot see, it refuses; what it moved it prints. Read the diff.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, relative, basename, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parse } from 'acorn';
 import { isMain } from './lib/isMain.mjs';
 import { parseModule, findHostFunction, scopeOf } from './hostScope.mjs';
@@ -433,8 +433,8 @@ export function renderMove(p) {
 
   const rel = (spec) => {
     if (!spec.startsWith('.')) return spec;
-    const abs = new URL(spec, `file://${process.cwd()}/${hostFile}`).pathname;
-    let r = relative(dirname(`${process.cwd()}/${toFile}`), abs);
+    const abs = new URL(spec, pathToFileURL(resolve(hostFile)).href);
+    let r = relative(dirname(resolve(toFile)), fileURLToPath(abs)).replace(/\\/g, '/');
     if (!r.startsWith('.')) r = `./${r}`;
     return r;
   };
@@ -477,7 +477,7 @@ export function renderMove(p) {
     return lines.map((l) => indent + l).join('\n');
   };
   const moduleText = `${[
-    `// HOST-SPLIT: moved verbatim out of ${hostFile}'s ${host.name} (bible/01-Overview/Host-Split.md) by tools/hostMove.mjs.`,
+    `// HOST-SPLIT: moved verbatim out of ${hostFile.replace(/\\/g, '/')}'s ${host.name} (bible/01-Overview/Host-Split.md) by tools/hostMove.mjs.`,
     `// The host constructs it where the code stood. What it reads of the host's scope comes through \`${handle}\`: the`,
     '// settled names by value at construction, every live one (a `let` someone writes, a `const` made below) read at its',
     `// use as \`${handle}.<name>\` - as the code read them where it was.`,
@@ -498,7 +498,7 @@ export function renderMove(p) {
     (n) => `get ${n}() { return ${n}; },${writes.has(n) ? ` set ${n}(value) { ${n} = value; },` : ''}`,
   );
   const construction = [
-    `  ${ret.length ? `const { ${ret.join(', ')} } = ` : ''}${ctor}({   // HOST-SPLIT: ${toFile}`,
+    `  ${ret.length ? `const { ${ret.join(', ')} } = ` : ''}${ctor}({   // HOST-SPLIT: ${toFile.replace(/\\/g, '/')}`,
     sortedValue.length ? `${wrap(sortedValue, '    ')},` : null,
     ...getters.map((g) => `    ${g}`),
     '  });',

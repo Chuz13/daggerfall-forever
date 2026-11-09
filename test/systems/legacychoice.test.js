@@ -30,6 +30,8 @@ import { setModSetting, _resetModSettings } from '../../src/systems/modSettings.
 import { _resetModSaveData } from '../../src/systems/modSaveData.js';
 import { hostText } from '../hostText.mjs';   // PIN MOVED (HOST-SPLIT TEST-PRESET): the world host whole
 
+setModSetting(LEGACY_MOD, 'Legacy.Model', 0);
+
 const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
 const FONT = { fnt: { fixedHeight: 9, fixedWidth: 4, glyphWidth: () => 4 }, tex: 'tex:font', cols: 16, rows: 16, cw: 8, ch: 8 };
 const CANVAS = { width: 640, height: 400 };

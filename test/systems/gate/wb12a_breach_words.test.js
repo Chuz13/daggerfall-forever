@@ -8,8 +8,9 @@
 import '../../modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as acorn from 'acorn';
 import { riseLine, wrathLine, gateBossOf } from '../../../src/net/gate/gateLaw.js';
 import { omenPost, fellPost } from '../../../src/net/gate/gateHerald.js';
@@ -32,14 +33,23 @@ import { addItem } from '../../../src/systems/inventory.js';
 import { restorePlayer, snapshotPlayer } from '../../../src/systems/save/save.js';
 import { cardOf } from '../../heraldCards.mjs';   // HERALD-CARDS: a post read as its card
 
-const ROOT = new URL('../../../', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 const OLD = /Oblivion Gate|Sigil Stone/i;
 
 /** Every string a shipped file can show or send: its literals and its template text - never a comment. */
 function shippedStrings() {
   const files = [];
-  const walk = (d) => { for (const f of readdirSync(join(ROOT, d))) { const p = join(d, f); if (statSync(join(ROOT, p)).isDirectory()) walk(p); else if (/\.(m?js|cjs)$/.test(f)) files.push(p); } };
+  const walk = (d) => {
+    const full = join(ROOT, d);
+    if (!existsSync(full)) return;
+    for (const f of readdirSync(full)) {
+      if (f === 'node_modules') continue;
+      const p = join(d, f);
+      if (statSync(join(ROOT, p)).isDirectory()) walk(p);
+      else if (/\.(m?js|cjs)$/.test(f)) files.push(p);
+    }
+  };
   for (const d of ['src', 'server/src', 'server-account/src', 'app']) walk(d);
   const out = [];
   for (const f of files) {

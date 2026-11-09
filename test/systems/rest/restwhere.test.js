@@ -51,7 +51,7 @@ const src = (rel) => readFileSync(join(SRC, rel), 'utf8');
  *  is the stale-second-copy shape, and these are ONE HOME sweeps. */
 const srcFiles = (dir = SRC) => readdirSync(dir, { withFileTypes: true }).flatMap((d) => (
   d.isDirectory() ? srcFiles(join(dir, d.name))
-    : (d.name.endsWith('.js') ? [join(dir, d.name).slice(SRC.length)] : []))).sort();
+    : (d.name.endsWith('.js') ? [join(dir, d.name).slice(SRC.length).replace(/\\/g, '/')] : []))).sort();
 
 /** The four hosts that can open a rest window. */
 const REST_HOSTS = ['scenes/dungeonContext.js', 'scenes/world.js',

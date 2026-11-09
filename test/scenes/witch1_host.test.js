@@ -17,6 +17,7 @@ import { FESTIVALS } from '../../src/net/festivalLaw.js';
 import { playerEntity } from '../../src/characters/playerEntity.js';
 import { characterIdOf } from '../../src/systems/characterId.js';
 import { RAY_DISTANCE, DEFAULT_ACTIVATION_DISTANCE } from '../../src/player/activate.js';
+import { FORK_FLAGS } from '../../src/config/forkFlags.js';
 
 const MAP = 1234, MINE = 77, THEIRS = 78;
 const store = new Map();
@@ -57,6 +58,7 @@ function standWorld({ town } = {}) {
 }
 
 beforeEach(() => {
+  FORK_FLAGS.ENABLE_SEASONAL_EVENTS = true;
   globalThis.localStorage = mem;
   store.clear();
   store.set(SESSION_KEY, JSON.stringify({ secret: 'sekrit', id: 'acct-alice', name: 'Alice', kind: 'linked' }));
@@ -65,7 +67,12 @@ beforeEach(() => {
   world = standWorld();
   H = world.host;
 });
-afterEach(() => { mock.timers.reset(); _resetFestivalClientForTests(); delete globalThis.localStorage; });
+afterEach(() => {
+  mock.timers.reset();
+  _resetFestivalClientForTests();
+  delete globalThis.localStorage;
+  FORK_FLAGS.ENABLE_SEASONAL_EVENTS = false;
+});
 
 const standUp = async () => { H.frame(); await settle(); H.frame(); await settle(); };
 
@@ -232,15 +239,15 @@ test('WITCH1 THE FOUR HOSTS: world.js makes the host and reads its frame, names 
   const world = readFileSync(new URL('../../src/scenes/world.js', import.meta.url), 'utf8');
   const modes = readFileSync(new URL('../../src/scenes/worldModes.js', import.meta.url), 'utf8');
   const ext = readFileSync(new URL('../../src/scenes/exterior.js', import.meta.url), 'utf8');
-  assert.match(world, /witches = createWitchesHost\(\{ built, renderer, pipeline, onlineHomes, townTalk, state, player, saveSoon, chatNotice, mode: _mode, get online\(\) \{ return online; \} \}\);/);
-  assert.ok(world.indexOf('witches = createWitchesHost(') < world.indexOf('var modes = createWorldModes({'), 'made before the modes host reads it');
+  assert.match(world, /witches = (?:FORK_FLAGS\.ENABLE_SEASONAL_EVENTS \? )?createWitchesHost\(\{ built, renderer, pipeline, onlineHomes, townTalk, state, player, saveSoon, chatNotice, mode: _mode, get online\(\) \{ return online; \} \}\)(?: : null)?;/);
+  assert.ok(world.indexOf('createWitchesHost(') < world.indexOf('var modes = createWorldModes({'), 'made before the modes host reads it');
   assert.match(world, /\n {4}witches,   \/\/ WITCH1/);
   assert.match(world, /\(key\) => witches\?\.hoverName\(key\) \?\? null,/);
   assert.match(world, /\n {4}witches\?\.frame\(\);/);
   assert.match(world, /else if \(name === 'harvest'\) audio\.playOneShotId\(SPELL_CAST_SOUND\[2\], 1\);/);
-  assert.match(modes, /if \(!info && pn\?\.witch && host\.witches\?\.shop\(\)\) return;/);
+  assert.match(modes, /if \(!info && (?:FORK_FLAGS\.ENABLE_SEASONAL_EVENTS && )?pn\?\.witch && host\.witches\?\.shop\(\)\) return;/);
   assert.match(modes, /for \(const t of host\.witches\?\.targets\(\) \?\? \[\]\) targets\.push\(t\);/);
   assert.match(modes, /key\.startsWith\('witch:'\)\) \{[^\n]*\n\s+if \(_hitDist > _hitReach\) \{ setMidScreenText\(tooFarAwayText\(\)\); return true; \}\n\s+return host\.witches\?\.activate\(key, getInteractionMode\(\), plaqueActionFor\(key\)\) \?\? true;/);
-  assert.match(modes, /\?\? \(pn\?\.witch \? vendorOffice\(\) : null\);/);
+  assert.match(modes, /\?\? \((?:FORK_FLAGS\.ENABLE_SEASONAL_EVENTS && )?pn\?\.witch \? vendorOffice\(\) : null\);/);
   assert.doesNotMatch(ext, /createWitchesHost|witchesDressing/, 'the bench stands no festival');
 });

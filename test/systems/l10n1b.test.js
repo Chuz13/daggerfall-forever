@@ -135,7 +135,7 @@ test('L10N1b executed: a language\'s file patched in speaks through t(); tIn ask
   // the menu's own table, read off its source: each entry's English is the label whose id it answers
   const menu = rd('src/ui/enhanced/enhancedMenu.js');
   const entries = [...menu.matchAll(/^ {2}(\w+): \(\) => t\('menu\.rail\.(\w+)', '([^']+)'\),$/gm)];
-  assert.equal(entries.length, 15);
+  assert.equal(entries.length, 16);
   const labels = new Set();
   for (const m of menu.matchAll(/^const SECTIONS_(?:BOOT|CLASSIC|PAUSE) = \[([^\]]+)\];/gm)) for (const q of m[1].matchAll(/'([^']+)'/g)) labels.add(q[1]);
   const idOf = (label) => label.toLowerCase().split(' ')[0];

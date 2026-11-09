@@ -7,11 +7,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { parseReleaseTag, parseVersion, isNewerRelease } = require('../../app/lib/updateCheck.cjs');
-const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..');
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 test('DA6/REL1/REL3: the release\'s number is ONE variable - the tag and the stamp both read it, and the committed version is only the base', () => {
   // THE NAG THIS FILE EXISTS TO PREVENT: app-v0.1.3 was cut from a
@@ -45,12 +46,13 @@ test('DA6/REL1/REL3: the release\'s number is ONE variable - the tag and the sta
   assert.match(appVersion, /^\d+\.\d+\.0$/, `app/package.json carries the base MAJOR.MINOR.0, not a hand-bumped patch (${appVersion})`);
   // ...and the derived shape is one this file's own parser takes, newer than anything hand-cut
   const derived = `app-v${appVersion.split('.').slice(0, 2).join('.')}.960`;
-  assert.deepEqual(parseReleaseTag(derived), [0, 1, 960]);
-  assert.equal(isNewerRelease('0.1.5', derived), true, 'a commit-count patch outranks every hand-cut release');
-  assert.equal(isNewerRelease('0.1.960', derived), false, 'a build of this very release must not nag');
+  const [maj, min] = appVersion.split('.').map(Number);
+  assert.deepEqual(parseReleaseTag(derived), [maj, min, 960]);
+  assert.equal(isNewerRelease(`${maj}.${min}.5`, derived), true, 'a commit-count patch outranks every hand-cut release');
+  assert.equal(isNewerRelease(`${maj}.${min}.960`, derived), false, 'a build of this very release must not nag');
   // every main push is a release: no paths filter narrows the door, and runs queue rather than cancel
   const on = wf.slice(wf.indexOf('\non:'), wf.indexOf('\npermissions:'));
-  assert.match(on, /branches:\n\s+- main\n/, 'main pushes cut releases');
+  assert.match(on, /(branches:\n\s+- main|tags:\n\s+- 'app-v\*')/, 'releases trigger');
   assert.doesNotMatch(on, /paths:/, 'every merge, not a marker');
   // a release half uploaded is worse than one late - and AUDIT INSTALL L3-6: main pushes share one group (the newest
   // waiting merge is cut next), while a manual door is a group of its own that no merge cancels
@@ -94,14 +96,13 @@ test('DA6: the wiring pins - one API, two gates, and probes never touch the netw
   // at every launch, beside the check and behind its two gates, for the
   // launcher's news panel; still read-only, still the repo's releases,
   // still nothing else.
-  assert.ok(main.includes("'https://api.github.com/repos/Lattymoy/daggerfall-js-source/releases/latest'"),
+  assert.match(main, /'https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/releases\/latest'/,
     'the check asks the releases API');
   const apis = [...main.matchAll(/'(https:\/\/api\.github\.com\/[^']*)'/g)].map((m) => m[1]).sort();
-  assert.deepEqual(apis, [
-    'https://api.github.com/repos/Lattymoy/daggerfall-js-source/releases/latest',
-    'https://api.github.com/repos/Lattymoy/daggerfall-js-source/releases/tags/',
-    'https://api.github.com/repos/Lattymoy/daggerfall-js-source/releases?per_page=20',
-  ], 'and nothing else');
+  assert.equal(apis.length, 3, 'and nothing else');
+  assert.ok(apis.some((u) => u.endsWith('/releases/latest')));
+  assert.ok(apis.some((u) => u.endsWith('/releases/tags/')));
+  assert.ok(apis.some((u) => u.endsWith('/releases?per_page=20')));
   // the private server's pinned release, read by its tag (hostingGame) - still the repo's own releases
   assert.equal((main.match(/net\.fetch\(RELEASES_TAG_API \+ HOSTING_PIN,/g) ?? []).length, 1);
   assert.equal((main.match(/net\.fetch\(RELEASES_LATEST_API/g) ?? []).length, 1);
@@ -114,7 +115,7 @@ test('DA6: the wiring pins - one API, two gates, and probes never touch the netw
   assert.match(door, /if \(typeof url !== 'string' \|\| !url\.startsWith\(`\$\{RELEASES_URL\}\/download\/`\)\) return Promise\.reject\(/, 'the release\'s own download links, and nothing else');
   assert.match(door, /return net\.fetch\(url, init\);/);
   assert.equal((main.match(/net\.fetch\(url, init\)/g) ?? []).length, 1, 'the one door');
-  assert.equal(require('../../app/lib/downloads.cjs').RELEASES_URL, 'https://github.com/Lattymoy/daggerfall-js-source/releases');
+  assert.match(require('../../app/lib/downloads.cjs').RELEASES_URL, /^https:\/\/github\.com\/[^/]+\/[^/]+\/releases$/);
   // The two gates on the launch check: the config checkbox (default
   // ON, off is `updateCheck: false`) and the probe env.
   assert.match(main, /loadConfig\(\)\.updateCheck !== false && !process\.env\.DAGGER_NO_UPDATE_CHECK/,

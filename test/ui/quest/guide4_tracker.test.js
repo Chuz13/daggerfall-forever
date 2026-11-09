@@ -55,10 +55,11 @@ globalThis.clearInterval = (id) => { intervals.delete(id); };
 /** The switches for one test (the tracker on, the herald and the marks off unless asked), put back after, the model
  *  reset. */
 function withSwitches(fn, { tracker = true, herald = false, marks = false } = {}) {
-  quiet(() => { setPref(TRACKER_PREF, tracker); setPref(HERALD_PREF, herald); setPref(MARKS_PREF, marks); });
+  const prevGuidance = PREF_DEFAULTS.questGuidance;
+  quiet(() => { setPref(TRACKER_PREF, tracker); setPref(HERALD_PREF, herald); setPref(MARKS_PREF, marks); setPref('questGuidance', 'journal'); });
   _resetQuestTrackerForTests();
   try { return fn(); } finally {
-    quiet(() => { setPref(TRACKER_PREF, true); setPref(HERALD_PREF, true); setPref(MARKS_PREF, true); });
+    quiet(() => { setPref(TRACKER_PREF, true); setPref(HERALD_PREF, true); setPref(MARKS_PREF, true); setPref('questGuidance', prevGuidance ?? 'journal'); });
     _resetQuestTrackerForTests();
   }
 }

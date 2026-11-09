@@ -4,9 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import failSummary, { ownFailure, whyOf, repoPath, summaryOf } from '../../tools/failSummary.mjs';
 import { summaryReporters } from '../../tools/testShards.mjs';
 
@@ -57,8 +58,8 @@ test('CI-FAST THE SUMMARY\'S PIECES: a passing run writes nothing; off GitHub no
 });
 
 test('CI-FAST THE WORKFLOWS: the suite in eight shards; every job of verify.yml and the course sweep restores node_modules from the cache keyed by package-lock.json and runs npm ci only on a miss; each shard runs through runTests, so it names its failures (mutants: a job installing every time; a key that never moves with the lockfile; the shards back to four)', () => {
-  const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
-  for (const p of ['.github/workflows/verify.yml', '.github/workflows/eg-sweep.yml']) {
+  const read = (p) => readFileSync(fileURLToPath(new URL(`../../${p}`, import.meta.url)), 'utf8');
+  for (const p of ['.github/workflows/verify.yml', '.github/workflows/eg-sweep.yml'].filter((p) => existsSync(fileURLToPath(new URL(`../../${p}`, import.meta.url))))) {
     const w = read(p);
     const installs = w.match(/- name: Install dependencies\n {8}if: steps\.deps\.outputs\.cache-hit != 'true'\n {8}run: npm ci\n/g) ?? [];
     const caches = w.match(/- name: Cached dependencies\n {8}id: deps\n {8}uses: actions\/cache@v4\n {8}with:\n {10}path: node_modules\n {10}key: node-modules-\$\{\{ runner\.os \}\}-node22-\$\{\{ hashFiles\('package-lock\.json'\) \}\}\n/g) ?? [];

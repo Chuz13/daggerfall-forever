@@ -26,9 +26,10 @@ import { tradeCost, buyItemPrice } from '../../src/systems/tradeModes.js';
 import { itemValueOf, setItemFields, itemBaseValue, templateByIndex } from '../../src/systems/item/itemTemplates.js';
 import { calculateCost } from '../../src/systems/shopStock.js';
 import { ITEM_TEMPLATES } from '../../src/characters/paperdoll/paperdoll.js';
+import { setPref } from '../../src/systems/uiPrefs.js';
 
 const rd = (p) => readFileSync(new URL('../../' + p, import.meta.url), 'utf8');
-const defaults = () => { const b = createBindings(); resetDefaults(b); return b; };
+const defaults = () => { const b = createBindings(); resetDefaults(b); b.primary.set('F5', 'CharacterSheet'); return b; };
 const tmpl = (name) => ITEM_TEMPLATES.find((t) => t.name === name);
 const fresh = () => ({ stats: { endurance: 50 }, skills: [], skillUses: [], items: [], spells: [] });
 /** A real snapshot of a bare entity, the one shape restorePlayer reads - with the fields under test removed or replaced. */
@@ -56,6 +57,7 @@ test('JAN1 (1): the pack\'s CharacterSheet key closes the pack and opens the she
 });
 
 test('JAN1 (2): a save with no bank accounts restores the FULL table (and the house registry beside it), so every bank reader validates the region instead of throwing; a save with accounts keeps them; the classic ValidateRegion law is untouched', () => {
+  setPref('unifiedBank', false);
   const back = fresh();
   restorePlayer(back, snapOf({}, ['bankAccounts', 'houses']));   // a pre-B1 snapshot: no `bankAccounts` at all
   assert.equal(back.bankAccounts.length, BANK_REGION_COUNT, 'sixty-two accounts, as a new game');

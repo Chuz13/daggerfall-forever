@@ -7,7 +7,7 @@
 // And the account deploy's smoke asks a new route again when an old instance answers it 404 mid-rollout.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 
 import { BUILDING_TYPES } from '../../src/world/buildingNames.js';
 import {
@@ -84,8 +84,9 @@ test('HOME2 the door, by source: the verbs listed in every mode but Steal and on
   assert.match(m, /\{ code: 'KeyY', label: HOME_OFFER_BUY, action: \(\) => \{ buyHomeAt\(bd, price\)/);
 });
 
-test('HOME2 the deploy: a smoke call that 404s is asked again, seven times five seconds apart, before the deploy is failed - an old instance answering mid-rollout failed PR #387\'s deploy after it had taken; every new route\'s call goes through it (mutants: no retry; a route called around it)', () => {
-  const wf = src('.github/workflows/account-deploy.yml');
+const WF_ACCOUNT_DEPLOY = new URL('../../.github/workflows/account-deploy.yml', import.meta.url);
+test('HOME2 the deploy: a smoke call that 404s is asked again, seven times five seconds apart, before the deploy is failed - an old instance answering mid-rollout failed PR #387\'s deploy after it had taken; every new route\'s call goes through it (mutants: no retry; a route called around it)', { skip: !existsSync(WF_ACCOUNT_DEPLOY) ? 'retired workflow removed' : false }, () => {
+  const wf = readFileSync(WF_ACCOUNT_DEPLOY, 'utf8');
   // PIN MOVED (INT16, Integrity-Arc section 7): the retry is `ask`, one loop every smoke call goes through - `post` and the
   // realm character's first save (`put`) each hand it their own curl words (the loop written twice was two sites of one law)
   // PIN MOVED (SMOKE-LOST, 2026-10-18): `ask` clears and leaves `<out>.lost` - a try that went unanswered, which the first

@@ -238,7 +238,7 @@ test('enhancedRest.js now matches ui/restWindow.js\'s own three deps calls exact
   const start = js.slice(js.indexOf('const startFixed = '), js.indexOf('overlay._start = '));
   assert.match(start, /if \(mode === 'loiter'\) deps\.setLoitering\?\.\(true\);/, 'only Loiter raises it - Rest-for-a-while and Rest-Until-Healed never do, same as restWindow.js\'s own TimedRestPrompt/loiter-prompt split');
   const close = js.slice(js.indexOf('const close = () => {'), js.indexOf('render();\n  releaseLock();'));
-  assert.match(close, /deps\.setResting\?\.\(false\);\s*\n\s*deps\.setLoitering\?\.\(false\);[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*if \(lockHandler[^\n]*\n\s*host\?\.remove\(\);/,
+  assert.match(close, /deps\.setResting\?\.\(false\);\s*\n\s*deps\.setLoitering\?\.\(false\);[\s\S]*?if \(lockHandler[^\n]*\n\s*host\?\.remove\(\);/,
     'both flags cleared BEFORE host teardown/onClose - restWindow.js\'s own _close(): "The flags first and UNGUARDED... Then the dispatch, ONCE"');
   assert.match(js, /ok\.onclick = \(\) => stopOrClose\(\);/, 'AUDIT PARTY-REST: through the one body the keys and the stack share');
   assert.match(js, /if \(overlay\.state === 'ended'\) \{ close\(\); deps\.onRestFinished\?\.\(\); return true; \}/,

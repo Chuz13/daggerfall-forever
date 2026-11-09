@@ -26,7 +26,7 @@
 // one, and this file pins that choice rather than hiding it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { flagLines, blankQuoted } from '../../tools/flagSites.mjs';
@@ -114,7 +114,7 @@ test('IN1: the workaround the tool forced is retired, verbatim', () => {
   assert.equal(flagLines(dc).includes(776), false, 'and the quoted line is no longer harvested');
 });
 
-test('IN1: the board lists exactly the sites the rule finds', () => {
+test('IN1: the board lists exactly the sites the rule finds', { skip: !existsSync(join(ROOT, 'bible/Home.md')) ? 'bible not present' : false }, () => {
   // the AUDIT 18 guard checks the two sets line by line; this checks
   // the COUNT, so a slice that regenerates half the board fails here.
   const listed = read('bible/Home.md').split('\n').filter((l) => /^- `src\//.test(l)).length;

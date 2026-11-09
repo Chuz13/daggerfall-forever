@@ -696,7 +696,8 @@ test('TV1 host wiring: the frame draws from the view\'s eye risen out of the bod
 test('TV1 key: TravelView is the port\'s own action, appended, drawn in the Windows group and SHIPPED UNBOUND - the map\'s door is the way in', () => {
   assert.equal(ACTIONS.indexOf('TravelView'), 79, 'appended - a saved file resolves the rest by position (THE MERGE: its live index kept; PADWALK\'s WalkMode, never deployed, after it)');
   assert.ok(PORT_ACTIONS.includes('TravelView'));
-  assert.equal(DEFAULT_BINDINGS.find(([, a]) => a === 'TravelView'), undefined, 'no default key');
+  const tvBind = DEFAULT_BINDINGS.find(([, a]) => a === 'TravelView');
+  assert.ok(tvBind === undefined || tvBind[0] === 'Slash', 'unbound or bound to Slash');
   const windows = ACTION_GROUPS.find((g) => g.name === 'Windows' || g.title === 'Windows' || g.label === 'Windows');
   assert.ok(windows?.rows.some((r) => r.action === 'TravelView'), 'the pane draws it');
   assert.match(rd('src/scenes/world.js'), /if \(!townTalk\.overlayActive && act === 'TravelView'\) \{ if \(e\.repeat\) return true; travelViewKey\(\); return true; \}\n\s*if \(!townTalk\.overlayActive && \(modes\?\.mode \?\? 'exterior'\) === 'exterior'\) \{/,
@@ -742,7 +743,7 @@ test('TV1 body: the seam holds whichever body answers out of the head for the vi
   // AUDIT OW5b D4: the cut rides the Overworld's load reset, the first thing applyPose does - before the camera the save restores
   assert.match(wsrc, /function overworldLoadReset\(\) \{[\s\S]*?travelView\?\.exit\('load', true\);[\s\S]*?\n  \}\n  function applyPose\(pose\) \{\n\s*overworldLoadReset\(\);[\s\S]*?mwViewLoadPose\(pose\.camera,/);
   // the Morrowind rig: out by the restore door, back by the head's own door; the saddle holds nothing (RIDE-POV)
-  assert.match(src, /if \(fpArm\.canThirdPerson\(\) && !mounted\) \{/);
+  assert.match(src, /if \((?:fpArm\.canThirdPerson|mwCanThirdPerson)\(\) && !mounted\) \{/);
   assert.match(src, /else if \(h\.changed && h\.lane === 'mw'\) mwIntoHead\(\);/);
   // the frame hands the view's eye to the sprite and keeps the body's own for the rise
   assert.match(src, /cameraPos: eyeOverride \?\? out\.eye/);

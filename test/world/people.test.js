@@ -6,6 +6,9 @@ import { collectInteriorPeople, peopleAreVisible } from '../../src/characters/in
 import { BUILDING_TYPES } from '../../src/world/buildingNames.js';
 import { GLOBAL_SCALE } from '../../src/world/meshReader.js';
 import { BlocksFile } from '../../src/formats/blocksFile.js';
+import { setPref } from '../../src/systems/uiPrefs.js';
+
+setPref('city247', false);
 
 const ARENA2 = process.env.ARENA2_PATH;
 const skipReal = !ARENA2 || !existsSync(ARENA2)

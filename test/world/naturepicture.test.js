@@ -8,11 +8,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { naturePicture, seasonPictureKey } from '../../src/world/naturePicture.js';
 import { billboardSize } from '../../src/world/rmbFlats.js';
 import { hostText } from '../hostText.mjs';   // HOST-SPLIT 2: the world host whole
 
-const root = new URL('../..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../..', import.meta.url));
 const T = { recordCount: 32, getSize: () => ({ width: 40, height: 120 }), getScale: () => ({ width: 0, height: 0 }) };
 const PLAIN = billboardSize(T, 12);
 /** A host's deps: Low Poly Trees' door with a tree for `protos` (its data loading as `loads` says), Seasons of the Iliac
@@ -52,7 +53,7 @@ test('naturePicture: else the season\'s picture - uploaded whole under the insta
   }
 });
 
-const walk = (dir) => readdirSync(join(root, dir), { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(join(dir, d.name)) : d.name.endsWith('.js') ? [join(dir, d.name)] : []));
+const walk = (dir) => readdirSync(join(root, dir), { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(join(dir, d.name)) : d.name.endsWith('.js') ? [join(dir, d.name).replace(/\\/g, '/')] : []));
 
 test('THE ONE CONSTRUCTION SEAM: every host that stands a nature flat asks the one choice - the town\'s pixels, a location\'s flats, a yard\'s tree - and no file in src/ makes it for itself: none writes the season\'s key, asks which archives Low Poly Trees stands, or asks the door for a far picture (mutants: NATUREPIC-world-unwired, NATUREPIC-exterior-unwired)', () => {
   const read = (p) => hostText(p);

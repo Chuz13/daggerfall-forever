@@ -15,7 +15,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-export const ROOT = new URL('..', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+
+export const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const WF = '.github/workflows/account-deploy.yml';
 export const STEP = 'Report where the account Worker runs';
 export const workflow = () => readFileSync(join(ROOT, WF), 'utf8');

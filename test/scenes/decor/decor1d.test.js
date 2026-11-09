@@ -566,7 +566,7 @@ test('DECOR1d the host (worldModes.js, world.js) by source: one tool on the room
   assert.match(m, /if \(mode === 'dungeon'\) dungeonCtx\?\.deathTilt\?\.\(cam\);\n    if \(mode === 'interior'\) decorTool\.cameraOverride\(cam\);/);
   assert.match(m, /\n    \}\);\n    if \(decorTool\.flying\(\)\) mwv\.eye = cam\.pos;/, 'and the view is the free camera\'s in third person too');
   assert.match(m, /interiorDecor\.draw\(renderer, interiorCtx\.texRemap\);[^\n]*\n    decorTool\.draw\(renderer, interiorCtx\.texRemap\);/);
-  assert.match(m, /interiorWeapon\.draw\(\{ paralyzed \}\);[^\n]*\n    decorTool\.drawPreview\(interiorCtx\.texRemap\);/);
+  assert.match(m, /interiorWeapon\.draw\(\{ paralyzed \}\);[^\n]*\n    decorTool\.drawPreview\(interiorCtx(?:\?\.texRemap \?\? null|\.texRemap)\);/);
   assert.equal([...m.matchAll(/interiorDecor\.destroyAll\(\); _decorVisit\+\+; decorTool\.close\(\);/g)].length, 3);
   assert.match(w, /decorCharacter: \(\) => characterIdOf\(playerEntity\),/);
 });

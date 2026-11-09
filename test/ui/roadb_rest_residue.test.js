@@ -33,6 +33,7 @@ import { createRestDeps } from '../../src/scenes/shared.js';
 import { makeWindowStack } from '../../src/ui/windowStack.js';
 import { updateNpcPresence } from '../../src/characters/interiorPeople.js';
 import { makeInteriorPersonHost } from '../../src/scenes/interiorContext.js';
+import { getPref, setPref } from '../../src/systems/uiPrefs.js';
 import { BUILDING_TYPES } from '../../src/world/buildingNames.js';
 import { SKILLS } from '../../src/systems/skills.js';
 import { createBindings, setBinding } from '../../src/systems/inputActions.js';
@@ -357,29 +358,41 @@ test('B5: every host hands the rest window its live slot as TopWindow', () => {
 test('B5: UpdateNpcPresence - the shop you entered SHUT is open when you wake', () => {
   // The gate is two arms (:347-349) and the clock test is a THIRD
   // condition inside them (:352).
-  const shop = BUILDING_TYPES.GeneralStore;   // open 08:00-16:00
-  assert.equal(updateNpcPresence(shop, { hour: 12, insideOpenShop: false }), true,
-    'walked into a closed shop, rested to opening time: the shopkeeper appears');
-  assert.equal(updateNpcPresence(shop, { hour: 4, insideOpenShop: false }), false,
-    'still shut - IsBuildingOpen is the inner test');
-  assert.equal(updateNpcPresence(shop, { hour: 12, insideOpenShop: true }), false,
-    'a shop entered OPEN is not the shop arm at all (!IsPlayerInsideOpenShop)');
+  const prevCity247 = getPref('city247');
+  setPref('city247', false);
+  try {
+    const shop = BUILDING_TYPES.GeneralStore;   // open 08:00-16:00
+    assert.equal(updateNpcPresence(shop, { hour: 12, insideOpenShop: false }), true,
+      'walked into a closed shop, rested to opening time: the shopkeeper appears');
+    assert.equal(updateNpcPresence(shop, { hour: 4, insideOpenShop: false }), false,
+      'still shut - IsBuildingOpen is the inner test');
+    assert.equal(updateNpcPresence(shop, { hour: 12, insideOpenShop: true }), false,
+      'a shop entered OPEN is not the shop arm at all (!IsPlayerInsideOpenShop)');
+  } finally {
+    setPref('city247', prevCity247);
+  }
 });
 
 test('B5: UpdateNpcPresence - the non-shop arm is <= House4 and NOT HouseForSale', () => {
   // The bound is the literal one, so Temple (14), Tavern (15) and
   // Palace (16) are all under it and House5 (21) is not - the same
   // reading peopleAreVisible carries for AddPeople's tail.
-  assert.equal(updateNpcPresence(BUILDING_TYPES.Palace, { hour: 12 }), true, 'Palace 10:00-16:00');
-  assert.equal(updateNpcPresence(BUILDING_TYPES.Palace, { hour: 20 }), false);
-  assert.equal(updateNpcPresence(BUILDING_TYPES.Tavern, { hour: 3 }), true, 'a tavern never closes');
-  assert.equal(updateNpcPresence(BUILDING_TYPES.HouseForSale, { hour: 12 }), false,
-    'HouseForSale is excluded BY NAME (:349), not by its hours');
-  assert.equal(updateNpcPresence(BUILDING_TYPES.House5, { hour: 12 }), false,
-    'past House4 the arm does not apply');
-  // House1's own row is open 0 / close 0 - never open, so its people
-  // never come back either way.
-  assert.equal(updateNpcPresence(BUILDING_TYPES.House1, { hour: 12 }), false);
+  const prevCity247 = getPref('city247');
+  setPref('city247', false);
+  try {
+    assert.equal(updateNpcPresence(BUILDING_TYPES.Palace, { hour: 12 }), true, 'Palace 10:00-16:00');
+    assert.equal(updateNpcPresence(BUILDING_TYPES.Palace, { hour: 20 }), false);
+    assert.equal(updateNpcPresence(BUILDING_TYPES.Tavern, { hour: 3 }), true, 'a tavern never closes');
+    assert.equal(updateNpcPresence(BUILDING_TYPES.HouseForSale, { hour: 12 }), false,
+      'HouseForSale is excluded BY NAME (:349), not by its hours');
+    assert.equal(updateNpcPresence(BUILDING_TYPES.House5, { hour: 12 }), false,
+      'past House4 the arm does not apply');
+    // House1's own row is open 0 / close 0 - never open, so its people
+    // never come back either way.
+    assert.equal(updateNpcPresence(BUILDING_TYPES.House1, { hour: 12 }), false);
+  } finally {
+    setPref('city247', prevCity247);
+  }
 });
 
 test('B5: the rest window runs UpdateNpcPresence on pop, ONCE, and it only ever ADDS people', () => {

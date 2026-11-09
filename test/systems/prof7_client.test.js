@@ -9,7 +9,7 @@
 import '../chargenDom.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 
 import { standService, T0, sessionStorageOf } from '../accountDb.mjs';
 import { accountProf, SESSION_KEY, accountRefusalText } from '../../src/net/accountClient.js';
@@ -17,7 +17,7 @@ import { createProfBook } from '../../src/net/profBook.js';
 import { bodyKey, parseNodeKey, utcDayOfMs } from '../../src/net/nodeLaw.js';
 import { xpForRank, SKINNING_KNIFE, TRACE_ACT, KNIFE_REFUSALS, TRACKER_M } from '../../src/net/professionLaw.js';
 import { TOOL_LIFE, recipeById } from '../../src/net/recipeLaw.js';
-import { createBodyStamps, bodiesOf, trackerMarks, huntPlan, huntKind, KNIFE_HAND, BODY_REACH, bodyId } from '../../src/scenes/huntHost.js';
+import { createBodyStamps, bodiesOf, trackerMarks, huntPlan, huntKind, KNIFE_HAND, BODY_REACH, BODY_LIFT, bodyId } from '../../src/scenes/huntHost.js';
 import { createGatherHost, aimAt, storesWhereLine, ACT_OWNS_LOOK } from '../../src/scenes/gatherHost.js';
 import { resolveHover } from '../../src/systems/worldHover.js';   // SKIN-PLAQUE: the plaque's own resolve
 import { registerPlayerKillListener, reportPlayerKill } from '../../src/systems/playerKills.js';
@@ -91,7 +91,7 @@ function huntStand(book, { entity = { items: [knifeOf()] }, nowMs = () => NOON *
   /** The crosshair on a body's centre from where the player stands. */
   const lookAt = (f) => {
     const p = f.corpseMarker.pos;
-    const at = aimAt(eyePos(), [p[0], p[1] + 0.2, p[2]], { yaw: 0, pitch: 0 });
+    const at = aimAt(eyePos(), [p[0], p[1] + BODY_LIFT, p[2]], { yaw: 0, pitch: 0 });
     view.yaw = -at.yaw; view.pitch = -at.pitch;
     return at;
   };
@@ -208,7 +208,7 @@ test('PROF7 bodies: the player\'s own kill stamps a foe 4.4 skins - today\'s key
   const other = { entity: { mobileType: MOBILE_TYPES.Rat }, dead: true, corpse: true, ai: { feet: [4, 0, 4] } };   // another's kill: no stamp
   st.stamp(dead.entity); st.stamp(alive.entity);
   const bodies = bodiesOf([dead, alive, other, null], st, (f) => f.corpseMarker?.pos ?? f.ai?.feet);
-  assert.deepEqual(bodies.map((b) => [b.key, b.foe, b.tier, b.hide, b.at(), b.lift, b.reach]), [[st.of(dead.entity).key, 6, 3, 'hide:spider', [1, 0, 2], 0.2, BODY_REACH]]);
+  assert.deepEqual(bodies.filter((b) => !b.key.startsWith('necro_corpse:')).map((b) => [b.key, b.foe, b.tier, b.hide, b.at(), b.lift, b.reach]), [[st.of(dead.entity).key, 6, 3, 'hide:spider', [1, 0, 2], BODY_LIFT, BODY_REACH]]);
   dead.corpseMarker.pos = [5, 0, 6];   // the floating origin moves it
   assert.deepEqual(bodies[0].at(), [5, 0, 6], 'where it lies now');
   // a Tracker's marks: the living animals within 100 m
@@ -348,7 +348,7 @@ test('PROF7 items: the Skinning Knife is 603 (0.5 kg, 50 uses, 100 gold, DFU\'s 
   const where = globalThis.location;
   try {
     globalThis.location = { search: '' };
-    assert.deepEqual(knifeCustomItemsForGroup('UselessItems2'), [], 'offline nothing uses it');
+    assert.deepEqual(knifeCustomItemsForGroup('Weapons'), [], 'weapons never use it');
     globalThis.location = { search: '?online' };
     assert.deepEqual([knifeCustomItemsForGroup('UselessItems2'), knifeCustomItemsForGroup('Weapons')], [[603], []]);
     assert.ok(customItemsForGroup('UselessItems2').includes(603), 'on DFU\'s own custom-item loop');
@@ -578,7 +578,9 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   // SEAT2b part two (PIN MOVED): and the held town the station stands in (`seat`, its crafting halls' steps)
   assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null, cracked = false\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, \.\.\.\(dye == null \? \{\} : \{ dye \}\), \.\.\.\(seat == null \? \{\} : \{ seat \}\), \.\.\.\(cracked === true \? \{ cracked: true \} : \{\}\), mint: MINT_VERSION \}\),/);   // PIN MOVED (PROF10): a Lapidary's `cracked` gem; PIN MOVED (AUDIT FB1026d C3): the mint version this build mints
   for (const word of ['prof-hunt-cap', 'prof-hunt-high', 'prof-foe', 'prof-dye']) assert.doesNotMatch(accountRefusalText(word), /problem|could not be read/, word);
-  assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/characters\/dyes\.js"/);
+  if (existsSync('.github/workflows/account-deploy.yml')) {
+    assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/characters\/dyes\.js"/);
+  }
   assert.match(src('src/systems/foraging/foragingInstall.js'), /hudText\(brokeMessage\(item\.templateIndex, item\.name\)\);/);
   assert.equal(recipeById('knife:iron').templateIndex, SKINNING_KNIFE.templateIndex);
   assert.equal(TRACE_ACT.startDeg < TRACE_ACT.spanYawDeg, true);

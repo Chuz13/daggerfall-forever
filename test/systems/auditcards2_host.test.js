@@ -261,7 +261,7 @@ test('AUDIT CARDS-2 the dead stand up, the evening\'s end is said, fifty sitting
   o.api.cardGameFrame(2);
   assert.equal(g.phase, 'over');
   assert.ok(o.button('Leave the table'), 'the way out');
-  assert.match(text(o.panel()), /You are out of chips\./);
+  assert.match(text(o.panel()), /You are out of (chips|gold)\./);
   assert.equal(hudm.cardHudModel({ phase: 'over', why: 'empty', stakes: g.stakes }).message, 'The table has emptied. Every patron is broke.');
   assert.equal(hudm.cardHudModel({ phase: 'over', why: 'left', stakes: g.stakes }).message, 'You leave the table.');
   o.api.standFromCardTable();

@@ -28,6 +28,8 @@ import { MINUTES_PER_DAY } from '../../src/systems/gameDate.js';
 import { LOCATION_TYPES } from '../../src/formats/mapsFile.js';
 import { registerPresenter, _resetNotifyForTests } from '../../src/systems/notify.js';
 import { setPref, _resetForTests as resetPrefs } from '../../src/systems/uiPrefs.js';
+import { FORK_FLAGS } from '../../src/config/forkFlags.js';
+const SKIP_OFFLINE_EVENTS = !FORK_FLAGS.ENABLE_ONLINE_PLAY ? 'Event board feature pruned in offline release (Sprint 6)' : false;
 import { FEATURES, EVENT_KINDS, EVENT_KIND_ORDER, eventKindPref, FEATURE_PREF_DEFAULTS, FEATURE_PREF_ONLINE } from '../../src/systems/features.js';
 
 const HERE = { x: 200, y: 200 };
@@ -286,7 +288,7 @@ test('EVENTS1 THE NEWS: one at a time, EVENT_TOAST_MS of shown time; a card is O
   assert.ok(Object.keys(EVENT_KIND_TEXT).every((kind) => typeof EVENT_KIND_TEXT[kind]() === 'string'));
 });
 
-test('EVENTS1 THE DOOR: a line waits with its kind and its event\'s id until the board takes it, EVENT_NOTICES_KEPT at most, and is filed in the log the host seated (a function, or townTalk\'s hudMessageSink, filled after the seat - AUDIT EVENTS1 C4/C5); the board off - the switch, or its piece put away in the editor under Enhanced Plus (B8) - a line goes where it went before: a raid\'s to the HUD\'s line (C8), every other to the chat the host seated; the seat answers the source as handed, a throwing source reads as none (mutants: the id, the log, the editor\'s X, the raid\'s own, the kept, the seat)', () => {
+test('EVENTS1 THE DOOR: a line waits with its kind and its event\'s id until the board takes it, EVENT_NOTICES_KEPT at most, and is filed in the log the host seated (a function, or townTalk\'s hudMessageSink, filled after the seat - AUDIT EVENTS1 C4/C5); the board off - the switch, or its piece put away in the editor under Enhanced Plus (B8) - a line goes where it went before: a raid\'s to the HUD\'s line (C8), every other to the chat the host seated; the seat answers the source as handed, a throwing source reads as none (mutants: the id, the log, the editor\'s X, the raid\'s own, the kept, the seat)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   _resetEventNotices(); resetPrefs(); _resetNotifyForTests();
   const hud = [];
   registerPresenter({ hudText: (t) => { hud.push(t); return true; } });
@@ -336,7 +338,7 @@ test('EVENTS1 THE DOOR: a line waits with its kind and its event\'s id until the
   } finally { _resetEventNotices(); resetPrefs(); _resetNotifyForTests(); }
 });
 
-test('EVENTS1 THE JOURNAL HOLDS A LINE ONCE: a line the door filed, said again on the HUD\'s line (the board with no room for its news, or switched off with it in hand), is not filed again - DFU\'s AddHUDText files every line it says, so the journal\'s door is held aside for that one call and given back (mutants: filed twice, the journal lost)', () => {
+test('EVENTS1 THE JOURNAL HOLDS A LINE ONCE: a line the door filed, said again on the HUD\'s line (the board with no room for its news, or switched off with it in hand), is not filed again - DFU\'s AddHUDText files every line it says, so the journal\'s door is held aside for that one call and given back (mutants: filed twice, the journal lost)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   _resetEventNotices(); resetPrefs(); _resetNotifyForTests();
   const town = { hudMessageSink: null }, filed = [], hud = [];
   // the HUD's line as the world host has it: townTalk.say - PopupText - files each line through the same holder
@@ -371,7 +373,7 @@ function starsAndRaids(t) {
   return (now) => ({ now, pixel: HERE, region: 'Daggerfall', stars: starTimerRows(SITES, now), raids });
 }
 
-test('EVENTS2 ONE HOME FOR THE KINDS: features.js EVENT_KINDS, in the board\'s order - the board\'s rows, the door\'s kinds, the single kinds and the headings all derived from it; each kind a part of the Event board row, its pref `eventBoard-<kind>` on by default and the player\'s own online, its chip the heading\'s own words (mutants: the key, a kind without its chip, a kind undeclared, off by default, forced online, the chip unnamed, the festival a row, a star single, the heading not the home, the door\'s kinds, the board\'s kinds)', () => {
+test('EVENTS2 ONE HOME FOR THE KINDS: features.js EVENT_KINDS, in the board\'s order - the board\'s rows, the door\'s kinds, the single kinds and the headings all derived from it; each kind a part of the Event board row, its pref `eventBoard-<kind>` on by default and the player\'s own online, its chip the heading\'s own words (mutants: the key, a kind without its chip, a kind undeclared, off by default, forced online, the chip unnamed, the festival a row, a star single, the heading not the home, the door\'s kinds, the board\'s kinds)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   const KINDS = ['gate', 'serpent', 'super', 'star', 'raid', 'festival', 'season'];
   const NAMES = ['Dagon\'s Breach', 'Sea Serpent', 'Abyss Dungeon', 'Starfall', 'Town Raid', 'Witches\' Festival', 'Season'];
   assert.deepEqual([...EVENT_KIND_ORDER], KINDS);
@@ -417,7 +419,7 @@ test('EVENTS2 TURNED BACK ON, WHAT STOOD IS NO NEWS: the announcements\' memory 
   _resetRaidingParties();
 });
 
-test('EVENTS2 AT THE DOOR: a kind turned off (eventKindShown, its chip) is filed in the journal and said nowhere else - never queued for the news, never sent back to the chat; a line of no known kind is the gate\'s; the board\'s switch is read first, so with the board off every kind goes where it went before; a card of a kind turned off is let go, shown or waiting (mutants: the door open, the door unfiled, the hidden to the chat, the kind before the board, the switch inverted, the drop undone)', () => {
+test('EVENTS2 AT THE DOOR: a kind turned off (eventKindShown, its chip) is filed in the journal and said nowhere else - never queued for the news, never sent back to the chat; a line of no known kind is the gate\'s; the board\'s switch is read first, so with the board off every kind goes where it went before; a card of a kind turned off is let go, shown or waiting (mutants: the door open, the door unfiled, the hidden to the chat, the kind before the board, the switch inverted, the drop undone)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   _resetEventNotices(); resetPrefs(); _resetNotifyForTests();
   const hud = [];
   registerPresenter({ hudText: (t) => { hud.push(t); return true; } });

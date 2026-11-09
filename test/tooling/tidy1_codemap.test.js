@@ -22,7 +22,7 @@ function codeDirs(dir = 'src', out = []) {
   return out;
 }
 
-test('TIDY1: every directory of code is on the map, and the map names none that is gone', () => {
+test('TIDY1: every directory of code is on the map, and the map names none that is gone', { skip: !existsSync(join(root, 'bible/01-Overview/Code-Map.md')) ? 'bible not present' : false }, () => {
   const doc = rd('bible/01-Overview/Code-Map.md');
   const rows = [...doc.matchAll(/^\| `(src\/[^`]*?)\/?` \|/gm)].map((m) => m[1]);
   const mapped = new Set(rows.map((r) => r.replace(/\/$/, '')));

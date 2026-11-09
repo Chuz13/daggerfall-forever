@@ -41,7 +41,7 @@
 // ---------------------------------------------------------------------------
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,11 +94,15 @@ const lines = (rel) => read(rel).split('\n');
 // ---------------------------------------------------------------------------
 test('CD7: no citation into a port file names a range that runs backwards', () => {
   const CITE = /([A-Za-z0-9_./-]+\.(?:js|mjs)):(\d+)\s*(?:-|\/:|\/|\s+against\s+:)\s*:?(\d+)/g;
-  const walk = (dir) => readdirSync(join(root, dir), { withFileTypes: true }).flatMap((e) => {
-    if (e.name === 'node_modules' || e.name.startsWith('.')) return [];
-    const rel = `${dir}/${e.name}`;
-    return e.isDirectory() ? walk(rel) : (/\.(js|mjs|md)$/.test(e.name) ? [rel] : []);
-  });
+  const walk = (dir) => {
+    const p = join(root, dir);
+    if (!existsSync(p)) return [];
+    return readdirSync(p, { withFileTypes: true }).flatMap((e) => {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) return [];
+      const rel = `${dir}/${e.name}`;
+      return e.isDirectory() ? walk(rel) : (/\.(js|mjs|md)$/.test(e.name) ? [rel] : []);
+    });
+  };
   const backwards = [];
   // this file alone is exempt: it QUOTES the corrupted forms above, as
   // the record of what the check is for.
@@ -125,11 +129,15 @@ test('CD7: no citation into a port file names a range that runs backwards', () =
 // MUTANT: set any range's hyphen back to U+2011 and this goes red.
 test('CD7b: no citation names a range with a typographic dash - the tools that keep cites read an ASCII hyphen', () => {
   const DASHED = /:\d+[‐-―−]\d+/g;
-  const walk = (dir) => readdirSync(join(root, dir), { withFileTypes: true }).flatMap((e) => {
-    if (e.name === 'node_modules' || e.name.startsWith('.')) return [];
-    const rel = `${dir}/${e.name}`;
-    return e.isDirectory() ? walk(rel) : (/\.(js|mjs|md)$/.test(e.name) ? [rel] : []);
-  });
+  const walk = (dir) => {
+    const p = join(root, dir);
+    if (!existsSync(p)) return [];
+    return readdirSync(p, { withFileTypes: true }).flatMap((e) => {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) return [];
+      const rel = `${dir}/${e.name}`;
+      return e.isDirectory() ? walk(rel) : (/\.(js|mjs|md)$/.test(e.name) ? [rel] : []);
+    });
+  };
   const dashed = [];
   for (const rel of ['src', 'test', 'tools', 'bible'].flatMap(walk)) {
     lines(rel).forEach((l, i) => { for (const m of l.matchAll(DASHED)) dashed.push(`${rel}:${i + 1}: ${m[0]}`); });

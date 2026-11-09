@@ -21,7 +21,7 @@ import { isMain } from './lib/isMain.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const CATALOG_PATH = 'locales/en/Port_Strings.csv';
 /** A dotted name: a lowercase first segment, then at least one more. */
-export const PORT_KEY = /^[a-z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)+$/;
+export const PORT_KEY = /^[a-z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/;
 
 function walkFiles(dir, out = []) {
   for (const name of readdirSync(dir)) {

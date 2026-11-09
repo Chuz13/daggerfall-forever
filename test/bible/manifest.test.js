@@ -2,7 +2,7 @@
 // one name would make every such mention ambiguous), and Testing.md does not grow a file table again.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,7 +22,8 @@ test('manifest: no two test files share a name - the bible names a test by its f
   assert.deepEqual(twice, [], 'two test files share a name - a mention of it in the bible could mean either');
 });
 
-test('manifest: Testing.md carries no file table and no suite total - a test file describes itself, and the suite counts itself (LEGIBLE 1b)', () => {
+test('manifest: Testing.md carries no file table and no suite total - a test file describes itself, and the suite counts itself (LEGIBLE 1b)', (t) => {
+  if (!existsSync(join(root, TESTING))) return t.skip('bible/ not present in this workspace');
   const page = read(TESTING);
   assert.deepEqual(page.match(TABLE_ROW) ?? [], [], 'Testing.md has a file-table row again');
   assert.doesNotMatch(page, /Suite: \d+ tests across \d+ files\./, 'Testing.md has a suite total again');

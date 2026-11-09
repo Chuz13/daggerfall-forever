@@ -24,8 +24,10 @@ const drawTo = (w, frame = BOW_DRAWN_HOLD_FRAME) => { let n = 0; while (w.machin
 
 test('AUDIT 28 W12: off (the shipped default) - the press shoots at once, StrikeDown, as before', () => {
   resetToDefaults();
+  setValue('Controls', 'BowDrawback', 'False');
   const w = bow();
   assert.equal(w.gesture(0, 0, true, 1 / 60, DIM), 'StrikeDown');
+  resetToDefaults();
 });
 
 test('AUDIT 28 W12: on - the press DRAWS (StrikeUp), the machine walks to the hold frame and waits there while the button is held', () => {

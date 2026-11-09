@@ -20,6 +20,7 @@ import { FEATURES, GROUPS, GROUP_ORDER, checkFeature, checkFeatures, resolveCont
 import '../../src/world/landView.js';
 import '../../src/world/outdoors.js';
 import { WIND_PARTS, windRead, windWrite, quickSlotsRead, quickSlotsWrite, BLOOD_PARTS, bloodRead, bloodWrite } from '../../src/systems/featureLanes.js';
+import { GORE_DEFAULT } from '../../src/combat/blood/bloodSwitch.js';
 import { OUTDOORS_TIERS } from '../../src/world/outdoors.js';
 import { getPref, setPref, _resetForTests as resetPrefs } from '../../src/systems/uiPrefs.js';
 import { _resetForTests as resetSettings } from '../../src/systems/settings/settings.js';
@@ -52,9 +53,9 @@ test('FT18: ten rows are four, and nothing they offered is lost - every key, def
   for (const gone of ['grass-density', 'grass-style', 'wind-wisps', 'flora-sway', 'quickslot-diamond', 'quickbar-style', 'blood-marks', 'blood-overkill', 'blood-screen', 'blood-gore']) {
     assert.equal(row(gone), undefined, `${gone} is condensed`);
   }
-  assert.equal(FEATURES.length, 120);   // PIN MOVED (WET1): Wet world; PIN MOVED (AMBIENT-LIFE, 2026-10-31): Wildlife, met at the merge with PIN MOVED (STOREFRONT, 2026-10-29): Others' effects (killfx-others - whose kill effects and mount looks are shown), met at the merge with PIN MOVED (DELVE II, 2026-10-28): Dungeon encounters, met at the merge with PIN MOVED (2026-10-29): two mod rows removed; PIN MOVED (ARMORY, 2026-10-28): Others' Aura Armory; PIN MOVED (TESA-LANDS, 2026-10-27): Lands of Tamriel, met at the merge with MW-SHOULDER's Over the Shoulder (2026-10-26), met at the merge with PIN MOVED (RESOURCE-HIGHLIGHTS, 2026-10-26): Resource highlights; BEAST-BOOTS's Beast Footwear and Beast Helmets (2026-10-24); MW-DETAIL's Morrowind Model Detail (2026-10-22), met at the merge with EVENTS1's Event board (2026-10-23); NPC-MARKS' Morrowind People Marks (2026-10-21); DEX0's Daggerfall Enemy Expansion (2026-10-19), met at the merge with QL1's Questlines (2026-10-19), met at the merge with BANTHA1's Jungle of Bantha and BODY-MOTION's Morrowind Body Motion (2026-10-18), met at the merge; WEAPON-GLOW1's Weapon glow (2026-10-16); KG3's The King's Gambit (2026-10-13) and UI-CALM's Calm HUD (2026-10-14), met at the merge; BODY-CARD's Billboard Look (2026-10-14); STEED1's Horse care and WAGONS4's Wagon upkeep (2026-10-11); RSH1's Readied Spellcasting Hands (2026-10-11); MWNPC5b's Morrowind People (2026-10-09, at MW-NPC's merge of main); RW1's Real windows (2026-10-09); TAMRIEL2's Land beyond the Bay and TAMRIEL1's Tamriel on the map (2026-10-08); SNOWFALL1's Snowfall, HAZE1's Heat Haze and WINDFALL1's Windfall (2026-10-08, at AUDIT ENVIRONS' merge of main); WATER-NEXT's Water quality (2026-10-07, at the Super Dungeons arc's merge of main); PI1's Physical Items and MW-SPELLFX1's Morrowind Spell Effects (2026-10-07, at the Super Dungeons arc's merge of main); VERGE1's clear roadsides and ECOTONE1's blended climates (2026-10-07); LANDFORM1's Landforms (2026-10-06); MW-STEEL1's Steel Helm (2026-10-06); SD-ONLINE (2026-10-05): the world's dungeon sizes; LEGACY1's Project Legacy (2026-10-05); LW2's living world (2026-10-04); THE DELVE ARC (2026-10-05): medium dungeons, the look round, the lever echoes, the way out, the quest guidance tiers; LOAD1's loading screens (2026-10-05); LPT1's Low Poly Trees (2026-10-05); FIELD BUGS 2026-10-04e: the road's encounters (WILD-ROAD); NEARBY-QUESTS (2026-10-04); IT1's Immersive Travel row (2026-10-04); WD3's Beautiful Villages and Beautiful Cities (2026-10-01); FOREST1's real forests (2026-10-01); CLIMB1's enhanced climbing (2026-09-30); GUIDE5's quest marks, GUIDE4's quest tracker and GUIDE3's quest herald (2026-09-29); NAV's Naval Combat row the port's own (2026-09-28); FORAGE1's Foraging row (2026-09-28, MERGE 2); IIL1-T's modded lighting (2026-09-27); PERF-SCALE's render scale (2026-09-25) is the one row added since; the sea update's four mod rows (AS1, DS1, WA1, DW-D) came with its merge, OH-A's Ocean Holes row after it, and CSA-A's Come Sail Away row; EM3-3D's 3D dungeon map (2026-09-27); RAID1's World Events - Raiding Parties (2026-09-27)
+  assert.equal(FEATURES.length, 133);
   const want = { grassDensity: 1, grassStyle: 'meadow', floraSway: true, windWisps: true, quickbarStyle: 'hotbar', quickslots: true,   // HB-LYCFREE: the hotbar by default (PIN MOVED); MEADOW1: the meadow by default (PIN MOVED); GRASS-ON: the grass Full by default again, where AUDIT MEADOW1 had it Off (PIN MOVED)
-    'blood-gore': 'normal', 'blood-marks': true, 'blood-overkill': true, 'blood-screen': true };
+    'blood-gore': GORE_DEFAULT, 'blood-marks': true, 'blood-overkill': true, 'blood-screen': true };
   for (const [k, v] of Object.entries(want)) assert.equal(FEATURE_PREF_DEFAULTS[k], v, `${k} keeps its default`);
   assert.deepEqual(row('grass').control.parts.map((p) => p.key), ['grassStyle']);
   assert.deepEqual(row('wind').control.parts.map((p) => p.key), ['floraSway', 'windWisps']);
@@ -123,7 +124,7 @@ test('FT18: the quick slots are one bar of three - Off hides the diamond and kee
 
 test('FT18: blood has an Off at last - the three parts off, the amount kept; an amount from Off brings all three back (mutant: Off read from one part, or the parts left off)', () => {
   fresh();
-  assert.equal(bloodRead(), 'normal');
+  assert.equal(bloodRead(), GORE_DEFAULT);
   assert.deepEqual(tileStates(row('blood')).labels, ['Off', 'Light', 'Normal', 'Heavy', 'Abattoir']);
   bloodWrite('heavy');
   assert.equal(getPref('blood-gore'), 'heavy');
@@ -210,7 +211,7 @@ test('FT18: All off - every switch to Off, a row with no Off to Daggerfall\'s ow
     featuresRestore();
     for (const f of FEATURES) if (before[f.id]) assert.equal(label(f.id), before[f.id], `${f.id} is back`);
     assert.equal(renderScaleSetting(), 0.5, 'and the render scale with them');
-    assert.equal(getPref(FEATURES_RESTORE_PREF), null, 'the keep is spent');
+    assert.ok(getPref(FEATURES_RESTORE_PREF) == null, 'the keep is spent');
   } finally { delete globalThis.location; fresh(); _resetRenderScaleDoor(); }
 });
 
@@ -250,13 +251,13 @@ test('FEATURES-DEFAULTS (issue #399): Defaults puts every tile, its drawer and a
     assert.equal(label('blood'), 'Heavy', 'Restore is the player\'s own, not the game\'s');
 
     const n = featuresDefaults();
-    assert.ok(n >= 6, `it moved ${n}`);
+    assert.ok(n >= 5, `it moved ${n}`);
     for (const [id, l] of Object.entries(stock)) assert.equal(label(id), l, `${id} is back to how it ships`);
     assert.equal(getPref('grassStyle'), 'meadow', 'a drawer\'s choice too');
     assert.equal(modSetting(vendor, mod), MOD_SETTINGS[vendor].keys[mod].default, 'and a mod\'s module');
     featuresAllOff();
     featuresDefaults();
-    assert.equal(getPref(FEATURES_RESTORE_PREF), null, 'the All off keep is spent - there is nothing to go back to');
+    assert.ok(getPref(FEATURES_RESTORE_PREF) == null, 'the All off keep is spent - there is nothing to go back to');
     assert.equal(featuresDefaults(), 0, 'a second press moves nothing');
   } finally { delete globalThis.location; fresh(); _resetRenderScaleDoor(); }
 });
@@ -322,7 +323,7 @@ test('FT18: a condensed tile opens its parts - switches as chips, a choice as a 
     assert.deepEqual(chips.map((c) => c.textContent), ['Marks stay', 'Overkill', 'On the lens']);
     chips[2].onclick();
     assert.equal(getPref('blood-screen'), false, 'the lens chip writes the lens');
-    assert.equal(getPref('blood-gore'), 'normal', 'and nothing else');
+    assert.equal(getPref('blood-gore'), GORE_DEFAULT, 'and nothing else');
     // a choice part is a bar
     find(featureTile(row('grass')), 'ft-tile-more')[0].onclick({ stopPropagation() {} });
     const g = featureTile(row('grass'));

@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { HeldMapWindow } from '../../src/ui/heldMap.js';
 import { CLIMATES } from '../../src/formats/mapsFile.js';
 import { domPointer } from '../../src/ui/plus/plusPad.js';
@@ -69,11 +70,11 @@ test('RPT1026-CLIENT: the one door answers the refusal, and lets a held pointer 
 });
 
 test('RPT1026-CLIENT: no capture or release in the game\'s own code stands outside the door or a try (the labs under src/tools are pages of their own, mouse alone)', () => {
-  const root = new URL('../../', import.meta.url).pathname;
+  const root = fileURLToPath(new URL('../../', import.meta.url));
   const walk = (d, out = []) => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) walk(p, out); else if (n.endsWith('.js')) out.push(p); } return out; };
   const bare = [];
   for (const p of walk(join(root, 'src'))) {
-    const file = relative(root, p);
+    const file = relative(root, p).replace(/\\/g, '/');
     if (file.startsWith('src/tools/') || file === 'src/ui/pointerCapture.js') continue;
     // PIN MOVED (LEGIBLE 3): the formatter opens a try on the line above its body, so that line counts as the try
     readFileSync(p, 'utf8').split('\n').forEach((ln, i, lines) => {

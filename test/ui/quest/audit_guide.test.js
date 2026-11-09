@@ -11,7 +11,7 @@ import '../../chargenDom.mjs';   // the minimal DOM - globals (the journal faces
 import { resetUid, ensureUidAtLeast } from '../../../src/systems/quest/quest.js';
 import { createQuestBridge } from '../../../src/scenes/quest/questBridge.js';
 import { makeWorld, seededRolls } from '../../guideWorld.mjs';
-import { setPref } from '../../../src/systems/uiPrefs.js';
+import { setPref, PREF_DEFAULTS } from '../../../src/systems/uiPrefs.js';
 import { QuestLens } from '../../../src/ui/quest/questLens.js';
 import { QUEST_URGENT_SECONDS } from '../../../src/ui/quest/questRail.js';
 import { QuestHerald, questHerald, drawQuestHerald, HERALD_PREF, HERALD_SECONDS, HERALD_MAX } from '../../../src/ui/quest/questHerald.js';
@@ -35,12 +35,13 @@ globalThis.window ??= globalThis;   // the journal faces read the window's size
 function withSwitches(fn, { herald = false, tracker = false, marks = false, skin = 'enhanced' } = {}) {
   const had = Object.hasOwn(globalThis, 'location') ? globalThis.location : undefined;
   globalThis.location = { search: `?skin=${skin}` };
-  quiet(() => { setPref(HERALD_PREF, herald); setPref(TRACKER_PREF, tracker); setPref(MARKS_PREF, marks); });
+  const prevGuidance = PREF_DEFAULTS.questGuidance;
+  quiet(() => { setPref(HERALD_PREF, herald); setPref(TRACKER_PREF, tracker); setPref(MARKS_PREF, marks); setPref('questGuidance', 'journal'); });
   questHerald.clear();
   _resetQuestTrackerForTests();
   try { return fn(); } finally {
     if (had === undefined) delete globalThis.location; else globalThis.location = had;
-    quiet(() => { setPref(HERALD_PREF, true); setPref(TRACKER_PREF, true); setPref(MARKS_PREF, true); });
+    quiet(() => { setPref(HERALD_PREF, true); setPref(TRACKER_PREF, true); setPref(MARKS_PREF, true); setPref('questGuidance', prevGuidance ?? 'journal'); });
     questHerald.clear();
     _resetQuestTrackerForTests();
   }

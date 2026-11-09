@@ -22,11 +22,15 @@
 //   shades the in-engine bake with.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { buildPaperdollPayload } from '../../src/characters/paperdoll/paperdollPayload.js';
 import { ARGONIAN_HIDES, KHAJIIT_FURS, HUMAN_SKINS } from '../../src/characters/palettes.js';
 import eslintConfig from '../../eslint.config.js';
 
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const GUARDED = ['no-dupe-keys', 'no-dupe-class-members', 'no-unsafe-negation'];
 
 // --- the guard ------------------------------------------------------------
@@ -46,9 +50,10 @@ test('audit26 dupekeys: the configured rules actually fire', () => {
   // config and require each rule to report. Skips only if eslint is absent.
   const lint = (src) => {
     let out;
+    const eslintBin = join(ROOT, 'node_modules/eslint/bin/eslint.js');
     try {
-      out = execFileSync('npx', ['eslint', '--stdin', '--stdin-filename', 'src/__audit26_fixture__.js', '--format', 'json'],
-        { cwd: new URL('../..', import.meta.url).pathname, input: src, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+      out = execFileSync(process.execPath, [eslintBin, '--stdin', '--stdin-filename', 'src/__audit26_fixture__.js', '--format', 'json'],
+        { cwd: ROOT, input: src, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
     } catch (e) {
       // eslint exits non-zero when it reports errors; that is the normal path.
       if (e.stdout) out = e.stdout; else return null;
@@ -107,8 +112,7 @@ test('audit26 dupekeys: rdbLayout action doors carry exactly one position key', 
   // LinkActionNodes (RDBLayout.cs:1094) resolves nextKey/prevKey against it,
   // so the door's chain key is `position`. It was written twice in the same
   // literal with the same value - harmless, but the same defect shape.
-  const src = execFileSync('node', ['-e', 'process.stdout.write(require("fs").readFileSync("src/world/rdbLayout.js","utf8"))'],
-    { cwd: new URL('../..', import.meta.url).pathname, encoding: 'utf8' });
+  const src = readFileSync(join(ROOT, 'src/world/rdbLayout.js'), 'utf8');
   const block = src.slice(src.indexOf('actionDoors.push({'), src.indexOf('objectPositions.set', src.indexOf('actionDoors.push({')));
   const hits = block.match(/^\s*position:/gm) || [];
   assert.equal(hits.length, 1, `the actionDoors literal declares \`position\` ${hits.length} times`);

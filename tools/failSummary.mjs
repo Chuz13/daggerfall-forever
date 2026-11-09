@@ -26,8 +26,20 @@ export const ownFailure = (data) => data?.details?.error?.failureType !== 'subte
 /** The first line of why a test failed (its cause's message where the runner wrapped it), at most 300 characters. */
 export function whyOf(error) {
   const e = error?.cause ?? error;
+  let raw = '';
+  try {
+    if (e && typeof e === 'object' && e.message != null) {
+      raw = String(e.message);
+    } else if (typeof e === 'string') {
+      raw = e;
+    } else if (e != null) {
+      raw = String(e);
+    }
+  } catch {
+    raw = (e && typeof e === 'object' && ('name' in e || 'code' in e)) ? `${e.name || ''} ${e.code || ''}` : 'Test assertion failure';
+  }
   const m =
-    String(e?.message ?? e ?? '')
+    raw
       .split('\n')
       .map((s) => s.trim())
       .find(Boolean) ?? '';

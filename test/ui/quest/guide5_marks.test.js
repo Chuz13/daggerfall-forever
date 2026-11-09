@@ -154,8 +154,9 @@ test('GUIDE5 ONE MODEL, TWO FACES - the tracker\'s model hears every look while 
   const doc = globalThis.document;
   globalThis.document ??= {};
   _resetQuestTrackerForTests();
+  const prevGuidance = PREF_DEFAULTS.questGuidance;
   try {
-    quiet(() => { setPref(TRACKER_PREF, false); setPref(MARKS_PREF, true); setPref(HERALD_PREF, false); });
+    quiet(() => { setPref(TRACKER_PREF, false); setPref(MARKS_PREF, true); setPref(HERALD_PREF, false); setPref('questGuidance', 'journal'); });
     assert.equal(marksOn(), true);
     const clock = { now: 1000 };
     const questWhere = { canFindPlace: () => true, currentLocationName: () => 'Elsewhere' };
@@ -177,7 +178,7 @@ test('GUIDE5 ONE MODEL, TWO FACES - the tracker\'s model hears every look while 
     quiet(() => b.tick(0.1));
     assert.deepEqual(questTracker.views, [], 'the herald alone looks, and never feeds the model');
   } finally {
-    quiet(() => { setPref(TRACKER_PREF, true); setPref(MARKS_PREF, true); setPref(HERALD_PREF, true); });
+    quiet(() => { setPref(TRACKER_PREF, true); setPref(MARKS_PREF, true); setPref(HERALD_PREF, true); setPref('questGuidance', prevGuidance ?? 'journal'); });
     _resetQuestTrackerForTests();
     if (doc === undefined) delete globalThis.document; else globalThis.document = doc;
   }

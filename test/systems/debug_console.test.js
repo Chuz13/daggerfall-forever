@@ -417,10 +417,10 @@ test('Debug Console: prof / profession inspects and modifies crafting discipline
 test('Debug Console: addmats gives materials into bag', () => {
   playerEntity.bagItems = [];
   const resOre = executeConsoleLine('addmats ore 10');
-  assert.ok(resOre.includes('Added 50 material items'));
+  assert.ok(resOre.includes('Added 50 items to Materials Bag'));
 
   const resAll = executeConsoleLine('addmats all 2');
-  assert.ok(resAll.includes('material items'));
+  assert.ok(resAll.includes('items to Materials Bag'));
 });
 
 test('Debug Console: bank inspects and controls banking transactions', () => {
@@ -464,13 +464,13 @@ test('Debug Console: city247 toggles 24/7 city infrastructure', () => {
 test('Debug Console: bounty / legalrep inspects and modifies legal status', () => {
   playerEntity.legalRep = { 17: 0 };
   const resGet1 = executeConsoleLine('bounty get 17');
-  assert.ok(resGet1.includes('IN GOOD STANDING'));
+  assert.ok(resGet1.includes('NO ACTIVE BOUNTY'));
 
-  const resSet = executeConsoleLine('bounty set -50 17');
-  assert.ok(resSet.includes('Legal Reputation in Region 17 set to -50'));
+  const resSet = executeConsoleLine('bounty set 50 17');
+  assert.ok(resSet.includes('Wanted Bounty of 50 gold placed on player'));
 
   const resGet2 = executeConsoleLine('bounty get 17');
-  assert.ok(resGet2.includes('CRIMINAL (Guards pursue)'));
+  assert.ok(resGet2.includes('WANTED / GUARDS PURSUE'));
 
   const resClear = executeConsoleLine('bounty clear 17');
   assert.ok(resClear.includes('Bounty cleared'));
@@ -479,7 +479,7 @@ test('Debug Console: bounty / legalrep inspects and modifies legal status', () =
 test('Debug Console: dynasty family model commands', () => {
   playerEntity.name = 'Tiber Septim';
   const resStatus = executeConsoleLine('dynasty status');
-  assert.ok(resStatus.includes('Project Legacy Dynasty Status:'));
+  assert.ok(resStatus.includes('Project Legacy Family Status:'));
 
   const resChild = executeConsoleLine('dynasty addchild');
   assert.ok(resChild.includes('Added child to dynasty:'));
@@ -491,14 +491,14 @@ test('Debug Console: dynasty family model commands', () => {
   assert.ok(resRetire.includes('Current head retired. Succession passed to heir:'));
 });
 
-test('Debug Console: crisis commands control regional crises', () => {
-  const resStart = executeConsoleLine('crisis start plague 17');
+test('Debug Console: crisis commands control regional crises', async () => {
+  const resStart = await executeConsoleLine('crisis start plague 17');
   assert.ok(resStart.toUpperCase().includes('STARTED PLAGUE CRISIS IN REGION 17'));
 
-  const resStatus = executeConsoleLine('crisis status 17');
-  assert.ok(resStatus.toUpperCase().includes('REGION 17 CRISIS: PLAGUE'));
+  const resStatus = await executeConsoleLine('crisis status 17');
+  assert.ok(resStatus.toUpperCase().includes('PLAGUE'));
 
-  const resStop = executeConsoleLine('crisis stop 17');
-  assert.ok(resStop.includes('Stopped crisis in Region 17. Peace restored.'));
+  const resStop = await executeConsoleLine('crisis stop plague 17');
+  assert.ok(resStop.toUpperCase().includes('STOPPED PLAGUE CRISIS IN REGION 17.'));
 });
 

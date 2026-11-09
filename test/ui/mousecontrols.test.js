@@ -36,7 +36,7 @@ import { measureText } from '../../src/ui/text.js';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const code = (f) => readFileSync(join(root, 'src', f), 'utf8');
 const freshStore = () => { const b = createBindings(); resetDefaults(b); return b; };
-const freshWindow = () => { _resetForTests(); return new MouseControlsWindow(createUnsavedKeybinds(freshStore())); };
+const freshWindow = () => { _resetForTests(); setValue('Controls', 'BowDrawback', false); return new MouseControlsWindow(createUnsavedKeybinds(freshStore())); };
 
 const FONT = { fnt: { fixedWidth: 6, fixedHeight: 6, glyphWidth: () => 5 }, tex: 'atlas' };
 const CANVAS = {

@@ -23,6 +23,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { macroTableCoverage } from '../../src/systems/quest/questMacros.js';
 import { spellMakerDescriptionId, SPELLBOOK_DESCRIPTION_IDS } from '../../src/systems/spell/spellEffects.js';
 import { REST_TEXT } from '../../src/systems/rest/restSession.js';
@@ -44,8 +45,10 @@ function census() {
     return statSync(p).isDirectory() ? walk(p) : p.endsWith('.js') ? [p] : [];
   });
   const out = [];
-  for (const f of walk(new URL('src', ROOT).pathname)) {
-    const rel = f.slice(f.indexOf('/src/') + 1);
+  const srcRoot = fileURLToPath(new URL('src', ROOT));
+  for (const f of walk(srcRoot)) {
+    const norm = f.replace(/\\/g, '/');
+    const rel = norm.slice(norm.indexOf('/src/') + 1);
     if (rel === 'src/formats/textRsc.js') continue;   // the parser itself
     const lines = readFileSync(f, 'utf8').split('\n');
     lines.forEach((l, i) => {

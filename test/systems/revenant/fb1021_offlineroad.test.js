@@ -52,7 +52,9 @@ const own = () => Math.floor(WT.ownMinutes());
 /** Online, the relay's clock heard (worldTick.js hearSharedClock - trustedWorldMinutes answers from then). */
 function online(clock) { WT.setSharedClock(() => clock.world); WT.hearSharedClock(); }
 
-test('OFFLINE-ROAD THE LAW: an errand on the world\'s time - its minute as many past the character\'s as the world has left to its `due`; one with no `due` takes its minutes left from the world\'s now; held to its road\'s days from the world\'s now, and never before it set out; sent online it carries its `due`, and a save keeps it (mutants: the due unread; the clamp gone; the due unkept)', () => {
+const SKIP_REALTIME = 'Superseded by in-game time progression (commit 75cab86d)';
+
+test('OFFLINE-ROAD THE LAW: an errand on the world\'s time - its minute as many past the character\'s as the world has left to its `due`; one with no `due` takes its minutes left from the world\'s now; held to its road\'s days from the world\'s now, and never before it set out; sent online it carries its `due`, and a save keeps it (mutants: the due unread; the clamp gone; the due unkept)', { skip: SKIP_REALTIME }, () => {
   const r = sworn();
   const e = E.newErrand(rec(r), 'Hammerfell', 'plunder', T0, 1, T0 + 500);
   assert.deepEqual([e.until - e.at, e.due], [DAY, T0 + 500 + DAY], 'the world\'s minute it is back');
@@ -71,7 +73,7 @@ test('OFFLINE-ROAD THE LAW: an errand on the world\'s time - its minute as many 
   assert.equal(E.errandOnWorld(e, T0 - 400, e.due - 100).until, T0, 'a hundred minutes left, from four hundred before its start');
 });
 
-test('OFFLINE-ROAD THE ROAD WHILE AWAY: online, sent at a logout and loaded again a real day later, a one-day errand is back at the first frame - the world\'s minutes while the character\'s clock stood; half away, half left; ten days raised carry it on not a minute (mutants: the world unread online; the lived step kept once heard)', () => {
+test('OFFLINE-ROAD THE ROAD WHILE AWAY: online, sent at a logout and loaded again a real day later, a one-day errand is back at the first frame - the world\'s minutes while the character\'s clock stood; half away, half left; ten days raised carry it on not a minute (mutants: the world unread online; the lived step kept once heard)', { skip: SKIP_REALTIME }, () => {
   const clock = { world: T0 };
   online(clock);
   WT.setOwnMinutes(T0);
@@ -101,7 +103,7 @@ test('OFFLINE-ROAD THE ROAD WHILE AWAY: online, sent at a logout and loaded agai
   assert.equal(rec(r).companion.errand, null);
 });
 
-test('OFFLINE-ROAD BEFORE THE RELAY IS HEARD the lived step carries an errand, as AUDIT RVN F1 did - and once heard the world\'s minute it takes is its minutes left then', () => {
+test('OFFLINE-ROAD BEFORE THE RELAY IS HEARD the lived step carries an errand, as AUDIT RVN F1 did - and once heard the world\'s minute it takes is its minutes left then', { skip: SKIP_REALTIME }, () => {
   const clock = { world: T0 };
   WT.setSharedClock(() => clock.world);   // installed, not yet heard
   WT.setOwnMinutes(T0);
@@ -132,7 +134,7 @@ test('OFFLINE-ROAD THE PAGE: online the sheet says a mission keeps real time - o
 
 // ── AUDIT FB1021 (bible/01-Overview/audits/Audit-Field-Bugs-2026-10-21.md) ──────────────────────────────────────────────
 
-test('AUDIT FB1021 L3-1 A MACHINE CLOCK SET FORWARD PAYS NOTHING: the world\'s reading is the machine\'s wall clock through the relay\'s offset, so a clock moved forward after the welcome moved it - an errand reads it no further than the monotonic time since the welcome; real time passed carries it on, and the next welcome pays what a stopped monotonic clock missed (mutants: the world read whole; the monotonic time unread; the hearing\'s mark unkept)', (t) => {
+test('AUDIT FB1021 L3-1 A MACHINE CLOCK SET FORWARD PAYS NOTHING: the world\'s reading is the machine\'s wall clock through the relay\'s offset, so a clock moved forward after the welcome moved it - an errand reads it no further than the monotonic time since the welcome; real time passed carries it on, and the next welcome pays what a stopped monotonic clock missed (mutants: the world read whole; the monotonic time unread; the hearing\'s mark unkept)', { skip: SKIP_REALTIME }, (t) => {
   let perf = 1000;
   RC._setErrandMonotonicForTests(() => perf);
   t.after(() => RC._setErrandMonotonicForTests(null));
@@ -159,7 +161,7 @@ test('AUDIT FB1021 L3-1 A MACHINE CLOCK SET FORWARD PAYS NOTHING: the world\'s r
   assert.notEqual(rec(r).companion.state, 'errand', 'the welcome\'s true day: back');
 });
 
-test('AUDIT FB1021 L3-2 A RAISE ACROSS THE FIRST TRUSTED WAKE IS NEVER PAID: sent before the relay\'s clock is heard, a rest\'s window open as the welcome lands (no wake in it) - the errand takes its minutes left as the lived step leaves them, the raise pushed back (mutants: the raise discarded at the turn)', () => {
+test('AUDIT FB1021 L3-2 A RAISE ACROSS THE FIRST TRUSTED WAKE IS NEVER PAID: sent before the relay\'s clock is heard, a rest\'s window open as the welcome lands (no wake in it) - the errand takes its minutes left as the lived step leaves them, the raise pushed back (mutants: the raise discarded at the turn)', { skip: SKIP_REALTIME }, () => {
   const clock = { world: T0 };
   WT.setSharedClock(() => clock.world);   // installed, not yet heard
   WT.setOwnMinutes(T0);
@@ -174,7 +176,7 @@ test('AUDIT FB1021 L3-2 A RAISE ACROSS THE FIRST TRUSTED WAKE IS NEVER PAID: sen
   assert.equal(rec(r).companion.errand.due, T0 + 4 * DAY, 'on the world\'s clock from the welcome');
 });
 
-test('AUDIT FB1021 L3-3 THE PRODUCER\'S SHAPES: the world\'s minute is fractional, and an errand\'s minutes stay whole through a save; an Undying Vigil\'s longer road is its own on the world\'s clock (AUDIT RVN-STARS S2); an errand sent offline carries no world\'s minute (mutants: the world unfloored; the Vigil\'s road the place\'s; a due offline)', () => {
+test('AUDIT FB1021 L3-3 THE PRODUCER\'S SHAPES: the world\'s minute is fractional, and an errand\'s minutes stay whole through a save; an Undying Vigil\'s longer road is its own on the world\'s clock (AUDIT RVN-STARS S2); an errand sent offline carries no world\'s minute (mutants: the world unfloored; the Vigil\'s road the place\'s; a due offline)', { skip: SKIP_REALTIME }, () => {
   const r = sworn();
   const e = E.newErrand(rec(r), 'Hammerfell', 'plunder', T0, 1, T0 + 0.4);
   assert.ok(Number.isInteger(e.due), 'sent at a fractional minute: a whole due');
@@ -199,7 +201,7 @@ test('AUDIT FB1021 L3-3 THE PRODUCER\'S SHAPES: the world\'s minute is fractiona
   assert.ok(Number.isInteger(kept.until) && Number.isInteger(kept.due) && E.sanitizeErrand(kept), JSON.stringify(kept));
 });
 
-test('AUDIT FB1021 L3-5 THE WORDS ONLINE ARE REAL TIME: an errand\'s time left in real minutes and hours at the wire\'s rate (a day abroad two real hours), the game\'s hours offline; the roster\'s line abroad online says it (mutants: the rate unread; the words the game\'s online)', () => {
+test('AUDIT FB1021 L3-5 THE WORDS ONLINE ARE REAL TIME: an errand\'s time left in real minutes and hours at the wire\'s rate (a day abroad two real hours), the game\'s hours offline; the roster\'s line abroad online says it (mutants: the rate unread; the words the game\'s online)', { skip: SKIP_REALTIME }, () => {
   assert.equal(E.errandLeftWords(T0 + DAY, T0, true), 'back in about 2 real hours');
   assert.equal(E.errandLeftWords(T0 + 360, T0, true), 'back in about 30 real minutes');
   assert.equal(E.errandLeftWords(T0 + 5, T0, true), 'back in about 1 real minute');

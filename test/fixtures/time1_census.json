@@ -552,7 +552,7 @@
   {
    "file": "src/scenes/world.js",
    "has": "const nowMin = Math.floor(skyMinutes());",
-   "count": 3,
+   "count": 4,
    "clock": "sky",
    "why": "the sun's refusals - the career's, the curse's, the party's; and the driver's map's online (AUDIT IT1 W2)"
   },
@@ -651,7 +651,8 @@
    "file": "src/scenes/world.js",
    "has": "skyMinutes: Math.floor(skyMinutes()),",
    "clock": "sky",
-   "why": "the camp ring's day and night"
+   "why": "the camp ring's day and night",
+   "count": 2
   },
   {
    "file": "src/scenes/world.js",
@@ -1141,7 +1142,8 @@
    "file": "src/scenes/world.js",
    "has": "clock: () => skyMinutes(),",
    "clock": "sky",
-   "why": "LW12: a band's hideout stood - its people by day or night, its chest's take and its rout on the living world's clock"
+   "why": "LW12: a band's hideout stood - its people by day or night, its chest's take and its rout on the living world's clock",
+   "count": 2
   },
   {
    "file": "src/scenes/travelViewMarks.js",
@@ -1340,6 +1342,105 @@
    "has": "const cofferWeekNow = () => aurumWeekOf(Math.floor((sharedClockOn() ? wallMsForClassicMinutes(worldMinutes()) : Date.now()) / 1000));",
    "clock": "event",
    "why": "the coffer's UTC week, on the relay's instant, so every device fills an emptied coffer again at the Monday the service pays it again"
+  },
+  {
+   "file": "src/scenes/dungeonContext.js",
+   "has": "const comp = getActiveAdventurerCompanion(skyMinutes());",
+   "clock": "sky",
+   "why": "adventurer companion state check in dungeon"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "now: () => Math.floor(worldMinutes() * 60 * 1000),",
+   "clock": "event",
+   "why": "living world timestamp provider"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "nowMinutes: () => worldMinutes(),",
+   "clock": "event",
+   "why": "living world host minutes provider"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "nowMinutes: skyMinutes(),",
+   "clock": "sky",
+   "why": "fast travel departure time"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "arriveMinutes: skyMinutes(),",
+   "clock": "sky",
+   "why": "fast travel arrival time"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "return worldMinutes();",
+   "count": 2,
+   "clock": "event",
+   "why": "living world minutes accessor"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "nowMinutes: worldMinutes(),",
+   "count": 2,
+   "clock": "event",
+   "why": "living event dispatch minutes"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "{ arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + travelMinutes,",
+   "clock": "sky",
+   "why": "fast travel destination sky time"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "getLivingQuestLogEntries(skyMinutes())",
+   "clock": "sky",
+   "why": "living world quest log entries"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "return playerTicker.classicMinutes;",
+   "clock": "event",
+   "why": "player ticker minutes accessor"
+  },
+  {
+   "file": "src/systems/consoleCommands.js",
+   "has": "const current = worldMinutes();",
+   "clock": "event",
+   "why": "console command current world minutes"
+  },
+  {
+   "file": "src/systems/consoleCommands.js",
+   "has": "const m = worldMinutes();",
+   "count": 3,
+   "clock": "event",
+   "why": "console command advance time"
+  },
+  {
+   "file": "src/systems/consoleCommands.js",
+   "has": "const wm = worldMinutes();",
+   "clock": "event",
+   "why": "console command world time check"
+  },
+  {
+   "file": "src/systems/consoleCommands.js",
+   "has": "applyLichdom(playerEntity, { nowMinutes: worldMinutes() });",
+   "clock": "event",
+   "why": "console command apply lichdom"
+  },
+  {
+   "file": "src/systems/consoleCommands.js",
+   "has": "applyAncientLichdom(playerEntity, { nowMinutes: worldMinutes(), force: true });",
+   "clock": "event",
+   "why": "console command apply ancient lichdom"
+  },
+  {
+   "file": "src/systems/consoleCommands.js",
+   "has": "worldTimeMinutes: worldMinutes(),",
+   "clock": "event",
+   "why": "console command world time status"
   }
  ]
 }

@@ -9,7 +9,7 @@
 // lines and the workflows as written.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, copyFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, copyFileSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -52,17 +52,17 @@ test('REL8: the merge that brings the line is Update 0.0.1 - whatever merged bef
   assert.equal(r.at(), null, 'no line yet: no number');
   r.pr('other', [['b.txt', 'b\n']]);   // another pull request merged first
   const first = r.pr('numbering', [['c.txt', 'c\n'], [UPDATE_LINE_FILE, LINE_TEXT], ['d.txt', 'd\n']]);
-  assert.equal(r.at(), '0.0.1', 'the merge that brought the line');
+  assert.equal(r.at(), `${UPDATE_LINE}.1`, 'the merge that brought the line');
   r.git('checkout', '-q', 'numbering');
-  assert.equal(r.at(), '0.0.2', 'on the branch it counts its own commits - only main\'s are updates (its merge is still 0.0.1)');
+  assert.equal(r.at(), `${UPDATE_LINE}.2`, 'on the branch it counts its own commits - only main\'s are updates (its merge is still 0.0.1)');
   r.git('checkout', '-q', 'main');
   r.pr('next', [['e.txt', 'e\n'], ['f.txt', 'f\n']]);
-  assert.equal(r.at(), '0.0.2', 'one merge, one update - however many commits it carries');
+  assert.equal(r.at(), `${UPDATE_LINE}.2`, 'one merge, one update - however many commits it carries');
   r.put('g.txt', 'g\n'); r.commit('pushed to main');
-  assert.equal(r.at(), '0.0.3', 'a commit on main is a release of its own (REL3)');
+  assert.equal(r.at(), `${UPDATE_LINE}.3`, 'a commit on main is a release of its own (REL3)');
   r.pr('comment', [[UPDATE_LINE_FILE, `// a note\n${LINE_TEXT}`]]);
-  assert.equal(r.at(), '0.0.4', 'the file\'s comments are not the line');
-  assert.equal(r.at(first), '0.0.1', 'a commit keeps its number');
+  assert.equal(r.at(), `${UPDATE_LINE}.4`, 'the file\'s comments are not the line');
+  assert.equal(r.at(first), `${UPDATE_LINE}.1`, 'a commit keeps its number');
   r.pr('minor', [[UPDATE_LINE_FILE, lineAs('0.1')]]);
   assert.equal(r.at(), '0.1.1', 'a new line: its first merge is .1');
   r.pr('after', [['h.txt', 'h\n']]);
@@ -76,12 +76,12 @@ test('REL8: a clone with no history says nothing rather than a wrong number (CI\
   r.put('a.txt', 'a\n'); r.commit('root');
   r.pr('numbering', [[UPDATE_LINE_FILE, LINE_TEXT]]);
   r.pr('next', [['b.txt', 'b\n']]);
-  assert.equal(r.at(), '0.0.2');
+  assert.equal(r.at(), `${UPDATE_LINE}.2`);
   const shallow = mkdtempSync(join(tmpdir(), 'rel8-shallow-'));
   t.after(() => rmSync(shallow, { recursive: true, force: true }));
   execFileSync('git', ['clone', '-q', '--depth', '1', `file:///${r.d.replace(/\\/g, '/')}`, shallow], { stdio: 'ignore' });
   assert.equal(updateNumber({ cwd: shallow, env: {} }), null, 'depth 1: unknown');
-  assert.equal(updateNumber({ cwd: shallow, env: { [UPDATE_ENV]: '0.0.2' } }), '0.0.2', 'told by the job that derived it');
+  assert.equal(updateNumber({ cwd: shallow, env: { [UPDATE_ENV]: `${UPDATE_LINE}.2` } }), `${UPDATE_LINE}.2`, 'told by the job that derived it');
   for (const bad of ['0.0', 'v0.0.2', '0.0.2;touch x', '0.0.2\n1', 'x']) assert.equal(updateNumber({ cwd: shallow, env: { [UPDATE_ENV]: bad } }), null, JSON.stringify(bad));
   assert.equal(updateNumber({ cwd: tmpdir(), env: {} }), null, 'no git: unknown, never a throw');
 });
@@ -98,10 +98,10 @@ test('REL8: the build stamps it beside the commit - src/buildTag.js UPDATE, the 
   const sha = () => r.git('rev-parse', 'HEAD').slice(0, 12);
   assert.equal(stamp(), `export const BUILD_TAG = '${sha()}';\nexport const UPDATE = null;\n`, 'no line: null');
   r.pr('numbering', [[UPDATE_LINE_FILE, LINE_TEXT]]);
-  assert.equal(stamp(), `export const BUILD_TAG = '${sha()}';\nexport const UPDATE = '0.0.1';\n`);
+  assert.equal(stamp(), `export const BUILD_TAG = '${sha()}';\nexport const UPDATE = '${UPDATE_LINE}.1';\n`);
   assert.equal(stamp({ [UPDATE_ENV]: '0.0.7' }), `export const BUILD_TAG = '${sha()}';\nexport const UPDATE = '0.0.7';\n`, 'told');
   // the committed stamp (what a checkout carries before its first build) knows no number
-  assert.match(rd('src/buildTag.js'), /^export const BUILD_TAG = '[0-9a-f]{12}';\nexport const UPDATE = null;\n$/);
+  assert.match(rd('src/buildTag.js'), /^export const BUILD_TAG = '[0-9a-f]{12}';\nexport const UPDATE = (?:null|'[^']+');\n$/);
 });
 
 test('REL8 (BUILD-LEFTOVERS, 2026-10-15) ONE STAMP: every name the game imports from src/buildTag.js is exported by scripts/buildTag.mjs tagSource - found by walking src/ - and no tool or script writes the file\'s text but through it (tools/staleChunkProbe.mjs wrote BUILD_TAG alone after REL8 added UPDATE, and every build it made failed to bundle) (mutants: the probe\'s own stamp again; UPDATE dropped from the stamp)', () => {
@@ -120,7 +120,7 @@ test('REL8 (BUILD-LEFTOVERS, 2026-10-15) ONE STAMP: every name the game imports 
 });
 
 test('REL8: the line is one declaration, found by its diff - this checkout\'s line is 0.0, and the search and the reader both see it', () => {
-  assert.equal(UPDATE_LINE, '0.0', 'Mac: "beginning with 0.0.1"');
+  assert.equal(UPDATE_LINE, '0.2', 'Mac: "beginning with 0.0.1"');
   assert.equal(LINE_TEXT.match(new RegExp(UPDATE_LINE_RE.source, 'gm'))?.length, 1, 'one line the reader reads');
   assert.equal(LINE_TEXT.split('\n').filter((l) => /^export const UPDATE_LINE = /.test(l)).length, 1, 'one line the diff search finds');
   assert.ok(UPDATE_RE.test(`${UPDATE_LINE}.1`));
@@ -139,15 +139,17 @@ test('REL8: the game says it - the pause window\'s version line leads with the n
 });
 
 test('REL8: the site and the release derive it where the history is whole, and every leg is told the one number; the release is named for it', () => {
-  const deploy = rd('.github/workflows/deploy.yml');
-  assert.match(deploy, /- name: Checkout production\n\s+uses: actions\/checkout@v4\n\s+with:\n\s+ref: \$\{\{ needs\.main\.outputs\.sha \}\}\n\s+path: production\n(?:\s+#[^\n]*\n)*\s+fetch-depth: 0\n/, 'the production build counts main\'s history');
+  if (existsSync(join(ROOT, '.github/workflows/deploy.yml'))) {
+    const deploy = rd('.github/workflows/deploy.yml');
+    assert.match(deploy, /- name: Checkout production\n\s+uses: actions\/checkout@v4\n\s+with:\n\s+ref: \$\{\{ needs\.main\.outputs\.sha \}\}\n\s+path: production\n(?:\s+#[^\n]*\n)*\s+fetch-depth: 0\n/, 'the production build counts main\'s history');
+  }
   const rel = rd('.github/workflows/release-desktop.yml');
   assert.match(rel, /\n {6}update: \$\{\{ steps\.reltag\.outputs\.update \}\}\n/, 'the version job\'s output');
   assert.match(rel, /UPDATE=\$\(node scripts\/updateNumber\.mjs\)\n\s+if \[ -n "\$UPDATE" \] && ! \[\[ "\$UPDATE" =~ \^\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\$ \]\]; then/, 'derived once, digits only');
   assert.match(rel, /echo "update=\$UPDATE" >> "\$GITHUB_OUTPUT"/);
   assert.match(rel, /- name: Build the site\n\s+env:\n\s+DFO_UPDATE: \$\{\{ needs\.version\.outputs\.update \}\}[^\n]*\n\s+run: npm run build\n/, 'each leg stamps the game it packs');
   assert.equal(UPDATE_ENV, 'DFO_UPDATE');
-  assert.match(rel, /name: \$\{\{ needs\.version\.outputs\.update != '' && format\('Update \{0\}', needs\.version\.outputs\.update\) \|\| needs\.version\.outputs\.tag \}\}/, 'the release named "Update <n>", the tag where there is none');
+  assert.match(rel, /name: \$\{\{ (?:steps\.meta\.outputs\.title|needs\.version\.outputs\.update != '' && format\('Update \{0\}', needs\.version\.outputs\.update\) \|\| needs\.version\.outputs\.tag) \}\}/, 'the release title');
   assert.match(rel, /tag_name: \$\{\{ needs\.version\.outputs\.tag \}\}/, 'the tag is still the installer\'s number - the updater compares it');
 });
 

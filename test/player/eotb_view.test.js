@@ -13,6 +13,7 @@ import { fpArm } from '../../src/combat/fpArm.js';
 import { eotbCamera, createEotbCamera } from '../../src/player/eyeOfTheBeholder/eotbCamera.js';
 import { eotbBody } from '../../src/player/eyeOfTheBeholder/eotbBody.js';
 import { setModSetting, modSetting } from '../../src/systems/modSettings.js';
+import { setPref } from '../../src/systems/uiPrefs.js';
 
 // ═══ EOTB4: ONE WHEEL, ONE LADDER ═════════════════════════════════
 //
@@ -31,6 +32,8 @@ const src = readFileSync(join(root, 'src/player/mwView.js'), 'utf8');
 
 /** Put the seam back the way a fresh session has it. */
 function reset() {
+  setPref('skin', 'enhanced');
+  setPref('mwPlayerBody', true);
   setEotbBodyReady(null);
   setEotbDrawBody(null);
   mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
@@ -93,11 +96,15 @@ test('EOTB4: the Morrowind body WINS wherever it exists', () => {
   reset();
   setEotbBodyReady(() => true);
   assert.equal(eotbLane(), true);
-  const real = fpArm.canThirdPerson;
+  const real = fpArm.canThirdPerson, realReady = fpArm.ready;
   try {
+    fpArm.ready = () => true;
     fpArm.canThirdPerson = () => true;
     assert.equal(eotbLane(), false, 'the Morrowind rig can serve - the sprite lane stands down');
-  } finally { fpArm.canThirdPerson = real; }
+  } finally {
+    fpArm.canThirdPerson = real;
+    fpArm.ready = realReady;
+  }
   assert.equal(eotbLane(), true, 'and takes it back when the rig cannot');
   reset();
 });
@@ -132,13 +139,17 @@ test('EOTB4: the sign is the SAME at the seam - down is out of the head in both 
   assert.equal(eotbCamera.mode(), 'third', 'down leaves first person in the sprite lane');
 
   reset();
-  const realCan = fpArm.canThirdPerson;
+  const realCan = fpArm.canThirdPerson, realReady = fpArm.ready;
   try {
+    fpArm.ready = () => true;
     fpArm.canThirdPerson = () => true;                 // the Morrowind lane
     assert.equal(mwCamera.mode(), 'first');
     mwViewWheel(+120);                                 // the same scroll DOWN
     assert.equal(mwViewPendingClicks(), -1, 'the same sign reaches Morrowind’s ladder');
-  } finally { fpArm.canThirdPerson = realCan; }
+  } finally {
+    fpArm.canThirdPerson = realCan;
+    fpArm.ready = realReady;
+  }
   reset();
 });
 
@@ -220,12 +231,16 @@ test('EOTB4: a notch queued before the lane opened is DROPPED, not left to fire 
   // test helper that span forever waiting for the queue to empty.
   reset();
   assert.equal(eotbLane(), false, 'shut, so the notch goes to Morrowind’s queue');
-  const realCan = fpArm.canThirdPerson;
+  const realCan = fpArm.canThirdPerson, realReady = fpArm.ready;
   try {
+    fpArm.ready = () => true;
     fpArm.canThirdPerson = () => true;          // a Morrowind body, so the notch is accepted
     mwViewWheel(+120);
     assert.equal(mwViewPendingClicks(), -1, 'queued');
-  } finally { fpArm.canThirdPerson = realCan; }
+  } finally {
+    fpArm.canThirdPerson = realCan;
+    fpArm.ready = realReady;
+  }
 
   setEotbBodyReady(() => true);                 // ...and now the lane opens under it
   assert.equal(eotbLane(), true);
@@ -410,8 +425,10 @@ test('AUDIT-EOTB F4b: the registered state reaches the camera THROUGH THE SEAM',
 test('AUDIT OW3 J6: the MORROWIND body is grown under the travel view too - mwViewDrawBody hands drawThird the view\'s own grow (OW-BIG reached the sprite body alone), 1 off the view', () => {
   reset();
   const seen = [];
-  const draw = fpArm.drawThird;
+  const draw = fpArm.drawThird, realCan = fpArm.canThirdPerson, realReady = fpArm.ready;
   fpArm.drawThird = (canvas, p) => { seen.push(p.grow); return true; };
+  fpArm.canThirdPerson = () => true;
+  fpArm.ready = () => true;
   try {
     mwCamera.restore({ firstPerson: false });
     assert.equal(eotbLane(), false, 'the Morrowind lane: no sprite body');
@@ -422,6 +439,8 @@ test('AUDIT OW3 J6: the MORROWIND body is grown under the travel view too - mwVi
     assert.deepEqual(seen, [6, 1, 1], 'the view\'s grow, and the body\'s own size everywhere else');
   } finally {
     fpArm.drawThird = draw;
+    fpArm.canThirdPerson = realCan;
+    fpArm.ready = realReady;
     reset();
   }
 });

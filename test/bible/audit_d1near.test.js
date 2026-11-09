@@ -4,11 +4,13 @@
 // holds the slice's own law, and test/d1nearStep.mjs runs the step for both as the runner runs it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, STEP, workflow, stepAt, stepKeys, stepRun, runStep, d1Answer, PLAN_UP } from '../d1nearStep.mjs';
+import { ROOT, WF, STEP, workflow, stepAt, stepKeys, stepRun, runStep, d1Answer, PLAN_UP } from '../d1nearStep.mjs';
 
-test('AUDIT D1-NEAR T3 T4 T6: the report step\'s own keys are a report\'s - it never fails the deploy, a bound on its minutes, run from server-account/ beside the toml its readout reads - and it stands after the health check and before the smoke steps, each by a name that is there; its D1 readout is bounded too (mutants: the gate back; the minutes unbounded; another shell; the readout unbounded)', () => {
+const skip = !existsSync(join(ROOT, WF)) ? 'account-deploy.yml not present' : false;
+
+test('AUDIT D1-NEAR T3 T4 T6: the report step\'s own keys are a report\'s - it never fails the deploy, a bound on its minutes, run from server-account/ beside the toml its readout reads - and it stands after the health check and before the smoke steps, each by a name that is there; its D1 readout is bounded too (mutants: the gate back; the minutes unbounded; another shell; the readout unbounded)', { skip }, () => {
   const wf = workflow();
   // T4: `shell: sh` (dash refuses `set -o pipefail` and fails the deploy) or `if: false` passed every pin the slice had
   assert.deepEqual(stepKeys(wf, STEP), ['continue-on-error: true', 'timeout-minutes: 4', 'working-directory: server-account']);
@@ -21,7 +23,7 @@ test('AUDIT D1-NEAR T3 T4 T6: the report step\'s own keys are a report\'s - it n
   assert.ok(stepRun(wf, STEP).includes('d1=$(timeout 60 $WRANGLER d1 execute "$DB_NAME" --remote --command "SELECT 1" --json 2>/dev/null) || d1=""'), 'the readout is bounded and its failure discarded');
 });
 
-test('AUDIT D1-NEAR T2 T3 T5: every curl the report makes is bounded, sends its body nowhere and fails on an error answer, and the readout asks D1 one SELECT 1 of the deploy\'s own database (mutants: either curl unbounded; either body kept; either error answer timed)', () => {
+test('AUDIT D1-NEAR T2 T3 T5: every curl the report makes is bounded, sends its body nowhere and fails on an error answer, and the readout asks D1 one SELECT 1 of the deploy\'s own database (mutants: either curl unbounded; either body kept; either error answer timed)', { skip }, () => {
   const r = runStep({ plan: PLAN_UP, d1: d1Answer('LAX', 'WNAM', true) });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.asked.length, 10);
@@ -36,7 +38,7 @@ test('AUDIT D1-NEAR T2 T3 T5: every curl the report makes is bounded, sends its 
   assert.deepEqual(r.wranglerAsked, ['d1 execute daggerfall-accounts --remote --command SELECT 1 --json']);
 });
 
-test('AUDIT D1-NEAR T1 T10: an answer that did not come is no answer - curl writes a failed transfer\'s time too (a refused connection, exit 7), and the step drops it; the medians are of the answers that came, and how many came is said (mutants: a failed health\'s time kept; a failed read\'s time kept; the counts crossed)', () => {
+test('AUDIT D1-NEAR T1 T10: an answer that did not come is no answer - curl writes a failed transfer\'s time too (a refused connection, exit 7), and the step drops it; the medians are of the answers that came, and how many came is said (mutants: a failed health\'s time kept; a failed read\'s time kept; the counts crossed)', { skip }, () => {
   // the good answers spread, so a kept failure moves a middle: 50/81/120 and 60/86/140 ms, two failures of each
   const r = runStep({
     plan: {
@@ -57,7 +59,7 @@ test('AUDIT D1-NEAR T1 T10: an answer that did not come is no answer - curl writ
   assert.ok(noHealth.summary.includes('From there, one statement\'s cost unmeasured (of five, /v1/health answered 0 and /v1/seats/sieges/live 5)'), noHealth.summary);
 });
 
-test('AUDIT D1-NEAR T2: an error answer is no statement - a 503 from the one-statement read (the route answers no-database with no statement, and a D1 failure there escapes as the platform\'s own 500) or from the health is dropped, never timed (mutants: the read timed without -f; the health timed without -f)', () => {
+test('AUDIT D1-NEAR T2: an error answer is no statement - a 503 from the one-statement read (the route answers no-database with no statement, and a D1 failure there escapes as the platform\'s own 500) or from the health is dropped, never timed (mutants: the read timed without -f; the health timed without -f)', { skip }, () => {
   const r = runStep({
     plan: {
       health: ['200 0.080 h2:remote-SJC', '503 0.001 h2:remote-SJC', '200 0.081 h2:remote-SJC', '503 0.001 h2:remote-SJC', '200 0.082 h2:remote-SJC'],
@@ -70,7 +72,7 @@ test('AUDIT D1-NEAR T2: an error answer is no statement - a 503 from the one-sta
   assert.ok(r.stdout.includes('cf-placement over five answers: remote-SJC none remote-SJC none remote-SJC; one statement on the primary costs it ~69 ms (medians: /v1/seats/sieges/live 150 ms of 3 answers, /v1/health 81 ms of 3);'), r.stdout);
 });
 
-test('AUDIT D1-NEAR P1 M2 M12: where the primary is, by D1\'s own word - its SELECT 1\'s answer names the data centre that served it, said as the primary\'s only where D1 says the primary served it; a replica\'s is never taken for it, and an answer D1 did not give says so (mutant: a replica taken for the primary)', () => {
+test('AUDIT D1-NEAR P1 M2 M12: where the primary is, by D1\'s own word - its SELECT 1\'s answer names the data centre that served it, said as the primary\'s only where D1 says the primary served it; a replica\'s is never taken for it, and an answer D1 did not give says so (mutant: a replica taken for the primary)', { skip }, () => {
   const said = (d1) => { const r = runStep({ plan: PLAN_UP, d1 }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim().split('; ').pop(); };
   assert.equal(said(d1Answer('LAX', 'WNAM', true)), 'D1\'s primary answered from LAX (WNAM)');
   assert.equal(said(d1Answer('SJC', undefined, true)), 'D1\'s primary answered from SJC (its region unsaid)');

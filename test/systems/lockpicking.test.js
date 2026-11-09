@@ -22,6 +22,9 @@ import { HOLIDAYS } from '../../src/systems/holidays.js';
 import { getInteractionMode, setInteractionMode, nextInteractionMode, MODES } from '../../src/player/interactionMode.js';
 import { MODES as TOWN_MODES } from '../../src/scenes/townTalk.js';
 import { discoverBuilding, getLastLockpickAttempt, setLastLockpickAttempt } from '../../src/systems/discovery.js';
+import { setPref } from '../../src/systems/uiPrefs.js';
+
+setPref('city247', false);
 
 const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 const CUBE = {

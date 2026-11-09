@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { createProfBook } from '../../src/net/profBook.js';
 import { utcDayOfMs } from '../../src/net/nodeLaw.js';
 import { xpForRank, SKINNING_KNIFE, TRACE_ACT, HIGH_HIDES_PER_DAY } from '../../src/net/professionLaw.js';
-import { createBodyStamps, bodiesOf, huntKind, BODY_REACH, BODY_STEEPEST_DEG } from '../../src/scenes/huntHost.js';
+import { createBodyStamps, bodiesOf, huntKind, BODY_REACH, BODY_STEEPEST_DEG, BODY_LIFT } from '../../src/scenes/huntHost.js';
 import { createGatherHost, aimAt } from '../../src/scenes/gatherHost.js';
 import { registerPlayerKillListener, reportPlayerKill } from '../../src/systems/playerKills.js';
 import { setForagingHost } from '../../src/systems/foraging/foragingInstall.js';
@@ -76,7 +76,7 @@ function stand(book, { nowMs, openLoot = null, eyeH = 1.6, dungeon = false } = {
   };
   const lookAt = (f) => {
     const p = f.corpseMarker.pos;
-    const at = aimAt(eyePos(), [p[0], p[1] + 0.2, p[2]], { yaw: 0, pitch: 0 });
+    const at = aimAt(eyePos(), [p[0], p[1] + BODY_LIFT, p[2]], { yaw: 0, pitch: 0 });
     view.yaw = -at.yaw; view.pitch = -at.pitch;
     return at;
   };

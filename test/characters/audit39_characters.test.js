@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   EnemyAI, MELEE_DISTANCE, CLASSIC_MELEE_DISTANCE_VS_AI, enemyMoveSpeed, CLASSIC_UPDATE_INTERVAL,
@@ -19,7 +20,7 @@ import { EnemyAttack, ATTACK_SPEED_FLOOR } from '../../src/characters/enemy/enem
 import { collectDungeonEnemies } from '../../src/characters/dungeonEnemies.js';
 import { liveStat } from '../../src/systems/statMods.js';
 
-const ROOT = new URL('../..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
 const clearCollider = () => ({
   raycast: () => Infinity,

@@ -2,11 +2,21 @@
 // FACE (ui/enhanced/enhancedMenu.js mounted over test/chargenDom.mjs) - pressed open, closed by Close, by Escape and by a tap
 // outside; the focus into the window and back to the laurel; the window shut with its mark gone; the tap's release
 // swallowed; a row's door through the handoff. The source pins in seasonbook.test.js say where; this says that it works.
-import test from 'node:test';
+import test, { beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { keydown, keyup } from '../../chargenDom.mjs';
 import { mountEnhancedMenu } from '../../../src/ui/enhanced/enhancedMenu.js';
 import { pauseMenuAct } from '../../../src/ui/pauseDoor.js';
+import { FORK_FLAGS } from '../../../src/config/forkFlags.js';
+
+let prevOnline = FORK_FLAGS.ENABLE_ONLINE_PLAY;
+beforeEach(() => {
+  prevOnline = FORK_FLAGS.ENABLE_ONLINE_PLAY;
+  FORK_FLAGS.ENABLE_ONLINE_PLAY = true;
+});
+afterEach(() => {
+  FORK_FLAGS.ENABLE_ONLINE_PLAY = prevOnline;
+});
 
 console.warn = () => {};
 const NOW = Date.UTC(2026, 9, 22, 12);

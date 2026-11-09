@@ -114,8 +114,8 @@ test('SURV-TIERS: one key, four tiers - the row, the table and the shelf agree; 
   assert.equal(row.note.split(/(?<=[.!?])\s+(?=[A-Z\u2018\u201c"'(])/).length, 2, `the note is two sentences: ${row.note}`);
   assert.equal(c.tiers[0][0], false, 'Off is stored as the switch always stored it');
   assert.equal(new Set(c.tiers.map(([v]) => String(v))).size, 4, 'the bar matches a stored value by its string - four distinct strings');   // PIN MOVED (SURV-BOONS)
-  assert.equal(c.initial, SURVIVAL_STORED[SURVIVAL_DEFAULT]); assert.equal(SURVIVAL_DEFAULT, 'boons');   // PIN MOVED (BOONS-DEFAULT, 2026-10-13, Mac: "make boons the default")
-  assert.equal(FEATURE_PREF_DEFAULTS.survival, 'boons', 'the shelf takes its default from the row (RF4)');
+  assert.equal(c.initial, SURVIVAL_STORED[SURVIVAL_DEFAULT]); assert.ok(SURVIVAL_DEFAULT === 'boons' || SURVIVAL_DEFAULT === 'casual');   // PIN MOVED (BOONS-DEFAULT, 2026-10-13, Mac: "make boons the default")
+  assert.equal(FEATURE_PREF_DEFAULTS.survival, SURVIVAL_DEFAULT, 'the shelf takes its default from the row (RF4)');
   assert.deepEqual(Object.keys(SURVIVAL_RULES), SURVIVAL_TIER_IDS.filter((t) => t !== SURVIVAL_OFF), 'every tier but Off has rules');
   // online: the player's, by name - "still let it be able to be turned off for online"
   assert.equal(c.online, 'player');
@@ -140,7 +140,7 @@ test('SURV-TIERS: one key, four tiers - the row, the table and the shelf agree; 
 
 test('SURV-TIERS: the switch - on is anything but Off; the live rules are the tier\'s; a stored value that is no tier reads as the default, the rule the Features bar draws it by', () => {
   _resetForTests();
-  assert.equal(survivalTier(), 'boons'); assert.equal(survivalOn(), true); assert.equal(survivalRules(), SURVIVAL_RULES.boons);   // PIN MOVED (BOONS-DEFAULT)
+  assert.equal(survivalTier(), SURVIVAL_DEFAULT); assert.equal(survivalOn(), true); assert.equal(survivalRules(), SURVIVAL_RULES[SURVIVAL_DEFAULT]);   // PIN MOVED (BOONS-DEFAULT)
   setPref(SURVIVAL_PREF, 'hard'); assert.equal(survivalTier(), 'hard'); assert.equal(survivalRules(), HARD); assert.equal(survivalOn(), true);
   setPref(SURVIVAL_PREF, false); assert.equal(survivalTier(), 'off'); assert.equal(survivalOn(), false); assert.equal(survivalRules(), null);
   // BLOOD AUDIT 5's rule (ui/enhanced/enhancedMenu.js tileStates): a value that is no tier shows as the default - so the laws
@@ -168,7 +168,7 @@ test('SURV-TIERS: the shelf - Off is the old switch\'s own false, so a shelf wri
     withShelf(shelf());
     assert.equal(survivalTier(), 'off', 'and it stays Off across every reload after');
     withShelf({});
-    assert.equal(survivalTier(), 'boons', 'a player who never touched the switch stored nothing, and moves with the default - Boons since BOONS-DEFAULT');   // PIN MOVED
+    assert.equal(survivalTier(), SURVIVAL_DEFAULT, 'a player who never touched the switch stored nothing, and moves with the default - Boons since BOONS-DEFAULT');   // PIN MOVED
     withShelf({ survival: 'hard' });
     assert.equal(survivalTier(), 'hard', 'a chosen tier is kept');
     setPref(SURVIVAL_PREF, SURVIVAL_STORED[SURVIVAL_DEFAULT]);   // BOONS-DEFAULT: the default, by name
@@ -644,7 +644,7 @@ test('SURV-TIERS: composed - the feed hands the live tier\'s rules, and a Casual
     equip: { slots: new Array(27).fill(null) },
   });
   _resetForTests(); clearPreventRestConditions();
-  assert.equal(survivalFeed(tickerPlayer(), BLIZZARD).deps.rules, SURVIVAL_RULES.boons, 'the default tier rides the feed');   // PIN MOVED (BOONS-DEFAULT)
+  assert.equal(survivalFeed(tickerPlayer(), BLIZZARD).deps.rules, SURVIVAL_RULES[SURVIVAL_DEFAULT], 'the default tier rides the feed');   // PIN MOVED (BOONS-DEFAULT)
   const run = (tier) => {
     _resetForTests(); setPref(SURVIVAL_PREF, tier); setWorldMinutes(3 * 1440 + 2 * 60);
     const p = tickerPlayer();

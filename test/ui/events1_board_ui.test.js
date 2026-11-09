@@ -17,6 +17,8 @@ import { setPref, _resetForTests as resetPrefs } from '../../src/systems/uiPrefs
 import { registerPresenter, _resetNotifyForTests } from '../../src/systems/notify.js';
 import { HUD_PIECES } from '../../src/ui/hud/hudLayout.js';
 import { FRAME_ROLES } from '../../src/ui/enhanced/enhancedFrame.js';
+import { FORK_FLAGS } from '../../src/config/forkFlags.js';
+const SKIP_OFFLINE_EVENTS = !FORK_FLAGS.ENABLE_ONLINE_PLAY ? 'Event board feature pruned in offline release (Sprint 6)' : false;
 
 const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8');
 
@@ -67,7 +69,7 @@ function seat(over = {}, off = null, log = null) {
 let hud = [];
 const fresh = () => { destroyEventBoard(); _resetEventNotices(); resetPrefs(); _resetNotifyForTests(); hud = []; registerPresenter({ hudText: (t) => { hud.push(t); return true; } }); };
 
-test('EVENTS1 THE PLATE: made once there is something on it, on the page only while it has; its rows the board\'s, each its title, clock, way then place; a raid\'s count under it; live first; hidden whole, never torn down; its rows as many as a screen stands (four tall, three on a desk) (mutants: the way\'s order, the count\'s kind, the rows for the screen, the hide, the page)', () => {
+test('EVENTS1 THE PLATE: made once there is something on it, on the page only while it has; its rows the board\'s, each its title, clock, way then place; a raid\'s count under it; live first; hidden whole, never torn down; its rows as many as a screen stands (four tall, three on a desk) (mutants: the way\'s order, the count\'s kind, the rows for the screen, the hide, the page)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   fresh();
   const doc = boardDoc();
   drawEventBoard({ doc, nowMs: NOW - EVENT_READ_MS });
@@ -118,7 +120,7 @@ test('EVENTS1 THE PLATE\'S PLACE, MEASURED (AUDIT EVENTS1 B1-B3, B5): under what
   assert.equal(eventBoardPlace({ vh: 720, ...span, classic: true }).room, 720 * (1 - EVENT_CLASSIC_FOOT) - 288, 'the classic skin: over its canvas vitals');
 });
 
-test('EVENTS1 THE PLATE FITS ITS ROOM: a row fewer until it does; a news takes a row\'s place; where not even its news fits, the news is said on the HUD\'s line and the plate stands down (AUDIT EVENTS1 B1/B3/B5), the journal holding its line once (mutants: the fit, the HUD\'s line, the stand-down, filed twice)', () => {
+test('EVENTS1 THE PLATE FITS ITS ROOM: a row fewer until it does; a news takes a row\'s place; where not even its news fits, the news is said on the HUD\'s line and the plate stands down (AUDIT EVENTS1 B1/B3/B5), the journal holding its line once (mutants: the fit, the HUD\'s line, the stand-down, filed twice)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   fresh();
   // a plate 40 px a row, 30 its frame, 100 a news; a screen whose room is 288 -> 561 (classic foot) less the gap
   const doc = boardDoc({ vh: 720, plate: (rows, news) => 30 + 40 * rows + 100 * news });
@@ -158,7 +160,7 @@ test('EVENTS1 THE PLATE FITS ITS ROOM: a row fewer until it does; a news takes a
   fresh();
 });
 
-test('EVENTS1 THE NEWS (AUDIT EVENTS1 A1): an event\'s line stands at the plate\'s head with ITS event\'s row - by the id it came with - and that row leaves the list; a line whose event has gone stands alone, never under another\'s; a single kind\'s id-less line its kind\'s one row; once a news, the board\'s voice says it - never its clock; one at a time, its time only while shown; what came on after the board first read the world is announced, what stood before is not (mutants: the id, the alone, the voice, the shown-time clock, the since)', () => {
+test('EVENTS1 THE NEWS (AUDIT EVENTS1 A1): an event\'s line stands at the plate\'s head with ITS event\'s row - by the id it came with - and that row leaves the list; a line whose event has gone stands alone, never under another\'s; a single kind\'s id-less line its kind\'s one row; once a news, the board\'s voice says it - never its clock; one at a time, its time only while shown; what came on after the board first read the world is announced, what stood before is not (mutants: the id, the alone, the voice, the shown-time clock, the since)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   fresh();
   const doc = boardDoc();
   const src = seat({ stars: [star(), star({ id: 'star:9.2', where: 'Near Copperham', px: 210, py: 200, at: NOW + 800_000, until: NOW + 800_000 })] });
@@ -204,7 +206,7 @@ test('EVENTS1 THE NEWS (AUDIT EVENTS1 A1): an event\'s line stands at the plate\
   fresh();
 });
 
-test('EVENTS1 WHAT STANDS BEFORE THE BOARD FIRST READ THE WORLD IS NO NEWS, HOWEVER LATE IT FILLS IN (AUDIT EVENTS1 A5): the raids\' list in a few reads after the first, a raid begun an hour before it - no news; one that came on after it - news; the "more" count every event the plate shows nowhere (A9) (mutants: the watch\'s start, the since, the count)', () => {
+test('EVENTS1 WHAT STANDS BEFORE THE BOARD FIRST READ THE WORLD IS NO NEWS, HOWEVER LATE IT FILLS IN (AUDIT EVENTS1 A5): the raids\' list in a few reads after the first, a raid begun an hour before it - no news; one that came on after it - news; the "more" count every event the plate shows nowhere (A9) (mutants: the watch\'s start, the since, the count)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   fresh();
   const doc = boardDoc();
   const src = seat({ stars: [], raids: null });
@@ -224,7 +226,7 @@ test('EVENTS1 WHAT STANDS BEFORE THE BOARD FIRST READ THE WORLD IS NO NEWS, HOWE
   fresh();
 });
 
-test('EVENTS1 THE SWITCH: off, the plate and its voice come down, a line taken in that frame goes where it went before (C4), and the board forgets everything whether or not it had built its plate (B9); on again, it reads afresh (mutants: the switch\'s door, the flush, the forgetting)', () => {
+test('EVENTS1 THE SWITCH: off, the plate and its voice come down, a line taken in that frame goes where it went before (C4), and the board forgets everything whether or not it had built its plate (B9); on again, it reads afresh (mutants: the switch\'s door, the flush, the forgetting)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   fresh();
   const chat = [];
   const doc = boardDoc();
@@ -257,7 +259,7 @@ test('EVENTS1 THE SWITCH: off, the plate and its voice come down, a line taken i
   fresh();
 });
 
-test('EVENTS2 A KIND TURNED OFF ON THE PLATE (the players on Discord: "Allow us to filter which events we want to show up in the event tracker"): its chip pressed, its rows leave at once - the source read again, not at the next read - its news standing is taken down and a line of it still waiting let go, every one of them in the journal and none sent to the chat; "more" never counts it; turned back on, its rows return and nothing that stood - nor a raid come on while the raids were off - is news; the plate takes no pointer; a mark for every kind of the one home; the Timers window keeps every kind (mutants: the drop unasked, the waiting kept, the read not forced, the model unfiltered, the announce over the shown, the announce unfiltered, a kind without its mark)', () => {
+test('EVENTS2 A KIND TURNED OFF ON THE PLATE (the players on Discord: "Allow us to filter which events we want to show up in the event tracker"): its chip pressed, its rows leave at once - the source read again, not at the next read - its news standing is taken down and a line of it still waiting let go, every one of them in the journal and none sent to the chat; "more" never counts it; turned back on, its rows return and nothing that stood - nor a raid come on while the raids were off - is news; the plate takes no pointer; a mark for every kind of the one home; the Timers window keeps every kind (mutants: the drop unasked, the waiting kept, the read not forced, the model unfiltered, the announce over the shown, the announce unfiltered, a kind without its mark)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   fresh();
   const chat = [], logged = [];
   const doc = boardDoc();
@@ -293,7 +295,7 @@ test('EVENTS2 A KIND TURNED OFF ON THE PLATE (the players on Discord: "Allow us 
   fresh();
 });
 
-test('EVENTS1 THE HUD\'S SCALE (AUDIT EVENTS1 B2): read off `.hud` and worn by the plate, as the loot banners wear it (mutants: the copy)', () => {
+test('EVENTS1 THE HUD\'S SCALE (AUDIT EVENTS1 B2): read off `.hud` and worn by the plate, as the loot banners wear it (mutants: the copy)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   fresh();
   const doc = boardDoc({ hudScale: 1.5 });
   seat();
@@ -318,7 +320,7 @@ test('EVENTS1 DRESSED AND MOVABLE: the kit\'s panel on the plate; its classic co
   assert.equal(EVENT_LAYOUT_MS, 250);
 });
 
-test('EVENTS1 THE SEAMS: the gate\'s (its rite too - C6), the serpent\'s, the Abyss Dungeon\'s, the stars\' and the raids\' (each with its id - A1) and the festival\'s lines through the one door; the Timers source seated where it is made, with the chat for the board off and townTalk for the journal (C4/C5), the player\'s pixel, the three sites, the raids\' own region (A8) and their look ahead (A4); the board on drawHud and its hide door; the status widget never makes way for it (B1) (mutants: each door, the seat, the draw)', () => {
+test('EVENTS1 THE SEAMS: the gate\'s (its rite too - C6), the serpent\'s, the Abyss Dungeon\'s, the stars\' and the raids\' (each with its id - A1) and the festival\'s lines through the one door; the Timers source seated where it is made, with the chat for the board off and townTalk for the journal (C4/C5), the player\'s pixel, the three sites, the raids\' own region (A8) and their look ahead (A4); the board on drawHud and its hide door; the status widget never makes way for it (B1) (mutants: each door, the seat, the draw)', { skip: SKIP_OFFLINE_EVENTS }, () => {
   const world = read('src/scenes/world.js');
   assert.match(world, /const timersSource = seatEventBoard\(\(\{ ask = false \} = \{\}\) => \{/);
   assert.match(world, /\}, \(text\) => chatNotice\(text\), townTalk\);/, 'the chat for a line said with the board off; the journal');

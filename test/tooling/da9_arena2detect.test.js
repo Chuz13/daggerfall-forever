@@ -80,7 +80,7 @@ test('DA9: Daggerfall Unity\'s settings.ini - [Daggerfall] MyDaggerfallPath, abs
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
-test('DA9: Steam - every library in libraryfolders.vdf, at the installdir app 1812390\'s manifest names, ARENA2 found under it', () => {
+test('DA9: Steam - every library in libraryfolders.vdf, at the installdir app 1812390\'s manifest names, ARENA2 found under it', (t) => {
   assert.deepEqual(vdfValues('"libraryfolders"\n{\n\t"0"\n\t{\n\t\t"path"\t\t"C:\\\\Program Files (x86)\\\\Steam"\n\t}\n\t"1"\n\t{\n\t\t"path"\t\t"D:\\\\SteamLibrary"\n\t}\n}', 'path'),
     ['C:\\Program Files (x86)\\Steam', 'D:\\SteamLibrary'], 'Valve escapes its backslashes');
   const home = tmp();
@@ -94,7 +94,12 @@ test('DA9: Steam - every library in libraryfolders.vdf, at the installdir app 18
     write(path.join(root, 'steamapps', `appmanifest_${STEAM_APP_ID}.acf`), manifest);
     const inRoot = arena2At(path.join(root, 'steamapps', 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
     fs.mkdirSync(path.join(home, '.steam'), { recursive: true });
-    fs.symlinkSync(root, path.join(home, '.steam', 'steam'));
+    try {
+      fs.symlinkSync(root, path.join(home, '.steam', 'steam'));
+    } catch (e) {
+      if (e.code === 'EPERM') return t.skip('symlink creation requires unprivileged symlink mode on Windows');
+      throw e;
+    }
     // a second library, on another drive, holds another - only libraryfolders.vdf knows it is there
     write(path.join(lib2, 'steamapps', `appmanifest_${STEAM_APP_ID}.acf`), manifest);
     const inLib2 = arena2At(path.join(lib2, 'steamapps', 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
@@ -215,7 +220,7 @@ test('L4-1/R2-D1: every look at the disks runs in a process of its own, killed a
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
-test('L4-3: a zip unpacked with "Extract Here" (a bare arena2 in Downloads), the shell\'s own folder names, links and junctions - all found', () => {
+test('L4-3: a zip unpacked with "Extract Here" (a bare arena2 in Downloads), the shell\'s own folder names, links and junctions - all found', (t) => {
   const home = tmp();
   try {
     // "Extract Here": arena2/ straight into Downloads, beside everything else - no folder named for Daggerfall
@@ -232,8 +237,13 @@ test('L4-3: a zip unpacked with "Extract Here" (a bare arena2 in Downloads), the
     // a link (a symlink, a Windows junction - libuv types both as links) to the install is followed, once
     const target = arena2At(path.join(home2, 'elsewhere', 'DAGGER', 'ARENA2'));
     fs.mkdirSync(path.join(home2, 'Games'), { recursive: true });
-    fs.symlinkSync(path.join(home2, 'elsewhere'), path.join(home2, 'Games', 'Daggerfall'));
-    fs.symlinkSync(path.join(home2, 'Games'), path.join(home2, 'elsewhere', 'loop'));   // a link back up the tree
+    try {
+      fs.symlinkSync(path.join(home2, 'elsewhere'), path.join(home2, 'Games', 'Daggerfall'));
+      fs.symlinkSync(path.join(home2, 'Games'), path.join(home2, 'elsewhere', 'loop'));   // a link back up the tree
+    } catch (e) {
+      if (e.code === 'EPERM') return t.skip('symlink creation requires unprivileged symlink mode on Windows');
+      throw e;
+    }
     const found = detectArena2({ platform: 'linux', home: home2, env: {}, regQuery: noReg });
     assert.ok(found.some((f) => f.dir === fs.realpathSync(target)), `a linked install is found (got ${JSON.stringify(found)})`);
   } finally { fs.rmSync(home2, { recursive: true, force: true }); }
@@ -295,7 +305,8 @@ test('L4-7/L4-8: GOG by Daggerfall\'s own product key, whatever the folder is ca
   assert.doesNotMatch(src, /execFileSync\('reg'/);
 });
 
-test('L4-9: ARENA2 and arena2 side by side (Linux): whichever is whole is the one', () => {
+test('L4-9: ARENA2 and arena2 side by side (Linux): whichever is whole is the one', (t) => {
+  if (process.platform === 'win32') return t.skip('case-insensitive filesystems cannot store ARENA2 and arena2 side by side');
   const root = tmp();
   try {
     arena2At(path.join(root, 'install', 'arena2'), ['ART_PAL.COL']);

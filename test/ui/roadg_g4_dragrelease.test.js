@@ -225,7 +225,7 @@ test('G4-8: the picker paints DFU\'s thumb, and paints NOTHING while the content
   const railQuads = (quads) => quads.filter((q) => q.tex === null
     && q.x >= IPX + ICX && q.x < IPX + ICX + ICW);
   const r = recorder();
-  new SpellIconPickerWindow().draw(r, canvas, font());   // 7 steps in 8 units: it fits
+  new SpellIconPickerWindow({ extraCount: 0 }).draw(r, canvas, font());   // 7 steps in 8 units: it fits
   assert.deepEqual(railQuads(r.quads), [], 'no trough, no block - the main panel\'s black shows');
   const r2 = recorder();
   tallPicker().draw(r2, canvas, font());

@@ -25,6 +25,7 @@ import { isNpcFlat, NPC_FLAT_ARCHIVES } from '../../src/world/rdbLayout.js';
 import { layoutInterior, INTERIOR_MARKER, PROP_MODEL_TYPE } from '../../src/world/interior/interiorLayout.js';
 import { trs } from '../../src/world/mat4.js';
 import { hostText } from '../hostText.mjs';   // HOST-SPLIT 2: the world host whole
+import { getPref, setPref } from '../../src/systems/uiPrefs.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const src = (p) => hostText(p);
@@ -356,23 +357,29 @@ test('AUDIT 64 F14: DaggerfallCityGate.Update is a state machine, not an IsNight
   // pins say WHICH world they hold for - the classic one. The default itself
   // is pinned separately below; relying on it here would make these pins go
   // quietly vacuous the day it changed.
-  const OFF = { online: false };
-  const closedByDay = makeCityGate(CITY_GATE_CLOSED_MODEL_ID);
-  assert.equal(updateCityGate(closedByDay, false, OFF), false, 'daytime frame one: no toggle');
-  assert.equal(closedByDay.modelId, CITY_GATE_CLOSED_MODEL_ID, 'the block data still decides');
-  // Night acts on frame one, which is what closes a location entered at 20:00.
-  const openAtDusk = makeCityGate(CITY_GATE_OPEN_MODEL_ID);
-  assert.equal(updateCityGate(openAtDusk, true, OFF), true);
-  assert.equal(openAtDusk.modelId, CITY_GATE_CLOSED_MODEL_ID);
-  assert.equal(openAtDusk.isOpen, false);
-  assert.equal(updateCityGate(openAtDusk, true, OFF), false, 'idempotent while the hour holds');
-  assert.equal(updateCityGate(openAtDusk, false, OFF), true, 'dawn opens it again');
-  assert.equal(openAtDusk.modelId, CITY_GATE_OPEN_MODEL_ID);
-  // ...and the day-placed closed gate opens on its first NIGHT->day cycle.
-  assert.equal(updateCityGate(closedByDay, true, OFF), true);
-  assert.equal(closedByDay.modelId, CITY_GATE_CLOSED_MODEL_ID);
-  assert.equal(updateCityGate(closedByDay, false, OFF), true);
-  assert.equal(closedByDay.modelId, CITY_GATE_OPEN_MODEL_ID);
+  const prevCity247 = getPref('city247');
+  setPref('city247', false);
+  try {
+    const OFF = { online: false };
+    const closedByDay = makeCityGate(CITY_GATE_CLOSED_MODEL_ID);
+    assert.equal(updateCityGate(closedByDay, false, OFF), false, 'daytime frame one: no toggle');
+    assert.equal(closedByDay.modelId, CITY_GATE_CLOSED_MODEL_ID, 'the block data still decides');
+    // Night acts on frame one, which is what closes a location entered at 20:00.
+    const openAtDusk = makeCityGate(CITY_GATE_OPEN_MODEL_ID);
+    assert.equal(updateCityGate(openAtDusk, true, OFF), true);
+    assert.equal(openAtDusk.modelId, CITY_GATE_CLOSED_MODEL_ID);
+    assert.equal(openAtDusk.isOpen, false);
+    assert.equal(updateCityGate(openAtDusk, true, OFF), false, 'idempotent while the hour holds');
+    assert.equal(updateCityGate(openAtDusk, false, OFF), true, 'dawn opens it again');
+    assert.equal(openAtDusk.modelId, CITY_GATE_OPEN_MODEL_ID);
+    // ...and the day-placed closed gate opens on its first NIGHT->day cycle.
+    assert.equal(updateCityGate(closedByDay, true, OFF), true);
+    assert.equal(closedByDay.modelId, CITY_GATE_CLOSED_MODEL_ID);
+    assert.equal(updateCityGate(closedByDay, false, OFF), true);
+    assert.equal(closedByDay.modelId, CITY_GATE_OPEN_MODEL_ID);
+  } finally {
+    setPref('city247', prevCity247);
+  }
 });
 
 test('OL5: the shared world never lets a town gate shut, and a gate laid CLOSED still opens', () => {
@@ -401,9 +408,15 @@ test('OL5: the shared world never lets a town gate shut, and a gate laid CLOSED 
   assert.equal(updateCityGate(laidShut, true, ON), false, 'and then stays put');
 
   // The same gate offline is classic: still shut at night.
-  const offline = makeCityGate(CITY_GATE_OPEN_MODEL_ID);
-  assert.equal(updateCityGate(offline, true, { online: false }), true, 'offline nothing moved');
-  assert.equal(offline.modelId, CITY_GATE_CLOSED_MODEL_ID);
+  const prevCity247 = getPref('city247');
+  setPref('city247', false);
+  try {
+    const offline = makeCityGate(CITY_GATE_OPEN_MODEL_ID);
+    assert.equal(updateCityGate(offline, true, { online: false }), true, 'offline nothing moved');
+    assert.equal(offline.modelId, CITY_GATE_CLOSED_MODEL_ID);
+  } finally {
+    setPref('city247', prevCity247);
+  }
 });
 
 test('OL5: the gate law is the COMPONENT\'s, and its default is the shared clock', () => {
@@ -413,22 +426,22 @@ test('OL5: the gate law is the COMPONENT\'s, and its default is the shared clock
   // shipped this same parameter unpinned and the audit had to come back for it.
   assert.match(law, /import \{ sharedClockOn \} from '\.\.\/\.\.\/systems\/worldTick\.js';/,
     'the default is the shared clock, not isOnlinePage');
-  assert.match(law, /export function updateCityGate\(gate, night, \{ online = sharedClockOn\(\) \} = \{\} \) \{|export function updateCityGate\(gate, night, \{ online = sharedClockOn\(\) \} = \{\}\) \{/,
+  assert.match(law, /export function updateCityGate\(gate, night, \{ online = sharedClockOn\(\)(?:, region = null)? \} = \{\}\) \{/,
     'and it is the DEFAULT, so a host that passes nothing still gets the law');
   // ONE HOME: neither host may carry the rule. Both call the component with a
   // bare `night` - the day one of them starts deciding for itself is the day
   // the two hosts disagree about whether a city is walled.
   for (const p of ['src/scenes/exterior.js', 'src/scenes/world.js']) {
     const h = src(p);
-    assert.ok(h.includes('updateCityGate(g.gate, night)'), `${p}: calls the component plainly`);
-    assert.doesNotMatch(h, /updateCityGate\(g\.gate, night, /, `${p}: must not carry an online rule of its own - the law is cityGate.js's`);
+    assert.ok(h.includes('updateCityGate(g.gate, night'), `${p}: calls the component plainly`);
+    assert.doesNotMatch(h, /updateCityGate\(g\.gate, night, \{[^}]*online/, `${p}: must not carry an online rule of its own - the law is cityGate.js's`);
   }
 });
 
 test('AUDIT 64 F14: both hosts swap the DRAW mesh AND the collider, in a bucket of the gate\'s own', () => {
   for (const p of ['src/scenes/exterior.js', 'src/scenes/world.js']) {
     const s = src(p);
-    assert.ok(s.includes('updateCityGate(g.gate, night)'), `${p} runs Update()`);
+    assert.ok(s.includes('updateCityGate(g.gate, night'), `${p} runs Update()`);
     assert.ok(s.includes('collider.removeBucket(g.bucketKey);'),
       `${p} re-points the collider - GameObjectHelper.cs:246-250 changes the MeshCollider too, so a closed gate BLOCKS`);
     assert.ok(/gate:/.test(s), `${p} gives the gate a private collider bucket`);

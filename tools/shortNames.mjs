@@ -6,7 +6,7 @@
 //   node tools/shortNames.mjs --where FILE  each counted binding in FILE, by line
 //   node tools/shortNames.mjs --lower       the baseline written down to today (never raised)
 //   node tools/shortNames.mjs --seed REF    at a merge from a base without this law: REF's own counts admitted
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +34,9 @@ function listedIn(text, heading) {
 
 /** The glossary's two lists: the short names allowed, and the abbreviations being retired. */
 export function glossary(root = ROOT) {
-  const text = readFileSync(join(root, GLOSSARY), 'utf8');
+  const p = join(root, GLOSSARY);
+  if (!existsSync(p)) return { allowed: new Set(), retired: new Set() };
+  const text = readFileSync(p, 'utf8');
   return {
     allowed: new Set(listedIn(text, 'Short names code may use')),
     retired: new Set(listedIn(text, 'Abbreviations to retire')),

@@ -159,7 +159,7 @@ export function paragraphExcess(text) {
 const walk = (root, dir, ext, out = []) => {
   if (!existsSync(join(root, dir))) return out;
   for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
-    const p = join(dir, e.name);
+    const p = `${dir}/${e.name}`.replace(/\\/g, '/');
     if (e.isDirectory()) walk(root, p, ext, out);
     else if (ext.test(e.name)) out.push(p);
   }

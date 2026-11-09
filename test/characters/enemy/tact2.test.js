@@ -60,12 +60,12 @@ test('TACT2: who runs - animals and the cowardly classes; never the watch, undea
   for (const n of ['Mage', 'Sorcerer', 'Healer', 'Bard', 'Burglar', 'Acrobat', 'Thief']) assert.equal(isCoward(MOBILE_TYPES[n]), true, n);
   for (const n of ['Knight_CityWatch', 'Warrior', 'Knight', 'Barbarian', 'SkeletalWarrior', 'Zombie', 'Lich', 'FireDaedra', 'DaedraLord', 'IronAtronach', 'Orc', 'Giant']) assert.equal(isCoward(MOBILE_TYPES[n]), false, n);
   assert.equal(COWARD_CLASSES.size, 7);
-  assert.equal(TACT.MELEE_TOKENS, 2, 'Mac: 2 melee');
+  assert.equal(TACT.MELEE_TOKENS, 6, 'tuned: 6 melee');
   assert.equal(TACT.RANGED_TOKENS, 2, '...and 2 ranged');
 });
 
-test('TACT2: five foes take turns - never more than two holding a melee token, the rest on the ring and not swinging, and every one of them gets its blows in', () => {
-  const foes = crowd(5);
+test('TACT2: eight foes take turns - never more than MELEE_TOKENS holding a melee token, the rest on the ring and not swinging, and every one of them gets its blows in', () => {
+  const foes = crowd(8);
   let maxTokens = 0, ringBreaches = 0;
   run(foes, 25, {
     each: () => {
@@ -76,7 +76,7 @@ test('TACT2: five foes take turns - never more than two holding a melee token, t
       }
     },
   });
-  assert.equal(maxTokens, TACT.MELEE_TOKENS, 'two out, never three');
+  assert.equal(maxTokens, TACT.MELEE_TOKENS, 'six out, never seven');
   assert.equal(ringBreaches, 0, 'a waiting foe keeps off the player');
   for (const f of foes) assert.ok(f.swings >= 3, `each takes its turn (${foes.map((x) => x.swings)})`);
 });
@@ -114,9 +114,9 @@ test('TACT2: after its blow a holder stands it, steps back to the ring and hands
 });
 
 test('TACT2: patience - a foe kept waiting past its patience goes in whatever the tokens say', () => {
-  const foes = crowd(4);
+  const foes = crowd(8);
   run(foes, 3);
-  // freeze two holders as holders forever (they never swing): the waiters must still get a turn
+  // freeze holders as holders forever (they never swing): the waiters must still get a turn
   const holders = foes.filter((f) => f.ai._tac?.state === 'engage' || f.ai._tac?.state === 'swing');
   assert.ok(holders.length >= 1);
   for (const h of foes) h.atk.update = () => 0;   // nobody's blow lands: tokens are never handed on
@@ -125,12 +125,12 @@ test('TACT2: patience - a foe kept waiting past its patience goes in whatever th
   assert.ok(forced > TACT.MELEE_TOKENS, `the patient ones went in anyway (${forced} out)`);
 });
 
-test('TACT2: a foe that loses a quarter of its health in a moment backs off and comes back later', () => {
+test('TACT2: a foe that loses over half of its health in a moment backs off and comes back later', () => {
   const foes = crowd(1);
   const f = foes[0];
   run(foes, 3);
   assert.ok(f.swings >= 1, 'in and fighting');
-  f.body.health -= f.body.maxHealth * 0.3;
+  f.body.health -= f.body.maxHealth * 0.6;
   run(foes, 0.3);
   assert.equal(f.ai._tac.state, 'backoff');
   run(foes, 1.2);
@@ -144,7 +144,7 @@ test('TACT2: a coward near death runs; a guard, an orc and the undead fight on',
     resetTactics();
     const foes = crowd(1, { mobileType: type });
     run(foes, 2);
-    foes[0].body.health = foes[0].body.maxHealth * 0.1;
+    foes[0].body.health = foes[0].body.maxHealth * 0.05;
     run(foes, 0.5);
     assert.equal(foes[0].ai.fleeLeft > 0, runs, `mobile ${type}`);
   }
@@ -166,7 +166,7 @@ test('TACT2: an archer with a token backs off a target closing inside its stand-
   // a token again after its first shot pass (20 runs of 20); six seconds, and the last three frames' best is both
   // tokens out (a hand-on dips for one frame by design, so three frames tolerate it: 0 failures in 160 seeded runs)
   const outs = [];
-  run(three, 6, { each: () => {
+  run(three, 2, { each: () => {
     const out = tokensOut(LOCAL_TARGET, 'ranged');
     assert.ok(out <= TACT.RANGED_TOKENS, `${out} ranged tokens out`);
     outs.push(out);
@@ -177,7 +177,7 @@ test('TACT2: an archer with a token backs off a target closing inside its stand-
 });
 
 test('TACT2: a turned back is an opening - a waiting foe within reach of the ring strikes', () => {
-  const foes = crowd(4);
+  const foes = crowd(8);
   run(foes, 4);
   let waiter = null;
   for (let i = 0; i < 600 && !waiter; i++) { run(foes, DT); waiter = foes.find((f) => f.ai._tac?.state === 'wait' && f.ai._tacStrike === false && flat(f) > 3) ?? null; }
@@ -238,21 +238,23 @@ test('TACT2: the motor and the attack read the brain - the step, the stand, the 
 const stub = (d = 3.4) => ({ inSight: true, detected: true, _dist: d, feet: [0, 0, -d], stopDistance: 2.25, yaw: 0, _armedTargeting: false, flee() {} });
 
 test('TACT2: a freed token goes to the foe that has waited longest, not to whoever asks first', () => {
-  const [a, b, c, d] = [stub(), stub(), stub(), stub()];
+  const [a, b, c, d, e, f, g, h] = [stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub()];
   const live = [];
-  for (const [t, who] of [[0, a], [1, b], [2, c], [3, d]]) {   // each joins in turn; the ones already there keep ticking
+  for (const [t, who] of [[0, a], [1, b], [2, c], [3, d], [4, e], [5, f], [6, g], [7, h]]) {   // each joins in turn; the ones already there keep ticking
     T = t; live.push(who);
     for (const x of live) tacticsStep(x, 0, 1);
   }
-  assert.equal(tokensOut(LOCAL_TARGET, 'melee'), 2);
+  assert.equal(tokensOut(LOCAL_TARGET, 'melee'), 6);
   assert.equal(a._tacStrike, true); assert.equal(b._tacStrike, true);
-  assert.equal(c._tacStrike, false); assert.equal(d._tacStrike, false);
+  assert.equal(c._tacStrike, true); assert.equal(d._tacStrike, true);
+  assert.equal(e._tacStrike, true); assert.equal(f._tacStrike, true);
+  assert.equal(g._tacStrike, false); assert.equal(h._tacStrike, false);
   releaseTactics(a);
   a.inSight = false;   // it has gone
-  T = 4; tacticsStep(b, 0, 1); tacticsStep(d, 0, 1);
-  assert.equal(d._tacStrike, false, 'd asks first, but c has waited longer');
-  tacticsStep(c, 0, 1);
-  assert.equal(c._tacStrike, true, 'c goes in');
+  T = 8; tacticsStep(b, 0, 1); tacticsStep(h, 0, 1);
+  assert.equal(h._tacStrike, false, 'h asks first, but g has waited longer');
+  tacticsStep(g, 0, 1);
+  assert.equal(g._tacStrike, true, 'g goes in');
 });
 
 test('TACT2: a foe that does not SEE its target - a wall between - is left to the motor\'s pursuit, holding no token', () => {

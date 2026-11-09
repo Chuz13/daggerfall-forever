@@ -506,7 +506,8 @@ test('MAC-L1b: the dungeon pause door reads the HOST BAG, not its own argument',
   // (Scoped to this file because the tree-wide rule is its own slice -
   // 111 sites - and this host must not be allowed to regress meanwhile.)
   const { execFileSync } = await import('node:child_process');
-  const out = execFileSync('npx', ['eslint', 'src/scenes/dungeonContext.js',
+  const bin = 'node_modules/eslint/bin/eslint.js';
+  const out = execFileSync(process.execPath, [bin, 'src/scenes/dungeonContext.js',
     '--rule', '{"no-shadow":["error",{"builtinGlobals":false}]}', '-f', 'json'], { encoding: 'utf8' });
   const shadows = JSON.parse(out).flatMap((f) => f.messages).filter((m) => /'opts'/.test(m.message));
   assert.deepEqual(shadows, [], 'no binding in this file shadows the host bag');

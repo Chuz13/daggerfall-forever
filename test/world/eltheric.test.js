@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { ETHER_WORD, ETHER_SEA_NAME, ETHER_SEA_TITLE } from '../../src/world/ethericSea.js';
 import { ETHER_REGION_NAME } from '../../src/world/etherPlaces.js';
@@ -16,7 +17,7 @@ import { logLines, newLog, TRADE_WORD, TRADE_WORDS } from '../../src/systems/nav
 import { etherOfficeText } from '../../src/ui/naval/navalYardWindow.js';
 import { ETHER_CHART_CSS } from '../../src/ui/etherChartWindow.js';
 
-const ROOT = new URL('../..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const walk = (dir) => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : p.endsWith('.js') ? [p] : []; });
 
 test('ELTHERIC: the word, the name at a sentence\'s middle and head, the isles\' region - and the intro map\'s ocean west of the Bay the same (mutant: the word another)', () => {
@@ -37,7 +38,7 @@ test('ELTHERIC: every word a player reads of the sea is the one home\'s - the cr
 test('ELTHERIC: no code names the sea "Etheric" any more, and the word is written in one module (the intro map\'s table beside it) - comments may speak of it, code may not spell it', () => {
   const stale = [], spelt = [];
   for (const file of walk(join(ROOT, 'src'))) {
-    const rel = file.slice(ROOT.length);
+    const rel = file.slice(ROOT.length).replace(/\\/g, '/').replace(/^\//, '');
     const lines = readFileSync(file, 'utf8').split('\n');
     lines.forEach((line, i) => {
       const code = line.replace(/^\s*(\/\/|\*|\/\*).*$/, '').replace(/\s\/\/\s.*$/, '');

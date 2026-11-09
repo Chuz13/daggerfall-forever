@@ -78,14 +78,15 @@ function onPage(fn, { skin = 'enhanced', herald = true, tracker = false, doc = f
   const hadDoc = Object.hasOwn(globalThis, 'document') ? globalThis.document : undefined;
   globalThis.location = { search: `?skin=${skin}` };
   if (doc) globalThis.document = doc;
-  quiet(() => { setPref(HERALD_PREF, herald); setPref(TRACKER_PREF, tracker); setPref(MARKS_PREF, tracker); });   // the marks follow with the tracker
+  const prevGuidance = PREF_DEFAULTS.questGuidance;
+  quiet(() => { setPref(HERALD_PREF, herald); setPref(TRACKER_PREF, tracker); setPref(MARKS_PREF, tracker); setPref('questGuidance', 'journal'); });   // the marks follow with the tracker
   const due = [];
   _setNoticeClockForTests((f, ms) => { const t = { f, ms, live: true }; due.push(t); return t; }, (t) => { if (t) t.live = false; });
   questHerald.clear();
   try { return fn(doc, { fire: (ms) => { for (const t of due.filter((x) => x.live && x.ms === ms)) { t.live = false; t.f(); } } }); } finally {
     if (had === undefined) delete globalThis.location; else globalThis.location = had;
     if (hadDoc === undefined) delete globalThis.document; else globalThis.document = hadDoc;
-    quiet(() => { setPref(HERALD_PREF, true); setPref(TRACKER_PREF, true); setPref(MARKS_PREF, true); });
+    quiet(() => { setPref(HERALD_PREF, true); setPref(TRACKER_PREF, true); setPref(MARKS_PREF, true); setPref('questGuidance', prevGuidance ?? 'journal'); });
     questHerald.clear();
     destroyEnhancedNotice();
     _setNoticeClockForTests((f, ms) => setTimeout(f, ms), (t) => clearTimeout(t));

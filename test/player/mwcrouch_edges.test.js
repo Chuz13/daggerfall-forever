@@ -56,7 +56,7 @@ const SRC = join(HERE, '..', 'src');
 const HOSTS = ['world.js', 'exterior.js', 'dungeon.js', 'worldModes.js'];
 const host = (f) => readFileSync(join(SRC, 'scenes', f), 'utf8');
 
-const defaults = () => { const b = createBindings(); resetDefaults(b); return b; };
+const defaults = () => { const b = createBindings(); resetDefaults(b); setBinding(b, 'KeyC', 'Crouch'); return b; };
 
 test('MWCROUCH: a press and release entirely between two frames is still an edge', () => {
   setBindings(defaults());

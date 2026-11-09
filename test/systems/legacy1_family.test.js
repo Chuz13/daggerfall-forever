@@ -322,12 +322,12 @@ test('LEGACY3 U2: the dead, the played and the not-yet-played each wear their ow
 });
 
 test('LEGACY2: the model question offers Enduring first - Enter without reading never costs a character', () => {
-  const o = legacyModelOptions({ online: false, tollShare: 0.06 });
+  const o = legacyModelOptions({ online: false, tollShare: 0.06, includeDynasty: false });
   assert.deepEqual(o.map((x) => x.id), [MODELS.enduring, MODELS.bloodline]);
   assert.ok(o.every((x) => !x.locked));
   assert.match(o[0].lines[1], /Arkay takes 6% of a lifespan/);
-  assert.match(legacyModelOptions({ online: false, tollShare: 0.1 })[0].lines[1], /Arkay takes 10% of a lifespan/, 'AUDIT LEGACY U7: the toll a death will charge, not the Standard\'s');
-  const on = legacyModelOptions({ online: true, tollShare: 0.06 });
+  assert.match(legacyModelOptions({ online: false, tollShare: 0.1, includeDynasty: false })[0].lines[1], /Arkay takes 10% of a lifespan/, 'AUDIT LEGACY U7: the toll a death will charge, not the Standard\'s');
+  const on = legacyModelOptions({ online: true, tollShare: 0.06, includeDynasty: false });
   // PIN MOVED (LEGACY7): AUDIT LEGACY B4 shut Bloodline online until the realm kept lineages - it does now (the tombstone)
   // PIN MOVED (LEGACY-CHOICE): and online a third answer after the two - no lineage, Enduring still first
   // PIN MOVED (CASUAL-FIRST): online Casual leads the two
