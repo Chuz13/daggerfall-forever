@@ -46,6 +46,9 @@ import {
   LIVING_ROLL_DEGREE,
   LIVING_FORMULAS,
   resolveLivingRoll,
+  SURRENDER_OUTCOME,
+  calculateSurrenderRansom,
+  resolveLivingSurrender,
 } from './livingRolls.js';
 import {
   planSquadronEncounter,
@@ -1555,11 +1558,27 @@ export function createLivingSceneHost(deps) {
             deps.say(res.message, 5);
           },
         },
+        {
+          code: 'Digit5',
+          label: `5. ${LIVING_WORDS.surrenderOptionSubmitGuard(Math.max(50, Math.floor(tollGold * 1.5)))}`,
+          action: () => {
+            const res = resolveCheckpointInteraction({
+              playerEntity: player,
+              method: 'surrender',
+              tollGoldRequired: tollGold,
+              regionIndex: regIdx,
+              nowMinutes: nowMin,
+              rng,
+            });
+            deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+            deps.say(res.message, 5);
+          },
+        },
       ];
       if (contractOffer) {
         options.push({
-          code: 'Digit5',
-          label: `5. ${LIVING_WORDS.crisisContractOptionAccept(contractOffer.title, contractOffer.rewardGold)}`,
+          code: 'Digit6',
+          label: `6. ${LIVING_WORDS.crisisContractOptionAccept(contractOffer.title, contractOffer.rewardGold)}`,
           action: () => {
             const accepted = acceptRegionalCrisisContract(regIdx, Number(player?.level ?? 1), nowMin);
             if (accepted) {
@@ -1651,6 +1670,24 @@ export function createLivingSceneHost(deps) {
               deps.say(res.message, 5);
             },
           },
+          {
+            code: 'Digit5',
+            label: `5. [Yield] Buy out contract in full (${Math.max(150, Number(nemesis.contractBounty || 250))}g)`,
+            action: () => {
+              const bounty = Math.max(150, Number(nemesis.contractBounty || 250));
+              const haveGold = Number(player?.goldPieces ?? 0);
+              if (haveGold >= bounty && player) {
+                player.goldPieces = Math.max(0, haveGold - bounty);
+                clearNemesisGrudge();
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                deps.say(`${nemesis.name} accepts your gold: "Your debt is settled. Pray our paths do not cross again."`, 6);
+                releaseSite();
+              } else {
+                setSiteHostile(s, true);
+                deps.say(`${nemesis.name} sneers at your empty purse: "You cannot afford your own life! Die, cur!"`, 5);
+              }
+            },
+          },
         ],
       });
     } else if (s.kind === LIVING_SITE_KINDS.ADVENTURER_MEETING) {
@@ -1736,6 +1773,19 @@ export function createLivingSceneHost(deps) {
             label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
             action: () => {
               deps.say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0), 4);
+            },
+          },
+          {
+            code: 'Digit5',
+            label: `5. ${LIVING_WORDS.surrenderOptionForfeitDuel(wager)}`,
+            action: () => {
+              if (player) {
+                const currentGold = Number(player.goldPieces ?? 0);
+                const forfeitPaid = Math.min(currentGold, wager);
+                player.goldPieces = Math.max(0, currentGold - forfeitPaid);
+              }
+              deps.say(LIVING_WORDS.surrenderOutcomeConceded(), 5);
+              releaseSite();
             },
           },
         ],
@@ -2118,6 +2168,7 @@ export function createLivingSceneHost(deps) {
         ],
       });
     } else if (s.kind === LIVING_SITE_KINDS.BANDIT_CAMP && s.blueprint.meta?.ambushDetectedByStealth) {
+      const ransomCalc = calculateSurrenderRansom(player, Number(player?.level ?? 1));
       deps.openChoice({
         lines: [
           LIVING_WORDS.travelStealthSpotted(),
@@ -2147,6 +2198,20 @@ export function createLivingSceneHost(deps) {
               }
               setSiteHostile(s, true);
               deps.say(LIVING_WORDS.travelAmbush(), 4);
+            },
+          },
+          {
+            code: 'Digit3',
+            label: `3. ${LIVING_WORDS.surrenderOptionPurse(ransomCalc.ransomGold)}`,
+            action: () => {
+              const res = resolveLivingSurrender({ playerEntity: player, threatLevel: Number(player?.level ?? 1) });
+              if (res.outcome === SURRENDER_OUTCOME.BEATEN_PAUPER) {
+                deps.say(LIVING_WORDS.surrenderOutcomeBeaten(), 6);
+              } else {
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                deps.say(LIVING_WORDS.surrenderOutcomeRobbed(), 6);
+              }
+              releaseSite();
             },
           },
         ],
@@ -3250,7 +3315,7 @@ export function buildDungeonAdventurerChoiceSpec({
         },
         {
           code: 'Digit4',
-          label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
+          label: `4. ${LIVING_WORDS.surrenderOptionConcedeClaim()}`,
           action: () => {
             confrontInterceptingAdventurer({
               locationId,
@@ -3259,7 +3324,7 @@ export function buildDungeonAdventurerChoiceSpec({
               method: 'FORFEIT',
               rng,
             });
-            say(LIVING_WORDS.adventurerReclaimFailed());
+            say(LIVING_WORDS.surrenderOutcomeConceded());
           },
         },
       ],

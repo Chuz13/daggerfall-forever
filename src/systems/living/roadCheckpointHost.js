@@ -25,6 +25,8 @@ export const CHECKPOINT_OUTCOME = Object.freeze({
   LUCK_SAVED: 'LUCK_SAVED',             // Saved by second chance of Luck or narrow compromise
   REFUSED: 'REFUSED',                   // Access denied; turned back without bloodshed
   HOSTILE: 'HOSTILE',                   // Forced entry / critical blunder / attacked guards
+  SURRENDERED_PAID: 'SURRENDERED_PAID', // Surrendered peacefully; paid fine and received pass
+  SURRENDERED_PAUPER: 'SURRENDERED_PAUPER', // Surrendered with empty pockets; cautioned and passed
 });
 
 export const CHECKPOINT_PASS_DURATION_MINUTES = 1440; // 24 in-game hours
@@ -240,6 +242,35 @@ export function resolveCheckpointInteraction({
       compromiseToll: rollRes.degree === LIVING_ROLL_DEGREE.PARTIAL ? compromiseToll : 0,
       rollResult: rollRes,
       message: 'The guards are unimpressed by your words. "Nice speech, but regulations are regulations. Halt!"',
+    };
+  }
+
+  if (method === 'surrender') {
+    const fineGold = Math.max(50, Math.floor(tollGoldRequired * 1.5));
+    const currentGold = Number(playerEntity?.goldPieces ?? 0);
+    if (currentGold >= fineGold) {
+      if (playerEntity) {
+        playerEntity.goldPieces = Math.max(0, currentGold - fineGold);
+      }
+      grantRegionalCheckpointPass(regionIndex, nowMinutes);
+      return {
+        outcome: CHECKPOINT_OUTCOME.SURRENDERED_PAID,
+        tollCost: fineGold,
+        message: 'You surrender your weapons and pay the transit penalty. The guard issues a stamped caution pass.',
+      };
+    }
+    // Pauper surrender: pass safely without blood, but stripped of coins and winded
+    if (playerEntity) {
+      playerEntity.goldPieces = 0;
+      if (typeof playerEntity.fatigue === 'number') {
+        playerEntity.fatigue = Math.max(1, Math.trunc(playerEntity.fatigue * 0.2));
+      }
+    }
+    grantRegionalCheckpointPass(regionIndex, nowMinutes);
+    return {
+      outcome: CHECKPOINT_OUTCOME.SURRENDERED_PAUPER,
+      tollCost: currentGold,
+      message: 'Emptying your pockets, the guards confiscate what little copper you have and wave you on with a stern warning.',
     };
   }
 

@@ -329,5 +329,21 @@ export const LIVING_WORDS = Object.freeze({
     t('living.roll.failure', '[Check Failed: {score} vs {dc}] Neither side heeds your words; the clash continues without you.', { score, dc }),
   rollCriticalFailure: (score = 10, dc = 50) =>
     t('living.roll.criticalFailure', '[Critical Failure: {score} vs {dc}] Your words enrage both factions — they turn their weapons on you!', { score, dc }),
+
+  // Surrender, Yield, and Forfeit Interactions
+  surrenderOptionPurse: (gold = 50) =>
+    t('living.surrender.optPurse', '[Surrender] Hand over your purse ({gold} gold).', { gold }),
+  surrenderOptionConcedeClaim: () =>
+    t('living.surrender.optConcede', '[Yield] Concede the dungeon claim to your rival.'),
+  surrenderOptionForfeitDuel: (gold = 50) =>
+    t('living.surrender.optForfeit', '[Yield] Forfeit the duel and pay the wager ({gold} gold).', { gold }),
+  surrenderOptionSubmitGuard: (gold = 100) =>
+    t('living.surrender.optSubmit', '[Surrender] Submit to the watch and pay the fine ({gold} gold).', { gold }),
+  surrenderOutcomeRobbed: () =>
+    t('living.surrender.robbed', 'The bandits take your gold and vanish into the wilderness, sparing your life.'),
+  surrenderOutcomeBeaten: () =>
+    t('living.surrender.beaten', 'Finding only empty pockets, they beat you senseless and leave you in the dirt.'),
+  surrenderOutcomeConceded: () =>
+    t('living.surrender.conceded', 'Your rival nods in satisfaction, takes the prize, and departs in peace.'),
 });
 

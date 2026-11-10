@@ -114,8 +114,10 @@ test('LT-39-Matrix: Event matching respects active crisis and regional condition
 
 test('LT-39-Matrix: planUrbanSkirmish dynamically scales with prosperity and density', () => {
   const orig = LivingTamrielConfig.urban;
+  const origScale = LivingTamrielConfig.encounterScale;
   try {
     LivingTamrielConfig.urban = PRESENCE.HIGH;
+    LivingTamrielConfig.encounterScale = 'mid';
     setRegionCrisis(17, CRISIS_TYPE.WAR, CRISIS_PHASE.MID);
 
     const highLoc = {
@@ -146,6 +148,7 @@ test('LT-39-Matrix: planUrbanSkirmish dynamically scales with prosperity and den
     assert.equal(isSkirmishBlowCriminal('SkirmishLaw', 'SkirmishRebels', false), false);
   } finally {
     LivingTamrielConfig.urban = orig;
+    LivingTamrielConfig.encounterScale = origScale;
   }
 });
 

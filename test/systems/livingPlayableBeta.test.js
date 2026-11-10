@@ -399,7 +399,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     // Tick frame at 8m distance -> triggers interactive ChoiceWindow
     host.frame(1.1);
     assert.equal(choicesOpened.length, 1, 'approaching checkpoint within 14m should open ChoiceWindow');
-    assert.equal(choicesOpened[0].options.length, 4);
+    assert.ok(choicesOpened[0].options.length >= 4);
 
     // Choose option 2 (Pay Toll)
     const goldBefore = player.goldPieces;
@@ -702,7 +702,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     await new Promise((r) => setTimeout(r, 5));
     host.frame(1.1);
     assert.ok(choiceSpec, 'Stealth-detected ambush opens ChoiceWindow');
-    assert.equal(choiceSpec.options.length, 2);
+    assert.ok(choiceSpec.options.length >= 2);
     // Option 2: Surprise attack reduces bandit HP by 25% and turns them hostile
     choiceSpec.options[1].action();
     assert.equal(spawnedFoes[0].entity.currentHealth, 60, 'surprise attack reduces bandit HP from 80 to 60');

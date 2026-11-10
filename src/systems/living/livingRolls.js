@@ -640,3 +640,84 @@ export function computeRoleplayBribeMultiplier(playerEntity, skillId = SKILLS.St
     sw * 0.004 + Math.max(0, pers - 50) * 0.002 + Math.max(0, luck - 50) * 0.001;
   return clamp(1 - discount, 0.50, 1.0);
 }
+
+/**
+ * Outcomes for Living Tamriel surrender, yield, and forfeit interactions.
+ */
+export const SURRENDER_OUTCOME = Object.freeze({
+  ROBBED: 'ROBBED',                     // Bandits/highwaymen took gold purse and departed
+  BEATEN_PAUPER: 'BEATEN_PAUPER',       // Player had insufficient gold; beaten to 10% HP/fatigue
+  CONCEDED: 'CONCEDED',                 // Claim or duel conceded without violence
+  SUBMITTED_GUARD: 'SUBMITTED_GUARD',   // Submitted to provincial guards (paid fine or caution)
+});
+
+/**
+ * Calculates dynamic ransom demanded by bandits/raiders when the player yields.
+ *
+ * @param {any} playerEntity
+ * @param {number} [threatLevel=1]
+ * @returns {{ currentGold: number, ransomGold: number, minDemand: number, canAfford: boolean }}
+ */
+export function calculateSurrenderRansom(playerEntity, threatLevel = 1) {
+  const currentGold = Math.max(0, Number(playerEntity?.goldPieces ?? 0));
+  const level = Math.max(1, Number(threatLevel || 1));
+  const minDemand = Math.max(25, level * 15);
+  const maxDemand = Math.max(minDemand, level * 80);
+  const rawRansom = Math.trunc(currentGold * 0.25);
+  const discount = computeRoleplayBribeMultiplier(playerEntity, SKILLS.Mercantile);
+  const ransomGold = Math.max(minDemand, Math.min(maxDemand, Math.trunc(rawRansom * discount)));
+  return {
+    currentGold,
+    ransomGold,
+    minDemand,
+    canAfford: currentGold >= minDemand,
+  };
+}
+
+/**
+ * Resolves surrender consequences against playerEntity:
+ * Deducts gold, drops health & fatigue if pauper, and returns execution metrics.
+ *
+ * @param {Object} params
+ * @param {any} params.playerEntity
+ * @param {number} [params.threatLevel=1]
+ * @param {number|null} [params.customRansom=null]
+ * @returns {{ outcome: string, goldTaken: number, healthRemaining: number, isPauper: boolean }}
+ */
+export function resolveLivingSurrender({ playerEntity, threatLevel = 1, customRansom = null }) {
+  if (!playerEntity) {
+    return { outcome: SURRENDER_OUTCOME.ROBBED, goldTaken: 0, healthRemaining: 50, isPauper: false };
+  }
+  const currentGold = Math.max(0, Number(playerEntity.goldPieces ?? 0));
+  const ransomCalc = calculateSurrenderRansom(playerEntity, threatLevel);
+  const requiredRansom = customRansom != null ? Math.max(0, Number(customRansom)) : ransomCalc.ransomGold;
+  const isPauper = currentGold < (customRansom != null ? requiredRansom : ransomCalc.minDemand);
+
+  if (isPauper) {
+    const taken = currentGold;
+    playerEntity.goldPieces = 0;
+    const maxHp = Math.max(10, Number(playerEntity.maxHealth ?? 50));
+    playerEntity.health = Math.max(1, Math.trunc(maxHp * 0.1));
+    if (typeof playerEntity.fatigue === 'number') {
+      playerEntity.fatigue = Math.max(1, Math.trunc(playerEntity.fatigue * 0.1));
+    }
+    return {
+      outcome: SURRENDER_OUTCOME.BEATEN_PAUPER,
+      goldTaken: taken,
+      healthRemaining: playerEntity.health,
+      isPauper: true,
+    };
+  }
+
+  const actualTaken = Math.min(currentGold, requiredRansom);
+  playerEntity.goldPieces = Math.max(0, currentGold - actualTaken);
+  if (typeof playerEntity.fatigue === 'number') {
+    playerEntity.fatigue = Math.max(1, Math.trunc(playerEntity.fatigue * 0.5));
+  }
+  return {
+    outcome: SURRENDER_OUTCOME.ROBBED,
+    goldTaken: actualTaken,
+    healthRemaining: Number(playerEntity.health ?? 50),
+    isPauper: false,
+  };
+}

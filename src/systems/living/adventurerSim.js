@@ -723,7 +723,7 @@ export function confrontInterceptingAdventurer({
     return {
       outcome: RECLAIM_OUTCOME.FORFEITED,
       recovered: false,
-      messageKey: 'living.adventurer.reclaimFailed',
+      messageKey: 'living.surrender.conceded',
     };
   }
 

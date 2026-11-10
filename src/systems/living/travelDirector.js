@@ -10,7 +10,7 @@ import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getRegionState } from './regionState.js';
 import { getLivingDirectorState } from './livingDirector.js';
 import { SKILLS } from '../skills.js';
-import { resolveLivingRoll } from './livingRolls.js';
+import { resolveLivingRoll, resolveLivingSurrender } from './livingRolls.js';
 
 export const TRAVEL_EVENT_TYPE = Object.freeze({
   PEACEFUL_CARAVAN: 'PEACEFUL_CARAVAN', // 40% Friendly merchants, pilgrims, bards
@@ -124,4 +124,14 @@ export function evaluateAmbushStealthRoll(playerOrStealth, luck = 50, rng = Math
 export function canEvadeAmbushWithStealth(stealthSkill, luck = 50, rng = Math.random) {
   const res = evaluateAmbushStealthRoll(stealthSkill, luck, rng);
   return res.margin > 0;
+}
+
+/**
+ * Resolves surrender / ransom consequences when ambushed on the road.
+ *
+ * @param {any} playerEntity
+ * @param {number} [threatLevel=1]
+ */
+export function resolveAmbushSurrender(playerEntity, threatLevel = 1) {
+  return resolveLivingSurrender({ playerEntity, threatLevel });
 }
