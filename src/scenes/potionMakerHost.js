@@ -26,7 +26,8 @@
 // earns no experience and where it would. Offline the maker is DFU's as it is: no word, no door.
 // ═══════════════════════════════════════════════════════════════════
 import { removeOne, addItem } from '../systems/inventory.js';
-import { isIngredient } from '../systems/potions.js';
+import { isIngredient, potionRecipeKeys } from '../systems/potions.js';
+import { CLASSIC_RECIPE_KEYS } from '../systems/loot/loot.js';
 import { isPotionRecipe } from '../systems/useItem.js';
 import { createPotion } from '../systems/loot/loot.js';
 import { totalGoldAmount } from '../systems/court.js';
@@ -123,6 +124,12 @@ export function potionMakerHooks({ player, surface = () => {}, icons, onClose, d
       const seen = new Set();
       for (const it of [...(player.items ?? []), ...(player.wagonItems ?? [])]) {
         if (isPotionRecipe(it) && it.potionRecipeKey) seen.add(it.potionRecipeKey);
+      }
+      // Include recipes from active mods so players can discover and brew custom alchemical formulas
+      for (const k of potionRecipeKeys()) {
+        if (!CLASSIC_RECIPE_KEYS.includes(k)) {
+          seen.add(k);
+        }
       }
       return [...seen];
     },

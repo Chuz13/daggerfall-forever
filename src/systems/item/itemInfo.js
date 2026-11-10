@@ -1050,8 +1050,21 @@ export function weaponMaterialTraitText(item) {
   if (cfg.vsConstructMultiplier && cfg.vsConstructMultiplier > 1) {
     traits.push(`+${Math.round((cfg.vsConstructMultiplier - 1) * 100)}% vs Constructs`);
   }
+  if (cfg.vsWerecreatureMultiplier && cfg.vsWerecreatureMultiplier > 1) {
+    traits.push(`+${Math.round((cfg.vsWerecreatureMultiplier - 1) * 100)}% vs Lycanthropes`);
+  }
   if (cfg.armorPenetration && cfg.armorPenetration > 0) {
     traits.push(`${Math.round(cfg.armorPenetration * 100)}% Armor Piercing`);
+  } else if (cfg.armorPenetration && cfg.armorPenetration < 0) {
+    traits.push(`${Math.round(cfg.armorPenetration * 100)}% Armor Piercing`);
+  }
+  if (cfg.damageMultiplier && cfg.damageMultiplier > 1) {
+    traits.push(`+${Math.round((cfg.damageMultiplier - 1) * 100)}% Damage`);
+  }
+  if (cfg.conditionLossMultiplier && cfg.conditionLossMultiplier > 1) {
+    traits.push('Fragile');
+  } else if (cfg.conditionLossMultiplier && cfg.conditionLossMultiplier < 1) {
+    traits.push('Durable');
   }
   if (cfg.swingSpeedMultiplier && cfg.swingSpeedMultiplier > 1) {
     traits.push(`+${Math.round((cfg.swingSpeedMultiplier - 1) * 100)}% Speed`);

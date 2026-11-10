@@ -173,7 +173,7 @@ export function drawModsPane(body, rerender) {
       perksBox.style.borderRadius = '4px';
       perksBox.style.border = '1px solid rgba(255,255,255,0.08)';
 
-      const title = el('div', 'meta', 'Perks / Подвиги:');
+      const title = el('div', 'meta', t('menu.mods.perks', 'Perks:'));
       title.style.fontWeight = 'bold';
       title.style.marginBottom = '4px';
       title.style.color = '#e0c068';
@@ -183,7 +183,8 @@ export function drawModsPane(body, rerender) {
         const item = el('div', 'mod-perk-item');
         item.style.fontSize = '12px';
         item.style.color = '#ccc';
-        item.textContent = `★ ${p.name}: ${p.desc}`;
+        const isUnlocked = playerEntity ? getUnlockedPerks(playerEntity).includes(p.id) : false;
+        item.textContent = `${isUnlocked ? '★ [UNLOCKED]' : '☆ [LOCKED]'} ${p.name}: ${p.desc}`;
         perksBox.append(item);
       });
       card.append(perksBox);

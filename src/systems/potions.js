@@ -176,7 +176,13 @@ const BLANK_EFFECT_SETTINGS = Object.freeze({
   magnitudeLevelHigh: 1,
   magnitudePerLevel: 1,
 });
-export const potionRecipeKeys = () => [..._byKey.keys()];
+export const potionRecipeKeys = () => {
+  const keys = new Set(_byKey.keys());
+  for (const k of _recipeOverrides.keys()) {
+    keys.add(k);
+  }
+  return [...keys];
+};
 
 /** MixCauldron (:311-345) as a decision. Answers
  *    { kind: 'mixed', recipe, key } - a potion is created

@@ -1,9 +1,9 @@
 {
   "id": "apothecary-elixirs",
-  "name": "Apothecary Elixirs",
+  "name": "Apothecary's Elixirs",
   "version": "1.0.0",
-  "author": "DFF Modding Community",
-  "description": "Adds specialized alchemical elixirs using native effect mechanics.",
+  "author": "13",
+  "description": "Introduces new high-potency alchemical brews: Pure Vigor Elixir and Frostward Cordial.",
   "enabled": true,
   "data": {
     "potions": "potions.json"

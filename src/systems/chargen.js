@@ -5,6 +5,7 @@ import { CLASSIC_GAME_START_TIME } from './gameDate.js'; // AUDIT 23: the skill-
 import { liveStat, STAT_KEYS_ORDER, FATIGUE_MULTIPLIER } from './statMods.js'; // wave 28: MaxMagicka reads LiveIntelligence
 import { renownHpOf, renownMpOf, foldMpOf, spireHpOf } from './renownLayer.js'; // RENOWN1: Renown's online health and magicka, on top of both live maximums; EG15: and the folds' magicka; EG-ZR: and the Spire's Stoneskin
 import { lichHpOf, lichMpOf } from './necromancy/lichdomStatus.js';
+import { getPerkMagickaBonus } from './perks/perkRegistry.js';
 
 // Character creation (Systems S3). Verbatim ports from DFU
 // StatsRollout.cs / SkillsRollout.cs / DaggerfallSkills.cs /
@@ -415,7 +416,7 @@ export function defineLiveMaxMagicka(entity) {
       // (systems/renownLayer.js) - inside the floor, so a magery that makes the character unable still leaves 0.
       // EG15: and the folds' magicka beside it (entityMods.js's channel - the Battlemage's Bearing), on the same terms
       // NECRO: and Lichdom's magicka bonus (+250 for Lich, +500 for Ancient Lich)
-      const effective = raw + (this.maxMagickaModifier ?? 0) + renownMpOf(this) + foldMpOf(this) + lichMpOf(this);
+      const effective = raw + (this.maxMagickaModifier ?? 0) + renownMpOf(this) + foldMpOf(this) + lichMpOf(this) + getPerkMagickaBonus(this);
       return effective < 0 ? 0 : effective;
     },
     set(v) {

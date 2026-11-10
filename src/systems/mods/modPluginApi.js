@@ -7,6 +7,7 @@
 
 import { onModEvent, offModEvent, emitModEvent } from './modEventBus.js';
 import { registerModSaveData } from '../modSaveData.js';
+import { registerPerk, unregisterPerk, clearDynamicPerks, hasUnlockedPerk } from '../perks/perkRegistry.js';
 import { hudText } from '../notify.js';
 import { hurtPlayer } from '../../characters/playerEntity.js';
 import { FATIGUE_MULTIPLIER } from '../statMods.js';
@@ -171,7 +172,7 @@ export function createModApi(modId) {
     perks: {
       /**
        * Register a perk definition for this mod.
-       * @param {{ id: string, name: string, desc: string, icon?: string }} def
+       * @param {{ id: string, name: string, desc: string, icon?: string, check?: (entity: any) => boolean }} def
        */
       register: (def) => {
         if (!def?.id || !def?.name) return;
@@ -180,12 +181,16 @@ export function createModApi(modId) {
           map = new Map();
           _registeredPerks.set(modId, map);
         }
-        map.set(def.id, {
+        const record = {
           id: String(def.id),
           name: String(def.name),
           desc: String(def.desc ?? ''),
           icon: def.icon ? String(def.icon) : undefined,
-        });
+          check: typeof def.check === 'function' ? def.check : undefined,
+          modId,
+        };
+        map.set(def.id, record);
+        registerPerk(record);
       },
 
       /**
@@ -194,6 +199,7 @@ export function createModApi(modId) {
        * @returns {boolean}
        */
       has: (perkId) => {
+        if (_playerRef && hasUnlockedPerk(_playerRef, perkId)) return true;
         const store = _modStorageStore.get(modId) ?? {};
         const unlocked = store._unlockedPerks;
         return Array.isArray(unlocked) && unlocked.includes(perkId);
@@ -211,9 +217,22 @@ export function createModApi(modId) {
           _modStorageStore.set(modId, store);
         }
         const unlocked = Array.isArray(store._unlockedPerks) ? [...store._unlockedPerks] : [];
+        let didUnlock = false;
         if (!unlocked.includes(perkId)) {
           unlocked.push(perkId);
           store._unlockedPerks = unlocked;
+          didUnlock = true;
+        }
+
+        if (_playerRef) {
+          if (!Array.isArray(_playerRef.unlockedPerks)) _playerRef.unlockedPerks = [];
+          if (!_playerRef.unlockedPerks.includes(perkId)) {
+            _playerRef.unlockedPerks.push(perkId);
+            didUnlock = true;
+          }
+        }
+
+        if (didUnlock) {
           try {
             audio?.playOneShot?.(SOUND.ArenaFanfareLevelUp, 0.8);
           } catch {}
@@ -270,6 +289,7 @@ export function createModApi(modId) {
 export function _resetModPluginApi() {
   _modStorageStore.clear();
   _registeredPerks.clear();
+  clearDynamicPerks();
   _playerRef = null;
   _worldRef = null;
 }

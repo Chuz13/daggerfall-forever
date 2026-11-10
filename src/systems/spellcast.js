@@ -14,6 +14,7 @@
 
 import { dice100 } from '../combat/formulas.js';
 import { liveStat } from './statMods.js'; // F9: MagicResist reads the LIVE willpower
+import { getPerkSavingThrowBonus } from './perks/perkRegistry.js';
 import { entityResistMod } from './entityMods.js'; // RF1: the port's resistance channel rides the saving throw
 import { magicResist } from '../combat/formulas.js'; // U10
 import { raceById, raceByKey } from './races.js'; // AUDIT 18: the racial saving-throw block
@@ -156,14 +157,20 @@ export function savingChance(element, effectFlags, target, modifier = 0, pierce 
   }
   if (effectFlags & EFFECT_FLAGS.Poison) {
     fold(EFFECT_FLAGS.Poison);
-    if (target.isPlayer) biographyMod += target.biographyResistPoisonMod ?? 0;
+    if (target.isPlayer) {
+      biographyMod += target.biographyResistPoisonMod ?? 0;
+      biographyMod += getPerkSavingThrowBonus(target, 'poison');
+    }
   }
   if (effectFlags & EFFECT_FLAGS.Fire) fold(EFFECT_FLAGS.Fire);
   if (effectFlags & EFFECT_FLAGS.Frost) fold(EFFECT_FLAGS.Frost);
   if (effectFlags & EFFECT_FLAGS.Shock) fold(EFFECT_FLAGS.Shock);
   if (effectFlags & EFFECT_FLAGS.Disease) {
     fold(EFFECT_FLAGS.Disease);
-    if (target.isPlayer) biographyMod += target.biographyResistDiseaseMod ?? 0;
+    if (target.isPlayer) {
+      biographyMod += target.biographyResistDiseaseMod ?? 0;
+      biographyMod += getPerkSavingThrowBonus(target, 'disease');
+    }
   }
   // DFU's own departure from classic (mixed tolerances), preserved:
   if (tolerance.Immune) saving += 50;

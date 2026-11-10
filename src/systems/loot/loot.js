@@ -32,6 +32,8 @@ import {
 } from '../../combat/enemyEquipment.js';
 import { customItemsForGroup } from '../item/itemTemplates.js'; // FORAGE1: every mod's, from its one home; RRI1: CreateRandomWeapon/Armor roll over the classic slots PLUS the registered custom items (ItemBuilder.cs:382-390, :451-459)
 import { ARROW_TEMPLATE } from '../inventory.js'; // X11b: CreateWeapon's arrow arm keys on it
+import { getPerkGoldModifier } from '../perks/perkRegistry.js';
+import { potionRecipeKeys } from '../potions.js';
 import { dice100 } from '../../combat/formulas.js';
 import { goldStack } from '../inventory.js';
 import {
@@ -621,7 +623,11 @@ export function createRandomClothing(gender, rolls = Math.random) {
 export function generateRandomLoot(matrix, who, rolls = Math.random, { itemChanceScale = 1, mobileType = null } = {}) {
   const items = [];
   const level = Math.max(1, who.level | 0);
-  const gold = (matrix.MinGold + Math.floor(rolls() * (matrix.MaxGold + 1 - matrix.MinGold))) * level;
+  let gold = (matrix.MinGold + Math.floor(rolls() * (matrix.MaxGold + 1 - matrix.MinGold))) * level;
+  if (gold > 0 && who) {
+    const goldMod = getPerkGoldModifier(who);
+    if (goldMod > 1.0) gold = Math.round(gold * goldMod);
+  }
   // ItemBuilder.CreateGoldPieces = CreateItem(Currency, Gold_pieces).
   // AUDIT 18: this minted a bare Currency row with NO templateIndex,
   // so inventory.stacksWith could never merge it with the player's
@@ -1340,7 +1346,9 @@ export function createPotion(recipeKey) {
 
 /** ItemBuilder.CreateRandomPotion (:761-766). */
 export function createRandomPotion(rolls = Math.random) {
-  return createPotion(CLASSIC_RECIPE_KEYS[Math.floor(rolls() * CLASSIC_RECIPE_KEYS.length)]);
+  const keys = potionRecipeKeys();
+  const pool = Array.isArray(keys) && keys.length > 0 ? keys : CLASSIC_RECIPE_KEYS;
+  return createPotion(pool[Math.floor(rolls() * pool.length)]);
 }
 
 /** DaggerfallLoot.RandomlyAddMap (:88-96). Dice100.SuccessRoll, so a
@@ -1367,7 +1375,9 @@ export function randomlyAddPotion(chance, items, rolls = Math.random) {
 /** DaggerfallLoot.RandomlyAddPotionRecipe (:109-118). */
 export function randomlyAddPotionRecipe(chance, items, rolls = Math.random) {
   if (!dice100(chance, rolls())) return null;
-  const key = CLASSIC_RECIPE_KEYS[Math.floor(rolls() * CLASSIC_RECIPE_KEYS.length)];
+  const keys = potionRecipeKeys();
+  const pool = Array.isArray(keys) && keys.length > 0 ? keys : CLASSIC_RECIPE_KEYS;
+  const key = pool[Math.floor(rolls() * pool.length)];
   // CreateRandomRecipe sets PotionRecipeKey too (ItemBuilder.cs:772),
   // so a recipe is priced by the potion it teaches, not by MiscItems 4.
   const row = { group: 'MiscItems', templateIndex: POTION_RECIPE_TEMPLATE_INDEX, potionRecipeKey: key };

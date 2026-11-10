@@ -48,6 +48,10 @@ import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what the target
 import { ENEMY_GROUPS, enemyEntityGroup, _resetEnemyGroups } from './enemyGroups.js';   // AUDIT DEX C3: the group switch and its mod door, a leaf
 import { emitModEvent } from '../systems/mods/modEventBus.js';
 import {
+  getPerkCritBonus,
+  getPerkBackstabBonus,
+} from '../systems/perks/perkRegistry.js';
+import {
   getMaterialDamageMultiplier,
   getMaterialArmorPenetration,
   getMaterialConditionLossMultiplier,
@@ -316,7 +320,9 @@ export const statsToHit = (a, t) =>
 // ---- CalculateSkillsToHit (classic's /4 dodging; crit roll adds crit/10) ----
 export function skillsToHit(a, t, roll01 = Math.random(), notes = null) {
   let mod = -Math.floor(skillValue(t, SKILLS.Dodging) / 4);            // classic's /4 bug preserved
-  const crit = skillValue(a, SKILLS.CriticalStrike);
+  let crit = skillValue(a, SKILLS.CriticalStrike);
+  const perkBonus = getPerkCritBonus(a);
+  if (perkBonus > 0) crit = Math.min(100, crit + Math.round(perkBonus * 100));
   // HN1: the CRITICAL STRIKE roll is Daggerfall's own "critical hit" -
   // it lands on the chance to hit, not the damage (classic parity) -
   // and the enhanced HUD's numbers name it when it succeeds. The notes
@@ -543,10 +549,11 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
 export const SUCCESSFUL_BACKSTAB_TEXT = 'Successful backstab!';
 /** L10N3d: that popup where it is said, in the player's language. */
 export const successfulBackstabText = () => localizedText('successfulBackstab', SUCCESSFUL_BACKSTAB_TEXT);
-export function backstabDamage(damage, backstabbingLevel, rolls = Math.random, say = null) {
+export function backstabDamage(damage, backstabbingLevel, rolls = Math.random, say = null, attacker = null) {
   if (backstabbingLevel > 1 && dice100(backstabbingLevel, rolls())) {
     say?.(successfulBackstabText());
-    return damage * 3;
+    const perkBonus = attacker ? getPerkBackstabBonus(attacker) : 0;
+    return Math.round(damage * (3 + perkBonus));
   }
   return damage;
 }
@@ -803,16 +810,16 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
       damage = handToHandAttackDamage(attacker, target, damageModifiers, !!attacker.isPlayer, rolls, { unaware: !!unaware, wraps });   // BAL10: the host's word for the fists' blow modifiers too; HAND-WRAPS: and the wraps' lines
       // INSIDE the hit, exactly as :627 - see the note below
       const before = damage;
-      damage = backstabDamage(damage, backstabChance, rolls, say);
-      if (before > 0 && damage === before * 3) notes.backstab = true;
+      damage = backstabDamage(damage, backstabChance, rolls, say, attacker);
+      if (before > 0 && damage >= before * 3) notes.backstab = true;
     }
   } else {
     if (calculateSuccessfulHit(attacker, target, chanceToHitMod, struck, rolls, notes)) {
       notes.hit = true;
       damage = weaponAttackDamage(attacker, target, damageModifiers, weapon, rolls, weaponAnimTime, { unaware: !!unaware });   // SET2: the host's word the foe had not noticed me, for the blow's port modifiers
       const before = damage;
-      damage = backstabDamage(damage, backstabChance, rolls, say);   // :688
-      if (before > 0 && damage === before * 3) notes.backstab = true;
+      damage = backstabDamage(damage, backstabChance, rolls, say, attacker);   // :688
+      if (before > 0 && damage >= before * 3) notes.backstab = true;
     }
   }
   // THE BACKSTAB IS INSIDE THE HIT. Both C# call sites (:627 for hand
@@ -836,14 +843,6 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   // Weapons Reforged: material multipliers, armor penetration, sunder, stamina drain, holy burn
   const tgtProfile = target?.profile ?? target?.entity?.profile;
   if (weapon && weapon.material !== undefined && damage > 0) {
-    const matMult = getMaterialDamageMultiplier(weapon.material);
-    if (Number.isFinite(matMult) && matMult !== 1) {
-      damage = Math.max(1, Math.round(damage * matMult));
-    }
-    const pen = getMaterialArmorPenetration(weapon.material);
-    if (pen > 0) {
-      damage += Math.max(1, Math.round(damage * pen));
-    }
     const sunderChance = getMaterialSunderArmorChance(weapon.material);
     if (sunderChance > 0 && rolls() < sunderChance && target) {
       target.armorSundered = true;

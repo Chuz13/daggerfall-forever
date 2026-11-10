@@ -9,7 +9,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-function createModsStorage(userDataRoot) {
+function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
   const modsDir = path.join(userDataRoot, 'Mods');
 
   function ensureDir() {
@@ -22,7 +22,24 @@ function createModsStorage(userDataRoot) {
     }
   }
 
+  function seedBundledExamplesIfEmpty() {
+    if (!seedExamples) return;
+    try {
+      const existing = fs.readdirSync(modsDir);
+      if (existing.length === 0) {
+        // Check root-level mods/examples relative to project or app resources
+        const projectExamples = path.resolve(__dirname, '..', '..', 'mods', 'examples');
+        if (fs.existsSync(projectExamples)) {
+          fs.cpSync(projectExamples, modsDir, { recursive: true });
+        }
+      }
+    } catch (_e) {
+      // safe fallback on read-only environments
+    }
+  }
+
   ensureDir();
+  seedBundledExamplesIfEmpty();
 
   function sanitizeRelPath(relPath) {
     const normalized = path.normalize(relPath).replace(/^(\.\.(\/|\\|$))+/, '');
@@ -94,4 +111,3 @@ function createModsStorage(userDataRoot) {
 }
 
 module.exports = { createModsStorage };
-

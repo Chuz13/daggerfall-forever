@@ -82,7 +82,7 @@ test('Combat Events & Perks: Blood-Tithe unlocks milestone after 5 kills and hea
   const perks = getModPerks('blood-tithe');
   assert.equal(perks.length, 1);
   assert.equal(perks[0].id, 'blood-tithe');
-  assert.equal(perks[0].name, 'Кровавая дань');
+  assert.equal(perks[0].name, 'Blood-Tithe');
   assert.equal(bloodTitheApi.perks.has('blood-tithe'), false);
 
   // Slay 4 foes (not unlocked yet)
@@ -96,7 +96,7 @@ test('Combat Events & Perks: Blood-Tithe unlocks milestone after 5 kills and hea
   // 5th kill: achieves the feat!
   playerWeaponKillReported(dummyPlayer, { mobileType: 1 });
   assert.equal(bloodTitheApi.perks.has('blood-tithe'), true);
-  assert.ok(notifications.some((n) => n.includes('ПОДВИГ СОВЕРШЕН')));
+  assert.ok(notifications.some((n) => n.includes('FEAT ACCOMPLISHED')));
 
   // Next kill: triggers life leech effect!
   const prevHealth = dummyPlayer.health;
@@ -105,7 +105,7 @@ test('Combat Events & Perks: Blood-Tithe unlocks milestone after 5 kills and hea
 
   assert.equal(dummyPlayer.health, prevHealth + 15);
   assert.equal(dummyPlayer.fatigue, prevFatigue + 30);
-  assert.ok(notifications.some((n) => n.includes('Кровь врага насыщает ваши силы')));
+  assert.ok(notifications.some((n) => n.includes('The enemy blood invigorates you')));
 
   // Verify perk list status
   const allPerks = bloodTitheApi.perks.getAll();

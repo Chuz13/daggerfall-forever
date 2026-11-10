@@ -16,13 +16,16 @@ function init(api) {
       if (typeof burn.target.hurt === 'function') {
         burn.target.hurt(3);
       } else {
-        burn.target.health = Math.max(0, (burn.target.health ?? 0) - 3);
-        if (burn.target.health <= 0) burn.target.dead = true;
+        // Safe DoT: leave at least 1 HP so main combat engine resolves death, corpse and quest kills cleanly
+        const currentHp = burn.target.health ?? 0;
+        if (currentHp > 1) {
+          burn.target.health = Math.max(1, currentHp - 3);
+        }
       }
       burn.ticks--;
       api.ui.notify('Holy flame purges the abomination! (-3 HP)');
 
-      if (burn.ticks <= 0 || burn.target.dead || (burn.target.health ?? 0) <= 0) {
+      if (burn.ticks <= 0 || burn.target.dead || (burn.target.health ?? 0) <= 1) {
         activeBurns.splice(i, 1);
       }
     }

@@ -1,9 +1,9 @@
 {
   "id": "steel-and-sinew",
-  "name": "Steel & Sinew (Armor Fatigue)",
+  "name": "Steel and Sinew",
   "version": "1.0.0",
-  "author": "DFF Modding Community",
-  "description": "Increases fatigue drain for heavy plate armor and reduces it for light leather armor.",
+  "author": "13",
+  "description": "Tactical combat pacing: reduces base attack speed by 15%, makes armor weight drain more stamina, and raises critical strike lethality.",
   "enabled": true,
   "data": {
     "combat": "combat.json"

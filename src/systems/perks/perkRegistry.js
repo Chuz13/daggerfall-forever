@@ -1,53 +1,128 @@
-import { SKILLS, skillValue } from '../skills.js';
 import { t } from '../textManager.js';
 
-export const CORE_PERKS = [
-  {
-    id: 'blade_mastery',
-    get name() { return t('perks.blade_mastery.name', 'Blade Mastery'); },
-    get desc() { return t('perks.blade_mastery.desc', '+15% damage and +10% crit chance with Long Blades (Requires 50 Long Blade).'); },
-    check: (e) => skillValue(e, SKILLS.LongBlade) >= 50,
-  },
-  {
-    id: 'arcane_reservoir',
-    get name() { return t('perks.arcane_reservoir.name', 'Arcane Reservoir'); },
-    get desc() { return t('perks.arcane_reservoir.desc', 'Increases maximum Magicka by +25 and halves spell interruption (Requires 50 Destruction or Mysticism).'); },
-    check: (e) => skillValue(e, SKILLS.Mysticism) >= 50,
-  },
-  {
-    id: 'shadow_step',
-    get name() { return t('perks.shadow_step.name', 'Shadow Step'); },
-    get desc() { return t('perks.shadow_step.desc', 'Movement in stealth makes 40% less noise and backstabs deal +25% bonus damage (Requires 50 Stealth).'); },
-    check: (e) => skillValue(e, SKILLS.Stealth) >= 50,
-  },
-  {
-    id: 'iron_constitution',
-    get name() { return t('perks.iron_constitution.name', 'Iron Constitution'); },
-    get desc() { return t('perks.iron_constitution.desc', 'Reduces disease and poison susceptibility by 30% and grants +15 Max HP (Requires Level 5).'); },
-    check: (e) => (Number(e?.level) || 1) >= 5,
-  },
-  {
-    id: 'treasure_hunter',
-    get name() { return t('perks.treasure_hunter.name', 'Treasure Hunter'); },
-    get desc() { return t('perks.treasure_hunter.desc', 'Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).'); },
-    check: (e) => skillValue(e, SKILLS.Mercantile) >= 50,
-  },
-];
+/**
+ * Empty core perks - all perks now reside in modular mods (e.g. heroic-feats, blood-tithe).
+ * Keeps core engine 100% vanilla and prevents save-state corruption on mod toggle.
+ */
+export const CORE_PERKS = [];
 
-export function getAllPerks() {
-  return CORE_PERKS;
+/**
+ * Dynamic registry for mod-provided perks.
+ * @type {Map<string, { id: string, name: string, desc: string, icon?: string, check?: (entity: any) => boolean, modId?: string }>}
+ */
+const _dynamicPerks = new Map();
+
+/**
+ * Register a perk dynamically (called by mods or modPluginApi).
+ * @param {{ id: string, name: string, desc: string, icon?: string, check?: (entity: any) => boolean, modId?: string }} def
+ */
+export function registerPerk(def) {
+  if (!def?.id || !def?.name) return;
+  _dynamicPerks.set(def.id, {
+    id: String(def.id),
+    name: String(def.name),
+    desc: String(def.desc ?? ''),
+    icon: def.icon ? String(def.icon) : undefined,
+    check: typeof def.check === 'function' ? def.check : undefined,
+    modId: def.modId ? String(def.modId) : undefined,
+  });
 }
 
+/**
+ * Unregister a perk or all perks belonging to a mod.
+ * @param {string} idOrModId
+ */
+export function unregisterPerk(idOrModId) {
+  if (_dynamicPerks.has(idOrModId)) {
+    _dynamicPerks.delete(idOrModId);
+    return;
+  }
+  for (const [id, def] of _dynamicPerks.entries()) {
+    if (def.modId === idOrModId) {
+      _dynamicPerks.delete(id);
+    }
+  }
+}
+
+/**
+ * Reset all dynamic perks (used during plugin reloads or test suites).
+ */
+export function clearDynamicPerks() {
+  _dynamicPerks.clear();
+}
+
+/**
+ * Return all currently active perks from registered mods.
+ */
+export function getAllPerks() {
+  return Array.from(_dynamicPerks.values());
+}
+
+/**
+ * Return unlocked perks for an entity. Safe against missing/unregistered perks.
+ * @param {any} entity
+ * @returns {string[]}
+ */
 export function getUnlockedPerks(entity) {
   const unlocked = new Set(Array.isArray(entity?.unlockedPerks) ? entity.unlockedPerks : []);
   if (entity) {
-    for (const p of CORE_PERKS) {
-      try {
-        if (p.check(entity)) unlocked.add(p.id);
-      } catch (_e) {
-        // ignore check errors on mock entities
+    for (const p of _dynamicPerks.values()) {
+      if (typeof p.check === 'function') {
+        try {
+          if (p.check(entity)) unlocked.add(p.id);
+        } catch (_e) {
+          // ignore check errors on mock entities
+        }
       }
     }
   }
   return Array.from(unlocked);
+}
+
+/**
+ * Check if a specific perk is currently unlocked and registered.
+ * @param {any} entity
+ * @param {string} perkId
+ * @returns {boolean}
+ */
+export function hasUnlockedPerk(entity, perkId) {
+  if (!entity || !perkId || !_dynamicPerks.has(perkId)) return false;
+  const list = getUnlockedPerks(entity);
+  return list.includes(perkId);
+}
+
+/**
+ * Safe perk bonuses (return 0 or 1 if perk is absent or mod disabled).
+ */
+
+/** Long blade crit bonus from blade_mastery (+10% crit chance) */
+export function getPerkCritBonus(entity, weapon) {
+  if (!hasUnlockedPerk(entity, 'blade_mastery')) return 0;
+  // If weapon specified, check if it is long blade (flags & 0x10 or skill check)
+  return 0.10;
+}
+
+/** Stealth backstab damage bonus from shadow_step (+0.25x backstab damage) */
+export function getPerkBackstabBonus(entity) {
+  if (!hasUnlockedPerk(entity, 'shadow_step')) return 0;
+  return 0.25;
+}
+
+/** Max magicka bonus from arcane_reservoir (+25 Magicka) */
+export function getPerkMagickaBonus(entity) {
+  if (!hasUnlockedPerk(entity, 'arcane_reservoir')) return 0;
+  return 25;
+}
+
+/** Saving throw bonus from iron_constitution (+15% resistance against poison/disease) */
+export function getPerkSavingThrowBonus(entity, savingType) {
+  if (!hasUnlockedPerk(entity, 'iron_constitution')) return 0;
+  if (savingType === 'poison' || savingType === 'disease') return 15;
+  return 0;
+}
+
+/** Gold loot multiplier from treasure_hunter (+20% gold found) */
+export function getPerkGoldModifier(entity) {
+  if (!hasUnlockedPerk(entity, 'treasure_hunter')) return 1.0;
+  return 1.20;
 }

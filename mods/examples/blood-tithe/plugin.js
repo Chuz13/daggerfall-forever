@@ -1,12 +1,13 @@
 // @ts-check
 // Blood-Tithe: Martial Feat & Life Essence Leech Mod for Daggerfall Forever
+// Author: 13
 
 export default function init(api) {
   // Register perk metadata
   api.perks.register({
     id: 'blood-tithe',
-    name: 'Кровавая дань',
-    desc: 'Добивание врагов восстанавливает 15 HP и 30 усталости за счет поглощения их жизненных сил.',
+    name: 'Blood-Tithe',
+    desc: 'Slaying enemies restores 15 HP and 30 Stamina by siphoning their life essence.',
   });
 
   // Listen for enemy kill events dispatched from core combat
@@ -15,7 +16,7 @@ export default function init(api) {
     if (api.perks.has('blood-tithe')) {
       api.player.heal(15);
       api.player.restoreFatigue(30);
-      api.ui.notify('Кровь врага насыщает ваши силы (+15 HP, +30 SP)');
+      api.ui.notify('The enemy blood invigorates you! (+15 HP, +30 SP)');
       return;
     }
 
@@ -25,10 +26,9 @@ export default function init(api) {
 
     if (currentKills >= 5) {
       api.perks.unlock('blood-tithe');
-      api.ui.notify('ПОДВИГ СОВЕРШЕН: Перк «Кровавая дань» открыт!');
+      api.ui.notify('FEAT ACCOMPLISHED: Blood-Tithe perk unlocked!');
     } else {
-      api.ui.notify(`Вкус крови: ${currentKills}/5 добиваний для подвига`);
+      api.ui.notify(`Taste of blood: ${currentKills}/5 kills towards feat`);
     }
   });
 }
-

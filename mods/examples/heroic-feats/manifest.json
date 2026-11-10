@@ -1,0 +1,9 @@
+{
+  "id": "heroic-feats",
+  "name": "Heroic Feats",
+  "version": "1.0.0",
+  "author": "13",
+  "description": "Introduces 5 milestone feats for warriors, rogues and mages: Blade Mastery, Arcane Reservoir, Shadow Step, Iron Constitution, and Treasure Hunter.",
+  "enabled": true,
+  "entry": "plugin.js"
+}

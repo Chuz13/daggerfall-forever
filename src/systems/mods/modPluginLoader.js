@@ -59,10 +59,16 @@ export async function loadActiveModPlugins() {
       }
 
       try {
+        // Strip ES module syntax if present (e.g. export default function / export function)
+        let executableCode = code
+          .replace(/^\s*export\s+default\s+function\s+/m, 'function ')
+          .replace(/^\s*export\s+function\s+/m, 'function ')
+          .replace(/^\s*export\s+default\s+/m, '');
+
         // Execute plugin function safely passing api
         const runner = new Function('api', `
           "use strict";
-          ${code}
+          ${executableCode}
           if (typeof init === 'function') {
             return init(api);
           }

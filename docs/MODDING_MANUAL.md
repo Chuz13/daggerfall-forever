@@ -83,7 +83,7 @@ The `manifest.json` file describes your mod to the engine.
   "id": "apothecary-elixirs",
   "name": "Apothecary's Secret Elixirs",
   "version": "1.2.0",
-  "author": "High Rock Alchemist",
+  "author": "13",
   "description": "Introduces powerful alchemical recipes and boosts stamina restoration potions.",
   "entry": "plugin.js",
   "loadPriority": 150
@@ -274,7 +274,7 @@ DFF provides an integrated **Feats & Perks** engine:
   "id": "steel-and-sinew",
   "name": "Steel and Sinew",
   "version": "1.0.0",
-  "author": "Wayrest Blacksmith",
+  "author": "13",
   "description": "Increases fatigue loss in heavy plate armor while granting Daedric gear superior penetration."
 }
 ```
@@ -305,7 +305,7 @@ DFF provides an integrated **Feats & Perks** engine:
   "id": "desert-frost",
   "name": "Desert Frost (Freezing Alik'r Nights)",
   "version": "1.0.0",
-  "author": "Sentinel Nomad",
+  "author": "13",
   "description": "Causes freezing nights in desert biomes that drain stamina unless resisted.",
   "entry": "plugin.js"
 }
@@ -345,17 +345,18 @@ export default function init(api) {
 ```json
 {
   "id": "blood-tithe",
-  "name": "Blood-Tithe (Кровавая дань)",
+  "name": "Blood-Tithe",
   "version": "1.0.0",
-  "author": "DFF Modding Team",
+  "author": "13",
   "description": "Martial Feat: Slaying 5 foes in combat unlocks the Blood-Tithe perk (+15 HP, +30 SP on kills).",
+  "enabled": true,
   "entry": "plugin.js"
 }
 ```
 
 * `plugin.js`:
 ```javascript
-export default function init(api) {
+function init(api) {
   // 1. Register perk metadata
   api.perks.register({
     id: 'blood-tithe',

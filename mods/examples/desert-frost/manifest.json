@@ -1,10 +1,9 @@
 {
   "id": "desert-frost",
-  "name": "Desert Frost (Cold Nights)",
+  "name": "Desert & Mountain Frost",
   "version": "1.0.0",
-  "author": "DFF Modding Community",
-  "description": "Exposes player to cold during desert and mountain nights, causing fatigue loss unless warmed.",
+  "author": "13",
+  "description": "Exposes outdoor adventurers to freezing nocturnal desert and mountain winds unless protected by frost resistance.",
   "enabled": true,
   "entry": "plugin.js"
 }
-

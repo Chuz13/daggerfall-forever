@@ -29,7 +29,7 @@ const { webgl2Report } = require('./lib/graphicsBackend.cjs');
 const root = ipcRenderer.sendSync('dagger:user-data-path');
 const store = createFileStorage(root);
 const shotStore = createScreenshotStorage(getScreenshotsDir(root));
-const modsStore = createModsStorage(root);
+const modsStore = createModsStorage(root, { seedExamples: true });
 
 // GPU-BACKEND: on a launch that took a graphics backend's switches, this page's own WebGL2 context, made before any game
 // script and told to the shell's guard (app/lib/graphicsBackend.cjs webgl2Report, watchBackend pageReport)
