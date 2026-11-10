@@ -613,7 +613,7 @@ export function localPrimaryAct(item, entity = null) {
  * why `pending` exists and why the classic window's own USE_PENDING
  * strings are reused here rather than reworded.
  */
-export function useResultAction(r, { openBook = null, openSpellbook = null, placeCamp = null, openPortal = null } = {}) {
+export function useResultAction(r, { openBook = null, openSpellbook = null, placeCamp = null, openPortal = null, openPotionMaker = null } = {}) {
   if (!r) return { kind: 'nothing' };
   // AUDIT 26: DaggerfallUI.PopToHUD() + return (:1687-1688). A watched
   // quest item that is neither parchment nor clothing closes the whole
@@ -631,6 +631,11 @@ export function useResultAction(r, { openBook = null, openSpellbook = null, plac
     return openSpellbook
       ? { kind: 'openSpellbook', closeFirst: true }
       : { kind: 'message', text: USE_PENDING.spellbook };
+  }
+  if (r.kind === 'potionMaker') {
+    return openPotionMaker
+      ? { kind: 'openPotionMaker', item: r.item, closeFirst: true }
+      : { kind: 'message', text: USE_PENDING.potionMaker };
   }
   // SURV3: a placeable - close, then hand the item to the host's ground (the spellbook arm's shape)
   if (r.kind === 'pitchCamp' || r.kind === 'placeFire') {
@@ -1544,7 +1549,7 @@ function use(item, collection = deps.items?.() ?? [], target = null) {
     // reach. The same seam the transfer ladder's quest arm reads.
     getQuest: deps.getQuest ?? null,
   });
-  const act = useResultAction(r, { openBook: deps.openBook, openSpellbook: deps.openSpellbook, placeCamp: deps.placeCamp, openPortal: deps.openPortal });
+  const act = useResultAction(r, { openBook: deps.openBook, openSpellbook: deps.openSpellbook, placeCamp: deps.placeCamp, openPortal: deps.openPortal, openPotionMaker: deps.openPotionMaker });
   // AUDIT 26's PopToHUD: the window stack goes, nothing is said.
   if (act.kind === 'close') { onExit(); return; }
   // THE HOOKS ARE READ BEFORE ANYTHING CLOSES. `onExit` unmounts, and
@@ -1562,6 +1567,12 @@ function use(item, collection = deps.items?.() ?? [], target = null) {
   if (act.kind === 'openSpellbook') {
     const open = deps.openSpellbook;
     onExit();   // CLOSE, THEN HAND OVER - no callback, so free the slot
+    open();
+    return;
+  }
+  if (act.kind === 'openPotionMaker') {
+    const open = deps.openPotionMaker;
+    onExit();
     open();
     return;
   }

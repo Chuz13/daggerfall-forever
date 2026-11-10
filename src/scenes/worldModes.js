@@ -460,7 +460,7 @@ import { SpellMakerWindow, preloadSpellMakerArt, spellMakerArtLoaded } from '../
 import { hasSpellbook } from '../systems/spell/spellMaker.js';   // AUDIT 63 F12: MakeSpells' door gate (DaggerfallGuildServicePopupWindow.cs:391)
 // M2: the potion maker - the other half of the guild's magic economy.
 import { PotionMakerWindow, preloadPotionArt, potionArtLoaded } from '../ui/potionMakerWindow.js';
-import { potionMakerHooks } from './potionMakerHost.js';   // POTION-DOOR: the maker's hooks, DFU's and the brew's door (Professions-Arc 52)
+import { potionMakerHooks, openPortablePotionMaker } from './potionMakerHost.js';   // POTION-DOOR: the maker's hooks, DFU's and the brew's door (Professions-Arc 52)
 import { ItemMakerWindow, preloadItemMakerArt, itemMakerArtLoaded, ITEM_RECTS, rowLayout as itemMakerRowLayout } from '../ui/item/itemMakerWindow.js';
 import { getMagicItemTemplates, LOOT_NEWER_TEXT, shownSpellName } from '../systems/loot/loot.js';   // M2: ItemBuilder.CreatePotion, one minter; G4: the MAGIC.DEF registry; L10N3e: a spell's name as shown
 import { SITE_TYPES } from '../systems/quest/place.js';
@@ -9579,6 +9579,7 @@ export function createWorldModes(host) {
       const ctx = await buildDungeonContext(
         { renderer, arch, getGpuMesh: dungeonHold.getGpuMesh, cpuModels, getTexture, uploadRecord: dungeonHold.uploadRecord, uploadRecordFrame: dungeonHold.uploadRecordFrame, palette, placeHold: dungeonHold },
         dfLocation, hit.blocksFile ?? blocks, dfLocation.climate.climateType, {   // WB3b: the court's blocks file answers its one made block
+          openPotionMaker: () => modesApi.openPotionMaker(),
           standingLook,   // MWNPC8b: the dungeon's people read for their bodies as the building's are (dungeonContext.js drawPeople)
           placeRecord: () => (place?.instance ? { ins: instanceWord(place.instance) } : {}),   // INSTANCES (the audit): the save's word for the instance this build is (a load re-enters it)
           automapFromLoad: fromLoad,   // MAP-KEEP: a load enters the saved record on the LOAD arm - its colour tier kept, nothing stamped or pruned
@@ -13049,6 +13050,19 @@ export function createWorldModes(host) {
     openRoadTrade(o, tradeMode = 'Buy') {
       ensureShopFont();
       return !!mountServiceWindow(openTradeWindow(o.shelf, o.b, tradeMode, {}, o));
+    },
+    openPotionMaker() {
+      ensureShopFont();
+      preloadPotionArt({ renderer, fetchBytes, palette });
+      return openPortablePotionMaker({
+        player: playerEntity,
+        surface: surfacePlayer,
+        icons: { getTexture, uploadRecord, textures: renderer.textures },
+        onClose: closeSpellWindow,
+        mount: mountServiceWindow,
+        PotionMakerWindow,
+        enhancedWindow,
+      });
     },
     get sailingCabin() { return mode === 'interior' && !isCaravanRoom(interiorCabin) ? interiorCabin : null; },
     /** WAGONS1: the caravan's room while the player stands in it. */

@@ -442,6 +442,10 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
     hooks.openSpellbook();
     return { kind: 'used', name: r.name, result: res };
   }
+  if (res?.kind === 'potionMaker' && typeof hooks.openPotionMaker === 'function') {
+    hooks.openPotionMaker();
+    return { kind: 'used', name: r.name, result: res };
+  }
   if ((res?.kind === 'pitchCamp' || res?.kind === 'placeFire') && typeof hooks.placeCamp === 'function') {
     // AUDIT UI B4: a camp the ground refuses (a town, a boat) is REFUSED - the host's placeItem says why, and the slot
     // must not strike gold under the refusal's words (AUDIT CONTRIB H3's own lie)
@@ -464,6 +468,7 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
   if (
     (res?.kind === 'book' ||
       res?.kind === 'spellbook' ||
+      res?.kind === 'potionMaker' ||
       res?.kind === 'pitchCamp' ||
       res?.kind === 'placeFire' ||
       res?.kind === 'openPortal') &&

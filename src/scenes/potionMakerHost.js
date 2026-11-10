@@ -176,3 +176,24 @@ export function potionMakerHooks({ player, surface = () => {}, icons, onClose, d
     onClose,
   };
 }
+
+/**
+ * Opens a portable potion maker (e.g. from Mortar and Pestle) without fees or guild rank checks.
+ * @param {{ player: any, surface?: () => void, icons: any, onClose?: (w: any) => void, mount: (w: any) => any, PotionMakerWindow: any, enhancedWindow?: (w: any, k: string) => any }} deps
+ */
+export function openPortablePotionMaker({ player, surface, icons, onClose, mount, PotionMakerWindow, enhancedWindow }) {
+  let potionWin = null;
+  const hooks = potionMakerHooks({
+    player,
+    surface,
+    icons,
+    onClose: () => {
+      onClose?.(potionWin);
+    },
+    door: () => null,
+  });
+  const win = new PotionMakerWindow(hooks);
+  potionWin = enhancedWindow ? enhancedWindow(win, 'potionMaker') : win;
+  return mount(potionWin);
+}
+

@@ -54,3 +54,11 @@ export function brewedText(data) {
   const potent = potentOk(data?.potent) && potentAble(p); // AUDIT PROF-541 B3
   return `You brewed ${n === 1 ? 'a' : n} ${potent ? 'Potent ' : ''}${n === 1 ? 'Potion' : 'Potions'} of ${p.name}${potent ? (potentLasts(p) ? ` (lasts ${data.potent}% longer)` : ` (+${data.potent}% magnitude)`) : ''}`;
 }
+
+export {
+  MORTAR_AND_PESTLE_TEMPLATE,
+  MORTAR_AND_PESTLE_NAME,
+  createMortarAndPestle,
+  isMortarAndPestle,
+} from './mortarAndPestle.js';
+

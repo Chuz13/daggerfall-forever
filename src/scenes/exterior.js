@@ -3048,6 +3048,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // the slot, so this bypasses toggleSpellbook's already-open guard
     // - the inventory has just run its own close law.
     openSpellbook: () => { const b = makeSpellbookWindow(); if (b) townTalk.showOverlay(b); },
+    openPotionMaker: () => modes?.openPotionMaker?.(),
   };
   const quickUse = (n, rig = weaponRig) => {   // DISC21-C: the rig in the player's hands - worldModes hands its own indoors
     useQuickslot(n === 1 ? 'c1' : 'c2', {

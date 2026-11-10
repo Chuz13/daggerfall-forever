@@ -73,6 +73,7 @@ import { turnOnConditionFlag, turnOffConditionFlag, REGION_FLAGS, REGION_COUNT }
 import { isOnlinePage } from './online/onlineLane.js'; // REALM P0.4: online, a shop pays at most half what it asks
 import { isOfflineProfessionsActive } from './offlineProfessions.js';
 import { BAG_TEMPLATE, isBagItem } from '../net/bagLaw.js'; // BAG1: the Materials Bag, at every General Store online
+import { MORTAR_AND_PESTLE_TEMPLATE } from './mortarAndPestle.js';
 import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE } from './comeSailAway/comeSailAwayItems.js'; // SHIPYARDS: a ship's parts and deed, which no shop buys - a port's shipyard does
 import { FORK_FLAGS } from '../config/forkFlags.js';
 import { playerEntity } from '../characters/playerEntity.js';
@@ -253,7 +254,11 @@ export const SHOP_BUYS_GROUPS = Object.freeze({
   [BUILDING_TYPES.WeaponSmith]: ['Armor', 'Weapons'],
 });
 export const shopBuysItem = (buildingType, item) =>
-  (SHOP_BUYS_GROUPS[buildingType] ?? []).includes(item.group) &&
+  ((SHOP_BUYS_GROUPS[buildingType] ?? []).includes(item.group) ||
+    (item?.templateIndex === MORTAR_AND_PESTLE_TEMPLATE &&
+      (buildingType === BUILDING_TYPES.GeneralStore ||
+        buildingType === BUILDING_TYPES.Alchemist ||
+        buildingType === BUILDING_TYPES.PawnShop))) &&
   // AUDIT CARDS-5 C2: no shop buys a collectible card - every character is given thirty, and a shelf is no card's market
   item.templateIndex !== ILIAC_CARD_TEMPLATE &&
   // CARDS9: nor a sealed pack - the tavern sells it at its counter's price, and no shelf buys it back (a pack bought
@@ -499,7 +504,10 @@ export function stockShopShelf(
     // those on any Alchemist shop"): the stock law's rarity gate and its roll (chance x 5 x (21 - rarity) / 100) left these
     // three on next to no shelf in the Bay. The counter's shelf (shelfIndex 0 - each shelf model is stocked whole, so one
     // shelf, never one a shelf) always carries one of each, minted as every row is and priced by the shop's own cost law.
-    if (shelfIndex === 0) for (const r of ALCHEMIST_ALWAYS) add({ ...r });
+    if (shelfIndex === 0) {
+      for (const r of ALCHEMIST_ALWAYS) add({ ...r });
+      add({ group: 'MiscItems', templateIndex: MORTAR_AND_PESTLE_TEMPLATE });
+    }
   }
   if (buildingType === BUILDING_TYPES.GeneralStore) {
     // MERCHANT-YARDS (2026-10-10, asked: "Transport merchants hold all carts and wagons. The stable holds horses. No
@@ -514,6 +522,7 @@ export function stockShopShelf(
     // character who carried one - but online a shelf's stock is the room's for the day, so one bag-owner's open hid it
     // from everyone, and the first shelf is just the first model the building lists
     if (isOnlinePage() || isOfflineProfessionsActive()) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
+    if (shelfIndex === 0) add({ group: 'MiscItems', templateIndex: MORTAR_AND_PESTLE_TEMPLATE });
     // SURV2: the provisions shelf - rations, bread, fruit, skins, fire
     // kits, and camping gear and a skillet in a better shop. Minted by
     // their own module (their templates are the port's), after the

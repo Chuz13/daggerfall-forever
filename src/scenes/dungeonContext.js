@@ -2716,6 +2716,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // (DaggerfallInventoryWindow.cs:1748-1764). The inventory has
     // just run its own close law, so the slot is free.
     openSpellbook: () => { const b = makeSpellbookWindow(); if (b) activeOverlay = b; },
+    openPotionMaker: () => opts.openPotionMaker?.(),
   };
   const quickUse = (n) => {
     useQuickslot(n === 1 ? 'c1' : 'c2', {

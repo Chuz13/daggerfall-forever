@@ -13221,6 +13221,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the slot, so this bypasses toggleSpellbook's already-open guard
     // - the inventory has just run its own close law.
     openSpellbook: () => { const b = makeSpellbookWindow(); if (b) townTalk.showOverlay(b); },
+    openPotionMaker: () => modes?.openPotionMaker?.(),
   };
   const quickslotHooks = (rig = weaponRig) => ({
     ...useHooks,

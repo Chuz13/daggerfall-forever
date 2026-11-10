@@ -324,7 +324,10 @@ export const getLocalizedLocationName = (mapId, fallback) =>
 export const getLocalizedSpellName = (id, standardName) =>
   tryGetLocalizedText(TextCollections.TextSpells, id) ?? standardName;
 /** GetLocalizedItemName (TextManager.cs:519-526): by item template index, else `fallback`. */
-export const getLocalizedItemName = (id, fallback) => tryGetLocalizedText(TextCollections.TextItems, id) ?? fallback;
+export const getLocalizedItemName = (id, fallback) =>
+  tryGetLocalizedText(TextCollections.TextItems, id) ??
+  (id === 586 ? t('item.mortarAndPestle', fallback || 'Mortar and Pestle') : fallback);
+
 /** GetLocalizedMagicItemName (TextManager.cs:534-541): by magic item template index, else `fallback`. */
 export const getLocalizedMagicItemName = (id, fallback) =>
   tryGetLocalizedText(TextCollections.TextMagicItems, id) ?? fallback;

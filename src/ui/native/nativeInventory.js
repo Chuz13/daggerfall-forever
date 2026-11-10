@@ -800,6 +800,11 @@ export class NativeInventoryWindow {
       else this.boxes = [{ rows: [{ text: USE_PENDING.spellbook, center: true }] }];
       return;
     }
+    if (r.kind === 'potionMaker') {
+      if (this.hooks.openPotionMaker) { this._closeSilently(); this.hooks.openPotionMaker(); }
+      else this.boxes = [{ rows: [{ text: USE_PENDING.potionMaker, center: true }] }];
+      return;
+    }
     // SURV3: Camping Equipment and the Campfire Kit are PLACED, and the
     // ground is the host's - the pack closes first (the one overlay
     // slot, the spellbook arm's law) and the host's hook decides where

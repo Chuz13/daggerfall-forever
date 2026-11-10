@@ -13614,6 +13614,26 @@
   "tr": "89ad6ed99bd6",
   "by": "claude-in-session"
  },
+ "features.livingDungeonMobTraits.note": {
+  "en": "d39737ee8f59",
+  "tr": "d39737ee8f59",
+  "by": "human"
+ },
+ "features.livingDungeonMobTraits.title": {
+  "en": "ccc5d48ada12",
+  "tr": "ccc5d48ada12",
+  "by": "human"
+ },
+ "features.livingMobTraits.note": {
+  "en": "858da4cb7d05",
+  "tr": "858da4cb7d05",
+  "by": "human"
+ },
+ "features.livingMobTraits.title": {
+  "en": "e0cda7a640c9",
+  "tr": "e0cda7a640c9",
+  "by": "human"
+ },
  "features.livingNaval.note": {
   "en": "8b0e725e0691",
   "tr": "8b0e725e0691",
@@ -13853,6 +13873,31 @@
   "en": "6fb981a99ca7",
   "tr": "fb177110e1a0",
   "by": "claude-in-session"
+ },
+ "features.mwInventoryBody.3d": {
+  "en": "bbcd2f15cf9a",
+  "tr": "e505ab11d544",
+  "by": "human"
+ },
+ "features.mwInventoryBody.follow": {
+  "en": "89dd57c258ea",
+  "tr": "3b3afbfae07b",
+  "by": "human"
+ },
+ "features.mwInventoryBody.note": {
+  "en": "933d9b6ddfe6",
+  "tr": "42609dfd44c3",
+  "by": "human"
+ },
+ "features.mwInventoryBody.paperdoll": {
+  "en": "f8ca74eebab7",
+  "tr": "79e5aa170eca",
+  "by": "human"
+ },
+ "features.mwInventoryBody.title": {
+  "en": "d32d2b976364",
+  "tr": "caa51323dadb",
+  "by": "human"
  },
  "features.mwItemIcons.note": {
   "en": "d77f230c301c",
@@ -18229,6 +18274,41 @@
   "tr": "08dd7b2870b5",
   "by": "claude-in-session"
  },
+ "input.action.undeadAttack": {
+  "en": "1ecc9d647ff2",
+  "tr": "1ecc9d647ff2",
+  "by": "human"
+ },
+ "input.action.undeadDismiss": {
+  "en": "607633b44399",
+  "tr": "607633b44399",
+  "by": "human"
+ },
+ "input.action.undeadFeignDeath": {
+  "en": "38a10c9797df",
+  "tr": "38a10c9797df",
+  "by": "human"
+ },
+ "input.action.undeadFollow": {
+  "en": "ce4f6fa3ab7a",
+  "tr": "ce4f6fa3ab7a",
+  "by": "human"
+ },
+ "input.action.undeadGuard": {
+  "en": "3a23e5eea346",
+  "tr": "3a23e5eea346",
+  "by": "human"
+ },
+ "input.action.undeadNexus": {
+  "en": "9d6bdd1b8b45",
+  "tr": "9d6bdd1b8b45",
+  "by": "human"
+ },
+ "input.action.undeadRecall": {
+  "en": "ef28824b5079",
+  "tr": "ef28824b5079",
+  "by": "human"
+ },
  "instance.door.castle": {
   "en": "eb28bd1429d0",
   "tr": "a1d9ceb4af25",
@@ -18552,6 +18632,11 @@
  "inventory.store.takeAll": {
   "en": "d3b3b1b348b9",
   "tr": "4d90dd93b162",
+  "by": "claude-in-session"
+ },
+ "item.mortarAndPestle": {
+  "en": "556901418d42",
+  "tr": "ec5a9a589e85",
   "by": "claude-in-session"
  },
  "items.gold.sharedFull": {
@@ -20109,6 +20194,26 @@
   "tr": "11844087020f",
   "by": "claude-in-session"
  },
+ "living.adventurer.optDecline": {
+  "en": "a14a27f84c12",
+  "tr": "a14a27f84c12",
+  "by": "human"
+ },
+ "living.adventurer.optDuel": {
+  "en": "bd6fa5e7b179",
+  "tr": "c9599de89fe5",
+  "by": "human"
+ },
+ "living.adventurer.optEtiquette": {
+  "en": "650442a2eb5b",
+  "tr": "9cc6c05c0831",
+  "by": "human"
+ },
+ "living.adventurer.optIntimidate": {
+  "en": "c1fa9a77c095",
+  "tr": "6a613b03edfa",
+  "by": "human"
+ },
  "living.adventurer.questIntercepted": {
   "en": "2df59725ffcb",
   "tr": "2df59725ffcb",
@@ -20124,6 +20229,11 @@
   "tr": "52a363caacc8",
   "by": "claude-in-session"
  },
+ "living.checkpoint.compromise": {
+  "en": "e90d12bdda16",
+  "tr": "4007bc70a1af",
+  "by": "human"
+ },
  "living.checkpoint.halt": {
   "en": "de643e1feae0",
   "tr": "de643e1feae0",
@@ -20133,6 +20243,26 @@
   "en": "22311c0fc1c7",
   "tr": "22311c0fc1c7",
   "by": "claude-in-session"
+ },
+ "living.checkpoint.optDiplomacy": {
+  "en": "59f7ea8df952",
+  "tr": "8445e9526f02",
+  "by": "human"
+ },
+ "living.checkpoint.optForce": {
+  "en": "1d5137dd8fc9",
+  "tr": "1d5137dd8fc9",
+  "by": "human"
+ },
+ "living.checkpoint.optKnight": {
+  "en": "a696167aea62",
+  "tr": "2d88c561f684",
+  "by": "human"
+ },
+ "living.checkpoint.optToll": {
+  "en": "d415f457e4d2",
+  "tr": "d415f457e4d2",
+  "by": "human"
  },
  "living.checkpoint.passed": {
   "en": "b49ade45a196",
@@ -20279,6 +20409,16 @@
   "tr": "50372a505b1e",
   "by": "claude-in-session"
  },
+ "living.merchant.buy": {
+  "en": "f77816a57eba",
+  "tr": "1e604016dbbf",
+  "by": "human"
+ },
+ "living.merchant.sell": {
+  "en": "818facdb45f5",
+  "tr": "d20a434c039a",
+  "by": "human"
+ },
  "living.naval.battleNotice": {
   "en": "60e2860fecbd",
   "tr": "60e2860fecbd",
@@ -20354,6 +20494,26 @@
   "tr": "ea4222e316dc",
   "by": "claude-in-session"
  },
+ "living.nemesis.optEtiquette": {
+  "en": "0b62f7acf552",
+  "tr": "3d9fe725bb50",
+  "by": "human"
+ },
+ "living.nemesis.optFight": {
+  "en": "3d7924674e92",
+  "tr": "3d7924674e92",
+  "by": "human"
+ },
+ "living.nemesis.optStreetwise": {
+  "en": "2edcc4cace45",
+  "tr": "8960fd99a0a2",
+  "by": "human"
+ },
+ "living.nemesis.optTaunt": {
+  "en": "f224ae6ce6d7",
+  "tr": "069132068143",
+  "by": "human"
+ },
  "living.nemesis.tauntSuccess": {
   "en": "57deea244428",
   "tr": "57deea244428",
@@ -20373,6 +20533,21 @@
   "en": "d01ce7ba39b3",
   "tr": "d01ce7ba39b3",
   "by": "claude-in-session"
+ },
+ "living.plea.optHelp": {
+  "en": "9e03db1258ab",
+  "tr": "9e03db1258ab",
+  "by": "human"
+ },
+ "living.plea.optPolite": {
+  "en": "4443b617b769",
+  "tr": "38d017b161e4",
+  "by": "human"
+ },
+ "living.plea.optRude": {
+  "en": "10d48b23bd28",
+  "tr": "10d48b23bd28",
+  "by": "human"
  },
  "living.plea.parted": {
   "en": "88641d1041b6",
@@ -20409,10 +20584,20 @@
   "tr": "646874f7a9f1",
   "by": "claude-in-session"
  },
+ "living.roadAdv.contractExpired": {
+  "en": "3a1fe82f492e",
+  "tr": "f2d3f50a9bbf",
+  "by": "human"
+ },
  "living.roadAdv.declined": {
   "en": "aa0f5dac977e",
   "tr": "aa0f5dac977e",
   "by": "claude-in-session"
+ },
+ "living.roadAdv.extortPartial": {
+  "en": "1fa6ae0db519",
+  "tr": "05c71f95719f",
+  "by": "human"
  },
  "living.roadAdv.extorted": {
   "en": "d6b03e6462f7",
@@ -20424,10 +20609,15 @@
   "tr": "fab0c2a8dc8d",
   "by": "claude-in-session"
  },
+ "living.roadAdv.noGold": {
+  "en": "c8c903d07d85",
+  "tr": "ed4411232c72",
+  "by": "human"
+ },
  "living.roadAdv.optionExtort": {
   "en": "e2261bb3d707",
-  "tr": "e2261bb3d707",
-  "by": "claude-in-session"
+  "tr": "2172f5e5c0aa",
+  "by": "human"
  },
  "living.roadAdv.optionIntel": {
   "en": "9427a7da3f8b",
@@ -20436,8 +20626,8 @@
  },
  "living.roadAdv.optionRecruit": {
   "en": "8767545035da",
-  "tr": "8767545035da",
-  "by": "claude-in-session"
+  "tr": "76677d891d34",
+  "by": "human"
  },
  "living.roadAdv.optionSpar": {
   "en": "7de69e411868",
@@ -20468,6 +20658,31 @@
   "en": "d9f2bda5f62b",
   "tr": "d9f2bda5f62b",
   "by": "claude-in-session"
+ },
+ "living.roll.criticalFailure": {
+  "en": "f0f041892a9e",
+  "tr": "6dd151486ac8",
+  "by": "human"
+ },
+ "living.roll.failure": {
+  "en": "f51509eda935",
+  "tr": "7282688c7b92",
+  "by": "human"
+ },
+ "living.roll.partial": {
+  "en": "179ed87ace6c",
+  "tr": "96a3a2b743d6",
+  "by": "human"
+ },
+ "living.roll.success": {
+  "en": "ae30ee709107",
+  "tr": "1ba23b86a1f2",
+  "by": "human"
+ },
+ "living.roll.triumph": {
+  "en": "33b096edcf6b",
+  "tr": "4ed035c4a374",
+  "by": "human"
  },
  "living.rumor.famineEnd": {
   "en": "db222b1b19a4",
@@ -20564,10 +20779,30 @@
   "tr": "b7b10a9b24ed",
   "by": "claude-in-session"
  },
+ "living.urban.optionChaos": {
+  "en": "4d38dc5ace1e",
+  "tr": "4d38dc5ace1e",
+  "by": "human"
+ },
+ "living.urban.optionRebels": {
+  "en": "ca49201de803",
+  "tr": "ca49201de803",
+  "by": "human"
+ },
+ "living.urban.optionWatch": {
+  "en": "7bae0c7a1e76",
+  "tr": "7bae0c7a1e76",
+  "by": "human"
+ },
  "living.urban.orderRestored": {
   "en": "fc23c2af9705",
   "tr": "fc23c2af9705",
   "by": "claude-in-session"
+ },
+ "living.urban.skirmishPrompt": {
+  "en": "5b4a14791350",
+  "tr": "5b4a14791350",
+  "by": "human"
  },
  "living.urban.skirmishStart": {
   "en": "0d5505b9a198",
@@ -23074,6 +23309,31 @@
   "tr": "ee42446aa80d",
   "by": "claude-in-session"
  },
+ "menu.hud.vitalsMode": {
+  "en": "060871eae7a0",
+  "tr": "c6381dc79c71",
+  "by": "human"
+ },
+ "menu.hud.vitalsModeCombo": {
+  "en": "dcae5862b56f",
+  "tr": "a8e85952a5c1",
+  "by": "human"
+ },
+ "menu.hud.vitalsModeCurrentMax": {
+  "en": "360b57fe9d57",
+  "tr": "ef8b32661ae4",
+  "by": "human"
+ },
+ "menu.hud.vitalsModeNote": {
+  "en": "a28a8ad47f47",
+  "tr": "ca06c677454c",
+  "by": "human"
+ },
+ "menu.hud.vitalsModePercent": {
+  "en": "c4519ac7ccbe",
+  "tr": "e5b4dc817432",
+  "by": "human"
+ },
  "menu.intro.aria": {
   "en": "a3245bb450a0",
   "tr": "98e31346281d",
@@ -23199,6 +23459,66 @@
   "tr": "d639c6c3909d",
   "by": "claude-in-session"
  },
+ "menu.mods.blurb": {
+  "en": "2e569589901b",
+  "tr": "2e569589901b",
+  "by": "human"
+ },
+ "menu.mods.byAuthor": {
+  "en": "cfadbd7a5771",
+  "tr": "cfadbd7a5771",
+  "by": "human"
+ },
+ "menu.mods.disabled": {
+  "en": "f4f4473df8cb",
+  "tr": "f4f4473df8cb",
+  "by": "human"
+ },
+ "menu.mods.down": {
+  "en": "5f08134e0746",
+  "tr": "5f08134e0746",
+  "by": "human"
+ },
+ "menu.mods.empty": {
+  "en": "fa10bd082b53",
+  "tr": "fa10bd082b53",
+  "by": "human"
+ },
+ "menu.mods.enabled": {
+  "en": "df174a3f2faa",
+  "tr": "df174a3f2faa",
+  "by": "human"
+ },
+ "menu.mods.error": {
+  "en": "7f2f6a15cf8d",
+  "tr": "7f2f6a15cf8d",
+  "by": "human"
+ },
+ "menu.mods.openFolder": {
+  "en": "c96727593350",
+  "tr": "c96727593350",
+  "by": "human"
+ },
+ "menu.mods.rescan": {
+  "en": "84661f6a90cc",
+  "tr": "84661f6a90cc",
+  "by": "human"
+ },
+ "menu.mods.title": {
+  "en": "2f4b8595f2ee",
+  "tr": "2f4b8595f2ee",
+  "by": "human"
+ },
+ "menu.mods.up": {
+  "en": "8826920b2d9d",
+  "tr": "8826920b2d9d",
+  "by": "human"
+ },
+ "menu.mods.webFolderNotice": {
+  "en": "db156dfd82f0",
+  "tr": "db156dfd82f0",
+  "by": "human"
+ },
  "menu.motion.peerShake.full": {
   "en": "10b28a8c1e44",
   "tr": "19c2c0def187",
@@ -23293,6 +23613,126 @@
   "en": "35a30c316316",
   "tr": "5b6c81e77949",
   "by": "claude-in-session"
+ },
+ "menu.necro.capMode.fixed": {
+  "en": "8fa8dd958765",
+  "tr": "8fa8dd958765",
+  "by": "human"
+ },
+ "menu.necro.capMode.name": {
+  "en": "e9c65108017c",
+  "tr": "e9c65108017c",
+  "by": "human"
+ },
+ "menu.necro.capMode.note": {
+  "en": "fdd79d223a53",
+  "tr": "fdd79d223a53",
+  "by": "human"
+ },
+ "menu.necro.capMode.statScaled": {
+  "en": "cf67acb6771f",
+  "tr": "cf67acb6771f",
+  "by": "human"
+ },
+ "menu.necro.corpseReq.abstract": {
+  "en": "17f1250fa22f",
+  "tr": "17f1250fa22f",
+  "by": "human"
+ },
+ "menu.necro.corpseReq.name": {
+  "en": "290a5556638f",
+  "tr": "290a5556638f",
+  "by": "human"
+ },
+ "menu.necro.corpseReq.note": {
+  "en": "46f2c9622b11",
+  "tr": "46f2c9622b11",
+  "by": "human"
+ },
+ "menu.necro.corpseReq.physical": {
+  "en": "3314e985aaf6",
+  "tr": "3314e985aaf6",
+  "by": "human"
+ },
+ "menu.necro.enabled.name": {
+  "en": "82ae5265c113",
+  "tr": "82ae5265c113",
+  "by": "human"
+ },
+ "menu.necro.enabled.note": {
+  "en": "cb04a7d150cb",
+  "tr": "cb04a7d150cb",
+  "by": "human"
+ },
+ "menu.necro.rebellion.name": {
+  "en": "43ab589ae037",
+  "tr": "43ab589ae037",
+  "by": "human"
+ },
+ "menu.necro.rebellion.note": {
+  "en": "7a7bb4d7e572",
+  "tr": "7a7bb4d7e572",
+  "by": "human"
+ },
+ "menu.necro.socialLaw.hardcore": {
+  "en": "a2939fe5eef7",
+  "tr": "a2939fe5eef7",
+  "by": "human"
+ },
+ "menu.necro.socialLaw.mild": {
+  "en": "c9451a4c2734",
+  "tr": "c9451a4c2734",
+  "by": "human"
+ },
+ "menu.necro.socialLaw.name": {
+  "en": "3acf98af27b9",
+  "tr": "3acf98af27b9",
+  "by": "human"
+ },
+ "menu.necro.socialLaw.note": {
+  "en": "652dd6485be9",
+  "tr": "652dd6485be9",
+  "by": "human"
+ },
+ "menu.necro.socialLaw.off": {
+  "en": "698c816d915e",
+  "tr": "698c816d915e",
+  "by": "human"
+ },
+ "menu.necro.upkeep.name": {
+  "en": "6c40989651c6",
+  "tr": "6c40989651c6",
+  "by": "human"
+ },
+ "menu.necro.upkeep.note": {
+  "en": "1d9b61aa8738",
+  "tr": "1d9b61aa8738",
+  "by": "human"
+ },
+ "menu.necro.witchHunters.frequent": {
+  "en": "1d56d901ac72",
+  "tr": "1d56d901ac72",
+  "by": "human"
+ },
+ "menu.necro.witchHunters.name": {
+  "en": "c7a95c016568",
+  "tr": "c7a95c016568",
+  "by": "human"
+ },
+ "menu.necro.witchHunters.note": {
+  "en": "a5fa314575bf",
+  "tr": "a5fa314575bf",
+  "by": "human"
+ },
+ "menu.necro.witchHunters.off": {
+  "en": "e3de5ab0ca4c",
+  "tr": "e3de5ab0ca4c",
+  "by": "human"
+ },
+ "menu.necro.witchHunters.rare": {
+  "en": "07a9257a419f",
+  "tr": "07a9257a419f",
+  "by": "human"
  },
  "menu.new.blurb": {
   "en": "22aa86b545b5",
@@ -23978,6 +24418,11 @@
   "en": "802aa6576577",
   "tr": "efbdc956acb2",
   "by": "claude-in-session"
+ },
+ "menu.rail.mods": {
+  "en": "cc459f63a7ae",
+  "tr": "cc459f63a7ae",
+  "by": "human"
  },
  "menu.rail.new": {
   "en": "528fb1c4e5fb",
@@ -28529,6 +28974,281 @@
   "tr": "042f0a89837a",
   "by": "claude-in-session"
  },
+ "necro.alert.witchHunters": {
+  "en": "6841ea859ef7",
+  "tr": "6841ea859ef7",
+  "by": "human"
+ },
+ "necro.cmd.attackScout": {
+  "en": "cd80f840954e",
+  "tr": "cd80f840954e",
+  "by": "human"
+ },
+ "necro.cmd.attackTarget": {
+  "en": "1f2e54879915",
+  "tr": "1f2e54879915",
+  "by": "human"
+ },
+ "necro.cmd.detonate": {
+  "en": "d69c7197b9f7",
+  "tr": "d69c7197b9f7",
+  "by": "human"
+ },
+ "necro.cmd.dismiss": {
+  "en": "8ea6594aecfe",
+  "tr": "8ea6594aecfe",
+  "by": "human"
+ },
+ "necro.cmd.feignDeath": {
+  "en": "bb75cc4e7969",
+  "tr": "bb75cc4e7969",
+  "by": "human"
+ },
+ "necro.cmd.follow": {
+  "en": "e751f6ccba90",
+  "tr": "e751f6ccba90",
+  "by": "human"
+ },
+ "necro.cmd.guard": {
+  "en": "6cf81668b895",
+  "tr": "6cf81668b895",
+  "by": "human"
+ },
+ "necro.cmd.none": {
+  "en": "3cd7d3b80f10",
+  "tr": "3cd7d3b80f10",
+  "by": "human"
+ },
+ "necro.cmd.noneControlled": {
+  "en": "02a1c6382fb2",
+  "tr": "4b5116d4d0e1",
+  "by": "human"
+ },
+ "necro.cmd.recall": {
+  "en": "62e06bfb2b9d",
+  "tr": "62e06bfb2b9d",
+  "by": "human"
+ },
+ "necro.cmd.releaseControlled": {
+  "en": "9d2bf9575445",
+  "tr": "b77649ec1ef2",
+  "by": "human"
+ },
+ "necro.elixir.alreadyAncient": {
+  "en": "87a57cbc1cc5",
+  "tr": "0ee31c843034",
+  "by": "human"
+ },
+ "necro.elixir.alreadyLich": {
+  "en": "52c83a9671cb",
+  "tr": "41dc782441f2",
+  "by": "human"
+ },
+ "necro.elixir.brewed": {
+  "en": "8ee2250e3847",
+  "tr": "8ee2250e3847",
+  "by": "human"
+ },
+ "necro.harvest.action": {
+  "en": "01432e441509",
+  "tr": "01432e441509",
+  "by": "human"
+ },
+ "necro.harvest.alreadyStripped": {
+  "en": "3648eba4e801",
+  "tr": "3648eba4e801",
+  "by": "human"
+ },
+ "necro.harvest.done": {
+  "en": "4ed3feb2e4a3",
+  "tr": "4ed3feb2e4a3",
+  "by": "human"
+ },
+ "necro.harvest.empty": {
+  "en": "245a239e4c83",
+  "tr": "245a239e4c83",
+  "by": "human"
+ },
+ "necro.harvest.needBlade": {
+  "en": "8c5a351deee6",
+  "tr": "8c5a351deee6",
+  "by": "human"
+ },
+ "necro.harvest.noBlade": {
+  "en": "b80ae69acfcd",
+  "tr": "b80ae69acfcd",
+  "by": "human"
+ },
+ "necro.harvest.noCorpse": {
+  "en": "372f6a1a0b1f",
+  "tr": "372f6a1a0b1f",
+  "by": "human"
+ },
+ "necro.harvest.none": {
+  "en": "0f70eb37acb2",
+  "tr": "0f70eb37acb2",
+  "by": "human"
+ },
+ "necro.lich.fail": {
+  "en": "48b95e571a5f",
+  "tr": "2a15551f3c1a",
+  "by": "human"
+ },
+ "necro.lich.success": {
+  "en": "08cc7dd60b3d",
+  "tr": "08cc7dd60b3d",
+  "by": "human"
+ },
+ "necro.menu.active": {
+  "en": "eeaf23b8b70b",
+  "tr": "eeaf23b8b70b",
+  "by": "human"
+ },
+ "necro.menu.optAmbush": {
+  "en": "090aac8694b9",
+  "tr": "090aac8694b9",
+  "by": "human"
+ },
+ "necro.menu.optAttack": {
+  "en": "5c958bec09be",
+  "tr": "5c958bec09be",
+  "by": "human"
+ },
+ "necro.menu.optClose": {
+  "en": "57d1f0ca4552",
+  "tr": "57d1f0ca4552",
+  "by": "human"
+ },
+ "necro.menu.optDismiss": {
+  "en": "d1425a1c7979",
+  "tr": "d1425a1c7979",
+  "by": "human"
+ },
+ "necro.menu.optFollow": {
+  "en": "7129fa2b86c0",
+  "tr": "7129fa2b86c0",
+  "by": "human"
+ },
+ "necro.menu.optGuard": {
+  "en": "3e75eb6c230f",
+  "tr": "3e75eb6c230f",
+  "by": "human"
+ },
+ "necro.menu.optRecall": {
+  "en": "71bc25250bee",
+  "tr": "71bc25250bee",
+  "by": "human"
+ },
+ "necro.menu.optReleaseControlled": {
+  "en": "4ddffa2cff11",
+  "tr": "4ddffa2cff11",
+  "by": "human"
+ },
+ "necro.menu.pool": {
+  "en": "a338850a0c12",
+  "tr": "f217fa43e381",
+  "by": "human"
+ },
+ "necro.menu.prompt": {
+  "en": "4a39ff69d6ae",
+  "tr": "4a39ff69d6ae",
+  "by": "human"
+ },
+ "necro.menu.stance": {
+  "en": "0e0cac86e921",
+  "tr": "0e0cac86e921",
+  "by": "human"
+ },
+ "necro.menu.title": {
+  "en": "7b5805881fe5",
+  "tr": "7b5805881fe5",
+  "by": "human"
+ },
+ "necro.menu.upkeep": {
+  "en": "e452f9f25d0c",
+  "tr": "eed632bc6849",
+  "by": "human"
+ },
+ "necro.respawnAtCemetery": {
+  "en": "bccedc833a88",
+  "tr": "7f06e1405a19",
+  "by": "human"
+ },
+ "necro.stance.feigningDeath": {
+  "en": "0d6567935221",
+  "tr": "91801178bcde",
+  "by": "human"
+ },
+ "necro.tip.ancientLich.combat": {
+  "en": "8f36ee00ece3",
+  "tr": "7ab9ea70a945",
+  "by": "human"
+ },
+ "necro.tip.ancientLich.skills": {
+  "en": "d6ca3f8f560d",
+  "tr": "d3040b64411a",
+  "by": "human"
+ },
+ "necro.tip.ancientLich.stats": {
+  "en": "d2e1b091753e",
+  "tr": "7e23184d9c8f",
+  "by": "human"
+ },
+ "necro.tip.ancientLich.survival": {
+  "en": "b679899de377",
+  "tr": "fccce99fad7a",
+  "by": "human"
+ },
+ "necro.tip.ancientLich.vitals": {
+  "en": "20e1249cbab7",
+  "tr": "20e1249cbab7",
+  "by": "human"
+ },
+ "necro.tip.disguise": {
+  "en": "ccc75b614dd6",
+  "tr": "c3216d144f8d",
+  "by": "human"
+ },
+ "necro.tip.holy": {
+  "en": "396483b2684f",
+  "tr": "9683141a2ed3",
+  "by": "human"
+ },
+ "necro.tip.lich.combat": {
+  "en": "b2af976a4627",
+  "tr": "58302b8eb85b",
+  "by": "human"
+ },
+ "necro.tip.lich.skills": {
+  "en": "4b145028605e",
+  "tr": "18b90351038a",
+  "by": "human"
+ },
+ "necro.tip.lich.stats": {
+  "en": "262b67586c5b",
+  "tr": "bb2a4088b92c",
+  "by": "human"
+ },
+ "necro.tip.lich.survival": {
+  "en": "b679899de377",
+  "tr": "fccce99fad7a",
+  "by": "human"
+ },
+ "necro.tip.lich.vitals": {
+  "en": "959921db393f",
+  "tr": "959921db393f",
+  "by": "human"
+ },
+ "necro.tip.permanent": {
+  "en": "af0fa7cd4eb8",
+  "tr": "0660163ab13a",
+  "by": "human"
+ },
+ "necro.tip.phylactery": {
+  "en": "332ad4fb0988",
+  "tr": "83544f9f6ece",
+  "by": "human"
+ },
  "net.chat.already": {
   "en": "109d02d5beee",
   "tr": "523738534f8e",
@@ -29904,6 +30624,11 @@
   "tr": "2eb30f4d244b",
   "by": "claude-in-session"
  },
+ "ore.tip.deepOffline": {
+  "en": "54e1dd102414",
+  "tr": "54e1dd102414",
+  "by": "human"
+ },
  "ore.tip.deepOnly": {
   "en": "806db9dd9302",
   "tr": "216721a073aa",
@@ -30974,6 +31699,11 @@
   "tr": "a8e136b36e1c",
   "by": "claude-in-session"
  },
+ "pause.stats.perks": {
+  "en": "f6d5cd0a367d",
+  "tr": "bb75f32f0a97",
+  "by": "human"
+ },
  "pause.stats.standing": {
   "en": "742f03c37a89",
   "tr": "84d7c393eae3",
@@ -31013,6 +31743,76 @@
   "en": "654171647baa",
   "tr": "2701a94c0eb5",
   "by": "claude-in-session"
+ },
+ "perks.arcane_reservoir.desc": {
+  "en": "d13822f51972",
+  "tr": "d13822f51972",
+  "by": "human"
+ },
+ "perks.arcane_reservoir.name": {
+  "en": "ee61ca7d509e",
+  "tr": "ee61ca7d509e",
+  "by": "human"
+ },
+ "perks.blade_mastery.desc": {
+  "en": "4c1503e15c55",
+  "tr": "4c1503e15c55",
+  "by": "human"
+ },
+ "perks.blade_mastery.name": {
+  "en": "07148163dac7",
+  "tr": "07148163dac7",
+  "by": "human"
+ },
+ "perks.iron_constitution.desc": {
+  "en": "212add317a83",
+  "tr": "212add317a83",
+  "by": "human"
+ },
+ "perks.iron_constitution.name": {
+  "en": "da309fd6bccb",
+  "tr": "da309fd6bccb",
+  "by": "human"
+ },
+ "perks.shadow_step.desc": {
+  "en": "5fe9395f39eb",
+  "tr": "5fe9395f39eb",
+  "by": "human"
+ },
+ "perks.shadow_step.name": {
+  "en": "959faf7ee967",
+  "tr": "959faf7ee967",
+  "by": "human"
+ },
+ "perks.treasure_hunter.desc": {
+  "en": "7eb2e42d7dde",
+  "tr": "7eb2e42d7dde",
+  "by": "human"
+ },
+ "perks.treasure_hunter.name": {
+  "en": "87962bc7b599",
+  "tr": "87962bc7b599",
+  "by": "human"
+ },
+ "perks.ui.lead": {
+  "en": "ec7b2db2d2cb",
+  "tr": "ec7b2db2d2cb",
+  "by": "human"
+ },
+ "perks.ui.locked": {
+  "en": "a798882f1c31",
+  "tr": "a798882f1c31",
+  "by": "human"
+ },
+ "perks.ui.title": {
+  "en": "90f3eede39ac",
+  "tr": "90f3eede39ac",
+  "by": "human"
+ },
+ "perks.ui.unlocked": {
+  "en": "b3da70258296",
+  "tr": "b3da70258296",
+  "by": "human"
  },
  "player.dungeonVoid": {
   "en": "48bb867188de",
@@ -35136,8 +35936,8 @@
  },
  "prof.page.stores.empty": {
   "en": "6fcb0aeae853",
-  "tr": "99ddb8ec9a47",
-  "by": "claude-in-session"
+  "tr": "93c8dea191d1",
+  "by": "human"
  },
  "prof.page.stores.emptyCarry": {
   "en": "510e508e56cf",
@@ -42354,25 +43154,20 @@
   "tr": "bec778c099bd",
   "by": "claude-in-session"
  },
- "settings.sec.livingPolitics": {
-  "en": "b708fae92f2f",
-  "tr": "b708fae92f2f",
-  "by": "claude-in-session"
- },
- "settings.sec.livingRivals": {
-  "en": "7c00a0c339f1",
-  "tr": "7c00a0c339f1",
-  "by": "claude-in-session"
- },
- "settings.sec.livingTravel": {
-  "en": "72d2ae5aaf0f",
-  "tr": "72d2ae5aaf0f",
-  "by": "claude-in-session"
- },
- "settings.tab.living": {
+ "settings.sec.living": {
   "en": "344c8f6840b9",
   "tr": "344c8f6840b9",
-  "by": "claude-in-session"
+  "by": "human"
+ },
+ "settings.sec.necromancy": {
+  "en": "39663e575dd0",
+  "tr": "39663e575dd0",
+  "by": "human"
+ },
+ "settings.tab.dff": {
+  "en": "ad8a0e9206dc",
+  "tr": "ad8a0e9206dc",
+  "by": "human"
  },
  "shop.armory.setOf": {
   "en": "82dc9593c7e3",
@@ -43709,6 +44504,76 @@
   "tr": "f68524a830fb",
   "by": "claude-in-session"
  },
+ "spell.necro.alreadyAncientLich": {
+  "en": "6b0f06ad8a73",
+  "tr": "21587097bd6f",
+  "by": "human"
+ },
+ "spell.necro.alreadyLich": {
+  "en": "13805e185364",
+  "tr": "13805e185364",
+  "by": "human"
+ },
+ "spell.necro.animateDead": {
+  "en": "591b15571e1b",
+  "tr": "591b15571e1b",
+  "by": "human"
+ },
+ "spell.necro.archLichdom": {
+  "en": "5635e649bcf2",
+  "tr": "5635e649bcf2",
+  "by": "human"
+ },
+ "spell.necro.boneArmor": {
+  "en": "4229cd5c689a",
+  "tr": "4229cd5c689a",
+  "by": "human"
+ },
+ "spell.necro.controlUndead": {
+  "en": "3e802434073d",
+  "tr": "8222a1d8b2bb",
+  "by": "human"
+ },
+ "spell.necro.corpseExplosion": {
+  "en": "0dcc1411563e",
+  "tr": "0dcc1411563e",
+  "by": "human"
+ },
+ "spell.necro.darkFlight": {
+  "en": "d1048dc4b768",
+  "tr": "abad1cbbb35b",
+  "by": "human"
+ },
+ "spell.necro.fingerOfDeath": {
+  "en": "05b86a5a91bb",
+  "tr": "487145a6cb38",
+  "by": "human"
+ },
+ "spell.necro.lichdom": {
+  "en": "f107d569e341",
+  "tr": "f107d569e341",
+  "by": "human"
+ },
+ "spell.necro.lifeTap": {
+  "en": "7f1560ce63cd",
+  "tr": "7f1560ce63cd",
+  "by": "human"
+ },
+ "spell.necro.mortalDisguise": {
+  "en": "e15aa5849264",
+  "tr": "31b40779a419",
+  "by": "human"
+ },
+ "spell.necro.paralyzingTouch": {
+  "en": "512ff31af8a9",
+  "tr": "208e9c5dc128",
+  "by": "human"
+ },
+ "spell.necro.sutureCadaver": {
+  "en": "0061bf62235e",
+  "tr": "e96fb98bf720",
+  "by": "human"
+ },
  "spellbook.effect.chance": {
   "en": "c79a79681a76",
   "tr": "031c8e2a00c9",
@@ -44884,6 +45749,16 @@
   "tr": "5c31be9f2a5c",
   "by": "claude-in-session"
  },
+ "status.absorbs": {
+  "en": "cc5f7ca80796",
+  "tr": "cc5f7ca80796",
+  "by": "human"
+ },
+ "status.absorbsMore": {
+  "en": "70f20c58df4b",
+  "tr": "70f20c58df4b",
+  "by": "human"
+ },
  "status.health.unwell": {
   "en": "a640de0c2ebd",
   "tr": "e6f16c45ffec",
@@ -44918,6 +45793,16 @@
   "en": "33d0010cf91a",
   "tr": "81be52539f57",
   "by": "claude-in-session"
+ },
+ "survival.status.deathlyCold": {
+  "en": "015c54b3434d",
+  "tr": "f7ae7ad438a9",
+  "by": "human"
+ },
+ "survival.status.undeadVessel": {
+  "en": "503d3ecc41ba",
+  "tr": "b9c9e30be6d6",
+  "by": "human"
  },
  "technique.noSignature": {
   "en": "512147f4746c",
