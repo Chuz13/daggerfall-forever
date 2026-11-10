@@ -17,7 +17,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { SKILLS, skillValue } from '../skills.js';
-import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import { LivingTamrielConfig, PRESENCE, getLivingEncounterScale, rollEncounterRange, LIVING_ENCOUNTER_SCALE } from './livingConfig.js';
 import { getLivingDirectorState } from './livingDirector.js';
 import { LEVEL_CAP } from '../levelCap.js';
 import { GUILD_GROUPS } from '../../formats/factionFile.js';
@@ -218,14 +218,24 @@ export function createNemesisHunter(playerLevel, nameOrOptions) {
   const nemesisLevel = Math.min(LEVEL_CAP, Math.max(1, playerLevel + 1));
   const gearTier = Math.min(9, Math.floor(nemesisLevel / 5) + 1);
 
-  // Scaled minions based on Nemesis level
+  // Scaled minions based on Nemesis level and encounter scale
+  const scale = getLivingEncounterScale();
   let minionCount = 0;
-  if (nemesisLevel >= 31) {
-    minionCount = 2 + Math.floor(rng() * 2); // 2..3 elite minions
-  } else if (nemesisLevel >= 16) {
-    minionCount = 2;                         // 2 veterans
-  } else if (nemesisLevel >= 6) {
-    minionCount = 1;                         // 1 assistant
+  if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
+    if (nemesisLevel >= 31) minionCount = rollEncounterRange(2, 3, rng);
+    else if (nemesisLevel >= 16) minionCount = 2;
+    else if (nemesisLevel >= 6) minionCount = 1;
+    else minionCount = 0;
+  } else if (scale === LIVING_ENCOUNTER_SCALE.MID) {
+    if (nemesisLevel >= 31) minionCount = rollEncounterRange(3, 5, rng);
+    else if (nemesisLevel >= 16) minionCount = rollEncounterRange(2, 4, rng);
+    else if (nemesisLevel >= 6) minionCount = 2;
+    else minionCount = 1;
+  } else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) {
+    if (nemesisLevel >= 31) minionCount = rollEncounterRange(6, 9, rng);
+    else if (nemesisLevel >= 16) minionCount = rollEncounterRange(5, 7, rng);
+    else if (nemesisLevel >= 6) minionCount = rollEncounterRange(3, 4, rng);
+    else minionCount = 2;
   }
 
   const rolePool = ARCHETYPE_MINION_ROLES[archetype] || ['Hired Thug'];

@@ -23,6 +23,31 @@ export const PRESENCE = Object.freeze({
   HIGH: 3,
 });
 
+/**
+ * Encounter mass scale multipliers:
+ * LOW (1)  - Baseline compact encounters (1x)
+ * MID (2)  - Balanced emergent squads and packs (2x default)
+ * HIGH (4) - Large-scale battles, raids, and warbands (4x)
+ */
+export const LIVING_ENCOUNTER_SCALE = Object.freeze({
+  LOW: 1,
+  MID: 2,
+  HIGH: 4,
+});
+
+/** Loot policy for urban crisis skirmishes. */
+export const LIVING_URBAN_LOOT = Object.freeze({
+  ZERO: 'zero',       // Classic LT: corpses emptied to protect local economy
+  SUPPLIES: 'supplies', // Dropping small gold, potions, arrows, bandages
+  FULL: 'full',       // Standard DFF gear and weapon drops
+});
+
+/** Loot policy for wilderness camps, road encounters, and checkpoints. */
+export const LIVING_WILDERNESS_LOOT = Object.freeze({
+  FULL: 'full',       // Standard DFF drops
+  SUPPLIES: 'supplies', // Consumables and pocket gold only
+});
+
 function parseTierValue(v) {
   if (Number.isInteger(v)) return v;
   if (typeof v === 'string') {
@@ -116,6 +141,39 @@ export const LivingTamrielConfig = {
   get allowQuestCompetition() { return getPref('livingQuestCompetition') === true; },
   set allowQuestCompetition(v) { setPref('livingQuestCompetition', Boolean(v)); },
 
+  // Encounter Scale (1x LOW, 2x MID, 4x HIGH)
+  get encounterScale() {
+    const v = getPref('livingEncounterScale');
+    if (v === 'mid' || v === 2 || v === '2') return LIVING_ENCOUNTER_SCALE.MID;
+    if (v === 'high' || v === 4 || v === '3' || v === '4') return LIVING_ENCOUNTER_SCALE.HIGH;
+    return LIVING_ENCOUNTER_SCALE.LOW;
+  },
+  set encounterScale(v) {
+    let n = LIVING_ENCOUNTER_SCALE.LOW;
+    if (v === 'mid' || v === 2) n = LIVING_ENCOUNTER_SCALE.MID;
+    else if (v === 'high' || v === 4 || v === 3) n = LIVING_ENCOUNTER_SCALE.HIGH;
+    setPref('livingEncounterScale', n);
+  },
+
+  // Loot Policies
+  get urbanLootMode() {
+    const v = String(getPref('livingUrbanLootMode') ?? LIVING_URBAN_LOOT.ZERO).toLowerCase();
+    if (v === LIVING_URBAN_LOOT.FULL || v === LIVING_URBAN_LOOT.SUPPLIES) return v;
+    return LIVING_URBAN_LOOT.ZERO;
+  },
+  set urbanLootMode(v) {
+    setPref('livingUrbanLootMode', String(v).toLowerCase());
+  },
+
+  get wildernessLootMode() {
+    const v = String(getPref('livingWildernessLootMode') ?? LIVING_WILDERNESS_LOOT.FULL).toLowerCase();
+    if (v === LIVING_WILDERNESS_LOOT.SUPPLIES) return v;
+    return LIVING_WILDERNESS_LOOT.FULL;
+  },
+  set wildernessLootMode(v) {
+    setPref('livingWildernessLootMode', String(v).toLowerCase());
+  },
+
   // Tunables & Thresholds
   adventurerPoolPerRegion: 13,      // Default 13, configurable up to 30 for stress-tests
   navalSpawnDistanceMeters: 250,    // Spawn radius for naval encounters (200-300m)
@@ -137,6 +195,29 @@ export function isLivingFeatureActive(featureKey) {
 }
 
 /**
+ * Helper returning the current numeric encounter scale multiplier (1, 2, or 4).
+ * @returns {number}
+ */
+export function getLivingEncounterScale() {
+  const v = LivingTamrielConfig.encounterScale;
+  if (v === LIVING_ENCOUNTER_SCALE.MID || v === 'mid' || v === 2) return LIVING_ENCOUNTER_SCALE.MID;
+  if (v === LIVING_ENCOUNTER_SCALE.HIGH || v === 'high' || v === 4) return LIVING_ENCOUNTER_SCALE.HIGH;
+  return LIVING_ENCOUNTER_SCALE.LOW;
+}
+
+/**
+ * Rolls an integer uniformly inside [min, max] inclusive using the given RNG.
+ * @param {number} min
+ * @param {number} max
+ * @param {() => number} [rng=Math.random]
+ * @returns {number}
+ */
+export function rollEncounterRange(min, max, rng = Math.random) {
+  if (min >= max) return min;
+  return min + Math.floor(rng() * (max - min + 1));
+}
+
+/**
  * Resets configuration back to canonical defaults.
  */
 export function resetLivingConfig() {
@@ -155,6 +236,9 @@ export function resetLivingConfig() {
   setPref('livingMobTraits', PRESENCE.MID);
   setPref('livingDungeonMobTraits', PRESENCE.MID);
   setPref('livingQuestCompetition', false);
+  setPref('livingEncounterScale', LIVING_ENCOUNTER_SCALE.LOW);
+  setPref('livingUrbanLootMode', LIVING_URBAN_LOOT.ZERO);
+  setPref('livingWildernessLootMode', LIVING_WILDERNESS_LOOT.FULL);
 
   LivingTamrielConfig.adventurerPoolPerRegion = 13;
   LivingTamrielConfig.navalSpawnDistanceMeters = 250;

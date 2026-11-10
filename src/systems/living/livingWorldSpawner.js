@@ -22,7 +22,7 @@ import { trs } from '../../world/mat4.js';
 import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
-import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import { LivingTamrielConfig, PRESENCE, getLivingEncounterScale, rollEncounterRange, LIVING_ENCOUNTER_SCALE, LIVING_URBAN_LOOT, LIVING_WILDERNESS_LOOT } from './livingConfig.js';
 import { getRegionState, isRegionInQuarantine, getActiveCrises, setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
 import { getQuarantineReliefPostInfo } from './quarantineGate.js';
 import { checkCampFootprintSlope, snapPropToGround } from './campInjector.js';
@@ -490,7 +490,15 @@ export function rollLivingWildernessEncounter(ctx, rolls = Math.random) {
   );
 
   const mobileType = pool[Math.floor(rolls() * pool.length)];
-  const extraCount = crisisDriven && rolls() < 0.5 ? 1 : 0;
+  const scale = getLivingEncounterScale();
+  let extraCount = 0;
+  if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
+    extraCount = crisisDriven && rolls() < 0.5 ? 1 : 0;
+  } else if (scale === LIVING_ENCOUNTER_SCALE.MID) {
+    extraCount = rollEncounterRange(1, 2, rolls);
+  } else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) {
+    extraCount = rollEncounterRange(3, 5, rolls);
+  }
 
   return {
     mobileType,
@@ -539,7 +547,15 @@ export function rollLivingChunkCampRoster(ctx, rolls = Math.random) {
     rolls,
   );
 
-  const count = 2 + Math.floor(rolls() * 2); // 2..3 members
+  const scale = getLivingEncounterScale();
+  let count = 2;
+  if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
+    count = rollEncounterRange(2, 3, rolls);
+  } else if (scale === LIVING_ENCOUNTER_SCALE.MID) {
+    count = rollEncounterRange(4, 6, rolls);
+  } else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) {
+    count = rollEncounterRange(8, 12, rolls);
+  }
   const mobileTypes = [];
   for (let i = 0; i < count; i++) {
     mobileTypes.push(pool[Math.floor(rolls() * pool.length)]);
@@ -671,13 +687,24 @@ export function buildLivingSiteBlueprint({
       { ...LIVING_FLATS.WEAPON_RACK, feet: [centerX + 2.0, snapPropToGround(heightAt, centerX + 2.0, centerZ + 1.2), centerZ + 1.2] },
     );
 
-    const guardCount = Math.min(3, Math.max(2, info.guardCount));
+    const scale = getLivingEncounterScale();
+    let subGuardCount = 2;
+    if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
+      subGuardCount = rollEncounterRange(1, 2, rng);
+    } else if (scale === LIVING_ENCOUNTER_SCALE.MID) {
+      subGuardCount = rollEncounterRange(3, 5, rng);
+    } else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) {
+      subGuardCount = rollEncounterRange(6, 10, rng);
+    }
+    const guardCount = 1 + subGuardCount;
     for (let i = 0; i < guardCount; i++) {
-      const gx = centerX + (i - 1) * 2.2;
-      const gz = centerZ + (i % 2 === 0 ? 1.5 : -1.0);
+      const rank = Math.floor(i / 4);
+      const inRank = i % 4;
+      const gx = centerX + (inRank - 1.5) * 2.0;
+      const gz = centerZ + (rank === 0 ? (i % 2 === 0 ? 1.5 : -1.0) : (rank * 1.8));
       actors.push({
-        mobileType: i === 0 ? MOBILE_TYPES.Knight : MOBILE_TYPES.Warrior,
-        name: i === 0 ? 'Checkpoint Captain' : 'Provincial Watchman',
+        mobileType: i === 0 ? MOBILE_TYPES.Knight : (i % 3 === 0 ? MOBILE_TYPES.Archer : MOBILE_TYPES.Warrior),
+        name: i === 0 ? 'Checkpoint Captain' : (i % 3 === 0 ? 'Watch Crossbowman' : 'Provincial Watchman'),
         level: Math.max(3, playerLevel),
         feet: [gx, snapPropToGround(heightAt, gx, gz), gz],
         yaw: Math.PI,
@@ -704,20 +731,53 @@ export function buildLivingSiteBlueprint({
     const leaderName = crisisContract?.targetName
       ? `[CRISIS TARGET] ${crisisContract.targetName}`
       : 'Highway Brigand';
-    const banditRoles = [
-      { mobileType: MOBILE_TYPES.Rogue, name: leaderName, dx: 2.2, dz: 1.0 },
-      { mobileType: MOBILE_TYPES.Archer, name: 'Outlaw Marksman', dx: -2.2, dz: 1.2 },
-      { mobileType: MOBILE_TYPES.Warrior, name: 'Deserter Cutthroat', dx: 0, dz: -2.5 },
+
+    // 1. Leader (always 1)
+    actors.push({
+      mobileType: MOBILE_TYPES.Rogue,
+      name: leaderName,
+      level: Math.max(2, playerLevel + 1),
+      feet: [centerX + 1.8, snapPropToGround(heightAt, centerX + 1.8, centerZ + 1.0), centerZ + 1.0],
+      yaw: Math.PI * 0.75,
+      allied: false,
+      hostile: !ambushDetectedByStealth,
+      role: 'bandit_camp',
+      team: 'Criminals',
+      suppressInfighting: true,
+    });
+
+    // 2. Subordinates scaled by encounter scale ranges
+    const scale = getLivingEncounterScale();
+    let subBanditCount = 2;
+    if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
+      subBanditCount = rollEncounterRange(2, 3, rng);
+    } else if (scale === LIVING_ENCOUNTER_SCALE.MID) {
+      subBanditCount = rollEncounterRange(4, 7, rng);
+    } else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) {
+      subBanditCount = rollEncounterRange(8, 14, rng);
+    }
+
+    const subPool = [
+      { type: MOBILE_TYPES.Archer, name: 'Outlaw Marksman' },
+      { type: MOBILE_TYPES.Warrior, name: 'Deserter Cutthroat' },
+      { type: MOBILE_TYPES.Rogue, name: 'Bandit Cutpurse' },
+      { type: MOBILE_TYPES.Barbarian, name: 'Marauder Raider' },
     ];
-    for (const b of banditRoles) {
-      const bx = centerX + b.dx;
-      const bz = centerZ + b.dz;
+    for (let i = 0; i < subBanditCount; i++) {
+      const sub = subPool[i % subPool.length];
+      const rank = Math.floor(i / 5);
+      const inRank = i % 5;
+      const rankTotal = Math.min(5, subBanditCount - rank * 5);
+      const angle = (inRank / Math.max(1, rankTotal)) * Math.PI * 2;
+      const dist = 2.5 + rank * 1.8 + (i % 2 === 0 ? 0.3 : -0.3);
+      const bx = centerX + Math.cos(angle) * dist;
+      const bz = centerZ + Math.sin(angle) * dist;
       actors.push({
-        mobileType: b.mobileType,
-        name: b.name,
+        mobileType: sub.type,
+        name: sub.name,
         level: Math.max(1, playerLevel),
         feet: [bx, snapPropToGround(heightAt, bx, bz), bz],
-        yaw: Math.atan2(-b.dx, -b.dz),
+        yaw: Math.atan2(centerX - bx, centerZ - bz),
         allied: false,
         hostile: !ambushDetectedByStealth,
         role: 'bandit_camp',
@@ -739,32 +799,43 @@ export function buildLivingSiteBlueprint({
       { ...LIVING_FLATS.HORSE, feet: [centerX - 5.2, snapPropToGround(heightAt, centerX - 5.2, centerZ + 2.5), centerZ + 2.5] },
     );
 
-    actors.push(
-      {
-        mobileType: MOBILE_TYPES.Bard,
-        name: 'Wayfaring Merchant',
+    actors.push({
+      mobileType: MOBILE_TYPES.Bard,
+      name: 'Wayfaring Merchant',
+      level: Math.max(2, playerLevel),
+      feet: [centerX + 1.6, snapPropToGround(heightAt, centerX + 1.6, centerZ + 1.2), centerZ + 1.2],
+      yaw: Math.PI,
+      allied: false,
+      hostile: false,
+      role: 'traveler',
+      team: 'Traveler',
+      suppressInfighting: true,
+    });
+
+    const scale = getLivingEncounterScale();
+    let outriderCount = 1;
+    if (scale === LIVING_ENCOUNTER_SCALE.LOW) outriderCount = 1;
+    else if (scale === LIVING_ENCOUNTER_SCALE.MID) outriderCount = rollEncounterRange(2, 3, rng);
+    else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) outriderCount = rollEncounterRange(4, 6, rng);
+
+    for (let i = 0; i < outriderCount; i++) {
+      const angle = (i / Math.max(1, outriderCount)) * Math.PI + Math.PI * 0.4;
+      const dist = 2.2 + (i % 2) * 1.0;
+      const gx = centerX + Math.cos(angle) * dist;
+      const gz = centerZ + Math.sin(angle) * dist;
+      actors.push({
+        mobileType: i % 2 === 0 ? MOBILE_TYPES.Ranger : MOBILE_TYPES.Warrior,
+        name: i === 0 ? 'Caravan Outrider' : 'Hired Caravan Guard',
         level: Math.max(2, playerLevel),
-        feet: [centerX + 1.6, snapPropToGround(heightAt, centerX + 1.6, centerZ + 1.2), centerZ + 1.2],
-        yaw: Math.PI,
-        allied: false,
-        hostile: false,
-        role: 'traveler',
-        team: 'Traveler',
-        suppressInfighting: true,
-      },
-      {
-        mobileType: MOBILE_TYPES.Ranger,
-        name: 'Caravan Outrider',
-        level: Math.max(2, playerLevel),
-        feet: [centerX - 1.6, snapPropToGround(heightAt, centerX - 1.6, centerZ + 1.6), centerZ + 1.6],
+        feet: [gx, snapPropToGround(heightAt, gx, gz), gz],
         yaw: 0,
         allied: false,
         hostile: false,
         role: 'traveler_guard',
         team: 'Traveler',
         suppressInfighting: true,
-      },
-    );
+      });
+    }
   } else if (kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
     const pleaCheck = evaluatePleaEncounter({ regionIndex, nowMinutes, playerEntity, rng: () => 0.05 });
     const reliefInfo = getQuarantineReliefPostInfo(regionIndex) ?? {
@@ -1062,36 +1133,32 @@ export function buildLivingSiteBlueprint({
         },
         rng,
       );
-      const m1 = pool[Math.floor(rng() * pool.length)] ?? MOBILE_TYPES.Orc;
-      const m2 = pool[Math.floor(rng() * pool.length)] ?? MOBILE_TYPES.GrizzlyBear;
-      actors.push(
-        {
-          mobileType: m1,
-          name: 'Roadside Marauder',
+      const scale = getLivingEncounterScale();
+      let monsterCount = 2;
+      if (scale === LIVING_ENCOUNTER_SCALE.LOW) monsterCount = 2;
+      else if (scale === LIVING_ENCOUNTER_SCALE.MID) monsterCount = rollEncounterRange(3, 5, rng);
+      else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) monsterCount = rollEncounterRange(6, 10, rng);
+
+      for (let i = 0; i < monsterCount; i++) {
+        const mob = pool[Math.floor(rng() * pool.length)] ?? (i % 2 === 0 ? MOBILE_TYPES.Orc : MOBILE_TYPES.GrizzlyBear);
+        const angle = (i / Math.max(1, monsterCount)) * Math.PI * 2;
+        const dist = 3.0 + (i % 2) * 1.2;
+        const mx = centerX + Math.cos(angle) * dist;
+        const mz = centerZ + Math.sin(angle) * dist;
+        actors.push({
+          mobileType: mob,
+          name: i % 2 === 0 ? 'Roadside Marauder' : 'Wilderness Stalker',
           level: Math.max(1, playerLevel),
-          feet: [centerX - 2.5, snapPropToGround(heightAt, centerX - 2.5, centerZ - 2.0), centerZ - 2.0],
-          yaw: 0,
+          feet: [mx, snapPropToGround(heightAt, mx, mz), mz],
+          yaw: Math.atan2(centerX - mx, centerZ - mz),
           allied: false,
           hostile: true,
           role: 'skirmish_monster',
           team: 'SkirmishMonsters',
           factionSide: 'monsters',
           suppressInfighting: true,
-        },
-        {
-          mobileType: m2,
-          name: 'Wilderness Stalker',
-          level: Math.max(1, playerLevel),
-          feet: [centerX + 2.5, snapPropToGround(heightAt, centerX + 2.5, centerZ - 2.0), centerZ - 2.0],
-          yaw: 0,
-          allied: false,
-          hostile: true,
-          role: 'skirmish_monster',
-          team: 'SkirmishMonsters',
-          factionSide: 'monsters',
-          suppressInfighting: true,
-        },
-      );
+        });
+      }
     }
 
     const isFightingMonsters = situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS;
@@ -1796,23 +1863,42 @@ export function createLivingSceneHost(deps) {
               rng,
             });
             if (res.spawnMugger) {
-              Promise.resolve(
-                deps.spawn(MOBILE_TYPES.Rogue, [...s.blueprint.center], {
-                  yaw: 0,
-                  level: Math.max(1, Number(player?.level ?? 1)),
-                  allied: false,
-                  loose: true,
-                  transient: true,
-                  managed: true,
-                }),
-              )
-                .then((rec) => {
-                  if (!rec) return;
-                  if (rec.entity) rec.entity.name = 'Desperate Cutpurse';
-                  if (rec.ai) rec.ai.isHostile = true;
-                  s.foes.push(rec);
-                })
-                .catch(() => {});
+              const scale = getLivingEncounterScale();
+              let muggerCount = 1;
+              if (scale === LIVING_ENCOUNTER_SCALE.LOW) muggerCount = 1;
+              else if (scale === LIVING_ENCOUNTER_SCALE.MID) muggerCount = rollEncounterRange(2, 3, rng);
+              else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) muggerCount = rollEncounterRange(4, 6, rng);
+
+              for (let m = 0; m < muggerCount; m++) {
+                const angle = (m / muggerCount) * Math.PI * 2;
+                const dist = 2.0 + (m % 2) * 1.2;
+                const mx = s.blueprint.center[0] + Math.cos(angle) * dist;
+                const mz = s.blueprint.center[2] + Math.sin(angle) * dist;
+                const my = snapPropToGround(deps.heightAt, mx, mz);
+                Promise.resolve(
+                  deps.spawn(MOBILE_TYPES.Rogue, [mx, my, mz], {
+                    yaw: Math.atan2(s.blueprint.center[0] - mx, s.blueprint.center[2] - mz),
+                    level: Math.max(1, Number(player?.level ?? 1)),
+                    allied: false,
+                    loose: true,
+                    transient: true,
+                    managed: true,
+                  }),
+                )
+                  .then((rec) => {
+                    if (!rec) return;
+                    if (rec.entity) {
+                      rec.entity.name = m === 0 ? 'Desperate Cutpurse' : 'Ambush Cutthroat';
+                      rec.entity.team = 'Criminals';
+                    }
+                    if (rec.ai) {
+                      rec.ai.isHostile = true;
+                      rec.ai.target = deps.playerEntity();
+                    }
+                    s.foes.push(rec);
+                  })
+                  .catch(() => {});
+              }
             }
             deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
           },
@@ -2285,12 +2371,46 @@ export function createLivingSceneHost(deps) {
       a.campId = actorCampId;
 
       const actorFeet = [...a.feet];
+
+      // Geometry & Anti-Roof Safety Pipeline
+      let isRoofOrBlocked = false;
+      if (deps.raycastHit) {
+        // Probe downwards from 15m above feet to verify surface is ground, not building roof
+        const topHit = deps.raycastHit([actorFeet[0], actorFeet[1] + 15, actorFeet[2]], [0, -1, 0], 25);
+        if (topHit && Number.isFinite(topHit.dist)) {
+          const surfaceY = actorFeet[1] + 15 - topHit.dist;
+          if (surfaceY - actorFeet[1] > 0.85) {
+            isRoofOrBlocked = true; // Landed on a roof, parapet or awning
+          }
+        }
+        // Probe upwards to check if under a ceiling/balcony/interior room
+        if (!isRoofOrBlocked) {
+          const skyHit = deps.raycastHit([actorFeet[0], actorFeet[1] + 1.8, actorFeet[2]], [0, 1, 0], 2.5);
+          if (skyHit && Number.isFinite(skyHit.dist) && skyHit.back !== true) {
+            isRoofOrBlocked = true; // Blocked overhead
+          }
+        }
+      }
+      if (isRoofOrBlocked) {
+        // Recover closer to site center on clear terrain
+        const fallbackDist = 1.2 + (Math.random() - 0.5) * 1.8;
+        const fallbackAngle = Math.random() * Math.PI * 2;
+        actorFeet[0] = blueprint.center[0] + Math.cos(fallbackAngle) * fallbackDist;
+        actorFeet[2] = blueprint.center[2] + Math.sin(fallbackAngle) * fallbackDist;
+        actorFeet[1] = snapPropToGround(deps.heightAt, actorFeet[0], actorFeet[2]);
+      }
+
       if (deps.lodgedIn?.(actorFeet) || (deps.collider && lodgedIn(deps.collider, actorFeet))) {
         if (deps.freeLodgedFeet) {
           deps.freeLodgedFeet(actorFeet);
         } else if (deps.collider) {
           freeLodgedFeet(deps.collider, actorFeet);
         }
+      }
+
+      // If still lodged in solid geometry (wall, rock, tree trunk), skip this extra mob to prevent clipping
+      if (deps.lodgedIn?.(actorFeet) || (deps.collider && lodgedIn(deps.collider, actorFeet))) {
+        continue;
       }
 
       Promise.resolve(
@@ -2324,10 +2444,36 @@ export function createLivingSceneHost(deps) {
             }
           }
           if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || a.role?.startsWith('skirmish_')) {
-            rec.lootDropped = true; // suppresses corpse loot generation to protect economy
-            rec._suppressLoot = true;
-            if (rec.entity?.items) {
-              rec.entity.items = [];
+            const urbanLoot = LivingTamrielConfig.urbanLootMode;
+            if (urbanLoot === LIVING_URBAN_LOOT.ZERO) {
+              rec.lootDropped = true; // suppresses corpse loot generation to protect economy
+              rec._suppressLoot = true;
+              if (rec.entity?.items) {
+                rec.entity.items = [];
+              }
+            } else if (urbanLoot === LIVING_URBAN_LOOT.SUPPLIES) {
+              rec.lootDropped = true;
+              rec._suppressLoot = false;
+              if (rec.entity) {
+                const supplyRng = rng();
+                const supplies = [
+                  { name: 'Gold Pieces', count: 10 + Math.floor(supplyRng * 25), isGold: true },
+                ];
+                if (supplyRng > 0.4) {
+                  supplies.push({ name: 'Healing Salve', count: 1, isPotion: true });
+                }
+                rec.entity.items = supplies;
+              }
+            } else {
+              // FULL loot: do not suppress
+              rec.lootDropped = false;
+              rec._suppressLoot = false;
+            }
+          } else {
+            // Wilderness / Camps / Checkpoints
+            const wildLoot = LivingTamrielConfig.wildernessLootMode;
+            if (wildLoot === LIVING_WILDERNESS_LOOT.SUPPLIES && rec.entity?.items?.length) {
+              rec.entity.items = rec.entity.items.filter((it) => it.isGold || it.isPotion || it.isArrow || it.category === 'Consumables');
             }
           }
           if (site.hostile || a.hostile) {
@@ -3245,6 +3391,28 @@ export function executeLivingConsoleCommand(args, ctx) {
       `tension=${regState.tension.toFixed(1)}, ` +
       `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}`
     );
+  }
+
+  if (sub === 'scale' || sub === 'density') {
+    const val = cleanArgs[1]?.toLowerCase();
+    if (val) {
+      if (val === 'low' || val === '1') LivingTamrielConfig.encounterScale = LIVING_ENCOUNTER_SCALE.LOW;
+      else if (val === 'high' || val === '4' || val === '3') LivingTamrielConfig.encounterScale = LIVING_ENCOUNTER_SCALE.HIGH;
+      else if (val === 'mid' || val === '2') LivingTamrielConfig.encounterScale = LIVING_ENCOUNTER_SCALE.MID;
+    }
+    const cur = getLivingEncounterScale();
+    const name = cur === LIVING_ENCOUNTER_SCALE.LOW ? 'LOW (x1)' : (cur === LIVING_ENCOUNTER_SCALE.HIGH ? 'HIGH (x4)' : 'MID (x2)');
+    return `[Living Tamriel] Encounter mass scale: ${name} (multiplier: ${cur}x).`;
+  }
+
+  if (sub === 'loot') {
+    const val = cleanArgs[1]?.toLowerCase();
+    if (val) {
+      if (val === 'full') LivingTamrielConfig.urbanLootMode = LIVING_URBAN_LOOT.FULL;
+      else if (val === 'supplies' || val === 'gold') LivingTamrielConfig.urbanLootMode = LIVING_URBAN_LOOT.SUPPLIES;
+      else if (val === 'zero' || val === 'none') LivingTamrielConfig.urbanLootMode = LIVING_URBAN_LOOT.ZERO;
+    }
+    return `[Living Tamriel] Loot policies:\n- Urban Skirmishes: ${LivingTamrielConfig.urbanLootMode.toUpperCase()}\n- Wilderness & Camps: ${LivingTamrielConfig.wildernessLootMode.toUpperCase()}`;
   }
 
   if (sub === 'traits' || sub === 'mobtraits') {

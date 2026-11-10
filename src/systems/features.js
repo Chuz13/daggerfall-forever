@@ -168,6 +168,23 @@ const LIVING_TIERS = Object.freeze([
   tier(3, HIGH),
 ]);
 
+const LT_ENCOUNTER_SCALE_TIERS = Object.freeze([
+  tier(1, () => t('features.ltEncounterScale.low', 'Low (x1)')),
+  tier(2, () => t('features.ltEncounterScale.mid', 'Mid (x2)')),
+  tier(4, () => t('features.ltEncounterScale.high', 'High (x4)')),
+]);
+
+const LT_URBAN_LOOT_TIERS = Object.freeze([
+  tier('zero', () => t('features.ltUrbanLoot.zero', 'Zero-Loot (Economy Guard)')),
+  tier('supplies', () => t('features.ltUrbanLoot.supplies', 'Supplies & Gold')),
+  tier('full', () => t('features.ltUrbanLoot.full', 'Full Loot')),
+]);
+
+const LT_WILDERNESS_LOOT_TIERS = Object.freeze([
+  tier('full', () => t('features.ltWildernessLoot.full', 'Full Loot')),
+  tier('supplies', () => t('features.ltWildernessLoot.supplies', 'Supplies Only')),
+]);
+
 /** FT14 (2026-09-15) - WHAT A MOD'S TILE SHOWS, AND WHAT IT DOES NOT.
  *
  *  The eight vendored mods carried 125 settings keys between them when
@@ -2103,6 +2120,33 @@ export const FEATURES = Object.freeze([
     get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'livingDungeonMobTraits', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'lt-encounter-scale',
+    group: 'world',
+    get title() { return t('features.ltEncounterScale.title', 'Encounter scale & battle mass'); },
+    get note() { return t('features.ltEncounterScale.note', 'Scales the squad sizes, packs, and skirmish armies spawned by Living Tamriel (1x Low, 2x Mid, 4x High).'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingEncounterScale', initial: 1, online: 'player', tiers: LT_ENCOUNTER_SCALE_TIERS }),
+  }),
+  Object.freeze({
+    id: 'lt-urban-loot',
+    group: 'world',
+    get title() { return t('features.ltUrbanLoot.title', 'Urban skirmish spoils'); },
+    get note() { return t('features.ltUrbanLoot.note', 'Governs whether corpses of street skirmish fighters are emptied to safeguard the gold economy, drop field supplies, or drop full gear.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingUrbanLootMode', initial: 'zero', online: 'player', tiers: LT_URBAN_LOOT_TIERS }),
+  }),
+  Object.freeze({
+    id: 'lt-wilderness-loot',
+    group: 'world',
+    get title() { return t('features.ltWildernessLoot.title', 'Wilderness & camp spoils'); },
+    get note() { return t('features.ltWildernessLoot.note', 'Governs loot dropped by bandit encampments, wilderness marauders, and highway checkpoints.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingWildernessLootMode', initial: 'full', online: 'player', tiers: LT_WILDERNESS_LOOT_TIERS }),
   }),
 ]);
 

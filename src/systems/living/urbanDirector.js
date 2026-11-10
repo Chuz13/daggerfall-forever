@@ -10,7 +10,7 @@
 //  - ZERO-LOOT drop guarantee on all skirmish participants to protect game economy.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
+import { LivingTamrielConfig, PRESENCE, getLivingEncounterScale, rollEncounterRange, LIVING_ENCOUNTER_SCALE } from './livingConfig.js';
 import { isRegionInSkirmishPhase, getActiveCrises } from './regionState.js';
 import {
   matchLivingCrisisEvent,
@@ -117,47 +117,88 @@ export function planUrbanSkirmish({
   });
 
   const prosperity = calculateLocationProsperity(dfLocation);
-  const tier = Number(LivingTamrielConfig.urban);
+  const scale = getLivingEncounterScale();
+  const isSingleDefender = Boolean(event && event.baseDefenders === 1);
 
-  // Density multiplier: LOW = 0.8x, MID (default) = 1.0x (canonical 2 guards / 3 rebels), HIGH = 2.0x
-  let densityMult = 1.0;
-  if (tier === PRESENCE.LOW) densityMult = 0.8;
-  else if (tier === PRESENCE.HIGH) densityMult = 2.0;
+  // Scaled ranges for defenders and attackers based on encounter scale
+  let defMin = 1;
+  let defMax = 2;
+  let atkMin = 2;
+  let atkMax = 3;
 
-  // Prosperity adjustment: High prosperity towns have more guards; Low has fewer
-  const prosGuardFactor = prosperity === PROSPERITY_TIER.HIGH ? 1.3 : prosperity === PROSPERITY_TIER.LOW ? 0.8 : 1.0;
-  const prosRebelFactor = prosperity === PROSPERITY_TIER.HIGH ? 1.2 : 1.0;
+  if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
+    defMin = isSingleDefender ? 1 : 1;
+    defMax = isSingleDefender ? 1 : 2;
+    atkMin = 2;
+    atkMax = 3;
+  } else if (scale === LIVING_ENCOUNTER_SCALE.MID) {
+    defMin = isSingleDefender ? 1 : 3;
+    defMax = isSingleDefender ? 1 : 5;
+    atkMin = 4;
+    atkMax = 7;
+  } else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) {
+    defMin = isSingleDefender ? 1 : 6;
+    defMax = isSingleDefender ? 1 : 9;
+    atkMin = 8;
+    atkMax = 14;
+  }
 
-  const baseDef = event ? event.baseDefenders : 2;
-  const baseAtk = event ? event.baseAttackers : 3;
+  let guardCount = rollEncounterRange(defMin, defMax, rng);
+  let rebelCount = rollEncounterRange(atkMin, atkMax, rng);
 
-  // Hard caps: max 6 defenders and max 7 attackers to ensure stable performance and navmesh
-  const guardCount = Math.min(6, Math.max(1, Math.round(baseDef * densityMult * prosGuardFactor)));
-  const rebelCount = Math.min(7, Math.max(1, Math.round(baseAtk * densityMult * prosRebelFactor)));
+  // Prosperity adjustment (affects symmetric town guards only)
+  if (!isSingleDefender) {
+    if (prosperity === PROSPERITY_TIER.HIGH) guardCount = Math.min(defMax + 1, guardCount + 1);
+    else if (prosperity === PROSPERITY_TIER.LOW) guardCount = Math.max(defMin, guardCount - 1);
+  }
 
-  // Generate guard positions and mobile types
+  // Generate guard positions and mobile types in compact multi-rank formations
   const defPool = event?.defendersPool?.length ? event.defendersPool : [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior];
   const guards = [];
+  const baseDefAngle = -Math.PI * 0.75;
   for (let i = 0; i < guardCount; i++) {
-    const angle = -Math.PI * 0.75 + (i / Math.max(1, guardCount - 1)) * (Math.PI * 0.5);
-    const dist = 2.5 + (i % 2) * 1.2;
+    const rank = Math.floor(i / 5);
+    const inRankIdx = i % 5;
+    const rankTotal = Math.min(5, guardCount - rank * 5);
+    const spread = Math.PI * 0.45;
+    const angle = baseDefAngle + (rankTotal > 1 ? (inRankIdx / (rankTotal - 1) - 0.5) * spread : 0);
+    const dist = 2.4 + rank * 1.4 + (i % 2 === 0 ? 0.2 : -0.2);
+    let gx = Math.cos(angle) * dist;
+    let gz = Math.sin(angle) * dist;
+    const yAt = heightSampler(centerX + gx, centerZ + gz);
+    if (Math.abs(yAt - yCenter) > MAX_URBAN_SLOPE_DELTA_M) {
+      gx *= 0.7;
+      gz *= 0.7;
+    }
     guards.push({
-      dx: Math.cos(angle) * dist,
-      dz: Math.sin(angle) * dist,
+      dx: gx,
+      dz: gz,
       team: SKIRMISH_TEAMS.CITY_WATCH,
       mobileType: defPool[i % defPool.length],
     });
   }
 
-  // Generate rebel/attacker positions and mobile types
+  // Generate rebel/attacker positions in compact multi-rank formations
   const atkPool = event?.attackersPool?.length ? event.attackersPool : [MOBILE_TYPES.Rogue, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Warrior];
   const rebels = [];
+  const baseAtkAngle = Math.PI * 0.25;
   for (let i = 0; i < rebelCount; i++) {
-    const angle = Math.PI * 0.25 + (i / Math.max(1, rebelCount - 1)) * (Math.PI * 0.5);
-    const dist = 2.5 + (i % 2) * 1.2;
+    const rank = Math.floor(i / 5);
+    const inRankIdx = i % 5;
+    const rankTotal = Math.min(5, rebelCount - rank * 5);
+    const spread = Math.PI * 0.45;
+    const angle = baseAtkAngle + (rankTotal > 1 ? (inRankIdx / (rankTotal - 1) - 0.5) * spread : 0);
+    const dist = 2.4 + rank * 1.4 + (i % 2 === 0 ? -0.2 : 0.2);
+    let rx = Math.cos(angle) * dist;
+    let rz = Math.sin(angle) * dist;
+    const yAt = heightSampler(centerX + rx, centerZ + rz);
+    if (Math.abs(yAt - yCenter) > MAX_URBAN_SLOPE_DELTA_M) {
+      rx *= 0.7;
+      rz *= 0.7;
+    }
     rebels.push({
-      dx: Math.cos(angle) * dist,
-      dz: Math.sin(angle) * dist,
+      dx: rx,
+      dz: rz,
       team: SKIRMISH_TEAMS.INSURGENTS,
       mobileType: atkPool[i % atkPool.length],
     });

@@ -84,6 +84,9 @@ export function newLivingSaveData() {
       quarantine: LivingTamrielConfig.quarantine,
       bounties: LivingTamrielConfig.bounties,
       allowQuestCompetition: Boolean(LivingTamrielConfig.allowQuestCompetition),
+      encounterScale: LivingTamrielConfig.encounterScale,
+      urbanLootMode: LivingTamrielConfig.urbanLootMode,
+      wildernessLootMode: LivingTamrielConfig.wildernessLootMode,
     },
     subsystems: {
       regions: {},
@@ -119,6 +122,9 @@ export function getLivingSaveData() {
       quarantine: LivingTamrielConfig.quarantine,
       bounties: LivingTamrielConfig.bounties,
       allowQuestCompetition: Boolean(LivingTamrielConfig.allowQuestCompetition),
+      encounterScale: LivingTamrielConfig.encounterScale,
+      urbanLootMode: LivingTamrielConfig.urbanLootMode,
+      wildernessLootMode: LivingTamrielConfig.wildernessLootMode,
     },
     subsystems: {
       regions: _state.subsystems.regions || {},
@@ -182,6 +188,15 @@ export function restoreLivingSaveData(data) {
       restoreTier(data.config.bounties, (v) => { LivingTamrielConfig.bounties = v; });
       if (typeof data.config.allowQuestCompetition === 'boolean') {
         LivingTamrielConfig.allowQuestCompetition = data.config.allowQuestCompetition;
+      }
+      if (typeof data.config.encounterScale === 'number' || typeof data.config.encounterScale === 'string') {
+        LivingTamrielConfig.encounterScale = data.config.encounterScale;
+      }
+      if (typeof data.config.urbanLootMode === 'string') {
+        LivingTamrielConfig.urbanLootMode = data.config.urbanLootMode;
+      }
+      if (typeof data.config.wildernessLootMode === 'string') {
+        LivingTamrielConfig.wildernessLootMode = data.config.wildernessLootMode;
       }
     }
 

@@ -485,6 +485,9 @@ export const CATEGORIES = Object.freeze([
       'feat:living-naval',
       'feat:living-mob-traits',
       'feat:living-dungeon-mob-traits',
+      'feat:lt-encounter-scale',
+      'feat:lt-urban-loot',
+      'feat:lt-wilderness-loot',
     ]),
   ]),
 ]);
