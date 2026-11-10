@@ -302,7 +302,7 @@ const OFF_CODE = /^[a-z]{2}[0-9]$/;
 /** A worn-armour sprite key (`LA:...`) - what eotbSpriteUrl hands back as its own "URL", and the decoders take. */
 export const isLayeredKey = (key) => typeof key === 'string' && key.startsWith('LA:');
 
-const IN_BROWSER = typeof window !== 'undefined' && typeof import.meta.glob === 'function';
+const IN_BROWSER = typeof window !== 'undefined';
 /** `<gender>/<combo>/<record>-<frame>` (and the weapon rig's `weapon/...`) -> the built strip's URL - eotbSprite's law. */
 const STRIPS = IN_BROWSER
   ? Object.fromEntries(

@@ -690,3 +690,35 @@ test('TURN-FREE (the owner, 2026-10-31: "Allow players to view all rotations of 
   assert.ok(b.state().clip, 'swinging');
   assert.equal(b.state().shown.orientation, back, 'a blow turns it to the eye');
 });
+
+test('DISMOUNT & SETBILLBOARD: dismounting switches from horse sprite to foot sprite, and setBillboard syncs active state', async () => {
+  const { b, r } = await liveBody();
+  const eye = { feet: [0, 0, 0], yaw: 0, cameraPos: [0, 1.5, -2] };
+
+  // 1. Mounted state draws horse sprite
+  ticks(b, 10, { motion: { forward: 0, standing: true, riding: true, height: 1.8 }, ...eye });
+  assert.equal(b.draw(null, eye), true);
+  assert.equal(b.state().shown.table, 'IdleHorse');
+  assert.equal(r.batches[0].archive, 112383);
+
+  // 2. Dismount to foot
+  ticks(b, 10, { motion: { forward: 0, standing: true, riding: false, height: 1.8 }, ...eye });
+  await new Promise((res) => setTimeout(res, 20));
+  assert.equal(b.draw(null, eye), true);
+  assert.equal(b.state().shown.table, 'Idle');
+  assert.equal(r.batches.at(-1).archive, 112364);
+
+  // 3. eotbCamera setBillboard syncs active state when camera is in third person
+  const cam = (await import('../../../src/player/eyeOfTheBeholder/eotbCamera.js')).createEotbCamera();
+  cam.toggleOffset(true);
+  const newBody = createEotbBody({
+    count: () => 3035, urlFor: (k) => `/art/${k}.png`,
+    decode: async () => ({ width: 4, height: 6, colors: new Uint32Array(24) }),
+  });
+  newBody.attach(r, () => ({}));
+  cam.setBillboard(newBody);
+  ticks(newBody, 10, { motion: { standing: true }, ...eye });
+  newBody.draw(null, eye);
+  await new Promise((res) => setTimeout(res, 20));
+  assert.equal(newBody.draw(null, eye), true, 'billboard drawn without needing another toggleOffset call');
+});

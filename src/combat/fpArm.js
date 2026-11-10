@@ -6905,7 +6905,7 @@ export function createFpArm() {
       && (upper === UPPER_BODY.None || upper === UPPER_BODY.WeaponEquipped),
     /** What the wheel may cross INTO: a body that refused keeps the
      *  player in first person with the reason on the card. */
-    canThirdPerson: () => !standIn && !!(thirdBuilt && thirdBuilt.ok),
+    canThirdPerson: () => !bodyOff && !standIn && !!(thirdBuilt && thirdBuilt.ok),
     /** MW-SHOULDER (player/mwCamera.js stepShoulder): third_person.lua's two questions of the actor (:89-92) - a weapon
      *  or a spell out (Actor.getStance), else swimming (Actor.isSwimming, the frame's motion bag) - or null. */
     shoulderStance: () => (spellReady || !sheathed ? 'combat' : camera?.()?.move?.swimming ? 'swimming' : null),

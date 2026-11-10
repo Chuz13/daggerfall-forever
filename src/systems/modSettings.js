@@ -3734,7 +3734,7 @@ export const MOD_SETTINGS = Object.freeze({
       // LAYERED_OWN). The look carries the body as `lg` (net/remotePlayers.js composeLook, wire.js validLook), so other
       // players see it too.
       'Graphics.LayeredGear': Object.freeze({
-        default: 2,
+        default: 3,
         min: 0,
         max: 3,
         get description() {

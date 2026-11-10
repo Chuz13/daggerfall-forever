@@ -518,6 +518,11 @@ export function createEotbCamera() {
     /** The billboard this camera drives (eotbBody registers at attach). */
     setBillboard(b) {
       billboard = b ?? null;
+      if (billboard) {
+        if (offset) billboard.toggle(cfg.billboard, false);
+        else if (cfg.firstPersonBillboard > 0) billboard.toggle(cfg.billboard, true);
+        else billboard.toggle(false, false);
+      }
     },
     /** DaggerfallUI.PopupMessage's seam. */
     setPopup(fn) {
