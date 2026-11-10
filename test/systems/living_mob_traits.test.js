@@ -110,6 +110,60 @@ test('LT-MOB-TRAITS: Regular mobs roll traits when active, and skip when tier is
   assert.equal(maybeApplyMobTraits(existingTraited, { roll: () => 0.001 }), false);
 });
 
+test('LT-MOB-TRAITS: Wilderness and Dungeon settings operate independently', () => {
+  resetLivingConfig();
+
+  // Wilderness OFF, Dungeon HIGH
+  LivingTamrielConfig.mobTraits = PRESENCE.OFF;
+  LivingTamrielConfig.dungeonMobTraits = PRESENCE.HIGH;
+
+  const wildMob = { name: 'Wild Wolf', health: 40, maxHealth: 40 };
+  const appliedWild = maybeApplyMobTraits(wildMob, {
+    tier: LivingTamrielConfig.mobTraits,
+    playerLevel: 20,
+    roll: () => 0.001,
+  });
+  assert.equal(appliedWild, false, 'Wilderness mob must NOT get traits when wilderness tier is OFF');
+  assert.equal(bossTraitsOf(wildMob).length, 0);
+
+  const dungeonMob = { name: 'Dungeon Spider', health: 50, maxHealth: 50 };
+  const appliedDungeon = maybeApplyMobTraits(dungeonMob, {
+    tier: LivingTamrielConfig.dungeonMobTraits,
+    playerLevel: 20,
+    roll: () => 0.001,
+  });
+  assert.equal(appliedDungeon, true, 'Dungeon mob MUST get traits when dungeon tier is HIGH');
+  assert.ok(bossTraitsOf(dungeonMob).length >= 1);
+
+  // Wilderness HIGH, Dungeon OFF
+  LivingTamrielConfig.mobTraits = PRESENCE.HIGH;
+  LivingTamrielConfig.dungeonMobTraits = PRESENCE.OFF;
+
+  const wildMob2 = { name: 'Wild Bear', health: 80, maxHealth: 80 };
+  assert.equal(
+    maybeApplyMobTraits(wildMob2, {
+      tier: LivingTamrielConfig.mobTraits,
+      playerLevel: 10,
+      roll: () => 0.001,
+    }),
+    true,
+    'Wilderness mob MUST get traits when wilderness tier is HIGH',
+  );
+
+  const dungeonMob2 = { name: 'Dungeon Skeleton', health: 60, maxHealth: 60 };
+  assert.equal(
+    maybeApplyMobTraits(dungeonMob2, {
+      tier: LivingTamrielConfig.dungeonMobTraits,
+      playerLevel: 10,
+      roll: () => 0.001,
+    }),
+    false,
+    'Dungeon mob must NOT get traits when dungeon tier is OFF',
+  );
+
+  resetLivingConfig();
+});
+
 test('LT-MOB-TRAITS: /living traits console command inspects and updates presence tier', () => {
   resetLivingConfig();
 
@@ -118,23 +172,28 @@ test('LT-MOB-TRAITS: /living traits console command inspects and updates presenc
     playerEntity: { level: 12 },
   };
 
-  // Inspect current status
+  // Inspect current status (shows both Wilderness and Dungeons)
   const out1 = executeLivingConsoleCommand(['traits'], mockCtx);
-  assert.ok(out1.includes('MID (2)'));
-  assert.ok(out1.includes('Player Level: 12'));
-  assert.ok(out1.includes('Spawn Chance: 27.0%')); // 16% + (12 - 1)*1% = 27%
+  assert.ok(out1.includes('Wilderness: MID (2) -> 27.0%')); // 16% + (12 - 1)*1% = 27%
+  assert.ok(out1.includes('Dungeons: MID (2) -> 27.0%'));
 
-  // Update tier to HIGH
+  // Update wilderness tier to HIGH
   const out2 = executeLivingConsoleCommand(['traits', 'high'], mockCtx);
   assert.equal(LivingTamrielConfig.mobTraits, PRESENCE.HIGH);
-  assert.ok(out2.includes('HIGH (3)'));
-  assert.ok(out2.includes('Spawn Chance: 46.5%')); // 30% + (12 - 1)*1.5% = 46.5%
+  assert.ok(out2.includes('Wilderness: HIGH (3) -> 46.5%'));
+  assert.ok(out2.includes('Dungeons: MID (2) -> 27.0%'));
 
-  // Update tier to OFF
-  const out3 = executeLivingConsoleCommand(['traits', '0'], mockCtx);
+  // Update dungeon tier to OFF
+  const out3 = executeLivingConsoleCommand(['traits', 'dungeon', '0'], mockCtx);
+  assert.equal(LivingTamrielConfig.dungeonMobTraits, PRESENCE.OFF);
+  assert.ok(out3.includes('Wilderness: HIGH (3) -> 46.5%'));
+  assert.ok(out3.includes('Dungeons: OFF (0) -> 0.0%'));
+
+  // Update wilderness tier to OFF
+  const out4 = executeLivingConsoleCommand(['traits', '0'], mockCtx);
   assert.equal(LivingTamrielConfig.mobTraits, PRESENCE.OFF);
-  assert.ok(out3.includes('OFF (0)'));
-  assert.ok(out3.includes('Spawn Chance: 0.0%'));
+  assert.ok(out4.includes('Wilderness: OFF (0) -> 0.0%'));
+  assert.ok(out4.includes('Dungeons: OFF (0) -> 0.0%'));
 
   resetLivingConfig();
 });

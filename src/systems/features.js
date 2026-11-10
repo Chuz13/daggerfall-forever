@@ -2089,11 +2089,20 @@ export const FEATURES = Object.freeze([
   Object.freeze({
     id: 'living-mob-traits',
     group: 'world',
-    get title() { return t('features.livingMobTraits.title', 'Traited foes & affixes'); },
-    get note() { return t('features.livingMobTraits.note', 'Allows regular foes to spawn with combat traits and shields, scaling with player level.'); },
+    get title() { return t('features.livingMobTraits.title', 'Wilderness traited foes'); },
+    get note() { return t('features.livingMobTraits.note', 'Allows regular exterior foes, camps, and wilderness encounters to spawn with combat traits and shields, scaling with player level.'); },
     get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'livingMobTraits', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-dungeon-mob-traits',
+    group: 'world',
+    get title() { return t('features.livingDungeonMobTraits.title', 'Dungeon traited foes'); },
+    get note() { return t('features.livingDungeonMobTraits.note', 'Allows regular monsters and class enemies inside dungeons to spawn with combat traits and shields, scaling with player level.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingDungeonMobTraits', initial: 2, online: 'player', tiers: LIVING_TIERS }),
   }),
 ]);
 

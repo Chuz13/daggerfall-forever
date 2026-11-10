@@ -3248,21 +3248,32 @@ export function executeLivingConsoleCommand(args, ctx) {
   }
 
   if (sub === 'traits' || sub === 'mobtraits') {
-    const val = cleanArgs[1];
-    if (val !== undefined) {
+    const isDungeon = cleanArgs[1]?.toLowerCase() === 'dungeon' || cleanArgs[1]?.toLowerCase() === 'dungeons';
+    const val = isDungeon ? cleanArgs[2] : cleanArgs[1];
+    if (val !== undefined && val.toLowerCase() !== 'dungeon' && val.toLowerCase() !== 'dungeons') {
       let targetTier = PRESENCE.MID;
       const s = String(val).toLowerCase();
       if (s === 'off' || s === '0') targetTier = PRESENCE.OFF;
       else if (s === 'light' || s === '1') targetTier = PRESENCE.LIGHT;
       else if (s === 'mid' || s === '2') targetTier = PRESENCE.MID;
       else if (s === 'high' || s === '3') targetTier = PRESENCE.HIGH;
-      LivingTamrielConfig.mobTraits = targetTier;
+      if (isDungeon) {
+        LivingTamrielConfig.dungeonMobTraits = targetTier;
+      } else {
+        LivingTamrielConfig.mobTraits = targetTier;
+      }
     }
-    const currentTier = LivingTamrielConfig.mobTraits;
+    const currentWildTier = LivingTamrielConfig.mobTraits;
+    const currentDungTier = LivingTamrielConfig.dungeonMobTraits;
     const tierNames = ['OFF', 'LIGHT', 'MID', 'HIGH'];
     const pLvl = Number(ctx?.playerEntity?.level ?? 1);
-    const chance = mobTraitChance(currentTier, pLvl);
-    return `[Living Tamriel] Mob traits presence: ${tierNames[currentTier] ?? currentTier} (${currentTier}). Player Level: ${pLvl} -> Spawn Chance: ${(chance * 100).toFixed(1)}%.`;
+    const wildChance = mobTraitChance(currentWildTier, pLvl);
+    const dungChance = mobTraitChance(currentDungTier, pLvl);
+    return (
+      `[Living Tamriel] Mob traits presence (Lvl ${pLvl}):\n` +
+      `- Wilderness: ${tierNames[currentWildTier] ?? currentWildTier} (${currentWildTier}) -> ${(wildChance * 100).toFixed(1)}%\n` +
+      `- Dungeons: ${tierNames[currentDungTier] ?? currentDungTier} (${currentDungTier}) -> ${(dungChance * 100).toFixed(1)}%`
+    );
   }
 
   if (sub === 'crisis') {

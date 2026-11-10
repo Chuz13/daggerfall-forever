@@ -34,6 +34,7 @@ import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: 
 import { enterDungeonAutomap, exitDungeonAutomap, detachedAutomapRecord, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, automapWaySteps, capsuleCentreFromEye, SCAN_INTERVAL_S, recordTeleporterConnection, teleporterConnection, registerAutomapConsoleCommands } from '../systems/automap/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
 import { automapKeyOf } from '../systems/automap/automap.js';   // TESA8: a dungeon's automap key by its location - a lair past the Bay its own
 import { isDungeonInCooldown, claimFallenAdventurerRemains, getDungeonActiveAdventurer, getActiveAdventurerCompanion, dismissAdventurerCompanion } from '../systems/living/adventurerSim.js';
+import { LivingTamrielConfig } from '../systems/living/livingConfig.js';
 import { CLASS_TO_MOBILE_TYPE, buildDungeonAdventurerChoiceSpec } from '../systems/living/livingWorldSpawner.js';
 import { getActiveCrisisContract, completeRegionalCrisisContract } from '../systems/living/crisisPresenter.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
@@ -1582,7 +1583,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
       recordEntityPlacement(entity, { pos, team: entity.team, allied: !!e.allied, eliteFoe: entity.eliteFoe, puppet });
-      if (!entity.eliteFoe && !e.allied && !bossTraitsOf(entity).length && !puppet && e.traits !== false && !e.eliteFoe) maybeApplyMobTraits(entity, { playerLevel: effectiveLevel(foeDeps.playerEntity), puppet: !!puppet, allied: !!e.allied, seed: e.mobSeed ?? (Number.isFinite(e.x) ? eliteHash('mob-trait', e.mobileType ?? 0, Math.round(e.x), Math.round(e.z)) : null) });
+      if (!entity.eliteFoe && !e.allied && !bossTraitsOf(entity).length && !puppet && e.traits !== false && !e.eliteFoe) maybeApplyMobTraits(entity, { playerLevel: effectiveLevel(foeDeps.playerEntity), tier: LivingTamrielConfig.dungeonMobTraits, puppet: !!puppet, allied: !!e.allied, seed: e.mobSeed ?? (Number.isFinite(e.x) ? eliteHash('mob-trait', e.mobileType ?? 0, Math.round(e.x), Math.round(e.z)) : null) });
       if (e.revenant && !puppet) applyRevenant(entity, e.revenant, { turned: !!e.turned });   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot; RVN11c: a betrayer's turning is no return
       // S1/E4b/AUDIT 18/AUDIT 24/LR1: SetEnemyCareer's whole loot chain -
       // the table on the PLAYER's level and gender, the equipment
@@ -1677,7 +1678,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
       recordEntityPlacement(entity, { pos, team: entity.team, allied: !!e.allied, eliteFoe: entity.eliteFoe, puppet });
-      if (!entity.eliteFoe && !e.allied && !bossTraitsOf(entity).length && !puppet && e.traits !== false && !e.eliteFoe) maybeApplyMobTraits(entity, { playerLevel: effectiveLevel(foeDeps.playerEntity), puppet: !!puppet, allied: !!e.allied, seed: e.mobSeed ?? (Number.isFinite(e.x) ? eliteHash('mob-trait', e.mobileType ?? 0, Math.round(e.x), Math.round(e.z)) : null) });
+      if (!entity.eliteFoe && !e.allied && !bossTraitsOf(entity).length && !puppet && e.traits !== false && !e.eliteFoe) maybeApplyMobTraits(entity, { playerLevel: effectiveLevel(foeDeps.playerEntity), tier: LivingTamrielConfig.dungeonMobTraits, puppet: !!puppet, allied: !!e.allied, seed: e.mobSeed ?? (Number.isFinite(e.x) ? eliteHash('mob-trait', e.mobileType ?? 0, Math.round(e.x), Math.round(e.z)) : null) });
       if (e.revenant && !puppet) applyRevenant(entity, e.revenant, { turned: !!e.turned });   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot; RVN11c: a betrayer's turning is no return
       spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, { ...eliteLootOpts(e), where: 'dungeon' });   // ELITE: +20% drops, +20% quality. RF2: SetEnemyCareer's whole loot chain, one seam (the table, the kit, the trio, the port's roll)
       if (_wildDungeon) wildLootAfter(entity);   // WILD1: twice the gold

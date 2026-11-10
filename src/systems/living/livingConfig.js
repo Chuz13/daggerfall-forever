@@ -109,6 +109,9 @@ export const LivingTamrielConfig = {
   get mobTraits() { return readTierPref('livingMobTraits', PRESENCE.MID); },
   set mobTraits(v) { setPref('livingMobTraits', Number(v)); },
 
+  get dungeonMobTraits() { return readTierPref('livingDungeonMobTraits', PRESENCE.MID); },
+  set dungeonMobTraits(v) { setPref('livingDungeonMobTraits', Number(v)); },
+
   // Competition toggles
   get allowQuestCompetition() { return getPref('livingQuestCompetition') === true; },
   set allowQuestCompetition(v) { setPref('livingQuestCompetition', Boolean(v)); },
@@ -150,6 +153,7 @@ export function resetLivingConfig() {
   setPref('livingBounties', PRESENCE.MID);
   setPref('livingNemesis', PRESENCE.MID);
   setPref('livingMobTraits', PRESENCE.MID);
+  setPref('livingDungeonMobTraits', PRESENCE.MID);
   setPref('livingQuestCompetition', false);
 
   LivingTamrielConfig.adventurerPoolPerRegion = 13;

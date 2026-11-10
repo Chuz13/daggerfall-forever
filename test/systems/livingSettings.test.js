@@ -33,6 +33,7 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
     'feat:living-camps',
     'feat:living-naval',
     'feat:living-mob-traits',
+    'feat:living-dungeon-mob-traits',
   ];
 
   for (const featId of expectedFeatures) {
@@ -45,7 +46,7 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
 
 test('LT-07: Living Tamriel feature rows have valid controls, 4-tier presence, and quest competition part', () => {
   const livingFeats = FEATURES.filter((f) => f.id.startsWith('living-') && f.id !== 'living-world');
-  assert.equal(livingFeats.length, 11, 'Expected 11 living feature declarations');
+  assert.equal(livingFeats.length, 12, 'Expected 12 living feature declarations');
 
   for (const feat of livingFeats) {
     assert.equal(feat.group, 'world');
@@ -87,6 +88,14 @@ test('LT-07: LivingTamrielConfig is synchronized with uiPrefs and settings mutat
   assert.equal(getPref('livingMobTraits'), PRESENCE.HIGH);
   setPref('livingMobTraits', PRESENCE.OFF);
   assert.equal(LivingTamrielConfig.mobTraits, PRESENCE.OFF);
+
+  // Test dungeonMobTraits synchronization
+  assert.equal(LivingTamrielConfig.dungeonMobTraits, PRESENCE.MID);
+  LivingTamrielConfig.dungeonMobTraits = PRESENCE.HIGH;
+  assert.equal(LivingTamrielConfig.dungeonMobTraits, PRESENCE.HIGH);
+  assert.equal(getPref('livingDungeonMobTraits'), PRESENCE.HIGH);
+  setPref('livingDungeonMobTraits', PRESENCE.OFF);
+  assert.equal(LivingTamrielConfig.dungeonMobTraits, PRESENCE.OFF);
 
   // Test Quest competition toggle synchronization
   assert.equal(LivingTamrielConfig.allowQuestCompetition, false);
@@ -130,6 +139,8 @@ test('LT-07: Localization keys for all living settings are registered in en and 
     'features.livingNaval.note',
     'features.livingMobTraits.title',
     'features.livingMobTraits.note',
+    'features.livingDungeonMobTraits.title',
+    'features.livingDungeonMobTraits.note',
   ];
 
   for (const k of requiredKeys) {
