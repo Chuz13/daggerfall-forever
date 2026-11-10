@@ -108,7 +108,8 @@ export function liveStat(entity, statName, skipKind = null) {
   // VAMP-DAY: THE CURSE'S DAY NEVER KILLS. A live 0 is death (killIfAnyLiveStatZero below), and a vampire's -20 by
   // day on a stat of twenty or less would have killed at dawn - so its penalty stops at a live 1, against the stat
   // without it, here where every read sees it (as DFU's DrainEffect stops at 1).
-  if (curse < 0) curse = -Math.min(-curse, Math.max(0, Math.min(Math.max(base + mod, 0), MAX_STAT_VALUE) - 1));
+  const effectiveMax = Math.max(MAX_STAT_VALUE, base);
+  if (curse < 0) curse = -Math.min(-curse, Math.max(0, Math.min(Math.max(base + mod, 0), effectiveMax) - 1));
   mod += curse;
   // AUDIT SURV-TIERS (the second pass): THE NEEDS' DRAIN IS CAPPED WHERE THE STAT IS READ. The minute law caps its
   // entry five above the stat as it stands (survival/needs.js applySurvivalMods) - but only once a minute, and the
@@ -116,9 +117,9 @@ export function liveStat(entity, statName, skipKind = null) {
   // minutes, made a live 0 and killed. So the entry's drain is held here too, against the stat WITHOUT it (and never
   // past the permanent stat's five), whatever lands between the minutes.
   if (survival < 0)
-    survival = -Math.min(-survival, Math.max(0, Math.min(base, Math.min(Math.max(base + mod, 0), MAX_STAT_VALUE)) - 5));
+    survival = -Math.min(-survival, Math.max(0, Math.min(base, Math.min(Math.max(base + mod, 0), effectiveMax)) - 5));
   mod += survival;
-  return Math.min(Math.max(base + mod, 0), MAX_STAT_VALUE + maxMod); // MACE-MAX: GetLiveStatValue's maxValue, the max mods in it
+  return Math.min(Math.max(base + mod, 0), effectiveMax + maxMod); // MACE-MAX: GetLiveStatValue's maxValue, the max mods in it; overcap if base > 100
 }
 
 /** DrainEffect.IncreaseMagnitude, verbatim: the drain never reduces

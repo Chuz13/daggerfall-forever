@@ -1031,7 +1031,15 @@ registerCommand(
     if (typeof playerEntity.skills === 'number' || !Array.isArray(playerEntity.skills)) {
       playerEntity.skills = new Array(35).fill(typeof playerEntity.skills === 'number' ? playerEntity.skills : 30);
     }
-    playerEntity.skills[resolved.id] = Math.max(0, Math.min(100, val));
+    const next = Math.max(0, Math.min(200, val));
+    playerEntity.skills[resolved.id] = next;
+    if (next > 100) {
+      playerEntity.masterSkills = true;
+      if (!Array.isArray(playerEntity.masteredSkills)) playerEntity.masteredSkills = [];
+      if (!playerEntity.masteredSkills.includes(resolved.id)) {
+        playerEntity.masteredSkills.push(resolved.id);
+      }
+    }
     surfacePlayer?.();
     return `Skill ${resolved.name} set to ${playerEntity.skills[resolved.id]}.`;
   }
@@ -1051,8 +1059,15 @@ registerCommand(
       playerEntity.skills = new Array(35).fill(typeof playerEntity.skills === 'number' ? playerEntity.skills : 30);
     }
     const cur = playerEntity.skills[resolved.id] ?? 30;
-    const next = Math.max(0, Math.min(100, cur + delta));
+    const next = Math.max(0, Math.min(200, cur + delta));
     playerEntity.skills[resolved.id] = next;
+    if (next > 100) {
+      playerEntity.masterSkills = true;
+      if (!Array.isArray(playerEntity.masteredSkills)) playerEntity.masteredSkills = [];
+      if (!playerEntity.masteredSkills.includes(resolved.id)) {
+        playerEntity.masteredSkills.push(resolved.id);
+      }
+    }
     surfacePlayer?.();
     return `Skill ${resolved.name} modified by ${delta > 0 ? '+' : ''}${delta} to ${next}.`;
   }

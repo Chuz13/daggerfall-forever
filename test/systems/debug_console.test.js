@@ -11,6 +11,8 @@ import {
 } from '../../src/systems/consoleCommands.js';
 import { staffPowers, setStaffPowers, playerEntity, playerDamageWithheld } from '../../src/characters/playerEntity.js';
 import { goldPiecesOf } from '../../src/systems/inventory.js';
+import { liveStat } from '../../src/systems/statMods.js';
+import { displaySkillValue } from '../../src/systems/skills.js';
 
 test('Debug Console: tgm toggles god mode and invulnerability', () => {
   setStaffPowers({ god: false });
@@ -326,12 +328,26 @@ test('Debug Console: set_attr and mod_attr alter player attributes', () => {
   assert.equal(resMod, 'Attribute strength modified by -15 to 70.');
   assert.equal(playerEntity.stats.strength, 70);
 
+  // Overcap test: set_attr above 100 lifts liveStat ceiling
+  const resOvercap = executeConsoleLine('set_stat strength 140');
+  assert.equal(resOvercap, 'Attribute strength set to 140.');
+  assert.equal(playerEntity.stats.strength, 140);
+  assert.equal(liveStat(playerEntity, 'strength'), 140);
+
+  const resModOver = executeConsoleLine('mod_stat strength 10');
+  assert.equal(resModOver, 'Attribute strength modified by +10 to 150.');
+  assert.equal(playerEntity.stats.strength, 150);
+  assert.equal(liveStat(playerEntity, 'strength'), 150);
+
   const resInvalid = executeConsoleLine('set_attr charisma 50');
   assert.ok(resInvalid.includes('Unknown attribute'));
 });
 
 test('Debug Console: set_skill and mod_skill alter skills', () => {
   playerEntity.skills = new Array(35).fill(30);
+  playerEntity.masterSkills = false;
+  playerEntity.masteredSkills = [];
+
   const resSet = executeConsoleLine('set_skill LongBlade 95');
   assert.equal(resSet, 'Skill LongBlade set to 95.');
   assert.equal(playerEntity.skills[29], 95);
@@ -339,6 +355,24 @@ test('Debug Console: set_skill and mod_skill alter skills', () => {
   const resMod = executeConsoleLine('mod_skill LongBlade -10');
   assert.equal(resMod, 'Skill LongBlade modified by -10 to 85.');
   assert.equal(playerEntity.skills[29], 85);
+
+  // Overcap test: set_skill above 100 (up to 200) activates masterSkills and masteredSkills
+  const resOver = executeConsoleLine('set_skill LongBlade 150');
+  assert.equal(resOver, 'Skill LongBlade set to 150.');
+  assert.equal(playerEntity.skills[29], 150);
+  assert.equal(playerEntity.masterSkills, true);
+  assert.ok(playerEntity.masteredSkills.includes(29));
+  assert.equal(displaySkillValue(playerEntity, 29), 150);
+
+  const resModOver = executeConsoleLine('mod_skill LongBlade 20');
+  assert.equal(resModOver, 'Skill LongBlade modified by +20 to 170.');
+  assert.equal(playerEntity.skills[29], 170);
+  assert.equal(displaySkillValue(playerEntity, 29), 170);
+
+  // Clamped at 200
+  const resClamp = executeConsoleLine('set_skill LongBlade 250');
+  assert.equal(resClamp, 'Skill LongBlade set to 200.');
+  assert.equal(playerEntity.skills[29], 200);
 
   const resUnknown = executeConsoleLine('set_skill BasketWeaving 100');
   assert.ok(resUnknown.includes('Unknown skill'));
