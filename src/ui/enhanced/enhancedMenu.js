@@ -108,6 +108,7 @@ import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT } from '../../systems/test
 import { mwRaceId } from '../../formats/morrowind/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../../systems/equip.js';
 import { boonStatRows } from '../temperatureCard.js';   // AUDIT C&C B11: the Attributes page names the boons that raise them
+import { statTooltip, skillTooltip } from '../../systems/chargenTooltips.js';
 import { dfWornEquipment } from '../../formats/morrowind/mwItemMap.js';
 import { ARMOR_ENUM } from '../../combat/enemyEquipment.js';
 import { morrowindDataCount, morrowindDataCounted, countMorrowindArchives, assetPickerOpen, textureStoreRegistered, textureStoreSettled } from '../../scenes/dataSource.js';   // MAC1: the boot door counts the store itself; AUDIT 65 XL-6: by NAME - it never reads a stored file   // MW-IMPORT: the attach door; MWFIX: and the modal it opens owns the keyboard
@@ -5529,9 +5530,12 @@ function statsEffects(detail) {
  *  Stats side's one source): a 55 that a meal made says so where it shows. */
 function statsAttributes(detail, m) {
   detail.append(pxDivider(localizedText('helpAttributes', 'Attributes')));
+  const mult = playerEntity?.career?.spellPointMultiplier ?? 0.5;
   for (const a of m.attributes) {
     const cap = Math.max(100, a.value);
-    detail.append(meterRow(localizedText(a.key, a.key[0].toUpperCase() + a.key.slice(1)), a.value, cap, ''));   // L10N4: DFU's own attribute keys (strength..luck)
+    const row = meterRow(localizedText(a.key, a.key[0].toUpperCase() + a.key.slice(1)), a.value, cap, '');   // L10N4: DFU's own attribute keys (strength..luck)
+    row.title = statTooltip(a.key, a.value, { spellMultiplier: mult });
+    detail.append(row);
   }
   const boons = boonStatRows(playerEntity);
   if (!boons.length) return;
@@ -5693,6 +5697,7 @@ function statsSkills(detail, m) {
     const grid = el('div', 'px-skillgrid');
     for (const id of group.ids) {
       const r = el('div', 'px-skill');
+      r.title = skillTooltip(id, m.skill(id), { group: group.name?.toLowerCase(), career: playerEntity?.career });
       const top = el('div', 'px-mtop');
       const mastered = !!m.master?.isMastered?.(id);   // SOFTCAP4: a mastered skill wears the diamond, in gold
       top.append(el('span', mastered ? 'k px-mastered' : 'k', `${mastered ? '\u25c6 ' : ''}${SKILL_NAMES[id] ?? t('pause.skills.unknown', 'Skill {id}', { id })}`), el('span', 'v', m.skillText ? m.skillText(id) : String(m.skill(id))));

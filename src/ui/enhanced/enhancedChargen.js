@@ -52,6 +52,7 @@ import { reviseClassDescription } from '../../systems/stockClasses.js';   // CLA
 import { QUESTION_COUNT } from '../../systems/classQuestions.js';        // AUDIT 39: the quiz's own count, not a tenth copy of ten
 import { HELP_TOPICS, REP_GROUPS, REP_MAX, DIFFICULTY_MIN, DIFFICULTY_MAX, advancementMultiplier, daggerFraction, customClassDoc } from '../../systems/customClass.js';              // AUDIT 39: the builder's help picker; CC-REP: the reputation ledger's groups and reach; UXB1-H/I: the class document, the dagger
 import { ATTRIBUTE_BLURB, attributeLabel as attrName } from '../levelUp/levelUpView.js';   // UXB1-G: the port's own line per attribute, each true of the code (LV1's audit)
+import { statTooltip, skillTooltip, advDisTooltip, advDisCost, advDisCostRange } from '../../systems/chargenTooltips.js';
 import { labelFor } from '../../systems/specialAdvantages.js';           // AUDIT 39: DFU's own words for an advantage key
 import { NAME_MAX_CHARACTERS as NAME_MAX } from '../chargen.js';
 import { traceProvinces, MAP_W, MAP_H, PROVINCE_NAMES } from '../provinceMap.js';
@@ -60,7 +61,7 @@ import { repaintKeepingScroll } from '../domRepaint.js';
 // PX13: the wizard stands on the same living sky as every other
 // enhanced face - drawn by the one module, clocked by this mount.
 import { drawPixelGround } from '../pixelGround.js';
-import { localizedStrings } from '../../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, t } from '../../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { raceDisplayName } from '../../systems/talk/talkSession.js';   // L10N3d: RaceTemplate.Name, read in the player's language
 
 /** DFU's WizardStages, in the order the flow walks them, with the
@@ -635,6 +636,21 @@ function customPickerPane(c) {
     const row = el('div', `row${i === c.pickCursor ? ' on' : ''}`);
     const main = el('button', 'row-main');
     main.append(el('div', 'row-name', name));
+    if (c.pickList) {
+      const key = c.pickList[i];
+      if (c.pickPrimary) {
+        const cost = advDisCost(c.pickPrimary, key);
+        main.append(el('div', 'row-note', cost));
+        main.title = advDisTooltip(c.pickPrimary, key);
+      } else {
+        const cost = advDisCostRange(key);
+        main.append(el('div', 'row-note', cost));
+        main.title = advDisTooltip(key);
+      }
+    } else if (c.pickItems) {
+      const skillId = c.pickItems[i];
+      main.title = skillTooltip(skillId, 0);
+    }
     main.onclick = () => { flow.usePickRow(i); paint(); };
     row.append(main);
     list.append(row);
@@ -680,9 +696,11 @@ function customAdvPane(c) {
   list.forEach((item, i) => {
     const row = el('div', 'row');
     const main = el('button', 'row-main');
+    const cost = advDisCost(item.primary, item.secondary);
     main.append(el('div', 'row-name', labelFor(item.primary) || item.primary));
     if (item.secondary) main.append(el('div', 'row-sub', labelFor(item.secondary) || item.secondary));
-    main.append(el('div', 'row-note', 'Click to remove'));
+    main.append(el('div', 'row-note', `${cost} \u2022 ${t('customclass.clickToRemove', 'Click to remove')}`));
+    main.title = advDisTooltip(item.primary, item.secondary);
     main.onclick = () => { flow.applyHit({ advRemove: i }); paint(); };
     row.append(main);
     rows.append(row);
@@ -788,6 +806,7 @@ function customClassStage() {
       const row = el('div', 'row');
       const main = el('button', 'row-main');
       main.append(el('div', 'row-name', id == null ? 'Choose a skill' : (SKILL_NAMES[id] ?? `Skill ${id}`)));
+      if (id != null) main.title = skillTooltip(id, 0, { group: label.toLowerCase() });
       main.onclick = () => { flow.applyHit({ customSkill: slot }); paint(); };
       row.append(main);
       sec.append(row);
@@ -809,7 +828,7 @@ function customClassStage() {
     const row = el('div', `row${i === c.statCursor ? ' on' : ''}`);
     const main = el('button', 'row-main');
     main.append(el('div', 'row-name', attrName(key)));
-    main.title = ATTRIBUTE_BLURB[key];   // UXB1-G
+    main.title = statTooltip(key, c.stats[key] ?? 50);
     main.onclick = () => { flow.applyHit({ customStatCursor: i }); paint(); };
     row.append(main);
     row.append(stepper(c.stats[key], (dir) => {
@@ -1255,11 +1274,12 @@ function statsStage() {
     label: 'attribute total',
     value: flow.statPool > 0 ? `${flow.statTotalNow} \u2192 ${flow.statTotalFinal}` : flow.statTotalNow,
   }));
+  const spellMult = flow.career?.spellPointMultiplier ?? 0.5;
   STAT_KEYS_ORDER.forEach((key, i) => {
     const row = el('div', `row${i === flow.statCursor ? ' on' : ''}`);
     const main = el('button', 'row-main');
     main.append(el('div', 'row-name', attrName(key)));
-    main.title = ATTRIBUTE_BLURB[key];   // UXB1-G: on hover
+    main.title = statTooltip(key, flow.stats?.[key] ?? 50, { spellMultiplier: spellMult });   // UXB1-G: on hover
     main.onclick = () => { flow.applyHit({ setStatCursor: i }); paint(); };
     row.append(main);
     row.append(stepper(flow.stats?.[key] ?? 0, (dir) => {
@@ -1318,6 +1338,7 @@ function skillsStage() {
       const row = el('div', `row${at === flow.skillCursor ? ' on' : ''}`);
       const main = el('button', 'row-main');
       main.append(el('div', 'row-name', SKILL_NAMES[id] ?? `Skill ${id}`));
+      main.title = skillTooltip(id, flow.skills?.[id] ?? 0, { group, career: flow.career });
       main.onclick = () => { flow.applyHit({ setSkillCursor: at }); paint(); };
       row.append(main);
       row.append(stepper(flow.skills?.[id] ?? 0, (dir) => {
@@ -1485,13 +1506,14 @@ function summaryStage() {
   // total, because this screen edits the same eight values and asks the
   // same question - statTotalFinal reads whichever pool is on screen.
   cols[0].append(sectionHead('Attributes', flow.sumStatPool ?? 0, flow.statTotalFinal));
+  const sumSpellMult = flow.career?.spellPointMultiplier ?? 0.5;
   STAT_KEYS_ORDER.forEach((key, i) => {
     const row = reviewRow(attrName(key), flow.stats?.[key] ?? 0, (dir) => {
       flow.applyHit({ setStatCursor: i });
       flow.applyHit({ statStep: dir });
       paint();
     });
-    row.title = ATTRIBUTE_BLURB[key];   // UXB1-G
+    row.title = statTooltip(key, flow.stats?.[key] ?? 50, { spellMultiplier: sumSpellMult });   // UXB1-G
     cols[0].append(row);
   });
 
@@ -1501,11 +1523,13 @@ function summaryStage() {
     col.append(sectionHead(group[0].toUpperCase() + group.slice(1), flow.pools?.[group] ?? 0));
     for (const id of ids) {
       const at = cursor++;
-      col.append(reviewRow(SKILL_NAMES[id] ?? `Skill ${id}`, flow.skills?.[id] ?? 0, (dir) => {
+      const r = reviewRow(SKILL_NAMES[id] ?? `Skill ${id}`, flow.skills?.[id] ?? 0, (dir) => {
         flow.applyHit({ setSkillCursor: at });
         flow.applyHit({ skillStep: dir, group });
         paint();
-      }));
+      });
+      r.title = skillTooltip(id, flow.skills?.[id] ?? 0, { group, career: flow.career });
+      col.append(r);
     }
   });
   grid.append(...cols);

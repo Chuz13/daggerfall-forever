@@ -49,6 +49,7 @@ import { SKILL_NAMES } from '../systems/skills.js';
 import { reviseClassDescription } from '../systems/stockClasses.js';   // CLASS-USE: the description names the revised skills
 import { daggerY, tickDaggerTrails, REP_GREEN, REP_RED, REP_EXIT, REP_BAR_TOP, REP_BAR_BOTTOM, REP_GROUPS, HELP_TOPICS } from '../systems/customClass.js';   // U20a; CG1 the trail machine
 import { labelRows, labelFor, LABEL_ORIGIN, LABEL_HIT_HEIGHT } from '../systems/specialAdvantages.js';   // U20b
+import { advDisCost, advDisCostRange } from '../systems/chargenTooltips.js';
 import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { packImgTexture } from './packArt.js';   // OVH2: the worn UI pack's picture
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
@@ -934,16 +935,30 @@ function drawSpecialAdv(renderer, m, font, flow) {
   // DaggerfallUI.SmallFont` and :263 hands it to every label), not the
   // FONT0003 the rest of the arc uses.
   const f = _art.smallFont ?? font;
-  const rows = labelRows(c.sub === 'advantage' ? c.advantages : c.disadvantages);
+  const list = c.sub === 'advantage' ? c.advantages : c.disadvantages;
+  const rows = labelRows(list);
   for (const row of rows) {
     shadowText(renderer, f, row.text, m, px + LABEL_ORIGIN[0], py + row.y);
+    const item = list[row.index];
+    const isFirstRowOfItem = !item?.secondary || row.text === labelFor(item.primary);
+    if (isFirstRowOfItem && item) {
+      const costText = advDisCost(item.primary, item.secondary);
+      shadowText(renderer, f, costText, m, px + 124, py + row.y, { color: [0.85, 0.75, 0.35, 1] });
+    }
     row.w = measureText(f.fnt, row.text);
   }
   c._advRows = rows;
   // the two pickers push over the window (:271-278), BOTH constructed
   // with SmallFont and advPickerItemCount = 12 rows
   if (c.pickList) {
-    const [, , h] = drawListPicker(renderer, m, f, c.pickList.map(labelFor), c.pickScroll, c.pickCursor, ADV_PICKER_ITEM_COUNT);
+    const pickerNames = c.pickList.map((key) => {
+      const label = labelFor(key) || key;
+      if (c.pickPrimary) {
+        return `${label} (${advDisCost(c.pickPrimary, key)})`;
+      }
+      return `${label} (${advDisCostRange(key)})`;
+    });
+    const [, , h] = drawListPicker(renderer, m, f, pickerNames, c.pickScroll, c.pickCursor, ADV_PICKER_ITEM_COUNT);
     c._rowH = h;
   }
   return true;
