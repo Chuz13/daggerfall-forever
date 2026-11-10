@@ -461,6 +461,7 @@ export function createPixelBuild(host) {
     const pixelNpcFlats = []; // AUDIT 26 (F019): the flats RMBLayout stands as StaticNPCs, pixel-local
     const pixelStandFlats = [];   // STAND-FLAT / STAND-HORSE: the town horses and the people no StaticNPC holds, pixel-local - a batch each
     const pixelBoards = [];   // where the blocks' BULLETIN BOARDS (model 41739) would stand, pixel-local boxes - NOTICE-PANEL: none stands
+    const boardDeferred = [];
     const pixelGraves = [];   // SEARCH1: a Graveyard location's headstones (systems/searchables.js isTombstoneModel), pixel-local boxes
     const light210 = await getTexture(LIGHTS_ARCHIVE);
     const lightSize = (record) =>
@@ -611,6 +612,15 @@ export function createPixelBuild(host) {
           const box = transformedAabb(archAabb(placed.modelIdNum, cpu.positions), local);
           // BOUNTY-BOARDS: a town's board (RMBLayout's standalone 41739) stands in the street and its place is kept in pixelBoards
           if (isBulletinBoard(placed.modelIdNum)) { pixelBoards.push({ box, local }); }
+          if (isBulletinBoard(placed.modelIdNum)) {
+            const climateFree = isClimateFreeModel(placed.modelIdNum);
+            if (!climateFree) await remapSubMeshes(gpu.subMeshes, texRemap, townClimateArchive, pipeline, townClimateBase);
+            unionBox(box);
+            const entry = { gpu, local, _box: box, _order: placed.modelIdNum };
+            if (climateFree) entry.texRemap = NO_CLIMATE_REMAP;
+            boardDeferred.push({ boardIndex: pixelBoards.length - 1, entry, cpu, local, climateFree });
+            continue;
+          }
           const climateFree = isClimateFreeModel(placed.modelIdNum);   // ARENA1: the colosseum - never swapped, nor a key of the pixel's table
           if (!climateFree) await remapSubMeshes(gpu.subMeshes, texRemap, townClimateArchive, pipeline, townClimateBase);   // AUDIT PRECIP HOST-7: kept in the table's recipe under its climate
           if (WATER_SOURCE_MODELS.includes(placed.modelIdNum)) pixelSprings.push({ pos: [local[12], local[13], local[14]], dry: false });   // SURV3: a trough is a water source
@@ -1422,6 +1432,19 @@ export function createPixelBuild(host) {
       unionBox(flatBatchAabb([[flat.x, flat.y, flat.z]], size));
     }
 
+    // BOUNTY-BOARDS: only physical bounty boards stand in the street; notice boards are omitted
+    const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? questBoardIndices(pixelBoards) : null;
+    const pixelBounty = pixelBoardSplit ?? (pixelBoards.length > 1 ? new Set([1]) : new Set());
+    for (const b of boardDeferred) {
+      if (pixelBounty.has(b.boardIndex)) {
+        models.push(b.entry);
+        if (b.cpu.normals && b.cpu.uvs) {
+          addStatic(b.cpu, b.local, b.climateFree);
+          b.entry._batched = true;
+        }
+      }
+    }
+
     // EV6: the pixel's models sort by MESH at build - one archetype's
     // placements draw back to back and the VAO shadow skips the rebind.
     models.sort((a, b) => a._order - b._order);
@@ -1450,7 +1473,6 @@ export function createPixelBuild(host) {
     // SEAT1a (Seats-Arc 3.4): a seat town's banner anchors - its palace's door, its gates - measured where it is built
     // (scenes/seatBanners.js); hung while the seats are open to this account. BOUNTY1's split of the boards' places: the
     // siege field's Market, and null off a seat - the palace keys, the banners and the Festival read it as the seat's word
-    const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? questBoardIndices(pixelBoards) : null;
     const seatPalaceKeys = pixelBoardSplit ? palaceKeysOf(locBlocks, makeBuildingKey) : [];
     const seatTier = dfLocation ? seatAtMapId(townSeats, dfLocation.mapTableData?.mapId)?.tier ?? 'palace' : 'palace';
     const castleGate = seatTier === 'crown' ? castleEntranceOf(pixelDungeonDoors) : null;   // CASTLE-GATE: a crown city's castle entrance
@@ -1499,7 +1521,7 @@ export function createPixelBuild(host) {
       beach: beach ?? null,   // AUDIT LANDFORMS II H2: DFU's own blend in a location's pixel with the row on - where a gathering node asks the beach line
       meets: meets ?? null,   // ACROSS-EDGE: the meets its ground took - its ghost rows' at a restride
       boards: pixelBoards,
-      bounty: pixelBoardSplit ?? (pixelBoards.length > 1 ? new Set([1]) : new Set()),
+      bounty: pixelBounty,
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season: pixelSeason,   // GR1: the placer reads the tiles and the season (PRECIP4: the pixel's)
       _snow: snowSeen,   // PRECIP4: the snow it was built under, every season it took (the sweep's - AUDIT PRECIP HOST-6)

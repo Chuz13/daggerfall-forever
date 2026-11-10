@@ -193,3 +193,11 @@ test('the probe exterior host stands boards in the street', () => {
   assert.deepEqual(bulletinBoardRows('', null, tokenRows).map((r) => r.text), [''],
     '...and with no name at all there is nothing on the sign, which is the defect this pins against');
 });
+
+test('notice boards are omitted from the streaming world while bounty boards stand and are interactive', () => {
+  const b = src('src/scenes/pixelBuild.js');
+  assert.match(b, /for \(const b of boardDeferred\) \{\s*if \(pixelBounty\.has\(b\.boardIndex\)\) \{\s*models\.push\(b\.entry\);/);
+  const w = src('src/scenes/world.js');
+  assert.match(w, /if \(!bountySet\.has\(i\)\) return;\s*out\.push\(\{/);
+  assert.match(w, /if \(!bountySet\.has\(i\)\) return;\s*boards\.push\(\{/);
+});
