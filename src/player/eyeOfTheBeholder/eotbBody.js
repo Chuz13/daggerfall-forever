@@ -180,7 +180,7 @@ function wornOutfit(gender) {
  */
 export function bodyState(s = {}) {
   const m = s.motion ?? {};
-  const riding = s.riding ?? !!m.riding;
+  const riding = s.riding !== undefined ? !!s.riding : !!m.riding;
   const moving = !!((m.forward || 0) || (m.strafe || 0));
   const standing = m.standing != null ? !!m.standing : !moving;
   const stopped = s.stopped ?? (standing || (m.freeze || 0) > 0);
@@ -940,7 +940,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     died = false;
     isAnimating = null;
     mirrorCount = 0; mirrorTimer = 0;
-    stateCurrent = stateLast ?? 'Idle';
+    stateCurrent = chooseTable({ ...last, sheathed: last.sheathed && !last.toolInHand, readyStance: cfg.readyStance });
     vanillaDisabled = cfg.syncFootsteps;
     updateOrientation(true);
   }

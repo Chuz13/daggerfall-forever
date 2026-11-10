@@ -779,7 +779,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     // stands keeps them; a wolf refused or still building, a wereboar (Morrowind has none), and the wolf still standing
     // while the person rebuilds after the turn back stand aside - never the person on a beast, nor the beast on a person
     const beast = !!entity && isTransformedLycanthrope(entity), wolf = !!fpArm.wolfStanding?.();
-    fpArm.setStandIn?.(beast ? !(wolf && isMwWerewolf(entity)) : wolf);
+    fpArm.setStandIn?.(beast ? !(wolf && isMwWerewolf(entity)) : wolf || !playerBodyOn());
     fpArm.setBodyOff?.(!playerBodyOn());
   };
   bindArm();

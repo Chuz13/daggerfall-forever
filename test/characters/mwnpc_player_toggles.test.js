@@ -196,6 +196,8 @@ test('all combinations of mwPlayerBody + mwInventoryBody keep 3rd-person body an
     fpArm.drawThird = () => { mwDraws += 1; return true; };
 
     const stepFrame = () => {
+      fpArm.setStandIn(!playerBodyOn());
+      fpArm.setBodyOff(!playerBodyOn());
       const out = mwViewFrame({
         fpEye: [0, 1.7, 0],
         feet: [0, 0, 0],
@@ -203,10 +205,6 @@ test('all combinations of mwPlayerBody + mwInventoryBody keep 3rd-person body an
         pitch: 0,
         dt: 1 / 60,
       });
-      // Simulate weaponRig.frame() running at the end of the host frame after mwViewFrame()
-      const beastStand = false;
-      fpArm.setStandIn(beastStand);
-      fpArm.setBodyOff(!playerBodyOn());
       const drew = mwViewDrawBody({}, { proj: [], view: [], eye: out.eye, feet: [0, 0, 0], yaw: 0 });
       return { out, drew };
     };
@@ -311,6 +309,66 @@ test('all combinations of mwPlayerBody + mwInventoryBody keep 3rd-person body an
     eotbCamera.toggleOffset(false);
     mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
   }
+});
+
+test('eotbBody and eotbCamera: setBillboard synchronizes active state and mount/dismount transitions cleanly', async () => {
+  const { eotbBody, bodyState } = await import('../../src/player/eyeOfTheBeholder/eotbBody.js');
+  const { eotbCamera } = await import('../../src/player/eyeOfTheBeholder/eotbCamera.js');
+  const { setModSetting } = await import('../../src/systems/modSettings.js');
+
+  setModSetting('eye-of-the-beholder', 'Enabled', true);
+  eotbCamera.loadSettings((m, k) => true);
+
+  // 1. Verify bodyState boolean riding resolution
+  assert.equal(bodyState({ riding: false, motion: { riding: true } }).riding, false, 'explicit riding: false wins over motion.riding');
+  assert.equal(bodyState({ riding: true, motion: { riding: false } }).riding, true, 'explicit riding: true wins over motion.riding');
+  assert.equal(bodyState({ motion: { riding: true } }).riding, true, 'fallback to motion.riding when s.riding is undefined');
+
+  // 2. Camera offset is toggled BEFORE billboard attach (e.g. save load or test:nord-warrior)
+  eotbCamera.setBillboard(null);
+  eotbCamera.toggleOffset(true);
+  assert.equal(eotbCamera.thirdPerson(), true);
+
+  const dummyRenderer = {
+    createBillboardBatch: () => ({ origin: [0, 0, 0] }),
+    destroyBillboardBatch: () => {},
+    uploadTexture: () => {},
+    drawBillboards: () => {},
+  };
+
+  let state = {
+    motion: { riding: true, forward: 0, standing: true },
+    riding: true,
+    horseLook: 1,
+    sheathed: true,
+  };
+
+  // Attach billboard while camera is already offset
+  eotbBody.attach(dummyRenderer, () => state);
+  assert.equal(eotbBody.state().active, true, 'setBillboard immediately synchronizes active state with offset=true');
+
+  // Tick while mounted
+  for (let i = 0; i < 5; i++) {
+    eotbBody.tick(1 / 60, { ...state, feet: [0, 0, 0], yaw: 0, cameraPos: [0, 1.7, -2] });
+  }
+  assert.equal(eotbBody.state().table, 'IdleHorse', 'mounted state table is IdleHorse');
+
+  // Dismount to foot (test:ride T dismount)
+  state = {
+    motion: { riding: false, forward: 0, standing: true },
+    riding: false,
+    horseLook: 1, // horse item still in pack
+    sheathed: true,
+  };
+
+  for (let i = 0; i < 5; i++) {
+    eotbBody.tick(1 / 60, { ...state, feet: [0, 0, 0], yaw: 0, cameraPos: [0, 1.7, -2] });
+  }
+  assert.equal(eotbBody.state().table, 'Idle', 'dismounted state on foot is Idle, never stuck on IdleHorse');
+
+  // Cleanup
+  eotbCamera.toggleOffset(false);
+  eotbBody.attach(null, null);
 });
 
 

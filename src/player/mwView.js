@@ -105,8 +105,8 @@ function standInEdge({ fpEye, feet, yaw, pitch }) {
   if (now) {
     _beastInSprite = eotbLane();
     if (!_beastInSprite) return;
-    const third = mwCamera.thirdPerson();
-    if (third) {
+    const third = mwCamera.thirdPerson() || eotbCamera.thirdPerson();
+    if (mwCamera.thirdPerson()) {
       mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
     }
     eotbCamera.toggleOffset(false);
@@ -535,7 +535,7 @@ export function mwViewTogglePerspective() {
 export function mwViewCanTogglePerspective() {
   if (heldThird || heldFirst) return false; // SPYGLASS: nor while the glass holds the head
   if (eotbLane() || mwCamera.thirdPerson()) return true;
-  return !!mwCanThirdPerson() && !mounted;
+  return !!fpArm.canThirdPerson() && !mounted;
 }
 
 /**
