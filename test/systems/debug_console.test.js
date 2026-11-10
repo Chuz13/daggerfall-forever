@@ -502,3 +502,39 @@ test('Debug Console: crisis commands control regional crises', async () => {
   assert.ok(resStop.toUpperCase().includes('STOPPED PLAGUE CRISIS IN REGION 17.'));
 });
 
+test('Debug Console: revenant companion commands add_revenant, list_revenants, and finish_errand', async () => {
+  const { _resetRevenantForTests } = await import('../../src/systems/revenant/revenant.js');
+  const { _resetRetinueForTests, sendOnErrand } = await import('../../src/systems/revenant/revenantCompanions.js');
+  _resetRevenantForTests();
+  _resetRetinueForTests();
+
+  const addRes1 = await executeConsoleLine('add_revenant');
+  assert.ok(addRes1.includes('Sworn Revenant created:'));
+  assert.ok(addRes1.includes('Rank 1 Orc'));
+
+  const addRes2 = await executeConsoleLine('add_revenant knight 3');
+  assert.ok(addRes2.includes('Sworn Revenant created:'));
+  assert.ok(addRes2.includes('Rank 3 Knight'));
+
+  const listRes = await executeConsoleLine('list_revenants');
+  assert.ok(listRes.includes('Sworn Revenants Retinue (2/6):'));
+  assert.ok(listRes.includes('Orc'));
+  assert.ok(listRes.includes('Knight'));
+
+  // Test errand workflow
+  const { retinue } = await import('../../src/systems/revenant/revenantCompanions.js');
+  const r = retinue()[0];
+  const errandSent = sendOnErrand(r.id, 'HighRock', 'plunder', { now: 1000, seed: 42 });
+  assert.equal(errandSent, null);
+
+  const listErrandRes = await executeConsoleLine('list_revenants');
+  assert.ok(listErrandRes.includes('Abroad (HighRock'));
+
+  const finishRes = await executeConsoleLine('finish_errand');
+  assert.ok(finishRes.includes('Finished errands:'));
+  assert.ok(finishRes.includes('returned from HighRock'));
+
+  const listAfterRes = await executeConsoleLine('list_revenants');
+  assert.ok(!listAfterRes.includes('Abroad'));
+});
+

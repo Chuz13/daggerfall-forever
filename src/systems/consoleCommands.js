@@ -2119,6 +2119,176 @@ registerCommand('perks', 'Inspect or manage Character Perks', 'perks', (args = [
   return getConsoleCommand('perk').callback([sub, ...args.slice(1)]);
 });
 
+const REVENANT_MOBILE_TYPES = {
+  orc: MOBILE_TYPES.Orc,
+  orcwarlord: MOBILE_TYPES.OrcWarlord,
+  orc_warlord: MOBILE_TYPES.OrcWarlord,
+  orcsergeant: MOBILE_TYPES.OrcSergeant,
+  orc_sergeant: MOBILE_TYPES.OrcSergeant,
+  knight: MOBILE_TYPES.Knight,
+  warrior: MOBILE_TYPES.Warrior,
+  mage: MOBILE_TYPES.Mage,
+  spellsword: MOBILE_TYPES.Spellsword,
+  battlemage: MOBILE_TYPES.Battlemage,
+  sorcerer: MOBILE_TYPES.Sorcerer,
+  healer: MOBILE_TYPES.Healer,
+  nightblade: MOBILE_TYPES.Nightblade,
+  bard: MOBILE_TYPES.Bard,
+  burglar: MOBILE_TYPES.Burglar,
+  rogue: MOBILE_TYPES.Rogue,
+  acrobat: MOBILE_TYPES.Acrobat,
+  thief: MOBILE_TYPES.Thief,
+  assassin: MOBILE_TYPES.Assassin,
+  archer: MOBILE_TYPES.Archer,
+  ranger: MOBILE_TYPES.Ranger,
+  monk: MOBILE_TYPES.Monk,
+  barbarian: MOBILE_TYPES.Barbarian,
+  skeleton: MOBILE_TYPES.SkeletalWarrior,
+  skeletal: MOBILE_TYPES.SkeletalWarrior,
+  ghost: MOBILE_TYPES.Ghost,
+  wraith: MOBILE_TYPES.Wraith,
+  zombie: MOBILE_TYPES.Zombie,
+  mummy: MOBILE_TYPES.Mummy,
+  vampire: MOBILE_TYPES.Vampire,
+  lich: MOBILE_TYPES.Lich,
+  ancientlich: MOBILE_TYPES.AncientLich,
+  ancient_lich: MOBILE_TYPES.AncientLich,
+  daedroth: MOBILE_TYPES.Daedroth,
+};
+
+const RANDOM_REVENANT_TYPES = [
+  MOBILE_TYPES.Orc,
+  MOBILE_TYPES.OrcWarlord,
+  MOBILE_TYPES.Knight,
+  MOBILE_TYPES.Warrior,
+  MOBILE_TYPES.Mage,
+  MOBILE_TYPES.Spellsword,
+  MOBILE_TYPES.Battlemage,
+  MOBILE_TYPES.Rogue,
+  MOBILE_TYPES.Assassin,
+  MOBILE_TYPES.SkeletalWarrior,
+];
+
+let _revModules = null;
+async function getRevenantModules() {
+  if (!_revModules) {
+    const [rev, comp, basics] = await Promise.all([
+      import('./revenant/revenant.js'),
+      import('./revenant/revenantCompanions.js'),
+      import('../characters/enemy/enemyBasics.js'),
+    ]);
+    _revModules = { rev, comp, basics };
+  }
+  return _revModules;
+}
+
+async function handleAddRevenantCommand(args = []) {
+  const { rev, comp, basics } = await getRevenantModules();
+  comp.setRetinuePlayer(playerEntity);
+  if (!comp.retinueHasRoom()) {
+    return `Retinue is full (maximum ${comp.REVENANT_RETINUE_MAX} sworn revenants). Release one before adding another.`;
+  }
+
+  let mobileType = MOBILE_TYPES.Orc;
+  let rank = 1;
+
+  if (args.length > 0) {
+    const a0 = String(args[0]).toLowerCase();
+    if (/^[1-5]$/.test(a0)) {
+      rank = parseInt(a0, 10);
+    } else if (a0 === 'random') {
+      mobileType = RANDOM_REVENANT_TYPES[Math.floor(Math.random() * RANDOM_REVENANT_TYPES.length)];
+      if (args[1]) rank = Math.max(1, Math.min(5, parseInt(args[1], 10) || 1));
+    } else if (REVENANT_MOBILE_TYPES[a0] != null) {
+      mobileType = REVENANT_MOBILE_TYPES[a0];
+      if (args[1]) rank = Math.max(1, Math.min(5, parseInt(args[1], 10) || 1));
+    } else if (Number.isInteger(parseInt(a0, 10))) {
+      mobileType = parseInt(a0, 10);
+      if (args[1]) rank = Math.max(1, Math.min(5, parseInt(args[1], 10) || 1));
+    }
+  }
+
+  const state = comp.swornPlace();
+  const r = rev.mintSwornRevenant(playerEntity, { mobileType, rank, state });
+  const typeName = basics.enemyDisplayName(r.mobileType) || 'Revenant';
+  const stateDesc = r.companion?.state === 'with'
+    ? 'Standing at your side (Active party)'
+    : 'Waiting in Retinue (use Companions menu to call)';
+  return `Sworn Revenant created: "${r.name}" (Rank ${r.rank} ${typeName}, ID: ${r.id}). ${stateDesc}. Retinue: ${comp.retinue().length}/${comp.REVENANT_RETINUE_MAX}.`;
+}
+
+async function handleListRevenantsCommand() {
+  const { rev, comp, basics } = await getRevenantModules();
+  comp.setRetinuePlayer(playerEntity);
+  const list = comp.retinue();
+  if (!list.length) {
+    return 'No sworn revenant companions in your retinue. Use "add_revenant" to create one.';
+  }
+  const now = rev.nowMinutes();
+  const lines = [`<b>Sworn Revenants Retinue (${list.length}/${comp.REVENANT_RETINUE_MAX}):</b>`];
+  for (const r of list) {
+    const typeName = basics.enemyDisplayName(r.mobileType) || 'Revenant';
+    const c = r.companion;
+    const loyalty = c?.loyalty ?? 50;
+    let statusText = c?.state ?? 'unknown';
+    if (c?.state === 'with') {
+      statusText = 'At your side';
+    } else if (c?.state === 'away') {
+      statusText = 'Waiting (away)';
+    } else if (c?.state === 'resting') {
+      const left = Math.max(0, comp.restUntil(r, now) - now);
+      statusText = `Recovering (${left} mins left)`;
+    } else if (c?.state === 'errand') {
+      const e = c?.errand;
+      const left = Math.max(0, (e?.until ?? 0) - now);
+      statusText = `Abroad (${e?.place ?? 'Tamriel'}, venture: ${e?.venture ?? 'plunder'}, ${left} mins left)`;
+    }
+    lines.push(`  <b>${r.name}</b> (Rank ${r.rank} ${typeName}) | Loyalty: ${loyalty}% | Status: ${statusText} | ID: ${r.id}`);
+  }
+  return lines.join('\n');
+}
+
+async function handleFinishErrandCommand(args = []) {
+  const { rev, comp } = await getRevenantModules();
+  comp.setRetinuePlayer(playerEntity);
+  const list = comp.retinue();
+  const abroad = list.filter((r) => r.companion?.state === 'errand' && r.companion?.errand);
+  if (!abroad.length) {
+    return 'No sworn revenants are currently abroad on an errand.';
+  }
+  const targetId = args[0] ? String(args[0]).toLowerCase() : null;
+  const targets = targetId
+    ? abroad.filter((r) => r.id.toLowerCase() === targetId || r.name.toLowerCase().includes(targetId))
+    : abroad;
+
+  if (!targets.length) {
+    return `No abroad revenant found matching "${args[0]}". Use "list_revenants" to view active errands.`;
+  }
+
+  const now = rev.nowMinutes();
+  const finished = [];
+  for (const r of targets) {
+    const place = r.companion?.errand?.place || 'abroad';
+    r.companion.errand.until = now;
+    const haul = comp.returnFromErrand(r.id, now);
+    finished.push(`"${r.name}" returned from ${place} (Gold: ${haul?.gold ?? 0}, Items: ${haul?.pieces?.length ?? 0}, Units: ${haul?.units?.length ?? 0})`);
+  }
+  return `Finished errands:\n- ${finished.join('\n- ')}`;
+}
+
+registerCommand('add_revenant', 'Add a sworn revenant companion: add_revenant [type] [rank]', 'add_revenant [type] [rank]', handleAddRevenantCommand);
+registerCommand('addrevenant', 'Add a sworn revenant companion: addrevenant [type] [rank]', 'addrevenant [type] [rank]', handleAddRevenantCommand);
+registerCommand('cheat_companion', 'Add a sworn revenant companion: cheat_companion [type] [rank]', 'cheat_companion [type] [rank]', handleAddRevenantCommand);
+registerCommand('revenant_add', 'Add a sworn revenant companion: revenant_add [type] [rank]', 'revenant_add [type] [rank]', handleAddRevenantCommand);
+
+registerCommand('list_revenants', 'List all sworn revenant companions in retinue', 'list_revenants', handleListRevenantsCommand);
+registerCommand('revenants', 'List all sworn revenant companions in retinue', 'revenants', handleListRevenantsCommand);
+registerCommand('retinue', 'List all sworn revenant companions in retinue', 'retinue', handleListRevenantsCommand);
+
+registerCommand('finish_errand', 'Complete active revenant errand(s) immediately: finish_errand [id|name]', 'finish_errand [id|name]', handleFinishErrandCommand);
+registerCommand('finisherrand', 'Complete active revenant errand(s) immediately: finisherrand [id|name]', 'finisherrand [id|name]', handleFinishErrandCommand);
+registerCommand('complete_errands', 'Complete active revenant errand(s) immediately: complete_errands', 'complete_errands', handleFinishErrandCommand);
+
 /** ConsoleInputHistory (ConsoleInputHistory.cs), whole - the up/down
  *  walk with its go-to-entry bookkeeping, at ConsoleController's own
  *  capacity (`inputHistoryCapacity = 20`, :17). */

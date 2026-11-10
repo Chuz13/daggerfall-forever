@@ -89,7 +89,7 @@ import { isLetterOfCredit } from '../peerWord.js';   // LETTERS-HOME: nor a lett
 import { itemLongName } from '../item/itemInfo.js';   // RVN8: the piece by the name the pack shows
 import { itemValueOf } from '../item/itemTemplates.js';   // RVN8: the most valuable
 import { enemyDisplayName, ENEMY_BASICS, isClassEnemyId } from '../../characters/enemy/enemyBasics.js';
-import { KNIGHT_CITY_WATCH } from '../../characters/mobile/mobileTypes.js';
+import { KNIGHT_CITY_WATCH, MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { firstName, monsterName, BANK_TYPES, GENDERS } from '../../characters/nameHelper.js';
 import { getSeed, setSeed, srand } from '../../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
@@ -260,7 +260,7 @@ export const revenantOn = () => lootRarityOn();
  *  festers - and what is remembered stays on the page (ui/revenant/revenantPage.js says it is held) while the sworn keep their days.
  *  @param {{ online?: boolean, renown?: number|null }} [o] */
 export const revenantHeld = (o) => !renownOpens(REVENANT_MIN_RENOWN, o);
-const nowMinutes = () => { try { return Math.floor(ownMinutes()); } catch { return 0; } };
+export const nowMinutes = () => { try { return Math.floor(ownMinutes()); } catch { return 0; } };
 /** Does the sky read night now (TIME1's sky - the world's offline)? */
 const skyIsNight = () => { try { return isNight(skyMinutes()); } catch { return false; } };
 /** RVN3: ...and day (a daylight weakness bites while it does; no clock, no day). */
@@ -842,6 +842,50 @@ export function revenantSpared(player, entity, { now = nowMinutes(), state = 'wi
   r.dread = false;   // UNQUIET: sworn, the Dread is home no longer - it walks with me
   r.companion = sanitizeCompanion({ state, health, maxHealth }, r.personality, r.rank);   // RVN1: sworn at its personality's loyalty - RVN-STARS: and its rank's stars to set
   deed(r, 'spared', now);
+  touch(r);
+  persist();
+  return r;
+}
+/**
+ * Mint a sworn revenant companion directly for player (developer probe / console command).
+ * Sets up a complete valid record, feud fields, and companion state without needing combat or fate scenes.
+ */
+export function mintSwornRevenant(player, {
+  mobileType = MOBILE_TYPES.Orc,
+  rank = 1,
+  gender = 'male',
+  state = 'with',
+  given = null,
+  epithet = null,
+  health = null,
+  maxHealth = null,
+} = {}) {
+  ensureMirror(player);
+  const id = mintCharacterId();
+  const mType = Number.isInteger(mobileType) ? mobileType : (MOBILE_TYPES.Orc ?? 7);
+  const g = gender === 'female' ? 'female' : 'male';
+  const givenName = isStr(given) && given ? given : revenantGivenName(id, mType, g);
+  const pName = player?.name ?? '';
+  const rRank = Math.max(1, Math.min(REVENANT_MAX_RANK, Number.isInteger(rank) ? rank : 1));
+  const ep = isStr(epithet) && epithet ? epithet : revenantEpithet('spared', rRank, pName, Math.random, null, '');
+  const now = nowMinutes();
+  const personality = personalityFor(id, mType);
+  const r = {
+    id, rev: 0, mobileType: mType, gender: g, given: givenName,
+    epithet: ep, name: joinName(givenName, ep), rank: rRank, kills: 0, escapes: 0, returns: 0,
+    trait: null, elite: true,
+    born: now, dueAt: 0, out: false, outAt: 0, defeated: false, defeatedAt: null, notice: null, history: [],
+    archive: null,
+    personality,
+    person: revenantPerson({ id }),
+    race: null,
+    ...newFeudFields(id, mType, rRank, null),
+    wounds: [], blood: 0, tears: 0, dread: false, trail: 0, omen: 0, woundDay: -1,
+    fate: 'sworn', sworn: true, swornAt: now,
+    companion: sanitizeCompanion({ state, health, maxHealth }, personality, rRank),
+  };
+  deed(r, 'spared', now);
+  _state.list.push(r);
   touch(r);
   persist();
   return r;
