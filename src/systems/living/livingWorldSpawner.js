@@ -970,6 +970,7 @@ export function buildLivingSiteBlueprint({
           hostile: true,
           role: 'skirmish_guard',
           team: SKIRMISH_TEAMS.CITY_WATCH,
+          campId: 'skirmish_guards',
           factionSide: 'guards',
         });
       }
@@ -987,6 +988,7 @@ export function buildLivingSiteBlueprint({
           hostile: true,
           role: 'skirmish_rebel',
           team: SKIRMISH_TEAMS.INSURGENTS,
+          campId: 'skirmish_rebels',
           factionSide: 'rebels',
         });
       }
@@ -3157,7 +3159,7 @@ export function createLivingSceneHost(deps) {
           return false;
         }
       }
-      const team = foe.entity?.team ?? (foe.livingRole === 'skirmish_guard' ? SKIRMISH_TEAMS.CITY_WATCH : null);
+      const team = foe.livingRole === 'skirmish_guard' ? SKIRMISH_TEAMS.CITY_WATCH : (foe.entity?.team ?? null);
       if (!team) return false;
       return isSkirmishBlowCriminal('PLAYER', team, true);
     },
