@@ -3762,8 +3762,13 @@ ${paceControlsCss('tview')}
 .hud-adv .hst-tile { box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45), 0 0 8px rgba(243,239,44,0.28); }
 .hud-adv-firm .hst-tile { box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45), 0 0 8px rgba(160,190,255,0.35); }
 .hud-adv-firm:hover .hst-tile { border-color: #ffffff #4a6ab0 #4a6ab0 #ffffff; }
-.hud-renown.adv-only:not(.on) { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; visibility: hidden; }
-.hud-renown.adv-only:not(.on) .hud-adv.on { visibility: visible; }
+.hud-renown.adv-only:not(.on):not([data-hm-dummy]):not([data-hm-edit]) {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; visibility: hidden;
+  height: 0; min-height: 0; margin-top: -10px; pointer-events: none;
+}
+.hud-renown.adv-only:not(.on):not([data-hm-dummy]):not([data-hm-edit]) .hud-adv.on {
+  visibility: visible; pointer-events: auto; top: -10px;
+}
 .hud-renownbox { flex: 0 0 auto; min-width: 1.6em; padding: 1px 5px; text-align: center;
   font-size: 13px; line-height: 1.2; font-variant-numeric: tabular-nums;
   color: #f2c46b; background: rgba(14,16,19,0.78); border: 2px solid rgba(242,196,107,0.8); }

@@ -50,7 +50,15 @@ export const HUD_PIECES = Object.freeze(
     { id: 'magicka', sel: '.hud .hud-bars .hud-magicka', name: 'Magicka bar', edit: 'split', len: '--hml-b' },
     { id: 'health', sel: '.hud .hud-bars .hud-health', name: 'Health bar', edit: 'split', len: '--hml-b' },
     { id: 'fatigue', sel: '.hud .hud-bars .hud-fatigue', name: 'Fatigue bar', edit: 'split', len: '--hml-b' },
-    { id: 'renown', sel: '.hud .hud-renown', name: 'Renown bar', len: true, dummy: true },
+    {
+      id: 'renown',
+      sel: '.hud .hud-renown',
+      get name() {
+        return t('menu.hud.renownBar', 'Renown bar');
+      },
+      len: true,
+      dummy: true,
+    },
     // SKILL-READY / FIRM-STARS (Dudey: "should also be movable with alt + u"): the two tiles beside the Renown bar
     // (ui/hud/hudAdvance.js) - each its own piece, standing in the bar's row, so they ride it until moved on their own
     {

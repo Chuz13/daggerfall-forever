@@ -90,6 +90,8 @@ export const PREF_DEFAULTS = Object.freeze({
   hudBarsSplit: false,
   // HUD-VITALS: display mode for enhanced vitals bars ('percent' | 'currentMax' | 'combo')
   hudVitalsMode: 'percent',
+  // RENOWN-TOGGLE: optional Renown level & progress bar under the vitals (off by default: hidden)
+  showRenownBar: false,
   // HUD-SNAP: while moving a piece, its edges and centre catch on the other pieces' and the screen's
   hudSnap: true,
   // FOEBAR1 (2026-09-17, Mac, from a friend's pictures): the target bar's

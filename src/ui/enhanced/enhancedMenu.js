@@ -3237,6 +3237,10 @@ function portRowsInterface({ pause = false } = {}) {
   if (!pause) { const packRow = translationPackRow(); if (packRow) out.push(packRow); }   // L10N3b: and its translation pack
   out.push(hudScaleRow());
   out.push(hudVitalsModeRow());
+  if (isEnhanced()) {
+    out.push(prefRow('showRenownBar', t('menu.hud.renownBar', 'Renown bar'),
+      t('menu.hud.renownBarNote', 'Show your Renown level and progress bar under the vitals.')));
+  }
   out.push(mapScaleRow());   // MAP-SCALE
   out.push(prefRow('shopHidden', t('menu.shop.hide', 'Hide the shop'),
     t('menu.shop.hideNote', 'Take the shop off the pause screen. Your Aurum and your items stay on your account.')));   // SHOP-HIDE

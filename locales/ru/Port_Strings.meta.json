@@ -13719,6 +13719,76 @@
   "tr": "6ee2c815d29c",
   "by": "claude-in-session"
  },
+ "features.ltEncounterScale.high": {
+  "en": "da4655f3ea24",
+  "tr": "97a812ecb170",
+  "by": "human"
+ },
+ "features.ltEncounterScale.low": {
+  "en": "b009188cd7ce",
+  "tr": "287c5813388a",
+  "by": "human"
+ },
+ "features.ltEncounterScale.mid": {
+  "en": "a813ffbe5ac1",
+  "tr": "ec20d2fe0a5a",
+  "by": "human"
+ },
+ "features.ltEncounterScale.note": {
+  "en": "a32af3193e18",
+  "tr": "dac544d9bf3f",
+  "by": "human"
+ },
+ "features.ltEncounterScale.title": {
+  "en": "c7f69092f554",
+  "tr": "e15bc74a97d4",
+  "by": "human"
+ },
+ "features.ltUrbanLoot.full": {
+  "en": "25297df8a9e7",
+  "tr": "1ec3d1aa3713",
+  "by": "human"
+ },
+ "features.ltUrbanLoot.note": {
+  "en": "806c8a204069",
+  "tr": "8f972917a6f7",
+  "by": "human"
+ },
+ "features.ltUrbanLoot.supplies": {
+  "en": "c1954d89966d",
+  "tr": "d8ea78fc7e12",
+  "by": "human"
+ },
+ "features.ltUrbanLoot.title": {
+  "en": "f57bccc75478",
+  "tr": "b35ddd0497bb",
+  "by": "human"
+ },
+ "features.ltUrbanLoot.zero": {
+  "en": "3296940e50a4",
+  "tr": "3ebcb5fde3b9",
+  "by": "human"
+ },
+ "features.ltWildernessLoot.full": {
+  "en": "25297df8a9e7",
+  "tr": "1ec3d1aa3713",
+  "by": "human"
+ },
+ "features.ltWildernessLoot.note": {
+  "en": "b1678a2afed6",
+  "tr": "1322ffcfd3a3",
+  "by": "human"
+ },
+ "features.ltWildernessLoot.supplies": {
+  "en": "60decb4c5978",
+  "tr": "9d2e1e86b699",
+  "by": "human"
+ },
+ "features.ltWildernessLoot.title": {
+  "en": "f4f74837f72e",
+  "tr": "055518696409",
+  "by": "human"
+ },
  "features.mod.beautifulTowns.effect": {
   "en": "47a62f32ffd4",
   "tr": "49541cc0ab08",
@@ -20744,6 +20814,41 @@
   "tr": "19a568ded7e4",
   "by": "claude-in-session"
  },
+ "living.surrender.beaten": {
+  "en": "a249aa9d919b",
+  "tr": "3cc0b6e013f3",
+  "by": "human"
+ },
+ "living.surrender.conceded": {
+  "en": "0416c573bb25",
+  "tr": "38f1f7c48413",
+  "by": "human"
+ },
+ "living.surrender.optConcede": {
+  "en": "3bc4c8706112",
+  "tr": "3e5c993dda69",
+  "by": "human"
+ },
+ "living.surrender.optForfeit": {
+  "en": "637fcd0dde89",
+  "tr": "b98919ad7231",
+  "by": "human"
+ },
+ "living.surrender.optPurse": {
+  "en": "1fdc3fe6139a",
+  "tr": "e06cfbc61a23",
+  "by": "human"
+ },
+ "living.surrender.optSubmit": {
+  "en": "6ca069cfd619",
+  "tr": "58cc054d6fc2",
+  "by": "human"
+ },
+ "living.surrender.robbed": {
+  "en": "0e9c4bb8304a",
+  "tr": "e1738e056e42",
+  "by": "human"
+ },
  "living.travel.ambush": {
   "en": "0d4e2092b392",
   "tr": "01a810548869",
@@ -23262,6 +23367,16 @@
  "menu.hud.preview.saddle": {
   "en": "cc8aa54bce2c",
   "tr": "077aa1757c1f",
+  "by": "claude-in-session"
+ },
+ "menu.hud.renownBar": {
+  "en": "744d468feb1e",
+  "tr": "711f78acc16b",
+  "by": "claude-in-session"
+ },
+ "menu.hud.renownBarNote": {
+  "en": "aa56d2ae74fe",
+  "tr": "dde0fc108143",
   "by": "claude-in-session"
  },
  "menu.hud.reset": {
@@ -46718,5 +46833,425 @@
   "en": "83c6a3eab9ec",
   "tr": "f61941372dde",
   "by": "claude-in-session"
+ },
+ "tooltip.stat.str.details": {
+  "en": "a07b4e556e67",
+  "tr": "62562799e4fa",
+  "by": "human"
+ },
+ "tooltip.stat.str.next": {
+  "en": "d31c735bf695",
+  "tr": "f88d6460e69a",
+  "by": "human"
+ },
+ "tooltip.stat.int.details": {
+  "en": "db9d3283c90b",
+  "tr": "2552a87c8663",
+  "by": "human"
+ },
+ "tooltip.stat.wil.details": {
+  "en": "3cce3a0dbb2e",
+  "tr": "227ac9b3642d",
+  "by": "human"
+ },
+ "tooltip.stat.agi.details": {
+  "en": "2baa3a3e08b7",
+  "tr": "cd40168b4ee3",
+  "by": "human"
+ },
+ "tooltip.stat.end.details": {
+  "en": "13a1ee4ade3a",
+  "tr": "e34514efd40b",
+  "by": "human"
+ },
+ "tooltip.skill.governing": {
+  "en": "31bf5c955a61",
+  "tr": "cd2029c3a9b1",
+  "by": "human"
+ },
+ "tooltip.skill.role.advancing": {
+  "en": "c7d682286143",
+  "tr": "ef62a4ca7d9a",
+  "by": "human"
+ },
+ "tooltip.skill.role.minor": {
+  "en": "1fc93ec223a8",
+  "tr": "1eb747143729",
+  "by": "human"
+ },
+ "tooltip.skill.role.misc": {
+  "en": "0295076c10d3",
+  "tr": "b739118eb8ec",
+  "by": "human"
+ },
+ "tooltip.skill.h2h.damage": {
+  "en": "ddd5598c5c08",
+  "tr": "cb4d264db97e",
+  "by": "human"
+ },
+ "tooltip.skill.crit.bonus": {
+  "en": "3bc91e5f72f8",
+  "tr": "4fb4ada549d1",
+  "by": "human"
+ },
+ "tooltip.skill.backstab.bonus": {
+  "en": "da4f859461a3",
+  "tr": "9db64fc7e0a8",
+  "by": "human"
+ },
+ "tooltip.skill.magic.discount": {
+  "en": "ef8953e86544",
+  "tr": "5f9ea6336f91",
+  "by": "human"
+ },
+ "customclass.points.formatted": {
+  "en": "ac9754d04ae3",
+  "tr": "049f75375347",
+  "by": "human"
+ },
+ "tooltip.advdis.target": {
+  "en": "b8e6c0069d0c",
+  "tr": "bac636a4b761",
+  "by": "human"
+ },
+ "tooltip.advdis.impact": {
+  "en": "890458c35549",
+  "tr": "73ce19d4157f",
+  "by": "human"
+ },
+ "tooltip.advdis.impact.fixed": {
+  "en": "6a25502511c7",
+  "tr": "771020d438a8",
+  "by": "human"
+ },
+ "tooltip.advdis.impact.range": {
+  "en": "14d17576be43",
+  "tr": "ac631c6f496a",
+  "by": "human"
+ },
+ "skill.desc.medical": {
+  "en": "13730ffa296e",
+  "tr": "a8e42c5adbc5",
+  "by": "human"
+ },
+ "skill.desc.etiquette": {
+  "en": "fb98cf079b75",
+  "tr": "19300f7a7f0f",
+  "by": "human"
+ },
+ "skill.desc.streetwise": {
+  "en": "f6bc1d5e2e60",
+  "tr": "e807aee21143",
+  "by": "human"
+ },
+ "skill.desc.jumping": {
+  "en": "106b57840f8f",
+  "tr": "2dfe2530303a",
+  "by": "human"
+ },
+ "skill.desc.orcish": {
+  "en": "e711017e5679",
+  "tr": "8782b6e10e88",
+  "by": "human"
+ },
+ "skill.desc.harpy": {
+  "en": "7c9fcb970c00",
+  "tr": "9b60c52472f2",
+  "by": "human"
+ },
+ "skill.desc.giantish": {
+  "en": "3be3e8fd8563",
+  "tr": "632b912e8813",
+  "by": "human"
+ },
+ "skill.desc.dragonish": {
+  "en": "e9641552c150",
+  "tr": "9277d45995a3",
+  "by": "human"
+ },
+ "skill.desc.nymph": {
+  "en": "0a82bf095fb5",
+  "tr": "0a2ce6f5fbcc",
+  "by": "human"
+ },
+ "skill.desc.daedric": {
+  "en": "0149dfabea9e",
+  "tr": "ccbc117b7a22",
+  "by": "human"
+ },
+ "skill.desc.spriggan": {
+  "en": "b44d66afa6e8",
+  "tr": "8b365b5de002",
+  "by": "human"
+ },
+ "skill.desc.centaurian": {
+  "en": "79bdec216c25",
+  "tr": "fcfc8c968540",
+  "by": "human"
+ },
+ "skill.desc.impish": {
+  "en": "5a0b57916834",
+  "tr": "d5b830ed67ca",
+  "by": "human"
+ },
+ "skill.desc.lockpicking": {
+  "en": "fd8474895efd",
+  "tr": "6cfc7da49fc0",
+  "by": "human"
+ },
+ "skill.desc.mercantile": {
+  "en": "5458da4a27d7",
+  "tr": "4baf8ec2d2af",
+  "by": "human"
+ },
+ "skill.desc.pickpocket": {
+  "en": "ac6b178e406a",
+  "tr": "af34d24224a3",
+  "by": "human"
+ },
+ "skill.desc.stealth": {
+  "en": "37e4b88c13c7",
+  "tr": "31f092b1bc9f",
+  "by": "human"
+ },
+ "skill.desc.swimming": {
+  "en": "876f4ec70e8f",
+  "tr": "0670361c3b76",
+  "by": "human"
+ },
+ "skill.desc.climbing": {
+  "en": "917c12cd4a7f",
+  "tr": "5f8d9468ef3f",
+  "by": "human"
+ },
+ "skill.desc.backstabbing": {
+  "en": "70bdfc1cf708",
+  "tr": "1301274b57d3",
+  "by": "human"
+ },
+ "skill.desc.dodging": {
+  "en": "be1f14247f70",
+  "tr": "e948fd9eb3a5",
+  "by": "human"
+ },
+ "skill.desc.running": {
+  "en": "ee330a84e18a",
+  "tr": "4f9ee291eb36",
+  "by": "human"
+ },
+ "skill.desc.destruction": {
+  "en": "c09d48bbb481",
+  "tr": "e76b14a8e973",
+  "by": "human"
+ },
+ "skill.desc.restoration": {
+  "en": "e675be1ce98e",
+  "tr": "509b89b50ee4",
+  "by": "human"
+ },
+ "skill.desc.illusion": {
+  "en": "8b6b965109e7",
+  "tr": "b4f8f939853e",
+  "by": "human"
+ },
+ "skill.desc.alteration": {
+  "en": "cd446cee21c4",
+  "tr": "84aa972320c1",
+  "by": "human"
+ },
+ "skill.desc.thaumaturgy": {
+  "en": "8e0bfc5a00ba",
+  "tr": "80076f45fd69",
+  "by": "human"
+ },
+ "skill.desc.mysticism": {
+  "en": "de69b51164b7",
+  "tr": "b479996913b6",
+  "by": "human"
+ },
+ "skill.desc.shortblade": {
+  "en": "49c680fccdeb",
+  "tr": "bc360ce4708a",
+  "by": "human"
+ },
+ "skill.desc.longblade": {
+  "en": "8a6da669da12",
+  "tr": "c606cd6d798d",
+  "by": "human"
+ },
+ "skill.desc.handtohand": {
+  "en": "b763447224b6",
+  "tr": "51926fcc93d5",
+  "by": "human"
+ },
+ "skill.desc.axe": {
+  "en": "eeebe2a757f5",
+  "tr": "d266927f4fd9",
+  "by": "human"
+ },
+ "skill.desc.bluntweapon": {
+  "en": "69757929f5d4",
+  "tr": "3f91a68a9854",
+  "by": "human"
+ },
+ "skill.desc.archery": {
+  "en": "c1fa2c1e804e",
+  "tr": "6b90d8346ea3",
+  "by": "human"
+ },
+ "skill.desc.criticalstrike": {
+  "en": "3b6a4b91cbb4",
+  "tr": "2137b09956ab",
+  "by": "human"
+ },
+ "advdis.desc.acuteHearing": {
+  "en": "3dc9d1ccad6a",
+  "tr": "18746ff398ca",
+  "by": "human"
+ },
+ "advdis.desc.adrenalineRush": {
+  "en": "0ec757aa128c",
+  "tr": "8e994bed6917",
+  "by": "human"
+ },
+ "advdis.desc.athleticism": {
+  "en": "dc009e25b059",
+  "tr": "469a085f1719",
+  "by": "human"
+ },
+ "advdis.desc.bonusToHit": {
+  "en": "ac652948d565",
+  "tr": "09e21010c469",
+  "by": "human"
+ },
+ "advdis.desc.expertiseIn": {
+  "en": "d6e30cefe14f",
+  "tr": "96919ace425b",
+  "by": "human"
+ },
+ "advdis.desc.immunity": {
+  "en": "bd1d9ff9d6ff",
+  "tr": "f2e04621e78a",
+  "by": "human"
+ },
+ "advdis.desc.increasedMagery": {
+  "en": "e5c4d1cd0a4a",
+  "tr": "a402a7e47b90",
+  "by": "human"
+ },
+ "advdis.desc.rapidHealing": {
+  "en": "03a1e4d6c66a",
+  "tr": "36d4eb526b92",
+  "by": "human"
+ },
+ "advdis.desc.regenerateHealth": {
+  "en": "5d63bb4bca5b",
+  "tr": "9e7d0aa3a5fb",
+  "by": "human"
+ },
+ "advdis.desc.resistance": {
+  "en": "b762046bed72",
+  "tr": "d20dbd2597ae",
+  "by": "human"
+ },
+ "advdis.desc.spellAbsorption": {
+  "en": "ee874d5ae65b",
+  "tr": "669fd0769493",
+  "by": "human"
+ },
+ "advdis.desc.criticalWeakness": {
+  "en": "b101d2772d37",
+  "tr": "56d631e0b4ec",
+  "by": "human"
+ },
+ "advdis.desc.damage": {
+  "en": "697f2f2b6ef3",
+  "tr": "836d745e0838",
+  "by": "human"
+ },
+ "advdis.desc.darknessPoweredMagery": {
+  "en": "a0ceec4eb13f",
+  "tr": "b5ba93d76893",
+  "by": "human"
+ },
+ "advdis.desc.forbiddenArmorType": {
+  "en": "41347abd7717",
+  "tr": "49a658e148b6",
+  "by": "human"
+ },
+ "advdis.desc.forbiddenMaterial": {
+  "en": "7489736fa6be",
+  "tr": "78b6839903d5",
+  "by": "human"
+ },
+ "advdis.desc.forbiddenShieldTypes": {
+  "en": "a3469378ae57",
+  "tr": "289c5d2970e9",
+  "by": "human"
+ },
+ "advdis.desc.forbiddenWeaponry": {
+  "en": "e66a63e2be73",
+  "tr": "55e47ecd72bc",
+  "by": "human"
+ },
+ "advdis.desc.inabilityToRegen": {
+  "en": "22a90c9efc93",
+  "tr": "01d8be6d9306",
+  "by": "human"
+ },
+ "advdis.desc.lightPoweredMagery": {
+  "en": "a92875d0dbf0",
+  "tr": "6571b39153e2",
+  "by": "human"
+ },
+ "advdis.desc.lowTolerance": {
+  "en": "4105ff9111ed",
+  "tr": "65a1f9cf6d12",
+  "by": "human"
+ },
+ "advdis.desc.phobia": {
+  "en": "caec0de59774",
+  "tr": "e67e552c4286",
+  "by": "human"
+ },
+ "bounty.fort.way": {
+  "en": "1bb1e310f1d9",
+  "tr": "7ebc9b550018",
+  "by": "human"
+ },
+ "bounty.fort.mapLine": {
+  "en": "f2a0c4c27cdf",
+  "tr": "972549bf8902",
+  "by": "human"
+ },
+ "bounty.fort.titleWar": {
+  "en": "f42c4a1b536a",
+  "tr": "ed6f026885aa",
+  "by": "human"
+ },
+ "bounty.fort.titleStrife": {
+  "en": "d9be3a07aa16",
+  "tr": "613f8de1ff9f",
+  "by": "human"
+ },
+ "bounty.fort.titlePlague": {
+  "en": "fd0f8b1f25a9",
+  "tr": "3c79bd92fa24",
+  "by": "human"
+ },
+ "bounty.fort.storyWar": {
+  "en": "be1643e29854",
+  "tr": "151fdbea3e43",
+  "by": "human"
+ },
+ "bounty.fort.storyStrife": {
+  "en": "d8b0b3184216",
+  "tr": "3cd82d13f0d2",
+  "by": "human"
+ },
+ "bounty.fort.storyPlague": {
+  "en": "cce9c35ddb1f",
+  "tr": "2328dca1e8b7",
+  "by": "human"
  }
 }

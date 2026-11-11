@@ -1329,9 +1329,11 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   last.hpSeen = hpNow;
 
   // RENOWN4: MY RENOWN - the row while the page knows my level (online), its bar while it knows the total too.
+  // RENOWN-TOGGLE: gated by showRenownBar pref (off by default).
   const rv = hudRenown();
-  if (last.renownOn !== !!rv) { last.renownOn = !!rv; parts.renown.classList.toggle('on', !!rv); }
-  if (rv) {
+  const showRenown = !!rv && getPref('showRenownBar') === true;
+  if (last.renownOn !== showRenown) { last.renownOn = showRenown; parts.renown.classList.toggle('on', showRenown); }
+  if (showRenown && rv) {
     put(parts.renownBox, 'renownL', String(rv.level));
     if (last.renownBar !== rv.bar) { last.renownBar = rv.bar; parts.renown.classList.toggle('nobar', !rv.bar); }
     width(parts.renownFill, 'renownW', rv.frac * 100);
@@ -1340,12 +1342,12 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     width(parts.renownGhost, 'renownGW', rv.ghost * 100);
     put(parts.renownNum, 'renownT', rv.text);   // UI3: the XP in the bar
   }
-  // SKILL-READY / FIRM-STARS: the two tiles - and the row stands for them where it has no bar of its own (offline)
+  // SKILL-READY / FIRM-STARS: the two tiles - and the row stands for them where it has no bar of its own (offline or renown hidden)
   const advN = drawAdvanceTiles(parts.adv, { row: parts.renown });
   showAdvTile(parts.adv.skill, advN.skills);
   showAdvTile(parts.adv.firm, advN.stars);
   const advOn = advN.skills > 0 || advN.stars > 0;
-  if (last.advOnly !== (advOn && !rv)) { last.advOnly = advOn && !rv; parts.renown.classList.toggle('adv-only', last.advOnly); }
+  if (last.advOnly !== (advOn && !showRenown)) { last.advOnly = advOn && !showRenown; parts.renown.classList.toggle('adv-only', last.advOnly); }
 
   // THE BREATH. DFU's own two laws: drawn only while holding breath,
   // and short below (endurance >> 3) + 4.
