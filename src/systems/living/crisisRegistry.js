@@ -277,7 +277,7 @@ export const CRISIS_EVENTS = Object.freeze([
       { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.1', '1. Pacify the vagrants and support the monks'), stance: 'defenders', repF1: 4, repF2: -4, xp: 40 },
       { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.2', '2. Denounce the monastery and support the hungry mob'), stance: 'attackers', repF1: -6, repF2: 6 },
       { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.3', '3. Do not intervene in the soup kitchen dispute'), stance: 'neutral' },
-      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.4', '4. Purify the spoiled food with restoration magic (Restoration)'), stance: 'peace', skillCheck: { skill: SKILLS.Restoration, target: 40, target: undefined }, repF1: 8, repF2: 8, xp: 120 },
+      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.4', '4. Purify the spoiled food with restoration magic (Restoration)'), stance: 'peace', skillCheck: { skill: SKILLS.Restoration, target: 40 }, repF1: 8, repF2: 8, xp: 120 },
     ],
   },
   {
@@ -963,6 +963,25 @@ export function resolveCrisisChoiceCheck(
     baseGoldCost > 0
       ? Math.max(10, Math.round(baseGoldCost * computeRoleplayBribeMultiplier(playerEntity, SKILLS.Mercantile)))
       : 0;
+
+  const playerGold = Number(playerEntity?.goldPieces ?? 0);
+  if (effectiveGoldCost > 0 && playerGold < effectiveGoldCost) {
+    return {
+      hasSkillCheck: Boolean(choice?.skillCheck),
+      degree: LIVING_ROLL_DEGREE.FAILURE,
+      passed: false,
+      peaceResolved: false,
+      hostileToPlayer: false,
+      goldShortage: true,
+      xpAwarded: 0,
+      repF1Delta: 0,
+      repF2Delta: 0,
+      goldCost: effectiveGoldCost,
+      goldReward: 0,
+      fatigueCost: 0,
+      rollResult: null,
+    };
+  }
 
   if (!choice?.skillCheck) {
     return {

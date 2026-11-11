@@ -2356,6 +2356,13 @@ export function createLivingSceneHost(deps) {
               rng,
             });
 
+            if (checkRes.goldShortage) {
+              deps.say(LIVING_WORDS.roadAdvNoGold(checkRes.goldCost), 5);
+              s.skirmishStance = 'chaos';
+              retargetSkirmishFoes(s);
+              return;
+            }
+
             if (checkRes.hasSkillCheck) {
               const score = checkRes.rollResult?.totalScore ?? 50;
               const dc = checkRes.rollResult?.targetScore ?? c.skillCheck?.target ?? 50;

@@ -30049,19 +30049,33 @@ export async function bootWorld(canvas, renderer, params, status) {
           : `[Crisis TP] No active regional crises currently occurring in the Bay.`;
       }
 
-      const chosen = candidateRegions[Math.floor(Math.random() * candidateRegions.length)];
-      const r = chosen.regionIndex;
+      // Shuffle candidate regions and pick the first one that has mapped settlements
+      const shuffledCandidates = [...candidateRegions].sort(() => Math.random() - 0.5);
+      let chosen = null;
+      let settlements = [];
 
-      const settlements = [];
-      for (const [k, loc] of locationIndex.entries()) {
-        if (loc.regionIndex === r && loc.name) {
-          settlements.push({ loc, key: k });
+      for (const cand of shuffledCandidates) {
+        const r = cand.regionIndex;
+        const candSettlements = [];
+        for (const [k, loc] of locationIndex.entries()) {
+          if (loc.regionIndex === r && loc.name) {
+            candSettlements.push({ loc, key: k });
+          }
+        }
+        if (candSettlements.length > 0) {
+          chosen = cand;
+          settlements = candSettlements;
+          break;
         }
       }
 
-      if (settlements.length === 0) {
-        return `[Crisis TP] Region "${REGION_NAMES[r]}" has active ${chosen.label}, but no mapped settlement could be located.`;
+      if (!chosen || settlements.length === 0) {
+        return cleanFilter
+          ? `[Crisis TP] Regions experiencing "${cleanFilter}" were found, but none contain mapped settlements.`
+          : `[Crisis TP] Active crisis regions were found, but none contain mapped settlements.`;
       }
+
+      const r = chosen.regionIndex;
 
       const target = settlements[Math.floor(Math.random() * settlements.length)];
       const [pxStr, pyStr] = target.key.split(',');

@@ -245,4 +245,22 @@ test('LT-Typed-Rolls: Editable formula registry resolves graded outcomes (TRIUMP
   });
   assert.equal(boosted.cleanSuccess, true, 'Boosted skillWeight turns low roll into clean success');
   resetLivingFormulas();
+
+  // 6. Gold Shortage validation: impoverished player cannot execute paid choices
+  const paidChoice = {
+    text: 'Bribe the officer (200 gold)',
+    stance: 'bribe',
+    goldCost: 200,
+    xp: 50,
+  };
+  const brokePlayer = { goldPieces: 0 };
+  const brokeRes = resolveCrisisChoiceCheck(brokePlayer, paidChoice, { regionIndex: 17 });
+  assert.equal(brokeRes.passed, false, 'Choice must fail if player lacks gold');
+  assert.equal(brokeRes.goldShortage, true, 'Choice must report goldShortage');
+  assert.equal(brokeRes.xpAwarded, 0, 'No XP awarded on gold shortage');
+
+  const wealthyPlayer = { goldPieces: 500 };
+  const wealthyRes = resolveCrisisChoiceCheck(wealthyPlayer, paidChoice, { regionIndex: 17 });
+  assert.equal(wealthyRes.passed, true, 'Choice must succeed if player has sufficient gold');
+  assert.equal(wealthyRes.goldCost > 0, true);
 });
