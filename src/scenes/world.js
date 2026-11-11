@@ -4121,6 +4121,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && Number.isFinite(collider?.heightAt?.(player.pos[0], player.pos[2])),
     clock: () => skyMinutes(),
     regionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+    locationRecord: () => _musicLoc,
+    playerTravelPixel: () => playerTravelPixel(),
     inLocationRect: () => _musicInLocationRect(),
     onRoad: () => _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16) || onTheRoad(),
     afloat: () => (!!csaRuntime?.isSailing?.() || !!csaAboard?.aboard?.boat || !!naval?.aboard?.()) && !_musicInLocationRect(),
@@ -29915,7 +29917,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       let count = 0;
       if (exteriorFoes?.foes) {
         for (const f of exteriorFoes.foes) {
-          if (!f.dead && (f.ai?.isHostile || f.entity?.team !== 'PlayerAlly') && !f.companion) {
+          if (!f.dead && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
             exteriorFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: true, bypassShield: true });
             count++;
           }
@@ -29923,7 +29925,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       if (cityGuards?.guards) {
         for (const g of cityGuards.guards) {
-          if (!g.dead && g.ai?.isHostile && g.entity?.team !== 'PlayerAlly') {
+          if (!g.dead && !g.companion && !g.allied && g.entity?.team !== 'PlayerAlly' && g.entity?.mobileTeam !== 'PlayerAlly' && g.ai?.isHostile) {
             cityGuards.hurtGuard?.(g, 99999, player.pos, null, { fromPlayer: true });
             count++;
           }
@@ -29932,7 +29934,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const dCtx = modes?.dungeonCtx;
       if (dCtx?.foes) {
         for (const f of dCtx.foes) {
-          if (!f.dead && (f.ai?.isHostile || f.entity?.team !== 'PlayerAlly') && !f.companion) {
+          if (!f.dead && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
             dCtx.damageFoe?.(f, 99999, null, null, { fromPlayer: true, bypassShield: true });
             count++;
           }

@@ -595,12 +595,12 @@ export function runTargetMachine(self, candidates, playerFeet, classicDt, {
     // to. Nesting this inside the gate (the port's first cut) lost
     // exactly that: a foe that walked out of the spawn band stopped
     // recruiting the target it was still holding.
-    if (ai.target != null && ai.targetSenses && (ai.targetSenses.ai?.target ?? null) === null) {
+    if (ai.target != null && ai.targetSenses?.ai && (ai.targetSenses.ai.target ?? null) === null) {
       ai.targetSenses.ai.target = self;
     }
   }
   if (ai.target == null) return null;
-  return isPlayerTarget(ai.target) ? (ai.target.feet ?? playerFeet) : ai.target.ai.feet;   // WORLD3: a peer's own feet
+  return isPlayerTarget(ai.target) ? (ai.target.feet ?? playerFeet) : (ai.target.ai?.feet ?? playerFeet);   // WORLD3: a peer's own feet
 }
 
 /**

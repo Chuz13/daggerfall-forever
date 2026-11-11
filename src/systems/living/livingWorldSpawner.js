@@ -65,7 +65,9 @@ import {
   getActiveCrisisContract,
   completeRegionalCrisisContract,
 } from './crisisPresenter.js';
-import { goldStack, isGoldPieces } from '../inventory.js';
+import { goldStack, isGoldPieces, addItem } from '../inventory.js';
+import { setItemFields } from '../item/itemTemplates.js';
+import { makePotion, potionRecipeKey, POTION_RECIPES } from '../potions.js';
 import {
   shouldDispatchNemesis,
   determineNemesisArchetype,
@@ -1279,6 +1281,9 @@ export function buildLivingSiteBlueprint({
  *   rng?: () => number,
  * }} deps
  */
+export const locationSkirmishCooldowns = new Map();
+export const SKIRMISH_LOCATION_COOLDOWN_MINUTES = 4320; // 3 in-game days
+
 export function createLivingSceneHost(deps) {
   const rng = deps.rng ?? Math.random;
   /** @type {Map<number, any>} modelId -> { gpu } */
@@ -1295,8 +1300,6 @@ export function createLivingSceneHost(deps) {
   let checkTimer = 0;
   let lastSpawnMinute = -999999;
   let lastSkirmishRegion = -1;
-  const locationSkirmishCooldowns = new Map();
-  const SKIRMISH_LOCATION_COOLDOWN_MINUTES = 4320; // 3 in-game days
   let lastQuarantineRegion = -1;
   let companionFoe = /** @type {any} */ (null);
   let companionId = /** @type {number|string|null} */ (null);
@@ -1431,6 +1434,13 @@ export function createLivingSceneHost(deps) {
     const s = stood;
     if (!s) return;
     stood = null;
+    if (deps.collider?.removeBucket && s.blueprint?.meshes) {
+      for (let i = 0; i < s.blueprint.meshes.length; i++) {
+        try {
+          deps.collider.removeBucket(`${s.campId}_mesh_${i}`);
+        } catch (_e) {}
+      }
+    }
     for (const f of s.foes) {
       if (!f?.dead && deps.inPool(f)) {
         try {
@@ -2562,6 +2572,19 @@ export function createLivingSceneHost(deps) {
     const siteCampId = `lt_${blueprint.kind}_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
     site.campId = siteCampId;
 
+    if (deps.collider?.addMesh && blueprint.meshes) {
+      for (let i = 0; i < blueprint.meshes.length; i++) {
+        const m = blueprint.meshes[i];
+        const cpu = deps.meshes?.cpuModels?.get?.(m.modelId);
+        if (cpu?.positions && cpu.indices) {
+          try {
+            const mat = trs(m.feet[0], m.feet[1], m.feet[2], 0, m.yawDeg, 0);
+            deps.collider.addMesh(`${siteCampId}_mesh_${i}`, cpu.positions, cpu.indices, mat);
+          } catch (_e) {}
+        }
+      }
+    }
+
     if (blueprint.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON && deps.spawnNavalSquadron) {
       site.navalSquadron = deps.spawnNavalSquadron(blueprint.meta?.squadron);
     }
@@ -2660,7 +2683,10 @@ export function createLivingSceneHost(deps) {
                   goldStack(10 + Math.floor(supplyRng * 25)),
                 ];
                 if (supplyRng > 0.4) {
-                  supplies.push({ name: 'Healing Salve', count: 1, isPotion: true });
+                  const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
+                  if (healRec) {
+                    supplies.push(makePotion(potionRecipeKey(healRec.ingredients)));
+                  }
                 }
                 rec.entity.items = supplies;
               }
@@ -2711,9 +2737,10 @@ export function createLivingSceneHost(deps) {
     const regState = getRegionState(regIdx);
 
     const loc = deps.locationRecord?.() ?? null;
+    const pPixel = deps.playerTravelPixel?.() ?? null;
     const locKey = loc?.mapTableData?.mapId != null
-      ? String(loc.mapTableData.mapId)
-      : `${regIdx}:${Math.round(feet[0] / 100)}:${Math.round(feet[2] / 100)}`;
+      ? `map_${loc.mapTableData.mapId}`
+      : (loc?.name ? `${regIdx}:${loc.name}` : (pPixel ? `${regIdx}:${pPixel.x},${pPixel.y}` : `${regIdx}:${Math.round(feet[0] / 100)}:${Math.round(feet[2] / 100)}`));
     const lastSkirmishTime = locationSkirmishCooldowns.get(locKey) ?? -999999;
     const canSkirmishHere = (nowMin - lastSkirmishTime) >= SKIRMISH_LOCATION_COOLDOWN_MINUTES;
 
@@ -3300,6 +3327,20 @@ export function createLivingSceneHost(deps) {
       move(stood.blueprint.center);
       for (const m of stood.blueprint.meshes) move(m.feet);
       for (const fl of stood.blueprint.flats) move(fl.feet);
+      if (deps.collider?.addMesh && stood.blueprint?.meshes) {
+        for (let i = 0; i < stood.blueprint.meshes.length; i++) {
+          const m = stood.blueprint.meshes[i];
+          const bKey = `${stood.campId}_mesh_${i}`;
+          try {
+            deps.collider.removeBucket?.(bKey);
+            const cpu = deps.meshes?.cpuModels?.get?.(m.modelId);
+            if (cpu?.positions && cpu.indices) {
+              const mat = trs(m.feet[0], m.feet[1], m.feet[2], 0, m.yawDeg, 0);
+              deps.collider.addMesh(bKey, cpu.positions, cpu.indices, mat);
+            }
+          } catch (_e) {}
+        }
+      }
       if (stood.batches.length && deps.renderer?.destroyBillboardBatch) {
         for (const b of stood.batches) {
           try {
@@ -3390,13 +3431,14 @@ export function buildDungeonAdventurerChoiceSpec({
             }
             if (foeRecord?.entity) {
               foeRecord.entity.items = foeRecord.entity.items || [];
-              foeRecord.entity.items.push({
+              addItem(foeRecord.entity.items, setItemFields({
                 group: 'QuestItems',
-                templateIndex: 0,
+                templateIndex: 283,
+                name: `${adv.name}'s Claimed Quest Trophy`,
                 shortName: `${adv.name}'s Claimed Quest Trophy`,
                 value: buyoutGold,
-                weight: 0.25,
-              });
+                weightInKg: 0.25,
+              }));
             }
             say(LIVING_WORDS.adventurerDuelChallenge());
           },
@@ -3417,13 +3459,14 @@ export function buildDungeonAdventurerChoiceSpec({
             if (res?.outcome === RECLAIM_OUTCOME.BOUGHT_BACK && playerEntity) {
               playerEntity.goldPieces = Math.max(0, haveGold - (res.goldCost ?? buyoutGold));
               playerEntity.items = playerEntity.items || [];
-              playerEntity.items.push({
+              addItem(playerEntity.items, setItemFields({
                 group: 'QuestItems',
-                templateIndex: 0,
+                templateIndex: 283,
+                name: `Reclaimed Quest Trophy`,
                 shortName: `Reclaimed Quest Trophy`,
                 value: buyoutGold,
-                weight: 0.25,
-              });
+                weightInKg: 0.25,
+              }));
               if (foeRecord?.ai) foeRecord.ai.isHostile = false;
               say(LIVING_WORDS.adventurerReclaimSuccess());
             } else {
@@ -3444,13 +3487,14 @@ export function buildDungeonAdventurerChoiceSpec({
             });
             if (res?.recovered && playerEntity) {
               playerEntity.items = playerEntity.items || [];
-              playerEntity.items.push({
+              addItem(playerEntity.items, setItemFields({
                 group: 'QuestItems',
-                templateIndex: 0,
+                templateIndex: 283,
+                name: `Reclaimed Quest Trophy`,
                 shortName: `Reclaimed Quest Trophy`,
                 value: buyoutGold,
-                weight: 0.25,
-              });
+                weightInKg: 0.25,
+              }));
               if (foeRecord?.ai) foeRecord.ai.isHostile = false;
               say(LIVING_WORDS.adventurerReclaimSuccess());
             } else {
