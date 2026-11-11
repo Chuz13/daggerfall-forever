@@ -124,6 +124,17 @@ const FOES = Object.freeze({
   283: ['dread', () => t('bounty.foes.willOWisps', 'Will-o\'-wisps')],
   288: ['vermin', () => t('bounty.foes.scamps', 'Scamps')],
   289: ['dread', () => t('bounty.foes.centurionSpheres', 'Centurion Spheres')],
+  // Humanoid classes for martial crises and urban redoubts
+  129: ['dread', () => t('bounty.foes.spellswords', 'Spellswords')],
+  130: ['dread', () => t('bounty.foes.battlemages', 'Battlemages')],
+  133: ['dread', () => t('bounty.foes.nightblades', 'Nightblades')],
+  136: ['orc', () => t('bounty.foes.rogues', 'Rogues')],
+  138: ['orc', () => t('bounty.foes.thieves', 'Thieves')],
+  139: ['dread', () => t('bounty.foes.assassins', 'Assassins')],
+  141: ['orc', () => t('bounty.foes.archers', 'Archers')],
+  143: ['orc', () => t('bounty.foes.barbarians', 'Barbarians')],
+  144: ['orc', () => t('bounty.foes.warriors', 'Warriors')],
+  145: ['orc', () => t('bounty.foes.knights', 'Knights')],
 });
 /** QUARRY-WORLD: does the board have words for a beast - one it may post? @param {number} id */
 export const bountyNames = (id) => Object.hasOwn(FOES, id);
@@ -416,6 +427,25 @@ export const fillStory = (text, words) => String(text).replace(/\{(\w+)\}/g, (al
 const pick = (list, h) => list[h % list.length];
 const capital = (s) => String(s).split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
 
+/** Pick a crisis-appropriate foe type for a fortified redoubt. */
+export function pickFortCrisisFoe(crisis, level, day, px, py, slot) {
+  const h = bountyHash(day, px, py, slot, SALT.beast);
+  const lvl = clampLevel(level);
+  if (crisis === 'WAR') {
+    const pool = lvl < 6 ? [7, 144, 141, 143] : lvl < 11 ? [12, 144, 145, 141, 129] : [24, 145, 130, 129];
+    return pool[h % pool.length];
+  }
+  if (crisis === 'CIVIL_STRIFE') {
+    const pool = lvl < 6 ? [136, 138, 143, 141] : lvl < 11 ? [136, 143, 144, 133] : [136, 139, 133, 144];
+    return pool[h % pool.length];
+  }
+  if (crisis === 'PLAGUE') {
+    const pool = lvl < 6 ? [17, 15, 0] : lvl < 11 ? [17, 15, 19, 277] : [17, 15, 19, 32];
+    return pool[h % pool.length];
+  }
+  return 7;
+}
+
 /**
  * One slot of a town's board, as a reader of `level` reads it - or null when the town has no ground to send anyone
  * to. `sites` is bountySites' list (the caller keeps it; it is the same all day). QUARRY-WORLD: `wild` the land's own
@@ -427,7 +457,7 @@ export function bountyPosting({ day, px, py, name = '', slot, level, sites, dung
   const underground = dungeonSlotsFor(dungeons?.length ?? 0).includes(slot);
   if (!underground && !sites?.length) return null;
   const crisis = getRegionFortCrisis(region);
-  const isFort = !!crisis && !underground && (slot === 1 || (slot === 0 && dungeonSlotsFor(dungeons?.length ?? 0).includes(1)));
+  const isFort = !!crisis && !underground && slot === 0;
   // SITE: four slots, four different spots where the ground allows it - a slot takes the next free spot after its own
   // roll, so the list decides, never the order the slots were asked in
   const used = new Set();
@@ -454,7 +484,9 @@ export function bountyPosting({ day, px, py, name = '', slot, level, sites, dung
   }
   const [tx, ty] = site;
   const quarry = bountyQuarry(level, wild);   // QUARRY-WORLD: the land's own beasts in the tier's band
-  const mobileType = quarry[bountyHash(day, px, py, slot, SALT.beast) % quarry.length];
+  const mobileType = isFort
+    ? pickFortCrisisFoe(crisis, level, day, px, py, slot)
+    : quarry[bountyHash(day, px, py, slot, SALT.beast) % quarry.length];
   const count = isFort
     ? 6 + (bountyHash(day, px, py, slot, SALT.count) % 5)   // Fort garrison: 6 to 10 foes, tactical two-group assault
     : underground
@@ -466,7 +498,9 @@ export function bountyPosting({ day, px, py, name = '', slot, level, sites, dung
   const far = distanceWord(Math.max(Math.abs(tx - px), Math.abs(ty - py)));
   const town = name || 'town';
   const graveyard = !!place?.graveyard;
-  const template = pick(graveyard ? BOUNTY_GRAVEYARD_STORIES : place ? BOUNTY_DUNGEON_STORIES : BOUNTY_STORIES[kind], bountyHash(day, px, py, slot, SALT.story));
+  const template = isFort
+    ? null
+    : pick(graveyard ? BOUNTY_GRAVEYARD_STORIES : place ? BOUNTY_DUNGEON_STORIES : (BOUNTY_STORIES[kind] ?? BOUNTY_STORIES.orc), bountyHash(day, px, py, slot, SALT.story));
   const lvl = clampLevel(level);
   const slotKey = bountySlotKey(day, px, py, slot);
   const preset = isFort ? pickFortPresetName(slotKey, crisis) : null;

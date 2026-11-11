@@ -41,7 +41,7 @@ import {
   isSkirmishBlowCriminal,
   SKIRMISH_TEAMS,
 } from './urbanDirector.js';
-import { resolveCrisisChoiceCheck } from './crisisRegistry.js';
+import { resolveCrisisChoiceCheck, getEventDisplayName } from './crisisRegistry.js';
 import {
   LIVING_ROLL_DEGREE,
   LIVING_FORMULAS,
@@ -572,11 +572,10 @@ export function rollLivingChunkCampRoster(ctx, rolls = Math.random) {
 }
 
 /**
- * Finds a safe, open ground location for a living site (clear of building boxes, walls, and excessive slope).
+ * Finds a safe, open ground location for a living site (clear of obstacles).
  * @param {any} deps
  * @param {number[]} originFeet
  * @param {number} [preferredDist=16]
- * @param {number} [preferredAngle=0]
  * @param {number} [radius=4.0]
  * @returns {{ x: number, z: number, suitable: boolean }}
  */
@@ -1590,8 +1589,8 @@ export function createLivingSceneHost(deps) {
       }
       deps.openChoice({
         lines: [
-          `Checkpoint Guard: "${LIVING_WORDS.checkpointHalt()}"`,
-          `Inspection Toll: ${LIVING_WORDS.checkpointTollDemand(tollGold)}`,
+          `${LIVING_WORDS.checkpointSpeaker()}: "${LIVING_WORDS.checkpointHalt()}"`,
+          `${LIVING_WORDS.checkpointTollLabel()}: ${LIVING_WORDS.checkpointTollDemand(tollGold)}`,
         ],
         options,
       });
@@ -1601,8 +1600,8 @@ export function createLivingSceneHost(deps) {
       if (!nemesis) return;
       deps.openChoice({
         lines: [
-          `${nemesis.name} (${nemesis.archetype || 'Bounty Hunter'}): "${LIVING_WORDS.nemesisMotive(nemesis.archetype)}"`,
-          `Demands: Settle the contract or draw steel!`,
+          `${nemesis.name} (${nemesis.archetype || LIVING_WORDS.nemesisBountyHunter()}): "${LIVING_WORDS.nemesisMotive(nemesis.archetype)}"`,
+          LIVING_WORDS.nemesisDemands(),
         ],
         options: [
           {
@@ -1793,16 +1792,16 @@ export function createLivingSceneHost(deps) {
     } else if (s.kind === LIVING_SITE_KINDS.TRAVELER_REST) {
       const merchantActor = s.foes.find((f) => f?.livingRole === 'traveler');
       const lines = [
-        '=== TRAVELER\'S REST ===',
-        'You come upon a traveling merchant and their armed outrider resting beside a warm campfire along the road.',
-        '"Welcome to our camp, traveler. Rest your feet, or inspect the goods I have brought from across the province."',
+        LIVING_WORDS.travelerRestTitle(),
+        LIVING_WORDS.travelerRestDesc(),
+        LIVING_WORDS.travelerRestWelcome(),
       ];
       const options = [
         {
           code: 'Digit1',
-          label: '1. [Buy] Inspect traveling merchant wares',
+          label: LIVING_WORDS.travelerRestOptBuy(),
           action: () => {
-            deps.say?.('The merchant opens their traveling trunk for barter.', 4);
+            deps.say?.(LIVING_WORDS.travelerRestBuySay(), 4);
             if (merchantActor && deps.openLivingActor) {
               deps.openLivingActor(merchantActor, 'Buy');
             }
@@ -1810,9 +1809,9 @@ export function createLivingSceneHost(deps) {
         },
         {
           code: 'Digit2',
-          label: '2. [Sell] Sell spoils and equipment to merchant',
+          label: LIVING_WORDS.travelerRestOptSell(),
           action: () => {
-            deps.say?.('The merchant weighs your goods and prepares coin.', 4);
+            deps.say?.(LIVING_WORDS.travelerRestSellSay(), 4);
             if (merchantActor && deps.openLivingActor) {
               deps.openLivingActor(merchantActor, 'Sell');
             }
@@ -1820,28 +1819,28 @@ export function createLivingSceneHost(deps) {
         },
         {
           code: 'Digit3',
-          label: '3. [Rest] Rest by the campfire to recover fatigue and health',
+          label: LIVING_WORDS.travelerRestOptRest(),
           action: () => {
             if (player) {
               player.health = Math.min(Number(player.maxHealth ?? player.health), Number(player.health) + 35);
               player.fatigue = Math.min(Number(player.maxFatigue ?? player.fatigue), Number(player.fatigue) + 100);
             }
-            deps.say?.('You warm your hands by the fire and share a cup of tea with the travelers, feeling refreshed.', 6);
+            deps.say?.(LIVING_WORDS.travelerRestRestSay(), 6);
           },
         },
         {
           code: 'Digit4',
-          label: '4. [Depart] Nod politely and continue on your way',
+          label: LIVING_WORDS.travelerRestOptDepart(),
           action: () => {
-            deps.say?.('"Safe travels under the stars, friend."', 4);
+            deps.say?.(LIVING_WORDS.travelerRestDepartSay(), 4);
           },
         },
         {
           code: 'Digit5',
-          label: '5. [Rob] Threaten the caravan and demand their gold!',
+          label: LIVING_WORDS.travelerRestOptRob(),
           action: () => {
             setSiteHostile(s, true);
-            deps.say?.('"Guards, to arms! A brigand attacks our camp!"', 5);
+            deps.say?.(LIVING_WORDS.travelerRestRobSay(), 5);
           },
         },
       ];
@@ -1997,17 +1996,17 @@ export function createLivingSceneHost(deps) {
           },
         });
       }
-      let speakerTitle = 'Traveller';
+      let speakerTitle = LIVING_WORDS.speakerTitle('DEFAULT');
       if (s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
-        speakerTitle = 'Plague Relief Healer';
+        speakerTitle = LIVING_WORDS.speakerTitle('HEALER');
       } else if (plea.type === 'PLAGUE_CURE') {
-        speakerTitle = 'Afflicted Villager';
+        speakerTitle = LIVING_WORDS.speakerTitle('PLAGUE_CURE');
       } else if (plea.type === 'FAMINE_BREAD') {
-        speakerTitle = 'Starving Refugee';
+        speakerTitle = LIVING_WORDS.speakerTitle('FAMINE_BREAD');
       } else if (plea.type === 'WAR_REFUGEE') {
-        speakerTitle = 'Displaced Citizen';
+        speakerTitle = LIVING_WORDS.speakerTitle('WAR_REFUGEE');
       } else if (plea.type === 'ESCORT') {
-        speakerTitle = 'Stranded Traveller';
+        speakerTitle = LIVING_WORDS.speakerTitle('ESCORT');
       }
       const promptLines = [`${speakerTitle}: "${LIVING_WORDS.pleaPrompt(plea.type, reqGold)}"`];
       if (reliefInfo) {
@@ -2294,7 +2293,7 @@ export function createLivingSceneHost(deps) {
                   if (f.ai) { f.ai.isHostile = true; f.ai.detected = true; f.ai.target = deps.playerEntity(); }
                 }
               }
-              deps.say(`Вы встали на сторону [${f1Name}]! Защитите порядок!`, 5);
+              deps.say(LIVING_WORDS.eventJoinedF1(f1Name), 5);
             } else if (c.stance === 'attackers') {
               s.skirmishStance = 'rebels';
               for (const f of s.foes) {
@@ -2306,29 +2305,29 @@ export function createLivingSceneHost(deps) {
                   if (f.ai) { f.ai.isHostile = true; f.ai.detected = true; f.ai.target = deps.playerEntity(); }
                 }
               }
-              deps.say(`Вы встали на сторону [${f2Name}]! Сокрушите стражу!`, 5);
+              deps.say(LIVING_WORDS.eventJoinedF2(f2Name), 5);
             } else if (c.stance === 'peace' || c.stance === 'bribe' || c.stance === 'ransom' || c.stance === 'purify' || c.stance === 'cure' || c.stance === 'consecrate' || c.stance === 'tame' || c.stance === 'chess_move') {
               s.skirmishStance = 'peace';
               for (const f of s.foes) {
                 f.allied = false;
                 if (f?.ai) { f.ai.isHostile = false; f.ai.idle = true; }
               }
-              if (c.goldReward) deps.say(`Получена награда: ${c.goldReward} золотых монет!`, 5);
+              if (c.goldReward) deps.say(LIVING_WORDS.eventRewardGold(c.goldReward), 5);
             } else {
               s.skirmishStance = 'chaos';
               for (const f of s.foes) {
                 f.allied = false;
                 if (f?.ai) f.ai.isHostile = false;
               }
-              deps.say('Вы решили не вмешиваться. Схватка идет своим чередом.', 5);
+              deps.say(LIVING_WORDS.eventNeutral(), 5);
             }
           },
         }));
 
         deps.openChoice({
           lines: [
-            `[СОБЫТИЕ: ${evt.name}]`,
-            `Стороны конфликта: [${f1Name}] против [${f2Name}]. Сделайте выбор:`,
+            LIVING_WORDS.eventChoiceTitle(getEventDisplayName(evt)),
+            LIVING_WORDS.eventChoiceSides(f1Name, f2Name),
           ],
           options,
         });
@@ -2359,7 +2358,7 @@ export function createLivingSceneHost(deps) {
                 if (player?.regionalReputations) {
                   player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) + 5;
                 }
-                deps.say('You joined the City Watch! Defend the town against the rebels! (+5 Regional Rep)', 5);
+                deps.say(LIVING_WORDS.eventJoinedWatch(), 5);
               },
             },
             {
@@ -2386,7 +2385,7 @@ export function createLivingSceneHost(deps) {
                 if (player?.guildMemberships?.[9]) {
                   player.guildMemberships[9].reputation = (player.guildMemberships[9].reputation ?? 0) + 10;
                 }
-                deps.say('You joined the Insurgents! Overthrow the guards! (-15 Regional Rep, +10 Underworld)', 5);
+                deps.say(LIVING_WORDS.eventJoinedRebels(), 5);
               },
             },
             {
@@ -2400,7 +2399,7 @@ export function createLivingSceneHost(deps) {
                     f.ai.isHostile = false;
                   }
                 }
-                deps.say('You choose Chaos! Both sides remain neutral to you unless struck, and crossfire is not a crime.', 5);
+                deps.say(LIVING_WORDS.eventChosenChaos(), 5);
               },
             },
           ],
@@ -2599,8 +2598,12 @@ export function createLivingSceneHost(deps) {
         });
         if (bp.actors.length > 0) {
           standSite(bp);
-          const alertText = bp.meta?.event?.name
-            ? `[Living Tamriel] ${bp.meta.event.name}: ${bp.meta.faction1Name ?? 'Защитники'} против ${bp.meta.faction2Name ?? 'Нападающие'}!`
+          const alertText = bp.meta?.event
+            ? LIVING_WORDS.skirmishAlert(
+                getEventDisplayName(bp.meta.event),
+                bp.meta.faction1Name ?? LIVING_WORDS.factionDefendersGeneric(),
+                bp.meta.faction2Name ?? LIVING_WORDS.factionAttackersGeneric()
+              )
             : LIVING_WORDS.urbanSkirmishAlert();
           deps.say(alertText, 5);
           return;

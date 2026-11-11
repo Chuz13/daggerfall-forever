@@ -345,5 +345,99 @@ export const LIVING_WORDS = Object.freeze({
     t('living.surrender.beaten', 'Finding only empty pockets, they beat you senseless and leave you in the dirt.'),
   surrenderOutcomeConceded: () =>
     t('living.surrender.conceded', 'Your rival nods in satisfaction, takes the prize, and departs in peace.'),
+
+  // Factions & Urban Skirmishes
+  skirmishAlert: (event, f1, f2) =>
+    t('living.skirmish.alert', '[Living Tamriel] {event}: [{f1}] vs [{f2}]!', { event, f1, f2 }),
+  factionDefenders: (region) =>
+    t('living.faction.defenders', '{region} Defenders', { region }),
+  factionVanguard: (region) =>
+    t('living.faction.vanguard', '{region} Vanguard', { region }),
+  factionGarrison: (region) =>
+    t('living.faction.garrison', '{region} Garrison', { region }),
+  factionWarband: () =>
+    t('living.faction.warband', 'Orsinium Warband'),
+  factionCaptives: (region) =>
+    t('living.faction.captives', '{region} Captives', { region }),
+  factionCityWatch: () =>
+    t('living.faction.cityWatch', 'City Watch'),
+  factionRebels: () =>
+    t('living.faction.rebels', 'Rebels'),
+  factionDefendersGeneric: () =>
+    t('living.faction.defendersGeneric', 'Defenders'),
+  factionAttackersGeneric: () =>
+    t('living.faction.attackersGeneric', 'Attackers'),
+
+  // Matrix Event Choice Window & Results
+  eventChoiceTitle: (name) =>
+    t('living.event.choiceTitle', '[EVENT: {name}]', { name }),
+  eventChoiceSides: (f1, f2) =>
+    t('living.event.choiceSides', 'Conflicting sides: [{f1}] vs [{f2}]. Make your choice:', { f1, f2 }),
+  eventJoinedF1: (f1) =>
+    t('living.event.joinedF1', 'You sided with [{f1}]! Defend the order!', { f1 }),
+  eventJoinedF2: (f2) =>
+    t('living.event.joinedF2', 'You sided with [{f2}]! Overthrow the guards!', { f2 }),
+  eventRewardGold: (gold) =>
+    t('living.event.rewardGold', 'Received reward: {gold} gold coins!', { gold }),
+  eventNeutral: () =>
+    t('living.event.neutral', 'You chose not to intervene. The skirmish runs its course.'),
+  eventJoinedWatch: () =>
+    t('living.event.joinedWatch', 'You joined the City Watch! Defend the town against the rebels! (+5 Regional Rep)'),
+  eventJoinedRebels: () =>
+    t('living.event.joinedRebels', 'You joined the Insurgents! Overthrow the guards! (-15 Regional Rep, +10 Underworld)'),
+  eventChosenChaos: () =>
+    t('living.event.chosenChaos', 'You choose Chaos! Both sides remain neutral to you unless struck, and crossfire is not a crime.'),
+
+  // Speaker Titles & Dialogues
+  speakerTitle: (type) => {
+    if (type === 'HEALER') return t('living.speaker.healer', 'Plague Relief Healer');
+    if (type === 'PLAGUE_CURE') return t('living.speaker.afflicted', 'Afflicted Villager');
+    if (type === 'FAMINE_BREAD') return t('living.speaker.refugee', 'Starving Refugee');
+    if (type === 'WAR_REFUGEE') return t('living.speaker.displaced', 'Displaced Citizen');
+    if (type === 'ESCORT') return t('living.speaker.stranded', 'Stranded Traveller');
+    return t('living.speaker.traveller', 'Traveller');
+  },
+  contractTarget: (type) => {
+    if (type === 'WAR') return t('living.target.deserterWarlord', 'Deserter Warlord');
+    if (type === 'PLAGUE') return t('living.target.plagueSmuggler', 'Plague Contraband Smuggler');
+    if (type === 'FAMINE') return t('living.target.grainHoarder', 'Grain Syndicate Hoarder');
+    return t('living.target.insurgentLeader', 'Insurgent Ringleader');
+  },
+  checkpointSpeaker: () =>
+    t('living.checkpoint.speaker', 'Checkpoint Guard'),
+  checkpointTollLabel: () =>
+    t('living.checkpoint.tollLabel', 'Inspection Toll'),
+  nemesisBountyHunter: () =>
+    t('living.nemesis.bountyHunter', 'Bounty Hunter'),
+  nemesisDemands: () =>
+    t('living.nemesis.demands', 'Demands: Settle the contract or draw steel!'),
+
+  // Traveler\'s Rest Camp
+  travelerRestTitle: () =>
+    t('living.travelerRest.title', "=== TRAVELER'S REST ==="),
+  travelerRestDesc: () =>
+    t('living.travelerRest.desc', 'You come upon a traveling merchant and their armed outrider resting beside a warm campfire along the road.'),
+  travelerRestWelcome: () =>
+    t('living.travelerRest.welcome', '"Welcome to our camp, traveler. Rest your feet, or inspect the goods I have brought from across the province."'),
+  travelerRestOptBuy: () =>
+    t('living.travelerRest.optBuy', '1. [Buy] Inspect traveling merchant wares'),
+  travelerRestBuySay: () =>
+    t('living.travelerRest.buySay', 'The merchant opens their traveling trunk for barter.'),
+  travelerRestOptSell: () =>
+    t('living.travelerRest.optSell', '2. [Sell] Sell spoils and equipment to merchant'),
+  travelerRestSellSay: () =>
+    t('living.travelerRest.sellSay', 'The merchant weighs your goods and prepares coin.'),
+  travelerRestOptRest: () =>
+    t('living.travelerRest.optRest', '3. [Rest] Rest by the campfire to recover fatigue and health'),
+  travelerRestRestSay: () =>
+    t('living.travelerRest.restSay', 'You warm your hands by the fire and share a cup of tea with the travelers, feeling refreshed.'),
+  travelerRestOptDepart: () =>
+    t('living.travelerRest.optDepart', '4. [Depart] Nod politely and continue on your way'),
+  travelerRestDepartSay: () =>
+    t('living.travelerRest.departSay', '"Safe travels under the stars, friend."'),
+  travelerRestOptRob: () =>
+    t('living.travelerRest.optRob', '5. [Rob] Threaten the caravan and demand their gold!'),
+  travelerRestRobSay: () =>
+    t('living.travelerRest.robSay', '"Guards, to arms! A brigand attacks our camp!"'),
 });
 

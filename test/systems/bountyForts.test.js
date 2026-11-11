@@ -75,13 +75,13 @@ test('BOUNTY-FORT: Board generates fort contracts ONLY during eligible crises (W
   assert.equal(peacePosts.length, 4);
   assert.ok(peacePosts.every((p) => !p.fort), 'no fort postings during peace');
 
-  // 2. War in region: slot 1 is a fort posting
+  // 2. War in region: slot 0 is a fort posting
   setRegionCrisis(REGION_DAGGERFALL, CRISIS_TYPE.WAR, CRISIS_PHASE.MID);
   assert.equal(getRegionFortCrisis(REGION_DAGGERFALL), CRISIS_TYPE.WAR);
   const warPosts = boardPostings({ day: 100, ...TOWN, level: 5, sites, region: REGION_DAGGERFALL });
   const warFort = warPosts.find((p) => p.fort);
   assert.ok(warFort, 'war fort posting generated');
-  assert.equal(warFort.slot, 1);
+  assert.equal(warFort.slot, 0);
   assert.equal(warFort.crisis, CRISIS_TYPE.WAR);
   assert.ok(warFort.count >= 6 && warFort.count <= 10, 'fort garrison has 6..10 foes');
   assert.ok(CRISIS_PRESET_POOLS.WAR.includes(warFort.preset), 'picked from WAR preset pool');

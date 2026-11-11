@@ -15,6 +15,8 @@
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { LOCATION_TYPES } from '../../formats/mapsFile.js';
 import { REGION_NAMES, BAY_REGION_COUNT } from '../../formats/mapsTables.js';
+import { getLocalizedRegionName, t } from '../textManager.js';
+import { LIVING_WORDS } from './livingWords.js';
 import { BORDER_REGIONS } from '../faction/factionRelations.js';
 import { SKILLS } from '../skills.js';
 import { REGION_FLAGS } from '../region/regionConditions.js';
@@ -73,15 +75,22 @@ export function getEnemyProvinceName(regionIndex, rng = Math.random) {
     for (let i = 0; i < 11; i++) {
       const neighbor = BORDER_REGIONS[offset + i];
       if (neighbor > 0 && neighbor !== regionIndex && neighbor < REGION_NAMES.length) {
-        candidates.push(REGION_NAMES[neighbor]);
+        candidates.push(neighbor);
       }
     }
     if (candidates.length > 0) {
       const idx = Math.floor(rng() * candidates.length);
-      return candidates[idx];
+      const regId = candidates[idx];
+      return getLocalizedRegionName(regId, () => REGION_NAMES[regId] ?? '');
     }
   }
-  return regionIndex === 16 ? 'Sentinel' : 'Orsinium';
+  return regionIndex === 16 ? getLocalizedRegionName(16, () => 'Sentinel') : 'Orsinium';
+}
+
+// Localized title of a crisis event.
+export function getEventDisplayName(event) {
+  if (!event) return '';
+  return t(`living.event.${event.id}.name`, event.name || 'Crisis Event');
 }
 
 /**
@@ -100,7 +109,10 @@ export const CRISIS_EVENTS = Object.freeze([
     baseAttackers: 3,
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer, MOBILE_TYPES.Battlemage],
     attackersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer, MOBILE_TYPES.Barbarian, MOBILE_TYPES.Spellsword],
-    getFactionNames: (reg, enemy) => ({ f1: `${REGION_NAMES[reg] ?? 'Local'} Defenders`, f2: `${enemy} Vanguard` }),
+    getFactionNames: (reg, enemy) => {
+      const r = Number.isInteger(reg) ? getLocalizedRegionName(reg, () => REGION_NAMES[reg] ?? '') : (reg || 'Local');
+      return { f1: LIVING_WORDS.factionDefenders(r), f2: LIVING_WORDS.factionVanguard(enemy) };
+    },
     getChoices: (f1, f2) => [
       { text: `1. Защитить город плечом к плечу с [${f1}]`, stance: 'defenders', repF1: 7, repF2: -10, goldReward: 200, xp: 100 },
       { text: `2. Поддержать штурм авангарда [${f2}]`, stance: 'attackers', repF1: -12, repF2: 7, bountyHostile: true, goldReward: 150 },
@@ -119,7 +131,10 @@ export const CRISIS_EVENTS = Object.freeze([
     baseAttackers: 3,
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Archer, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Orc, MOBILE_TYPES.OrcSergeant, MOBILE_TYPES.OrcWarlord, MOBILE_TYPES.OrcShaman],
-    getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Town'} Garrison`, f2: 'Orsinium Warband' }),
+    getFactionNames: (reg) => {
+      const r = Number.isInteger(reg) ? getLocalizedRegionName(reg, () => REGION_NAMES[reg] ?? '') : (reg || 'Town');
+      return { f1: LIVING_WORDS.factionGarrison(r), f2: LIVING_WORDS.factionWarband() };
+    },
     getChoices: (f1, f2) => [
       { text: `1. Отразить набег орков вместе с [${f1}]`, stance: 'defenders', repF1: 8, repF2: -15, goldReward: 250, xp: 120 },
       { text: `2. Взвать к орочьему кодексу чести (Орочий язык)`, stance: 'peace', skillCheck: { skill: SKILLS.Orcish, target: 40 }, repF1: 4, repF2: 10, xp: 150 },
@@ -138,7 +153,10 @@ export const CRISIS_EVENTS = Object.freeze([
     baseAttackers: 2,
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Rogue],
-    getFactionNames: (reg, enemy) => ({ f1: `${REGION_NAMES[reg] ?? 'Provost'} Marshal`, f2: `${enemy} Captives` }),
+    getFactionNames: (reg, enemy) => {
+      const r = Number.isInteger(reg) ? getLocalizedRegionName(reg, () => REGION_NAMES[reg] ?? '') : (reg || 'Provost');
+      return { f1: LIVING_WORDS.factionGarrison(r), f2: LIVING_WORDS.factionCaptives(enemy) };
+    },
     getChoices: (f1, f2) => [
       { text: `1. Одобрить приговор и помочь страже [${f1}]`, stance: 'defenders', repF1: 5, repF2: -8, xp: 50 },
       { text: `2. Отбить пленных силой за [${f2}]`, stance: 'attackers', repF1: -10, repF2: 10, bountyHostile: true },
@@ -920,16 +938,8 @@ export function matchLivingCrisisEvent({
 }
 
 /**
- * Resolves a roleplay choice from one of the 39 Crisis & Exploration Encounters
- * using the typed formula engine (`livingRolls.js`).
- *
- * Instead of a flat binary threshold, produces 5 degrees of outcome:
- *  - TRIUMPH: Bonus XP (1.5x), +3 bonus rep, +50g gratitude reward, peaceful resolution
- *  - SUCCESS: Full XP, standard rep, peaceful resolution
- *  - PARTIAL: Compromise — bloodshed averted at a minor cost (half XP, +1 rep, -15 fatigue)
- *  - FAILURE: Words go unheeded; NPCs continue fighting each other while player stays neutral
- *  - CRITICAL_FAILURE: Both factions turn hostile toward the player
- *
+ * Resolves a roleplay encounter choice using the typed formula engine (`livingRolls.js`).
+ * Produces 5 degrees of outcome: TRIUMPH, SUCCESS, PARTIAL, FAILURE, CRITICAL_FAILURE.
  * @param {any} playerEntity
  * @param {any} choice
  * @param {{ regionIndex?: number, rng?: () => number }} [opts]

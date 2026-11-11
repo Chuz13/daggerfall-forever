@@ -304,20 +304,20 @@ export function offerRegionalCrisisContract(regionIndex, playerLevel = 1) {
   /** @type {string} */
   let questType = CRISIS_QUEST_TYPE.WAR_DESERTER_LEADER;
   let title = LIVING_WORDS.crisisContractWarTitle();
-  let targetName = 'Deserter Warlord';
+  let targetName = LIVING_WORDS.contractTarget('WAR');
 
   if (state.crisis === CRISIS_TYPE.PLAGUE) {
     questType = CRISIS_QUEST_TYPE.PLAGUE_SMUGGLED_CURE;
     title = LIVING_WORDS.crisisContractPlagueTitle();
-    targetName = 'Plague Contraband Smuggler';
+    targetName = LIVING_WORDS.contractTarget('PLAGUE');
   } else if (state.crisis === CRISIS_TYPE.FAMINE) {
     questType = CRISIS_QUEST_TYPE.FAMINE_HOARDER_CACHE;
     title = LIVING_WORDS.crisisContractFamineTitle();
-    targetName = 'Grain Syndicate Hoarder';
+    targetName = LIVING_WORDS.contractTarget('FAMINE');
   } else if (state.crisis === CRISIS_TYPE.CIVIL_STRIFE) {
     questType = CRISIS_QUEST_TYPE.STRIFE_AGITATOR_CELL;
     title = LIVING_WORDS.crisisContractStrifeTitle();
-    targetName = 'Insurgent Ringleader';
+    targetName = LIVING_WORDS.contractTarget('STRIFE');
   }
 
   return {
