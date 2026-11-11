@@ -5,8 +5,9 @@
 // Passes isolated `api` context to mod's `init(api)` function.
 
 import { getActiveMods, readModFile } from './modRegistry.js';
-import { createModApi } from './modPluginApi.js';
+import { createModApi, unregisterModPerks } from './modPluginApi.js';
 import { removeModListeners } from './modEventBus.js';
+import { unregisterPerk } from '../perks/perkRegistry.js';
 
 /** @type {Set<string>} */
 const _loadedPluginIds = new Set();
@@ -83,11 +84,13 @@ export async function loadActiveModPlugins() {
 }
 
 /**
- * Unload all running plugins and detach their event bus listeners.
+ * Unload all running plugins and detach their event bus listeners and registered perks.
  */
 export function unloadModPlugins() {
   for (const modId of _loadedPluginIds) {
     removeModListeners(modId);
+    unregisterPerk(modId);
+    unregisterModPerks(modId);
   }
   _loadedPluginIds.clear();
 }

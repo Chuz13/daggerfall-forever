@@ -15,7 +15,7 @@ function init(api) {
   api.perks.register({
     id: 'arcane_reservoir',
     name: 'Arcane Reservoir',
-    desc: 'Increases maximum Magicka by +25 and halves spell interruption (Requires 50 Mysticism).',
+    desc: 'Increases maximum Magicka by +25 (Requires 50 Mysticism).',
     check: (e) => (e?.skills?.[25] ?? 0) >= 50 || (e?.skillValues?.[25] ?? 0) >= 50,
   });
 

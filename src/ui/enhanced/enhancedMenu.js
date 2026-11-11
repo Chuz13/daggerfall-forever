@@ -5469,6 +5469,13 @@ function statsPerks(detail) {
   const corePerks = getAllPerks();
   const modPerks = getAllRegisteredPerks();
   const allPerks = [...corePerks, ...modPerks.filter((mp) => !corePerks.some((cp) => cp.id === mp.id))];
+  if (allPerks.length === 0) {
+    const emptyMsg = el('p', 'meta', t('perks.ui.empty', 'No feats active. Enable perk mods in the Mod Manager to unlock character feats.'));
+    emptyMsg.style.padding = '8px 0';
+    emptyMsg.style.fontStyle = 'italic';
+    detail.append(emptyMsg);
+    return;
+  }
   const listWrap = el('div', 'px-perks-list');
   for (const p of allPerks) {
     const isUnlocked = unlockedSet.has(p.id);

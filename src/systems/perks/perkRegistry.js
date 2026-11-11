@@ -95,17 +95,30 @@ export function hasUnlockedPerk(entity, perkId) {
  * Safe perk bonuses (return 0 or 1 if perk is absent or mod disabled).
  */
 
-/** Long blade crit bonus from blade_mastery (+10% crit chance) */
+/** Long blade damage and crit bonus from blade_mastery (+15% damage, +10% crit chance) */
+export function getPerkBladeMasteryDamageMultiplier(entity, weapon) {
+  if (!hasUnlockedPerk(entity, 'blade_mastery')) return 1.0;
+  // If weapon is Long Blade (flags & 0x10 or skill check)
+  if (!weapon || (weapon.flags & 0x10) !== 0) return 1.15;
+  return 1.0;
+}
+
 export function getPerkCritBonus(entity, weapon) {
   if (!hasUnlockedPerk(entity, 'blade_mastery')) return 0;
-  // If weapon specified, check if it is long blade (flags & 0x10 or skill check)
-  return 0.10;
+  if (!weapon || (weapon.flags & 0x10) !== 0) return 0.10;
+  return 0;
 }
 
 /** Stealth backstab damage bonus from shadow_step (+0.25x backstab damage) */
 export function getPerkBackstabBonus(entity) {
   if (!hasUnlockedPerk(entity, 'shadow_step')) return 0;
   return 0.25;
+}
+
+/** Max health bonus from iron_constitution (+15 Max HP) */
+export function getPerkHealthBonus(entity) {
+  if (!hasUnlockedPerk(entity, 'iron_constitution')) return 0;
+  return 15;
 }
 
 /** Max magicka bonus from arcane_reservoir (+25 Magicka) */

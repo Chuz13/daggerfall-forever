@@ -5,7 +5,7 @@ import { CLASSIC_GAME_START_TIME } from './gameDate.js'; // AUDIT 23: the skill-
 import { liveStat, STAT_KEYS_ORDER, FATIGUE_MULTIPLIER } from './statMods.js'; // wave 28: MaxMagicka reads LiveIntelligence
 import { renownHpOf, renownMpOf, foldMpOf, spireHpOf } from './renownLayer.js'; // RENOWN1: Renown's online health and magicka, on top of both live maximums; EG15: and the folds' magicka; EG-ZR: and the Spire's Stoneskin
 import { lichHpOf, lichMpOf } from './necromancy/lichdomStatus.js';
-import { getPerkMagickaBonus } from './perks/perkRegistry.js';
+import { getPerkMagickaBonus, getPerkHealthBonus } from './perks/perkRegistry.js';
 
 // Character creation (Systems S3). Verbatim ports from DFU
 // StatsRollout.cs / SkillsRollout.cs / DaggerfallSkills.cs /
@@ -352,7 +352,7 @@ export function defineLiveMaxHealth(entity) {
       // rides above whatever Daggerfall allows ("On top").
       const limiter = this.maxHealthLimiter;
       const own = limiter >= 1 && limiter < stored ? limiter : stored; // "Limiter must be 1 or greater"
-      return own + renownHpOf(this) + spireHpOf(this) + lichHpOf(this); // EG-ZR: and the Spire's Stoneskin, on the same terms; Lichdom HP bonus
+      return own + renownHpOf(this) + spireHpOf(this) + lichHpOf(this) + getPerkHealthBonus(this); // EG-ZR: and the Spire's Stoneskin, on the same terms; Lichdom HP bonus; Feat bonus
     },
     set(v) {
       stored = v;

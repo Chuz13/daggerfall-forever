@@ -25,6 +25,10 @@ export function getModPerks(modId) {
   return perks ? Array.from(perks.values()) : [];
 }
 
+export function unregisterModPerks(modId) {
+  _registeredPerks.delete(modId);
+}
+
 export function getAllRegisteredPerks() {
   const all = [];
   for (const [modId, perks] of _registeredPerks.entries()) {

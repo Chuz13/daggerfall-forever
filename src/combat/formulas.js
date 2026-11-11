@@ -48,6 +48,7 @@ import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what the target
 import { ENEMY_GROUPS, enemyEntityGroup, _resetEnemyGroups } from './enemyGroups.js';   // AUDIT DEX C3: the group switch and its mod door, a leaf
 import { emitModEvent } from '../systems/mods/modEventBus.js';
 import {
+  getPerkBladeMasteryDamageMultiplier,
   getPerkCritBonus,
   getPerkBackstabBonus,
 } from '../systems/perks/perkRegistry.js';
@@ -526,6 +527,7 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
   if (damage < 1) damage = 0;
   damage += bonusOrPenaltyByEnemyType(attacker, target);
   damage = Math.round(damage * getMaterialDamageMultiplier(weapon?.material, target));
+  damage = Math.round(damage * getPerkBladeMasteryDamageMultiplier(attacker, weapon));
   const pen = getMaterialArmorPenetration(weapon?.material);
   const hasArmor = Array.isArray(target?.armorValues)
     ? target.armorValues.some((v) => v < 100)

@@ -234,27 +234,61 @@ export function drawModsPane(body, rerender) {
 
   body.append(listContainer);
 
-  // Perks & Milestones summary card
+  // All Perks provided by installed mods summary card
   const perksCard = el('div', 'card');
   perksCard.style.marginTop = '12px';
-  perksCard.append(el('h3', null, t('perks.ui.title', 'Perks & Milestones')));
-  perksCard.append(el('p', 'meta', t('perks.ui.lead', 'Passive combat, magic, and survival feats unlocked by mastering skills and surviving the Iliac Bay.')));
-  const unlockedSet = new Set(playerEntity ? getUnlockedPerks(playerEntity) : []);
-  const corePerks = getAllPerks();
-  const modPerks = getAllRegisteredPerks();
-  const allPerks = [...corePerks, ...modPerks.filter((mp) => !corePerks.some((cp) => cp.id === mp.id))];
-  allPerks.forEach((p) => {
-    const isUnlocked = unlockedSet.has(p.id);
-    const row = el('div', 'mod-perk-item');
-    row.style.fontSize = '13px';
-    row.style.marginTop = '4px';
-    row.style.color = isUnlocked ? '#e0c36a' : '#999';
-    const nameStr = p.name;
-    const descStr = p.desc || p.description || '';
-    const statusStr = isUnlocked ? t('perks.ui.unlocked', 'Unlocked') : t('perks.ui.locked', 'Locked');
-    row.textContent = `${isUnlocked ? '★' : '☆'} ${nameStr} [${statusStr}] — ${descStr}`;
-    perksCard.append(row);
+  perksCard.append(el('h3', null, t('menu.mods.allPerksTitle', 'All Perks Added by Mods')));
+  perksCard.append(el('p', 'meta', t('menu.mods.allPerksDesc', 'List of all milestone feats provided by discovered mods and their current activation status.')));
+
+  const installedMods = getDiscoveredMods();
+  let totalPerksFound = 0;
+
+  installedMods.forEach((m) => {
+    const perks = getModPerks(m.id);
+    if (!perks || perks.length === 0) return;
+    const isModActive = !!m.enabled;
+
+    perks.forEach((p) => {
+      totalPerksFound++;
+      const row = el('div', 'mod-perk-item');
+      row.style.fontSize = '13px';
+      row.style.marginTop = '6px';
+      row.style.padding = '4px 8px';
+      row.style.borderRadius = '4px';
+      row.style.background = isModActive ? 'rgba(224, 195, 106, 0.08)' : 'rgba(255, 255, 255, 0.03)';
+      row.style.border = isModActive ? '1px solid rgba(224, 195, 106, 0.25)' : '1px solid rgba(255, 255, 255, 0.06)';
+
+      const head = el('div', null);
+      const nameSpan = el('strong', null, p.name);
+      nameSpan.style.color = isModActive ? '#e0c36a' : '#888';
+
+      const modBadge = el('span', 'meta', ` (${m.manifest?.name || m.id}) `);
+      modBadge.style.fontSize = '11px';
+
+      const statusBadge = el('span', null, isModActive ? '[ENABLED]' : '[DISABLED]');
+      statusBadge.style.fontWeight = 'bold';
+      statusBadge.style.fontSize = '11px';
+      statusBadge.style.color = isModActive ? '#78c278' : '#e06868';
+      statusBadge.style.float = 'right';
+
+      head.append(nameSpan, modBadge, statusBadge);
+
+      const desc = el('div', 'meta', p.desc || p.description || '');
+      desc.style.fontSize = '12px';
+      desc.style.marginTop = '2px';
+      desc.style.color = isModActive ? '#ccc' : '#666';
+
+      row.append(head, desc);
+      perksCard.append(row);
+    });
   });
+
+  if (totalPerksFound === 0) {
+    const empty = el('p', 'meta', t('menu.mods.noPerksFound', 'No mods with perks are currently installed.'));
+    empty.style.fontStyle = 'italic';
+    perksCard.append(empty);
+  }
+
   body.append(perksCard);
 }
 
