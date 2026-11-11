@@ -966,12 +966,11 @@ export function buildLivingSiteBlueprint({
           level: Math.max(4, playerLevel),
           feet: [gx, snapPropToGround(heightAt, gx, gz), gz],
           yaw: 0,
-          allied: true,
-          hostile: false,
+          allied: false,
+          hostile: true,
           role: 'skirmish_guard',
           team: SKIRMISH_TEAMS.CITY_WATCH,
           factionSide: 'guards',
-          suppressInfighting: true,
         });
       }
       for (let i = 0; i < plan.rebels.length; i++) {
@@ -989,7 +988,6 @@ export function buildLivingSiteBlueprint({
           role: 'skirmish_rebel',
           team: SKIRMISH_TEAMS.INSURGENTS,
           factionSide: 'rebels',
-          suppressInfighting: true,
         });
       }
     }
@@ -1450,6 +1448,126 @@ export function createLivingSceneHost(deps) {
         f.ai.isHostile = hostile;
         f.ai.detected = hostile;
         f.ai.target = hostile ? deps.playerEntity() : null;
+      }
+    }
+  }
+
+  function closestLiveTarget(fromFeet, candidates) {
+    if (!candidates || candidates.length === 0 || !fromFeet) return null;
+    let best = null, bestDist = Infinity;
+    for (const c of candidates) {
+      if (!c || c.dead || !deps.inPool(c)) continue;
+      const pos = c.ai?.feet ?? c.feet;
+      if (!pos) continue;
+      const d = Math.hypot(pos[0] - fromFeet[0], pos[2] - fromFeet[2]);
+      if (d < bestDist) {
+        bestDist = d;
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  function retargetSkirmishFoes(site) {
+    if (!site || site.kind !== LIVING_SITE_KINDS.URBAN_SKIRMISH) return;
+    const player = deps.playerEntity?.();
+    const guards = site.foes.filter((f) => f?.livingRole === 'skirmish_guard' && !f.dead && deps.inPool(f));
+    const rebels = site.foes.filter((f) => f?.livingRole === 'skirmish_rebel' && !f.dead && deps.inPool(f));
+
+    if (site.skirmishStance === 'watch' || site.skirmishStance === 'defenders' || site.skirmishStance === 'bodyguard') {
+      for (const g of guards) {
+        if (g.entity) { g.entity.team = 'PlayerAlly'; g.entity.mobileTeam = 'PlayerAlly'; }
+        g.allied = true;
+        if (g.ai) {
+          g.ai.isHostile = true;
+          g.ai.detected = true;
+          const cur = g.ai.target;
+          if (!cur || cur.dead || !deps.inPool(cur) || cur === player) {
+            const tgt = closestLiveTarget(g.ai.feet ?? g.feet, rebels);
+            g.ai.target = tgt;
+            g.ai.targetSenses = tgt;
+          }
+        }
+      }
+      for (const r of rebels) {
+        if (r.entity) { r.entity.team = 'PlayerEnemy'; r.entity.mobileTeam = 'PlayerEnemy'; }
+        r.allied = false;
+        if (r.ai) {
+          r.ai.isHostile = true;
+          r.ai.detected = true;
+          const cur = r.ai.target;
+          if (!cur || cur.dead || !deps.inPool(cur)) {
+            const nearGuard = closestLiveTarget(r.ai.feet ?? r.feet, guards);
+            const tgt = nearGuard || player;
+            r.ai.target = tgt;
+            r.ai.targetSenses = tgt;
+          }
+        }
+      }
+    } else if (site.skirmishStance === 'rebels') {
+      for (const r of rebels) {
+        if (r.entity) { r.entity.team = 'PlayerAlly'; r.entity.mobileTeam = 'PlayerAlly'; }
+        r.allied = true;
+        if (r.ai) {
+          r.ai.isHostile = true;
+          r.ai.detected = true;
+          const cur = r.ai.target;
+          if (!cur || cur.dead || !deps.inPool(cur) || cur === player) {
+            const tgt = closestLiveTarget(r.ai.feet ?? r.feet, guards);
+            r.ai.target = tgt;
+            r.ai.targetSenses = tgt;
+          }
+        }
+      }
+      for (const g of guards) {
+        if (g.entity) { g.entity.team = 'PlayerEnemy'; g.entity.mobileTeam = 'PlayerEnemy'; }
+        g.allied = false;
+        if (g.ai) {
+          g.ai.isHostile = true;
+          g.ai.detected = true;
+          const cur = g.ai.target;
+          if (!cur || cur.dead || !deps.inPool(cur)) {
+            const nearRebel = closestLiveTarget(g.ai.feet ?? g.feet, rebels);
+            const tgt = nearRebel || player;
+            g.ai.target = tgt;
+            g.ai.targetSenses = tgt;
+          }
+        }
+      }
+    } else if (site.skirmishStance === 'peace') {
+      for (const f of site.foes) {
+        f.allied = false;
+        if (f.ai) {
+          f.ai.isHostile = false;
+          f.ai.target = null;
+          f.ai.targetSenses = null;
+          f.ai.idle = true;
+        }
+      }
+    } else {
+      for (const g of guards) {
+        if (g.ai) {
+          g.ai.isHostile = true;
+          g.ai.detected = true;
+          const cur = g.ai.target;
+          if (!cur || cur.dead || !deps.inPool(cur) || cur === player) {
+            const tgt = closestLiveTarget(g.ai.feet ?? g.feet, rebels);
+            g.ai.target = tgt;
+            g.ai.targetSenses = tgt;
+          }
+        }
+      }
+      for (const r of rebels) {
+        if (r.ai) {
+          r.ai.isHostile = true;
+          r.ai.detected = true;
+          const cur = r.ai.target;
+          if (!cur || cur.dead || !deps.inPool(cur) || cur === player) {
+            const tgt = closestLiveTarget(r.ai.feet ?? r.feet, guards);
+            r.ai.target = tgt;
+            r.ai.targetSenses = tgt;
+          }
+        }
       }
     }
   }
@@ -2242,15 +2360,14 @@ export function createLivingSceneHost(deps) {
                     if (f?.ai) {
                       f.ai.isHostile = true;
                       f.ai.detected = true;
-                      f.ai.target = deps.playerEntity();
+                      const player = deps.playerEntity();
+                      f.ai.target = player;
+                      f.ai.targetSenses = player;
                     }
                   }
                   deps.say(LIVING_WORDS.rollCriticalFailure(score, dc), 5);
                 } else {
-                  for (const f of s.foes) {
-                    f.allied = false;
-                    if (f?.ai) f.ai.isHostile = false;
-                  }
+                  retargetSkirmishFoes(s);
                   deps.say(LIVING_WORDS.rollFailure(score, dc), 5);
                 }
                 return;
@@ -2284,41 +2401,19 @@ export function createLivingSceneHost(deps) {
 
             if (c.stance === 'defenders' || c.stance === 'bodyguard') {
               s.skirmishStance = 'watch';
-              for (const f of s.foes) {
-                if (f?.livingRole === 'skirmish_guard') {
-                  f.allied = true;
-                  if (f.ai) f.ai.isHostile = false;
-                } else if (f?.livingRole === 'skirmish_rebel') {
-                  f.allied = false;
-                  if (f.ai) { f.ai.isHostile = true; f.ai.detected = true; f.ai.target = deps.playerEntity(); }
-                }
-              }
+              retargetSkirmishFoes(s);
               deps.say(LIVING_WORDS.eventJoinedF1(f1Name), 5);
             } else if (c.stance === 'attackers') {
               s.skirmishStance = 'rebels';
-              for (const f of s.foes) {
-                if (f?.livingRole === 'skirmish_rebel') {
-                  f.allied = true;
-                  if (f.ai) f.ai.isHostile = false;
-                } else if (f?.livingRole === 'skirmish_guard') {
-                  f.allied = false;
-                  if (f.ai) { f.ai.isHostile = true; f.ai.detected = true; f.ai.target = deps.playerEntity(); }
-                }
-              }
+              retargetSkirmishFoes(s);
               deps.say(LIVING_WORDS.eventJoinedF2(f2Name), 5);
             } else if (c.stance === 'peace' || c.stance === 'bribe' || c.stance === 'ransom' || c.stance === 'purify' || c.stance === 'cure' || c.stance === 'consecrate' || c.stance === 'tame' || c.stance === 'chess_move') {
               s.skirmishStance = 'peace';
-              for (const f of s.foes) {
-                f.allied = false;
-                if (f?.ai) { f.ai.isHostile = false; f.ai.idle = true; }
-              }
+              retargetSkirmishFoes(s);
               if (c.goldReward) deps.say(LIVING_WORDS.eventRewardGold(c.goldReward), 5);
             } else {
               s.skirmishStance = 'chaos';
-              for (const f of s.foes) {
-                f.allied = false;
-                if (f?.ai) f.ai.isHostile = false;
-              }
+              retargetSkirmishFoes(s);
               deps.say(LIVING_WORDS.eventNeutral(), 5);
             }
           },
@@ -2342,19 +2437,7 @@ export function createLivingSceneHost(deps) {
               label: `1. ${LIVING_WORDS.urbanSkirmishOptionWatch()}`,
               action: () => {
                 s.skirmishStance = 'watch';
-                for (const f of s.foes) {
-                  if (f?.livingRole === 'skirmish_guard') {
-                    f.allied = true;
-                    if (f.ai) f.ai.isHostile = false;
-                  } else if (f?.livingRole === 'skirmish_rebel') {
-                    f.allied = false;
-                    if (f.ai) {
-                      f.ai.isHostile = true;
-                      f.ai.detected = true;
-                      f.ai.target = deps.playerEntity();
-                    }
-                  }
-                }
+                retargetSkirmishFoes(s);
                 if (player?.regionalReputations) {
                   player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) + 5;
                 }
@@ -2366,19 +2449,7 @@ export function createLivingSceneHost(deps) {
               label: `2. ${LIVING_WORDS.urbanSkirmishOptionRebels()}`,
               action: () => {
                 s.skirmishStance = 'rebels';
-                for (const f of s.foes) {
-                  if (f?.livingRole === 'skirmish_rebel') {
-                    f.allied = true;
-                    if (f.ai) f.ai.isHostile = false;
-                  } else if (f?.livingRole === 'skirmish_guard') {
-                    f.allied = false;
-                    if (f.ai) {
-                      f.ai.isHostile = true;
-                      f.ai.detected = true;
-                      f.ai.target = deps.playerEntity();
-                    }
-                  }
-                }
+                retargetSkirmishFoes(s);
                 if (player?.regionalReputations) {
                   player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) - 15;
                 }
@@ -2393,12 +2464,7 @@ export function createLivingSceneHost(deps) {
               label: `3. ${LIVING_WORDS.urbanSkirmishOptionChaos()}`,
               action: () => {
                 s.skirmishStance = 'chaos';
-                for (const f of s.foes) {
-                  f.allied = false;
-                  if (f?.ai) {
-                    f.ai.isHostile = false;
-                  }
-                }
+                retargetSkirmishFoes(s);
                 deps.say(LIVING_WORDS.eventChosenChaos(), 5);
               },
             },
@@ -2540,7 +2606,13 @@ export function createLivingSceneHost(deps) {
               rec.entity.items = rec.entity.items.filter((it) => it.isGold || it.isPotion || it.isArrow || it.category === 'Consumables');
             }
           }
-          if (site.hostile || a.hostile) {
+          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || a.role?.startsWith('skirmish_')) {
+            if (rec.ai) {
+              rec.ai.isHostile = true;
+              rec.ai.detected = true;
+              rec.ai.target = null;
+            }
+          } else if (site.hostile || a.hostile) {
             if (rec.ai) {
               rec.ai.isHostile = true;
               rec.ai.detected = true;
@@ -2551,6 +2623,9 @@ export function createLivingSceneHost(deps) {
           }
           rec.livingRole = a.role;
           site.foes.push(rec);
+          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
+            retargetSkirmishFoes(site);
+          }
         })
         .catch(() => {});
     }
@@ -2874,6 +2949,7 @@ export function createLivingSceneHost(deps) {
           !stood.orderRestored &&
           stood.foes.length > 0
         ) {
+          retargetSkirmishFoes(stood);
           const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
           if (rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r))) {
             stood.orderRestored = true;
