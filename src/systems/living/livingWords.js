@@ -379,6 +379,8 @@ export const LIVING_WORDS = Object.freeze({
     t('living.event.joinedF2', 'You sided with [{f2}]! Overthrow the guards!', { f2 }),
   eventRewardGold: (gold) =>
     t('living.event.rewardGold', 'Received reward: {gold} gold coins!', { gold }),
+  eventPeaceResolved: (f1, f2) =>
+    t('living.event.peaceResolved', 'The dispute between [{f1}] and [{f2}] is settled peacefully. Both sides stand down.', { f1, f2 }),
   eventNeutral: () =>
     t('living.event.neutral', 'You chose not to intervene. The skirmish runs its course.'),
   eventJoinedWatch: () =>

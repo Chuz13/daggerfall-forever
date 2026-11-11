@@ -2409,10 +2409,24 @@ export function createLivingSceneHost(deps) {
               s.skirmishStance = 'rebels';
               retargetSkirmishFoes(s);
               deps.say(LIVING_WORDS.eventJoinedF2(f2Name), 5);
-            } else if (c.stance === 'peace' || c.stance === 'bribe' || c.stance === 'ransom' || c.stance === 'purify' || c.stance === 'cure' || c.stance === 'consecrate' || c.stance === 'tame' || c.stance === 'chess_move') {
+            } else if (
+              c.stance === 'peace' ||
+              c.stance === 'bribe' ||
+              c.stance === 'ransom' ||
+              c.stance === 'purify' ||
+              c.stance === 'cure' ||
+              c.stance === 'consecrate' ||
+              c.stance === 'tame' ||
+              c.stance === 'chess_move' ||
+              c.stance === 'pay_release' ||
+              c.stance === 'buy_grain' ||
+              c.stance === 'donate_rations' ||
+              c.stance === 'feed_beasts'
+            ) {
               s.skirmishStance = 'peace';
               retargetSkirmishFoes(s);
               if (c.goldReward) deps.say(LIVING_WORDS.eventRewardGold(c.goldReward), 5);
+              deps.say(LIVING_WORDS.eventPeaceResolved(f1Name, f2Name), 5);
             } else {
               s.skirmishStance = 'chaos';
               retargetSkirmishFoes(s);

@@ -114,10 +114,10 @@ export const CRISIS_EVENTS = Object.freeze([
       return { f1: LIVING_WORDS.factionDefenders(r), f2: LIVING_WORDS.factionVanguard(enemy) };
     },
     getChoices: (f1, f2) => [
-      { text: t('living.choice.EVT_WAR_INTERPROVINCIAL.1', '1. Defend the settlement alongside [{f1}]', { f1 }), stance: 'defenders', repF1: 7, repF2: -10, goldReward: 200, xp: 100 },
-      { text: t('living.choice.EVT_WAR_INTERPROVINCIAL.2', '2. Support the assault of [{f2}]', { f2 }), stance: 'attackers', repF1: -12, repF2: 7, bountyHostile: true, goldReward: 150 },
-      { text: t('living.choice.EVT_WAR_INTERPROVINCIAL.3', '3. Martial diplomacy: Call for a truce (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 50 }, repF1: 3, repF2: 3, xp: 150 },
-      { text: t('living.choice.EVT_WAR_INTERPROVINCIAL.4', '4. Do not intervene (Watch the battle unfold)'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_INTERPROVINCIAL.1', '1. Defend the settlement alongside [{f1}]', { f1 }), stance: 'defenders', goldReward: 200, repF1: 7, repF2: -10, xp: 100 },
+      { text: t('living.choice.EVT_WAR_INTERPROVINCIAL.2', '2. Support the assault of [{f2}]', { f2 }), stance: 'attackers', goldReward: 150, repF1: -12, repF2: 7, bountyHostile: true },
+      { text: t('living.choice.EVT_WAR_INTERPROVINCIAL.3', '3. Do not intervene in the interprovincial war'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_INTERPROVINCIAL.4', '4. Martial diplomacy: Call for a truce (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 50 }, repF1: 4, repF2: 4, xp: 140 },
     ],
   },
   {
@@ -136,10 +136,10 @@ export const CRISIS_EVENTS = Object.freeze([
       return { f1: LIVING_WORDS.factionGarrison(r), f2: LIVING_WORDS.factionWarband() };
     },
     getChoices: (f1, f2) => [
-      { text: t('living.choice.EVT_WAR_ORSINIUM_RAID.1', '1. Repel the orc raid alongside [{f1}]', { f1 }), stance: 'defenders', repF1: 8, repF2: -15, goldReward: 250, xp: 120 },
-      { text: t('living.choice.EVT_WAR_ORSINIUM_RAID.2', '2. Invoke the orcish honor code (Orcish)'), stance: 'peace', skillCheck: { skill: SKILLS.Orcish, target: 40 }, repF1: 4, repF2: 10, xp: 150 },
-      { text: t('living.choice.EVT_WAR_ORSINIUM_RAID.3', '3. Pay tribute to spare the settlement (150 gold)'), stance: 'bribe', goldCost: 150, repF1: 5, repF2: 5 },
-      { text: t('living.choice.EVT_WAR_ORSINIUM_RAID.4', '4. Take cover'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_ORSINIUM_RAID.1', '1. Repel the orc raid alongside [{f1}]', { f1 }), stance: 'defenders', goldReward: 250, repF1: 8, repF2: -15, xp: 120 },
+      { text: t('living.choice.EVT_WAR_ORSINIUM_RAID.2', '2. Join the [{f2}] assault against the garrison', { f2 }), stance: 'attackers', goldReward: 150, repF1: -15, repF2: 10, bountyHostile: true },
+      { text: t('living.choice.EVT_WAR_ORSINIUM_RAID.3', '3. Do not intervene in the orcish raid'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_ORSINIUM_RAID.4', '4. Invoke the orcish honor code to halt the raid (Orcish)'), stance: 'peace', skillCheck: { skill: SKILLS.Orcish, target: 40 }, repF1: 4, repF2: 10, xp: 150 },
     ],
   },
   {
@@ -160,8 +160,8 @@ export const CRISIS_EVENTS = Object.freeze([
     getChoices: (f1, f2) => [
       { text: t('living.choice.EVT_WAR_PRISONER_EXECUTION.1', '1. Uphold the sentence and assist the guard [{f1}]', { f1 }), stance: 'defenders', repF1: 5, repF2: -8, xp: 50 },
       { text: t('living.choice.EVT_WAR_PRISONER_EXECUTION.2', '2. Free the prisoners by force for [{f2}]', { f2 }), stance: 'attackers', repF1: -10, repF2: 10, bountyHostile: true },
-      { text: t('living.choice.EVT_WAR_PRISONER_EXECUTION.3', '3. Ransom the prisoners (100 gold)'), stance: 'ransom', goldCost: 100, repF1: 4, repF2: 6, xp: 80 },
-      { text: t('living.choice.EVT_WAR_PRISONER_EXECUTION.4', '4. Pass by the tribunal'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_PRISONER_EXECUTION.3', '3. Do not intervene in the execution'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_PRISONER_EXECUTION.4', '4. Ransom the prisoners to spare their lives (100 gold)'), stance: 'peace', goldCost: 100, repF1: 4, repF2: 6, xp: 80 },
     ],
   },
   {
@@ -176,11 +176,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Ranger, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Barbarian, MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
     getFactionNames: () => ({ f1: 'Local Millers & Farmers', f2: 'Armed Deserters' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.1', '1. Defend the farmers and drive off the looters'), stance: 'defenders', repF1: 6, goldReward: 50, xp: 80 },
-      { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.2', '2. Intimidate deserters with your reputation (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 45 }, repF1: 5, xp: 100 },
-      { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.3', '3. Hire the deserters into your band (120 gold)'), stance: 'hire', goldCost: 120, repF1: 4, xp: 60 },
-      { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.4', '4. Do not intervene in peasant quarrels'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.1', '1. Defend the farmers and drive off the looters'), stance: 'defenders', goldReward: 50, repF1: 6, xp: 80 },
+      { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.2', '2. Help the deserters seize farm provisions'), stance: 'attackers', goldReward: 40, repF1: -8, repF2: 6 },
+      { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.3', '3. Do not intervene in peasant quarrels'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.4', '4. Intimidate deserters with your reputation (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 45 }, repF1: 5, repF2: 4, xp: 100 },
     ],
   },
   {
@@ -195,11 +195,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Knight],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Crown'} Recruiter`, f2: 'Reluctant Peasants' }),
-    getChoices: (f1) => [
-      { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.1', '1. Help the officer [{f1}] round up recruits', { f1 }), stance: 'defenders', repF1: 4, goldReward: 60 },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.1', '1. Help the officer [{f1}] round up recruits', { f1 }), stance: 'defenders', goldReward: 60, repF1: 4 },
       { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.2', '2. Defend the townsfolk with steel against pressgang'), stance: 'attackers', repF1: -8, repF2: 8, bountyHostile: true },
-      { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.3', '3. Pay an exemption fee for the recruits (80 gold)'), stance: 'pay_release', goldCost: 80, repF1: 2, repF2: 8, xp: 70 },
-      { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.4', '4. Pass by'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.3', '3. Do not intervene in the recruitment'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.4', '4. Pay an exemption fee for the recruits (80 gold)'), stance: 'peace', goldCost: 80, repF1: 2, repF2: 8, xp: 70 },
     ],
   },
 
@@ -216,12 +216,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief, MOBILE_TYPES.Warrior],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Granary'} Guards`, f2: 'Starving Mob' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_FAMINE_BARN_RAID.1', '1. Help the guard hold the granary by force'), stance: 'defenders', repF1: 5, repF2: -6, goldReward: 80 },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_FAMINE_BARN_RAID.1', '1. Help the guard hold the granary by force'), stance: 'defenders', goldReward: 80, repF1: 5, repF2: -6 },
       { text: t('living.choice.EVT_FAMINE_BARN_RAID.2', '2. Help the starving break the lock and share grain'), stance: 'attackers', repF1: -8, repF2: 10, bountyHostile: true },
-      { text: t('living.choice.EVT_FAMINE_BARN_RAID.3', '3. Buy grain for the poor from your purse (150 gold)'), stance: 'buy_grain', goldCost: 150, repF1: 6, repF2: 8, xp: 120 },
-      { text: t('living.choice.EVT_FAMINE_BARN_RAID.4', '4. Bargain: Persuade manager to lower prices (Mercantile)'), stance: 'peace', skillCheck: { skill: SKILLS.Mercantile, target: 45 }, repF1: 4, repF2: 6, xp: 100 },
-      { text: t('living.choice.EVT_FAMINE_BARN_RAID.5', '5. Pass by'), stance: 'neutral' },
+      { text: t('living.choice.EVT_FAMINE_BARN_RAID.3', '3. Do not intervene in the granary riot'), stance: 'neutral' },
+      { text: t('living.choice.EVT_FAMINE_BARN_RAID.4', '4. Buy grain for the crowd and negotiate peace (100 gold)'), stance: 'peace', goldCost: 100, repF1: 6, repF2: 8, xp: 120 },
     ],
   },
   {
@@ -236,10 +235,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Ranger, MOBILE_TYPES.Monk],
     attackersPool: [MOBILE_TYPES.GrizzlyBear, MOBILE_TYPES.SabertoothTiger, MOBILE_TYPES.Rat, MOBILE_TYPES.Wereboar],
     getFactionNames: () => ({ f1: 'Local Shepherds', f2: 'Famished Wild Beasts' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_FAMINE_PREDATOR_INVASION.1', '1. Slay the beasts with steel and save the flock'), stance: 'defenders', repF1: 6, goldReward: 40, xp: 90 },
-      { text: t('living.choice.EVT_FAMINE_PREDATOR_INVASION.2', '2. Lure and distract beasts with food (2 rations)'), stance: 'feed_beasts', repF1: 4, xp: 60 },
-      { text: t('living.choice.EVT_FAMINE_PREDATOR_INVASION.3', '3. Take shelter behind the fence'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_FAMINE_PREDATOR_INVASION.1', '1. Slay the beasts with steel and save the flock'), stance: 'defenders', goldReward: 40, repF1: 6, xp: 90 },
+      { text: t('living.choice.EVT_FAMINE_PREDATOR_INVASION.2', '2. Exploit the chaos to raid the unguarded farm pens'), stance: 'attackers', goldReward: 50, repF1: -8 },
+      { text: t('living.choice.EVT_FAMINE_PREDATOR_INVASION.3', '3. Do not intervene in the predator attack'), stance: 'neutral' },
+      { text: t('living.choice.EVT_FAMINE_PREDATOR_INVASION.4', '4. Pacify and lure away the beasts with bait (Animal Lore)'), stance: 'peace', skillCheck: { skill: SKILLS.Stealth, target: 40 }, repF1: 6, xp: 80 },
     ],
   },
   {
@@ -254,10 +254,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior, MOBILE_TYPES.Spellsword],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief, MOBILE_TYPES.Nightblade],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Crown'} Relief Escort`, f2: 'Grain Raiders' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_FAMINE_RELIEF_CARAVAN.1', '1. Defend the royal relief wagon from raiders'), stance: 'defenders', repF1: 8, repF2: -8, goldReward: 180, xp: 110 },
-      { text: t('living.choice.EVT_FAMINE_RELIEF_CARAVAN.2', '2. Help the raiders seize the grain'), stance: 'attackers', repF1: -12, repF2: 8, goldReward: 120, bountyHostile: true },
-      { text: t('living.choice.EVT_FAMINE_RELIEF_CARAVAN.3', '3. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_FAMINE_RELIEF_CARAVAN.1', '1. Defend the royal relief wagon from raiders'), stance: 'defenders', goldReward: 180, repF1: 8, repF2: -8, xp: 110 },
+      { text: t('living.choice.EVT_FAMINE_RELIEF_CARAVAN.2', '2. Help the raiders seize the relief caravan'), stance: 'attackers', goldReward: 120, repF1: -12, repF2: 8, bountyHostile: true },
+      { text: t('living.choice.EVT_FAMINE_RELIEF_CARAVAN.3', '3. Do not intervene in the caravan ambush'), stance: 'neutral' },
+      { text: t('living.choice.EVT_FAMINE_RELIEF_CARAVAN.4', '4. Negotiate an emergency grain ration sharing (Mercantile)'), stance: 'peace', skillCheck: { skill: SKILLS.Mercantile, target: 45 }, repF1: 6, repF2: 6, xp: 100 },
     ],
   },
   {
@@ -272,12 +273,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Healer],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief],
     getFactionNames: () => ({ f1: 'Temple Almoners', f2: 'Discontented Town Paupers' }),
-    getChoices: () => [
+    getChoices: (f1, f2) => [
       { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.1', '1. Pacify the vagrants and support the monks'), stance: 'defenders', repF1: 4, repF2: -4, xp: 40 },
-      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.2', '2. Denounce the monastery for callous greed'), stance: 'attackers', repF1: -6, repF2: 6 },
-      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.3', '3. Purify the cauldron with healing magic (Restoration)'), stance: 'purify', skillCheck: { skill: SKILLS.Restoration, target: 40 }, repF1: 8, repF2: 8, xp: 120 },
-      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.4', '4. Donate fresh rations (3 portions)'), stance: 'donate_rations', repF1: 6, repF2: 6, xp: 80 },
-      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.5', '5. Pass by'), stance: 'neutral' },
+      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.2', '2. Denounce the monastery and support the hungry mob'), stance: 'attackers', repF1: -6, repF2: 6 },
+      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.3', '3. Do not intervene in the soup kitchen dispute'), stance: 'neutral' },
+      { text: t('living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.4', '4. Purify the spoiled food with restoration magic (Restoration)'), stance: 'peace', skillCheck: { skill: SKILLS.Restoration, target: 40, target: undefined }, repF1: 8, repF2: 8, xp: 120 },
     ],
   },
   {
@@ -292,11 +292,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Rogue],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Rogue],
     getFactionNames: () => ({ f1: 'Angry Customers', f2: 'Gouging Merchant & Thugs' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_FAMINE_RATION_SCAM.1', '1. Force the speculator to refund coin with steel'), stance: 'defenders', repF1: 5, repF2: -8, goldReward: 50 },
-      { text: t('living.choice.EVT_FAMINE_RATION_SCAM.2', '2. Demand the merchant guild trade license (Mercantile)'), stance: 'peace', skillCheck: { skill: SKILLS.Mercantile, target: 45 }, repF1: 6, xp: 80 },
-      { text: t('living.choice.EVT_FAMINE_RATION_SCAM.3', '3. Take a kickback and shoo the beggars (100 gold)'), stance: 'bribe', goldReward: 100, repF1: -6 },
-      { text: t('living.choice.EVT_FAMINE_RATION_SCAM.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_FAMINE_RATION_SCAM.1', '1. Force the speculator to refund coin with steel'), stance: 'defenders', goldReward: 50, repF1: 5, repF2: -8 },
+      { text: t('living.choice.EVT_FAMINE_RATION_SCAM.2', '2. Guard the merchant and disperse the angry customers'), stance: 'attackers', goldReward: 60, repF1: -6, repF2: 6 },
+      { text: t('living.choice.EVT_FAMINE_RATION_SCAM.3', '3. Do not intervene in the market quarrel'), stance: 'neutral' },
+      { text: t('living.choice.EVT_FAMINE_RATION_SCAM.4', '4. Demand merchant guild license and fair prices (Mercantile)'), stance: 'peace', skillCheck: { skill: SKILLS.Mercantile, target: 45 }, repF1: 6, repF2: 4, xp: 80 },
     ],
   },
 
@@ -313,11 +313,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Knight],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Barbarian, MOBILE_TYPES.Warrior],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Town'} Cordons`, f2: 'Infected Refugees' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_PLAGUE_QUARANTINE_CLASH.1', '1. Hold the crowd back with quarantine guards'), stance: 'defenders', repF1: 6, repF2: -8, goldReward: 100 },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_PLAGUE_QUARANTINE_CLASH.1', '1. Hold the crowd back with quarantine guards'), stance: 'defenders', goldReward: 100, repF1: 6, repF2: -8 },
       { text: t('living.choice.EVT_PLAGUE_QUARANTINE_CLASH.2', '2. Breach the gates for refugees by force'), stance: 'attackers', repF1: -10, repF2: 8, bountyHostile: true },
-      { text: t('living.choice.EVT_PLAGUE_QUARANTINE_CLASH.3', '3. Heal the afflicted at the gate with prayer (Restoration)'), stance: 'cure', skillCheck: { skill: SKILLS.Restoration, target: 45 }, repF1: 10, repF2: 10, xp: 150 },
-      { text: t('living.choice.EVT_PLAGUE_QUARANTINE_CLASH.4', '4. Bypass the checkpoint cordon'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PLAGUE_QUARANTINE_CLASH.3', '3. Do not intervene in the quarantine standoff'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PLAGUE_QUARANTINE_CLASH.4', '4. Heal the afflicted at the gate with prayer (Restoration)'), stance: 'peace', skillCheck: { skill: SKILLS.Restoration, target: 45 }, repF1: 10, repF2: 10, xp: 150 },
     ],
   },
   {
@@ -332,10 +332,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Healer],
     attackersPool: [MOBILE_TYPES.SkeletalWarrior, MOBILE_TYPES.Zombie, MOBILE_TYPES.Rat],
     getFactionNames: () => ({ f1: 'Temple Undertakers', f2: 'Risen Plague Dead' }),
-    getChoices: () => [
+    getChoices: (f1, f2) => [
       { text: t('living.choice.EVT_PLAGUE_PYRE_DESECRATION.1', '1. Exterminate the risen dead with silver and steel'), stance: 'defenders', repF1: 8, xp: 120 },
-      { text: t('living.choice.EVT_PLAGUE_PYRE_DESECRATION.2', '2. Consecrate the funeral pyre (Restoration)'), stance: 'consecrate', skillCheck: { skill: SKILLS.Restoration, target: 40 }, repF1: 10, xp: 140 },
-      { text: t('living.choice.EVT_PLAGUE_PYRE_DESECRATION.3', '3. Flee from the diseased ashes'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PLAGUE_PYRE_DESECRATION.2', '2. Channel the necromantic surge against the undertakers'), stance: 'attackers', repF1: -10, repF2: 8 },
+      { text: t('living.choice.EVT_PLAGUE_PYRE_DESECRATION.3', '3. Do not intervene by the diseased pyres'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PLAGUE_PYRE_DESECRATION.4', '4. Consecrate the funeral pyre and banish the dead (Restoration)'), stance: 'peace', skillCheck: { skill: SKILLS.Restoration, target: 40 }, repF1: 10, xp: 140 },
     ],
   },
   {
@@ -350,11 +351,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Town'} Watch`, f2: 'Hysterical Crowd' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_PLAGUE_WATER_WELL_SCARE.1', '1. Calm the crowd with authoritative words (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 50 }, repF1: 6, xp: 100 },
-      { text: t('living.choice.EVT_PLAGUE_WATER_WELL_SCARE.2', '2. Test the well water for contamination (Medical)'), stance: 'test_water', skillCheck: { skill: SKILLS.Medical, target: 40 }, repF1: 8, xp: 110 },
-      { text: t('living.choice.EVT_PLAGUE_WATER_WELL_SCARE.3', '3. Disperse the panicked crowd with force'), stance: 'defenders', repF1: 4, repF2: -6 },
-      { text: t('living.choice.EVT_PLAGUE_WATER_WELL_SCARE.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_PLAGUE_WATER_WELL_SCARE.1', '1. Disperse the panicked crowd with the city watch'), stance: 'defenders', repF1: 4, repF2: -6 },
+      { text: t('living.choice.EVT_PLAGUE_WATER_WELL_SCARE.2', '2. Lead the crowd to smash the contaminated well'), stance: 'attackers', repF1: -4, repF2: 6 },
+      { text: t('living.choice.EVT_PLAGUE_WATER_WELL_SCARE.3', '3. Do not intervene in the water well panic'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PLAGUE_WATER_WELL_SCARE.4', '4. Test the well water and calm the crowd (Medical)'), stance: 'peace', skillCheck: { skill: SKILLS.Medical, target: 40 }, repF1: 8, repF2: 8, xp: 110 },
     ],
   },
   {
@@ -369,11 +370,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Spellsword],
     getFactionNames: () => ({ f1: 'Deceived Sick Townsfolk', f2: 'Quack Alchemist & Bodyguards' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.1', '1. Expose the fraud publicly (Medical)'), stance: 'expose', skillCheck: { skill: SKILLS.Medical, target: 45 }, repF1: 8, repF2: -10, xp: 120 },
-      { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.2', '2. Shake down the quack for his counterfeit profits'), stance: 'defenders', repF1: 6, goldReward: 80 },
-      { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.3', '3. Buy the "miracle cure" for 100 gold'), stance: 'buy_fake', goldCost: 100 },
-      { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.1', '1. Defend the sick townsfolk and demand justice'), stance: 'defenders', goldReward: 80, repF1: 6, repF2: -6 },
+      { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.2', '2. Act as bodyguard for the quack alchemist'), stance: 'attackers', goldReward: 70, repF1: -8, repF2: 8 },
+      { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.3', '3. Do not intervene in the cure dispute'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.4', '4. Publicly expose the fake remedy with medicine (Medical)'), stance: 'peace', skillCheck: { skill: SKILLS.Medical, target: 45 }, repF1: 8, repF2: 4, xp: 120 },
     ],
   },
 
@@ -390,11 +391,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage],
     attackersPool: [MOBILE_TYPES.Mage, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Werewolf],
     getFactionNames: () => ({ f1: 'Holy Inquisitors', f2: 'Coven Witches & Thralls' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_WITCH_HUNT_SIEGE.1', '1. Join the inquisition and purge the coven'), stance: 'defenders', repF1: 8, repF2: -15, goldReward: 150 },
-      { text: t('living.choice.EVT_WITCH_HUNT_SIEGE.2', '2. Shield the witches from the pyre'), stance: 'attackers', repF1: -15, repF2: 12, goldReward: 100 },
-      { text: t('living.choice.EVT_WITCH_HUNT_SIEGE.3', '3. Arcane diplomacy: Dissuade the inquisitor (Mysticism / Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 55 }, repF1: 4, repF2: 4, xp: 130 },
-      { text: t('living.choice.EVT_WITCH_HUNT_SIEGE.4', '4. Slip away into the shadows'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_WITCH_HUNT_SIEGE.1', '1. Join the inquisition and purge the coven'), stance: 'defenders', goldReward: 150, repF1: 8, repF2: -15 },
+      { text: t('living.choice.EVT_WITCH_HUNT_SIEGE.2', '2. Shield the witches from the pyre'), stance: 'attackers', goldReward: 100, repF1: -15, repF2: 12 },
+      { text: t('living.choice.EVT_WITCH_HUNT_SIEGE.3', '3. Do not intervene in the witch hunt'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WITCH_HUNT_SIEGE.4', '4. Persuade the inquisitor to accept penance (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 55 }, repF1: 4, repF2: 4, xp: 130 },
     ],
   },
   {
@@ -409,11 +410,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Ranger],
     attackersPool: [MOBILE_TYPES.Spellsword, MOBILE_TYPES.Nightblade],
     getFactionNames: () => ({ f1: 'Bewitched Rangers', f2: 'Travelling Wayfarers' }),
-    getChoices: () => [
+    getChoices: (f1, f2) => [
       { text: t('living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.1', '1. Stand and fight the enthralled sentries'), stance: 'defenders', goldReward: 40, xp: 80 },
-      { text: t('living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.2', '2. Dispel the witchcraft illusion (Thaumaturgy)'), stance: 'dispel', skillCheck: { skill: SKILLS.Thaumaturgy, target: 40 }, xp: 120, repF1: 6 },
-      { text: t('living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.3', '3. Retreat out of the thralls sight'), stance: 'stealth', skillCheck: { skill: SKILLS.Stealth, target: 45 }, xp: 90 },
-      { text: t('living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.4', '4. Flee the ambush'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.2', '2. Attack the wayfarers under the witching influence'), stance: 'attackers', goldReward: 50, repF1: -8 },
+      { text: t('living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.3', '3. Do not intervene in the roadside ambush'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.4', '4. Dispel the witchcraft illusion trance (Thaumaturgy)'), stance: 'peace', skillCheck: { skill: SKILLS.Thaumaturgy, target: 40 }, repF1: 6, xp: 120 },
     ],
   },
   {
@@ -428,11 +429,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Barbarian, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Healer, MOBILE_TYPES.Monk],
     getFactionNames: () => ({ f1: 'Zealous Witchhunters', f2: 'Village Herbalist' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.1', '1. Defend the apothecary against zealous hunters'), stance: 'attackers', repF1: -8, repF2: 8, goldReward: 50 },
-      { text: t('living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.2', '2. Assist inquisitors in searching the apothecary'), stance: 'peace', skillCheck: { skill: SKILLS.Medical, target: 40 }, repF1: 4, repF2: 6, xp: 100 },
-      { text: t('living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.3', '3. Verify apothecary herbs are non-toxic (Medical)'), stance: 'defenders', repF1: 5, repF2: -8 },
-      { text: t('living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.1', '1. Assist witchhunters in searching the apothecary'), stance: 'defenders', repF1: 5, repF2: -8 },
+      { text: t('living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.2', '2. Defend the herbalist against zealous hunters'), stance: 'attackers', goldReward: 50, repF1: -8, repF2: 8 },
+      { text: t('living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.3', '3. Do not intervene in the herbalist shakedown'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.4', '4. Verify apothecary herbs are non-toxic (Medical)'), stance: 'peace', skillCheck: { skill: SKILLS.Medical, target: 40 }, repF1: 4, repF2: 6, xp: 100 },
     ],
   },
   {
@@ -447,10 +448,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Mage, MOBILE_TYPES.Sorcerer],
     attackersPool: [MOBILE_TYPES.FireDaedra, MOBILE_TYPES.Imp],
     getFactionNames: () => ({ f1: 'Occult Summoners', f2: 'Unbound Daedra' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.1', '1. Disrupt the dark ritual with drawn steel'), stance: 'attackers', repF1: 8, xp: 150 },
-      { text: t('living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.2', '2. Banish the summoned Daedra with holy light (Restoration)'), stance: 'daedric', skillCheck: { skill: SKILLS.Daedric, target: 40 }, xp: 140 },
-      { text: t('living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.3', '3. Study the arcane ritual in secret (Mysticism)'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.1', '1. Assist the summoners in binding the unbound Daedra'), stance: 'defenders', repF1: 6, xp: 100 },
+      { text: t('living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.2', '2. Strike down the occultists and their fiends'), stance: 'attackers', repF1: -10, xp: 150 },
+      { text: t('living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.3', '3. Do not intervene in the dark ritual'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.4', '4. Banish the summoned Daedra and seal the rift (Daedric)'), stance: 'peace', skillCheck: { skill: SKILLS.Daedric, target: 40 }, repF1: 8, xp: 140 },
     ],
   },
 
@@ -467,11 +469,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Burglar, MOBILE_TYPES.Rogue],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Town'} Watch`, f2: 'Thieves Guild Heist Crew' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_CRIME_DAYLIGHT_HEIST.1', '1. Intercept the burglars and return the loot'), stance: 'defenders', repF1: 6, repF2: -8, goldReward: 120 },
-      { text: t('living.choice.EVT_CRIME_DAYLIGHT_HEIST.2', '2. Cover the thieves retreat from the city watch'), stance: 'attackers', repF1: -8, repF2: 8, goldReward: 100, bountyHostile: true },
-      { text: t('living.choice.EVT_CRIME_DAYLIGHT_HEIST.3', '3. Demand a cut to look the other way (120 gold)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 50 }, repF2: 6, goldReward: 80, xp: 80 },
-      { text: t('living.choice.EVT_CRIME_DAYLIGHT_HEIST.4', '4. Pretend to notice nothing'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_CRIME_DAYLIGHT_HEIST.1', '1. Intercept the burglars and return the loot'), stance: 'defenders', goldReward: 120, repF1: 6, repF2: -8 },
+      { text: t('living.choice.EVT_CRIME_DAYLIGHT_HEIST.2', '2. Cover the thieves retreat from the city watch'), stance: 'attackers', goldReward: 100, repF1: -8, repF2: 8, bountyHostile: true },
+      { text: t('living.choice.EVT_CRIME_DAYLIGHT_HEIST.3', '3. Do not intervene in the daylight robbery'), stance: 'neutral' },
+      { text: t('living.choice.EVT_CRIME_DAYLIGHT_HEIST.4', '4. Persuade thieves to drop the loot and flee (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 50 }, repF1: 4, repF2: 4, xp: 80 },
     ],
   },
   {
@@ -486,10 +488,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Assassin, MOBILE_TYPES.Nightblade],
     getFactionNames: () => ({ f1: 'Target Noble & Guard', f2: 'Brotherhood Assassin' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.1', '1. Shield the marked target from the assassin'), stance: 'defenders', repF1: 8, repF2: -15, goldReward: 200 },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.1', '1. Shield the marked target from the assassin'), stance: 'defenders', goldReward: 200, repF1: 8, repF2: -15 },
       { text: t('living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.2', '2. Assist the Dark Brotherhood assassin in the hit'), stance: 'attackers', repF1: -15, repF2: 10, bountyHostile: true },
-      { text: t('living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.3', '3. Flash the underworld token of silence (Streetwise)'), stance: 'neutral' },
+      { text: t('living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.3', '3. Do not intervene in Brotherhood business'), stance: 'neutral' },
+      { text: t('living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.4', '4. Distract the assassin and spirit the target away (Stealth)'), stance: 'peace', skillCheck: { skill: SKILLS.Stealth, target: 45 }, repF1: 6, xp: 120 },
     ],
   },
   {
@@ -504,11 +507,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Knight_CityWatch],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Burglar],
     getFactionNames: () => ({ f1: 'Robbed Merchant', f2: 'Fleeing Pickpocket' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_CRIME_PICKPOCKET_CHASE.1', '1. Tackle the fleeing cutpurse to the ground'), stance: 'defenders', repF1: 4, goldReward: 25 },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_CRIME_PICKPOCKET_CHASE.1', '1. Tackle the fleeing cutpurse to the ground'), stance: 'defenders', goldReward: 25, repF1: 4 },
       { text: t('living.choice.EVT_CRIME_PICKPOCKET_CHASE.2', '2. Trip the pursuing merchant and let the thief flee'), stance: 'attackers', repF1: -4, repF2: 6 },
-      { text: t('living.choice.EVT_CRIME_PICKPOCKET_CHASE.3', '3. Shrewd mediation: Buy the stolen purse (25 gold)'), stance: 'pay_theft', goldCost: 20, repF1: 4, repF2: 4, xp: 50 },
-      { text: t('living.choice.EVT_CRIME_PICKPOCKET_CHASE.4', '4. Stand aside in the bazaar crowd'), stance: 'neutral' },
+      { text: t('living.choice.EVT_CRIME_PICKPOCKET_CHASE.3', '3. Do not intervene in the bazaar chase'), stance: 'neutral' },
+      { text: t('living.choice.EVT_CRIME_PICKPOCKET_CHASE.4', '4. Compensate the merchant for the stolen goods (25 gold)'), stance: 'peace', goldCost: 25, repF1: 4, repF2: 4, xp: 50 },
     ],
   },
   {
@@ -523,11 +526,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Knight],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief, MOBILE_TYPES.Warrior],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Watch'} Sergeants`, f2: 'Den Gamblers & Bouncers' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_CRIME_GAMBLING_DEN_BUST.1', '1. Assist the watch in raiding the illicit den'), stance: 'defenders', repF1: 6, repF2: -6, goldReward: 80 },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_CRIME_GAMBLING_DEN_BUST.1', '1. Assist the watch in raiding the illicit den'), stance: 'defenders', goldReward: 80, repF1: 6, repF2: -6 },
       { text: t('living.choice.EVT_CRIME_GAMBLING_DEN_BUST.2', '2. Defend the gamblers and hold the door for escape'), stance: 'attackers', repF1: -6, repF2: 8 },
-      { text: t('living.choice.EVT_CRIME_GAMBLING_DEN_BUST.3', '3. Bribe the sergeant to overlook the cellar (100 gold)'), stance: 'bribe', goldCost: 70, repF2: 6, xp: 60 },
-      { text: t('living.choice.EVT_CRIME_GAMBLING_DEN_BUST.4', '4. Slip out through the back door'), stance: 'neutral' },
+      { text: t('living.choice.EVT_CRIME_GAMBLING_DEN_BUST.3', '3. Do not intervene in the gambling den raid'), stance: 'neutral' },
+      { text: t('living.choice.EVT_CRIME_GAMBLING_DEN_BUST.4', '4. Bribe the sergeant to overlook the cellar (75 gold)'), stance: 'peace', goldCost: 75, repF1: 2, repF2: 6, xp: 60 },
     ],
   },
 
@@ -544,11 +547,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Healer, MOBILE_TYPES.Spellsword],
     attackersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer],
     getFactionNames: (reg) => ({ f1: 'Sanctuary Clergy', f2: `${REGION_NAMES[reg] ?? 'Crown'} Enforcers` }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_TEMPLE_PURGE_SIEGE.1', '1. Join the temple crusade and storm the shrine'), stance: 'defenders', repF1: 10, repF2: -12, xp: 120 },
-      { text: t('living.choice.EVT_TEMPLE_PURGE_SIEGE.2', '2. Protect the secret shrine and its devotees'), stance: 'attackers', repF1: -12, repF2: 8, goldReward: 100 },
-      { text: t('living.choice.EVT_TEMPLE_PURGE_SIEGE.3', '3. Ancient sanctuary right: Invoke immunity (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 50 }, repF1: 6, repF2: 6, xp: 140 },
-      { text: t('living.choice.EVT_TEMPLE_PURGE_SIEGE.4', '4. Do not anger the gods, depart'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_TEMPLE_PURGE_SIEGE.1', '1. Protect the sanctuary clergy and sacred relics'), stance: 'defenders', repF1: 10, repF2: -12, xp: 120 },
+      { text: t('living.choice.EVT_TEMPLE_PURGE_SIEGE.2', '2. Help the city enforcers storm the shrine'), stance: 'attackers', goldReward: 100, repF1: -12, repF2: 8 },
+      { text: t('living.choice.EVT_TEMPLE_PURGE_SIEGE.3', '3. Do not intervene in the holy sanctuary siege'), stance: 'neutral' },
+      { text: t('living.choice.EVT_TEMPLE_PURGE_SIEGE.4', '4. Ancient sanctuary right: Invoke immunity (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 50 }, repF1: 6, repF2: 6, xp: 140 },
     ],
   },
   {
@@ -563,11 +566,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Knight],
     attackersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Spellsword],
     getFactionNames: () => ({ f1: 'Orthodox Guardians', f2: 'Schismatic Reformers' }),
-    getChoices: () => [
+    getChoices: (f1, f2) => [
       { text: t('living.choice.EVT_TEMPLE_CLERGY_STANDOFF.1', '1. Defend the orthodox keepers of the relic'), stance: 'defenders', repF1: 6, repF2: -6, xp: 70 },
       { text: t('living.choice.EVT_TEMPLE_CLERGY_STANDOFF.2', '2. Support the reformist schismatics'), stance: 'attackers', repF1: -6, repF2: 6, xp: 70 },
-      { text: t('living.choice.EVT_TEMPLE_CLERGY_STANDOFF.3', '3. Resolve dispute by scripture (Streetwise / Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 45 }, repF1: 4, repF2: 4, xp: 90 },
-      { text: t('living.choice.EVT_TEMPLE_CLERGY_STANDOFF.4', '4. Pass by'), stance: 'neutral' },
+      { text: t('living.choice.EVT_TEMPLE_CLERGY_STANDOFF.3', '3. Do not intervene in the theological dispute'), stance: 'neutral' },
+      { text: t('living.choice.EVT_TEMPLE_CLERGY_STANDOFF.4', '4. Reconcile both sides with sacred scripture (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 45 }, repF1: 4, repF2: 4, xp: 90 },
     ],
   },
   {
@@ -582,11 +585,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Knight_CityWatch],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief],
     getFactionNames: () => ({ f1: 'Temple Wardens', f2: 'Heretic Vandal Gang' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.1', '1. Cut down the desecrators on the temple steps'), stance: 'defenders', repF1: 6, repF2: -6, goldReward: 50 },
-      { text: t('living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.2', '2. Subdue the vandals alive for ecclesiastical court'), stance: 'arrest', repF1: 8, xp: 80 },
-      { text: t('living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.3', '3. Help scrub the blasphemous slogans from the walls'), stance: 'cleanse', repF1: 5, xp: 60 },
-      { text: t('living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.1', '1. Drive off the desecrators with the temple wardens'), stance: 'defenders', goldReward: 50, repF1: 6, repF2: -6 },
+      { text: t('living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.2', '2. Join the heretics in defacing the temple facade'), stance: 'attackers', repF1: -6, repF2: 6 },
+      { text: t('living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.3', '3. Do not intervene in the temple vandalism'), stance: 'neutral' },
+      { text: t('living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.4', '4. Cleanse the slogans and counsel the vandals (Restoration)'), stance: 'peace', skillCheck: { skill: SKILLS.Restoration, target: 35 }, repF1: 6, repF2: 4, xp: 80 },
     ],
   },
   {
@@ -601,11 +604,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Monk],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Rogue],
     getFactionNames: () => ({ f1: 'Elder Beggars', f2: 'Young Vagrants' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_TEMPLE_ALMS_DISPUTE.1', '1. Break up the brawl with a commanding shout (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 40 }, repF1: 4, repF2: 4, xp: 50 },
-      { text: t('living.choice.EVT_TEMPLE_ALMS_DISPUTE.2', '2. Scatter a handful of gold into the crowd (15 gold)'), stance: 'scatter_gold', goldCost: 15, repF1: 6, repF2: 6, xp: 60 },
-      { text: t('living.choice.EVT_TEMPLE_ALMS_DISPUTE.3', '3. Summon the temple beadle with rods'), stance: 'defenders', repF1: 3, repF2: -4 },
-      { text: t('living.choice.EVT_TEMPLE_ALMS_DISPUTE.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_TEMPLE_ALMS_DISPUTE.1', '1. Defend the elder beggars from the young vagrants'), stance: 'defenders', repF1: 5, repF2: -4 },
+      { text: t('living.choice.EVT_TEMPLE_ALMS_DISPUTE.2', '2. Support the young vagrants claiming temple space'), stance: 'attackers', repF1: -4, repF2: 5 },
+      { text: t('living.choice.EVT_TEMPLE_ALMS_DISPUTE.3', '3. Do not intervene in the beggar brawl'), stance: 'neutral' },
+      { text: t('living.choice.EVT_TEMPLE_ALMS_DISPUTE.4', '4. Scatter coins and divide alms evenly (20 gold)'), stance: 'peace', goldCost: 20, repF1: 6, repF2: 6, xp: 60 },
     ],
   },
 
@@ -622,11 +625,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Spellsword],
     attackersPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Rogue, MOBILE_TYPES.Battlemage],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'New'} Royal Guard`, f2: 'Old Regime Loyalists' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_NEW_RULER_CORONATION.1', '1. Shield the new ruler from conspirators'), stance: 'defenders', repF1: 12, repF2: -15, goldReward: 250, xp: 150 },
-      { text: t('living.choice.EVT_NEW_RULER_CORONATION.2', '2. Support the rebels and topple the usurper'), stance: 'attackers', repF1: -15, repF2: 12, bountyHostile: true },
-      { text: t('living.choice.EVT_NEW_RULER_CORONATION.3', '3. Interpose your shield to guard the lord'), stance: 'bodyguard', repF1: 15, goldReward: 300, xp: 200 },
-      { text: t('living.choice.EVT_NEW_RULER_CORONATION.4', '4. Blend into the cheering crowd'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_NEW_RULER_CORONATION.1', '1. Shield the coronation retinue from conspirators'), stance: 'defenders', goldReward: 250, repF1: 12, repF2: -15, xp: 150 },
+      { text: t('living.choice.EVT_NEW_RULER_CORONATION.2', '2. Support the loyalists of the old regime in revolt'), stance: 'attackers', repF1: -15, repF2: 12, bountyHostile: true },
+      { text: t('living.choice.EVT_NEW_RULER_CORONATION.3', '3. Do not intervene in the dynastic struggle'), stance: 'neutral' },
+      { text: t('living.choice.EVT_NEW_RULER_CORONATION.4', '4. Mediate a truce before the lord (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 50 }, repF1: 6, repF2: 6, xp: 160 },
     ],
   },
   {
@@ -641,11 +644,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Knight],
     attackersPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Town'} Watch`, f2: 'Rebellious Townsfolk' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_NEW_RULER_STATUE_UNVEILING.1', '1. Help the guard push vandals away from the plinth'), stance: 'defenders', repF1: 6, repF2: -6, goldReward: 80 },
-      { text: t('living.choice.EVT_NEW_RULER_STATUE_UNVEILING.2', '2. Pull on the ropes to help the mob topple the monument'), stance: 'attackers', repF1: -8, repF2: 8 },
-      { text: t('living.choice.EVT_NEW_RULER_STATUE_UNVEILING.3', '3. Speech on preserving historical memory (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 50 }, repF1: 5, repF2: 5, xp: 100 },
-      { text: t('living.choice.EVT_NEW_RULER_STATUE_UNVEILING.4', '4. Watch from the sidelines'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_NEW_RULER_STATUE_UNVEILING.1', '1. Help the guard protect the monument from the mob'), stance: 'defenders', goldReward: 80, repF1: 6, repF2: -6 },
+      { text: t('living.choice.EVT_NEW_RULER_STATUE_UNVEILING.2', '2. Help the rebellious townsfolk topple the monument'), stance: 'attackers', repF1: -8, repF2: 8 },
+      { text: t('living.choice.EVT_NEW_RULER_STATUE_UNVEILING.3', '3. Do not intervene in the monument riot'), stance: 'neutral' },
+      { text: t('living.choice.EVT_NEW_RULER_STATUE_UNVEILING.4', '4. Speech on preserving historical memory (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 50 }, repF1: 5, repF2: 5, xp: 100 },
     ],
   },
   {
@@ -660,11 +663,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Spellsword],
     attackersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Barbarian],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Crown'} Retinue`, f2: 'Defiant Baron Warband' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_NEW_RULER_OATH_CEREMONY.1', '1. Uphold the feudal oath of fealty to the crown'), stance: 'defenders', repF1: 8, repF2: -10, goldReward: 120 },
-      { text: t('living.choice.EVT_NEW_RULER_OATH_CEREMONY.2', '2. Defend the barons charter of independence'), stance: 'attackers', repF1: -10, repF2: 8 },
-      { text: t('living.choice.EVT_NEW_RULER_OATH_CEREMONY.3', '3. Champions duel for honor of the sides (1 on 1)'), stance: 'duel', repF1: 6, repF2: 6, xp: 150 },
-      { text: t('living.choice.EVT_NEW_RULER_OATH_CEREMONY.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_NEW_RULER_OATH_CEREMONY.1', '1. Uphold the feudal oath alongside the crown retinue'), stance: 'defenders', goldReward: 120, repF1: 8, repF2: -10 },
+      { text: t('living.choice.EVT_NEW_RULER_OATH_CEREMONY.2', '2. Defend the defiant barons charter of rights'), stance: 'attackers', repF1: -10, repF2: 8 },
+      { text: t('living.choice.EVT_NEW_RULER_OATH_CEREMONY.3', '3. Do not intervene in the feudal standoff'), stance: 'neutral' },
+      { text: t('living.choice.EVT_NEW_RULER_OATH_CEREMONY.4', '4. Arbitrate a legal feudal compromise (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 45 }, repF1: 6, repF2: 6, xp: 120 },
     ],
   },
 
@@ -681,11 +684,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief, MOBILE_TYPES.Warrior],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Crown'} Tax Bailiffs`, f2: 'Merchant Guild & Crafters' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_PRICES_TAX_REVOLT.1', '1. Help the tax bailiffs collect arrears by force'), stance: 'defenders', repF1: 6, repF2: -8, goldReward: 100 },
-      { text: t('living.choice.EVT_PRICES_TAX_REVOLT.2', '2. Stand alongside the merchants guild'), stance: 'attackers', repF1: -8, repF2: 8, bountyHostile: true },
-      { text: t('living.choice.EVT_PRICES_TAX_REVOLT.3', '3. Audit tax ledgers: Point out calculation error (Mercantile)'), stance: 'peace', skillCheck: { skill: SKILLS.Mercantile, target: 50 }, repF1: 5, repF2: 8, xp: 120 },
-      { text: t('living.choice.EVT_PRICES_TAX_REVOLT.4', '4. Keep your nose out of other purses'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_PRICES_TAX_REVOLT.1', '1. Help the tax bailiffs enforce collection by arms'), stance: 'defenders', goldReward: 100, repF1: 6, repF2: -8 },
+      { text: t('living.choice.EVT_PRICES_TAX_REVOLT.2', '2. Stand with the merchants against extortionate taxes'), stance: 'attackers', repF1: -8, repF2: 8, bountyHostile: true },
+      { text: t('living.choice.EVT_PRICES_TAX_REVOLT.3', '3. Do not intervene in the tax revolt'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PRICES_TAX_REVOLT.4', '4. Audit the ledgers and negotiate tax relief (Mercantile)'), stance: 'peace', skillCheck: { skill: SKILLS.Mercantile, target: 50 }, repF1: 5, repF2: 8, xp: 120 },
     ],
   },
   {
@@ -700,11 +703,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Rogue],
     getFactionNames: () => ({ f1: 'Market Magistrate', f2: 'Usurer & Bodyguards' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.1', '1. Defend the magistrate from violent thugs'), stance: 'defenders', repF1: 6, repF2: -6, goldReward: 90 },
-      { text: t('living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.2', '2. Accept the moneylenders hush money (150 gold)'), stance: 'bribe', goldReward: 150, repF1: -8 },
-      { text: t('living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.3', '3. Threaten with merchant court tribunal (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 45 }, repF1: 5, xp: 80 },
-      { text: t('living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.1', '1. Defend the magistrate from violent moneylenders'), stance: 'defenders', goldReward: 90, repF1: 6, repF2: -6 },
+      { text: t('living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.2', '2. Back the shopkeeper and expel the inspector'), stance: 'attackers', goldReward: 80, repF1: -6, repF2: 6 },
+      { text: t('living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.3', '3. Do not intervene in the market inspection'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.4', '4. Enforce fair commerce by merchant court law (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 45 }, repF1: 5, repF2: 5, xp: 80 },
     ],
   },
 
@@ -721,11 +724,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Rogue],
     attackersPool: [MOBILE_TYPES.Barbarian, MOBILE_TYPES.Rogue],
     getFactionNames: () => ({ f1: 'Tavern Keep & Bouncers', f2: 'Rowdy Holidaymakers' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_HOLIDAY_TOWN_BRAWL.1', '1. Restore order with bare fists (Unarmed)'), stance: 'defenders', repF1: 5, goldReward: 40, xp: 60 },
-      { text: t('living.choice.EVT_HOLIDAY_TOWN_BRAWL.2', '2. Join the merry tavern brawl'), stance: 'brawl', repF2: 5, xp: 50 },
-      { text: t('living.choice.EVT_HOLIDAY_TOWN_BRAWL.3', '3. Buy a cask of spiced ale for the tavern (30 gold)'), stance: 'buy_drinks', goldCost: 30, repF1: 6, repF2: 6, xp: 70 },
-      { text: t('living.choice.EVT_HOLIDAY_TOWN_BRAWL.4', '4. Sip your ale in the corner'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_HOLIDAY_TOWN_BRAWL.1', '1. Help the bouncers restore tavern order'), stance: 'defenders', goldReward: 40, repF1: 5, xp: 60 },
+      { text: t('living.choice.EVT_HOLIDAY_TOWN_BRAWL.2', '2. Join the rowdy holidaymakers in the brawl'), stance: 'attackers', repF2: 5, xp: 50 },
+      { text: t('living.choice.EVT_HOLIDAY_TOWN_BRAWL.3', '3. Do not intervene in the tavern brawl'), stance: 'neutral' },
+      { text: t('living.choice.EVT_HOLIDAY_TOWN_BRAWL.4', '4. Buy a round of spiced ale for the tavern (35 gold)'), stance: 'peace', goldCost: 35, repF1: 6, repF2: 6, xp: 70 },
     ],
   },
   {
@@ -740,10 +743,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Bard, MOBILE_TYPES.Acrobat],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Burglar],
     getFactionNames: () => ({ f1: 'Carnival Troupe', f2: 'Masked Tricksters' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.1', '1. Catch the costumed cutpurses red-handed'), stance: 'defenders', repF1: 6, goldReward: 50 },
-      { text: t('living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.2', '2. Play an impromptu role in the pageant (Personality)'), stance: 'performance', skillCheck: { skill: SKILLS.Etiquette, target: 40 }, repF1: 8, xp: 100 },
-      { text: t('living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.3', '3. Applaud from the spectators'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.1', '1. Protect the carnival troupe from tricksters'), stance: 'defenders', goldReward: 50, repF1: 6 },
+      { text: t('living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.2', '2. Join the masked tricksters in teasing the crowd'), stance: 'attackers', repF2: 6, xp: 50 },
+      { text: t('living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.3', '3. Do not intervene in the masquerade turmoil'), stance: 'neutral' },
+      { text: t('living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.4', '4. Perform a grand theatrical act to unite the crowd (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 40 }, repF1: 8, repF2: 8, xp: 100 },
     ],
   },
   {
@@ -758,10 +762,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Ghost, MOBILE_TYPES.Zombie, MOBILE_TYPES.SkeletalWarrior],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Town'} Night Watch`, f2: 'Horrors of the Dark' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_SCARY_NIGHT_HORROR.1', '1. Cleanse the street with holy fire and steel'), stance: 'defenders', repF1: 8, goldReward: 120, xp: 130 },
-      { text: t('living.choice.EVT_SCARY_NIGHT_HORROR.2', '2. Recite the turning prayer of Arkay (Restoration)'), stance: 'turn_undead', skillCheck: { skill: SKILLS.Restoration, target: 45 }, repF1: 10, xp: 150 },
-      { text: t('living.choice.EVT_SCARY_NIGHT_HORROR.3', '3. Run toward the lighted torches of the watchtower'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_SCARY_NIGHT_HORROR.1', '1. Cleanse the street alongside the night watch'), stance: 'defenders', goldReward: 120, repF1: 8, xp: 130 },
+      { text: t('living.choice.EVT_SCARY_NIGHT_HORROR.2', '2. Embrace the horror and attack the night watch'), stance: 'attackers', repF1: -10, xp: 100 },
+      { text: t('living.choice.EVT_SCARY_NIGHT_HORROR.3', '3. Do not intervene in the nighttime incursion'), stance: 'neutral' },
+      { text: t('living.choice.EVT_SCARY_NIGHT_HORROR.4', '4. Turn and banish the horrors with holy prayer (Restoration)'), stance: 'peace', skillCheck: { skill: SKILLS.Restoration, target: 45 }, repF1: 10, xp: 150 },
     ],
   },
   {
@@ -776,11 +781,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Healer],
     attackersPool: [MOBILE_TYPES.Barbarian, MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
     getFactionNames: () => ({ f1: 'Holy Procession', f2: 'Heretical Agitators' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_HOLY_DAY_FANATICS.1', '1. Defend the devout procession from heretic clubs'), stance: 'defenders', repF1: 8, repF2: -8, xp: 90 },
-      { text: t('living.choice.EVT_HOLY_DAY_FANATICS.2', '2. Disperse both factions to avoid bloodshed (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 45 }, repF1: 4, repF2: 4, xp: 100 },
-      { text: t('living.choice.EVT_HOLY_DAY_FANATICS.3', '3. Join the solemn prayer procession'), stance: 'pray', repF1: 6, xp: 60 },
-      { text: t('living.choice.EVT_HOLY_DAY_FANATICS.4', '4. Pass by'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_HOLY_DAY_FANATICS.1', '1. Defend the holy procession from agitators'), stance: 'defenders', repF1: 8, repF2: -8, xp: 90 },
+      { text: t('living.choice.EVT_HOLY_DAY_FANATICS.2', '2. Join the agitators against religious hypocrisy'), stance: 'attackers', repF1: -8, repF2: 8, xp: 70 },
+      { text: t('living.choice.EVT_HOLY_DAY_FANATICS.3', '3. Do not intervene in the festival confrontation'), stance: 'neutral' },
+      { text: t('living.choice.EVT_HOLY_DAY_FANATICS.4', '4. Lead a joint prayer of festival reconciliation (Etiquette)'), stance: 'peace', skillCheck: { skill: SKILLS.Etiquette, target: 45 }, repF1: 6, repF2: 6, xp: 100 },
     ],
   },
 
@@ -797,10 +802,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Battlemage, MOBILE_TYPES.Knight],
     attackersPool: [MOBILE_TYPES.Mage, MOBILE_TYPES.FireAtronach, MOBILE_TYPES.IronAtronach],
     getFactionNames: () => ({ f1: 'Mages Guild Responders', f2: 'Deranged Mage & Elementals' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_MAD_WIZARD_RAMPAGE.1', '1. Strike the madman down with arrow or counter-spell'), stance: 'defenders', repF1: 10, goldReward: 180, xp: 140 },
-      { text: t('living.choice.EVT_MAD_WIZARD_RAMPAGE.2', '2. Dispel the magical trance of madness (Thaumaturgy)'), stance: 'dispel', skillCheck: { skill: SKILLS.Thaumaturgy, target: 50 }, repF1: 12, xp: 160 },
-      { text: t('living.choice.EVT_MAD_WIZARD_RAMPAGE.3', '3. Dive for cover from stray fireballs'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_MAD_WIZARD_RAMPAGE.1', '1. Assist the battlemages in subduing the rampaging mage'), stance: 'defenders', goldReward: 180, repF1: 10, xp: 140 },
+      { text: t('living.choice.EVT_MAD_WIZARD_RAMPAGE.2', '2. Unleash destruction alongside the rogue elementalist'), stance: 'attackers', repF1: -12, xp: 130 },
+      { text: t('living.choice.EVT_MAD_WIZARD_RAMPAGE.3', '3. Do not intervene in the arcane rampage'), stance: 'neutral' },
+      { text: t('living.choice.EVT_MAD_WIZARD_RAMPAGE.4', '4. Dispel the magical trance of madness (Thaumaturgy)'), stance: 'peace', skillCheck: { skill: SKILLS.Thaumaturgy, target: 50 }, repF1: 12, xp: 160 },
     ],
   },
 
@@ -817,10 +823,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Ranger, MOBILE_TYPES.Monk],
     attackersPool: [MOBILE_TYPES.Wereboar, MOBILE_TYPES.GrizzlyBear],
     getFactionNames: () => ({ f1: 'Distressed Homesteaders', f2: 'Rampaging Wild Beast' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_FARM_RUNAWAY_CATTLE.1', '1. Slay the enraged beast and protect the homestead'), stance: 'defenders', repF1: 5, goldReward: 35, xp: 70 },
-      { text: t('living.choice.EVT_FARM_RUNAWAY_CATTLE.2', '2. Calm the animal with soothing gestures and feed (Stealth)'), stance: 'tame', skillCheck: { skill: SKILLS.Stealth, target: 40 }, repF1: 6, xp: 90 },
-      { text: t('living.choice.EVT_FARM_RUNAWAY_CATTLE.3', '3. Leap onto the barn roof'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_FARM_RUNAWAY_CATTLE.1', '1. Slay the enraged beast and protect the homestead'), stance: 'defenders', goldReward: 35, repF1: 5, xp: 70 },
+      { text: t('living.choice.EVT_FARM_RUNAWAY_CATTLE.2', '2. Provoke the beast towards the greedy landlord manor'), stance: 'attackers', repF1: -6, xp: 50 },
+      { text: t('living.choice.EVT_FARM_RUNAWAY_CATTLE.3', '3. Do not intervene in the farmstead trouble'), stance: 'neutral' },
+      { text: t('living.choice.EVT_FARM_RUNAWAY_CATTLE.4', '4. Calm and tame the beast with food and gentleness (Stealth)'), stance: 'peace', skillCheck: { skill: SKILLS.Stealth, target: 40 }, repF1: 6, xp: 90 },
     ],
   },
   {
@@ -835,10 +842,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Healer],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Rogue],
     getFactionNames: () => ({ f1: 'Grieving Widower', f2: 'Graveyard Grave-Robbers' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.1', '1. Teach the grave robbers a lesson with steel'), stance: 'defenders', repF1: 6, goldReward: 40, xp: 70 },
-      { text: t('living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.2', '2. Intimidate robbers with your reputation (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 45 }, repF1: 5, xp: 80 },
-      { text: t('living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.3', '3. Walk past stranger grief'), stance: 'neutral' },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.1', '1. Teach the grave robbers a lesson with steel'), stance: 'defenders', goldReward: 40, repF1: 6, xp: 70 },
+      { text: t('living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.2', '2. Help the grave robbers crack the crypt for loot'), stance: 'attackers', goldReward: 60, repF1: -8 },
+      { text: t('living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.3', '3. Do not intervene in the graveyard robbery'), stance: 'neutral' },
+      { text: t('living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.4', '4. Intimidate robbers to leave the mourner in peace (Streetwise)'), stance: 'peace', skillCheck: { skill: SKILLS.Streetwise, target: 45 }, repF1: 5, repF2: 4, xp: 80 },
     ],
   },
   {
@@ -853,10 +861,11 @@ export const CRISIS_EVENTS = Object.freeze([
     defendersPool: [MOBILE_TYPES.Warrior],
     attackersPool: [MOBILE_TYPES.Rogue],
     getFactionNames: () => ({ f1: 'Veteran Mercenary Captain', f2: 'Cunning Cartographer' }),
-    getChoices: () => [
-      { text: t('living.choice.EVT_TAVERN_CHESS_WAGER.1', '1. Resolve the game with a brilliant checkmate (Etiquette)'), stance: 'chess_move', skillCheck: { skill: SKILLS.Etiquette, target: 45 }, xp: 100 },
-      { text: t('living.choice.EVT_TAVERN_CHESS_WAGER.2', '2. Place a wager on the cartographer (30 gold)'), stance: 'wager', goldCost: 30, goldReward: 60 },
-      { text: t('living.choice.EVT_TAVERN_CHESS_WAGER.3', '3. Order an ale and listen to tall tales'), stance: 'neutral', xp: 20 },
+    getChoices: (f1, f2) => [
+      { text: t('living.choice.EVT_TAVERN_CHESS_WAGER.1', '1. Advise the mercenary captain on the winning move'), stance: 'defenders', goldReward: 30, repF1: 4, xp: 40 },
+      { text: t('living.choice.EVT_TAVERN_CHESS_WAGER.2', '2. Advise the cartographer on the winning strategy'), stance: 'attackers', goldReward: 30, repF2: 4, xp: 40 },
+      { text: t('living.choice.EVT_TAVERN_CHESS_WAGER.3', '3. Do not intervene and enjoy your tavern ale'), stance: 'neutral', xp: 20 },
+      { text: t('living.choice.EVT_TAVERN_CHESS_WAGER.4', '4. Propose a friendly stalemate and buy a pitcher of wine (20 gold)'), stance: 'peace', goldCost: 20, repF1: 5, repF2: 5, xp: 60 },
     ],
   },
 ]);

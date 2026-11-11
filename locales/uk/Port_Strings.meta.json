@@ -20564,6 +20564,731 @@
   "tr": "9851c71b1f10",
   "by": "claude-in-session"
  },
+ "living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.1": {
+  "en": "0138b6e4069e",
+  "tr": "b24359cc1b08",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.2": {
+  "en": "8115b7ced3af",
+  "tr": "eac1448210c0",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.3": {
+  "en": "39a1f5ad473e",
+  "tr": "3051fec42ddb",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_DAYLIGHT_HEIST.1": {
+  "en": "302aacc1be0e",
+  "tr": "96fb4782ac8b",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_DAYLIGHT_HEIST.2": {
+  "en": "a455dcb8863f",
+  "tr": "b2bf500c0ebd",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_DAYLIGHT_HEIST.3": {
+  "en": "6dce6cbefc3b",
+  "tr": "f3eab343696c",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_DAYLIGHT_HEIST.4": {
+  "en": "c96b74b1fd53",
+  "tr": "931c71c3b28d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_GAMBLING_DEN_BUST.1": {
+  "en": "b4406a83cc7c",
+  "tr": "2c8446b716fe",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_GAMBLING_DEN_BUST.2": {
+  "en": "98d2b1342c9a",
+  "tr": "b86d0b05d59c",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_GAMBLING_DEN_BUST.3": {
+  "en": "30f488ea3ce0",
+  "tr": "e176aae69185",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_GAMBLING_DEN_BUST.4": {
+  "en": "c0a2499dc7af",
+  "tr": "b2ab0670ff31",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_PICKPOCKET_CHASE.1": {
+  "en": "55b1c8856618",
+  "tr": "8ce4321ecd87",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_PICKPOCKET_CHASE.2": {
+  "en": "ec1603be9535",
+  "tr": "6e7423bdf2c3",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_PICKPOCKET_CHASE.3": {
+  "en": "4f09a2a6d9a0",
+  "tr": "14bd28466d08",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_CRIME_PICKPOCKET_CHASE.4": {
+  "en": "596cf30e8e8c",
+  "tr": "9cb92a8ced7b",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_BARN_RAID.1": {
+  "en": "2fb1ea0cd8b5",
+  "tr": "9da1b145a2e8",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_BARN_RAID.2": {
+  "en": "a26fe9d0885a",
+  "tr": "8f5781b5285d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_BARN_RAID.3": {
+  "en": "13ae03e12776",
+  "tr": "6f7daa66f4e7",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_BARN_RAID.4": {
+  "en": "d9c9762023b2",
+  "tr": "06b1d3cd2c4e",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_PREDATOR_INVASION.1": {
+  "en": "40ce9be7ce64",
+  "tr": "2092bdb670ad",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_PREDATOR_INVASION.2": {
+  "en": "f1278650767b",
+  "tr": "f1fe756078f2",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_PREDATOR_INVASION.3": {
+  "en": "9cb073ca5a1f",
+  "tr": "c34a0c22a994",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_RATION_SCAM.1": {
+  "en": "07fad1a3d9ef",
+  "tr": "cb717f61ed1d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_RATION_SCAM.2": {
+  "en": "05dd661796f7",
+  "tr": "e4843bd0fe0a",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_RATION_SCAM.3": {
+  "en": "2c53aa53c34b",
+  "tr": "69152737761f",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_RATION_SCAM.4": {
+  "en": "03a45cced0ce",
+  "tr": "5d9a4cb89839",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_RELIEF_CARAVAN.1": {
+  "en": "dae7e1f1590d",
+  "tr": "8cb6f6685248",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_RELIEF_CARAVAN.2": {
+  "en": "82f5d72efce3",
+  "tr": "5395c0092a44",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_RELIEF_CARAVAN.3": {
+  "en": "a821c2934d06",
+  "tr": "0a242e8d8f1d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.1": {
+  "en": "d06ec66548c3",
+  "tr": "14abaa679baf",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.2": {
+  "en": "0c4436c5bfda",
+  "tr": "f03229c83d03",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.3": {
+  "en": "efd9139535d8",
+  "tr": "1a4401d82084",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.4": {
+  "en": "9dccaba09ce6",
+  "tr": "cf8639dd842f",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FARM_RUNAWAY_CATTLE.1": {
+  "en": "1e74e12b0c3b",
+  "tr": "d7389593e545",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FARM_RUNAWAY_CATTLE.2": {
+  "en": "877076475d38",
+  "tr": "b32f137a2e1f",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_FARM_RUNAWAY_CATTLE.3": {
+  "en": "41bd9e2ec607",
+  "tr": "0dccd3db6897",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.1": {
+  "en": "98423962c5df",
+  "tr": "7cb77eb53319",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.2": {
+  "en": "a1c39b362901",
+  "tr": "d18fdfae3ef2",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.3": {
+  "en": "d81a1315c206",
+  "tr": "cccefb971b1e",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.1": {
+  "en": "baca4be6b317",
+  "tr": "357637c069c3",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.2": {
+  "en": "ee139d3ccf8f",
+  "tr": "74ed93379907",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.3": {
+  "en": "ba9c9ed2c8fc",
+  "tr": "5ce37cb0b785",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLIDAY_TOWN_BRAWL.1": {
+  "en": "b0113aedc7dc",
+  "tr": "6b22d9af5dae",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLIDAY_TOWN_BRAWL.2": {
+  "en": "d00b8e273d48",
+  "tr": "aedadcac8281",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLIDAY_TOWN_BRAWL.3": {
+  "en": "12ea87030d96",
+  "tr": "73ce8390e3b4",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLIDAY_TOWN_BRAWL.4": {
+  "en": "711a3049819f",
+  "tr": "b374a0638c97",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLY_DAY_FANATICS.1": {
+  "en": "77d789ad5a91",
+  "tr": "8496c3dfed26",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLY_DAY_FANATICS.2": {
+  "en": "cf3df267e4dc",
+  "tr": "1ef0c9bed84e",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLY_DAY_FANATICS.3": {
+  "en": "234e58a705ea",
+  "tr": "3fd4e3c3ac35",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_HOLY_DAY_FANATICS.4": {
+  "en": "90bec82aab0b",
+  "tr": "77dd06575eb7",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_MAD_WIZARD_RAMPAGE.1": {
+  "en": "5f6e18ab5e27",
+  "tr": "6ba9a850de40",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_MAD_WIZARD_RAMPAGE.2": {
+  "en": "f16b8e144957",
+  "tr": "fa7fc90dba52",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_MAD_WIZARD_RAMPAGE.3": {
+  "en": "6ba50f555554",
+  "tr": "8340586d60ab",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_CORONATION.1": {
+  "en": "571cea5b6a0b",
+  "tr": "2d9d6d766363",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_CORONATION.2": {
+  "en": "45132e8db9cd",
+  "tr": "d6b0a942c26d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_CORONATION.3": {
+  "en": "96568fad25b4",
+  "tr": "3c0e8639ff9a",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_CORONATION.4": {
+  "en": "497c4c221367",
+  "tr": "9e11b63b0beb",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_OATH_CEREMONY.1": {
+  "en": "50925d0667c1",
+  "tr": "56dd2123a620",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_OATH_CEREMONY.2": {
+  "en": "466e6fe564ab",
+  "tr": "5a03a50fa6f0",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_OATH_CEREMONY.3": {
+  "en": "6c1433d35aac",
+  "tr": "50917d12afc1",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_OATH_CEREMONY.4": {
+  "en": "1a6d56980e0b",
+  "tr": "4b0b3e6fa80d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_STATUE_UNVEILING.1": {
+  "en": "91b712410069",
+  "tr": "d7023d7438d6",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_STATUE_UNVEILING.2": {
+  "en": "6f76a2c0bbed",
+  "tr": "bd101d8906fb",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_STATUE_UNVEILING.3": {
+  "en": "e5d91b74b9a3",
+  "tr": "05af6ba553c1",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_NEW_RULER_STATUE_UNVEILING.4": {
+  "en": "d9b1fd36652a",
+  "tr": "5ebac9bd23b2",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_PYRE_DESECRATION.1": {
+  "en": "e0e8d36052a0",
+  "tr": "e1935b6d9d96",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_PYRE_DESECRATION.2": {
+  "en": "25927d369396",
+  "tr": "c90df4ed1d6c",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_PYRE_DESECRATION.3": {
+  "en": "41b823f0fd7e",
+  "tr": "cc18923e3ede",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.1": {
+  "en": "113571813d81",
+  "tr": "e1840e699d17",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.2": {
+  "en": "b2e324427c06",
+  "tr": "ee92e4ec535f",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.3": {
+  "en": "3024b4e36b00",
+  "tr": "e5a5751242bd",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.4": {
+  "en": "7fbffada27b7",
+  "tr": "c96b6b76b2d7",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_QUARANTINE_CLASH.1": {
+  "en": "1780f624e01c",
+  "tr": "a7531ffb0396",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_QUARANTINE_CLASH.2": {
+  "en": "16c2eea0b2f8",
+  "tr": "83b008a3b21a",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_QUARANTINE_CLASH.3": {
+  "en": "ab0f1e386774",
+  "tr": "12c5e813594d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_QUARANTINE_CLASH.4": {
+  "en": "846470301a50",
+  "tr": "1e9a0a0a4a17",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_WATER_WELL_SCARE.1": {
+  "en": "713942c78120",
+  "tr": "0929110258ea",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_WATER_WELL_SCARE.2": {
+  "en": "8fd160baf8d3",
+  "tr": "7adae3db3514",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_WATER_WELL_SCARE.3": {
+  "en": "c380d104a65d",
+  "tr": "969c58e99403",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PLAGUE_WATER_WELL_SCARE.4": {
+  "en": "2b98c13d001d",
+  "tr": "5b4898df6108",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.1": {
+  "en": "5bad052e73c2",
+  "tr": "69bcc45b9c50",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.2": {
+  "en": "f78a8efacffd",
+  "tr": "cc9bf8387988",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.3": {
+  "en": "4262991ab033",
+  "tr": "e4d00788586d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.4": {
+  "en": "63388c74eaae",
+  "tr": "758c33020f48",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PRICES_TAX_REVOLT.1": {
+  "en": "65ac69bbf3b4",
+  "tr": "1ef6e923fb55",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PRICES_TAX_REVOLT.2": {
+  "en": "607a460e5dae",
+  "tr": "3bd5d63cb2a2",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PRICES_TAX_REVOLT.3": {
+  "en": "ce0b8469bda2",
+  "tr": "b9b921b638cf",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_PRICES_TAX_REVOLT.4": {
+  "en": "ca6f24abafb3",
+  "tr": "bc8945f2a49f",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_SCARY_NIGHT_HORROR.1": {
+  "en": "d56b47f151c7",
+  "tr": "fcbec7b47ee4",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_SCARY_NIGHT_HORROR.2": {
+  "en": "4e1fb3d644f8",
+  "tr": "627a11a091fa",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_SCARY_NIGHT_HORROR.3": {
+  "en": "d86acf495965",
+  "tr": "e8165cd7d35b",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TAVERN_CHESS_WAGER.1": {
+  "en": "49773d4af7f4",
+  "tr": "db1d68b2d239",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TAVERN_CHESS_WAGER.2": {
+  "en": "ef47fcfbbfd2",
+  "tr": "e552e1ff4414",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TAVERN_CHESS_WAGER.3": {
+  "en": "9d3d82408277",
+  "tr": "9b9ff142abaa",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_ALMS_DISPUTE.1": {
+  "en": "a98249ba0d61",
+  "tr": "d824995b11bb",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_ALMS_DISPUTE.2": {
+  "en": "5e11f5cdd63d",
+  "tr": "471a7ddfdaa0",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_ALMS_DISPUTE.3": {
+  "en": "90b85130b1e6",
+  "tr": "3331b84df5e8",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_ALMS_DISPUTE.4": {
+  "en": "dab7be5b5feb",
+  "tr": "2e5d2d8aebe0",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_CLERGY_STANDOFF.1": {
+  "en": "00b42fede13d",
+  "tr": "97a666672e05",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_CLERGY_STANDOFF.2": {
+  "en": "544d98f3f8bd",
+  "tr": "5df43e6ad4db",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_CLERGY_STANDOFF.3": {
+  "en": "22408b3deef0",
+  "tr": "e9b853a17bd7",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_CLERGY_STANDOFF.4": {
+  "en": "2ba304c65240",
+  "tr": "0183826ff51d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.1": {
+  "en": "4f425c9f5330",
+  "tr": "6815c60dbc2f",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.2": {
+  "en": "b4b3b100411c",
+  "tr": "1ff74bc4acc2",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.3": {
+  "en": "968f29f4cef2",
+  "tr": "8af4aa03b119",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.4": {
+  "en": "1ad2d703a608",
+  "tr": "f1d5e882a29f",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_PURGE_SIEGE.1": {
+  "en": "0a2b55f81be1",
+  "tr": "f1dd4746ecf5",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_PURGE_SIEGE.2": {
+  "en": "343a157b8858",
+  "tr": "2dacde4a63c6",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_PURGE_SIEGE.3": {
+  "en": "44de6c86cba5",
+  "tr": "d13a62059d83",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_TEMPLE_PURGE_SIEGE.4": {
+  "en": "5e7ee6d39105",
+  "tr": "721251ab4b30",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.1": {
+  "en": "16ede077f9e2",
+  "tr": "2b3f0201e3fe",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.2": {
+  "en": "fef8cd1e704d",
+  "tr": "12ce036ba0a4",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.3": {
+  "en": "111b9a25c47f",
+  "tr": "a3970eecfe89",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.4": {
+  "en": "62c4c49283b8",
+  "tr": "61cdf344f5d1",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_INTERPROVINCIAL.1": {
+  "en": "3f604625a32f",
+  "tr": "5a62be8cd457",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_INTERPROVINCIAL.2": {
+  "en": "c325fb77f249",
+  "tr": "59e4ccf073e0",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_INTERPROVINCIAL.3": {
+  "en": "9b7c04b9b494",
+  "tr": "f2eedcc8983a",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_INTERPROVINCIAL.4": {
+  "en": "6cff791270ac",
+  "tr": "cb1e25919b8a",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_ORSINIUM_RAID.1": {
+  "en": "aa62fb6a2ddc",
+  "tr": "7249b8aca390",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_ORSINIUM_RAID.2": {
+  "en": "d8a18b7b146d",
+  "tr": "da9184c85a30",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_ORSINIUM_RAID.3": {
+  "en": "8cd190a138ed",
+  "tr": "4f5a24f6cf36",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_ORSINIUM_RAID.4": {
+  "en": "43b14b9d2b59",
+  "tr": "751623e5bb2c",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_PRISONER_EXECUTION.1": {
+  "en": "d7fed4d03e52",
+  "tr": "3c6f0c515085",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_PRISONER_EXECUTION.2": {
+  "en": "afd9188e494d",
+  "tr": "f5eb392e10ea",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_PRISONER_EXECUTION.3": {
+  "en": "465d5290b993",
+  "tr": "7e3b4c1d8274",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_PRISONER_EXECUTION.4": {
+  "en": "3353c7271b46",
+  "tr": "734ba75d7e8d",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.1": {
+  "en": "d8fb22ea95b4",
+  "tr": "0f9ea804ce49",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.2": {
+  "en": "86ea52efd6cf",
+  "tr": "e0b0f8f8cdf1",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.3": {
+  "en": "53085007d3fb",
+  "tr": "ea08dacfebba",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.4": {
+  "en": "6451748b6c19",
+  "tr": "ada89c78e63c",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.1": {
+  "en": "5ef67d33a864",
+  "tr": "445296512b0a",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.2": {
+  "en": "63282f4af87b",
+  "tr": "dd400eac32aa",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.3": {
+  "en": "66aab29c7035",
+  "tr": "1a0a3f98c497",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.1": {
+  "en": "6981fb1cec95",
+  "tr": "9481e89f6c47",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.2": {
+  "en": "56274dc5ad24",
+  "tr": "3f6b43964c4f",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.3": {
+  "en": "d6aac5735864",
+  "tr": "48270110cfdd",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.4": {
+  "en": "38c720a5734a",
+  "tr": "06a72db09276",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.1": {
+  "en": "ffe014beaa02",
+  "tr": "238769307e56",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.2": {
+  "en": "48baa36bc823",
+  "tr": "2e1fdc3cd57a",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.3": {
+  "en": "09cd6203f7b7",
+  "tr": "5464dd6e7a61",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.4": {
+  "en": "e1c3db0a916b",
+  "tr": "ac14b489a407",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_HUNT_SIEGE.1": {
+  "en": "699227b46100",
+  "tr": "8405bb0ea309",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_HUNT_SIEGE.2": {
+  "en": "87ccb27a863d",
+  "tr": "e2c493c68216",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_HUNT_SIEGE.3": {
+  "en": "2c0003489013",
+  "tr": "17c4803a3649",
+  "by": "claude-in-session"
+ },
+ "living.choice.EVT_WITCH_HUNT_SIEGE.4": {
+  "en": "8a604606a9ee",
+  "tr": "98037544df69",
+  "by": "claude-in-session"
+ },
  "living.contract.accepted": {
   "en": "49f512945c27",
   "tr": "49f512945c27",
@@ -47729,739 +48454,64 @@
   "tr": "83c6a3eab9ec",
   "by": "human"
  },
- "living.choice.EVT_WAR_INTERPROVINCIAL.1": {
-  "en": "3f604625a32f",
-  "tr": "3f604625a32f",
+ "living.event.peaceResolved": {
+  "en": "af10484d48ac",
+  "tr": "6a6f95862aff",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_INTERPROVINCIAL.2": {
-  "en": "c325fb77f249",
-  "tr": "c325fb77f249",
+ "living.choice.EVT_FAMINE_PREDATOR_INVASION.4": {
+  "en": "9c63c690c18f",
+  "tr": "df0546cb5617",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_INTERPROVINCIAL.3": {
-  "en": "147481b968f5",
-  "tr": "147481b968f5",
+ "living.choice.EVT_FAMINE_RELIEF_CARAVAN.4": {
+  "en": "f4fc5a7de77a",
+  "tr": "db43f916c661",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_INTERPROVINCIAL.4": {
-  "en": "5930c1563e72",
-  "tr": "5930c1563e72",
+ "living.choice.EVT_PLAGUE_PYRE_DESECRATION.4": {
+  "en": "9049fd58db90",
+  "tr": "ade37c2d997a",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_ORSINIUM_RAID.1": {
-  "en": "aa62fb6a2ddc",
-  "tr": "aa62fb6a2ddc",
+ "living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.4": {
+  "en": "bd54e034651a",
+  "tr": "54324f1bbe74",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_ORSINIUM_RAID.2": {
-  "en": "20d37d357689",
-  "tr": "20d37d357689",
+ "living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.4": {
+  "en": "027d28ddebf2",
+  "tr": "4c9e69a93daa",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_ORSINIUM_RAID.3": {
-  "en": "fa042bc4e83c",
-  "tr": "fa042bc4e83c",
+ "living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.4": {
+  "en": "af0517b41b35",
+  "tr": "f1bde2ded740",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_ORSINIUM_RAID.4": {
-  "en": "cc42e00a3114",
-  "tr": "cc42e00a3114",
+ "living.choice.EVT_SCARY_NIGHT_HORROR.4": {
+  "en": "8470435f0687",
+  "tr": "52cd69cb45d6",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_PRISONER_EXECUTION.1": {
-  "en": "d7fed4d03e52",
-  "tr": "d7fed4d03e52",
+ "living.choice.EVT_MAD_WIZARD_RAMPAGE.4": {
+  "en": "aa813eced94b",
+  "tr": "dc31dbd0e5ab",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_PRISONER_EXECUTION.2": {
-  "en": "afd9188e494d",
-  "tr": "afd9188e494d",
+ "living.choice.EVT_FARM_RUNAWAY_CATTLE.4": {
+  "en": "68d1f4e4329e",
+  "tr": "8b2e7d245df5",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_PRISONER_EXECUTION.3": {
-  "en": "5377b7d5f5c9",
-  "tr": "5377b7d5f5c9",
+ "living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.4": {
+  "en": "71e6a3ec0466",
+  "tr": "7e5d9c39e7b5",
   "by": "claude-in-session"
  },
- "living.choice.EVT_WAR_PRISONER_EXECUTION.4": {
-  "en": "d0948a66e3ab",
-  "tr": "d0948a66e3ab",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.1": {
-  "en": "16ede077f9e2",
-  "tr": "16ede077f9e2",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.2": {
-  "en": "b43d92959067",
-  "tr": "b43d92959067",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.3": {
-  "en": "2e22dd3eaaf0",
-  "tr": "2e22dd3eaaf0",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.4": {
-  "en": "7f7d4a5927f1",
-  "tr": "7f7d4a5927f1",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.1": {
-  "en": "d8fb22ea95b4",
-  "tr": "d8fb22ea95b4",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.2": {
-  "en": "86ea52efd6cf",
-  "tr": "86ea52efd6cf",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.3": {
-  "en": "e84bd01655fa",
-  "tr": "e84bd01655fa",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_BARN_RAID.1": {
-  "en": "2fb1ea0cd8b5",
-  "tr": "2fb1ea0cd8b5",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_BARN_RAID.2": {
-  "en": "a26fe9d0885a",
-  "tr": "a26fe9d0885a",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_BARN_RAID.3": {
-  "en": "61b8c6fbc0da",
-  "tr": "61b8c6fbc0da",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_BARN_RAID.4": {
-  "en": "fad8c70e1bbb",
-  "tr": "fad8c70e1bbb",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_BARN_RAID.5": {
-  "en": "81f7d6a3ce01",
-  "tr": "81f7d6a3ce01",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_PREDATOR_INVASION.1": {
-  "en": "40ce9be7ce64",
-  "tr": "40ce9be7ce64",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_PREDATOR_INVASION.2": {
-  "en": "7250fef4b4db",
-  "tr": "7250fef4b4db",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_PREDATOR_INVASION.3": {
-  "en": "65302ee291b1",
-  "tr": "65302ee291b1",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_RELIEF_CARAVAN.1": {
-  "en": "dae7e1f1590d",
-  "tr": "dae7e1f1590d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_RELIEF_CARAVAN.2": {
-  "en": "66c1ccfe47d0",
-  "tr": "66c1ccfe47d0",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_RELIEF_CARAVAN.3": {
-  "en": "809cef04c08b",
-  "tr": "809cef04c08b",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.1": {
-  "en": "d06ec66548c3",
-  "tr": "d06ec66548c3",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.2": {
-  "en": "edb26310343c",
-  "tr": "edb26310343c",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.3": {
-  "en": "48010c2dd56b",
-  "tr": "48010c2dd56b",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.4": {
-  "en": "760b3fc6ef37",
-  "tr": "760b3fc6ef37",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_SOUP_KITCHEN_SPOILAGE.5": {
-  "en": "81f7d6a3ce01",
-  "tr": "81f7d6a3ce01",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_RATION_SCAM.1": {
-  "en": "07fad1a3d9ef",
-  "tr": "07fad1a3d9ef",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_RATION_SCAM.2": {
-  "en": "ff1b17f4be43",
-  "tr": "ff1b17f4be43",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_RATION_SCAM.3": {
-  "en": "f48d4acfa1f3",
-  "tr": "f48d4acfa1f3",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FAMINE_RATION_SCAM.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_QUARANTINE_CLASH.1": {
-  "en": "1780f624e01c",
-  "tr": "1780f624e01c",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_QUARANTINE_CLASH.2": {
-  "en": "16c2eea0b2f8",
-  "tr": "16c2eea0b2f8",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_QUARANTINE_CLASH.3": {
-  "en": "961d56dc7e08",
-  "tr": "961d56dc7e08",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_QUARANTINE_CLASH.4": {
-  "en": "3a0ce86ea01d",
-  "tr": "3a0ce86ea01d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_PYRE_DESECRATION.1": {
-  "en": "e0e8d36052a0",
-  "tr": "e0e8d36052a0",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_PYRE_DESECRATION.2": {
-  "en": "b2d4548777aa",
-  "tr": "b2d4548777aa",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_PYRE_DESECRATION.3": {
-  "en": "8f653b7c7f3e",
-  "tr": "8f653b7c7f3e",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_WATER_WELL_SCARE.1": {
-  "en": "09a874ff1935",
-  "tr": "09a874ff1935",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_WATER_WELL_SCARE.2": {
-  "en": "4ac59b8e41f2",
-  "tr": "4ac59b8e41f2",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_WATER_WELL_SCARE.3": {
-  "en": "41711f4e283d",
-  "tr": "41711f4e283d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_WATER_WELL_SCARE.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.1": {
-  "en": "713e3650ecad",
-  "tr": "713e3650ecad",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.2": {
-  "en": "420afc336f60",
-  "tr": "420afc336f60",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.3": {
-  "en": "4207ad253ebc",
-  "tr": "4207ad253ebc",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_HUNT_SIEGE.1": {
-  "en": "699227b46100",
-  "tr": "699227b46100",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_HUNT_SIEGE.2": {
-  "en": "87ccb27a863d",
-  "tr": "87ccb27a863d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_HUNT_SIEGE.3": {
-  "en": "378eabbc8f21",
-  "tr": "378eabbc8f21",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_HUNT_SIEGE.4": {
-  "en": "d6c2c2f88729",
-  "tr": "d6c2c2f88729",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.1": {
-  "en": "6981fb1cec95",
-  "tr": "6981fb1cec95",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.2": {
-  "en": "b73ed4336286",
-  "tr": "b73ed4336286",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.3": {
-  "en": "7dada904c80e",
-  "tr": "7dada904c80e",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_ENTHRALLED_AMBUSH.4": {
-  "en": "040927a42fd7",
-  "tr": "040927a42fd7",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.1": {
-  "en": "2f657b25861d",
-  "tr": "2f657b25861d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.2": {
-  "en": "17356aa3c200",
-  "tr": "17356aa3c200",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.3": {
-  "en": "e318b77cff42",
-  "tr": "e318b77cff42",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_HERBALIST_SHAKEDOWN.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.1": {
-  "en": "5373cdf967c0",
-  "tr": "5373cdf967c0",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.2": {
-  "en": "23317831be20",
-  "tr": "23317831be20",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.3": {
-  "en": "c3c7ad901b49",
-  "tr": "c3c7ad901b49",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_DAYLIGHT_HEIST.1": {
-  "en": "302aacc1be0e",
-  "tr": "302aacc1be0e",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_DAYLIGHT_HEIST.2": {
-  "en": "a455dcb8863f",
-  "tr": "a455dcb8863f",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_DAYLIGHT_HEIST.3": {
-  "en": "3e120f584e38",
-  "tr": "3e120f584e38",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_DAYLIGHT_HEIST.4": {
-  "en": "3c4ad6c9fcf8",
-  "tr": "3c4ad6c9fcf8",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.1": {
-  "en": "0138b6e4069e",
-  "tr": "0138b6e4069e",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.2": {
-  "en": "8115b7ced3af",
-  "tr": "8115b7ced3af",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_BROTHERHOOD_CONTRACT.3": {
-  "en": "c226b0e4d2b8",
-  "tr": "c226b0e4d2b8",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_PICKPOCKET_CHASE.1": {
-  "en": "55b1c8856618",
-  "tr": "55b1c8856618",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_PICKPOCKET_CHASE.2": {
-  "en": "ec1603be9535",
-  "tr": "ec1603be9535",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_PICKPOCKET_CHASE.3": {
-  "en": "0e3029714154",
-  "tr": "0e3029714154",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_PICKPOCKET_CHASE.4": {
-  "en": "b77495f062e2",
-  "tr": "b77495f062e2",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_GAMBLING_DEN_BUST.1": {
-  "en": "b4406a83cc7c",
-  "tr": "b4406a83cc7c",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_GAMBLING_DEN_BUST.2": {
-  "en": "98d2b1342c9a",
-  "tr": "98d2b1342c9a",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_GAMBLING_DEN_BUST.3": {
-  "en": "0c895caab08f",
-  "tr": "0c895caab08f",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_CRIME_GAMBLING_DEN_BUST.4": {
-  "en": "65ea05ba49dc",
-  "tr": "65ea05ba49dc",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_PURGE_SIEGE.1": {
-  "en": "44cb18060f2d",
-  "tr": "44cb18060f2d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_PURGE_SIEGE.2": {
-  "en": "786b16d5891c",
-  "tr": "786b16d5891c",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_PURGE_SIEGE.3": {
-  "en": "ea9927b12e40",
-  "tr": "ea9927b12e40",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_PURGE_SIEGE.4": {
-  "en": "dd3176fa67d4",
-  "tr": "dd3176fa67d4",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_CLERGY_STANDOFF.1": {
-  "en": "00b42fede13d",
-  "tr": "00b42fede13d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_CLERGY_STANDOFF.2": {
-  "en": "544d98f3f8bd",
-  "tr": "544d98f3f8bd",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_CLERGY_STANDOFF.3": {
-  "en": "4d5a54ce0137",
-  "tr": "4d5a54ce0137",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_CLERGY_STANDOFF.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.1": {
-  "en": "cab46c466534",
-  "tr": "cab46c466534",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.2": {
-  "en": "6f93adea28c8",
-  "tr": "6f93adea28c8",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.3": {
-  "en": "7d153e41725c",
-  "tr": "7d153e41725c",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_HERETIC_GRAFFITI.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_ALMS_DISPUTE.1": {
-  "en": "762f40ba0f56",
-  "tr": "762f40ba0f56",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_ALMS_DISPUTE.2": {
-  "en": "4b9f5b7a6228",
-  "tr": "4b9f5b7a6228",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_ALMS_DISPUTE.3": {
-  "en": "aa76e8b532cd",
-  "tr": "aa76e8b532cd",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TEMPLE_ALMS_DISPUTE.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_CORONATION.1": {
-  "en": "63a748e52157",
-  "tr": "63a748e52157",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_CORONATION.2": {
-  "en": "7a225ccc3279",
-  "tr": "7a225ccc3279",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_CORONATION.3": {
-  "en": "c9e8774fe7ee",
-  "tr": "c9e8774fe7ee",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_CORONATION.4": {
-  "en": "51fbd4522bc0",
-  "tr": "51fbd4522bc0",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_STATUE_UNVEILING.1": {
-  "en": "a2ca9a0bc241",
-  "tr": "a2ca9a0bc241",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_STATUE_UNVEILING.2": {
-  "en": "910e28e20429",
-  "tr": "910e28e20429",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_STATUE_UNVEILING.3": {
-  "en": "be3a37c2ab1b",
-  "tr": "be3a37c2ab1b",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_STATUE_UNVEILING.4": {
-  "en": "dc0ed3d47a42",
-  "tr": "dc0ed3d47a42",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_OATH_CEREMONY.1": {
-  "en": "2fc6309a04b6",
-  "tr": "2fc6309a04b6",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_OATH_CEREMONY.2": {
-  "en": "55e0bf4759e0",
-  "tr": "55e0bf4759e0",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_OATH_CEREMONY.3": {
-  "en": "cd34958fd2d8",
-  "tr": "cd34958fd2d8",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_NEW_RULER_OATH_CEREMONY.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PRICES_TAX_REVOLT.1": {
-  "en": "c2af3675424d",
-  "tr": "c2af3675424d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PRICES_TAX_REVOLT.2": {
-  "en": "6481fbd7a95a",
-  "tr": "6481fbd7a95a",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PRICES_TAX_REVOLT.3": {
-  "en": "1046db1695cd",
-  "tr": "1046db1695cd",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PRICES_TAX_REVOLT.4": {
-  "en": "5e7c972e9d33",
-  "tr": "5e7c972e9d33",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.1": {
-  "en": "7e5883c126f6",
-  "tr": "7e5883c126f6",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.2": {
-  "en": "d6077a7a1cee",
-  "tr": "d6077a7a1cee",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.3": {
-  "en": "5421f0fe2981",
-  "tr": "5421f0fe2981",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_PRICES_PRICE_GOUGING_INSPECTION.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLIDAY_TOWN_BRAWL.1": {
-  "en": "13f4244fc3fd",
-  "tr": "13f4244fc3fd",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLIDAY_TOWN_BRAWL.2": {
-  "en": "54ccfb4aeed0",
-  "tr": "54ccfb4aeed0",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLIDAY_TOWN_BRAWL.3": {
-  "en": "969a7893e59f",
-  "tr": "969a7893e59f",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLIDAY_TOWN_BRAWL.4": {
-  "en": "3b0d0d9d47b4",
-  "tr": "3b0d0d9d47b4",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.1": {
-  "en": "ada3f174b498",
-  "tr": "ada3f174b498",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.2": {
-  "en": "ecff7cf7011c",
-  "tr": "ecff7cf7011c",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLIDAY_CARNIVAL_MASQUERADE.3": {
-  "en": "524b723355be",
-  "tr": "524b723355be",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_SCARY_NIGHT_HORROR.1": {
-  "en": "56ad1ca6edbe",
-  "tr": "56ad1ca6edbe",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_SCARY_NIGHT_HORROR.2": {
-  "en": "79625af99c93",
-  "tr": "79625af99c93",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_SCARY_NIGHT_HORROR.3": {
-  "en": "a832b72578ed",
-  "tr": "a832b72578ed",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLY_DAY_FANATICS.1": {
-  "en": "c7117eb3bdd0",
-  "tr": "c7117eb3bdd0",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLY_DAY_FANATICS.2": {
-  "en": "eee263b059f2",
-  "tr": "eee263b059f2",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLY_DAY_FANATICS.3": {
-  "en": "ba9f3675ae5c",
-  "tr": "ba9f3675ae5c",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_HOLY_DAY_FANATICS.4": {
-  "en": "6e9dd1a94677",
-  "tr": "6e9dd1a94677",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_MAD_WIZARD_RAMPAGE.1": {
-  "en": "b9aed4397fb9",
-  "tr": "b9aed4397fb9",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_MAD_WIZARD_RAMPAGE.2": {
-  "en": "1c68f037686d",
-  "tr": "1c68f037686d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_MAD_WIZARD_RAMPAGE.3": {
-  "en": "89f961ba59f8",
-  "tr": "89f961ba59f8",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FARM_RUNAWAY_CATTLE.1": {
-  "en": "1e74e12b0c3b",
-  "tr": "1e74e12b0c3b",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FARM_RUNAWAY_CATTLE.2": {
-  "en": "e275bff82828",
-  "tr": "e275bff82828",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_FARM_RUNAWAY_CATTLE.3": {
-  "en": "2a32b21c22d5",
-  "tr": "2a32b21c22d5",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.1": {
-  "en": "98423962c5df",
-  "tr": "98423962c5df",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.2": {
-  "en": "13ac0183e31d",
-  "tr": "13ac0183e31d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_GRAVEYARD_WEEPING_MOURNER.3": {
-  "en": "72280c36d147",
-  "tr": "72280c36d147",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TAVERN_CHESS_WAGER.1": {
-  "en": "b814049a4cf6",
-  "tr": "b814049a4cf6",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TAVERN_CHESS_WAGER.2": {
-  "en": "d239d1a65b5d",
-  "tr": "d239d1a65b5d",
-  "by": "claude-in-session"
- },
- "living.choice.EVT_TAVERN_CHESS_WAGER.3": {
-  "en": "28128242ded4",
-  "tr": "28128242ded4",
+ "living.choice.EVT_TAVERN_CHESS_WAGER.4": {
+  "en": "5cd1154a2838",
+  "tr": "a967fef2073b",
   "by": "claude-in-session"
  }
 }

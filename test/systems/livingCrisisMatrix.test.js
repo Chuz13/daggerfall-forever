@@ -52,7 +52,12 @@ test('LT-39-Matrix: Exactly 39 crisis and exploration encounters defined with va
     assert.ok(factions.f1 && factions.f2, `Event ${evt.id} must generate named factions`);
 
     const choices = evt.getChoices(factions.f1, factions.f2);
-    assert.ok(choices.length >= 3, `Event ${evt.id} must offer at least 3 roleplay choices`);
+    assert.equal(choices.length, 4, `Event ${evt.id} must offer exactly 4 roleplay choices`);
+    assert.deepEqual(
+      choices.map((c) => c.stance),
+      ['defenders', 'attackers', 'neutral', 'peace'],
+      `Event ${evt.id} choices must follow standard order [defenders, attackers, neutral, peace]`,
+    );
   }
 });
 
