@@ -264,3 +264,31 @@ test('LT-Typed-Rolls: Editable formula registry resolves graded outcomes (TRIUMP
   assert.equal(wealthyRes.passed, true, 'Choice must succeed if player has sufficient gold');
   assert.equal(wealthyRes.goldCost > 0, true);
 });
+
+test('LT-Stability: Heightmap streaming guard, prop snap fallback and canonical gold', async () => {
+  const { buildLivingSiteBlueprint, LIVING_SITE_KINDS } = await import('../../src/systems/living/livingWorldSpawner.js');
+  const { snapPropToGround } = await import('../../src/systems/living/campInjector.js');
+  const { isGoldPieces, goldStack } = await import('../../src/systems/inventory.js');
+
+  // 1. Terrain streaming delay (-Infinity) must reject blueprint creation to avoid floating props
+  const unstreamedHeight = () => -Infinity;
+  const bpUnstreamed = buildLivingSiteBlueprint({
+    kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+    centerX: 100,
+    centerZ: 200,
+    heightAt: unstreamedHeight,
+    regionIndex: 17,
+  });
+  assert.equal(bpUnstreamed, null, 'Blueprint must return null when terrain height is non-finite');
+
+  // 2. snapPropToGround uses fallbackY when heightSampler is non-finite
+  const snappedFallback = snapPropToGround(() => -Infinity, 50, 50, 0.02, -65.5);
+  assert.equal(snappedFallback, -65.48, 'Should snap to fallbackY + offset rather than 0');
+
+  // 3. Canonical gold stack validation
+  const gold = goldStack(25);
+  assert.equal(isGoldPieces(gold), true, 'Gold piece item must be recognized as valid currency');
+  assert.equal(gold.group, 'Currency');
+  assert.equal(gold.templateIndex, 276);
+  assert.equal(gold.stackCount, 25);
+});

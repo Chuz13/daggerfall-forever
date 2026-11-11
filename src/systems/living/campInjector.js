@@ -63,12 +63,14 @@ export function checkCampFootprintSlope(
  * @param {number} propX World X of the prop
  * @param {number} propZ World Z of the prop
  * @param {number} [verticalOffset=0] Small fine-tuning offset (e.g. +0.02 to avoid z-fighting)
+ * @param {number} [fallbackY=0] Fallback Y coordinate if terrain height is non-finite / not streamed
  * @returns {number} Snapped world Y coordinate
  */
-export function snapPropToGround(heightSampler, propX, propZ, verticalOffset = 0.02) {
-  if (typeof heightSampler !== 'function') return verticalOffset;
+export function snapPropToGround(heightSampler, propX, propZ, verticalOffset = 0.02, fallbackY = 0) {
+  if (typeof heightSampler !== 'function') return (Number.isFinite(fallbackY) ? fallbackY : 0) + verticalOffset;
   const h = heightSampler(propX, propZ);
-  return (Number.isFinite(h) ? h : 0) + verticalOffset;
+  const base = Number.isFinite(h) ? h : (Number.isFinite(fallbackY) ? fallbackY : 0);
+  return base + verticalOffset;
 }
 
 /**

@@ -87,6 +87,7 @@ import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.j
 import { REGION_NAMES } from '../formats/mapsTables.js';
 import { foundFamily, addChild, recordDeath, successors, currentOf, fullNameOf } from './legacy/family.js';
 import { setRegionCrisis, getRegionState, getActiveCrises, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
+import { REGION_FLAGS } from './region/regionConditions.js';
 import { applyLichdom, cureLichdom, isLich, applyAncientLichdom, cureAncientLichdom, isAncientLich, isPlayerDisguised, lichdomMagicRound } from './necromancy/lichdomStatus.js';
 import { getPlayerTaint, getEffectiveTradeTaint, getTaintTier, addNecroTaint } from './necromancy/necroTaint.js';
 import { allSpawnedMinions, spawnMinion, releaseAllControlledUndead } from './necromancy/minionController.js';
@@ -1589,13 +1590,35 @@ registerCommand(
     if (sub === 'status') {
       const st = getRegionState(reg);
       const active = getActiveCrises(reg);
-      if (active.length === 0) {
+      const condFlags = playerEntity?.regionConditions?.[reg]?.flags ?? [];
+      const activeFlags = [];
+      if (condFlags[REGION_FLAGS.WarBeginning]) activeFlags.push('War (Beginning)');
+      if (condFlags[REGION_FLAGS.WarOngoing]) activeFlags.push('War (Ongoing)');
+      if (condFlags[REGION_FLAGS.PlagueBeginning]) activeFlags.push('Plague (Beginning)');
+      if (condFlags[REGION_FLAGS.PlagueOngoing]) activeFlags.push('Plague (Ongoing)');
+      if (condFlags[REGION_FLAGS.FamineBeginning]) activeFlags.push('Famine (Beginning)');
+      if (condFlags[REGION_FLAGS.FamineOngoing]) activeFlags.push('Famine (Ongoing)');
+      if (condFlags[REGION_FLAGS.CrimeWave]) activeFlags.push('Crime Wave');
+      if (condFlags[REGION_FLAGS.WitchBurnings]) activeFlags.push('Witch Burnings');
+      if (condFlags[REGION_FLAGS.NewRuler]) activeFlags.push('New Ruler');
+      if (condFlags[REGION_FLAGS.PersecutedTemple]) activeFlags.push('Persecuted Temple');
+      if (condFlags[REGION_FLAGS.PricesHigh]) activeFlags.push('High Prices / Inflation');
+      if (condFlags[REGION_FLAGS.PricesLow]) activeFlags.push('Low Prices / Surplus');
+      if (condFlags[REGION_FLAGS.HappyHoliday]) activeFlags.push('Festival / Happy Holiday');
+      if (condFlags[REGION_FLAGS.ScaryHoliday]) activeFlags.push('Grim Holiday');
+      if (condFlags[REGION_FLAGS.HolyHoliday]) activeFlags.push('Holy Day');
+
+      if (active.length === 0 && activeFlags.length === 0) {
         return `Region ${reg} (${st.regionName}): At Peace.`;
       }
-      return [
-        `<b>Region ${reg} (${st.regionName}) Active Crises (${active.length}):</b>`,
-        ...active.map((c) => `- ${c.type} (Phase: ${c.phase}, Days remaining: ${c.phaseDaysRemaining})`),
-      ].join('\n');
+      const lines = [`<b>Region ${reg} (${st.regionName}) Active Crises & Conditions:</b>`];
+      for (const c of active) {
+        lines.push(`- Dynamic Crisis: ${c.type} (Phase: ${c.phase}, Days remaining: ${c.phaseDaysRemaining})`);
+      }
+      for (const f of activeFlags) {
+        lines.push(`- Regional Condition: ${f}`);
+      }
+      return lines.join('\n');
     }
     if (sub === 'start') {
       const type = String(args[1] || 'war').toLowerCase();

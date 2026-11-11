@@ -19,6 +19,7 @@ import {
   PROSPERITY_TIER,
 } from './crisisRegistry.js';
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
+import { snapPropToGround } from './campInjector.js';
 
 export const URBAN_PROP_LIMIT = 2;
 export const MIN_DOORWAY_CLEARANCE_M = 10.0;
@@ -90,10 +91,13 @@ export function planUrbanSkirmish({
   dfLocation = null,
   playerEntity = null,
 }) {
-  // 1. Verify slope of the skirmish center (must be relatively flat to avoid floating props)
+  // 1. Verify slope of the skirmish center (must be relatively flat and valid to avoid floating props)
   const yCenter = heightSampler(centerX, centerZ);
   const yCheck1 = heightSampler(centerX + 4, centerZ + 4);
   const yCheck2 = heightSampler(centerX - 4, centerZ - 4);
+  if (!Number.isFinite(yCenter) || !Number.isFinite(yCheck1) || !Number.isFinite(yCheck2)) {
+    return null; // Terrain not yet streamed/built at this location, defer spawn
+  }
   const slopeDelta = Math.max(Math.abs(yCenter - yCheck1), Math.abs(yCenter - yCheck2));
   if (slopeDelta > MAX_URBAN_SLOPE_DELTA_M) {
     return null; // Ground too steep for street props
@@ -166,7 +170,7 @@ export function planUrbanSkirmish({
     let gx = Math.cos(angle) * dist;
     let gz = Math.sin(angle) * dist;
     const yAt = heightSampler(centerX + gx, centerZ + gz);
-    if (Math.abs(yAt - yCenter) > MAX_URBAN_SLOPE_DELTA_M) {
+    if (!Number.isFinite(yAt) || Math.abs(yAt - yCenter) > MAX_URBAN_SLOPE_DELTA_M) {
       gx *= 0.7;
       gz *= 0.7;
     }
@@ -192,7 +196,7 @@ export function planUrbanSkirmish({
     let rx = Math.cos(angle) * dist;
     let rz = Math.sin(angle) * dist;
     const yAt = heightSampler(centerX + rx, centerZ + rz);
-    if (Math.abs(yAt - yCenter) > MAX_URBAN_SLOPE_DELTA_M) {
+    if (!Number.isFinite(yAt) || Math.abs(yAt - yCenter) > MAX_URBAN_SLOPE_DELTA_M) {
       rx *= 0.7;
       rz *= 0.7;
     }
@@ -210,8 +214,8 @@ export function planUrbanSkirmish({
 
   // 4. Props strictly capped at max 2
   const propList = [
-    { id: 'barricade', x: centerX - 0.5, z: centerZ - 1.5, y: heightSampler(centerX - 0.5, centerZ - 1.5) },
-    { id: 'burning_cart', x: centerX + 0.8, z: centerZ + 1.2, y: heightSampler(centerX + 0.8, centerZ + 1.2) },
+    { id: 'barricade', x: centerX - 0.5, z: centerZ - 1.5, y: snapPropToGround(heightSampler, centerX - 0.5, centerZ - 1.5, 0.02, yCenter) },
+    { id: 'burning_cart', x: centerX + 0.8, z: centerZ + 1.2, y: snapPropToGround(heightSampler, centerX + 0.8, centerZ + 1.2, 0.02, yCenter) },
   ].slice(0, URBAN_PROP_LIMIT);
 
   return {

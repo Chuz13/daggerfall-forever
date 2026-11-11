@@ -65,6 +65,7 @@ import {
   getActiveCrisisContract,
   completeRegionalCrisisContract,
 } from './crisisPresenter.js';
+import { goldStack, isGoldPieces } from '../inventory.js';
 import {
   shouldDispatchNemesis,
   determineNemesisArchetype,
@@ -660,7 +661,12 @@ export function buildLivingSiteBlueprint({
   locationType = 0,
 }) {
   const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
-  const y0 = snapPropToGround(heightAt, centerX, centerZ, 0);
+  const h0 = typeof heightAt === 'function' ? heightAt(centerX, centerZ) : 0;
+  if (typeof heightAt === 'function' && !Number.isFinite(h0)) {
+    return null;
+  }
+  const y0 = snapPropToGround(heightAt, centerX, centerZ, 0, h0);
+  const snapY = (x, z, off = 0.02) => snapPropToGround(heightAt, x, z, off, y0);
   const skyMin = Number.isFinite(nowMinutes) ? Number(nowMinutes) : 720;
   const timeOfDay = ((skyMin % 1440) + 1440) % 1440;
   const isDay = timeOfDay >= 360 && timeOfDay <= 1080;
@@ -942,56 +948,55 @@ export function buildLivingSiteBlueprint({
       dfLocation,
       playerEntity,
     });
-    if (plan) {
-      meta.event = plan.event;
-      meta.faction1Name = plan.faction1Name;
-      meta.faction2Name = plan.faction2Name;
+    if (!plan) return null;
+    meta.event = plan.event;
+    meta.faction1Name = plan.faction1Name;
+    meta.faction2Name = plan.faction2Name;
+    meshes.push(
+      { modelId: LIVING_MODELS.CRATES, feet: [plan.props[0].x, plan.props[0].y, plan.props[0].z], yawDeg: 35 },
+    );
+    if (plan.props[1]) {
       meshes.push(
-        { modelId: LIVING_MODELS.CRATES, feet: [plan.props[0].x, plan.props[0].y, plan.props[0].z], yawDeg: 35 },
+        { modelId: LIVING_MODELS.WAGON, feet: [plan.props[1].x, plan.props[1].y, plan.props[1].z], yawDeg: -50 },
       );
-      if (plan.props[1]) {
-        meshes.push(
-          { modelId: LIVING_MODELS.WAGON, feet: [plan.props[1].x, plan.props[1].y, plan.props[1].z], yawDeg: -50 },
-        );
-      }
-      flats.push({ ...LIVING_FLATS.BRAZIER, feet: [centerX, y0, centerZ] });
+    }
+    flats.push({ ...LIVING_FLATS.BRAZIER, feet: [centerX, y0, centerZ] });
 
-      for (let i = 0; i < plan.guards.length; i++) {
-        const g = plan.guards[i];
-        const gx = centerX + g.dx;
-        const gz = centerZ + g.dz;
-        actors.push({
-          mobileType: g.mobileType ?? MOBILE_TYPES.Knight,
-          name: `${plan.faction1Name ?? 'Guard'} Defender`,
-          level: Math.max(4, playerLevel),
-          feet: [gx, snapPropToGround(heightAt, gx, gz), gz],
-          yaw: 0,
-          allied: false,
-          hostile: true,
-          role: 'skirmish_guard',
-          team: SKIRMISH_TEAMS.CITY_WATCH,
-          campId: 'skirmish_guards',
-          factionSide: 'guards',
-        });
-      }
-      for (let i = 0; i < plan.rebels.length; i++) {
-        const rb = plan.rebels[i];
-        const rx = centerX + rb.dx;
-        const rz = centerZ + rb.dz;
-        actors.push({
-          mobileType: rb.mobileType ?? MOBILE_TYPES.Rogue,
-          name: `${plan.faction2Name ?? 'Rebel'} Fighter`,
-          level: Math.max(3, playerLevel),
-          feet: [rx, snapPropToGround(heightAt, rx, rz), rz],
-          yaw: Math.PI,
-          allied: false,
-          hostile: true,
-          role: 'skirmish_rebel',
-          team: SKIRMISH_TEAMS.INSURGENTS,
-          campId: 'skirmish_rebels',
-          factionSide: 'rebels',
-        });
-      }
+    for (let i = 0; i < plan.guards.length; i++) {
+      const g = plan.guards[i];
+      const gx = centerX + g.dx;
+      const gz = centerZ + g.dz;
+      actors.push({
+        mobileType: g.mobileType ?? MOBILE_TYPES.Knight,
+        name: `${plan.faction1Name ?? 'Guard'} Defender`,
+        level: Math.max(4, playerLevel),
+        feet: [gx, snapY(gx, gz), gz],
+        yaw: 0,
+        allied: false,
+        hostile: true,
+        role: 'skirmish_guard',
+        team: SKIRMISH_TEAMS.CITY_WATCH,
+        campId: 'skirmish_guards',
+        factionSide: 'guards',
+      });
+    }
+    for (let i = 0; i < plan.rebels.length; i++) {
+      const rb = plan.rebels[i];
+      const rx = centerX + rb.dx;
+      const rz = centerZ + rb.dz;
+      actors.push({
+        mobileType: rb.mobileType ?? MOBILE_TYPES.Rogue,
+        name: `${plan.faction2Name ?? 'Rebel'} Fighter`,
+        level: Math.max(3, playerLevel),
+        feet: [rx, snapY(rx, rz), rz],
+        yaw: Math.PI,
+        allied: false,
+        hostile: true,
+        role: 'skirmish_rebel',
+        team: SKIRMISH_TEAMS.INSURGENTS,
+        campId: 'skirmish_rebels',
+        factionSide: 'rebels',
+      });
     }
   } else if (kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH) {
     const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? 0);
@@ -1537,12 +1542,23 @@ export function createLivingSceneHost(deps) {
         }
       }
     } else if (site.skirmishStance === 'peace') {
+      site.orderRestored = true;
       for (const f of site.foes) {
         f.allied = false;
+        if (f.entity) {
+          f.entity.team = 'SkirmishPeace';
+          f.entity.mobileTeam = 'SkirmishPeace';
+          f.entity.suppressInfighting = true;
+          f.entity.campId = site.campId ?? 'skirmish_peace';
+        }
+        f.campId = site.campId ?? 'skirmish_peace';
         if (f.ai) {
           f.ai.isHostile = false;
+          f.ai.detected = false;
           f.ai.target = null;
+          f.ai.secondaryTarget = null;
           f.ai.targetSenses = null;
+          f.ai.giveUpTimer = 0;
           f.ai.idle = true;
         }
       }
@@ -2461,6 +2477,7 @@ export function createLivingSceneHost(deps) {
             ) {
               s.skirmishStance = 'peace';
               retargetSkirmishFoes(s);
+              onContractCompleted(regIdx);
               if (c.goldReward) deps.say(LIVING_WORDS.eventRewardGold(c.goldReward), 5);
               deps.say(LIVING_WORDS.eventPeaceResolved(f1Name, f2Name), 5);
             } else {
@@ -2527,6 +2544,7 @@ export function createLivingSceneHost(deps) {
   }
 
   function standSite(blueprint) {
+    if (!blueprint) return null;
     releaseSite();
     for (const m of blueprint.meshes) ensureModel(m.modelId);
     for (const fl of blueprint.flats) ensureFlat(fl.archive, fl.record);
@@ -2639,7 +2657,7 @@ export function createLivingSceneHost(deps) {
               if (rec.entity) {
                 const supplyRng = rng();
                 const supplies = [
-                  { name: 'Gold Pieces', count: 10 + Math.floor(supplyRng * 25), isGold: true },
+                  goldStack(10 + Math.floor(supplyRng * 25)),
                 ];
                 if (supplyRng > 0.4) {
                   supplies.push({ name: 'Healing Salve', count: 1, isPotion: true });
@@ -2655,7 +2673,7 @@ export function createLivingSceneHost(deps) {
             // Wilderness / Camps / Checkpoints
             const wildLoot = LivingTamrielConfig.wildernessLootMode;
             if (wildLoot === LIVING_WILDERNESS_LOOT.SUPPLIES && rec.entity?.items?.length) {
-              rec.entity.items = rec.entity.items.filter((it) => it.isGold || it.isPotion || it.isArrow || it.category === 'Consumables');
+              rec.entity.items = rec.entity.items.filter((it) => isGoldPieces(it) || it.isGold || it.isPotion || it.isArrow || it.category === 'Consumables');
             }
           }
           if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || a.role?.startsWith('skirmish_')) {

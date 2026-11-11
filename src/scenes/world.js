@@ -4118,7 +4118,7 @@ export async function bootWorld(canvas, renderer, params, status) {
 
   const livingSceneHostOf = () => (_livingSceneHost ??= createLivingSceneHost({
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
-    ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior',
+    ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && Number.isFinite(collider?.heightAt?.(player.pos[0], player.pos[2])),
     clock: () => skyMinutes(),
     regionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
     inLocationRect: () => _musicInLocationRect(),
@@ -4137,7 +4137,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     openChoice: (spec) => townTalk.showOverlay(new ChoiceWindow({ lines: spec.lines, options: spec.options })),
     openLivingActor: (rec) => openLivingSiteActor(rec),
     playSound: (id) => audio?.playOneShot?.(id, 0.75),
-    myId: () => (typeof myId === 'function' ? myId() : 'player'),
+    myId: () => (online?.id ?? 'player'),
     spawnNavalSquadron: (squad) => spawnNavalSquadronShips({
       naval,
       squadron: squad,
@@ -29905,7 +29905,6 @@ export async function bootWorld(canvas, renderer, params, status) {
         exteriorFoes.damageFoe(body, 99999, null, null, { fromPlayer: false, bypassShield: true });
       }
     },
-    spawnPurifiers: (party) => spawnPurifiers(party),
     setPlayerPos: (x, y, z) => {
       if (typeof player?.spawn === 'function') player.spawn(x, y, z);
       else if (player?.pos) { player.pos[0] = x; player.pos[1] = y; player.pos[2] = z; }
