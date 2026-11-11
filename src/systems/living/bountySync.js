@@ -8,9 +8,9 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { LivingTamrielConfig, PRESENCE, isLivingBountyScalingEnabled } from './livingConfig.js';
-import { getRegionState, CRISIS_PHASE, PHASE_DURATIONS_DAYS } from './regionState.js';
+import { getRegionState, CRISIS_PHASE, PHASE_DURATIONS_DAYS, CRISIS_TYPE, hasRegionCrisis } from './regionState.js';
 
-export const CONTRACT_KIND = Object.freeze({ WILDERNESS: 'WILDERNESS', DUNGEON: 'DUNGEON' });
+export const CONTRACT_KIND = Object.freeze({ WILDERNESS: 'WILDERNESS', DUNGEON: 'DUNGEON', FORT: 'FORT' });
 
 /**
  * Whether Living Tamriel bounty reward scaling is active in the current session.
@@ -53,20 +53,39 @@ export const scaledReward = (baseGold, kind) => Math.round(Math.max(0, baseGold)
 
 /** Tension a completed contract removes from its region. */
 export const CONTRACT_TENSION_RELIEF = 5;
+/** Fort assault contracts remove significantly more tension from an afflicted region. */
+export const FORT_CONTRACT_TENSION_RELIEF = 15;
+
+/**
+ * Checks whether a region currently has an active crisis eligible for a Fort / Outpost assault bounty
+ * (WAR, CIVIL_STRIFE, or PLAGUE).
+ * @param {number|null} regionIndex
+ * @returns {string|null} The active crisis type or null
+ */
+export function getRegionFortCrisis(regionIndex) {
+  if (regionIndex == null || !Number.isInteger(regionIndex) || regionIndex < 0) return null;
+  for (const c of [CRISIS_TYPE.WAR, CRISIS_TYPE.CIVIL_STRIFE, CRISIS_TYPE.PLAGUE]) {
+    if (hasRegionCrisis(regionIndex, c)) return c;
+  }
+  return null;
+}
 
 /**
  * A completed contract eases the region: tension down, and an active crisis moves one step
  * toward its END phase once the tension has been worn down.
  * @param {number} regionIndex
+ * @param {string|null} [contractKind]
  * @returns {{ tension:number, phase:string }}
  */
-export function onContractCompleted(regionIndex) {
+export function onContractCompleted(regionIndex, contractKind = null) {
+  const relief = contractKind === CONTRACT_KIND.FORT || contractKind === 'FORT' ? FORT_CONTRACT_TENSION_RELIEF : CONTRACT_TENSION_RELIEF;
   const st = getRegionState(regionIndex);
-  st.tension = Math.max(0, st.tension - CONTRACT_TENSION_RELIEF);
+  st.tension = Math.max(0, st.tension - relief);
+  const step = contractKind === CONTRACT_KIND.FORT || contractKind === 'FORT' ? 2 : 1;
   if (st.phase === CRISIS_PHASE.START || st.phase === CRISIS_PHASE.MID) {
-    st.phaseDaysRemaining = Math.max(1, st.phaseDaysRemaining - 1); // the crisis timer runs toward END
+    st.phaseDaysRemaining = Math.max(1, st.phaseDaysRemaining - step); // the crisis timer runs toward END
   } else if (st.phase === CRISIS_PHASE.END) {
-    st.phaseDaysRemaining = Math.max(1, Math.min(st.phaseDaysRemaining, PHASE_DURATIONS_DAYS[CRISIS_PHASE.END]) - 1);
+    st.phaseDaysRemaining = Math.max(1, Math.min(st.phaseDaysRemaining, PHASE_DURATIONS_DAYS[CRISIS_PHASE.END]) - step);
   }
   return { tension: st.tension, phase: st.phase };
 }

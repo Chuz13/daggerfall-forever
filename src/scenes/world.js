@@ -786,6 +786,7 @@ import { createWorldPartyPing } from './partyPingHost.js';   // PARTY-PING: a lo
 import { pingSubject, pingCrowd } from '../systems/party/partyPingCaption.js';   // PARTY-PING: the name under a look, a person and another player among them
 import { PING_TRAVEL_M } from '../systems/party/partyPing.js';   // PARTY-PING: how far the travel view's look reaches
 import { createBountyFarms, farmSpotLocal, pickFarm } from './bountyFarms.js';   // BOUNTY-FARM: a farm on a farm bounty's pixel, while it is held
+import { createBountyForts } from './bountyForts.js';
 import { bountyLandWild } from '../systems/bounty/bountyQuarry.js';   // QUARRY-WORLD: the land's own wild about a board's town
 import { createLairDoor } from './lairHost.js';   // RVN7, LAIR-DOOR: a revenant's lair, an enterable dungeon in the boards' ring
 import { createBountyOverlay, closeBountyDoor, bountyDoorOpen } from '../ui/bounty/bountyDoor.js';   // BOUNTY1: the board's window and the payday notice
@@ -1866,6 +1867,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   status('indexing locations');
   const locationIndex = new Map();
   let bountyFarms = null;   // BOUNTY-FARM: the farm pool, made beside the bounty pack's stander; read late (a transition, a load, the frame)
+  let bountyForts = null;   // BOUNTY-FORT: the crisis fort/encampment pool; read late (a transition, a load, the frame)
   let quays = null;   // QUAYS: the harbours' quays (scenes/quayPool.js), made beside the farms; read late (a transition, a load, the frame)
   let lefay = null;   // LEFAY1: the monuments (scenes/lefayMonumentHost.js createMonuments), made beside the Sigil Broker; read late (a transition, a load, the frame)
   let poiHost = null;   // POI-2: the approved POIs (scenes/poiHost.js), made beside the monument; read late (a transition, a load, the frame)
@@ -12823,6 +12825,23 @@ export async function bootWorld(canvas, renderer, params, status) {
     mode: () => _mode(),
     enhanced: () => isEnhanced(),
   });
+  bountyForts = createBountyForts({
+    collider: () => collider,
+    pixelTranslation: (px, py) => state.pixelTranslation(px, py), floatingFrame: () => state,
+    pixelBuilt: (px, py) => built.get(`${px},${py}`) ?? null,
+    getGpuMesh: (id) => getGpuMesh(id),
+    cpuModel: (id) => cpuModels.get(id),
+    prepare: (gpu, p, c = getWorldClimateSettings(maps.getClimateIndex(p.px, p.py)).climateType) => remapSubMeshes(gpu.subMeshes, p.texRemap,
+      (a, r) => applyClimate(a, r, c, p.season), pipeline, c),
+    spotOk: (x, z, r) => {
+      const y = collider.heightAt?.(x, z) ?? 0;
+      return !_inAnyLocationRect([x, y, z]) && !_nearRoad([x, y, z], r) && !_overDeepWater(x, z)
+        && !_inRock(x, y, z) && !(bountyFarms?.occupied?.(x, z, r) ?? false);
+    },
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : cam.pos),
+    mode: () => _mode(),
+    enhanced: () => isEnhanced(),
+  });
   // QUAYS (bible/03-World/Holdings.md section 7): THE PORT'S QUAYS - each berth of a harbour the naval host found off the
   // terrain stood with its quay, its jetty to the shore, its piles, bollards, lanterns and cargo (systems/naval/quays.js,
   // world/quayModel.js), from the time its mouth is in sight of a ship sailing in; the gangways run out to my ships made
@@ -12960,20 +12979,23 @@ export async function bootWorld(canvas, renderer, params, status) {
       const y = collider.heightAt?.(x, z);
       if (!Number.isFinite(y)) continue;
       if (_inAnyLocationRect([x, y, z]) || _nearRoad([x, y, z], 8) || _overDeepWater(x, z)) continue;
-      if (bountyFarms?.occupied?.(x, z, 8)) continue;   // AUDIT 28 B13: never among a standing farm's buildings
+      if (bountyFarms?.occupied?.(x, z, 8) || bountyForts?.occupied?.(x, z, 8)) continue;   // AUDIT 28 B13: never among a standing farm's or fort's buildings
       if (_inRock(x, y, z)) continue;   // BOUNTY-ROCK: the trail's spot never inside a rock (a spot there stood nobody, on every retry)
       return [x, y, z];
     }
     return null;
   };
-  const _standBountyPack = ({ id, mobileType, count, stage = 0, farm = false, target = null, farmKey = id, huntKey = id, place = null }) => {
+  const _standBountyPack = ({ id, mobileType, count, stage = 0, farm = false, fort = false, target = null, farmKey = id, fortKey = id, huntKey = id, place = null }) => {
     const feet = player.feetAt();
-    // WHERE THE GROUP WAITS: a farm bounty's first group at its farmhouse, a split hunt's second group at its trail spot,
-    // every other group round the hunter as before. A spot still far off is answered `far` - the host names the way
+    // WHERE THE GROUP WAITS: a farm bounty's first group at its farmhouse, a fort bounty's at its outpost,
+    // a split hunt's second group at its trail spot, every other group round the hunter as before.
     let spotAt = null;
     if (farm) {
       spotAt = bountyFarms?.anchorFor(farmKey) ?? null;   // BOUNTY-TIER: the notice's one farm
       if (!spotAt && bountyFarms && !bountyFarms.failed(farmKey)) return null;   // the farm is still going up: the next try
+    } else if (fort) {
+      spotAt = bountyForts?.anchorFor(fortKey) ?? null;   // BOUNTY-FORT: the notice's one fort
+      if (!spotAt && bountyForts && !bountyForts.failed(fortKey)) return null;   // the fort is still going up: the next try
     } else if (stage === 1 && target) {
       spotAt = _bountyTrailSpot(huntKey, target.px, target.py);   // BOUNTY-TIER: the hunt's one trail, whoever's machine stands it
     }
@@ -12981,18 +13003,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       const d = Math.hypot(spotAt[0] - feet[0], spotAt[2] - feet[2]);
       if (d > BOUNTY_GROUP_REACH_M) return { far: true, dx: spotAt[0] - feet[0], dz: spotAt[2] - feet[2] };
     }
-    // THE CAMP'S OWN STAND (_standCampEncounter above): the anchor on the terrain's floor - round the hunter 60 to 110
-    // metres out, or at the group's spot - the members round it at a pack's spacing, off roads, out of town rects and the
-    // sea, 60 m sight, one camp id; ONE beast `count` times, never grown by the party (`fixed`: the purse and the tally
-    // are the posting's), uncapped (`loose` - a board's hunt is not the encounter roll's to refuse) and never saved
-    // (`transient` - scenes/bountyHost.js stands what is left again)
+    // THE CAMP'S OWN STAND (_standCampEncounter above): the anchor on the terrain's floor
     const stood = _standCampEncounter({
       mobileTypes: Array(count).fill(mobileType), fixed: true, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
-      minDistance: spotAt ? (farm ? 10 : 0) : 60, maxDistance: spotAt ? (farm ? 24 : 8) : 110,   // in the farmyard, beside the house / on the trail's spot
+      minDistance: spotAt ? (farm || fort ? 8 : 0) : 60, maxDistance: spotAt ? (farm || fort ? 22 : 8) : 110,
       bearingDegrees: Math.random() * 360, spawnOpts: { loose: true, transient: true },
       ownPlace: place,   // FB1029 GRAVE-PACK: a graveyard's hunt stands in its own rect - refused there, it never stood
-      // BOUNTY-FARM-CLEAR (field: foes stood inside the farmhouse and could not be reached): never in a farm's building
-      spotOk: (x, z) => !(bountyFarms?.inBuilding?.(x, z) ?? false),
+      // BOUNTY-FARM-CLEAR: never in a farm's or fort's building
+      spotOk: (x, z) => !(bountyFarms?.inBuilding?.(x, z) ?? false) && !(bountyForts?.inBuilding?.(x, z) ?? false),
     }, spotAt ?? feet);
     if (!stood) return null;
     return { foes: stood.foes, dx: stood.anchorFeet[0] - feet[0], dz: stood.anchorFeet[2] - feet[2] };
@@ -14182,6 +14200,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // reason, rather than because a splice happened to run first.
     doorGeneration += 1;   // WORLD-HOVER: the origin was re-anchored, so every door's WORLD matrix moved with it
     bountyFarms?.destroyAll();   // BOUNTY-FARM: the frame moves under it - it stands again from the bounty, in the new one
+    bountyForts?.destroyAll();
     quays?.destroyAll();   // QUAYS: and the quays - stood again off the harbours found in the new one
     lefay?.destroyAll();   // LEFAY1: and the monuments - each stood again the next frame that finds its place built
     poiHost?.destroyAll();   // POI-2: and the POIs - stood again the next frame off the new anchor
@@ -16058,6 +16077,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         droppedLoot.restoreWorld(restandRows(w.piles), (nx, nz) => state.localFromWorld(nx, nz), state.compensation[1]);
         droppedTorches.restore(restandAt('position')(w.droppedTorches), (p) => { const [lx, lz] = state.localFromWorld(p[0], p[2]); return [lx, p[1] + state.compensation[1], lz]; });   // HT1
         bountyFarms?.destroyAll();   // BOUNTY-FARM: a load - the farms stand again from the loaded bounties
+        bountyForts?.destroyAll();
         quays?.destroyAll();   // QUAYS: and the quays, off the harbours found again
         lefay?.destroyAll();   // LEFAY1: and the monument - its collider down, stood again off the loaded world (a flower in the air lands nowhere: thrown before the restore - AUDIT LEFAY1 B1)
         poiHost?.destroyAll();   // POI-2: and the POIs - their colliders down, stood again off the loaded world
@@ -32203,7 +32223,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       try { gatherHost?.tick(dt); } catch (e) { console.warn('[prof] tick', e); }   // PROF1: indoors too - no prompt, but the answers come in
       try { legacyStep(dt); } catch (e) { console.warn('[legacy] tick', e); }   // LEGACY1: indoors and underground too
       _farmSyncT -= dt;
-      if (_farmSyncT <= 0) { _farmSyncT = 0.5; try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); } }
+      if (_farmSyncT <= 0) {
+        _farmSyncT = 0.5;
+        try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); }
+        try { bountyForts?.sync(bountyHost?.fortsWanted() ?? []); } catch (e) { console.warn('[bounty] forts', e); }
+      }
       foragingWait.tick();   // AUDIT 28 F2: Foraging's wait ticks in every mode - a wait left pending indoors held every quest's boxes until the street
       // AUDIT 28 H12: a death in the building's or the dungeon's own slot is never under a DOM window of the street's -
       // the board and the payday notice come down (an unread notice goes back in its queue)
@@ -33319,7 +33343,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { legacyStep(dt); } catch (e) { console.warn('[legacy] tick', e); }   // LEGACY1: the seat, the elder, the estate, a dead load
     try { gatherHost?.tick(dt); } catch (e) { console.warn('[prof] tick', e); }   // PROF1: the patches, the prompt, the act, the answers
     _farmSyncT -= dt;
-    if (_farmSyncT <= 0) { _farmSyncT = 0.5; try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); } }   // BOUNTY-FARM: the farms brought in line with the bounties held
+    if (_farmSyncT <= 0) {
+      _farmSyncT = 0.5;
+      try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); }
+      try { bountyForts?.sync(bountyHost?.fortsWanted() ?? []); } catch (e) { console.warn('[bounty] forts', e); }
+    }
     if (state.failed.size) queue.push(...state.retryDue(performance.now()));   // BUILD-RETRY: a failed pixel's wait over, the stream asks for it again
     pump();
 
@@ -33783,6 +33811,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _livingHideoutsHost?.draw(renderer, null, yardCull);   // LW12: a band's tents; PERF-WAGON: by the street's view test
     _livingSceneHost?.draw(renderer, null, yardCull);   // LIVING-TAMRIEL: draw active 3D tents, pavilions, wagons, crates, and military banners
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
+    bountyForts?.draw(renderer);   // BOUNTY-FORT: a held fort bounty's fortification
     quays?.draw(renderer);   // QUAYS: the harbours' quays and the gangways to my ships made fast
     yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
     lefay?.draw(renderer);   // LEFAY1: the monuments

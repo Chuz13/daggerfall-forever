@@ -21,7 +21,8 @@
 import { MINUTES_PER_DAY } from '../gameDate.js';
 import { BOUNTY_POSE_MAX, worldPixelOk } from '../../net/wire.js';   // LAIR-WORLD: a town's pixel is the world's, the Bay's and past it
 import { t } from '../textManager.js';   // QUARRY-WORLD: the beasts' words in the player's language
-import { scaledReward, isLivingBountyScalingActive, CONTRACT_KIND } from '../living/bountySync.js';
+import { scaledReward, isLivingBountyScalingActive, CONTRACT_KIND, getRegionFortCrisis } from '../living/bountySync.js';
+import { pickFortPresetName } from '../../world/bountyFortPresets.js';
 export { MINUTES_PER_DAY, BOUNTY_POSE_MAX };
 
 /** The per-mod save slot's vendor name (systems/modSaveData.js). */
@@ -422,9 +423,11 @@ const capital = (s) => String(s).split('-').map((w) => w.charAt(0).toUpperCase()
  * @param {{ day:number, px:number, py:number, name?:string, slot:number, level:number, sites:Array<[number,number]>,
  *   dungeons?:Array<{px:number, py:number, name:string}>, wild?:?Array<[number, number]> }} o
  */
-export function bountyPosting({ day, px, py, name = '', slot, level, sites, dungeons = [], wild = null }) {
+export function bountyPosting({ day, px, py, name = '', slot, level, sites, dungeons = [], wild = null, region = null }) {
   const underground = dungeonSlotsFor(dungeons?.length ?? 0).includes(slot);
   if (!underground && !sites?.length) return null;
+  const crisis = getRegionFortCrisis(region);
+  const isFort = !!crisis && !underground && (slot === 1 || (slot === 0 && dungeonSlotsFor(dungeons?.length ?? 0).includes(1)));
   // SITE: four slots, four different spots where the ground allows it - a slot takes the next free spot after its own
   // roll, so the list decides, never the order the slots were asked in
   const used = new Set();
@@ -452,7 +455,9 @@ export function bountyPosting({ day, px, py, name = '', slot, level, sites, dung
   const [tx, ty] = site;
   const quarry = bountyQuarry(level, wild);   // QUARRY-WORLD: the land's own beasts in the tier's band
   const mobileType = quarry[bountyHash(day, px, py, slot, SALT.beast) % quarry.length];
-  const count = underground
+  const count = isFort
+    ? 6 + (bountyHash(day, px, py, slot, SALT.count) % 5)   // Fort garrison: 6 to 10 foes, tactical two-group assault
+    : underground
     ? BOUNTY_DUNGEON_PACK_MIN + (bountyHash(day, px, py, slot, SALT.count) % (BOUNTY_DUNGEON_PACK_MAX - BOUNTY_DUNGEON_PACK_MIN + 1))
     : BOUNTY_PACK_MIN + (bountyHash(day, px, py, slot, SALT.count) % (BOUNTY_PACK_MAX - BOUNTY_PACK_MIN + 1));
   const foes = bountyFoesWord(mobileType);
@@ -462,29 +467,54 @@ export function bountyPosting({ day, px, py, name = '', slot, level, sites, dung
   const town = name || 'town';
   const graveyard = !!place?.graveyard;
   const template = pick(graveyard ? BOUNTY_GRAVEYARD_STORIES : place ? BOUNTY_DUNGEON_STORIES : BOUNTY_STORIES[kind], bountyHash(day, px, py, slot, SALT.story));
-  const story = fillStory(template, { foes, count, town, dir, far, place: place?.name ?? '' });
   const lvl = clampLevel(level);
+  const slotKey = bountySlotKey(day, px, py, slot);
+  const preset = isFort ? pickFortPresetName(slotKey, crisis) : null;
+  const title = isFort
+    ? (crisis === 'WAR'
+        ? t('bounty.fort.titleWar', '{foes} Garrison in Fort', { foes })
+        : crisis === 'PLAGUE'
+        ? t('bounty.fort.titlePlague', '{foes} in Cursed Outpost', { foes })
+        : t('bounty.fort.titleStrife', '{foes} Stronghold', { foes }))
+    : place
+    ? `${foes} in ${place.name}`
+    : `${foes} ${dir === 'nearby' ? 'nearby' : `to the ${capital(dir)}`}`;
+  const story = isFort
+    ? (crisis === 'WAR'
+        ? t('bounty.fort.storyWar', 'War ravages the land {dir} of {town}. An entrenched garrison of {count} {foes} has seized a fortified outpost. March on the fort and clear them out.', { count, foes, town, dir, far })
+        : crisis === 'PLAGUE'
+        ? t('bounty.fort.storyPlague', 'A blighted outpost {dir} of {town} has fallen to the pestilence. {count} {foes} fester within the ruins. Cleanse the blighted fortification.', { count, foes, town, dir, far })
+        : t('bounty.fort.storyStrife', 'Unrest has emboldened outlaws {dir} of {town}. A heavily fortified redoubt of {count} {foes} is terrorizing the roads. Storm the stronghold and restore order.', { count, foes, town, dir, far }))
+    : fillStory(template, { foes, count, town, dir, far, place: place?.name ?? '' });
+  const mapLine = isFort
+    ? t('bounty.fort.mapLine', 'Take a look at your map: the fortification is marked with a black circle.')
+    : place
+    ? bountyDungeonMapLine(place.name)
+    : BOUNTY_MAP_LINE;
+  const baseGold = bountyGold(lvl, count, mobileType, underground, quarry);
+  const gold = isFort ? Math.round(baseGold * 1.5) : baseGold;
   return {
-    id: bountyId(day, px, py, slot, lvl), slotKey: bountySlotKey(day, px, py, slot), day, slot, level: lvl,
+    id: bountyId(day, px, py, slot, lvl), slotKey, day, slot, level: lvl,
     town: { px, py, name: town }, target: { px: tx, py: ty },
     mobileType, count, foes,
     kind: place ? 'dungeon' : 'field', place: place?.name ?? null, graveyard,
     tier: bountyTierIndex(lvl) + 1, tierLabel: bountyTierLabel(lvl),   // BOUNTY-TIERLABEL
-    farm: !place && FARM_STORY_RE.test(template),   // BOUNTY-FARM: a farm stands on its pixel while it is held
-    title: place ? `${foes} in ${place.name}` : `${foes} ${dir === 'nearby' ? 'nearby' : `to the ${capital(dir)}`}`,
-    story, mapLine: place ? bountyDungeonMapLine(place.name) : BOUNTY_MAP_LINE,
+    farm: !isFort && !place && FARM_STORY_RE.test(template),   // BOUNTY-FARM: a farm stands on its pixel while it is held
+    fort: isFort, crisis: isFort ? crisis : null, preset,
+    title,
+    story, mapLine,
     poster: pick(BOUNTY_POSTERS, bountyHash(day, px, py, slot, SALT.poster)),
     dir, far,
-    gold: bountyGold(lvl, count, mobileType, underground, quarry),
+    gold,
     item: bountyItemRule(lvl),
   };
 }
 
 /** A whole board: the day's four postings as `level` reads them (fewer only when the town has no ground). */
-export function boardPostings({ day, px, py, name = '', level, sites, dungeons = [], wild = null }) {
+export function boardPostings({ day, px, py, name = '', level, sites, dungeons = [], wild = null, region = null }) {
   const out = [];
   for (let slot = 0; slot < BOUNTIES_PER_DAY; slot++) {
-    const p = bountyPosting({ day, px, py, name, slot, level, sites, dungeons, wild });
+    const p = bountyPosting({ day, px, py, name, slot, level, sites, dungeons, wild, region });
     if (p) out.push(p);
   }
   return out;
@@ -493,12 +523,12 @@ export function boardPostings({ day, px, py, name = '', level, sites, dungeons =
 /**
  * A taken bounty's posting rebuilt from its id alone - the party's shared copy, a save's, the wire's.
  * @param {string} id
- * @param {{ name?:string, sites?:Array<[number,number]>, dungeons?:Array<{px:number, py:number, name:string}>, wild?:?Array<[number, number]> }} [o]
+ * @param {{ name?:string, sites?:Array<[number,number]>, dungeons?:Array<{px:number, py:number, name:string}>, wild?:?Array<[number, number]>, region?:number|null }} [o]
  */
-export function postingFromId(id, { name = '', sites = [], dungeons = [], wild = null } = {}) {
+export function postingFromId(id, { name = '', sites = [], dungeons = [], wild = null, region = null } = {}) {
   const b = parseBountyId(id);
   if (!b) return null;
-  return bountyPosting({ day: b.day, px: b.px, py: b.py, name, slot: b.slot, level: b.level, sites, dungeons, wild });
+  return bountyPosting({ day: b.day, px: b.px, py: b.py, name, slot: b.slot, level: b.level, sites, dungeons, wild, region });
 }
 
 /** The words the reward notice speaks. `h` picks the story (a roll the host makes). */

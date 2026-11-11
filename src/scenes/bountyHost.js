@@ -160,7 +160,8 @@ export function createBountyHost(deps) {
   const postingOf = (id) => {
     const b = parseBountyId(id);
     if (!b) return null;
-    return postingFromId(id, { name: deps.townName(b.px, b.py), sites: sitesFor(b.px, b.py), dungeons: dungeonsFor(b.px, b.py), wild: wildFor(b.px, b.py) });
+    const region = deps.regionAt?.(b.px, b.py) ?? null;
+    return postingFromId(id, { name: deps.townName(b.px, b.py), sites: sitesFor(b.px, b.py), dungeons: dungeonsFor(b.px, b.py), wild: wildFor(b.px, b.py), region });
   };
   const social = () => { try { return deps.social?.() ?? null; } catch { return null; } };
   const repaint = () => { try { boardView?.repaint?.(); } catch { /* the window's own problem */ } };
@@ -254,7 +255,8 @@ export function createBountyHost(deps) {
   function boardRows(town) {
     const now = deps.now();
     const day = bountyDay(now);
-    const posts = boardPostings({ day, px: town.px, py: town.py, name: town.name, level: deps.level(), sites: sitesFor(town.px, town.py), dungeons: dungeonsFor(town.px, town.py), wild: wildFor(town.px, town.py) });
+    const region = deps.regionAt?.(town.px, town.py) ?? null;
+    const posts = boardPostings({ day, px: town.px, py: town.py, name: town.name, level: deps.level(), sites: sitesFor(town.px, town.py), dungeons: dungeonsFor(town.px, town.py), wild: wildFor(town.px, town.py), region });
     const mates = matesOnBoard();
     return posts.map((p) => {
       const held = ledger.held.find((h) => parseBountyId(h.id)?.slotKey === p.slotKey) ?? null;
@@ -376,7 +378,7 @@ export function createBountyHost(deps) {
     const region = deps.regionAt?.(posting.town.px, posting.town.py);
     if (Number.isInteger(region) && region >= 0 && entity) {
       rewardContract(entity, region);
-      onContractCompleted(region);
+      onContractCompleted(region, posting.fort ? 'FORT' : null);
     }
     const reward = bountyRewardRows(posting.gold, item);
     notices.push({
@@ -490,7 +492,7 @@ export function createBountyHost(deps) {
       const remaining = Math.max(1, stage === 0 ? groups[0] - row.killed : p.count - row.killed);
       const stood = underground
         ? (deps.standDungeonPack?.({ id: row.id, mobileType: p.mobileType, count: remaining }) ?? null)
-        : deps.standPack({ id: row.id, mobileType: p.mobileType, count: remaining, stage, farm: !!p.farm && stage === 0, target: p.target, farmKey: p.slotKey, huntKey: bountyHuntKey(row.id), place: p.graveyard ? p.target : null });
+        : deps.standPack({ id: row.id, mobileType: p.mobileType, count: remaining, stage, farm: !!p.farm && stage === 0, fort: !!p.fort && stage === 0, target: p.target, farmKey: p.slotKey, fortKey: p.slotKey, huntKey: bountyHuntKey(row.id), place: p.graveyard ? p.target : null });
       if (!stood) { packs.set(`retry:${row.id}`, { at: clock + BOUNTY_RETRY_S }); continue; }
       if ('far' in stood) {
         // the group waits at its spot: name the way once, then ask again as the hunter closes in
@@ -500,6 +502,8 @@ export function createBountyHost(deps) {
           const way = compass8(stood.dx, stood.dz);
           const words = stage === 1
             ? `You find tracks leading away from the bodies: the rest of the ${p.foes} fled ${m} meters to the ${way}.`
+            : p.fort
+            ? t('bounty.fort.way', 'The fortified outpost lies {m} meters to the {way}.', { m, way })
             : `The farmstead lies ${m} meters to the ${way}.`;
           clues.set(key, words);
           deps.say(words);
@@ -564,7 +568,7 @@ export function createBountyHost(deps) {
     mapMarks: () => [...hunt.mapMarks(), ...ledger.held.map((h) => {
       const p = postingOf(h.id);
       return p ? { cx: p.target.px + 0.5, cy: p.target.py + 0.5, r: BOUNTY_RING_R, label: p.place ? `${p.foes} - ${p.place}` : p.foes, id: h.id,
-        place: p.kind === 'dungeon', farmKey: p.farm ? p.slotKey : null } : null;   // BOUNTY-SNAP: what the Overworld's click walks to
+        place: p.kind === 'dungeon', farmKey: p.farm ? p.slotKey : null, fortKey: p.fort ? p.slotKey : null } : null;   // BOUNTY-SNAP: what the Overworld's click walks to
     }).filter(Boolean)],
     /** The quest log's rows for my bounties (the world host folds them into questBridge.questLog) - and the named mark's. */
     questLogEntries: () => [...hunt.questLogEntries(), ...questLogEntries()],
@@ -577,6 +581,15 @@ export function createBountyHost(deps) {
       // one farm a NOTICE (keyed by its slot, not by an id - two holders at two levels see one farm, in one place)
       const out = new Map();
       for (const p of [...ids].map((id) => postingOf(id))) if (p?.farm && !out.has(p.slotKey)) out.set(p.slotKey, { id: p.slotKey, px: p.target.px, py: p.target.py });
+      return [...out.values()];
+    },
+    /** BOUNTY-FORT: the fort/camp assault bounties I hold - their fortifications stand while I do (scenes/bountyForts.js). */
+    fortsWanted: () => {
+      const ids = new Set(ledger.held.map((h) => h.id));
+      const s = social();
+      if (s?.inParty) for (const m of s.mates ?? []) for (const r of Array.isArray(m?.p?.bq) ? m.p.bq : []) if (!r.c && parseBountyId(r.i)) ids.add(r.i);
+      const out = new Map();
+      for (const p of [...ids].map((id) => postingOf(id))) if (p?.fort && !out.has(p.slotKey)) out.set(p.slotKey, { id: p.slotKey, px: p.target.px, py: p.target.py, crisis: p.crisis || 'WAR' });
       return [...out.values()];
     },
     /** My pose's `bq` - a row's `a` while its pack stands here. */
