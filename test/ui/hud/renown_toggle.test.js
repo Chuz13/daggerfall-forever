@@ -6,11 +6,19 @@ import { getPref, setPref, _resetForTests as resetPrefs } from '../../../src/sys
 import { setHudRenown } from '../../../src/ui/hud/hudRenown.js';
 import { t, setLocale, _resetTextManagerForTests, loadStringTableCsv, patchLocaleTable } from '../../../src/systems/textManager.js';
 import { LOCALE_CATALOG } from '../../../src/systems/localeCatalog.js';
+import { whereIs } from '../../../src/ui/settings/settingsMap.js';
 
 beforeEach(() => {
   resetPrefs();
   _resetTextManagerForTests();
   setHudRenown(null);
+});
+
+test('Renown toggle setting: mapped in settingsMap under Interface -> HUD', () => {
+  const loc = whereIs('port:showRenownBar');
+  assert.ok(loc, 'port:showRenownBar must be mapped in settingsMap');
+  assert.equal(loc.tab.id, 'interface');
+  assert.equal(loc.section.id, 'hud');
 });
 
 test('Renown toggle setting: showRenownBar defaults to false (hidden) and persists', () => {

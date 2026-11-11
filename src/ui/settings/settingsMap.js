@@ -296,6 +296,7 @@ export const CATEGORIES = Object.freeze([
     sec('hud', 'HUD', [
       'port:hudScale',
       'port:hudVitalsMode',
+      'port:showRenownBar',
       'port:hudLock',
       'port:hudBars',
       'port:hudReset',
