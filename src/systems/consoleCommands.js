@@ -1578,7 +1578,8 @@ registerCommand(
   'crisis <start <war|plague|famine|civil_strife> [region]|stop [war|plague|famine|civil_strife] [region]|status [region]|tp [type]>',
   async (args = []) => {
     const sub = String(args[0] || 'status').toLowerCase();
-    const reg = args[2] ? parseInt(args[2], 10) : (args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : 17);
+    const defReg = defaultRegion();
+    const reg = args[2] ? parseInt(args[2], 10) : (args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : defReg);
     if (sub === 'tp' || sub === 'goto' || sub === 'jump') {
       const filter = args[1] ? String(args[1]).toLowerCase() : null;
       const ctx = getDebugSceneContext();
@@ -1607,9 +1608,10 @@ registerCommand(
       };
       const crisisType = validTypes[type];
       if (!crisisType) return `Unknown crisis type "${args[1]}". Valid: war, plague, famine, civil_strife.`;
-      const regionIndex = args[2] ? parseInt(args[2], 10) : 17;
+      const regionIndex = args[2] ? parseInt(args[2], 10) : defReg;
       setRegionCrisis(regionIndex, crisisType, CRISIS_PHASE.START);
-      return `Started ${crisisType} crisis in Region ${regionIndex} (Phase: ${CRISIS_PHASE.START}).`;
+      const st = getRegionState(regionIndex);
+      return `Started ${crisisType} crisis in Region ${regionIndex} (${st.regionName}) (Phase: ${CRISIS_PHASE.START}).`;
     }
     if (sub === 'stop') {
       const raw = args[1]?.toLowerCase();
@@ -1621,13 +1623,15 @@ registerCommand(
         'civil_strife': CRISIS_TYPE.CIVIL_STRIFE,
       };
       if (validTypes[raw]) {
-        const regionIndex = args[2] ? parseInt(args[2], 10) : 17;
+        const regionIndex = args[2] ? parseInt(args[2], 10) : defReg;
         setRegionCrisis(regionIndex, validTypes[raw], CRISIS_PHASE.NONE);
-        return `Stopped ${validTypes[raw]} crisis in Region ${regionIndex}.`;
+        const st = getRegionState(regionIndex);
+        return `Stopped ${validTypes[raw]} crisis in Region ${regionIndex} (${st.regionName}).`;
       }
-      const regionIndex = args[1] ? parseInt(args[1], 10) : 17;
+      const regionIndex = args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : defReg;
       setRegionCrisis(regionIndex, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
-      return `Stopped all crises in Region ${regionIndex}. Peace restored.`;
+      const st = getRegionState(regionIndex);
+      return `Stopped all crises in Region ${regionIndex} (${st.regionName}). Peace restored.`;
     }
     return 'Usage: crisis <start <war|plague|famine|civil_strife> [region] | stop [type] [region] | status [region] | tp [type]>';
   }

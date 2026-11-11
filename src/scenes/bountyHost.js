@@ -255,7 +255,7 @@ export function createBountyHost(deps) {
   function boardRows(town) {
     const now = deps.now();
     const day = bountyDay(now);
-    const region = deps.regionAt?.(town.px, town.py) ?? null;
+    const region = Number.isInteger(town.region) ? town.region : (deps.regionAt?.(town.px, town.py) ?? null);
     const posts = boardPostings({ day, px: town.px, py: town.py, name: town.name, level: deps.level(), sites: sitesFor(town.px, town.py), dungeons: dungeonsFor(town.px, town.py), wild: wildFor(town.px, town.py), region });
     const mates = matesOnBoard();
     return posts.map((p) => {
@@ -345,7 +345,8 @@ export function createBountyHost(deps) {
   /** The board's press: the window, over the town's notices. */
   function openBoard(town) {
     if (!town || !Number.isFinite(town.px) || !Number.isFinite(town.py)) return false;
-    const t = { px: town.px, py: town.py, name: town.name || deps.townName(town.px, town.py) || 'Town' };
+    const reg = Number.isInteger(town.region) ? town.region : (deps.regionAt?.(town.px, town.py) ?? null);
+    const t = { px: town.px, py: town.py, name: town.name || deps.townName(town.px, town.py) || 'Town', region: reg };
     deps.openBoardWindow({
       town: t,
       rows: () => boardRows(t),

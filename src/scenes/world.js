@@ -26538,7 +26538,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     level: () => playerEntity.level | 0 || 1,
     entity: () => playerEntity,
     townName: (px, py) => String(locationIndex.get(`${px},${py}`)?.name ?? ''),
-    regionAt: (px, py) => maps.getRegionIndexAt(px, py),   // REP4: the board's region, for the law's thanks
+    regionAt: (px, py) => {
+      const loc = locationIndex.get(`${px},${py}`);
+      if (Number.isInteger(loc?.regionIndex)) return loc.regionIndex;
+      const fromMapId = _townOfMapId.get(loc?.mapTableData?.mapId >>> 0);
+      if (Number.isInteger(fromMapId?.region)) return fromMapId.region;
+      try {
+        const r = maps.getRegionIndexAt(px, py);
+        if (Number.isInteger(r) && r >= 0) return r;
+      } catch { /* ignore */ }
+      return _questRegionIndex?.() ?? null;
+    },   // REP4: the board's region, for the law's thanks
     wildAt: bountyLandWild(maps),   // QUARRY-WORLD: the board's beasts the land's own wild (systems/bounty/bountyQuarry.js)
     // the ground a pack may stand on: land (the height bytes say where the sea is, as the gate's scan reads them), no
     // location of the game's own on the pixel, no spawned dungeon - every client's map files answer alike
@@ -29508,6 +29518,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         const t = state.pixelTranslation(p.px, p.py);
         const dfLoc = locationIndex.get(`${p.px},${p.py}`);
         const bountySet = p.bounty ?? new Set();
+        const reg = Number.isInteger(dfLoc?.regionIndex)
+          ? dfLoc.regionIndex
+          : (() => { try { return maps.getRegionIndexAt(p.px, p.py); } catch { return null; } })();
         p.boards.forEach((b, i) => {
           if (!bountySet.has(i)) return;
           out.push({
@@ -29519,6 +29532,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             px: p.px,
             py: p.py,
             name: dfLoc?.name ?? '',
+            region: reg,
             mapId: dfLoc?.mapTableData?.mapId ?? null,
           });
         });
@@ -29531,6 +29545,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (!p.boards?.length) continue;
         const dfLoc = locationIndex.get(`${p.px},${p.py}`);
         const bountySet = p.bounty ?? new Set();
+        const reg = Number.isInteger(dfLoc?.regionIndex)
+          ? dfLoc.regionIndex
+          : (() => { try { return maps.getRegionIndexAt(p.px, p.py); } catch { return null; } })();
         p.boards.forEach((b, i) => {
           if (!bountySet.has(i)) return;
           boards.push({
@@ -29538,13 +29555,14 @@ export async function bootWorld(canvas, renderer, params, status) {
             px: p.px,
             py: p.py,
             name: dfLoc?.name ?? '',
+            region: reg,
             mapId: dfLoc?.mapTableData?.mapId ?? null,
           });
         });
       }
       const target = boards[idx];
       if (!target) return false;
-      const town = { px: target.px, py: target.py, name: target.name, mapId: target.mapId };
+      const town = { px: target.px, py: target.py, name: target.name, mapId: target.mapId, region: target.region };
       if (target.isBounty) {
         return bountyHost?.openBoard(town) ?? false;
       }

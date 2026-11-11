@@ -38,6 +38,7 @@ export const PANEL_TOWN_TYPES = Object.freeze(
 export function panelTownOf(loc, at, shownOf) {
   const mapId = loc?.mapTableData?.mapId;
   if (!at || !Number.isFinite(mapId) || !PANEL_TOWN_TYPES.has(loc.mapTableData.locationType)) return null;
+  const region = Number.isInteger(loc?.regionIndex) ? loc.regionIndex : null;
   const name = String(loc.name ?? ''),
     k = loc.capital?.k,
     cap = Number.isInteger(k) ? CAPITALS[k] : null;
@@ -50,11 +51,12 @@ export function panelTownOf(loc, at, shownOf) {
       px: centre.px,
       py: centre.py,
       name: cap.name,
+      region,
       shown: shownOf(id, cap.name),
       ...(own ? {} : { district: shownOf(mapId, name) }),
     };
   }
-  return { mapId: mapId >>> 0, px: at.x, py: at.y, name, shown: shownOf(mapId, name) };
+  return { mapId: mapId >>> 0, px: at.x, py: at.y, name, region, shown: shownOf(mapId, name) };
 }
 
 /**
