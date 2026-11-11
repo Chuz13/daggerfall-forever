@@ -48513,5 +48513,55 @@
   "en": "5cd1154a2838",
   "tr": "5cd1154a2838",
   "by": "claude-in-session"
+ },
+ "living.notify.goldSpent": {
+  "en": "9657a213e499",
+  "tr": "a915ed64dee1",
+  "by": "claude-in-session"
+ },
+ "living.notify.goldGained": {
+  "en": "d129a415775a",
+  "tr": "d1111559cb20",
+  "by": "claude-in-session"
+ },
+ "living.notify.repGained": {
+  "en": "7e86d312f4e7",
+  "tr": "289c38ffc849",
+  "by": "claude-in-session"
+ },
+ "living.notify.repLost": {
+  "en": "e74ea78063f9",
+  "tr": "07e7445a755a",
+  "by": "claude-in-session"
+ },
+ "living.notify.fatigueLost": {
+  "en": "926281a59327",
+  "tr": "926281a59327",
+  "by": "claude-in-session"
+ },
+ "living.notify.healthLost": {
+  "en": "6b78d5c38ba5",
+  "tr": "e03810de1b1d",
+  "by": "claude-in-session"
+ },
+ "living.notify.xpGained": {
+  "en": "02e508e6642f",
+  "tr": "02e508e6642f",
+  "by": "claude-in-session"
+ },
+ "living.notify.bountyIssued": {
+  "en": "925ce460f63e",
+  "tr": "164652666131",
+  "by": "claude-in-session"
+ },
+ "living.surrender.robbedDetails": {
+  "en": "ea44d3082032",
+  "tr": "54a65fe42717",
+  "by": "claude-in-session"
+ },
+ "living.surrender.beatenDetails": {
+  "en": "dcc86a824fbc",
+  "tr": "597bf7e776c3",
+  "by": "claude-in-session"
  }
 }

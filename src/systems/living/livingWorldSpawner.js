@@ -2325,10 +2325,14 @@ export function createLivingSceneHost(deps) {
             action: () => {
               const res = resolveLivingSurrender({ playerEntity: player, threatLevel: Number(player?.level ?? 1) });
               if (res.outcome === SURRENDER_OUTCOME.BEATEN_PAUPER) {
-                deps.say(LIVING_WORDS.surrenderOutcomeBeaten(), 6);
+                deps.say(LIVING_WORDS.surrenderOutcomeBeaten(), 5);
+                const lostHp = Math.max(0, (player?.maxHealth ?? 50) - res.healthRemaining);
+                const lostFatigue = Math.max(0, (player?.maxFatigue ?? 100) - (res.fatigueRemaining ?? 0));
+                deps.say(LIVING_WORDS.surrenderBeatenDetails(lostHp, lostFatigue), 5);
               } else {
                 deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                deps.say(LIVING_WORDS.surrenderOutcomeRobbed(), 6);
+                deps.say(LIVING_WORDS.surrenderOutcomeRobbed(), 5);
+                deps.say(LIVING_WORDS.surrenderRobbedDetails(res.goldTaken), 5);
               }
               releaseSite();
             },
@@ -2382,23 +2386,48 @@ export function createLivingSceneHost(deps) {
                   player.fatigue = Math.max(1, player.fatigue - checkRes.fatigueCost);
                 }
                 deps.say(LIVING_WORDS.rollPartial(score, dc, checkRes.xpAwarded), 5);
+                if (checkRes.fatigueCost > 0) {
+                  deps.say(LIVING_WORDS.notifyFatigueLost(checkRes.fatigueCost), 4);
+                }
               } else {
                 deps.say(LIVING_WORDS.rollSuccess(score, dc, checkRes.xpAwarded), 5);
               }
+            } else if (c.xp && c.xp > 0) {
+              deps.say(LIVING_WORDS.notifyXpGained(c.xp), 4);
             }
 
             if (checkRes.goldCost > 0 && player) {
               player.goldPieces = Math.max(0, (player.goldPieces ?? 0) - checkRes.goldCost);
+              deps.say(LIVING_WORDS.notifyGoldSpent(checkRes.goldCost), 4);
             }
             if (checkRes.goldReward > 0 && player) {
               player.goldPieces = (player.goldPieces ?? 0) + checkRes.goldReward;
+              deps.say(LIVING_WORDS.notifyGoldGained(checkRes.goldReward), 4);
             }
 
             if (player?.regionalReputations) {
               if (checkRes.repF1Delta) {
                 player.regionalReputations[regIdx] =
                   (player.regionalReputations[regIdx] ?? 0) + checkRes.repF1Delta;
+                if (checkRes.repF1Delta > 0) {
+                  deps.say(LIVING_WORDS.notifyRepGained(f1Name, checkRes.repF1Delta), 4);
+                } else {
+                  deps.say(LIVING_WORDS.notifyRepLost(f1Name, checkRes.repF1Delta), 4);
+                }
               }
+              if (checkRes.repF2Delta) {
+                player.regionalReputations[regIdx] =
+                  (player.regionalReputations[regIdx] ?? 0) + checkRes.repF2Delta;
+                if (checkRes.repF2Delta > 0) {
+                  deps.say(LIVING_WORDS.notifyRepGained(f2Name, checkRes.repF2Delta), 4);
+                } else {
+                  deps.say(LIVING_WORDS.notifyRepLost(f2Name, checkRes.repF2Delta), 4);
+                }
+              }
+            }
+
+            if (c.bountyHostile) {
+              deps.say(LIVING_WORDS.notifyBountyIssued(), 5);
             }
 
             if (c.stance === 'defenders' || c.stance === 'bodyguard') {

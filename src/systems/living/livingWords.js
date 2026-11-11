@@ -341,10 +341,32 @@ export const LIVING_WORDS = Object.freeze({
     t('living.surrender.optSubmit', '[Surrender] Submit to the watch and pay the fine ({gold} gold).', { gold }),
   surrenderOutcomeRobbed: () =>
     t('living.surrender.robbed', 'The bandits take your gold and vanish into the wilderness, sparing your life.'),
+  surrenderRobbedDetails: (gold = 0) =>
+    t('living.surrender.robbedDetails', 'Surrender: Bandits seized {gold} gold pieces and spared your life.', { gold }),
   surrenderOutcomeBeaten: () =>
     t('living.surrender.beaten', 'Finding only empty pockets, they beat you senseless and leave you in the dirt.'),
+  surrenderBeatenDetails: (hp = 0, fatigue = 0) =>
+    t('living.surrender.beatenDetails', 'Surrender: You were brutally beaten (-{hp} Health, -{fatigue} Fatigue) and left in the dirt.', { hp, fatigue }),
   surrenderOutcomeConceded: () =>
     t('living.surrender.conceded', 'Your rival nods in satisfaction, takes the prize, and departs in peace.'),
+
+  // Event Choice Consequences & Notifications
+  notifyGoldSpent: (gold) =>
+    t('living.notify.goldSpent', '-{gold} Gold Pieces', { gold }),
+  notifyGoldGained: (gold) =>
+    t('living.notify.goldGained', '+{gold} Gold Pieces', { gold }),
+  notifyRepGained: (faction, delta) =>
+    t('living.notify.repGained', '+{delta} Reputation: {faction}', { faction, delta }),
+  notifyRepLost: (faction, delta) =>
+    t('living.notify.repLost', '{delta} Reputation: {faction}', { faction, delta }),
+  notifyFatigueLost: (fatigue) =>
+    t('living.notify.fatigueLost', '-{fatigue} Fatigue', { fatigue }),
+  notifyHealthLost: (health) =>
+    t('living.notify.healthLost', '-{health} Health', { health }),
+  notifyXpGained: (xp) =>
+    t('living.notify.xpGained', '+{xp} XP', { xp }),
+  notifyBountyIssued: () =>
+    t('living.notify.bountyIssued', 'A bounty has been placed on your head for aiding rebels!'),
 
   // Factions & Urban Skirmishes
   skirmishAlert: (event, f1, f2) =>
