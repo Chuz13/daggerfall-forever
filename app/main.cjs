@@ -39,7 +39,13 @@ const { pathToFileURL } = require('node:url');
 const { frameRateSwitches } = require('./lib/frameRate.cjs');   // FPS-VSYNC: VSync off lifts Chromium's wait
 const { backendLaunch, holdsVSync, watchBackend, backendOption, chooseBackend, restartArgs } = require('./lib/graphicsBackend.cjs');   // GPU-BACKEND: the Vulkan opt-in and its guard
 const { getScreenshotsDir } = require('./lib/screenshotStorage.cjs');
-const { writeSessionLogToDisk, writeCombatLogToDisk, writeEncounterLogToDisk } = require('./lib/sessionLogStorage.cjs');
+const {
+  writeSessionLogToDisk,
+  writeCombatLogToDisk,
+  writeEncounterLogToDisk,
+  writeLivingLogToDisk,
+  writeTimelineLogToDisk,
+} = require('./lib/sessionLogStorage.cjs');
 
 // DAGGER_USER_DATA points saves/config somewhere else - the probe's
 // door (tools/appShellProbe.mjs writes into a temp dir it can read
@@ -2211,6 +2217,26 @@ ipcMain.on('dagger:encounter-log', (e, payload) => {
     writeEncounterLogToDisk(payload, { logsDir: dir });
   } catch (err) {
     console.warn('[main] Failed to persist encounter log:', err?.message);
+  }
+});
+ipcMain.on('dagger:living-log', (e, payload) => {
+  try {
+    const repoLogs = path.join(__dirname, '..', 'logs', 'living');
+    const userLogs = path.join(app.getPath('userData'), 'logs', 'living');
+    const dir = fs.existsSync(path.join(__dirname, '..', 'src')) ? repoLogs : userLogs;
+    writeLivingLogToDisk(payload, { logsDir: dir });
+  } catch (err) {
+    console.warn('[main] Failed to persist living log:', err?.message);
+  }
+});
+ipcMain.on('dagger:timeline-log', (e, payload) => {
+  try {
+    const repoLogs = path.join(__dirname, '..', 'logs', 'timeline');
+    const userLogs = path.join(app.getPath('userData'), 'logs', 'timeline');
+    const dir = fs.existsSync(path.join(__dirname, '..', 'src')) ? repoLogs : userLogs;
+    writeTimelineLogToDisk(payload, { logsDir: dir });
+  } catch (err) {
+    console.warn('[main] Failed to persist timeline log:', err?.message);
   }
 });
 

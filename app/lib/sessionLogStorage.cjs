@@ -52,6 +52,22 @@ function getEncounterLogsDir(overrideRoot) {
 }
 
 /**
+ * Returns default Living Tamriel & crises log directory path.
+ * @param {string} [overrideRoot]
+ */
+function getLivingLogsDir(overrideRoot) {
+  return getLogsDir('living', overrideRoot);
+}
+
+/**
+ * Returns default chronological event timeline log directory path.
+ * @param {string} [overrideRoot]
+ */
+function getTimelineLogsDir(overrideRoot) {
+  return getLogsDir('timeline', overrideRoot);
+}
+
+/**
  * Rotates logs directory, retaining only the most recent `keepCount` files for a given prefix.
  * @param {string} logsDir
  * @param {number} [keepCount=DEFAULT_KEEP_COUNT]
@@ -120,7 +136,13 @@ function rotateSessionLogs(logsDir, keepCount = DEFAULT_KEEP_COUNT) {
  */
 function writeGenericLogToDisk(payload, { logsDir, prefix = 'session', keepCount = DEFAULT_KEEP_COUNT } = {}) {
   try {
-    const dir = logsDir || getLogsDir(prefix === 'session' ? 'sessions' : prefix === 'combat' ? 'combat' : 'encounters');
+    const dir = logsDir || getLogsDir(
+      prefix === 'session' ? 'sessions' :
+      prefix === 'combat' ? 'combat' :
+      prefix === 'encounter' ? 'encounters' :
+      prefix === 'living' ? 'living' :
+      prefix === 'timeline' ? 'timeline' : prefix
+    );
     fs.mkdirSync(dir, { recursive: true });
 
     const now = new Date();
@@ -189,16 +211,40 @@ function writeEncounterLogToDisk(payload, { logsDir, keepCount = DEFAULT_KEEP_CO
   return writeGenericLogToDisk(payload, { logsDir: logsDir || getEncounterLogsDir(), prefix: 'encounter', keepCount });
 }
 
+/**
+ * Writes Living Tamriel & crises log payload to disk and updates living-latest.json.
+ * Retains only the last `keepCount` files.
+ * @param {any} payload
+ * @param {{ logsDir?: string, keepCount?: number }} [options]
+ */
+function writeLivingLogToDisk(payload, { logsDir, keepCount = DEFAULT_KEEP_COUNT } = {}) {
+  return writeGenericLogToDisk(payload, { logsDir: logsDir || getLivingLogsDir(), prefix: 'living', keepCount });
+}
+
+/**
+ * Writes chronological event timeline log payload to disk and updates timeline-latest.json.
+ * Retains only the last `keepCount` files.
+ * @param {any} payload
+ * @param {{ logsDir?: string, keepCount?: number }} [options]
+ */
+function writeTimelineLogToDisk(payload, { logsDir, keepCount = DEFAULT_KEEP_COUNT } = {}) {
+  return writeGenericLogToDisk(payload, { logsDir: logsDir || getTimelineLogsDir(), prefix: 'timeline', keepCount });
+}
+
 module.exports = {
   DEFAULT_KEEP_COUNT,
   getLogsDir,
   getSessionLogsDir,
   getCombatLogsDir,
   getEncounterLogsDir,
+  getLivingLogsDir,
+  getTimelineLogsDir,
   rotateCategoryLogs,
   rotateSessionLogs,
   writeGenericLogToDisk,
   writeSessionLogToDisk,
   writeCombatLogToDisk,
   writeEncounterLogToDisk,
+  writeLivingLogToDisk,
+  writeTimelineLogToDisk,
 };

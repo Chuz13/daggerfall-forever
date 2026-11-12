@@ -113,6 +113,7 @@ import { generatePurifierParty } from './necromancy/witchHunters.js';
 import { dumpSessionLog } from './diagnostics/sessionLogger.js';
 import { dumpCombatLog, isInCombat } from './diagnostics/combatLogger.js';
 import { dumpEncounterLog, getRecentSpawns } from './diagnostics/encounterLogger.js';
+import { dumpAllDiagnostics } from './diagnostics/diagnosticsManager.js';
 import { LivingTamrielConfig, PRESENCE } from './living/livingConfig.js';
 import {
   getSocialRep,
@@ -1454,6 +1455,17 @@ registerCommand(
     const reason = args.join(' ') || 'console-dumpspawns';
     const payload = dumpEncounterLog(reason);
     return `Spawner & encounter log dumped (Reason: "${reason}", Spawns Recorded: ${payload.recentSpawnsCount ?? 0}).`;
+  }
+);
+
+registerCommand(
+  'dumpall',
+  'Dump all diagnostics (session, combat, encounters, living, timeline) to disk: dumpall [reason]',
+  'dumpall [reason]',
+  (args = []) => {
+    const reason = args.join(' ') || 'console-dumpall';
+    const res = dumpAllDiagnostics(reason);
+    return `All diagnostics dumped to disk (Reason: "${reason}", Anomalies: ${res.summary?.totalAnomalies ?? 0}).`;
   }
 );
 

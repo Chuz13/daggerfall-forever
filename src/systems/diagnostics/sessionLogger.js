@@ -20,6 +20,7 @@ import { isLich, isAncientLich } from '../necromancy/lichdomStatus.js';
 import { getPlayerTaint } from '../necromancy/necroTaint.js';
 import { activeUndeadCount, usedUndeadPoints, calculateUndeadCapacity } from '../necromancy/undeadCapacity.js';
 import { NecroConfig } from '../necromancy/necroConfig.js';
+import { getRecentTimelineEvents, getTimelineAnomalies } from './eventTimeline.js';
 
 const MAX_ERROR_ENTRIES = 50;
 const sessionStartTime = Date.now();
@@ -66,11 +67,19 @@ export function initSessionDiagnostics() {
 
     // Auto dump on tab/window close
     window.addEventListener('beforeunload', () => {
-      dumpSessionLog('beforeunload');
+      if (globalThis.__dffDumpAllDiagnostics) {
+        globalThis.__dffDumpAllDiagnostics('beforeunload');
+      } else {
+        dumpSessionLog('beforeunload');
+      }
     });
 
     window.addEventListener('pagehide', () => {
-      dumpSessionLog('pagehide');
+      if (globalThis.__dffDumpAllDiagnostics) {
+        globalThis.__dffDumpAllDiagnostics('pagehide');
+      } else {
+        dumpSessionLog('pagehide');
+      }
     });
 
     // Expose global door for console and probes
@@ -223,6 +232,10 @@ export function buildDiagnosticSnapshot(triggerReason = 'manual') {
       errorCount: runtimeLogs.filter((l) => l.type === 'error' || l.type === 'unhandledrejection').length,
       warningCount: runtimeLogs.filter((l) => l.type === 'warn').length,
       recentLogs: [...runtimeLogs],
+    },
+    timeline: {
+      recentEvents: getRecentTimelineEvents(25),
+      anomalies: getTimelineAnomalies(),
     },
   };
 }

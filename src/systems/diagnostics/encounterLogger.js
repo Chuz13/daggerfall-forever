@@ -14,6 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { playerEntity } from '../../characters/playerEntity.js';
+import { recordTimelineEvent } from './eventTimeline.js';
 
 const MAX_ENCOUNTER_BUFFER = 200;
 let _spawnCounter = 0;
@@ -128,6 +129,20 @@ export function recordEntityMint(entity, basics, career, builtLevel, opts = {}) 
     _recentSpawns.push(record);
     if (_recentSpawns.length > MAX_ENCOUNTER_BUFFER) {
       _recentSpawns.shift();
+    }
+
+    if (entity.isClass || entity.mobileType === 132 || entity.eliteFoe || entity.championTrait) {
+      recordTimelineEvent({
+        cat: 'combat',
+        event: 'ELITE_OR_ADVENTURER_SPAWNED',
+        data: {
+          spawnId,
+          name: record.entityInfo.name,
+          level: entity.level,
+          system: origin.system,
+          reason: origin.reason,
+        },
+      });
     }
   } catch (err) {
     console.warn('[EncounterLogger] Failed to record entity mint:', err);

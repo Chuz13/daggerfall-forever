@@ -69,6 +69,7 @@ import {
   NAVAL_CHOICE,
 } from './navalIncidentHost.js';
 import { onContractCompleted } from './bountySync.js';
+import { recordCrisisChoiceResolution, recordSurrenderResolution } from '../diagnostics/livingLogger.js';
 import {
   offerRegionalCrisisContract,
   acceptRegionalCrisisContract,
@@ -2401,6 +2402,15 @@ export function createLivingSceneHost(deps) {
             label: `3. ${LIVING_WORDS.surrenderOptionPurse(ransomCalc.ransomGold)}`,
             action: () => {
               const res = resolveLivingSurrender({ playerEntity: player, threatLevel: Number(player?.level ?? 1) });
+              recordSurrenderResolution({
+                actor: 'player',
+                target: 'wandering_foes',
+                outcome: res.outcome,
+                accepted: true,
+                healthRemaining: res.healthRemaining,
+                fatigueRemaining: res.fatigueRemaining,
+                goldTaken: res.goldTaken ?? 0,
+              });
               if (res.outcome === SURRENDER_OUTCOME.BEATEN_PAUPER) {
                 deps.say(LIVING_WORDS.surrenderOutcomeBeaten(), 5);
                 const lostHp = Math.max(0, (player?.maxHealth ?? 50) - res.healthRemaining);
@@ -2513,6 +2523,26 @@ export function createLivingSceneHost(deps) {
             if (c.bountyHostile) {
               deps.say(LIVING_WORDS.notifyBountyIssued(), 5);
             }
+
+            recordCrisisChoiceResolution({
+              regionIndex: regIdx,
+              crisisType: s.blueprint?.meta?.crisisType || 'SKIRMISH',
+              eventId: evt?.id || 'URBAN_SKIRMISH',
+              choiceIndex: idx,
+              choiceLabel: c.text,
+              predicted: {
+                gold: (c.goldReward ?? 0) - (c.goldCost ?? 0),
+                rep: (c.repF1Delta ?? 0) + (c.repF2Delta ?? 0),
+                fatigue: c.fatigueCost ?? 0,
+                xp: c.xp ?? 0,
+              },
+              applied: {
+                goldDelta: (checkRes.goldReward || 0) - (checkRes.goldCost || 0),
+                repDelta: (checkRes.repF1Delta || 0) + (checkRes.repF2Delta || 0),
+                fatigueDelta: -(checkRes.fatigueCost || 0),
+                xpGained: checkRes.xpAwarded || c.xp || 0,
+              },
+            });
 
             if (c.stance === 'defenders' || c.stance === 'bodyguard') {
               s.skirmishStance = 'watch';

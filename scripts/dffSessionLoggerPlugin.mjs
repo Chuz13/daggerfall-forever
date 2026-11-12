@@ -15,6 +15,8 @@ const {
   writeSessionLogToDisk,
   writeCombatLogToDisk,
   writeEncounterLogToDisk,
+  writeLivingLogToDisk,
+  writeTimelineLogToDisk,
 } = require('./sessionLogStorage.cjs');
 
 export function dffSessionLoggerPlugin() {
@@ -26,8 +28,10 @@ export function dffSessionLoggerPlugin() {
         const isSession = url === '/api/dev/session-log' || url.startsWith('/api/dev/session-log');
         const isCombat = url === '/api/dev/combat-log' || url.startsWith('/api/dev/combat-log');
         const isEncounter = url === '/api/dev/encounter-log' || url.startsWith('/api/dev/encounter-log');
+        const isLiving = url === '/api/dev/living-log' || url.startsWith('/api/dev/living-log');
+        const isTimeline = url === '/api/dev/timeline-log' || url.startsWith('/api/dev/timeline-log');
 
-        if (req.method === 'POST' && (isSession || isCombat || isEncounter)) {
+        if (req.method === 'POST' && (isSession || isCombat || isEncounter || isLiving || isTimeline)) {
           let body = '';
           req.on('data', (chunk) => { body += chunk; });
           req.on('end', () => {
@@ -37,7 +41,11 @@ export function dffSessionLoggerPlugin() {
                 ? writeCombatLogToDisk(payload)
                 : isEncounter
                   ? writeEncounterLogToDisk(payload)
-                  : writeSessionLogToDisk(payload);
+                  : isLiving
+                    ? writeLivingLogToDisk(payload)
+                    : isTimeline
+                      ? writeTimelineLogToDisk(payload)
+                      : writeSessionLogToDisk(payload);
 
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = result.ok ? 200 : 500;

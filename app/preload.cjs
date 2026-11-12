@@ -89,6 +89,8 @@ contextBridge.exposeInMainWorld('daggerShell', {
   writeSessionLog: (payload) => ipcRenderer.send('dagger:session-log', payload),
   writeCombatLog: (payload) => ipcRenderer.send('dagger:combat-log', payload),
   writeEncounterLog: (payload) => ipcRenderer.send('dagger:encounter-log', payload),
+  writeLivingLog: (payload) => ipcRenderer.send('dagger:living-log', payload),
+  writeTimelineLog: (payload) => ipcRenderer.send('dagger:timeline-log', payload),
   // FPS-VSYNC (AUDIT 28e): this launch lifted Chromium's wait (VSync off when it started) - the page paces its frames
   framesLifted: ipcRenderer.sendSync('dagger:frames-lifted') === true,
   // GPU-TRAIL (src/render/gpuTrail.js): the GPU's last samples, handed over with each one - kept by the shell and written

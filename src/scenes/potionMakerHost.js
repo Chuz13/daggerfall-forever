@@ -36,6 +36,7 @@ import { potionById, brewSpends } from '../net/alchemyLaw.js';
 import { INGREDIENT_KEYS, ingredientKeys, PLANT_GROUPS, professionName } from '../net/professionLaw.js';
 import { potionMakerDoor } from '../ui/professions/profPages.js';
 import { t } from '../systems/textManager.js';
+import { recordTimelineEvent } from '../systems/diagnostics/eventTimeline.js';
 
 /** The words a classic mix says online - why it earned nothing (L10N4: read when said). */
 export const POTION_DOOR_WORDS = Object.freeze({
@@ -140,6 +141,16 @@ export function potionMakerHooks({ player, surface = () => {}, icons, onClose, d
       bottle.name = recipe.name;
       bottle.value = recipe.price;
       addItem(player.items, bottle);
+      recordTimelineEvent({
+        cat: 'economy',
+        event: 'POTION_BREWED',
+        sev: 'info',
+        data: {
+          recipeName: recipe?.name,
+          recipeKey: key,
+          value: recipe?.price,
+        },
+      });
       surface();
     },
     takeOne: (/** @type {number} */ templateIndex, /** @type {string} */ where, /** @type {string} */ group) => {

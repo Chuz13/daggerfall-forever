@@ -21,6 +21,7 @@ import { formulaOverride } from '../../combat/formulas.js';
 import { pcaaoModules } from '../../combat/pcaao.js';
 import { getEncounterInfo } from './encounterLogger.js';
 import { onModEvent } from '../mods/modEventBus.js';
+import { recordTimelineEvent } from './eventTimeline.js';
 
 const INACTIVITY_TIMEOUT_MS = 6000;
 let _combatSeq = 0;
@@ -177,6 +178,12 @@ export function startCombatEncounter(initialReason = 'combat_start') {
     summary: null,
   };
 
+  recordTimelineEvent({
+    cat: 'combat',
+    event: 'COMBAT_START',
+    data: { encounterId, reason: initialReason },
+  });
+
   resetInactivityTimer();
 }
 
@@ -237,6 +244,7 @@ export function recordAttackResolution(resolution) {
         material: weapon.material,
         condition: weapon.condition,
         templateIndex: weapon.templateIndex,
+        quality: weapon.quality ?? null,
       } : (attacker?.isPlayer ? 'HandToHand' : 'NaturalAttack'),
 
       // Dice and ToHit mechanics
@@ -445,6 +453,16 @@ export function endCombatEncounter(outcome = 'timeout') {
 
   encounter.summary = computeEncounterSummary(encounter, outcome);
   encounter.endTimeIso = new Date().toISOString();
+
+  recordTimelineEvent({
+    cat: 'combat',
+    event: 'COMBAT_END',
+    data: {
+      encounterId: encounter.encounterId,
+      outcome,
+      eventsCount: encounter.events.length,
+    },
+  });
 
   // Persist to disk (Electron or Vite dev server)
   // Path 1: Electron Desktop

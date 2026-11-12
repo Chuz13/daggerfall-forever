@@ -26,6 +26,7 @@ import { createArtifact, getMagicItemTemplates } from '../loot/loot.js';
 import { makePotion, potionRecipeKey, POTION_RECIPES } from '../potions.js';
 import { isPotion } from '../item/itemKinds.js';
 import { LivingTamrielConfig, LIVING_ADVENTURER_LOOT } from './livingConfig.js';
+import { recordAdventurerDuelResolution } from '../diagnostics/livingLogger.js';
 
 export { LIVING_ADVENTURER_LOOT };
 
@@ -328,9 +329,30 @@ export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.rand
 
   const lootMode = (mode || LivingTamrielConfig.adventurerLootMode || LIVING_ADVENTURER_LOOT.FULL).toLowerCase();
 
+  const recordCorpseLootDiag = () => {
+    try {
+      recordAdventurerDuelResolution({
+        initiator: 'player',
+        opponentName: entity.name || `Adventurer_${entity.mobileType}`,
+        opponentLevel: entity.level ?? 1,
+        outcome: 'kill',
+        lootMode,
+        lootGenerated: (entity.items || []).map((it) => ({
+          name: it?.name || it?.shortName || 'Item',
+          group: it?.group,
+          artifact: Boolean(it?.artifact),
+        })),
+        goldTaken: Number(entity.goldPieces) || 0,
+      });
+    } catch {
+      /* best effort */
+    }
+  };
+
   if (lootMode === LIVING_ADVENTURER_LOOT.ZERO) {
     entity.items = [];
     entity.goldPieces = Math.min(Number(entity.goldPieces) || 0, 5);
+    recordCorpseLootDiag();
     return;
   }
 
@@ -349,6 +371,7 @@ export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.rand
       }
     }
     entity.items = supplies;
+    recordCorpseLootDiag();
     return;
   }
 
@@ -402,6 +425,7 @@ export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.rand
     }
 
     entity.items = kept;
+    recordCorpseLootDiag();
     return;
   }
 
@@ -424,4 +448,5 @@ export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.rand
   if (fullGold > 0 && !entity.items.some(isGoldPieces)) {
     entity.items.push(goldStack(fullGold));
   }
+  recordCorpseLootDiag();
 }
