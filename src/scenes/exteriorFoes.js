@@ -966,7 +966,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null, element = null } = {}) {   // TELL8: `wc` a peer's blow's class (net/wire.js hitClassOf); RVN3: `element` a spell landing's (its weakness's weight)   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
     if (fromPlayer && !peer && f._surrenderedSpar) {
       setCrimeCommitted(playerEntity, CRIMES.Assault);
-      say?.('Crime reported: Assault! You struck a surrendered sparring opponent!');
+      say?.(LIVING_WORDS.adventurerAssaultCrime());
     }
     if (f.dead || (fromPlayer && !peer && sparedBySwing(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
     const bout = f.entity?.bout ?? null;   // ARENA2: a fighter on the arena's sand (scenes/arena/arenaBouts.js)

@@ -148,6 +148,8 @@ export const LIVING_WORDS = Object.freeze({
     t('living.adventurer.duelWon', 'A well-fought contest! You have earned my respect and the wager.'),
   adventurerDuelLost: () =>
     t('living.adventurer.duelLost', 'Yield! Better luck next time, wanderer. The gold stays with me.'),
+  adventurerAssaultCrime: () =>
+    t('living.adventurer.assaultCrime', 'Crime reported: Assault! You struck a surrendered sparring opponent!'),
   adventurerQuestIntercepted: () =>
     t('living.adventurer.questIntercepted', 'A rival adventurer cleared the dungeon ahead of you and claimed the objective!'),
   adventurerReclaimSuccess: () =>

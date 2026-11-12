@@ -1878,6 +1878,7 @@ export function createLivingSceneHost(deps) {
                   foe.ai.detected = true;
                   foe.ai.target = player;
                   foe.ai.secondaryTarget = null;
+                  foe.ai.makeHostileToPlayer?.(undefined, foe.ai.feet);
                   if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
                 }
                 deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
@@ -2293,6 +2294,7 @@ export function createLivingSceneHost(deps) {
                   foe.ai.detected = true;
                   foe.ai.target = player;
                   foe.ai.secondaryTarget = null;
+                  foe.ai.makeHostileToPlayer?.(undefined, foe.ai.feet);
                   if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
                 }
                 deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
@@ -3391,13 +3393,17 @@ export function createLivingSceneHost(deps) {
       const out = [];
       for (const fl of stood.blueprint.flats) {
         if (fl.lightRadius > 0) {
+          const fx = Number.isFinite(fl.feet?.[0]) ? fl.feet[0] : 0;
+          const fy = Number.isFinite(fl.feet?.[1]) ? fl.feet[1] + 1.0 : 1.0;
+          const fz = Number.isFinite(fl.feet?.[2]) ? fl.feet[2] : 0;
+          const r = Number.isFinite(fl.lightRadius) && fl.lightRadius > 0 ? fl.lightRadius : 12;
           out.push(
             adoptLight(
               {
-                x: fl.feet[0],
-                y: fl.feet[1] + 1.0,
-                z: fl.feet[2],
-                range: fl.lightRadius,
+                x: fx,
+                y: fy,
+                z: fz,
+                range: r,
               },
               fl,
             ),

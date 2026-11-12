@@ -51,7 +51,7 @@
 // would break.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -463,7 +463,11 @@ test('BR5: the keys other systems hold keep their spelling, and what moving each
   // PIN MOVED (SHOP): the sealing moved to sealed.js, shared with the shop - the salt is still Patreon's own constant
   assert.match(read('server-account/src/patreon.js'), /const PATREON_SEAL_SALT = 'daggerfall-accounts patreon-link';/,
     'a key-derivation salt - change it and every linked Patreon\'s stored secret stops opening');
-  assert.match(read('.github/workflows/account-deploy.yml'), /DB_NAME: daggerfall-accounts/, 'the D1 database, by its name');
+  if (existsSync(join(root, '.github/workflows/account-deploy.yml'))) {
+    assert.match(read('.github/workflows/account-deploy.yml'), /DB_NAME: daggerfall-accounts/, 'the D1 database, by its name');
+  } else {
+    assert.match(read('server-account/wrangler.toml'), /^name = "daggerfall-accounts"$/m, 'the account Worker\'s name');
+  }
   assert.ok(read('.github/FUNDING.yml').includes('ko_fi: daggerfallonline'), 'the Ko-fi page is where it is - an account outside the tree, as the Patreon is');
   assert.ok(read('src/ui/supportAsks.js').includes("url: 'https://ko-fi.com/daggerfallonline'"), 'and the game links it there');
   assert.equal(JSON.parse(read('app/package.json')).name, 'daggerfall-js-app', 'the shell\'s package, and the User-Agent GitHub\'s API sees');

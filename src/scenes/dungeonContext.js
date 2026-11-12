@@ -6928,7 +6928,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function damageFoe(foe, damage, playerFeet = null, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null, element = null } = {}) {   // TELL8: `wc` a joiner's blow's class (net/wire.js hitClassOf); RVN3: `element` a spell landing's (its weakness's weight)   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
     if (fromPlayer && !peer && foe._surrenderedSpar) {
       setCrimeCommitted(playerEntity, CRIMES.Assault);
-      hudText.add('Crime reported: Assault! You struck a surrendered sparring opponent!');
+      hudText.add(LIVING_WORDS.adventurerAssaultCrime());
     }
     // AUDIT 68 S19-damagefoe-dead-reentry: a corpse takes no blow. EnemyDeath runs once; the round sinks tick on
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
