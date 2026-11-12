@@ -17,6 +17,7 @@ import {
   computeRoleplayBribeMultiplier,
   getPlayerRoleplayContextMod,
 } from './livingRolls.js';
+import { evaluateCheckpointInspection, inspectPlayerContraband } from './reputationConsequences.js';
 
 export const CHECKPOINT_OUTCOME = Object.freeze({
   PASSED_FREE: 'PASSED_FREE',           // Knightly order or noble standing
@@ -102,8 +103,9 @@ export function evaluateCheckpointEncounter({
     playerEntity?.guilds?.KnightlyOrder?.rank > 0
   );
   const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
+  const insp = evaluateCheckpointInspection(playerEntity, isKnight);
   const hasHighReputation = rep >= 15;
-  const canPassFree = isKnight || hasHighReputation;
+  const canPassFree = isKnight || hasHighReputation || insp.saluted;
 
   const baseToll = 50;
   const tollGold = baseToll + Math.floor(rng() * 50);
@@ -114,6 +116,8 @@ export function evaluateCheckpointEncounter({
     tollGold,
     isKnight,
     canPassFree,
+    inspectionDemanded: insp.demandInspection,
+    saluted: insp.saluted,
   };
 }
 
@@ -152,6 +156,34 @@ export function resolveCheckpointInteraction({
     playerEntity?.guilds?.KnightlyOrder?.rank > 0
   );
   const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
+
+  if (method === 'submit_inspection') {
+    const insp = inspectPlayerContraband(playerEntity);
+    if (insp.stolenCount === 0) {
+      grantRegionalCheckpointPass(regionIndex, nowMinutes);
+      return {
+        outcome: CHECKPOINT_OUTCOME.PASSED_FREE,
+        message: 'The guard finishes inspecting your sacks and rolls. "Baggage is clean. Move along, citizen."',
+      };
+    }
+    // Confiscate contraband and penalize
+    for (const it of insp.stolenItems) {
+      if (it && typeof it === 'object') delete it.stolen;
+    }
+    grantRegionalCheckpointPass(regionIndex, nowMinutes);
+    return {
+      outcome: CHECKPOINT_OUTCOME.SURRENDERED_PAID,
+      tollCost: insp.fineGold,
+      message: `Guard: "Contraband detected! ${insp.stolenCount} illicit item(s) confiscated. Pay the ${insp.fineGold} gold penalty and move along."`,
+    };
+  }
+
+  if (method === 'refuse_inspection') {
+    return {
+      outcome: CHECKPOINT_OUTCOME.HOSTILE,
+      message: 'Guard Captain: "Resistance to lawful inspection! Draw steel and take this scoundrel down!"',
+    };
+  }
 
   if (method === 'knight') {
     if (isKnight) {

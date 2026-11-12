@@ -65,6 +65,7 @@ import { isStolen } from './stolenGoods.js'; // STOLEN-GOODS: the theft's mark
  *  never tagged - SuppressCrime turns the write into Crimes.None. */
 import { racialSuppressCrime } from './lycanthropy.js';
 import { liveStat } from './statMods.js'; // DaggerfallStats.GetLiveStatValue (:155-164)
+import { getCourtReputationBias } from './living/reputationConsequences.js';
 export function setCrimeCommitted(entity, crime) {
   entity.crimeCommitted = racialSuppressCrime(entity) ? 0 : crime;
   return entity.crimeCommitted;
@@ -650,7 +651,7 @@ export function pleaNotGuilty(court, player, useDebate, { rolls = Math.random } 
   // (DaggerfallStats.cs:155-164). The `== null` guard keeps the port's
   // no-stats fallback of 50: liveStat falls back to a base of 0.
   const personality = player.stats?.personality == null ? 50 : liveStat(player, 'personality');
-  let chance = legalRep + Math.trunc((playerSkill + personality) / 2);
+  let chance = legalRep + Math.trunc((playerSkill + personality) / 2) + getCourtReputationBias(player, court.regionIndex);
   chance = Math.max(5, Math.min(95, chance));
   if (Math.floor(rolls() * 100) >= chance) {
     // FailedRoll

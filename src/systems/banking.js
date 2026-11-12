@@ -43,6 +43,7 @@ import { isOnlinePage } from './online/onlineLane.js';   // EMPIRE-BANK: online,
 import { getPref, addPrefListener, isOfflineHousingActive } from './uiPrefs.js';
 import { playerEntity } from '../characters/playerEntity.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
+import { evaluateHousePurchaseReputation } from './living/reputationConsequences.js';
 import { stampLayout, layoutStampOfMapId, recordStands } from './layoutPins.js';   // WD3: a deed keeps the layout its town was bought in
 import { GOLD_PIECE_WEIGHT_KG, letterOfCredit } from './inventory.js';
 import {
@@ -213,6 +214,7 @@ export const regionHousesFull = (houses, regionIndex) => regionDeeds(houses, reg
 /** What the bank and an order say to a buyer whose region is full - DaggerfallBankManager's ALREADY_OWN_HOUSE (record 286,
  *  "You already own a house. You must sell it before we can sell you another.") counted to three. */
 export const housesFullText = () => t('bank.housesFull', 'You already own {max} houses in this region. You must sell one before we can sell you another.', { max: HOUSES_PER_REGION });
+export const housesRefusedRepText = () => t('rcfHouseRefusal', 'The local council refuses to sell property to an outcast of your reputation.');
 /**
  * HOUSES-3: THE REGION'S HOUSES A BANK BUYS BACK IN ITS TOWN - each deed of the region that stands (WD3 H1: a sleeping deed
  * is neither priced nor sold), is held in this town (deedHeldIn - AUDIT RELEASE R2-9: never a capital's slice's in another)
@@ -1115,7 +1117,13 @@ export function borrowDecision(accounts, regionIndex, { online = isUnifiedBankAc
  *  what you already own; the ship additionally refuses OUTSIDE A PORT
  *  TOWN, which is the one place PortTownAndUnknown is read.
  *  HOUSES-3: a house is refused when the region holds its three (`housesFull`), in the bank's words counted to three. */
-export function buyHouseDecision({ housesFull = false, housesForSale = 0 } = {}) {
+export function buyHouseDecision({ housesFull = false, housesForSale = 0, entity = playerEntity } = {}) {
+  if (entity) {
+    const evalRep = evaluateHousePurchaseReputation(entity);
+    if (evalRep.refused) {
+      return { kind: 'refuse', result: TRANSACTION_RESULT.ALREADY_OWN_HOUSE, lines: [housesRefusedRepText()] };
+    }
+  }
   if (housesFull) return { kind: 'refuse', result: TRANSACTION_RESULT.ALREADY_OWN_HOUSE, lines: [housesFullText()] };
   if (housesForSale < 1) return { kind: 'refuse', result: TRANSACTION_RESULT.NO_HOUSES_FOR_SALE };
   return { kind: 'pick' };

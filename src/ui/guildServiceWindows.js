@@ -499,6 +499,9 @@ export function buildCureDiseaseFlow(entity, guild, membership, deps) {
     cureForFree(entity);
     return new ServiceFlowWindow([{ rows: line(localizedText('freeHolidayCuring', FREE_HOLIDAY_CURING)) }], { onClose });
   }
+  if (offer.kind === 'refused') {
+    return new ServiceFlowWindow([{ rows: line(localizedText(offer.reason || 'rcfTempleRefusal', "The priests turn you away. 'The Divines grant no mercy to the profane!'")) }], { onClose });
+  }
   if (offer.kind === 'noDisease') {
     return new ServiceFlowWindow([{ rows: macroRows(rows, offer.textId, ctxFor(0)) }], { onClose });
   }

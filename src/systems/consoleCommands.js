@@ -113,6 +113,18 @@ import { generatePurifierParty } from './necromancy/witchHunters.js';
 import { dumpSessionLog } from './diagnostics/sessionLogger.js';
 import { dumpCombatLog, isInCombat } from './diagnostics/combatLogger.js';
 import { dumpEncounterLog, getRecentSpawns } from './diagnostics/encounterLogger.js';
+import { LivingTamrielConfig, PRESENCE } from './living/livingConfig.js';
+import {
+  getSocialRep,
+  getFactionStanding,
+  getReputationPriceModifier,
+  inspectPlayerContraband,
+  getReputationRumor,
+  evaluateFactionNemesisArchetype,
+  getCourtReputationBias,
+} from './living/reputationConsequences.js';
+import { SOCIAL_GROUPS } from '../formats/factionFile.js';
+import { changeReputation } from './faction/factionRep.js';
 
 let _sceneContext = null;
 /** Register active scene debug context (player control, enemy pools, travel). */
@@ -1757,6 +1769,94 @@ registerCommand(
       return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>';
     }
     return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>';
+  }
+);
+
+registerCommand(
+  'rcf',
+  'Reputation Consequences Framework: rcf <status|tier <0..3>|set_sgroup <group> <n>|set_faction <id> <n>|test_rumor|test_contraband>',
+  'rcf <status | tier [0..3|off|light|mid|high] | set_sgroup [0..10|name] [n] | set_faction [id] [n] | test_rumor | test_contraband>',
+  (args = []) => {
+    const sub = String(args[0] || 'status').toLowerCase();
+    if (sub === 'status') {
+      const tier = Number(LivingTamrielConfig.reputationConsequences);
+      const tierName = tier === 0 ? 'OFF (0)' : tier === 1 ? 'LIGHT (1)' : tier === 2 ? 'MID (2)' : 'HIGH (3)';
+      const pMod = getReputationPriceModifier(playerEntity);
+      const reg = playerEntity?.currentRegionIndex ?? 0;
+      const courtBias = getCourtReputationBias(playerEntity, reg);
+      const nemesis = evaluateFactionNemesisArchetype(playerEntity);
+      const lines = [
+        `<b>[Reputation Consequences Framework]</b>`,
+        `- Current Tier: ${tierName}`,
+        `- Trade Modifiers: Buy x${pMod.buyMult.toFixed(3)}, Sell x${pMod.sellMult.toFixed(3)}, Fence +${(pMod.fenceBonus * 100).toFixed(1)}%`,
+        `- Court Bias (Region ${reg}): ${courtBias > 0 ? '+' : ''}${courtBias}%`,
+        `- Active Faction Nemesis: ${nemesis || 'None'}`,
+        `- Social Groups:`,
+        `  * Commoners (0): ${getSocialRep(playerEntity, SOCIAL_GROUPS.Commoners)}`,
+        `  * Merchants (1): ${getSocialRep(playerEntity, SOCIAL_GROUPS.Merchants)}`,
+        `  * Scholars (2): ${getSocialRep(playerEntity, SOCIAL_GROUPS.Scholars)}`,
+        `  * Nobility (3): ${getSocialRep(playerEntity, SOCIAL_GROUPS.Nobility)}`,
+        `  * Underworld (4): ${getSocialRep(playerEntity, SOCIAL_GROUPS.Underworld)}`,
+        `  * Supernatural (6): ${getSocialRep(playerEntity, SOCIAL_GROUPS.SupernaturalBeings)}`,
+        `- Major Factions:`,
+        `  * Dark Brotherhood (108): ${getFactionStanding(playerEntity, 108)}`,
+        `  * Thieves Guild (42): ${getFactionStanding(playerEntity, 42)}`,
+        `  * Knightly Order (844): ${getFactionStanding(playerEntity, 844)}`,
+        `  * Mages Guild (40): ${getFactionStanding(playerEntity, 40)}`,
+        `  * Generic Temple (450): ${getFactionStanding(playerEntity, 450)}`,
+      ];
+      return lines.join('\n');
+    }
+    if (sub === 'tier') {
+      const val = String(args[1] || '').toLowerCase();
+      let targetTier = PRESENCE.HIGH;
+      if (val === '0' || val === 'off') targetTier = PRESENCE.OFF;
+      else if (val === '1' || val === 'light') targetTier = PRESENCE.LIGHT;
+      else if (val === '2' || val === 'mid') targetTier = PRESENCE.MID;
+      else if (val === '3' || val === 'high') targetTier = PRESENCE.HIGH;
+      LivingTamrielConfig.reputationConsequences = targetTier;
+      return `[RCF] Reputation consequences presence tier set to ${targetTier}.`;
+    }
+    if (sub === 'set_sgroup') {
+      const rawGroup = String(args[1] || '0').toLowerCase();
+      const val = parseInt(args[2], 10);
+      if (!Number.isFinite(val)) return 'Usage: rcf set_sgroup <0..10 | name> <value>';
+      let idx = parseInt(rawGroup, 10);
+      if (!Number.isFinite(idx)) {
+        if (rawGroup.startsWith('com')) idx = SOCIAL_GROUPS.Commoners;
+        else if (rawGroup.startsWith('mer')) idx = SOCIAL_GROUPS.Merchants;
+        else if (rawGroup.startsWith('sch')) idx = SOCIAL_GROUPS.Scholars;
+        else if (rawGroup.startsWith('nob')) idx = SOCIAL_GROUPS.Nobility;
+        else if (rawGroup.startsWith('und')) idx = SOCIAL_GROUPS.Underworld;
+        else if (rawGroup.startsWith('sup')) idx = SOCIAL_GROUPS.SupernaturalBeings;
+        else return 'Unknown social group name.';
+      }
+      if (!Array.isArray(playerEntity.sGroupReputations)) {
+        playerEntity.sGroupReputations = new Array(11).fill(0);
+      }
+      playerEntity.sGroupReputations[idx] = Math.max(-100, Math.min(100, val));
+      return `[RCF] Social group ${idx} reputation set to ${playerEntity.sGroupReputations[idx]}.`;
+    }
+    if (sub === 'set_faction') {
+      const fid = parseInt(args[1], 10);
+      const val = parseInt(args[2], 10);
+      if (!Number.isFinite(fid) || !Number.isFinite(val)) return 'Usage: rcf set_faction <faction_id> <value>';
+      if (playerEntity?.factionRep) {
+        changeReputation(playerEntity.factionRep, fid, val, false);
+        return `[RCF] Changed reputation with faction ${fid} by delta ${val}. Current: ${getFactionStanding(playerEntity, fid)}.`;
+      }
+      return 'Player factionRep store is not initialized.';
+    }
+    if (sub === 'test_rumor') {
+      const reg = playerEntity?.currentRegionIndex ?? 0;
+      const rumor = getReputationRumor(playerEntity, reg);
+      return rumor ? `[RCF Rumor]: "${rumor}"` : '[RCF Rumor]: No extreme reputation threshold reached for an emergent rumor.';
+    }
+    if (sub === 'test_contraband') {
+      const insp = inspectPlayerContraband(playerEntity);
+      return `[RCF Contraband]: Stolen items in pack: ${insp.stolenCount}, Confiscation penalty: ${insp.fineGold} gold.`;
+    }
+    return 'Usage: rcf <status | tier [0..3|off|light|mid|high] | set_sgroup [0..10|name] [n] | set_faction [id] [n] | test_rumor | test_contraband>';
   }
 );
 

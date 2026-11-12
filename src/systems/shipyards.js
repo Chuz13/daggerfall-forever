@@ -41,6 +41,7 @@ import { mintDeed, mintParts, BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE } from './
 import { YARD_QUALITY, YARD_PRICE_INDEX } from './merchantYards.js';
 import { calculateCost } from './shopStock.js';
 import { getTradePrice } from './tradeModes.js';
+import { evaluateShipyardReputation } from './living/reputationConsequences.js';
 import { upgradeCost, UPGRADE_LINES, UPGRADE_TIERS } from './fleet.js';
 import { hullBuild, batteriesOf } from './naval/navalShips.js';
 import { playerCrewCount } from './naval/crewLife.js';
@@ -109,9 +110,14 @@ export function shipWorth(rec, hullShare = 1) {
 
 /** What the shipyard asks for a ship worth `value` - the counter's buying law at its quality and index, `skills` the
  *  buyer's live Mercantile and Personality. Pure. */
-export function shipBuyPrice(value, skills) {
+export function shipBuyPrice(value, skills, { playerEntity = null } = {}) {
   const pieces = 1;   // a ship is one piece (FB0929's floor: a gold a piece)
-  return getTradePrice('Buy', calculateCost(Math.max(0, value), SHIPYARD_QUALITY, SHIPYARD_PRICE_INDEX), SHIPYARD_QUALITY, skills, pieces);
+  let cost = calculateCost(Math.max(0, value), SHIPYARD_QUALITY, SHIPYARD_PRICE_INDEX);
+  if (playerEntity) {
+    const evalShip = evaluateShipyardReputation(playerEntity);
+    if (evalShip.discountMult !== 1.0) cost = Math.round(cost * evalShip.discountMult);
+  }
+  return getTradePrice('Buy', cost, SHIPYARD_QUALITY, skills, pieces);
 }
 /** What the shipyard pays for a ship of `worth` (shipWorth's) - the counter's selling law (online, half the least ask
  *  at most). Pure. */

@@ -71,6 +71,8 @@ import { getInt } from './settings/settings.js'; // AUDIT 28 W1: QuestRumorWeigh
 import { dice100 } from '../combat/formulas.js';
 import { localizedText } from './textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
 import { getRegionCrisisRumor, getRegionCrisisBulletinTokens } from './living/crisisPresenter.js';
+import { getReputationRumor } from './living/reputationConsequences.js';
+import { playerEntity } from '../characters/playerEntity.js';
 
 /** TalkManager.RumorType (:341-346). */
 export const RUMOR_TYPE = Object.freeze({ CommonRumor: 0, QuestProgressRumor: 1, QuestRumorMill: 2 });
@@ -287,6 +289,12 @@ export class RumorMill {
       let news = this.deps.resolvingError?.() ?? resolvingErrorText();
       const validRumors = this.getValidRumors();
       const currentReg = this.deps.currentRegionIndex?.() ?? -1;
+      const targetEntity = this.deps.playerEntity?.() ?? playerEntity;
+      const repRumor = targetEntity && currentReg >= 0 ? getReputationRumor(targetEntity, currentReg) : null;
+      if (repRumor && (validRumors.length === 0 || this._rolls()() < 0.25)) {
+        npcSession.numAnswersGivenTellMeAboutOrRumors++;
+        return repRumor;
+      }
       const crisisRumor = currentReg >= 0 ? getRegionCrisisRumor(currentReg) : null;
       if (crisisRumor && (validRumors.length === 0 || this._rolls()() < 0.65)) {
         npcSession.numAnswersGivenTellMeAboutOrRumors++;

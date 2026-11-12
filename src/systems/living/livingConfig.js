@@ -145,6 +145,10 @@ export const LivingTamrielConfig = {
   get dungeonMobTraits() { return readTierPref('livingDungeonMobTraits', PRESENCE.MID); },
   set dungeonMobTraits(v) { setPref('livingDungeonMobTraits', Number(v)); },
 
+  // Reputation Consequences Framework (0: OFF, 1: LIGHT, 2: MID, 3: HIGH - default HIGH)
+  get reputationConsequences() { return readTierPref('livingReputationConsequences', PRESENCE.HIGH); },
+  set reputationConsequences(v) { setPref('livingReputationConsequences', Number(v)); },
+
   // Competition toggles
   get allowQuestCompetition() { return getPref('livingQuestCompetition') === true; },
   set allowQuestCompetition(v) { setPref('livingQuestCompetition', Boolean(v)); },
@@ -252,6 +256,7 @@ export function resetLivingConfig() {
   setPref('livingNemesis', PRESENCE.MID);
   setPref('livingMobTraits', PRESENCE.MID);
   setPref('livingDungeonMobTraits', PRESENCE.MID);
+  setPref('livingReputationConsequences', PRESENCE.HIGH);
   setPref('livingQuestCompetition', false);
   setPref('livingEncounterScale', LIVING_ENCOUNTER_SCALE.LOW);
   setPref('livingUrbanLootMode', LIVING_URBAN_LOOT.ZERO);

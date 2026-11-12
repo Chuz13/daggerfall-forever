@@ -33,6 +33,7 @@ import { trainingPrice, trainingMax, trainingSkills, reducedCureCost } from './g
 import { getHolidayId, FREE_CURE_HOLIDAYS, HALF_PRICE_CURE_HOLIDAY } from '../holidays.js';
 import { firstName } from '../talk/talkSession.js'; // MH1: %pcf's own reader
 import { expandMacroValues } from '../quest/questMacros.js'; // MH1: the ONE macro walk
+import { getTempleServiceAccessibility } from '../living/reputationConsequences.js';
 
 /** MacroHelper's four (Utility/MacroHelper.cs :50, :105, :107, :153),
  *  which are all these three windows ask for. The FULL table is 100+
@@ -289,7 +290,13 @@ export function cureDiseaseOffer(
   }
   if (numberOfDiseases === 0) return { kind: 'noDisease', textId: NO_DISEASE_ID };
 
+  const access = getTempleServiceAccessibility(entity, guild?.factionId);
+  if (!access.accessible) {
+    return { kind: 'refused', reason: access.reasonKey || 'rcfTempleRefusal' };
+  }
+
   let baseCost = CURE_BASE_COST_PER_DISEASE * numberOfDiseases;
+  if (access.priceMult !== 1.0) baseCost = Math.round(baseCost * access.priceMult);
   baseCost = reducedCureCost(guild, membership, baseCost); // Arkay's members only
   // AUDIT 26 F113: CalculateCost's two-argument call here (:81) omits
   // conditionPercentage, NOT the regional term - CalculateCost always

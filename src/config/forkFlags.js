@@ -16,5 +16,6 @@ export const FORK_FLAGS = {
   ENABLE_SEASONAL_EVENTS: false,
   ENABLE_MODS: true,
   ENABLE_NECROMANCY: true,
+  ENABLE_ONLINE_SALE_CAP: false,
   ENABLE_LT_STANDALONE_SIM: false,
 };

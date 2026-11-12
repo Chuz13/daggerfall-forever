@@ -9721,3 +9721,18 @@ features.livingAdventurerLoot.supplies,"Supplies"
 features.livingAdventurerLoot.standard,"Standard"
 features.livingAdventurerLoot.full,"Full Gear"
 living.adventurer.assaultCrime,"Nahlášen zločin: Napadení! Zaútočili jste na vzdávajícího se soupeře ve sparingu!"
+rcfHouseRefusal,The local council refuses to sell property to an outcast of your reputation.
+rcfShipyardRefusal,The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'
+rcfTempleRefusal,The priests turn you away. 'The Divines grant no mercy to the profane!'
+rcfTavernRefusal,The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'
+rcfMagesGemsRefusal,The guild mystic refuses to trade high-tier soul vessels with an unproven outsider.
+rcfCheckpointDemand,"Guard Captain: 'Halt! By local decree, suspicious travelers must submit baggage for inspection.'"
+rcfCheckpointClean,"Guard: 'Baggage is clean. Move along, citizen.'"
+rcfCheckpointContraband,"Guard: 'Stolen goods found! By order of the court, these items are confiscated!'"
+rcfCheckpointSalute,"The guards present arms. 'Honor to you, noble traveler! The road is clear.'"
+rcfRumorKnightHero,"Travelers speak highly of %pcf, naming %pcf a noble champion of the realm."
+rcfRumorMerchantBane,"Merchants whisper bitter warnings against %pcf, blaming %pcf for losses on the roads."
+rcfRumorMagePraise,Mages across the province admire the arcane prowess demonstrated by %pcf.
+rcfRumorHeretic,"Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines."
+rcfRumorUnderworldKingpin,Shadow brokers whisper that %pcf commands respect in every den of the province.
+rcfRumorMonsterHunt,The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.

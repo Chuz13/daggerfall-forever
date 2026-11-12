@@ -9721,3 +9721,18 @@ features.livingAdventurerLoot.supplies,"Supplies"
 features.livingAdventurerLoot.standard,"Standard"
 features.livingAdventurerLoot.full,"Full Gear"
 living.adventurer.assaultCrime,"Повідомлено про злочин: Напад! Ви атакували суперника зі спарингу, який здався!"
+rcfHouseRefusal,Міська рада відмовляє вам у купівлі житла через вашу лиху славу.
+rcfShipyardRefusal,Шипмайстер проганяє вас: «Ми не продаємо кораблі ворогам нашої торгівлі».
+rcfTempleRefusal,Жерці проганяють вас: «Боги не дарують милості нечестивцям!»
+rcfTavernRefusal,Корчмар хмуриться: «Для таких негідників у нас кімнат немає. Забирайся».
+rcfMagesGemsRefusal,Містик відмовляється продавати посудини душ вищого кола чужинцям.
+rcfCheckpointDemand,Капітан варти: «Стій! Підозрілий вантаж підлягає обов'язковому огляду».
+rcfCheckpointClean,"Вартовий: «Усе чисто. Проїжджайте, громадянине»."
+rcfCheckpointContraband,Вартовий: «Виявлено крадене! Ім'ям закону майно конфісковано!»
+rcfCheckpointSalute,"Варта віддає честь: «Вітаємо вас, шляхетний мандрівнику! Дорога вільна»."
+rcfRumorKnightHero,"Мандрівники вихваляють %pcf, називаючи шляхетним захисником королівства."
+rcfRumorMerchantBane,"Торговці з гіркотою попереджають про %pcf, звинувачуючи у збитках на дорогах."
+rcfRumorMagePraise,"Маги провінції захоплюються таємною майстерністю, явленою %pcf."
+rcfRumorHeretic,Проповідники закликають триматися подалі від єретика %pcf.
+rcfRumorUnderworldKingpin,"У злодійських кублах шепочуться, що %pcf користується загальною повагою."
+rcfRumorMonsterHunt,"Варта попереджає про бродяче в пустках чудовисько, відоме як %pcf."

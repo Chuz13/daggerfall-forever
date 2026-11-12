@@ -26,6 +26,7 @@ import {
   computeRoleplayBribeMultiplier,
   readPlayerSkill,
 } from './livingRolls.js';
+import { evaluateFactionNemesisArchetype } from './reputationConsequences.js';
 
 export const NEMESIS_ARCHETYPES = Object.freeze({
   BOUNTY_HUNTER: 'BOUNTY_HUNTER',       // Enforcer hunting legal bounties & criminals
@@ -105,6 +106,10 @@ export function shouldDispatchNemesis(player, repOrOptions = 0, playerLevel = 1)
   // 1. Classic Bounty Hunter condition: Infamy <= -20 and level >= 3
   if (legalReputation <= -20 && level >= 3) return true;
 
+  // 1b. Reputation Consequences Framework: severe faction hostilities
+  const factionNemesis = evaluateFactionNemesisArchetype(player);
+  if (factionNemesis && level >= 3) return true;
+
   // 2. Shadow Assassin: Deep infamy <= -40 and level >= 5
   if (legalReputation <= -40 && level >= 5) return true;
 
@@ -156,6 +161,11 @@ export function determineNemesisArchetype(player, {
 } = {}) {
   /** @type {string[]} */
   const candidates = [];
+
+  const factionArchetype = evaluateFactionNemesisArchetype(player);
+  if (factionArchetype && NEMESIS_ARCHETYPES[factionArchetype]) {
+    candidates.push(NEMESIS_ARCHETYPES[factionArchetype]);
+  }
 
   if (legalReputation <= -20 && playerLevel >= 3) {
     candidates.push(NEMESIS_ARCHETYPES.BOUNTY_HUNTER);

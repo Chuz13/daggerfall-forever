@@ -78,6 +78,7 @@ import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE } from './comeSailAway/comeSail
 import { FORK_FLAGS } from '../config/forkFlags.js';
 import { playerEntity } from '../characters/playerEntity.js';
 import { getEffectiveTradeTaint, applyTaintDisposition } from './necromancy/necroTaint.js';
+import { getReputationPriceModifier, isSoulGemPurchaseAllowed } from './living/reputationConsequences.js';
 
 // ItemGroups ids used by the shelf tables (DaggerfallUnityEnums).
 const GROUP_NAMES = Object.freeze({
@@ -1210,12 +1211,14 @@ export function calculateTradePrice(
     personality = Math.min(Math.max(personality, 0), ONLINE_HAGGLE_MAX);
   }
   const merchantLevel = 5 * (shopQuality - 10) + 50; // mercantile and personality alike
+  const repMod = getReputationPriceModifier(tradeEntity, shopQuality);
   let dm, dp;
   if (selling) {
     dm = ((Math.trunc(((100 - merchantLevel) << 8) / 200) + 128) * (Math.trunc((mercantile << 8) / 200) + 128)) >> 8;
     dp = ((Math.trunc(((100 - merchantLevel) << 8) / 200) + 128) * (Math.trunc((personality << 8) / 200) + 128)) >> 8;
-    const sale = Math.floor(((((179 * dm) >> 8) + ((51 * dp) >> 8)) * cost) / 256); // TRADE-WRAP: never int32's wrap
-    if (!online) return sale;
+    let sale = Math.floor(((((179 * dm) >> 8) + ((51 * dp) >> 8)) * cost) / 256); // TRADE-WRAP: never int32's wrap
+    if (repMod.sellMult !== 1.0) sale = Math.max(1, Math.floor(sale * repMod.sellMult));
+    if (!online || !FORK_FLAGS.ENABLE_ONLINE_SALE_CAP) return sale;
     const best = { mercantile: ONLINE_HAGGLE_MAX, personality: ONLINE_HAGGLE_MAX }; // MERC-RISE: the best haggler this counter can meet
     const half = Math.floor(calculateTradePrice(cost, shopQuality, best, false) * ONLINE_SALE_SHARE); // REALM P0.4; MERC-RISE: half the least it asks
     // MERC-SLOPE: under the half, where this seller's own offer stands against the best haggler's - at its weight
@@ -1231,7 +1234,9 @@ export function calculateTradePrice(
   dm = ((Math.trunc((merchantLevel << 8) / 200) + 128) * (Math.trunc(((100 - mercantile) << 8) / 200) + 128)) >> 8;
   dp =
     (((Math.trunc((merchantLevel << 8) / 200) + 128) * (Math.trunc(((100 - personality) << 8) / 200) + 128)) >> 8) << 6;
-  return Math.floor(((((192 * dm) >> 8) + (dp >> 8)) * cost) / 256); // TRADE-WRAP: never int32's wrap
+  let buy = Math.floor(((((192 * dm) >> 8) + (dp >> 8)) * cost) / 256); // TRADE-WRAP: never int32's wrap
+  if (repMod.buyMult !== 1.0) buy = Math.max(1, Math.floor(buy * repMod.buyMult));
+  return buy;
 }
 
 // ── X6: THE SOUL GEM STOCK (the Mages Guild's Buy Soulgems service) ──
@@ -1386,13 +1391,21 @@ export function stockGuildMagicItems(
     );
   }
   if (sellsSoulGems) {
-    for (let i = 0; i <= numOfItems; i++) {
-      // INCLUSIVE - numOfItems + 1 gems
-      // Dice100.FailedRoll(25): Random.Range(0,100) >= 25, true 75% of
-      // the time, and the true branch is the EMPTY gem.
-      out.push(
-        Math.floor(rolls() * 100) >= 25 ? createEmptySoulTrap() : createRandomlyFilledSoulTrap(rolls, soulPointsOf),
-      );
+    const gemAccess = isSoulGemPurchaseAllowed(playerEntity, 0);
+    if (gemAccess.allowed) {
+      for (let i = 0; i <= numOfItems; i++) {
+        // INCLUSIVE - numOfItems + 1 gems
+        // Dice100.FailedRoll(25): Random.Range(0,100) >= 25, true 75% of
+        // the time, and the true branch is the EMPTY gem.
+        const gem =
+          Math.floor(rolls() * 100) >= 25 ? createEmptySoulTrap() : createRandomlyFilledSoulTrap(rolls, soulPointsOf);
+        const pts = gem.trappedSoulType != null && soulPointsOf ? (soulPointsOf(gem.trappedSoulType) || 0) : 0;
+        if (!isSoulGemPurchaseAllowed(playerEntity, pts).allowed) {
+          out.push(createEmptySoulTrap());
+        } else {
+          out.push(gem);
+        }
+      }
     }
   }
   return out;
