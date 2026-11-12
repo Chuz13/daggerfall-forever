@@ -1,37 +1,5 @@
 function init(api) {
-  /** @type {Array<{ target: any, ticks: number }>} */
-  const activeBurns = [];
-  const UNDEAD_CAREERS = new Set([15, 17, 18, 19, 23, 28, 30, 32, 33, 266, 274, 277, 283]);
-  const CONSTRUCT_CAREERS = new Set([22, 35, 36, 37, 38, 284, 286, 289, 290]);
-
-  // 1. Process active holy burns on each world tick
-  api.events.on('worldTick', () => {
-    for (let i = activeBurns.length - 1; i >= 0; i--) {
-      const burn = activeBurns[i];
-      if (!burn.target || burn.target.dead || (burn.target.health ?? 0) <= 0) {
-        activeBurns.splice(i, 1);
-        continue;
-      }
-
-      if (typeof burn.target.hurt === 'function') {
-        burn.target.hurt(3);
-      } else {
-        // Safe DoT: leave at least 1 HP so main combat engine resolves death, corpse and quest kills cleanly
-        const currentHp = burn.target.health ?? 0;
-        if (currentHp > 1) {
-          burn.target.health = Math.max(1, currentHp - 3);
-        }
-      }
-      burn.ticks--;
-      api.ui.notify('Holy flame purges the abomination! (-3 HP)');
-
-      if (burn.ticks <= 0 || burn.target.dead || (burn.target.health ?? 0) <= 1) {
-        activeBurns.splice(i, 1);
-      }
-    }
-  });
-
-  // 2. Process attack resolutions
+  // Process attack resolutions
   api.events.on('combatAttackResolved', (evt) => {
     const { attacker, target, weapon, damage, hit } = evt;
     if (!attacker?.isPlayer) return;
@@ -49,18 +17,6 @@ function init(api) {
           api.player.damageHealth(5);
           api.ui.notify('The Daedric entity turns on its wounded bearer! (-5 HP)');
         }
-      }
-    }
-
-    // 2 = Silver material (Holy Burn DoT)
-    if (weapon.material === 2 && hit && damage > 0 && target) {
-      const isUndead =
-        Boolean(target.isUndead) ||
-        target.affinity === 'Undead' ||
-        (!target.isClass && target.careerIndex !== undefined && UNDEAD_CAREERS.has(target.careerIndex));
-      if (isUndead) {
-        api.ui.notify('Silver purges the creature with holy fire!');
-        activeBurns.push({ target, ticks: 3 });
       }
     }
 
@@ -98,7 +54,7 @@ function init(api) {
     }
   });
 
-  // 3. Process wall clank
+  // Process wall clank
   api.events.on('weaponWallClank', () => {
     api.ui.notify('Your weapon struck the stone wall! Watch your swings in narrow corridors.');
   });

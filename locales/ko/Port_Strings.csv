@@ -9736,3 +9736,14 @@ rcfRumorMagePraise,Mages across the province admire the arcane prowess demonstra
 rcfRumorHeretic,"Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines."
 rcfRumorUnderworldKingpin,Shadow brokers whisper that %pcf commands respect in every den of the province.
 rcfRumorMonsterHunt,The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.
+item.trait.vsUndead,"언데드 대상 +{pct}%"
+item.trait.vsWerecreatures,"웨어크리처 대상 +{pct}%"
+item.trait.damageBonus,"+{pct}% 피해량"
+item.trait.fragile,"취약함"
+item.trait.durable,"견고함"
+item.trait.speed,"+{pct}% 속도"
+item.trait.fatigueCost,"-{pct}% 피로도 소모"
+item.trait.heavyStr,"무거움 (근력 {str})"
+item.trait.staminaSiphon,"스태미나 흡수"
+item.trait.sunderArmor,"방어구 분쇄"
+item.trait.cursedBlade,"저주받은 검"

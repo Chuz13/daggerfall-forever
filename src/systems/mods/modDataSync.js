@@ -38,16 +38,16 @@ const DEFAULT_COMBAT_CONFIG = {
  * Default materials configuration (1.0 / 0.0 = vanilla behavior).
  */
 const DEFAULT_MATERIALS_CONFIG = {
-  Iron: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
-  Steel: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Iron: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0 },
+  Steel: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0 },
   Silver: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, vsUndeadMultiplier: 1.0, vsWerecreatureMultiplier: 1.0 },
-  Elven: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
-  Dwarven: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, vsConstructMultiplier: 1.0 },
-  Mithril: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
-  Adamantium: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Elven: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0 },
+  Dwarven: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0 },
+  Mithril: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0 },
+  Adamantium: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0 },
   Ebony: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, minStrength: 0, lowStrengthSpeedPenalty: 1.0 },
-  Orcish: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
-  Daedric: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0, armorPenetration: 0.0 },
+  Orcish: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0 },
+  Daedric: { damageMultiplier: 1.0, swingSpeedMultiplier: 1.0 },
 };
 
 let _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
@@ -229,33 +229,9 @@ export function getMaterialDamageMultiplier(materialIndex, target) {
     if (isWerecreature && cfg.vsWerecreatureMultiplier) {
       mult *= cfg.vsWerecreatureMultiplier;
     }
-
-    const isConstruct =
-      Boolean(target.isConstruct) ||
-      (isMonsterCareer &&
-        (target.careerIndex === 22 ||
-          (target.careerIndex >= 35 && target.careerIndex <= 38) ||
-          target.careerIndex === 284 ||
-          target.careerIndex === 286 ||
-          target.careerIndex === 289 ||
-          target.careerIndex === 290));
-
-    if (isConstruct && cfg.vsConstructMultiplier) {
-      mult *= cfg.vsConstructMultiplier;
-    }
   }
 
   return mult;
-}
-
-/**
- * Calculate armor penetration fraction (0.0 to 1.0) for a material.
- * @param {number} materialIndex
- * @returns {number}
- */
-export function getMaterialArmorPenetration(materialIndex) {
-  const cfg = getMaterialConfig(materialIndex);
-  return cfg?.armorPenetration ?? 0.0;
 }
 
 /**
@@ -315,16 +291,6 @@ export function getMaterialSunderArmorChance(materialIndex) {
 export function getMaterialStaminaDrain(materialIndex) {
   const cfg = getMaterialConfig(materialIndex);
   return cfg?.staminaDrainOnHit ?? 0;
-}
-
-/**
- * Whether weapon inflicts holy burn DoT on undead.
- * @param {number} materialIndex
- * @returns {boolean}
- */
-export function getMaterialHolyBurn(materialIndex) {
-  const cfg = getMaterialConfig(materialIndex);
-  return !!cfg?.holyBurn;
 }
 
 /**

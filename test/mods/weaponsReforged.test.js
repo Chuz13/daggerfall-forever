@@ -8,7 +8,6 @@ import {
 import {
   syncModData,
   getMaterialDamageMultiplier,
-  getMaterialArmorPenetration,
   getMaterialSwingSpeedMultiplier,
   getMaterialConditionLossMultiplier,
   getMaterialFatigueCostMultiplier,
@@ -21,25 +20,23 @@ import { setModApiContext, _resetModPluginApi } from '../../src/systems/mods/mod
 import { loadActiveModPlugins, _resetModPluginLoader } from '../../src/systems/mods/modPluginLoader.js';
 import { WEAPON_MATERIALS } from '../../src/characters/weapons.js';
 import { weaponMaterialTraitText } from '../../src/systems/item/itemInfo.js';
+import { swingFatigueCost, SWING_FATIGUE_COST } from '../../src/scenes/hostCombat.js';
+import { getMeleeWeaponAnimTime } from '../../src/characters/weaponStates.js';
 
 const SAMPLE_MATERIALS_JSON = JSON.stringify({
   Silver: {
     vsUndeadMultiplier: 2.0,
     vsWerecreatureMultiplier: 2.0,
     conditionLossMultiplier: 1.5,
-    holyBurn: true,
   },
   Elven: {
     swingSpeedMultiplier: 1.2,
     fatigueCostMultiplier: 0.8,
-    armorPenetration: -0.1,
   },
   Dwarven: {
-    vsConstructMultiplier: 1.35,
     conditionLossMultiplier: 0.3,
   },
   Adamantium: {
-    armorPenetration: 0.35,
     sunderArmorChance: 0.2,
   },
   Ebony: {
@@ -57,22 +54,6 @@ const SAMPLE_MATERIALS_JSON = JSON.stringify({
 
 const SAMPLE_PLUGIN_JS = `
 function init(api) {
-  const activeBurns = [];
-
-  api.events.on('worldTick', () => {
-    for (let i = activeBurns.length - 1; i >= 0; i--) {
-      const burn = activeBurns[i];
-      if (!burn.target || burn.target.dead || (burn.target.health ?? 0) <= 0) {
-        activeBurns.splice(i, 1);
-        continue;
-      }
-      burn.target.health = Math.max(0, (burn.target.health ?? 0) - 3);
-      burn.ticks--;
-      api.ui.notify('Holy flame purges the abomination! (-3 HP)');
-      if (burn.ticks <= 0) activeBurns.splice(i, 1);
-    }
-  });
-
   api.events.on('combatAttackResolved', (evt) => {
     const { attacker, target, weapon, damage, hit } = evt;
     if (!attacker?.isPlayer) return;
@@ -89,13 +70,6 @@ function init(api) {
           api.player.damageHealth(5);
           api.ui.notify('The Daedric entity turns on its wounded bearer! (-5 HP)');
         }
-      }
-    }
-
-    if (weapon.material === 2 && hit && damage > 0 && target) { // Silver
-      if (target.isUndead) {
-        api.ui.notify('Silver purges the creature with holy fire!');
-        activeBurns.push({ target, ticks: 3 });
       }
     }
 
@@ -129,7 +103,6 @@ test('weapons-reforged: materials data sync and multipliers calculation', () => 
 
   // Vanilla baseline check
   assert.equal(getMaterialDamageMultiplier(WEAPON_MATERIALS.Silver, { isUndead: true }), 1.0);
-  assert.equal(getMaterialArmorPenetration(WEAPON_MATERIALS.Adamantium), 0.0);
   assert.equal(getMaterialSwingSpeedMultiplier(WEAPON_MATERIALS.Elven, 50), 1.0);
   assert.equal(getMaterialConditionLossMultiplier(WEAPON_MATERIALS.Silver), 1.0);
   assert.equal(getMaterialFatigueCostMultiplier(WEAPON_MATERIALS.Elven), 1.0);
@@ -163,33 +136,42 @@ test('weapons-reforged: materials data sync and multipliers calculation', () => 
   const humanTarget = { careerIndex: 0 };
   assert.equal(getMaterialDamageMultiplier(WEAPON_MATERIALS.Silver, humanTarget), 1.0);
 
-  // 2. Adamantium armor penetration
-  assert.equal(getMaterialArmorPenetration(WEAPON_MATERIALS.Adamantium), 0.35);
-
-  // 3. Elven swing speed multiplier (+20%) and fatigue cost (0.8x)
+  // 2. Elven swing speed multiplier (+20%) and fatigue cost (0.8x)
   assert.equal(getMaterialSwingSpeedMultiplier(WEAPON_MATERIALS.Elven, 50), 1.2);
   assert.equal(getMaterialFatigueCostMultiplier(WEAPON_MATERIALS.Elven), 0.8);
+  const elvenWeapon = { material: WEAPON_MATERIALS.Elven };
+  assert.equal(swingFatigueCost(elvenWeapon), Math.round(SWING_FATIGUE_COST * 0.8)); // 6 fatigue vs default 8
 
-  // 4. Condition loss multipliers (Silver breaks faster, Dwarven is durable)
+  // 3. Condition loss multipliers (Silver breaks faster, Dwarven is durable)
   assert.equal(getMaterialConditionLossMultiplier(WEAPON_MATERIALS.Silver), 1.5);
   assert.equal(getMaterialConditionLossMultiplier(WEAPON_MATERIALS.Dwarven), 0.3);
 
-  // 5. Ebony strength threshold scaling and stamina drain
+  // 4. Ebony strength threshold scaling and stamina drain
   assert.equal(getMaterialSwingSpeedMultiplier(WEAPON_MATERIALS.Ebony, 50), 0.75);
   assert.equal(getMaterialSwingSpeedMultiplier(WEAPON_MATERIALS.Ebony, 75), 1.0);
   assert.equal(getMaterialStaminaDrain(WEAPON_MATERIALS.Ebony), 10);
 
-  // 6. Adamantium sunder armor chance
+  // Verify entity strength scaling in weaponStates
+  const weakEntity = { stats: { strength: 50 } };
+  const strongEntity = { stats: { strength: 80 } };
+  const animTimeWeak = getMeleeWeaponAnimTime(50, { entity: weakEntity, weaponType: 0 });
+  const animTimeStrong = getMeleeWeaponAnimTime(50, { entity: strongEntity, weaponType: 0 });
+  assert.ok(animTimeWeak > 0);
+  assert.ok(animTimeStrong > 0);
+
+  // 5. Adamantium sunder armor chance
   assert.equal(getMaterialSunderArmorChance(WEAPON_MATERIALS.Adamantium), 0.2);
 
-  // 7. UI Traits verification
+  // 6. UI Traits verification
   const silverTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Silver });
   assert.ok(silverTrait?.includes('+100% vs Undead'));
-  assert.ok(silverTrait?.includes('Holy Burn'));
+  assert.ok(silverTrait?.includes('Fragile'));
 
   const adamantiumTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Adamantium });
-  assert.ok(adamantiumTrait?.includes('35% Armor Piercing'));
   assert.ok(adamantiumTrait?.includes('Sunder Armor'));
+
+  const dwarvenTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Dwarven });
+  assert.ok(dwarvenTrait?.includes('Durable'));
 
   const elvenTrait = weaponMaterialTraitText({ group: 'Weapons', material: WEAPON_MATERIALS.Elven });
   assert.ok(elvenTrait?.includes('+20% Speed'));
@@ -210,7 +192,7 @@ test('weapons-reforged: materials data sync and multipliers calculation', () => 
   _resetModDataSync();
 });
 
-test('weapons-reforged: plugin lifecycle, curses, holy burn and stamina siphon', async () => {
+test('weapons-reforged: plugin lifecycle, curses, and stamina siphon', async () => {
   _resetModRegistry();
   _resetModDataSync();
   _resetModEventBus();
@@ -296,25 +278,6 @@ test('weapons-reforged: plugin lifecycle, curses, holy burn and stamina siphon',
     hit: true,
   });
   assert.equal(armoredTarget.equip.slots.chest.condition, 75); // 100 - 25 = 75
-
-  // E. Simulate Silver weapon HIT on undead -> applies Holy Burn DoT
-  const silverWeapon = { material: WEAPON_MATERIALS.Silver };
-  const undeadFoe = { health: 30, isUndead: true };
-  emitModEvent('combatAttackResolved', {
-    attacker: mockPlayer,
-    target: undeadFoe,
-    weapon: silverWeapon,
-    damage: 15,
-    hit: true,
-  });
-
-  // Advance 1 world tick -> 3 HP burn damage
-  emitModEvent('worldTick', {});
-  assert.equal(undeadFoe.health, 27);
-
-  // Advance 2nd world tick -> 3 HP burn damage
-  emitModEvent('worldTick', {});
-  assert.equal(undeadFoe.health, 24);
 
   // Cleanup
   _resetModRegistry();

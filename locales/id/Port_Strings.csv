@@ -9736,3 +9736,14 @@ rcfRumorMagePraise,Mages across the province admire the arcane prowess demonstra
 rcfRumorHeretic,"Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines."
 rcfRumorUnderworldKingpin,Shadow brokers whisper that %pcf commands respect in every den of the province.
 rcfRumorMonsterHunt,The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.
+item.trait.vsUndead,"+{pct}% vs Mayat Hidup"
+item.trait.vsWerecreatures,"+{pct}% vs Manusia Serigala"
+item.trait.damageBonus,"+{pct}% Kerusakan"
+item.trait.fragile,"Rapuh"
+item.trait.durable,"Tahan Lama"
+item.trait.speed,"+{pct}% Kecepatan"
+item.trait.fatigueCost,"-{pct}% Kelelahan"
+item.trait.heavyStr,"Berat (KEK {str})"
+item.trait.staminaSiphon,"Penyedot Stamina"
+item.trait.sunderArmor,"Penghancur Zirah"
+item.trait.cursedBlade,"Bilah Terkutuk"

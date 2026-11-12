@@ -1045,47 +1045,41 @@ export function weaponMaterialTraitText(item) {
 
   const traits = [];
   if (cfg.vsUndeadMultiplier && cfg.vsUndeadMultiplier > 1) {
-    traits.push(`+${Math.round((cfg.vsUndeadMultiplier - 1) * 100)}% vs Undead`);
-  }
-  if (cfg.vsConstructMultiplier && cfg.vsConstructMultiplier > 1) {
-    traits.push(`+${Math.round((cfg.vsConstructMultiplier - 1) * 100)}% vs Constructs`);
+    const pct = Math.round((cfg.vsUndeadMultiplier - 1) * 100);
+    traits.push(t('item.trait.vsUndead', '+{pct}% vs Undead', { pct }));
   }
   if (cfg.vsWerecreatureMultiplier && cfg.vsWerecreatureMultiplier > 1) {
-    traits.push(`+${Math.round((cfg.vsWerecreatureMultiplier - 1) * 100)}% vs Lycanthropes`);
-  }
-  if (cfg.armorPenetration && cfg.armorPenetration > 0) {
-    traits.push(`${Math.round(cfg.armorPenetration * 100)}% Armor Piercing`);
-  } else if (cfg.armorPenetration && cfg.armorPenetration < 0) {
-    traits.push(`${Math.round(cfg.armorPenetration * 100)}% Armor Piercing`);
+    const pct = Math.round((cfg.vsWerecreatureMultiplier - 1) * 100);
+    traits.push(t('item.trait.vsWerecreatures', '+{pct}% vs Werecreatures', { pct }));
   }
   if (cfg.damageMultiplier && cfg.damageMultiplier > 1) {
-    traits.push(`+${Math.round((cfg.damageMultiplier - 1) * 100)}% Damage`);
+    const pct = Math.round((cfg.damageMultiplier - 1) * 100);
+    traits.push(t('item.trait.damageBonus', '+{pct}% Damage', { pct }));
   }
   if (cfg.conditionLossMultiplier && cfg.conditionLossMultiplier > 1) {
-    traits.push('Fragile');
+    traits.push(t('item.trait.fragile', 'Fragile'));
   } else if (cfg.conditionLossMultiplier && cfg.conditionLossMultiplier < 1) {
-    traits.push('Durable');
+    traits.push(t('item.trait.durable', 'Durable'));
   }
   if (cfg.swingSpeedMultiplier && cfg.swingSpeedMultiplier > 1) {
-    traits.push(`+${Math.round((cfg.swingSpeedMultiplier - 1) * 100)}% Speed`);
+    const pct = Math.round((cfg.swingSpeedMultiplier - 1) * 100);
+    traits.push(t('item.trait.speed', '+{pct}% Speed', { pct }));
   }
   if (cfg.fatigueCostMultiplier && cfg.fatigueCostMultiplier < 1) {
-    traits.push(`-${Math.round((1 - cfg.fatigueCostMultiplier) * 100)}% Fatigue`);
+    const pct = Math.round((1 - cfg.fatigueCostMultiplier) * 100);
+    traits.push(t('item.trait.fatigueCost', '-{pct}% Fatigue', { pct }));
   }
   if (cfg.minStrength && cfg.minStrength > 0) {
-    traits.push(`Heavy (STR ${cfg.minStrength})`);
+    traits.push(t('item.trait.heavyStr', 'Heavy (STR {str})', { str: cfg.minStrength }));
   }
   if (cfg.staminaDrainOnHit) {
-    traits.push('Stamina Siphon');
+    traits.push(t('item.trait.staminaSiphon', 'Stamina Siphon'));
   }
   if (cfg.sunderArmorChance) {
-    traits.push('Sunder Armor');
-  }
-  if (cfg.holyBurn) {
-    traits.push('Holy Burn');
+    traits.push(t('item.trait.sunderArmor', 'Sunder Armor'));
   }
   if (cfg.curseOnMissFatigue) {
-    traits.push('Cursed Blade');
+    traits.push(t('item.trait.cursedBlade', 'Cursed Blade'));
   }
 
   return traits.length > 0 ? traits.join(', ') : null;

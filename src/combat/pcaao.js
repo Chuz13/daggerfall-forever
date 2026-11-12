@@ -119,7 +119,7 @@ import {
   silverDoubles, // RVN2: a Silver-scarred revenant's double gone, in this core as in the stock's
 } from './formulas.js';
 import { meanerMonstersOn } from './pcaaoMeanerMonsters.js';
-import { getMaterialDamageMultiplier, getMaterialArmorPenetration, getMaterialConditionLossMultiplier } from '../systems/mods/modDataSync.js';
+import { getMaterialDamageMultiplier, getMaterialConditionLossMultiplier } from '../systems/mods/modDataSync.js';
 import {
   RR_VENDOR,
   rrAdjustWeaponHitChanceMod,
@@ -580,10 +580,11 @@ export function pcaaoWeaponAttackDamage(
       range(weaponMinDamage(weapon.templateIndex), weaponMaxDamage(weapon.templateIndex), rolls),
     ) + damageModifier;
   if (!isPlayer(target)) {
+    const modMult = getMaterialDamageMultiplier(weapon?.material, target);
     if (target.careerIndex === SKELETAL_WARRIOR) {
       if (((weapon.flags ?? 0) & 0x10) === 0) damage = int(damage / 2);
-      if (weapon.material === 2 && silverDoubles(target)) damage *= 2; // RVN2: unless a veto keeps it plain (formulas.js)
-    } else if (SILVER_DOUBLED_CAREERS.includes(target.careerIndex) && weapon.material === 2 && silverDoubles(target)) {
+      if (weapon.material === 2 && silverDoubles(target) && modMult === 1.0) damage *= 2; // RVN2: unless a veto keeps it plain (formulas.js)
+    } else if (SILVER_DOUBLED_CAREERS.includes(target.careerIndex) && weapon.material === 2 && silverDoubles(target) && modMult === 1.0) {
       damage *= 2;
     }
   }
@@ -1840,12 +1841,6 @@ export function pcaaoAttackDamage(
         naturalDamResist,
         modules,
       );
-      const pen = getMaterialArmorPenetration(weapon?.material);
-      if (damage > 0 && pen > 0) {
-        damage = Math.max(1, Math.round(damage * (1 + pen * 0.4)));
-      } else if (damage > 0 && pen < 0) {
-        damage = Math.max(1, Math.round(damage * (1 + pen * 0.3)));
-      }
     }
   } else if (unarmedAttack) {
     damage = pcaaoArmorDamageReductionWithUnarmed(attacker, target, damage, struckBodyPart, naturalDamResist, modules);
@@ -1859,12 +1854,6 @@ export function pcaaoAttackDamage(
       naturalDamResist,
       modules,
     );
-    const pen = getMaterialArmorPenetration(weapon?.material);
-    if (damage > 0 && pen > 0) {
-      damage = Math.max(1, Math.round(damage * (1 + pen * 0.4)));
-    } else if (damage > 0 && pen < 0) {
-      damage = Math.max(1, Math.round(damage * (1 + pen * 0.3)));
-    }
   }
   damage = shared(damage);
   // WEAR-VANILLA, the module off: FormulaHelper's DamageEquipment (formulas.js damageEquipment, Roleplay Realism's slot

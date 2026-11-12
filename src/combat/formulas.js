@@ -54,11 +54,7 @@ import {
 } from '../systems/perks/perkRegistry.js';
 import {
   getMaterialDamageMultiplier,
-  getMaterialArmorPenetration,
   getMaterialConditionLossMultiplier,
-  getMaterialSunderArmorChance,
-  getMaterialStaminaDrain,
-  getMaterialHolyBurn,
 } from '../systems/mods/modDataSync.js';
 
 // ---- Dice100.cs verbatim ----
@@ -520,7 +516,8 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
   let damage = weaponDamageMods(weapon, wMin + Math.floor(rolls() * (wMax + 1 - wMin))) + damageMod;   // RF1: the weapon's own modifiers over ITS roll, before the swing's mods
   if (!target.isPlayer && isSkeletalTarget(target)) {   // DEX4b: a mod's skeletal enemy too
     if ((weapon.flags & 0x10) === 0) damage = Math.trunc(damage / 2);   // edged-weapon rule
-    if (weapon.material === 2 && silverDoubles(target)) damage *= 2;    // Silver (RVN2: unless a veto keeps it plain)
+    const modMult = getMaterialDamageMultiplier(weapon?.material, target);
+    if (weapon.material === 2 && silverDoubles(target) && modMult === 1.0) damage *= 2;    // Silver (RVN2: unless a veto keeps it plain)
   }
   damage += damageModifier(liveStat(attacker, 'strength'));
   damage += WEAPON_MATERIAL_MODIFIER[weapon.material] ?? 0;   // half of the in-game display, per the source comment
@@ -528,13 +525,6 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
   damage += bonusOrPenaltyByEnemyType(attacker, target);
   damage = Math.round(damage * getMaterialDamageMultiplier(weapon?.material, target));
   damage = Math.round(damage * getPerkBladeMasteryDamageMultiplier(attacker, weapon));
-  const pen = getMaterialArmorPenetration(weapon?.material);
-  const hasArmor = Array.isArray(target?.armorValues)
-    ? target.armorValues.some((v) => v < 100)
-    : Boolean(target?.armor);
-  if (damage > 0 && pen !== 0 && hasArmor) {
-    damage = Math.max(1, Math.round(damage * (1 + pen * 0.4)));
-  }
   damage = weaponBlowMods(weapon, damage, attacker, target, info);   // SIGIL1: the port's own over the whole blow - the online sigil, my blow at a foe - before the hook, so a bow's draw scales it too (SET2: `info` - the host's word that the foe had not noticed me)
   // "Mod hook for adjusting final damage. (no-op by default)" - the
   // stock's last line (AUDIT PCO1: Roleplay Realism's archery lands here)
@@ -841,29 +831,6 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   if (weapon && damage > 0 && (weapon.poisonType ?? -1) !== -1) {
     if (onInflictPoison) onInflictPoison(attacker, target, weapon.poisonType);
     weapon.poisonType = -1;
-  }
-  // Weapons Reforged: material multipliers, armor penetration, sunder, stamina drain, holy burn
-  const tgtProfile = target?.profile ?? target?.entity?.profile;
-  if (weapon && weapon.material !== undefined && damage > 0) {
-    const sunderChance = getMaterialSunderArmorChance(weapon.material);
-    if (sunderChance > 0 && rolls() < sunderChance && target) {
-      target.armorSundered = true;
-      if (typeof target.armorValue === 'number') target.armorValue += 2;
-    }
-    const stamDrain = getMaterialStaminaDrain(weapon.material);
-    if (stamDrain > 0 && target && typeof target.fatigue === 'number') {
-      target.fatigue = Math.max(0, target.fatigue - stamDrain);
-    }
-    if (getMaterialHolyBurn(weapon.material)) {
-      const isUndeadTarget =
-        enemyEntityGroup(target) === ENEMY_GROUPS.Undead ||
-        target?.entityType === 'undead' ||
-        target?.livingRole === 'undead_minion' ||
-        !!tgtProfile;
-      if (isUndeadTarget) {
-        damage += 5;
-      }
-    }
   }
   damage = shared(Math.max(0, damage));
   // FormulaHelper.cs:699-701: the equipment damages at the TAIL with

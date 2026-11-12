@@ -9736,3 +9736,14 @@ rcfRumorMagePraise,Mages across the province admire the arcane prowess demonstra
 rcfRumorHeretic,"Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines."
 rcfRumorUnderworldKingpin,Shadow brokers whisper that %pcf commands respect in every den of the province.
 rcfRumorMonsterHunt,The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.
+item.trait.vsUndead,"+{pct}% срещу неумрели"
+item.trait.vsWerecreatures,"+{pct}% срещу върколаци"
+item.trait.damageBonus,"+{pct}% щети"
+item.trait.fragile,"Чупливо"
+item.trait.durable,"Издръжливо"
+item.trait.speed,"+{pct}% скорост"
+item.trait.fatigueCost,"-{pct}% умора"
+item.trait.heavyStr,"Тежко (СИЛ {str})"
+item.trait.staminaSiphon,"Източване на издръжливост"
+item.trait.sunderArmor,"Разчупване на броня"
+item.trait.cursedBlade,"Проклето острие"

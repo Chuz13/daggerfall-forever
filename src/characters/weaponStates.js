@@ -32,10 +32,11 @@ export function getMeleeWeaponAnimTime(liveSpeed, ctx = null) {
   // viewers) keeps DFU's line - which DFU never asks for a foe at all (characters/enemy/enemyAttack.js).
   if (ctx?.entity) {
     const w = _swingReader?.(ctx) ?? null;
-    const matSpeed = w?.material !== undefined && w?.material >= 0 ? getMaterialSwingSpeedMultiplier(w.material, w.strength) : 1;
+    const str = w?.strength ?? (ctx.entity?.stats?.strength ?? 50);
+    const matSpeed = w?.material !== undefined && w?.material >= 0 ? getMaterialSwingSpeedMultiplier(w.material, str) : 1;
     return paced(
       swingFrameSeconds(liveSpeed, {
-        heft: w ? swingHeft(w.weight, w.strength) : 1,
+        heft: w ? swingHeft(w.weight, str) : 1,
         handling: (swingHandling(ctx.weaponType, !!w?.twoHanded, !!w?.shortBlade)) / (matSpeed > 0 ? matSpeed : 1), // BAL10: a short blade handles as a dagger
       }),
       ctx,
