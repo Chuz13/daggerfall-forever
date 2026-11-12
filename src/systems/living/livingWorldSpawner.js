@@ -23,6 +23,7 @@ import { trs } from '../../world/mat4.js';
 import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
+import { equipAdventurerEntity } from './adventurerGear.js';
 import { LivingTamrielConfig, PRESENCE, getLivingEncounterScale, rollEncounterRange, LIVING_ENCOUNTER_SCALE, LIVING_URBAN_LOOT, LIVING_WILDERNESS_LOOT } from './livingConfig.js';
 import {
   getRegionState,
@@ -112,6 +113,8 @@ import {
 } from './adventurerSim.js';
 import { LIVING_WORDS } from './livingWords.js';
 import { mobTraitChance } from '../bossTraits.js';
+
+export { LIVING_WORDS };
 
 /** Existing ARCH3D.BSA 3D model IDs used for Living Tamriel props. */
 export const LIVING_MODELS = Object.freeze({
@@ -1099,6 +1102,7 @@ export function buildLivingSiteBlueprint({
       role: 'rival_adventurer',
       team: 'Adventurer',
       suppressInfighting: true,
+      adv,
     });
   } else if (kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER) {
     const wandering = pickWanderingAdventurerEncounter({
@@ -1191,6 +1195,7 @@ export function buildLivingSiteBlueprint({
       role: 'wandering_adventurer',
       team: isFightingMonsters ? 'PlayerAlly' : 'Adventurer',
       suppressInfighting: true,
+      adv,
     });
   } else if (kind === LIVING_SITE_KINDS.NAVAL_SQUADRON) {
     const regState = getRegionState(regionIndex);
@@ -1859,21 +1864,21 @@ export function createLivingSceneHost(deps) {
             label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
             action: () => {
               deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
-              const res = resolveAdventurerEncounter({
-                adv,
-                playerEntity: player,
-                action: 'ACCEPT_DARE',
-                wagerGold: wager,
-                rng,
-              });
-              if (player && res.goldDelta) {
-                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+              const foe = s.foes.find((f) => f?.livingRole === 'rival_adventurer' || f?.livingRole === 'wandering_adventurer');
+              if (foe) {
+                foe._isSparring = true;
+                foe._duelWager = wager;
+                foe._advRecord = adv;
+                foe._surrenderedSpar = false;
+                if (foe.ai) {
+                  foe.ai.isHostile = true;
+                  foe.ai.detected = true;
+                  foe.ai.target = player;
+                  foe.ai.secondaryTarget = null;
+                  if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
+                }
               }
-              if (res.outcome === DUEL_OUTCOME.PLAYER_WON) {
-                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                recordAdventurerGrudge(adv.name);
-              }
-              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)), 5);
+              deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
             },
           },
           {
@@ -2258,26 +2263,21 @@ export function createLivingSceneHost(deps) {
             label: `3. ${LIVING_WORDS.roadAdvOptionSpar(wager)}`,
             action: () => {
               deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
-              const res = resolveWanderingAdventurerInteraction({
-                adv,
-                situation,
-                playerEntity: player,
-                action: 'WAGER_SPAR',
-                regionIndex: regIdx,
-                rng,
-              });
-              if (res.outcome === WANDERING_OUTCOME.SPAR_WON) {
-                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                recordAdventurerGrudge(adv.name);
+              const foe = s.foes.find((f) => f?.livingRole === 'wandering_adventurer' || f?.livingRole === 'rival_adventurer');
+              if (foe) {
+                foe._isSparring = true;
+                foe._duelWager = wager;
+                foe._advRecord = adv;
+                foe._surrenderedSpar = false;
+                if (foe.ai) {
+                  foe.ai.isHostile = true;
+                  foe.ai.detected = true;
+                  foe.ai.target = player;
+                  foe.ai.secondaryTarget = null;
+                  if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
+                }
               }
-              deps.say(
-                LIVING_WORDS.adventurerOutcome(
-                  res.outcome === WANDERING_OUTCOME.SPAR_WON ? DUEL_OUTCOME.PLAYER_WON : DUEL_OUTCOME.PLAYER_LOST,
-                  adv.name,
-                  Math.abs(res.goldDelta),
-                ),
-                5,
-              );
+              deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
             },
           },
           {
@@ -2748,6 +2748,13 @@ export function createLivingSceneHost(deps) {
             rec.ai.isHostile = false;
           }
           rec.livingRole = a.role;
+          if (a.role === 'wandering_adventurer' || a.role === 'rival_adventurer') {
+            const adv = a.adv ?? blueprint.meta?.adv;
+            if (adv && rec.entity) {
+              rec._advRecord = adv;
+              equipAdventurerEntity(rec.entity, adv, deps.playerEntity()?.level || 1, rng);
+            }
+          }
           site.foes.push(rec);
           if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
             retargetSkirmishFoes(site);
@@ -3575,17 +3582,19 @@ export function buildDungeonAdventurerChoiceSpec({
         code: 'Digit1',
         label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
         action: () => {
-          const res = resolveAdventurerEncounter({
-            adv,
-            playerEntity,
-            action: 'ACCEPT_DARE',
-            wagerGold: wager,
-            rng,
-          });
-          if (playerEntity && res.goldDelta) {
-            playerEntity.goldPieces = Math.max(0, Number(playerEntity.goldPieces ?? 0) + res.goldDelta);
+          if (foeRecord) {
+            foeRecord._isSparring = true;
+            foeRecord._duelWager = wager;
+            foeRecord._advRecord = adv;
+            foeRecord._surrenderedSpar = false;
+            if (foeRecord.ai) {
+              foeRecord.ai.isHostile = true;
+              foeRecord.ai.detected = true;
+              foeRecord.ai.target = playerEntity;
+              foeRecord.ai.secondaryTarget = null;
+            }
           }
-          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)));
+          say(LIVING_WORDS.adventurerDuelChallenge());
         },
       },
       {

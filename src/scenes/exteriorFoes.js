@@ -58,6 +58,12 @@ import { foeHandoverFrames } from '../world/foeHandover.js';
 import { peerHanded } from '../systems/peerWord.js';   // SS3: a bound piece never rides a peer's word; HACKED-GOLD: nor a letter of credit (systems/peerWord.js)
 import { createBodyLoot } from './bodyLootHost.js';   // OUTDOOR-LOOT: a foe's body is one list, taken by claims its owner judges (the block this pool wires)
 import { TAKE_WINDOW_MS } from '../net/bodyLoot.js';
+import { setCrimeCommitted, CRIMES } from '../systems/court.js';
+import { recordAdventurerGrudge } from '../systems/living/nemesisHost.js';
+import { DUEL_OUTCOME } from '../systems/living/adventurerSim.js';
+import { LIVING_WORDS } from '../systems/living/livingWords.js';
+import { applyAdventurerCorpseLoot } from '../systems/living/adventurerGear.js';
+import { LivingTamrielConfig } from '../systems/living/livingConfig.js';
 import { calculateAttackDamage, meleeHitConnects, MELEE_HIT_YAW_DEG, chooseEnemyWeapon, dropWeaponIfTargetImmune, enemyWeightClassicUnits, weaponKnockbackSpeed, weaponKnockbackApplies, enemyLanguageSkill, calculateEnemyPacification } from '../combat/formulas.js';   // AUDIT 24 (wave 42): pacification
 import { tallySkill, SKILLS } from '../systems/skills.js';
 import { liveStat } from '../systems/statMods.js';
@@ -710,6 +716,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** EnemyDeath.CompleteDeath's corpse, through the one home - the fallen foe's body on the ground (AUDIT 24 wave 38),
    *  tracked to the streamer's pixel at the death; WORLD6b: a puppet's body too, where its owner's stream let it fall. */
   function mintCorpse(f) {
+  if (f._advRecord || f.livingRole === 'wandering_adventurer' || f.livingRole === 'rival_adventurer') {
+    applyAdventurerCorpseLoot(f.entity, LivingTamrielConfig.adventurerLootMode);
+  }
   const _corpsePixel = currentPixelKey();
   const _corpseGen = epoch;   // AUDIT-39r: the world this body falls in
   const ct = corpseTextureOf(f);   // AUDIT DEX A1: a female mobile's own corpse where her row names one (EnemyDeath.cs:86-93)
@@ -955,6 +964,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   }
 
   function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null, element = null } = {}) {   // TELL8: `wc` a peer's blow's class (net/wire.js hitClassOf); RVN3: `element` a spell landing's (its weakness's weight)   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
+    if (fromPlayer && !peer && f._surrenderedSpar) {
+      setCrimeCommitted(playerEntity, CRIMES.Assault);
+      say?.('Crime reported: Assault! You struck a surrendered sparring opponent!');
+    }
     if (f.dead || (fromPlayer && !peer && sparedBySwing(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
     const bout = f.entity?.bout ?? null;   // ARENA2: a fighter on the arena's sand (scenes/arena/arenaBouts.js)
     if (fromPlayer && !peer && !bout) renownFoeStruck(f);   // RENOWN1: MY blow - a puppet's too, before the divert sends it to the owner; ARENA2: never a bout fighter's (no renown on the sand)
@@ -1053,6 +1066,25 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // owner applies every blow (a SetHealth(0) and a kill are no blows, and stand as they were)
     f.entity.health -= !bypassShield && !_whole && _toughFoe(f) ? partyFoeLoses(f, healthDamage, fightN(f)) : healthDamage;
     if (bout && healthDamage > 0) bout.hooks?.hurt?.(f, healthDamage, { fromPlayer: fromPlayer && !peer, striker });   // ARENA2: the blow, to the bout's law
+    if (f._isSparring && f.entity.health <= Math.max(1, Math.floor((f.entity.maxHealth || 30) * 0.20))) {
+      f.entity.health = Math.max(1, Math.floor((f.entity.maxHealth || 30) * 0.20));
+      f._isSparring = false;
+      f._surrenderedSpar = true;
+      if (f.ai) {
+        f.ai.isHostile = false;
+        f.ai.target = null;
+        f.ai.secondaryTarget = null;
+      }
+      const wager = Math.max(0, Number(f._duelWager) || 0);
+      if (wager > 0 && playerEntity) {
+        playerEntity.goldPieces = Math.max(0, (Number(playerEntity.goldPieces) || 0) + wager);
+      }
+      f._duelWager = 0;
+      const advName = f._advRecord?.name || f.entity?.name || 'Adventurer';
+      recordAdventurerGrudge(advName);
+      say?.(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.PLAYER_WON, advName, wager), 5);
+      return;
+    }
     if (f.entity.health <= 0) {
       // ARENA2: THE FOE YIELD FLOOR - nobody dies on the arena's sand. A bout fighter reaching the floor is held at the
       // player's own 1 HP (playerEntity.hurtPlayer's `spare`) and is out of the bout: no corpse, no loot, no renown, no
@@ -1319,6 +1351,26 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // AUDIT FINAL F10: and a blow the party's weighing took to nothing is the door's word on it all the same
       else { playerBlowCameToNothing(playerEntity); audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 }); }
       landBlowEffect(f, hp0 - playerEntity.health, playerFeet);   // TELL6e: what a telegraphed blow's landing does (its word spent, landed or not); AUDIT TELL L8: one withheld or absorbed does nothing more
+      if (f._isSparring) {
+        const pThreshold = Math.max(1, Math.floor((playerEntity.maxHealth || 100) * 0.15));
+        if (playerEntity.health <= pThreshold) {
+          if (playerEntity.health < 1) playerEntity.health = 1;
+          f._isSparring = false;
+          f._surrenderedSpar = true;
+          if (f.ai) {
+            f.ai.isHostile = false;
+            f.ai.target = null;
+            f.ai.secondaryTarget = null;
+          }
+          const wager = Math.max(0, Number(f._duelWager) || 0);
+          if (wager > 0 && playerEntity) {
+            playerEntity.goldPieces = Math.max(0, (Number(playerEntity.goldPieces) || 0) - wager);
+          }
+          f._duelWager = 0;
+          const advName = f._advRecord?.name || f.entity?.name || 'Adventurer';
+          say?.(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.PLAYER_LOST, advName, wager), 5);
+        }
+      }
     } else {
       // C2-slice (combat-9): the out-of-reach whiff rings too
       audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 });

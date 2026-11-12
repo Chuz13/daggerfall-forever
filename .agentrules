@@ -46,6 +46,9 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
     - **Фабрики предметов (Item Factories)**: Запрещено напрямую пушить сырые JavaScript-объекты в `entity.items` или `playerEntity.items`. Все предметы, золото, зелья и артефакты обязаны создаваться строго через каноничные фабрики: `setItemFields`, `goldPieces` / `goldStack`, `createWeapon`, `armorOfMaterial`, `makePotion`. Каждый предмет обязан иметь `uid`, `value`, `weightInKg`, `currentCondition` и валидные иконки.
     - **Экипировка мобов (Mob Equipment & 3D Bodies)**: Надетые вещи 3D-мобов обязаны регистрироваться в `equipTableOf(entity)` и `entity.items`. 3D-рендерер Морровинда читает визуал напрямую из слотов экипировки (`equipTableOf`), а труп лутает `entity.items`.
     - **Локализация (26 языков)**: Все новые строки, названия, описания квестов и диалогов обязаны добавляться минималистично и одновременно во все 26 языковых файлов в `locales/<lang>/Port_Strings.csv` без хардкода строк в логике.
+    - **Контракт сцены и AI-моторов (Scene & Motor Seam)**: При спавне через `spawnFoe` всегда валидировать `rec.ai` и `rec.entity`. Координаты моба мутировать только согласованно с мотором `ai.feet` (не отрывать физику от рендера).
+    - **Анти-NaN защита в WebGL (Finite & Anti-NaN Guard)**: Любые координаты, размеры, углы yaw перед упаковкой в буферы рендера (`packLight`, `queueCharacterSprite`, `drawRigSpriteBox`) проверять через `Number.isFinite()`.
+    - **Безопасность кошелька игрока (Inventory Integrity)**: Любые списания золота оборачивать в `Math.max(0, ...)`, предметы выдавать строго через `mintCondition` и `setItemFields`.
    
    
    Also always add any new text in all languages currently present in the game. 

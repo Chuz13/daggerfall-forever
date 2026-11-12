@@ -95,6 +95,13 @@ import {
   CRISIS_TYPE,
   CRISIS_PHASE,
 } from './living/regionState.js';
+import {
+  tickAdventurerSimulation,
+  killAdventurerInDungeon,
+  setAdventurerLevel,
+  getAdventurerSimRegistry,
+  ADVENTURER_STATUS,
+} from './living/adventurerSim.js';
 import { REGION_FLAGS, turnOnConditionFlag, turnOffConditionFlag } from './region/regionConditions.js';
 import { regionPowerUpdate } from './region/regionPower.js';
 import { applyLichdom, cureLichdom, isLich, applyAncientLichdom, cureAncientLichdom, isAncientLich, isPlayerDisguised, lichdomMagicRound } from './necromancy/lichdomStatus.js';
@@ -1704,6 +1711,52 @@ registerCommand(
     const ctx = getDebugSceneContext();
     if (!ctx?.tele2crisis) return 'Crisis teleport is only available in world mode.';
     return await ctx.tele2crisis(args[0] ? String(args[0]).toLowerCase() : null);
+  }
+);
+
+registerCommand(
+  'living',
+  'Living Tamriel simulation controls: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>',
+  'living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>',
+  (args = []) => {
+    const scope = String(args[0] || '').toLowerCase();
+    if (scope === 'adv' || scope === 'adventurer') {
+      const sub = String(args[1] || '').toLowerCase();
+      if (sub === 'tick') {
+        const days = Math.max(1, Math.min(365, parseInt(args[2], 10) || 1));
+        for (let d = 0; d < days; d++) {
+          tickAdventurerSimulation({ playerEntity, rng: Math.random });
+        }
+        return `[Living Tamriel] Simulated ${days} day(s) of adventurer ecosystem activity.`;
+      }
+      if (sub === 'kill_in_dungeon') {
+        const regIdx = args[2] != null ? parseInt(args[2], 10) : (playerEntity?.currentRegionIndex ?? null);
+        const res = killAdventurerInDungeon(Number.isFinite(regIdx) ? regIdx : null);
+        if (!res) return 'No active delving adventurer found to kill.';
+        return `[Living Tamriel] Adventurer ${res.adventurer.name} (${res.adventurer.className}, Lv.${res.adventurer.level}) fell in ${res.dungeonName} (${res.dungeonId})! Fallen remains recorded in boss chest.`;
+      }
+      if (sub === 'setlevel') {
+        const idOrName = args[2];
+        const newLvl = parseInt(args[3], 10);
+        if (!idOrName || !Number.isFinite(newLvl)) return 'Usage: living adv setlevel <name|id> <level (1..45)>';
+        const adv = setAdventurerLevel(idOrName, newLvl);
+        if (!adv) return `Adventurer "${idOrName}" not found.`;
+        return `[Living Tamriel] Updated ${adv.name} to Level ${adv.level} (Gear Tier ${adv.gearTier}).`;
+      }
+      if (sub === 'list') {
+        const reg = getAdventurerSimRegistry();
+        const pool = reg?.pool || [];
+        const regIdx = args[2] != null ? parseInt(args[2], 10) : (playerEntity?.currentRegionIndex ?? 0);
+        const filtered = pool.filter((a) => a.currentRegion === regIdx && a.status !== ADVENTURER_STATUS.DEAD);
+        const lines = [`Adventurers in Region ${regIdx} (${REGION_NAMES[regIdx] || 'Unknown'}): ${filtered.length}`];
+        for (const a of filtered) {
+          lines.push(` - [ID ${a.id}] ${a.name} (${a.className}, Lv.${a.level}, T${a.gearTier}) [${a.trait}] Status: ${a.status}${a.targetLocationName ? ` -> ${a.targetLocationName}` : ''}`);
+        }
+        return lines.join('\n');
+      }
+      return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>';
+    }
+    return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>';
   }
 );
 

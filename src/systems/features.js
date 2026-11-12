@@ -2059,6 +2059,26 @@ export const FEATURES = Object.freeze([
     }),
   }),
   Object.freeze({
+    id: 'living-adventurer-loot',
+    group: 'world',
+    get title() { return t('features.livingAdventurerLoot.title', 'Adventurer corpse loot'); },
+    get note() { return t('features.livingAdventurerLoot.note', 'Governs equipment dropped by defeated adventurers: empty, supplies only, standard humanoid, or full equipment.'); },
+    get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({
+      store: 'prefs',
+      key: 'livingAdventurerLootMode',
+      initial: 'full',
+      online: 'player',
+      tiers: Object.freeze([
+        Object.freeze({ value: 'zero', get label() { return t('features.livingAdventurerLoot.zero', 'Empty'); } }),
+        Object.freeze({ value: 'supplies', get label() { return t('features.livingAdventurerLoot.supplies', 'Supplies'); } }),
+        Object.freeze({ value: 'standard', get label() { return t('features.livingAdventurerLoot.standard', 'Standard'); } }),
+        Object.freeze({ value: 'full', get label() { return t('features.livingAdventurerLoot.full', 'Full Gear'); } }),
+      ]),
+    }),
+  }),
+  Object.freeze({
     id: 'living-road-adventurers',
     group: 'world',
     get title() { return t('features.livingRoadAdventurers.title', 'Wandering road adventurers'); },

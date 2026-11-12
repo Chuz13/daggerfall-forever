@@ -48,6 +48,14 @@ export const LIVING_WILDERNESS_LOOT = Object.freeze({
   SUPPLIES: 'supplies', // Consumables and pocket gold only
 });
 
+/** Loot policy for defeated living world adventurers. */
+export const LIVING_ADVENTURER_LOOT = Object.freeze({
+  ZERO: 'zero',       // Corpses emptied / pocket copper only
+  SUPPLIES: 'supplies', // Consumables and pocket gold only
+  STANDARD: 'standard', // Classic DFU humanoid loot (~25% gear drop)
+  FULL: 'full',       // 100% droppable loot (worn gear, artifacts, gold)
+});
+
 function parseTierValue(v) {
   if (Number.isInteger(v)) return v;
   if (typeof v === 'string') {
@@ -172,6 +180,15 @@ export const LivingTamrielConfig = {
   },
   set wildernessLootMode(v) {
     setPref('livingWildernessLootMode', String(v).toLowerCase());
+  },
+
+  get adventurerLootMode() {
+    const v = String(getPref('livingAdventurerLootMode') ?? LIVING_ADVENTURER_LOOT.FULL).toLowerCase();
+    if (v === LIVING_ADVENTURER_LOOT.ZERO || v === LIVING_ADVENTURER_LOOT.SUPPLIES || v === LIVING_ADVENTURER_LOOT.STANDARD) return v;
+    return LIVING_ADVENTURER_LOOT.FULL;
+  },
+  set adventurerLootMode(v) {
+    setPref('livingAdventurerLootMode', String(v).toLowerCase());
   },
 
   // Tunables & Thresholds

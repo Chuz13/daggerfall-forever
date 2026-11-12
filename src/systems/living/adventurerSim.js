@@ -18,10 +18,14 @@
 import { BAY_REGION_COUNT, REGION_NAMES } from '../../formats/mapsTables.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getLivingDirectorState } from './livingDirector.js';
+import { getRegionState } from './regionState.js';
 import { LEVEL_CAP } from '../levelCap.js';
 import { isMainStoryDungeon } from '../../world/dungeon/dungeonTextures.js';
 import { SKILLS, skillValue } from '../skills.js';
 import { dice100 } from '../../combat/formulas.js';
+import { mintCondition, setItemFields } from '../item/itemTemplates.js';
+import { addItem } from '../inventory.js';
+import { GEM_IDS } from '../loot/gemGrades.js';
 import {
   resolveLivingRoll,
   computeRoleplayBribeMultiplier,
@@ -224,14 +228,182 @@ export function ensureAdventurerPool(rngOrOptions = Math.random, regionCount = B
   return reg.pool;
 }
 
+export const REGIONAL_DUNGEON_NAMES = Object.freeze([
+  { suffix: 'Hold', type: 'Keep' },
+  { suffix: 'Crypt', type: 'Crypt' },
+  { suffix: 'Labyrinth', type: 'Labyrinth' },
+  { suffix: 'Ruins', type: 'Ruin' },
+  { suffix: 'Mine', type: 'Mine' },
+  { suffix: 'Den', type: 'Den' },
+  { suffix: 'Coven', type: 'Coven' },
+  { suffix: 'Catacombs', type: 'Crypt' },
+  { suffix: 'Tower', type: 'Keep' },
+  { suffix: 'Vault', type: 'Ruin' },
+]);
+
+/**
+ * Returns a canonical regional dungeon descriptor with name and dungeon type.
+ * Uses iconic canonical DFU dungeons for major regions.
+ * @param {number} regionIndex
+ * @param {number} slotIndex
+ * @returns {{ id: string, name: string, type: string }}
+ */
+export function getRegionalDungeonDescriptor(regionIndex, slotIndex) {
+  const regName = REGION_NAMES[regionIndex] || 'Wilderness';
+  const slot = Math.abs(Math.trunc(Number(slotIndex) || 0)) % 10;
+  const tmpl = REGIONAL_DUNGEON_NAMES[slot] || REGIONAL_DUNGEON_NAMES[0];
+  if (regionIndex === 17 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Privateer's Hold [Keep]", type: 'Keep' };
+  if (regionIndex === 17 && slot === 1) return { id: `dungeon_${regionIndex}_1`, name: "Castle Daggerfall Dungeons [Labyrinth]", type: 'Labyrinth' };
+  if (regionIndex === 23 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Wayrest Sewers [Labyrinth]", type: 'Labyrinth' };
+  if (regionIndex === 20 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Ruins of Kemel-Ze [Ruin]", type: 'Ruin' };
+  return {
+    id: `dungeon_${regionIndex}_${slot}`,
+    name: `${regName} ${tmpl.suffix} [${tmpl.type}]`,
+    type: tmpl.type,
+  };
+}
+
+/**
+ * Calculates concrete delve success and survival probabilities based on traits,
+ * dungeon types, regional crises, and level.
+ *
+ * @param {Object} adv
+ * @param {string} dungeonType
+ * @param {string} [regionCrisis]
+ * @param {number} [playerLevel=1]
+ * @param {Function} [rng=Math.random]
+ * @returns {{ success: boolean, demise: boolean, baseSuccess: number, demiseChanceOnFail: number }}
+ */
+export function calculateDelveOutcome(adv, dungeonType, regionCrisis = null, playerLevel = 1, rng = Math.random) {
+  let baseSuccess = 0.55 + Math.min(0.35, (adv.level || 1) * 0.02);
+  let demiseChanceOnFail = 0.25; // 25% base death rate on delve failure
+
+  switch (adv.trait) {
+    case 'CAUTIOUS':
+      baseSuccess -= 0.05; // Prudent: avoids reckless gambits
+      demiseChanceOnFail = 0.05; // 95% survival rate on failure!
+      break;
+    case 'ARROGANT':
+      baseSuccess += 0.05; // Reckless bravado
+      demiseChanceOnFail = 0.50; // Double mortality if outmatched
+      break;
+    case 'ENVIOUS':
+      if (playerLevel > (adv.level || 1)) {
+        baseSuccess += 0.08; // Pushed to the limit to outdo the player
+        demiseChanceOnFail = 0.40;
+      }
+      break;
+    case 'CUTTHROAT':
+      if (dungeonType === 'Ruin' || dungeonType === 'Crypt' || dungeonType === 'Den') {
+        baseSuccess += 0.10; // Ruthless ambush and survival tactics in tight ruins
+      }
+      demiseChanceOnFail = 0.15; // Escape tricks
+      break;
+    case 'HONORABLE':
+      if (dungeonType === 'Crypt' || dungeonType === 'Catacombs') {
+        baseSuccess += 0.10; // Righteous fortitude against undead
+      }
+      break;
+    case 'DUELIST':
+      if (dungeonType === 'Keep' || dungeonType === 'Labyrinth') {
+        baseSuccess += 0.10; // Martial prowess in fortified halls
+      }
+      break;
+    case 'MERCENARY':
+      if (dungeonType === 'Mine' || dungeonType === 'Vault') {
+        baseSuccess += 0.10; // Gold-motivated efficiency
+      }
+      demiseChanceOnFail = 0.10; // Pragmatic: withdraws when blood costs exceed coin
+      break;
+  }
+
+  // Regional Crisis Modifiers
+  if (regionCrisis === 'WAR' || regionCrisis === 'CIVIL_STRIFE') {
+    baseSuccess -= 0.10;
+    demiseChanceOnFail += 0.10;
+  } else if (regionCrisis === 'PLAGUE' || regionCrisis === 'FAMINE') {
+    baseSuccess -= 0.05;
+    demiseChanceOnFail += 0.05;
+  }
+
+  baseSuccess = Math.max(0.15, Math.min(0.95, baseSuccess));
+  const success = rng() < baseSuccess;
+  const demise = !success && rng() < demiseChanceOnFail;
+
+  return { success, demise, baseSuccess, demiseChanceOnFail };
+}
+
+/**
+ * Forces an active delving adventurer to perish in their current dungeon, leaving fallen remains.
+ * @param {number|null} [regionIndex=null]
+ * @returns {{ adventurer: any, dungeonId: string, dungeonName: string }|null}
+ */
+export function killAdventurerInDungeon(regionIndex = null) {
+  const reg = getAdventurerSimRegistry();
+  const pool = reg.pool || [];
+  const target = pool.find((a) => a.status === ADVENTURER_STATUS.DELVING && (regionIndex == null || a.currentRegion === regionIndex))
+    || pool.find((a) => a.status !== ADVENTURER_STATUS.DEAD && (regionIndex == null || a.currentRegion === regionIndex));
+  if (!target) return null;
+
+  target.status = ADVENTURER_STATUS.DEAD;
+  target.daysRemainingInAction = 0;
+  const slot = Math.floor(Math.random() * 10);
+  const desc = getRegionalDungeonDescriptor(target.currentRegion, slot);
+  const locId = target.targetLocationId || desc.id;
+  const dungeonName = target.targetLocationName || desc.name;
+
+  if (!reg.fallenRemains[locId]) reg.fallenRemains[locId] = [];
+  reg.fallenRemains[locId].push({
+    adventurerName: target.name,
+    className: target.className,
+    trait: target.trait,
+    level: target.level,
+    gearTier: target.gearTier,
+    dungeonName,
+  });
+
+  // Respawn newcomer immediately
+  reg.nextId = (reg.nextId || pool.length) + 1;
+  const newcomer = createVirtualAdventurer(reg.nextId, target.currentRegion, Math.random);
+  pool.push(newcomer);
+
+  return { adventurer: target, dungeonId: locId, dungeonName };
+}
+
+/**
+ * Sets an adventurer's level and recalculates their gear tier (1..9).
+ * @param {string|number} identifier Name substring or ID
+ * @param {number} newLevel 1..LEVEL_CAP
+ * @returns {any|null}
+ */
+export function setAdventurerLevel(identifier, newLevel) {
+  const reg = getAdventurerSimRegistry();
+  const pool = reg.pool || [];
+  const level = Math.max(1, Math.min(LEVEL_CAP, Math.trunc(Number(newLevel) || 1)));
+  let found = null;
+  if (Number.isFinite(Number(identifier))) {
+    const idNum = Number(identifier);
+    found = pool.find((a) => a.id === idNum) || pool[idNum];
+  }
+  if (!found && typeof identifier === 'string') {
+    const q = identifier.toLowerCase();
+    found = pool.find((a) => a.name.toLowerCase().includes(q));
+  }
+  if (!found) return null;
+  found.level = level;
+  found.gearTier = Math.min(9, Math.floor(level / 5) + 1);
+  return found;
+}
+
 /**
  * Simulates one daily step for the entire adventurer ecosystem.
  *
  * @param {Object} [params]
  * @param {Array<{ mapId: number|string, isMainQuest?: boolean }>} [params.activeQuestSites] List of active player quest sites
  * @param {() => number} [params.rng]
+ * @param {any} [params.playerEntity]
  */
-export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.random } = {}) {
+export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.random, playerEntity = null } = {}) {
   const tier = Number(LivingTamrielConfig.adventurers);
   if (tier === PRESENCE.OFF) return;
 
@@ -273,11 +445,14 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
       const locId = adv.targetLocationId;
       const isImmune = isQuestImmuneLocation(locId, activeQuestSites, allowComp);
 
-      // Roll delve outcome: Success chance based on level
-      const baseSuccess = 0.55 + Math.min(0.35, adv.level * 0.02);
-      const success = !isImmune && rng() < baseSuccess;
+      const slot = Math.abs(parseInt(String(locId).replace(/\D/g, ''), 10) || 0) % 10;
+      const desc = getRegionalDungeonDescriptor(adv.currentRegion, slot);
+      const dungeonType = adv.targetDungeonType || desc.type;
+      const regCrisis = getRegionState(adv.currentRegion)?.crisis;
+      const pLevel = Number(playerEntity?.level || 1);
+      const outcome = calculateDelveOutcome(adv, dungeonType, regCrisis, pLevel, rng);
 
-      if (success) {
+      if (outcome.success && !isImmune) {
         adv.status = ADVENTURER_STATUS.IDLE;
         adv.delveSuccessCount++;
         adv.daysRemainingInAction = 0;
@@ -312,7 +487,7 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
             }
           }
         }
-      } else {
+      } else if (outcome.demise) {
         // Demise in dungeon: Leave gear as loot in boss chest
         adv.status = ADVENTURER_STATUS.DEAD;
         adv.daysRemainingInAction = 0;
@@ -327,6 +502,7 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
             trait: adv.trait,
             level: adv.level,
             gearTier: adv.gearTier,
+            dungeonName: adv.targetLocationName || desc.name,
           });
         }
 
@@ -335,8 +511,14 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
         reg.nextId = (reg.nextId || pool.length) + 1;
         const newcomer = createVirtualAdventurer(reg.nextId, adv.currentRegion, rng);
         pool.push(newcomer);
+      } else {
+        // Failed delve, but survived (retreated wounded)
+        adv.status = ADVENTURER_STATUS.IDLE;
+        adv.daysRemainingInAction = 1;
       }
       adv.targetLocationId = null;
+      adv.targetLocationName = null;
+      adv.targetDungeonType = null;
       continue;
     }
 
@@ -348,10 +530,13 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
     // Currently IDLE: Pick next endeavor (Move or Delve)
     if (rng() < 0.60) {
       // Start a dungeon delve
-      const mockDungeonId = `dungeon_${adv.currentRegion}_${Math.floor(rng() * 10)}`;
-      if (!isQuestImmuneLocation(mockDungeonId, activeQuestSites, allowComp)) {
+      const slot = Math.floor(rng() * 10);
+      const desc = getRegionalDungeonDescriptor(adv.currentRegion, slot);
+      if (!isQuestImmuneLocation(desc.id, activeQuestSites, allowComp)) {
         adv.status = ADVENTURER_STATUS.DELVING;
-        adv.targetLocationId = mockDungeonId;
+        adv.targetLocationId = desc.id;
+        adv.targetLocationName = desc.name;
+        adv.targetDungeonType = desc.type;
         adv.daysRemainingInAction = 2 + Math.floor(rng() * 2);
       }
     } else {
@@ -1150,14 +1335,9 @@ export function resolveWanderingAdventurerInteraction({
         playerEntity.goldPieces += extortedGold;
       }
       if (Array.isArray(playerEntity?.items)) {
-        playerEntity.items.push({
-          group: 'Gems',
-          templateIndex: 0,
-          name: `${getAdventurerDisplayName(adv)}'s Dungeon Spoils`,
-          shortName: 'Dungeon Spoils',
-          value: extortedGold,
-          weight: 1.0,
-        });
+        const gemIdx = Math.min(GEM_IDS.length - 1, Math.floor(rng() * GEM_IDS.length));
+        const gem = mintCondition(setItemFields({ group: 'Gems', templateIndex: gemIdx, weightInKg: 0.25 }));
+        if (gem) addItem(playerEntity.items, gem);
       }
       applyRep(-2);
       return {

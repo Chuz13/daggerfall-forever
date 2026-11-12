@@ -33,7 +33,11 @@ import { expandMacros } from '../systems/talk/talkSession.js';   // MACRO1: the 
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
 import { enterDungeonAutomap, exitDungeonAutomap, detachedAutomapRecord, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, automapWaySteps, capsuleCentreFromEye, SCAN_INTERVAL_S, recordTeleporterConnection, teleporterConnection, registerAutomapConsoleCommands } from '../systems/automap/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
 import { automapKeyOf } from '../systems/automap/automap.js';   // TESA8: a dungeon's automap key by its location - a lair past the Bay its own
-import { isDungeonInCooldown, claimFallenAdventurerRemains, getDungeonActiveAdventurer, getActiveAdventurerCompanion, dismissAdventurerCompanion } from '../systems/living/adventurerSim.js';
+import { isDungeonInCooldown, claimFallenAdventurerRemains, getDungeonActiveAdventurer, getActiveAdventurerCompanion, dismissAdventurerCompanion, DUEL_OUTCOME } from '../systems/living/adventurerSim.js';
+import { recordAdventurerGrudge } from '../systems/living/nemesisHost.js';
+import { LIVING_WORDS } from '../systems/living/livingWords.js';
+import { equipAdventurerEntity, applyAdventurerCorpseLoot } from '../systems/living/adventurerGear.js';
+import { setCrimeCommitted, CRIMES } from '../systems/court.js';
 import { LivingTamrielConfig } from '../systems/living/livingConfig.js';
 import { CLASS_TO_MOBILE_TYPE, buildDungeonAdventurerChoiceSpec } from '../systems/living/livingWorldSpawner.js';
 import { getActiveCrisisContract, completeRegionalCrisisContract } from '../systems/living/crisisPresenter.js';
@@ -2027,7 +2031,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const mobileType = CLASS_TO_MOBILE_TYPE[hit.adv.className] ?? 144;
     const f = await spawnLooseFoe(mobileType, [sp.x, sp.y, sp.z], { level: hit.adv.level || effectiveLevel(playerEntity) }).catch(() => null);
     if (!f) return null;
-    if (f.entity) f.entity.name = `${hit.adv.name} (${hit.adv.className})`;
+    if (f.entity) {
+      f.entity.name = `${hit.adv.name} (${hit.adv.className})`;
+      f._advRecord = hit.adv;
+      equipAdventurerEntity(f.entity, hit.adv, effectiveLevel(playerEntity), Math.random);
+    }
     if (f.ai) { f.ai.isHostile = false; f.ai.detected = false; f.ai.target = null; }
     _livingDungeonAdv = { foe: f, adv: hit.adv, intercepted: hit.intercepted, interacted: false };
     return f;
@@ -6918,6 +6926,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (coop?.al === 1) opts.onFoeHit?.({ ...(foe._encId != null ? { i: foe._encId, xs: 1 } : { i: foe._surI ?? pi }), ...coop });
   }
   function damageFoe(foe, damage, playerFeet = null, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null, element = null } = {}) {   // TELL8: `wc` a joiner's blow's class (net/wire.js hitClassOf); RVN3: `element` a spell landing's (its weakness's weight)   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
+    if (fromPlayer && !peer && foe._surrenderedSpar) {
+      setCrimeCommitted(playerEntity, CRIMES.Assault);
+      hudText.add('Crime reported: Assault! You struck a surrendered sparring opponent!');
+    }
     // AUDIT 68 S19-damagefoe-dead-reentry: a corpse takes no blow. EnemyDeath runs once; the round sinks tick on
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
     if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
@@ -7061,6 +7073,25 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // host applies every blow (a SetHealth(0) and a kill are no blows, and stand as they were)
     foe.entity.health -= !bypassShield && !_whole && _sharedFoe(foe) ? partyFoeLoses(foe, healthDamage, fightN(foe)) : healthDamage;
     if (bout && healthDamage > 0) bout.hooks?.hurt?.(foe, healthDamage, { fromPlayer: fromPlayer && !peer, striker });   // ARENA2: the blow, to the bout's law
+    if (foe._isSparring && foe.entity.health <= Math.max(1, Math.floor((foe.entity.maxHealth || 30) * 0.20))) {
+      foe.entity.health = Math.max(1, Math.floor((foe.entity.maxHealth || 30) * 0.20));
+      foe._isSparring = false;
+      foe._surrenderedSpar = true;
+      if (foe.ai) {
+        foe.ai.isHostile = false;
+        foe.ai.target = null;
+        foe.ai.secondaryTarget = null;
+      }
+      const wager = Math.max(0, Number(foe._duelWager) || 0);
+      if (wager > 0 && playerEntity) {
+        playerEntity.goldPieces = Math.max(0, (Number(playerEntity.goldPieces) || 0) + wager);
+      }
+      foe._duelWager = 0;
+      const advName = foe._advRecord?.name || foe.entity?.name || 'Adventurer';
+      recordAdventurerGrudge(advName);
+      hudText.add(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.PLAYER_WON, advName, wager));
+      return;
+    }
     if (foe.entity.health <= 0) {
       // ARENA2: THE FOE YIELD FLOOR (exteriorFoes' twin) - a bout fighter at the floor is held at 1 and is out of the bout:
       // no corpse, no loot, no renown, no death notice
@@ -7129,6 +7160,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // rolled inside it, on the room's dice (roomBodyBase, from spawnCorpse); this copy rolls none of them on its own
       const _roomBody = roomLootOn() && roomCanonOfFoe(foe) != null;
       if (!_roomBody) rollCorpseKit(foe.entity, { luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a plain foe's kit, worn by nobody now, on its ladder - before the chime and the sigils read the body (Math.random, as its spawn loot's)
+      if (foe._advRecord || foe.livingRole === 'wandering_adventurer' || foe.livingRole === 'rival_adventurer') {
+        applyAdventurerCorpseLoot(foe.entity, LivingTamrielConfig.adventurerLootMode);
+      }
       spawnCorpse(foe);
       playRareDrop(audio, foe.ai.feet, foe.entity.items);   // LR3: the chime for a Rare or better on the body
       if (!_roomBody) stampWonWeapons(foe.entity.items, _sharedFoe(foe) ? fightN(foe) : 1);   // SIGIL1: the body's Magic+ weapons won online may carry a sigil; a bigger fight, better odds
@@ -7279,6 +7313,26 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const hp0 = playerEntity.health;   // AUDIT TELL L8: what the blow did is what reached health
     hurtPlayer(dmg);
     landBlowEffect(f, hp0 - playerEntity.health, playerFeet);   // TELL6e: what a telegraphed blow's landing does (its word spent, landed or not); AUDIT TELL L8: one withheld or absorbed does nothing more
+    if (f._isSparring) {
+      const pThreshold = Math.max(1, Math.floor((playerEntity.maxHealth || 100) * 0.15));
+      if (playerEntity.health <= pThreshold) {
+        if (playerEntity.health < 1) playerEntity.health = 1;
+        f._isSparring = false;
+        f._surrenderedSpar = true;
+        if (f.ai) {
+          f.ai.isHostile = false;
+          f.ai.target = null;
+          f.ai.secondaryTarget = null;
+        }
+        const wager = Math.max(0, Number(f._duelWager) || 0);
+        if (wager > 0 && playerEntity) {
+          playerEntity.goldPieces = Math.max(0, (Number(playerEntity.goldPieces) || 0) - wager);
+        }
+        f._duelWager = 0;
+        const advName = f._advRecord?.name || f.entity?.name || 'Adventurer';
+        hudText.add(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.PLAYER_LOST, advName, wager));
+      }
+    }
     // AUDIT 24 (wave 39/46): EnemyAttack.cs:406 SENDS RemoveHealth, and
     // Unity's SendMessage reaches every component - so the same blow
     // drives ShowPlayerDamage's flash AND PlayerFootsteps' 40% cry.
