@@ -208,5 +208,11 @@ describe('Living Tamriel Adventurer Gear & Combat Systems', () => {
 
     const outTick = executeLivingConsoleCommand(['adv', 'tick', '2'], { regionIndex: 17 });
     assert.match(outTick, /Simulated 2 day\(s\)/);
+
+    const outSummon = executeLivingConsoleCommand(['adv', 'summon', '0'], { regionIndex: 17, sceneHost: { standBlueprint: () => {} } });
+    assert.match(outSummon, /Summoned adventurer .* in front of you/);
+
+    const outSummonByName = executeLivingConsoleCommand(['adv', 'summon', 'kaelen'], { regionIndex: 17, sceneHost: { standBlueprint: () => {} } });
+    assert.match(outSummonByName, /Summoned adventurer/);
   });
 });

@@ -33,6 +33,7 @@ test('LivingWorldSpawner: campfire/brazier lights conform to canonical point lig
     playerEntity: { level: 10 },
     nowMinutes: 720,
     onRoad: false,
+    rng: () => 0.80, // >= 0.55 and !onRoad guarantees ROADSIDE_CAMP with CAMPFIRE
   });
 
   host.standBlueprint(bp);

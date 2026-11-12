@@ -3853,8 +3853,11 @@ export function executeLivingConsoleCommand(args, ctx) {
         match = live[Math.floor(Math.random() * live.length)] || pool[0];
       } else if (query === 'nearest') {
         match = pool.find((a) => a.currentRegion === regIdx && a.status !== ADVENTURER_STATUS.DEAD) || pool[0];
+      } else if (Number.isFinite(Number(query))) {
+        const num = Number(query);
+        match = pool.find((a) => a.id === num) || pool[num];
       } else {
-        match = pool.find((a) => (a.name || '').toLowerCase().includes(query) || (a.id || '').toLowerCase().includes(query));
+        match = pool.find((a) => (a.name || '').toLowerCase().includes(query));
       }
       if (!match) return `[Living Tamriel] Adventurer "${query}" not found in world pool.`;
 
