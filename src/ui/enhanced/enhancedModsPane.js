@@ -273,7 +273,7 @@ export function drawModsPane(body, rerender) {
 
       head.append(nameSpan, modBadge, statusBadge);
 
-      const desc = el('div', 'meta', p.desc || p.description || '');
+      const desc = el('div', 'meta', p.desc || (/** @type {any} */ (p)).description || '');
       desc.style.fontSize = '12px';
       desc.style.marginTop = '2px';
       desc.style.color = isModActive ? '#ccc' : '#666';
