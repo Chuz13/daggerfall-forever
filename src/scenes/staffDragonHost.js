@@ -29,6 +29,7 @@ export function createStaffDragonHost({
   now = () => performance.now(),
   load = loadLogo,
   third = mwViewThirdPerson,
+  online = () => false,
 }) {
   registerFlySpeedMod('dragon', dragonFlyMult);
   const saddle = createDragonSaddle({ renderer, load, look: dragonRideLook }); // DRAGON-BLUE: the Aetherbright's saddle in its colours
@@ -36,7 +37,7 @@ export function createStaffDragonHost({
     /** /dragon [on|off|blue|brass] (systems/staffDragon.js parseDragonCommand): `on` undefined turns the ride over; `look`
      *  the dragon's (DRAGON-BLUE), mounted with it or changed in the saddle. @param {{ on?: boolean, look?: number }} c @param {(line: string) => void} say */
     command(c, say) {
-      if (!mayRideDragon(glyphs())) {
+      if (!mayRideDragon(glyphs(), online())) {
         say('Only an Admin may ride the Dwarven Dragon.');
         return;
       }

@@ -32,6 +32,7 @@
 
 import { TRANSPORT_MODES, isRiding, isHorseRide, hasHorse, hasCart, hasDragon } from '../systems/transport.js';
 import { dragonMountOf, dragonLookOfItem } from '../systems/dragon/dragonMount.js';   // DRAGON7: the ridden dragon's look, for its saddle's colours
+import { dragonFiring } from '../systems/staffDragon.js';
 import { createDragonSaddle } from './dragonSaddle.js';   // DRAGON5: the tamed dragon's saddle over the view
 import { onDragonFlight, setDragonMounter } from './dragonRide.js';   // AUDIT DRAGON: its takeoff and its landing heard; DRAGON5b: the keep's way onto it
 import { dragonKeepDoor } from '../systems/dragon/dragonKeep.js';   // DRAGON5b: the tamed dragon where it waits
@@ -290,7 +291,7 @@ export function createMountRig({
       }
       // COATS1: a look chosen in the saddle (the Stable card) dresses the sprite - the old one drawn until the new is up
       if (_artFor && isHorseRide(player.transportMode) && _artFor !== artKey(player.transportMode)) loadArt(player.transportMode);
-      if (player.transportMode === TRANSPORT_MODES.Dragon && !ridePaused && !mwViewThirdPerson()) saddle.draw(canvas);   // DRAGON5; DRAGON-POV: out of the head the dragon stands in the world (scenes/dragonViewHost.js)
+      if (player.transportMode === TRANSPORT_MODES.Dragon && !ridePaused && !mwViewThirdPerson()) saddle.draw(canvas, dragonFiring(performance.now()));   // DRAGON5; DRAGON-POV: out of the head the dragon stands in the world (scenes/dragonViewHost.js)
       // COATS3D: on the Morrowind body's 3D horse, that horse is the one in first person - drawn here, in the sprite's
       // place (after the world, under the hands), and the sprite stands down
       if (isHorseRide(player.transportMode) && !ridePaused && !mwViewHides().horse && mwViewDrawSaddle(typeof canvas === 'function' ? canvas() : canvas)) return r;

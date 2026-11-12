@@ -4,6 +4,7 @@
 // balls that strike monsters alone, for DRAGON_BOLT_DAMAGE each. /dragon again lands me. This page alone: the ride,
 // the pace and the balls are mine, never sent; no relay, no account change.
 import { POSE_RIDE, relaySupportsDragonRide } from '../net/wire.js'; // DRAGON1: the ride's code and its one relay gate
+import { dragonMounted } from '../player/dragonRide.js';
 
 /** The glyphs that may ride: the Developer's (the panel's Admin) and Shadow Fang's. */
 export const DRAGON_GLYPHS = Object.freeze(['dev', 'shadowfang']);
@@ -42,10 +43,14 @@ export const dragonPoseRide = (mode = null) =>
 
 /** @type {{ flyWas: boolean, firedAt: number, look: number } | null} */
 let _ride = null;
+let _mountFiredAt = -Infinity;
 
-/** Whether a player wearing `glyphs` may ride. @param {unknown} glyphs */
-export const mayRideDragon = (glyphs) => Array.isArray(glyphs) && glyphs.some((g) => DRAGON_GLYPHS.includes(g));
+/** Whether a player wearing `glyphs` may ride. @param {unknown} glyphs @param {boolean} [online] */
+export const mayRideDragon = (glyphs, online = true) =>
+  !online || (Array.isArray(glyphs) && glyphs.some((g) => DRAGON_GLYPHS.includes(g)));
 export const ridingDragon = () => _ride !== null;
+/** Whether dragon shoulder cannons are armed on attack clicks (admin ride or tamed dragon mount). */
+export const dragonCannonsActive = () => ridingDragon() || dragonMounted();
 /** Mount: `flyWas` is /fly before it, given back when I land; `look` the dragon's (1 the Aetherbright, DRAGON-BLUE). */
 export function mountDragon(flyWas = false, look = 0) {
   _ride = { flyWas: !!flyWas, firedAt: -Infinity, look: look === 1 ? 1 : 0 };
@@ -70,8 +75,12 @@ export const dragonFlyMult = () => (_ride ? DRAGON_FLY_MULT : 1);
 let _volleys = 0;
 /** A volley at `now` (ms): true and the clock set when the cannons are ready. @param {number} now */
 export function dragonFire(now) {
-  if (!_ride || now - _ride.firedAt < DRAGON_BOLT_COOLDOWN_MS) return false;
-  _ride.firedAt = now;
+  const active = _ride !== null || dragonMounted();
+  if (!active) return false;
+  const last = _ride ? _ride.firedAt : _mountFiredAt;
+  if (now - last < DRAGON_BOLT_COOLDOWN_MS) return false;
+  if (_ride) _ride.firedAt = now;
+  else _mountFiredAt = now;
   _volleys = (_volleys + 1) & 0xffff;
   return true;
 }
@@ -94,7 +103,9 @@ export function drawPeerCast(fx, look, rd) {
   for (const v of dragonVolley(look.from, look.dir)) fx({ ...look, from: v.pos, dir: v.dir });
 }
 /** Whether the saddle shows its firing picture at `now`. @param {number} now */
-export const dragonFiring = (now) => !!_ride && now - _ride.firedAt < DRAGON_FIRE_SHOW_MS;
+export const dragonFiring = (now) =>
+  (_ride !== null && now - _ride.firedAt < DRAGON_FIRE_SHOW_MS) ||
+  (dragonMounted() && now - _mountFiredAt < DRAGON_FIRE_SHOW_MS);
 
 /** The shock ball's bundle: shock, at range, Damage Health - drawn and sounded as a spell, landed by the ball's own hurt. */
 export function dragonBolt() {
@@ -185,4 +196,5 @@ export function _resetDragonRide() {
   _ride = null;
   _relayKeepsRide = false;
   _volleys = 0;
+  _mountFiredAt = -Infinity;
 }

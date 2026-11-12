@@ -6916,7 +6916,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // RR2: the seams EnhancedRiding's component reads off the scene - in a town (PlayerGPS.IsPlayerInTown(true)), the transport mode
   const dragonView = createDragonViewHost(renderer, pipeline);   // DRAGON-POV: the wheel out of the head on a dragon shows the dragon
-  const staffDragon = createStaffDragonHost({ renderer, canvas, glyphs: () => _staffGlyphs, paused: () => gamePaused() });   // DRAGON-RIDE: /dragon, the flight's pace and the saddle (its cannons are the cast engine's)
+  const staffDragon = createStaffDragonHost({ renderer, canvas, glyphs: () => _staffGlyphs, paused: () => gamePaused(), online: () => params.has('online') });   // DRAGON-RIDE: /dragon, the flight's pace and the saddle (its cannons are the cast engine's)
   setRrHostSeams({ inTown: () => _isPlayerInTownStrict(), transportMode: () => player.transportMode, riding: () => player.riding });
   preloadPauseFlowArt({ renderer, fetchBytes, palette }).catch((e) => console.warn('[pause] pause/controls art unavailable:', e?.message ?? e));   // I3/I4
   // B1 + AUDIT B-C2: an async open must not clobber a window the

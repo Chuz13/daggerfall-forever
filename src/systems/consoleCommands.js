@@ -79,6 +79,7 @@ import { starsFor, craftPointsFor } from '../net/firmament/firmamentLaw.js';
 import { allOfflineHomes, inheritOfflineHome, _resetForTests as resetOfflineHomes } from './offlineHomes.js';
 import { getActiveOfflineRecord as getActiveProfRecord, saveOfflineRecord as saveProfRecord, createNewRecord as createNewProfRecord } from './offlineProfessions.js';
 import { newDragonMount, hasDragon, DRAGON_MOUNT_TEMPLATE } from './dragon/dragonMount.js';
+import { ridingDragon, mountDragon, landDragon, setDragonRideLook } from './staffDragon.js';
 import { PROFESSIONS, rankOfXp, xpForRank } from '../net/professionLaw.js';
 import { giveCarried, hasBag } from './materialsBag.js';
 import { BAG_TEMPLATE } from '../net/bagLaw.js';
@@ -2363,6 +2364,29 @@ function handleGiveDragonCommand(args = []) {
 registerCommand('give_dragon', 'Add a Dwarven Dragon mount to inventory: give_dragon [brass|blue|aether]', 'give_dragon [brass|blue|aether]', handleGiveDragonCommand);
 registerCommand('givedragon', 'Add a Dwarven Dragon mount to inventory: givedragon [brass|blue|aether]', 'givedragon [brass|blue|aether]', handleGiveDragonCommand);
 registerCommand('dragon_mount', 'Add a Dwarven Dragon mount to inventory: dragon_mount [brass|blue|aether]', 'dragon_mount [brass|blue|aether]', handleGiveDragonCommand);
+
+function handleDragonRideCommand(args = []) {
+  const sub = String(args[0] || '').toLowerCase();
+  if (sub === 'off') {
+    if (ridingDragon()) {
+      setStaffPowers({ fly: !!landDragon() });
+      return 'Dismounted dragon.';
+    }
+    return 'Not currently riding dragon.';
+  }
+  const isBlue = sub === 'blue' || sub === 'aether' || sub === 'aetherbright';
+  const look = isBlue ? 1 : 0;
+  if (ridingDragon()) {
+    setDragonRideLook(look);
+    return `Changed dragon look to ${isBlue ? 'Aetherbright' : 'Brass'}.`;
+  }
+  mountDragon(staffPowers().fly, look);
+  setStaffPowers({ fly: true });
+  return `Mounted ${isBlue ? 'Aetherbright' : 'Brass'} Dwarven Dragon with cannons armed! Click to fire cannons, type 'dragon off' to dismount.`;
+}
+
+registerCommand('dragon', 'Ride the Dwarven Dragon with active shoulder cannons: dragon [on|off|blue|brass]', 'dragon [on|off|blue|brass]', handleDragonRideCommand);
+registerCommand('dragon_ride', 'Ride the Dwarven Dragon with active shoulder cannons: dragon_ride [on|off|blue|brass]', 'dragon_ride [on|off|blue|brass]', handleDragonRideCommand);
 
 registerCommand('open_perks', 'Inspect Character Perks in the Growth tab', 'open_perks', () => {
   return 'Character Perks & Feats are integrated into the Growth tab of the Pause Menu (Esc -> Growth). Use "perk list" or "perk unlock <id|all>" from console.';

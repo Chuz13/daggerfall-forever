@@ -61,7 +61,7 @@ import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bu
 import { pvpPotionBundle } from '../combat/pvpPotions.js';   // PVP-POTIONS
 import { potentEffect } from '../net/alchemyLaw.js';   // PROF12: a Potent potion's magnitudes
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
-import { ridingDragon, dragonFire, dragonBolt, dragonVolley, dragonAimDistance, DRAGON_BOLT_SPEED, DRAGON_BOLT_DAMAGE } from '../systems/staffDragon.js';   // DRAGON-RIDE: the dragon's shoulder cannons
+import { ridingDragon, dragonCannonsActive, dragonFire, dragonBolt, dragonVolley, dragonAimDistance, DRAGON_BOLT_SPEED, DRAGON_BOLT_DAMAGE } from '../systems/staffDragon.js';   // DRAGON-RIDE: the dragon's shoulder cannons
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
 import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable, createGiftLineGate } from '../systems/allyCast.js'; import { shownSpellName } from '../systems/loot/loot.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use; L10N3e: the caster's line names the spell as the book shows it (the frame keeps the canonical name)
@@ -1888,7 +1888,7 @@ export function createPlayerMagic({
      *  (EntityEffectManager's), the hotbar's - and not the swing button's. With a spell in the free hand beside a drawn
      *  weapon the swing button is the WEAPON's: only a cast's own press fires the spell. */
     interceptAttack(held, { cast = false } = {}) {
-      if (held && ridingDragon()) { fireDragon(); return true; }   // DRAGON-RIDE: in the saddle every press is the cannons'
+      if (held && (ridingDragon() || dragonCannonsActive())) { fireDragon(); return true; }   // DRAGON-RIDE: in the saddle every press is the cannons'
       if (!cast && spellHandUp()) return false;
       if (held && readiedSpell != null && !pendingClickCast) { setPending(true); return true; }
       return false;

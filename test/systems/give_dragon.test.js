@@ -45,3 +45,30 @@ test('additem 1820 and additem dragon add well-formed dragon mount', () => {
   assert.equal(dragonMountWellFormed(d2), true);
 });
 
+test('dragon cannons: mayRideDragon allows offline riders', async () => {
+  const { mayRideDragon } = await import('../../src/systems/staffDragon.js');
+  assert.equal(mayRideDragon([], false), true, 'offline allows ride without admin glyphs');
+  assert.equal(mayRideDragon([], true), false, 'online requires admin glyphs');
+});
+
+test('console command dragon mounts and dismounts with cannons armed', async () => {
+  const { ridingDragon, dragonCannonsActive, dragonFire, dragonFiring, _resetDragonRide } = await import('../../src/systems/staffDragon.js');
+  _resetDragonRide();
+  assert.equal(ridingDragon(), false);
+  assert.equal(dragonCannonsActive(), false);
+
+  const res1 = executeConsoleLine('dragon');
+  assert.ok(res1.includes('Mounted'));
+  assert.equal(ridingDragon(), true);
+  assert.equal(dragonCannonsActive(), true);
+
+  assert.equal(dragonFire(1000), true);
+  assert.equal(dragonFiring(1050), true);
+
+  const res2 = executeConsoleLine('dragon off');
+  assert.ok(res2.includes('Dismounted'));
+  assert.equal(ridingDragon(), false);
+  assert.equal(dragonCannonsActive(), false);
+  _resetDragonRide();
+});
+
