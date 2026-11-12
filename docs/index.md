@@ -3,28 +3,27 @@ layout: home
 
 hero:
   name: "Daggerfall Forever"
-  text: "Welcome"
-  tagline: "Добро пожаловать в официальную базу знаний и руководство по игре"
+  text: "Documentation"
+  tagline: "Official guides, mechanics, and modding manual for the living world of Daggerfall Forever"
   actions:
     - theme: brand
-      text: Начать чтение
+      text: Get Started
       link: /MODDING_MANUAL
     - theme: alt
-      text: GitHub проекта
+      text: GitHub Repository
       link: https://github.com/Chuz13/daggerfall-forever
 
 features:
-  - title: ⚔️ Живой мир и механики
-    details: Полные описания систем боя, навыков, заклинаний и снаряжения.
-  - title: 🧩 Моды и расширения
-    details: Руководства по установке, настройке и созданию собственных модификаций.
-  - title: 🔍 Мгновенный поиск
-    details: Быстрый поиск по всем статьям базы знаний прямо в браузере.
+  - title: ⚔️ Living World & Mechanics
+    details: Comprehensive guides for combat systems, dynamic perks, gear progression, and adventurer simulation.
+  - title: 🧩 Native Modding
+    details: Zero-compiler JavaScript & JSON modding architecture with safe-save persistence.
+  - title: 🔍 Instant Search
+    details: Fast, client-side full-text search across all documentation directly in your browser.
 ---
 
 # Welcome!
 
-Добро пожаловать на официальный портал документации **Daggerfall Forever**.
+Welcome to the official **Daggerfall Forever** documentation portal.
 
-Здесь собраны руководства, описания игровых механик, инструкции по установке и настройке модификаций. Мы постоянно дополняем и обновляем эту базу знаний!
-
+Here you will find player guides, gameplay mechanics references, console command documentation, and technical modding manuals. This knowledge base is continuously updated directly alongside the game source code.
