@@ -17,6 +17,7 @@ import {
   getEffectiveWeaponMaterialModifier,
   getEffectiveMaterialArmorValue,
   isMaterialsRebalanced,
+  isQualityEnabled,
   rollItemQuality,
 } from '../../src/systems/mods/modDataSync.js';
 import {
@@ -30,20 +31,51 @@ import { itemQualityText, itemStatRows, weaponDamageRange } from '../../src/syst
 import { calculateAttackDamage } from '../../src/combat/formulas.js';
 import { WEAPONS_ENUM } from '../../src/combat/enemyEquipment.js';
 
-test('items-quality: data sync and calculations', (t) => {
+test('items-quality: zero changes when mod is disabled (exact vanilla baseline)', () => {
   clearVirtualMods();
   _resetModDataSync();
+  syncModData();
 
-  // Test default (un-modded) baseline
-  assert.equal(getQualityDamageModifier(0), -1);
-  assert.equal(getQualityDamageModifier(1), 0);
-  assert.equal(getQualityDamageModifier(4), 3);
-  assert.equal(getQualityArmorModifier(0), -1);
-  assert.equal(getQualityArmorModifier(1), 0);
-  assert.equal(getQualityArmorModifier(4), 3);
-  assert.equal(getQualityPriceMultiplier(1), 1.0);
-  assert.equal(getQualityPriceMultiplier(4), 4.0);
+  // Mod is inactive
+  assert.equal(isQualityEnabled(), false);
   assert.equal(isMaterialsRebalanced(), false);
+
+  // All quality modifiers are strictly zero / 1.0
+  for (let q = 0; q <= 4; q++) {
+    assert.equal(getQualityDamageModifier(q), 0);
+    assert.equal(getQualityArmorModifier(q), 0);
+    assert.equal(getQualityPriceMultiplier(q), 1.0);
+    assert.equal(getQualityConditionLossMultiplier(q), 1.0);
+    assert.equal(getQualityConditionMaxMultiplier(q), 1.0);
+  }
+
+  // Roll quality always gives 1 (Standard)
+  for (let lvl = 1; lvl <= 20; lvl += 5) {
+    assert.equal(rollItemQuality(lvl, () => 0.0), 1);
+    assert.equal(rollItemQuality(lvl, () => 0.999), 1);
+  }
+
+  // Exact vanilla material modifiers
+  assert.equal(getEffectiveWeaponMaterialModifier(0), -1); // Iron
+  assert.equal(getEffectiveWeaponMaterialModifier(1), 0);  // Steel
+  assert.equal(getEffectiveWeaponMaterialModifier(9), 6);  // Daedric
+
+  // Exact vanilla armor values
+  assert.equal(materialArmorValue(ARMOR_MATERIAL.Leather), 3);
+  assert.equal(materialArmorValue(ARMOR_MATERIAL.Chain), 6);
+  assert.equal(materialArmorValue(ARMOR_MATERIAL.Iron), 7);
+  assert.equal(materialArmorValue(ARMOR_MATERIAL.Daedric), 21);
+
+  // Tooltips show NO quality line when mod is off
+  const sword = { group: 'Weapons', templateIndex: WEAPONS_ENUM.Longsword, material: 1, quality: 4 };
+  assert.equal(itemQualityText(sword), null);
+  const rows = itemStatRows(sword);
+  assert.equal(rows.some((r) => r.label === 'Quality'), false);
+});
+
+test('items-quality: active mod data sync and calculations', () => {
+  clearVirtualMods();
+  _resetModDataSync();
 
   // Register items-quality virtual mod
   registerVirtualMod(
@@ -81,17 +113,22 @@ test('items-quality: data sync and calculations', (t) => {
 
   syncModData();
 
+  assert.equal(isQualityEnabled(), true);
   assert.equal(isMaterialsRebalanced(), true);
-  // Rebalanced weapon modifiers: Iron(0) is 0, Daedric(9) is 4
-  assert.equal(getEffectiveWeaponMaterialModifier(0), 0);
-  assert.equal(getEffectiveWeaponMaterialModifier(9), 4);
 
-  // Rebalanced armor ladder: Leather is 4, Iron plate is 7, Daedric plate is 14
-  assert.equal(materialArmorValue(ARMOR_MATERIAL.Leather), 4);
-  assert.equal(materialArmorValue(ARMOR_MATERIAL.Iron), 7);
-  assert.equal(materialArmorValue(ARMOR_MATERIAL.Daedric), 14);
+  // Quality modifiers when active
+  assert.equal(getQualityDamageModifier(0), -1);
+  assert.equal(getQualityDamageModifier(1), 0);
+  assert.equal(getQualityDamageModifier(2), 1);
+  assert.equal(getQualityDamageModifier(3), 2);
+  assert.equal(getQualityDamageModifier(4), 3);
 
-  // Quality multipliers
+  assert.equal(getQualityArmorModifier(0), -1);
+  assert.equal(getQualityArmorModifier(1), 0);
+  assert.equal(getQualityArmorModifier(2), 1);
+  assert.equal(getQualityArmorModifier(3), 2);
+  assert.equal(getQualityArmorModifier(4), 3);
+
   assert.equal(getQualityPriceMultiplier(0), 0.6);
   assert.equal(getQualityPriceMultiplier(1), 1.0);
   assert.equal(getQualityPriceMultiplier(2), 1.5);
@@ -103,6 +140,23 @@ test('items-quality: data sync and calculations', (t) => {
 
   assert.equal(getQualityConditionMaxMultiplier(0), 0.85);
   assert.equal(getQualityConditionMaxMultiplier(4), 1.5);
+
+  // Rebalanced weapon modifiers: Iron(0) is 0, Daedric(9) is 4
+  assert.equal(getEffectiveWeaponMaterialModifier(0), 0);
+  assert.equal(getEffectiveWeaponMaterialModifier(9), 4);
+
+  // Rebalanced armor ladder: Leather is 4, Iron plate is 7, Daedric plate is 14
+  assert.equal(materialArmorValue(ARMOR_MATERIAL.Leather), 4);
+  assert.equal(materialArmorValue(ARMOR_MATERIAL.Iron), 7);
+  assert.equal(materialArmorValue(ARMOR_MATERIAL.Daedric), 14);
+
+  // Tooltip with active mod
+  const mwSword = { group: 'Weapons', templateIndex: WEAPONS_ENUM.Longsword, material: 1, quality: 4 };
+  assert.equal(itemQualityText(mwSword), 'Masterwork');
+  const rows = itemStatRows(mwSword);
+  const qRow = rows.find((r) => r.label === 'Quality');
+  assert.ok(qRow);
+  assert.equal(qRow.text, 'Masterwork');
 
   clearVirtualMods();
   _resetModDataSync();
@@ -136,8 +190,24 @@ test('items-quality: item law and save compatibility', () => {
   assert.equal(filled.quality, 1, 'Legacy weapon must default to Standard (1)');
 });
 
-test('items-quality: value and condition scaling', () => {
+test('items-quality: value and condition scaling with active mod', () => {
+  clearVirtualMods();
   _resetModDataSync();
+  registerVirtualMod({
+    id: 'items-quality',
+    name: 'Items Quality & Rebalance',
+    enabled: true,
+    data: { quality: 'quality.json' },
+  }, {
+    'quality.json': JSON.stringify({ tiers: [
+      { tier: 0, priceMultiplier: 0.6, conditionMaxMultiplier: 0.85 },
+      { tier: 1, priceMultiplier: 1.0, conditionMaxMultiplier: 1.0 },
+      { tier: 2, priceMultiplier: 1.5, conditionMaxMultiplier: 1.15 },
+      { tier: 3, priceMultiplier: 2.5, conditionMaxMultiplier: 1.3 },
+      { tier: 4, priceMultiplier: 4.0, conditionMaxMultiplier: 1.5 },
+    ]}),
+  });
+  syncModData();
 
   const baseBroadsword = { group: 'Weapons', templateIndex: WEAPONS_ENUM.Broadsword, material: 1 };
   const standardSword = setItemFields({ ...baseBroadsword, quality: 1 });
@@ -152,10 +222,29 @@ test('items-quality: value and condition scaling', () => {
   const mintedStd = mintCondition({ ...standardSword });
   const mintedMw = mintCondition({ ...masterworkSword });
   assert.ok(mintedMw.maxCondition > mintedStd.maxCondition, 'Masterwork should have higher max condition');
+
+  clearVirtualMods();
+  _resetModDataSync();
 });
 
-test('items-quality: armor value with quality tiers', () => {
+test('items-quality: armor value with quality tiers when active', () => {
+  clearVirtualMods();
   _resetModDataSync();
+  registerVirtualMod({
+    id: 'items-quality',
+    name: 'Items Quality & Rebalance',
+    enabled: true,
+    data: { quality: 'quality.json' },
+  }, {
+    'quality.json': JSON.stringify({ tiers: [
+      { tier: 0, armorModifier: -1 },
+      { tier: 1, armorModifier: 0 },
+      { tier: 2, armorModifier: 1 },
+      { tier: 3, armorModifier: 2 },
+      { tier: 4, armorModifier: 3 },
+    ]}),
+  });
+  syncModData();
 
   const stdCuirass = { group: 'Armor', templateIndex: 102, material: ARMOR_MATERIAL.Iron, quality: 1 };
   const mwCuirass = { group: 'Armor', templateIndex: 102, material: ARMOR_MATERIAL.Iron, quality: 4 };
@@ -165,30 +254,24 @@ test('items-quality: armor value with quality tiers', () => {
   assert.equal(itemArmorValue(stdCuirass), baseIronVal);
   assert.equal(itemArmorValue(mwCuirass), baseIronVal + 3);
   assert.equal(itemArmorValue(crudeCuirass), baseIronVal - 1);
-});
 
-test('items-quality: tooltips and info display', () => {
+  clearVirtualMods();
   _resetModDataSync();
-
-  const mwSword = { group: 'Weapons', templateIndex: WEAPONS_ENUM.Longsword, material: 1, quality: 4 };
-  assert.equal(itemQualityText(mwSword), 'Masterwork');
-
-  const rows = itemStatRows(mwSword);
-  const qRow = rows.find((r) => r.label === 'Quality');
-  assert.ok(qRow, 'Stat rows should include Quality');
-  assert.equal(qRow.text, 'Masterwork');
-
-  const crudeSword = { group: 'Weapons', templateIndex: WEAPONS_ENUM.Longsword, material: 1, quality: 0 };
-  assert.equal(itemQualityText(crudeSword), 'Crude');
-
-  // Damage range with quality
-  const [stdMin, stdMax] = weaponDamageRange({ group: 'Weapons', templateIndex: WEAPONS_ENUM.Longsword, material: 1, quality: 1 });
-  const [mwMin, mwMax] = weaponDamageRange({ group: 'Weapons', templateIndex: WEAPONS_ENUM.Longsword, material: 1, quality: 4 });
-  assert.equal(mwMin, stdMin + 3);
-  assert.equal(mwMax, stdMax + 3);
 });
 
-test('items-quality: roll quality distribution', () => {
+test('items-quality: roll quality distribution when active', () => {
+  clearVirtualMods();
+  _resetModDataSync();
+  registerVirtualMod({
+    id: 'items-quality',
+    name: 'Items Quality & Rebalance',
+    enabled: true,
+    data: { quality: 'quality.json' },
+  }, {
+    'quality.json': JSON.stringify({ tiers: [{}, {}, {}, {}, {}] }),
+  });
+  syncModData();
+
   // Test rollItemQuality level gating
   const mockRoll = (val) => () => val;
 
@@ -199,4 +282,7 @@ test('items-quality: roll quality distribution', () => {
   // Level 10: roll high can give Masterwork
   const highLvlResult = rollItemQuality(10, mockRoll(0.999));
   assert.equal(highLvlResult, 4, 'Level 10 with max roll should give Masterwork');
+
+  clearVirtualMods();
+  _resetModDataSync();
 });

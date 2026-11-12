@@ -64,6 +64,7 @@ const DEFAULT_MATERIALS_CONFIG = {
 let _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
 let _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
 let _currentQualityConfig = [...DEFAULT_QUALITY_TIERS];
+let _isQualityEnabled = false;
 let _isMaterialsRebalanced = false;
 let _rebalancedWeaponModifiers = [...REBALANCED_WEAPON_MATERIAL_MODIFIER];
 let _rebalancedArmorLadder = {
@@ -83,6 +84,7 @@ export function syncModData() {
   _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
   _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
   _currentQualityConfig = [...DEFAULT_QUALITY_TIERS];
+  _isQualityEnabled = false;
   _isMaterialsRebalanced = false;
   _rebalancedWeaponModifiers = [...REBALANCED_WEAPON_MATERIAL_MODIFIER];
   _rebalancedArmorLadder = {
@@ -170,6 +172,7 @@ export function syncModData() {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed?.tiers)) {
             _currentQualityConfig = parsed.tiers;
+            _isQualityEnabled = true;
           }
         } catch (e) {
           console.error(`[ModDataSync] Failed to parse quality data in mod ${mod.id}:`, e);
@@ -354,11 +357,23 @@ export function getMaterialStaminaDrain(materialIndex) {
 }
 
 /**
+ * Check whether item quality mod is currently active.
+ * @returns {boolean}
+ */
+export function isQualityEnabled() {
+  if (!_synced) syncModData();
+  return _isQualityEnabled;
+}
+
+/**
  * Get quality configuration for a given quality tier (0: Crude .. 4: Masterwork).
  * @param {number|undefined|null} quality
  */
 export function getQualityConfig(quality) {
   if (!_synced) syncModData();
+  if (!_isQualityEnabled) {
+    return DEFAULT_QUALITY_TIERS[1];
+  }
   const q = Number.isInteger(quality) ? Math.max(0, Math.min(4, Number(quality))) : 1;
   return _currentQualityConfig[q] ?? DEFAULT_QUALITY_TIERS[1];
 }
@@ -369,6 +384,8 @@ export function getQualityConfig(quality) {
  * @returns {number}
  */
 export function getQualityDamageModifier(quality) {
+  if (!_synced) syncModData();
+  if (!_isQualityEnabled) return 0;
   return getQualityConfig(quality).damageModifier ?? 0;
 }
 
@@ -378,6 +395,8 @@ export function getQualityDamageModifier(quality) {
  * @returns {number}
  */
 export function getQualityArmorModifier(quality) {
+  if (!_synced) syncModData();
+  if (!_isQualityEnabled) return 0;
   return getQualityConfig(quality).armorModifier ?? 0;
 }
 
@@ -387,6 +406,8 @@ export function getQualityArmorModifier(quality) {
  * @returns {number}
  */
 export function getQualityPriceMultiplier(quality) {
+  if (!_synced) syncModData();
+  if (!_isQualityEnabled) return 1.0;
   return getQualityConfig(quality).priceMultiplier ?? 1.0;
 }
 
@@ -396,6 +417,8 @@ export function getQualityPriceMultiplier(quality) {
  * @returns {number}
  */
 export function getQualityConditionLossMultiplier(quality) {
+  if (!_synced) syncModData();
+  if (!_isQualityEnabled) return 1.0;
   return getQualityConfig(quality).conditionLossMultiplier ?? 1.0;
 }
 
@@ -405,6 +428,8 @@ export function getQualityConditionLossMultiplier(quality) {
  * @returns {number}
  */
 export function getQualityConditionMaxMultiplier(quality) {
+  if (!_synced) syncModData();
+  if (!_isQualityEnabled) return 1.0;
   return getQualityConfig(quality).conditionMaxMultiplier ?? 1.0;
 }
 
@@ -455,11 +480,15 @@ export function getEffectiveMaterialArmorValue(material) {
 /**
  * Roll a quality tier (0: Crude, 1: Standard, 2: Fine, 3: Superior, 4: Masterwork)
  * taking player/item level gating into account.
+ * If quality mod is not enabled, always returns 1 (Standard).
  * @param {number} [level=1]
  * @param {() => number} [rolls=Math.random]
  * @returns {number}
  */
 export function rollItemQuality(level = 1, rolls = Math.random) {
+  if (!_synced) syncModData();
+  if (!_isQualityEnabled) return 1;
+
   let w0 = 15;
   let w1 = 55;
   let w2 = 20;
@@ -495,6 +524,7 @@ export function _resetModDataSync() {
   _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
   _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
   _currentQualityConfig = [...DEFAULT_QUALITY_TIERS];
+  _isQualityEnabled = false;
   _isMaterialsRebalanced = false;
   _rebalancedWeaponModifiers = [...REBALANCED_WEAPON_MATERIAL_MODIFIER];
   _rebalancedArmorLadder = {

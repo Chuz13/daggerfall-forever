@@ -53,7 +53,7 @@ import { isStarglass, STARGLASS_TEXT } from '../starfall/starglass.js';   // AUD
 import { isLockpick, LOCKPICK_TEXT } from '../lockpick/lockpickItem.js';   // LOCKPICK: the Lockpick's card
 import { isWeirKey } from '../eliteGates/weirKey.js'; import { EG_TEXT } from '../../net/eliteGates/egLaw.js';   // AUDIT EG V (c, L8-6): the Weir Key's card and its line (Elite-Gates.md section 5)
 import { isIliacCard, isCardBinder, iliacCardName, iliacCardLines, BINDER_CARD_LINES, isCardPack, CARD_PACK_LINES } from '../iliac/iliacItems.js';   // CARDS8: a card's name and lines, the binder's
-import { getMaterialConfig, getEffectiveWeaponMaterialModifier, getQualityDamageModifier } from '../mods/modDataSync.js';
+import { getMaterialConfig, getEffectiveWeaponMaterialModifier, getQualityDamageModifier, isQualityEnabled } from '../mods/modDataSync.js';
 import { isSurvivalItem, isCampingEquipment, isCampfireKit, isSkillet } from '../survival/items.js';   // SURV5: the survival items' own info box
 import { isFood, foodOf, foodStage, foodSatiety, isWaterskin, waterIn, WATERSKIN_CAPACITY_KG, STAGE_WORDS, FOOD_STAGE } from '../survival/food.js';   // ROAD-U: the identity DFU reads off the item's own record
 import { localizedText, localizedTable, formatText, t } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; RPT1026-CLIENT: and the Weir Key's account line
@@ -1094,6 +1094,7 @@ const DEFAULT_QUALITY_NAMES = Object.freeze(['Crude', 'Standard', 'Fine', 'Super
  * @returns {string|null}
  */
 export function itemQualityText(item) {
+  if (!isQualityEnabled()) return null;
   if (!item || !Number.isInteger(item.quality) || item.quality < 0 || item.quality > 4) return null;
   if (item.group !== 'Weapons' && item.group !== 'Armor') return null;
   if (isAmmunition(item) || isHandWraps(item)) return null;
