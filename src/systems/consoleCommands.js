@@ -78,6 +78,7 @@ import { renownForXp, renownProgress } from '../net/renown.js';
 import { starsFor, craftPointsFor } from '../net/firmament/firmamentLaw.js';
 import { allOfflineHomes, inheritOfflineHome, _resetForTests as resetOfflineHomes } from './offlineHomes.js';
 import { getActiveOfflineRecord as getActiveProfRecord, saveOfflineRecord as saveProfRecord, createNewRecord as createNewProfRecord } from './offlineProfessions.js';
+import { newDragonMount, hasDragon, DRAGON_MOUNT_TEMPLATE } from './dragon/dragonMount.js';
 import { PROFESSIONS, rankOfXp, xpForRank } from '../net/professionLaw.js';
 import { giveCarried, hasBag } from './materialsBag.js';
 import { BAG_TEMPLATE } from '../net/bagLaw.js';
@@ -659,6 +660,10 @@ export function findItemTemplate(query) {
     const t = templateByIndex(NECRO_GRIMOIRE_TEMPLATE);
     if (t) return { template: t, index: NECRO_GRIMOIRE_TEMPLATE };
   }
+  if (clean === 'dragon' || clean === 'dwarvendragon' || clean === 'dwemerdragon') {
+    const t = templateByIndex(DRAGON_MOUNT_TEMPLATE);
+    if (t) return { template: t, index: DRAGON_MOUNT_TEMPLATE };
+  }
   for (let i = 0; i < 288; i++) {
     const t = templateByIndex(i);
     if (!t?.name) continue;
@@ -803,6 +808,10 @@ function handleAddItemCommand(args = []) {
     }
     item = armorOfMaterial(match.index, armorMat);
     item.stackCount = count;
+  } else if (match.index === DRAGON_MOUNT_TEMPLATE) {
+    const hex = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    const isBlue = rawTokens.some((tok) => /blue|aether/i.test(tok));
+    item = setItemFields(newDragonMount({ id: `dg${hex}`, look: isBlue ? 1 : 0 }));
   } else {
     item = setItemFields({
       group: group ?? 'MiscItems',
@@ -2338,6 +2347,22 @@ registerCommand('giveelixir', 'Add 1x Elixir of Unlife potion to inventory', 'gi
 registerCommand('give_elixir_reagents', 'Add all reagents required to craft the Elixir of Unlife', 'give_elixir_reagents', () => handleAddItemCommand(['lich_ingredients']));
 registerCommand('give_reagents', 'Add all reagents required to craft the Elixir of Unlife', 'give_reagents', () => handleAddItemCommand(['lich_ingredients']));
 registerCommand('givereagents', 'Add all reagents required to craft the Elixir of Unlife', 'givereagents', () => handleAddItemCommand(['lich_ingredients']));
+
+function handleGiveDragonCommand(args = []) {
+  if (!playerEntity.items) playerEntity.items = [];
+  const variant = String(args[0] || '').toLowerCase();
+  const look = (variant === 'blue' || variant === 'aether' || variant === 'aetherbright') ? 1 : 0;
+  const hex = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  const dragon = setItemFields(newDragonMount({ id: `dg${hex}`, look }));
+  addItem(playerEntity.items, dragon);
+  surfacePlayer?.();
+  const kindName = look === 1 ? 'Aetherbright (Blue) Dwemer Dragon' : 'Brass Dwarven Dragon';
+  return `Added ${kindName} mount (Template: ${DRAGON_MOUNT_TEMPLATE}, ID: ${dragon.dragonId}) to inventory. Press 'T' outdoors on foot to ride.`;
+}
+
+registerCommand('give_dragon', 'Add a Dwarven Dragon mount to inventory: give_dragon [brass|blue|aether]', 'give_dragon [brass|blue|aether]', handleGiveDragonCommand);
+registerCommand('givedragon', 'Add a Dwarven Dragon mount to inventory: givedragon [brass|blue|aether]', 'givedragon [brass|blue|aether]', handleGiveDragonCommand);
+registerCommand('dragon_mount', 'Add a Dwarven Dragon mount to inventory: dragon_mount [brass|blue|aether]', 'dragon_mount [brass|blue|aether]', handleGiveDragonCommand);
 
 registerCommand('open_perks', 'Inspect Character Perks in the Growth tab', 'open_perks', () => {
   return 'Character Perks & Feats are integrated into the Growth tab of the Pause Menu (Esc -> Growth). Use "perk list" or "perk unlock <id|all>" from console.';
