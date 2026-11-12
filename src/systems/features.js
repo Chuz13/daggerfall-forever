@@ -2059,11 +2059,7 @@ export const FEATURES = Object.freeze([
     get note() { return t('features.livingAdventurers.note', 'Simulates rival adventurers delving dungeons across Tamriel, advancing, and leaving fallen remains.'); },
     get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
     kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({
-      store: 'prefs', key: 'livingAdventurers', initial: 2, online: 'player', tiers: LIVING_TIERS,
-      also: Object.freeze([Object.freeze({ store: 'prefs', key: 'livingQuestCompetition', initial: false, online: 'player' })]),
-      parts: Object.freeze([Object.freeze({ key: 'livingQuestCompetition', get label() { return t('features.livingAdventurers.questComp', 'Quest competition'); } })]),
-    }),
+    control: Object.freeze({ store: 'prefs', key: 'livingAdventurers', initial: 2, online: 'player', tiers: LIVING_TIERS }),
   }),
   Object.freeze({
     id: 'living-road-adventurers',

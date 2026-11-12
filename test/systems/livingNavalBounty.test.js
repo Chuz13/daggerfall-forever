@@ -27,19 +27,19 @@ import { setRegionCrisis, getRegionState, CRISIS_TYPE, CRISIS_PHASE } from '../.
 
 const seeded = (seed) => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
 
-test('LT-05: squadrons spawn 200-300 m from the player, 1v1 up to the tier cap', () => {
+test('LT-05: squadrons spawn 200-300 m from the player, dynamic range up to the tier cap', () => {
   resetLivingConfig();
   for (let i = 0; i < 200; i++) {
     const plan = planSquadronEncounter({ playerX: 1000, playerZ: -500, rng: seeded(i + 1) });
     assert.ok(plan);
     assert.ok(plan.distance >= NAVAL_SPAWN_MIN_M && plan.distance <= NAVAL_SPAWN_MAX_M);
-    assert.ok(plan.law.length >= 1 && plan.law.length <= 2); // MID, no war
-    assert.ok(plan.pirates.length >= 1 && plan.pirates.length <= 2);
+    assert.ok(plan.law.length >= 2 && plan.law.length <= 4); // MID range: 2..4 ships
+    assert.ok(plan.pirates.length >= 2 && plan.pirates.length <= 4);
   }
   LivingTamrielConfig.naval = PRESENCE.HIGH;
-  assert.equal(maxShipsPerSide(PRESENCE.HIGH), 3);
-  assert.equal(maxShipsPerSide(PRESENCE.MID, true), 3);
-  assert.equal(maxShipsPerSide(PRESENCE.LIGHT), 1);
+  assert.equal(maxShipsPerSide(PRESENCE.HIGH), 6);
+  assert.equal(maxShipsPerSide(PRESENCE.MID, true), 5);
+  assert.equal(maxShipsPerSide(PRESENCE.LIGHT), 2);
   LivingTamrielConfig.naval = PRESENCE.OFF;
   assert.equal(planSquadronEncounter({ playerX: 0, playerZ: 0 }), null);
   resetLivingConfig();

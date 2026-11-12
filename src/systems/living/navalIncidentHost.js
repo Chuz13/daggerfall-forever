@@ -31,16 +31,35 @@ export const NAVAL_CHOICE = Object.freeze({
 });
 
 /**
- * Largest squadron per side for a presence tier. MID keeps the frame rate safe (up to 2v1/2v2);
- * 3v3 is HIGH, or a region at war (`atWar`) on MID.
+ * Min/Max ship count ranges per squadron side.
+ * Allows asymmetric fleets (e.g. 2 patrol ships vs 3 pirate brigs) and dynamic battle masses.
+ */
+export const NAVAL_SQUADRON_RANGES = Object.freeze({
+  [PRESENCE.LIGHT]: Object.freeze({ min: 1, max: 2, warMax: 2 }),
+  [PRESENCE.MID]: Object.freeze({ min: 2, max: 4, warMax: 5 }),
+  [PRESENCE.HIGH]: Object.freeze({ min: 3, max: 6, warMax: 6 }),
+});
+
+/**
+ * Returns the min/max squadron ship range for a presence tier and war status.
  * @param {number} tier
- * @param {boolean} [atWar]
+ * @param {boolean} [atWar=false]
+ * @returns {{ min: number, max: number }}
+ */
+export function getSquadronShipRange(tier, atWar = false) {
+  if (!Number.isFinite(tier) || tier <= PRESENCE.OFF) return { min: 0, max: 0 };
+  const conf = NAVAL_SQUADRON_RANGES[tier] ?? NAVAL_SQUADRON_RANGES[PRESENCE.MID];
+  const max = atWar && conf.warMax != null ? conf.warMax : conf.max;
+  return { min: conf.min, max };
+}
+
+/**
+ * Largest squadron per side for a presence tier.
+ * @param {number} tier
+ * @param {boolean} [atWar=false]
  */
 export function maxShipsPerSide(tier, atWar = false) {
-  if (tier <= PRESENCE.OFF) return 0;
-  if (tier === PRESENCE.LIGHT) return 1;
-  if (tier === PRESENCE.HIGH) return 3;
-  return atWar ? 3 : 2;
+  return getSquadronShipRange(tier, atWar).max;
 }
 
 /**
@@ -54,8 +73,8 @@ export function maxShipsPerSide(tier, atWar = false) {
  */
 export function planSquadronEncounter({ playerX, playerZ, atWar = false, rng = Math.random }) {
   const tier = Number(LivingTamrielConfig.naval);
-  const max = maxShipsPerSide(tier, atWar);
-  if (max <= 0) return null;
+  const range = getSquadronShipRange(tier, atWar);
+  if (range.max <= 0) return null;
 
   const distance = Math.min(
     NAVAL_SPAWN_MAX_M,
@@ -71,9 +90,9 @@ export function planSquadronEncounter({ playerX, playerZ, atWar = false, rng = M
   // the two lines face each other, perpendicular to the bearing from the player
   const px = -Math.sin(bearing);
   const pz = Math.cos(bearing);
-  const sideLen = (n) => 1 + Math.floor(rng() * n);
-  const nLaw = sideLen(max);
-  const nPir = sideLen(max);
+  const rollSide = () => range.min + Math.floor(rng() * (range.max - range.min + 1));
+  const nLaw = rollSide();
+  const nPir = rollSide();
   const lineUp = (n, offsetAlong) =>
     Array.from({ length: n }, (_, i) => {
       const k = (i - (n - 1) / 2) * NAVAL_SHIP_SPACING_M;

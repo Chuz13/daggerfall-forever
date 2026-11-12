@@ -149,9 +149,9 @@ export const LivingTamrielConfig = {
   get reputationConsequences() { return readTierPref('livingReputationConsequences', PRESENCE.HIGH); },
   set reputationConsequences(v) { setPref('livingReputationConsequences', Number(v)); },
 
-  // Competition toggles
-  get allowQuestCompetition() { return getPref('livingQuestCompetition') === true; },
-  set allowQuestCompetition(v) { setPref('livingQuestCompetition', Boolean(v)); },
+  // Competition toggles (muted & disabled to preserve classic QuestMachine behavior)
+  get allowQuestCompetition() { return false; },
+  set allowQuestCompetition(_v) { setPref('livingQuestCompetition', false); },
 
   // Encounter Scale (1x LOW, 2x MID, 4x HIGH)
   get encounterScale() {
@@ -202,7 +202,7 @@ export const LivingTamrielConfig = {
   bountyRewardWildMult: 4.0,        // x3 - x5 baseline reward
   bountyRewardDungeonMult: 7.5,     // x5 - x10 baseline reward
   luckRerollThreshold: 5,           // Margin of skill check failure where Luck offers a reroll
-  travelInterruptionCooldownMinutes: 2880, // 48 in-game hours cooldown between travel interrupts
+  travelInterruptionCooldownMinutes: 360, // 6 in-game hours cooldown between travel interrupts (down from 48h)
 };
 
 /**
@@ -268,5 +268,5 @@ export function resetLivingConfig() {
   LivingTamrielConfig.bountyRewardWildMult = 4.0;
   LivingTamrielConfig.bountyRewardDungeonMult = 7.5;
   LivingTamrielConfig.luckRerollThreshold = 5;
-  LivingTamrielConfig.travelInterruptionCooldownMinutes = 2880;
+  LivingTamrielConfig.travelInterruptionCooldownMinutes = 360;
 }

@@ -1299,8 +1299,10 @@ export function buildLivingSiteBlueprint({
  *   rng?: () => number,
  * }} deps
  */
-export const locationSkirmishCooldowns = new Map();
-export const SKIRMISH_LOCATION_COOLDOWN_MINUTES = 4320; // 3 in-game days
+export const LOCATION_EVENT_COOLDOWN_MINUTES = 4320; // 3 in-game days (72 hours)
+export const SKIRMISH_LOCATION_COOLDOWN_MINUTES = LOCATION_EVENT_COOLDOWN_MINUTES; // backwards-compatible alias
+export const locationEventCooldowns = new Map();
+export const locationSkirmishCooldowns = locationEventCooldowns; // backwards-compatible alias
 
 export function createLivingSceneHost(deps) {
   const rng = deps.rng ?? Math.random;
@@ -2851,71 +2853,72 @@ export function createLivingSceneHost(deps) {
     const locKey = loc?.mapTableData?.mapId != null
       ? `map_${loc.mapTableData.mapId}`
       : (loc?.name ? `${regIdx}:${loc.name}` : (pPixel ? `${regIdx}:${pPixel.x},${pPixel.y}` : `${regIdx}:${Math.round(feet[0] / 100)}:${Math.round(feet[2] / 100)}`));
-    const lastSkirmishTime = locationSkirmishCooldowns.get(locKey) ?? -999999;
-    const canSkirmishHere = (nowMin - lastSkirmishTime) >= SKIRMISH_LOCATION_COOLDOWN_MINUTES;
+    if (inTown) {
+      const lastEventTime = locationEventCooldowns.get(locKey) ?? -999999;
+      const canEventHere = (nowMin - lastEventTime) >= LOCATION_EVENT_COOLDOWN_MINUTES;
+      if (!canEventHere) return;
 
-    // 1. Inside a Settlement during a crisis or regional condition -> Urban Skirmish
-    if (
-      inTown &&
-      canSkirmishHere &&
-      shouldSpawnUrbanSkirmish({ regionIndex: regIdx, isInsideBuilding: false, existingActiveSkirmishes: 0, playerEntity: player })
-    ) {
-      const angle = rng() * Math.PI * 2;
-      const safe = findSafeSiteCenter(deps, feet, 28, angle, 4.0);
-      if (safe.suitable) {
-        lastSkirmishRegion = regIdx;
-        locationSkirmishCooldowns.set(locKey, nowMin);
-        lastSpawnMinute = nowMin;
-        const bp = buildLivingSiteBlueprint({
-          kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
-          centerX: safe.x,
-          centerZ: safe.z,
-          heightAt: deps.heightAt,
-          regionIndex: regIdx,
-          playerEntity: player,
-          nowMinutes: nowMin,
-          dfLocation: loc,
-          locationType: loc?.mapTableData?.locationType ?? 0,
-          rng,
-        });
-        if (bp.actors.length > 0) {
-          standSite(bp);
-          const alertText = bp.meta?.event
-            ? LIVING_WORDS.skirmishAlert(
-                getEventDisplayName(bp.meta.event),
-                bp.meta.faction1Name ?? LIVING_WORDS.factionDefendersGeneric(),
-                bp.meta.faction2Name ?? LIVING_WORDS.factionAttackersGeneric()
-              )
-            : LIVING_WORDS.urbanSkirmishAlert();
-          deps.say(alertText, 5);
+      // 1. Priority 1: Plague Quarantine Relief Tent (if region is in active plague quarantine)
+      if (isRegionInQuarantine(regIdx)) {
+        const qAngle = rng() * Math.PI * 2;
+        const safe = findSafeSiteCenter(deps, feet, 16, qAngle, 4.0);
+        if (safe.suitable) {
+          lastQuarantineRegion = regIdx;
+          locationEventCooldowns.set(locKey, nowMin);
+          lastSpawnMinute = nowMin;
+          standSite(
+            buildLivingSiteBlueprint({
+              kind: LIVING_SITE_KINDS.QUARANTINE_TENT,
+              centerX: safe.x,
+              centerZ: safe.z,
+              heightAt: deps.heightAt,
+              regionIndex: regIdx,
+              playerEntity: player,
+              nowMinutes: nowMin,
+              rng,
+            }),
+          );
+          deps.say(`${LIVING_WORDS.quarantineGateClosed()} ${LIVING_WORDS.quarantineReliefTent()}`, 6);
           return;
         }
       }
-    }
 
-    if (inTown) {
-      if (lastQuarantineRegion !== regIdx && isRegionInQuarantine(regIdx)) {
-        lastQuarantineRegion = regIdx;
-        lastSpawnMinute = nowMin;
-        const qAngle = rng() * Math.PI * 2;
-        const safe = findSafeSiteCenter(deps, feet, 16, qAngle, 4.0);
-        standSite(
-          buildLivingSiteBlueprint({
-            kind: LIVING_SITE_KINDS.QUARANTINE_TENT,
+      // 2. Priority 2: Urban Skirmish during regional crisis or civil strife
+      if (shouldSpawnUrbanSkirmish({ regionIndex: regIdx, isInsideBuilding: false, existingActiveSkirmishes: 0, playerEntity: player })) {
+        const angle = rng() * Math.PI * 2;
+        const safe = findSafeSiteCenter(deps, feet, 28, angle, 4.0);
+        if (safe.suitable) {
+          lastSkirmishRegion = regIdx;
+          locationEventCooldowns.set(locKey, nowMin);
+          lastSpawnMinute = nowMin;
+          const bp = buildLivingSiteBlueprint({
+            kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
             centerX: safe.x,
             centerZ: safe.z,
             heightAt: deps.heightAt,
             regionIndex: regIdx,
             playerEntity: player,
             nowMinutes: nowMin,
+            dfLocation: loc,
+            locationType: loc?.mapTableData?.locationType ?? 0,
             rng,
-          }),
-        );
-        deps.say(`${LIVING_WORDS.quarantineGateClosed()} ${LIVING_WORDS.quarantineReliefTent()}`, 6);
-        return;
+          });
+          if (bp.actors.length > 0) {
+            standSite(bp);
+            const alertText = bp.meta?.event
+              ? LIVING_WORDS.skirmishAlert(
+                  getEventDisplayName(bp.meta.event),
+                  bp.meta.faction1Name ?? LIVING_WORDS.factionDefendersGeneric(),
+                  bp.meta.faction2Name ?? LIVING_WORDS.factionAttackersGeneric()
+                )
+              : LIVING_WORDS.urbanSkirmishAlert();
+            deps.say(alertText, 5);
+            return;
+          }
+        }
       }
 
-      if (nowMin - lastSpawnMinute < 30) return;
+      // 3. Priority 3: Nemesis & Retinue Ambush inside town
       const rep = Number(player?.regionalReputations?.[regIdx] ?? 0);
       const nemMem = getNemesisMemory();
       const angle = rng() * Math.PI * 2;
@@ -2929,24 +2932,28 @@ export function createLivingSceneHost(deps) {
         }) &&
         rng() < 0.20
       ) {
-        lastSpawnMinute = nowMin;
         const safe = findSafeSiteCenter(deps, feet, 11, angle, 3.0);
-        const site = standSite(
-          buildLivingSiteBlueprint({
-            kind: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
-            centerX: safe.x,
-            centerZ: safe.z,
-            heightAt: deps.heightAt,
-            regionIndex: regIdx,
-            playerEntity: player,
-            nowMinutes: nowMin,
-            rng,
-          }),
-        );
-        triggerSiteInteraction(site);
-        return;
+        if (safe.suitable) {
+          locationEventCooldowns.set(locKey, nowMin);
+          lastSpawnMinute = nowMin;
+          const site = standSite(
+            buildLivingSiteBlueprint({
+              kind: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+              centerX: safe.x,
+              centerZ: safe.z,
+              heightAt: deps.heightAt,
+              regionIndex: regIdx,
+              playerEntity: player,
+              nowMinutes: nowMin,
+              rng,
+            }),
+          );
+          triggerSiteInteraction(site);
+          return;
+        }
       }
 
+      // 4. Priority 4: Plea Encounter (supplicant seeking aid)
       const pleaEval = evaluatePleaEncounter({
         regionIndex: regIdx,
         nowMinutes: nowMin,
@@ -2954,20 +2961,23 @@ export function createLivingSceneHost(deps) {
         rng,
       });
       if (pleaEval.shouldPlea) {
-        lastSpawnMinute = nowMin;
         const safe = findSafeSiteCenter(deps, feet, 10, angle, 3.0);
-        standSite(
-          buildLivingSiteBlueprint({
-            kind: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
-            centerX: safe.x,
-            centerZ: safe.z,
-            heightAt: deps.heightAt,
-            regionIndex: regIdx,
-            playerEntity: player,
-            nowMinutes: nowMin,
-            rng,
-          }),
-        );
+        if (safe.suitable) {
+          locationEventCooldowns.set(locKey, nowMin);
+          lastSpawnMinute = nowMin;
+          standSite(
+            buildLivingSiteBlueprint({
+              kind: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
+              centerX: safe.x,
+              centerZ: safe.z,
+              heightAt: deps.heightAt,
+              regionIndex: regIdx,
+              playerEntity: player,
+              nowMinutes: nowMin,
+              rng,
+            }),
+          );
+        }
       }
       return;
     }

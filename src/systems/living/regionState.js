@@ -253,13 +253,51 @@ export function syncRegionStateFromVanilla(regionIndex, state, condRecord) {
   state.crisis = null;
   _syncPrimaryCrisis(state);
 
-  const activeCount = Object.keys(nextCrises).length;
-  if (activeCount === 0) {
-    state.tension = 10;
-  } else {
-    const hasMid = Object.values(nextCrises).some((c) => c.phase === CRISIS_PHASE.MID);
-    state.tension = Math.min(100, (hasMid ? 55 : 30) + activeCount * 15);
+  // ── Calculate regional tension dynamically from vanilla faction state and flags ──
+  const fRep = _boundFactionRep;
+  const dict = fRep?.dict ?? fRep?.FactionDict;
+  const prov = dict ? findFactionByTypeAndRegion(dict, FACTION_TYPES.Province, regionIndex) : null;
+
+  let baseInstability = 10;
+  let rulerRelief = 0;
+  let diplomaticTension = 0;
+
+  if (prov) {
+    const power = Number(prov.power ?? 50);
+    baseInstability = Math.max(5, Math.min(50, Math.trunc((100 - power) * 0.5)));
+    rulerRelief = Math.min(15, Math.trunc((Number(prov.rulerPowerBonus ?? 0)) * 0.25));
+
+    let allyP = 0;
+    for (const id of [prov.ally1, prov.ally2, prov.ally3]) {
+      if (id) allyP += dict.get?.(id)?.power ?? 0;
+    }
+    let enemyP = 0;
+    for (const id of [prov.enemy1, prov.enemy2, prov.enemy3]) {
+      if (id) enemyP += dict.get?.(id)?.power ?? 0;
+    }
+    diplomaticTension = Math.max(0, Math.min(20, Math.trunc((enemyP - allyP) / 10)));
   }
+
+  let flagTension = 0;
+  if (f[REGION_FLAGS.WarOngoing]) flagTension += 40;
+  else if (f[REGION_FLAGS.WarBeginning]) flagTension += 20;
+  else if (f[REGION_FLAGS.WarLost]) flagTension += 25;
+
+  if (f[REGION_FLAGS.CivilWarOngoing]) flagTension += 35;
+  else if (f[REGION_FLAGS.CivilWarBeginning]) flagTension += 20;
+
+  if (f[REGION_FLAGS.PlagueOngoing]) flagTension += 30;
+  else if (f[REGION_FLAGS.PlagueBeginning]) flagTension += 15;
+
+  if (f[REGION_FLAGS.FamineOngoing]) flagTension += 25;
+  else if (f[REGION_FLAGS.FamineBeginning]) flagTension += 12;
+
+  if (f[REGION_FLAGS.CrimeWave]) flagTension += 15;
+  if (f[REGION_FLAGS.WitchBurnings]) flagTension += 12;
+  if (f[REGION_FLAGS.PersecutedTemple]) flagTension += 10;
+  if (f[REGION_FLAGS.BadHarvest]) flagTension += 8;
+
+  state.tension = Math.max(5, Math.min(100, Math.max(10, baseInstability - rulerRelief + diplomaticTension) + flagTension));
 }
 
 /**
