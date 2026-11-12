@@ -21,6 +21,7 @@ import {
   ADVENTURER_STATUS,
 } from '../../src/systems/living/adventurerSim.js';
 import { equipTableOf } from '../../src/systems/equip.js';
+import { executeLivingConsoleCommand } from '../../src/systems/living/livingWorldSpawner.js';
 
 describe('Living Tamriel Adventurer Gear & Combat Systems', () => {
   it('rollTierWithVariance bounds tiers between 1 and 9', () => {
@@ -195,5 +196,17 @@ describe('Living Tamriel Adventurer Gear & Combat Systems', () => {
     assert.equal(gem.group, 'Gems');
     assert.ok(typeof gem.value === 'number');
     assert.ok(Number.isFinite(gem.weightInKg));
+  });
+
+  it('executeLivingConsoleCommand supports setlevel, tick, kill_in_dungeon and list in game console', () => {
+    const outSetLevel = executeLivingConsoleCommand(['adv', 'setlevel', '0', '45'], { regionIndex: 17 });
+    assert.match(outSetLevel, /Updated .* to Level 45/);
+
+    const outList = executeLivingConsoleCommand(['adv', 'list', '17'], { regionIndex: 17 });
+    assert.match(outList, /Active Adventurers in Region 17/);
+    assert.match(outList, /Lvl 45/);
+
+    const outTick = executeLivingConsoleCommand(['adv', 'tick', '2'], { regionIndex: 17 });
+    assert.match(outTick, /Simulated 2 day\(s\)/);
   });
 });

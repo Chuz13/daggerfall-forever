@@ -110,6 +110,9 @@ import {
   DUEL_OUTCOME,
   RECLAIM_OUTCOME,
   ADVENTURER_STATUS,
+  tickAdventurerSimulation,
+  killAdventurerInDungeon,
+  setAdventurerLevel,
 } from './adventurerSim.js';
 import { LIVING_WORDS } from './livingWords.js';
 import { mobTraitChance } from '../bossTraits.js';
@@ -3815,11 +3818,32 @@ export function executeLivingConsoleCommand(args, ctx) {
       if (list.length === 0) return `[Living Tamriel] No active adventurers found in Region ${targetReg}.`;
       return [
         `<b>Active Adventurers in Region ${targetReg} (${list.length}):</b>`,
-        ...list.map((a) => {
+        ...list.map((a, idx) => {
           const name = getAdventurerDisplayName(a);
-          return `- ${name} | Lvl ${a.level} ${a.className} | Gear T${a.gearTier} | Trait: ${a.trait} | Status: ${a.status} | Duels: ${a.duelsWon ?? 0}W/${a.duelsLost ?? 0}L`;
+          return `- [#${idx} ID:${a.id}] ${name} | Lvl ${a.level} ${a.className} | Gear T${a.gearTier} | Trait: ${a.trait} | Status: ${a.status}${a.targetLocationName ? ` -> ${a.targetLocationName}` : ''} | Duels: ${a.duelsWon ?? 0}W/${a.duelsLost ?? 0}L`;
         }),
       ].join('\n');
+    }
+    if (act === 'setlevel') {
+      const idOrName = cleanArgs[2];
+      const newLvl = parseInt(cleanArgs[3], 10);
+      if (idOrName == null || !Number.isFinite(newLvl)) return 'Usage: /living adv setlevel <name|id|index> <level (1..45)>';
+      const adv = setAdventurerLevel(idOrName, newLvl);
+      if (!adv) return `[Living Tamriel] Adventurer "${idOrName}" not found.`;
+      return `[Living Tamriel] Updated ${adv.name} to Level ${adv.level} (Gear Tier T${adv.gearTier}).`;
+    }
+    if (act === 'tick') {
+      const days = Math.max(1, Math.min(365, parseInt(cleanArgs[2], 10) || 1));
+      for (let d = 0; d < days; d++) {
+        tickAdventurerSimulation({ playerEntity: ctx?.playerEntity, rng: Math.random });
+      }
+      return `[Living Tamriel] Simulated ${days} day(s) of adventurer ecosystem activity.`;
+    }
+    if (act === 'kill_in_dungeon') {
+      const targetReg = cleanArgs[2] != null ? parseInt(cleanArgs[2], 10) : regIdx;
+      const res = killAdventurerInDungeon(Number.isFinite(targetReg) ? targetReg : null);
+      if (!res) return '[Living Tamriel] No active delving adventurer found to kill.';
+      return `[Living Tamriel] Adventurer ${res.adventurer.name} (${res.adventurer.className}, Lv.${res.adventurer.level}) fell in ${res.dungeonName} (${res.dungeonId})! Fallen remains recorded in boss chest.`;
     }
     if (act === 'summon') {
       const query = String(cleanArgs[2] ?? 'random').toLowerCase();
@@ -3852,7 +3876,7 @@ export function executeLivingConsoleCommand(args, ctx) {
       ctx?.sceneHost?.standBlueprint?.(bp);
       return `[Living Tamriel] Summoned adventurer ${getAdventurerDisplayName(match)} (Lvl ${match.level} ${match.className}) in front of you. Step closer to interact.`;
     }
-    return 'Usage: /living adv <list [region] | summon [nearest|random|<name>]>';
+    return 'Usage: /living adv <list [region] | summon [nearest|random|<name>] | setlevel <name|id|index> <level> | tick <days> | kill_in_dungeon [region]>';
   }
 
   if (sub === 'spawn') {

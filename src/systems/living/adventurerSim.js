@@ -377,6 +377,7 @@ export function killAdventurerInDungeon(regionIndex = null) {
  * @returns {any|null}
  */
 export function setAdventurerLevel(identifier, newLevel) {
+  ensureAdventurerPool();
   const reg = getAdventurerSimRegistry();
   const pool = reg.pool || [];
   const level = Math.max(1, Math.min(LEVEL_CAP, Math.trunc(Number(newLevel) || 1)));

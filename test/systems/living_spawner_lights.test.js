@@ -32,7 +32,7 @@ test('LivingWorldSpawner: campfire/brazier lights conform to canonical point lig
     regionIndex: 17,
     playerEntity: { level: 10 },
     nowMinutes: 720,
-    onRoad: true,
+    onRoad: false,
   });
 
   host.standBlueprint(bp);
