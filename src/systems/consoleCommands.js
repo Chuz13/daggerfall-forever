@@ -86,8 +86,17 @@ import { getPref, setPref } from './uiPrefs.js';
 import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.js';
 import { REGION_NAMES } from '../formats/mapsTables.js';
 import { foundFamily, addChild, recordDeath, successors, currentOf, fullNameOf } from './legacy/family.js';
-import { setRegionCrisis, getRegionState, getActiveCrises, CRISIS_TYPE, CRISIS_PHASE } from './living/regionState.js';
-import { REGION_FLAGS } from './region/regionConditions.js';
+import {
+  setRegionCrisis,
+  getRegionState,
+  getActiveCrises,
+  bindLivingRegionConditions,
+  getActiveRegionFlags,
+  CRISIS_TYPE,
+  CRISIS_PHASE,
+} from './living/regionState.js';
+import { REGION_FLAGS, turnOnConditionFlag, turnOffConditionFlag } from './region/regionConditions.js';
+import { regionPowerUpdate } from './region/regionPower.js';
 import { applyLichdom, cureLichdom, isLich, applyAncientLichdom, cureAncientLichdom, isAncientLich, isPlayerDisguised, lichdomMagicRound } from './necromancy/lichdomStatus.js';
 import { getPlayerTaint, getEffectiveTradeTaint, getTaintTier, addNecroTaint } from './necromancy/necroTaint.js';
 import { allSpawnedMinions, spawnMinion, releaseAllControlledUndead } from './necromancy/minionController.js';
@@ -1575,9 +1584,12 @@ registerCommand(
 
 registerCommand(
   'crisis',
-  'Trigger or inspect Living Tamriel regional crisis: crisis <start|stop|status|tp>',
-  'crisis <start <war|plague|famine|civil_strife> [region]|stop [war|plague|famine|civil_strife] [region]|status [region]|tp [type]>',
+  'Trigger or inspect Living Tamriel & vanilla regional conditions: crisis <start|stop|status|tp|tick>',
+  'crisis <start <war|plague|famine|civil_strife|FlagName> [region] | stop [type|FlagName] [region] | status [region] | tp [type] | tick>',
   async (args = []) => {
+    if (Array.isArray(playerEntity?.regionConditions)) {
+      bindLivingRegionConditions(playerEntity.regionConditions, playerEntity.factionRep ?? null);
+    }
     const sub = String(args[0] || 'status').toLowerCase();
     const defReg = defaultRegion();
     const reg = args[2] ? parseInt(args[2], 10) : (args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : defReg);
@@ -1587,41 +1599,55 @@ registerCommand(
       if (!ctx?.tele2crisis) return 'Crisis teleport is only available in world mode.';
       return await ctx.tele2crisis(filter);
     }
+    if (sub === 'tick' || sub === 'sim') {
+      if (!playerEntity?.factionRep || !playerEntity?.regionConditions) {
+        return 'Player factionRep or regionConditions not initialized.';
+      }
+      regionPowerUpdate(playerEntity.factionRep, {
+        rumorMill: playerEntity.rumorMill ?? null,
+        updateConditions: true,
+        regionConditions: playerEntity.regionConditions,
+      });
+      bindLivingRegionConditions(playerEntity.regionConditions, playerEntity.factionRep);
+      const st = getRegionState(defReg);
+      const activeFlags = getActiveRegionFlags(defReg, playerEntity.regionConditions);
+      const flagSummary = activeFlags.length
+        ? activeFlags.map((f) => `${f.flagName}(${f.value})`).join(', ')
+        : 'None';
+      return `Executed 38-day vanilla regionPowerUpdate + conditions step across all 71 regions. Current Region ${defReg} (${st.regionName}): ${st.crisis} [${st.phase}] | Flags: ${flagSummary}`;
+    }
     if (sub === 'status') {
       const st = getRegionState(reg);
       const active = getActiveCrises(reg);
-      const condFlags = playerEntity?.regionConditions?.[reg]?.flags ?? [];
-      const activeFlags = [];
-      if (condFlags[REGION_FLAGS.WarBeginning]) activeFlags.push('War (Beginning)');
-      if (condFlags[REGION_FLAGS.WarOngoing]) activeFlags.push('War (Ongoing)');
-      if (condFlags[REGION_FLAGS.PlagueBeginning]) activeFlags.push('Plague (Beginning)');
-      if (condFlags[REGION_FLAGS.PlagueOngoing]) activeFlags.push('Plague (Ongoing)');
-      if (condFlags[REGION_FLAGS.FamineBeginning]) activeFlags.push('Famine (Beginning)');
-      if (condFlags[REGION_FLAGS.FamineOngoing]) activeFlags.push('Famine (Ongoing)');
-      if (condFlags[REGION_FLAGS.CrimeWave]) activeFlags.push('Crime Wave');
-      if (condFlags[REGION_FLAGS.WitchBurnings]) activeFlags.push('Witch Burnings');
-      if (condFlags[REGION_FLAGS.NewRuler]) activeFlags.push('New Ruler');
-      if (condFlags[REGION_FLAGS.PersecutedTemple]) activeFlags.push('Persecuted Temple');
-      if (condFlags[REGION_FLAGS.PricesHigh]) activeFlags.push('High Prices / Inflation');
-      if (condFlags[REGION_FLAGS.PricesLow]) activeFlags.push('Low Prices / Surplus');
-      if (condFlags[REGION_FLAGS.HappyHoliday]) activeFlags.push('Festival / Happy Holiday');
-      if (condFlags[REGION_FLAGS.ScaryHoliday]) activeFlags.push('Grim Holiday');
-      if (condFlags[REGION_FLAGS.HolyHoliday]) activeFlags.push('Holy Day');
+      const activeFlags = getActiveRegionFlags(reg, playerEntity?.regionConditions);
 
       if (active.length === 0 && activeFlags.length === 0) {
         return `Region ${reg} (${st.regionName}): At Peace.`;
       }
-      const lines = [`<b>Region ${reg} (${st.regionName}) Active Crises & Conditions:</b>`];
+      const lines = [`<b>Region ${reg} (${st.regionName}) Active Crises & Vanilla Conditions:</b>`];
       for (const c of active) {
-        lines.push(`- Dynamic Crisis: ${c.type} (Phase: ${c.phase}, Days remaining: ${c.phaseDaysRemaining})`);
+        lines.push(`- Macro Crisis: ${c.type} (Phase: ${c.phase}, Counter/Days: ${c.phaseDaysRemaining})`);
       }
       for (const f of activeFlags) {
-        lines.push(`- Regional Condition: ${f}`);
+        lines.push(`- Vanilla Flag [${f.flagId}] ${f.flagName} (Endurance counter: ${f.value})`);
       }
       return lines.join('\n');
     }
     if (sub === 'start') {
-      const type = String(args[1] || 'war').toLowerCase();
+      const rawType = String(args[1] || 'war');
+      const type = rawType.toLowerCase();
+      const regionIndex = args[2] ? parseInt(args[2], 10) : defReg;
+      const matchFlagEntry = Object.entries(REGION_FLAGS).find(([k, id]) => id <= 25 && k.toLowerCase() === type);
+      if (matchFlagEntry && playerEntity?.regionConditions?.[regionIndex]) {
+        const [flagName, flagId] = matchFlagEntry;
+        const cond = playerEntity.regionConditions[regionIndex];
+        turnOnConditionFlag(playerEntity.regionConditions, regionIndex, flagId);
+        if (cond.values && (!cond.values[flagId] || cond.values[flagId] <= 0)) {
+          cond.values[flagId] = 3;
+        }
+        const st = getRegionState(regionIndex);
+        return `Activated vanilla flag ${flagName} (counter: ${cond.values?.[flagId] ?? 3}) in Region ${regionIndex} (${st.regionName}) -> Macro: ${st.crisis} (${st.phase}).`;
+      }
       const validTypes = {
         'war': CRISIS_TYPE.WAR,
         'plague': CRISIS_TYPE.PLAGUE,
@@ -1630,14 +1656,25 @@ registerCommand(
         'civil_strife': CRISIS_TYPE.CIVIL_STRIFE,
       };
       const crisisType = validTypes[type];
-      if (!crisisType) return `Unknown crisis type "${args[1]}". Valid: war, plague, famine, civil_strife.`;
-      const regionIndex = args[2] ? parseInt(args[2], 10) : defReg;
+      if (!crisisType) {
+        return `Unknown crisis or flag "${args[1]}". Valid macro types: war, plague, famine, civil_strife, or any REGION_FLAGS name (e.g. WitchBurnings, BadHarvest, MadWizardNearby, TGMInJail).`;
+      }
       setRegionCrisis(regionIndex, crisisType, CRISIS_PHASE.START);
       const st = getRegionState(regionIndex);
       return `Started ${crisisType} crisis in Region ${regionIndex} (${st.regionName}) (Phase: ${CRISIS_PHASE.START}).`;
     }
     if (sub === 'stop') {
       const raw = args[1]?.toLowerCase();
+      const regionIndex = args[2] ? parseInt(args[2], 10) : defReg;
+      const matchFlagEntry = raw
+        ? Object.entries(REGION_FLAGS).find(([k, id]) => id <= 25 && k.toLowerCase() === raw)
+        : null;
+      if (matchFlagEntry && playerEntity?.regionConditions?.[regionIndex]) {
+        const [flagName, flagId] = matchFlagEntry;
+        turnOffConditionFlag(playerEntity.regionConditions, regionIndex, flagId);
+        const st = getRegionState(regionIndex);
+        return `Cleared vanilla flag ${flagName} in Region ${regionIndex} (${st.regionName}).`;
+      }
       const validTypes = {
         'war': CRISIS_TYPE.WAR,
         'plague': CRISIS_TYPE.PLAGUE,
@@ -1646,17 +1683,16 @@ registerCommand(
         'civil_strife': CRISIS_TYPE.CIVIL_STRIFE,
       };
       if (validTypes[raw]) {
-        const regionIndex = args[2] ? parseInt(args[2], 10) : defReg;
         setRegionCrisis(regionIndex, validTypes[raw], CRISIS_PHASE.NONE);
         const st = getRegionState(regionIndex);
         return `Stopped ${validTypes[raw]} crisis in Region ${regionIndex} (${st.regionName}).`;
       }
-      const regionIndex = args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : defReg;
-      setRegionCrisis(regionIndex, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
-      const st = getRegionState(regionIndex);
-      return `Stopped all crises in Region ${regionIndex} (${st.regionName}). Peace restored.`;
+      const stopReg = args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : defReg;
+      setRegionCrisis(stopReg, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
+      const st = getRegionState(stopReg);
+      return `Stopped all crises in Region ${stopReg} (${st.regionName}). Peace restored.`;
     }
-    return 'Usage: crisis <start <war|plague|famine|civil_strife> [region] | stop [type] [region] | status [region] | tp [type]>';
+    return 'Usage: crisis <start <war|plague|famine|civil_strife|FlagName> [region] | stop [type|FlagName] [region] | status [region] | tp [type] | tick>';
   }
 );
 

@@ -40,6 +40,7 @@ import { onLycanthropeHit } from './lycanthropy.js';
 import { onVampireHit } from './vampirism.js';
 import { onPlayerStruckByEnemy } from './artifactEffects.js';   // V3: the Ring of Namira's reflection
 import { onLivingWorldTick } from './living/livingDirector.js';
+import { bindLivingRegionConditions } from './living/regionState.js';
 import { activeUndead, activeUndeadUpkeep } from './necromancy/undeadCapacity.js';
 import { checkMinionRebellion, tickControlledUndeadRound } from './necromancy/minionController.js';
 import { tickTaintDaily } from './necromancy/necroTaint.js';
@@ -584,6 +585,9 @@ export function runDayChange({ entity, lastMinutes, nowMinutes, rolls = Math.ran
   // is not a liberty, it is WeatherManager's own shape (:146-156).
   if (worldHalf) {
     rollClimateWeathersForDay(nowMinutes, rolls);
+    if (Array.isArray(entity?.regionConditions)) {
+      bindLivingRegionConditions(entity.regionConditions, entity.factionRep ?? null);
+    }
     onLivingWorldTick(nowMinutes);
   }
   if (!ownHalf) return { daysPast, loanReminders: [], loanDefaults: [] };   // LIVED1: the world's half alone
@@ -1164,6 +1168,9 @@ export function runCalendarArms(entity, lastMinutes, nowMinutes, { rolls = Math.
           rumorMill: entity.rumorMill ?? null, rolls: dayRolls,   // WORLD6b: the shared day's roll
           updateConditions: true, regionConditions: entity.regionConditions ?? null,
         });
+        if (Array.isArray(entity?.regionConditions)) {
+          bindLivingRegionConditions(entity.regionConditions, entity.factionRep ?? null);
+        }
       }
       // :472 - StartRacialOverrideQuest(false) rides this same arm:
       // the vampire's P0A01L00 initiation, then the clan's own quests

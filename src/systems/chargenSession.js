@@ -39,6 +39,7 @@ import { attachFactionRep } from './faction/factionRep.js';   // S25
 import { createRegionConditions } from './region/regionConditions.js';
 import { clearWorldDataVariants } from './worldDataVariants.js';   // AUDIT-RR F39: PlayerEntity.Reset (:818) clears the world variants at every new game
 import { bootstrapRegionPower } from './region/regionPower.js';   // AUDIT 26 F107   // PlayerEntity.InitializeRegionData (:2189-2218), at every new game
+import { bindLivingRegionConditions } from './living/regionState.js';
 // ORL1: the leveling choice - its screen, and the two names the
 // answer is spelled with.
 import { LevelingChoiceScreen } from '../ui/levelingChoice.js';
@@ -162,6 +163,7 @@ export async function applyHeadlessChargen(playerEntity, classIndex, { fetchByte
   clearWorldDataVariants();   // AUDIT-RR F39: PlayerEntity.Reset (:818) - a new game starts with no variant set
   // AUDIT 26 F107: InitializeRegionData's own tail (:2211-2217).
   bootstrapRegionPower(playerEntity.factionRep, { regionConditions: playerEntity.regionConditions });
+  bindLivingRegionConditions(playerEntity.regionConditions, playerEntity.factionRep ?? null);
   // ORL1: THE SKIP IS NOT A CHOICE, so it takes the port's own law.
   // `?class=` exists to get past the wizard without a player - a probe,
   // a test, a headless run - and a question nobody is there to answer
@@ -254,7 +256,8 @@ export function applyCreationExtras(playerEntity, result, spellsByIndex = null, 
   // so it sits with the rest of what creation hands out.
   playerEntity.regionConditions = createRegionConditions();
   clearWorldDataVariants();   // AUDIT-RR F39: PlayerEntity.Reset (:818) - a new game starts with no variant set
-  bootstrapRegionPower(playerEntity.factionRep, { regionConditions: playerEntity.regionConditions });   // AUDIT 26 F107: InitializeRegionData's tail (:2211-2217)
+  bootstrapRegionPower(playerEntity.factionRep, { regionConditions: playerEntity.regionConditions });
+  bindLivingRegionConditions(playerEntity.regionConditions, playerEntity.factionRep ?? null);   // AUDIT 26 F107: InitializeRegionData's tail (:2211-2217)
   return playerEntity;
 }
 

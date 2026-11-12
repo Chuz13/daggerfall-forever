@@ -386,7 +386,7 @@ export function factionConditionsStep(
           changePower(store, faction.id, powerLoss);
           changePower(store, warEnemy.id, enemyPowerLoss);
 
-          combinedPower = -powerLoss; // DFU's `=`, not `-=`
+          combinedPower -= powerLoss; // Fixed classic DFU typo (`= -powerLoss`) so faction power decides the battle
           combinedEnemyPower -= enemyPowerLoss;
 
           if (combinedPower - combinedEnemyPower > combinedEnemyPower) {
@@ -640,6 +640,200 @@ export function factionConditionsStep(
  *  seeds the merchants-vs-region term of the very first regional
  *  price day. Without it every character started on raw FACTION.TXT
  *  powers, shifting every later power read for the life of the save. */
+/** Canonical Eight Divines temple faction IDs used when REGION_TEMPLES[region] is 0 (e.g. provinces 62..70). */
+export const FALLBACK_DIVINE_TEMPLES = Object.freeze([36, 82, 84, 88, 92, 94, 98, 106]);
+
+/**
+ * Resolves the effective patron temple faction ID for any region (0..70),
+ * falling back deterministically to one of the Eight Divines when FALL.EXE's
+ * static table carries 0 (regions past the Bay and unassigned Bay regions).
+ * @param {number} region
+ * @returns {number}
+ */
+export function getEffectiveRegionTempleId(region) {
+  if (!Number.isInteger(region) || region < 0) return 0;
+  const direct = REGION_TEMPLES[region] ?? 0;
+  if (direct > 0) return direct;
+  return FALLBACK_DIVINE_TEMPLES[region % FALLBACK_DIVINE_TEMPLES.length];
+}
+
+/**
+ * Completes the vanilla regional condition simulation for all 26 REGION_FLAGS
+ * across all 71 regions (including Beyond the Bay 62..70):
+ *  - BadHarvest (13): seasonal roll; if active, strong ruler/allies resolve it without famine, weak ruler escalates to FamineBeginning (7)
+ *  - WitchBurnings (10): supported in all regions (via coven or regional occult tension), with natural decay on subsequent ticks
+ *  - NewRuler (12): lights when succession occurs and clears on the next cycle
+ *  - TGMInJail (14) -> TGMSetFree (15) / TGMExecuted (16) -> NewTGM (17): 3-stage Thieves Guild Master arc
+ *  - MadWizardNearby (24) -> MadWizardDies (25): 2-stage arcane anomaly arc
+ *  - HappyHoliday (21), ScaryHoliday (22), HolyHoliday (23): seasonal/festival flags
+ *  - PersecutedTemple (18) & continental rulerPowerBonus for provinces 62..70
+ *  - Cross-region Merchants tally (PricesHigh, PricesLow, Famine, War >= 3)
+ *
+ * @param {object} store
+ * @param {Array} regionConditions
+ * @param {{ rumorMill?: any, rolls?: () => number }} [opts]
+ */
+export function completeExtendedRegionConditions(
+  store,
+  regionConditions,
+  { rumorMill = null, rolls = Math.random } = {},
+) {
+  const dict = store?.dict;
+  if (!dict || !regionConditions) return false;
+  const rumor = (f1, f2, regionID, type, textId) => rumorMill?.addNonQuestRumor?.(f1, f2, regionID, type, textId);
+  const powerOf = (id) => dict.get(id)?.power ?? 0;
+  const thievesGuild = dict.get(THE_THIEVES_GUILD) ?? ZERO_FACTION;
+
+  let totalPricesHigh = 0;
+  let totalPricesLow = 0;
+  let totalFamines = 0;
+  let totalWars = 0;
+
+  for (const faction of dict.values()) {
+    if (!faction || faction.type !== FACTION_TYPES.Province || faction.region < 0) continue;
+    const region = faction.region;
+    if (!regionConditions[region]) continue;
+
+    // Ensure continental provinces (62..70) have an initialized rulerPowerBonus if still at 0
+    if (!faction.rulerPowerBonus || faction.rulerPowerBonus <= 0) {
+      faction.rulerPowerBonus = Math.max(20, Math.min(70, Math.trunc((faction.power || 60) * 0.6)));
+    }
+
+    let ap = 0;
+    for (const allyId of [faction.ally1, faction.ally2, faction.ally3]) ap += powerOf(allyId);
+    const alliesPowerMod = Math.trunc(ap / 10);
+    const rulerBonus = faction.rulerPowerBonus || 30;
+
+    // 1. BadHarvest (13) -> FamineBeginning (7) or peaceful recovery under a strong ruler
+    if (conditionFlag(regionConditions, region, REGION_FLAGS.BadHarvest)) {
+      turnOffConditionFlag(regionConditions, region, REGION_FLAGS.BadHarvest);
+      const rulerResilience = rulerBonus + alliesPowerMod + Math.trunc(faction.power / 5);
+      if (!dice100(rulerResilience, rolls()) && !conditionGroupFlag(regionConditions, region, 2)) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.FamineBeginning, rolls);
+        rumor(faction.id, 0, region, 7, 1477);
+      }
+    } else if (!conditionGroupFlag(regionConditions, region, 2)) {
+      if (dice100(4, rolls()) && !dice100(Math.trunc((faction.power + rulerBonus) / 2), rolls())) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.BadHarvest, rolls);
+      }
+    }
+
+    // 2. Temple Persecution (18) for regions where static REGION_TEMPLES[region] is 0 (e.g. Beyond the Bay 62..70)
+    if ((REGION_TEMPLES[region] ?? 0) === 0) {
+      const effTempleId = getEffectiveRegionTempleId(region);
+      const temple = dict.get(effTempleId) ?? ZERO_FACTION;
+      const templePower = temple.power || 40;
+      if (!dice100(Math.trunc((templePower - faction.power + 5) / 5), rolls()) || templePower >= 2 * faction.power) {
+        turnOffConditionFlag(regionConditions, region, REGION_FLAGS.PersecutedTemple);
+      } else {
+        regionConditions[region].idOfPersecutedTemple = effTempleId & 0xffff;
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.PersecutedTemple, rolls);
+        if (temple.id !== 0) changePower(store, temple.id, -1);
+        rumor(faction.id, 0, region, 18, 1476);
+      }
+    }
+
+    // 3. WitchBurnings (10) in all regions without a dedicated FACTION.TXT WitchesCoven, with decay on later ticks
+    const coven = findFactionByTypeAndRegion(dict, FACTION_TYPES.WitchesCoven, region);
+    if (!coven || coven.id === 0) {
+      const occultPressure = 45 - alliesPowerMod;
+      if (conditionFlag(regionConditions, region, REGION_FLAGS.WitchBurnings)) {
+        changePower(store, faction.id, -1);
+        if (!dice100(Math.max(10, Math.trunc((occultPressure - faction.power + 15) / 3)), rolls())) {
+          turnOffConditionFlag(regionConditions, region, REGION_FLAGS.WitchBurnings);
+        } else {
+          turnOnConditionFlag(regionConditions, region, REGION_FLAGS.WitchBurnings, rolls);
+          rumor(faction.id, 0, region, 10, 1475);
+        }
+      } else if (dice100(3, rolls()) && !dice100(faction.power + Math.trunc(rulerBonus / 2), rolls())) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.WitchBurnings, rolls);
+        rumor(faction.id, 0, region, 10, 1475);
+      }
+    }
+
+    // 4. NewRuler (12): clear previous transition or roll succession
+    if (conditionFlag(regionConditions, region, REGION_FLAGS.NewRuler)) {
+      turnOffConditionFlag(regionConditions, region, REGION_FLAGS.NewRuler);
+    } else if (!dice100(Math.trunc(rulerBonus / 3) + 75, rolls())) {
+      turnOnConditionFlag(regionConditions, region, REGION_FLAGS.NewRuler, rolls);
+      rumor(faction.id, 0, -1, 12, 1480);
+    }
+
+    // 5. Thieves Guild Master Arc: TGMInJail (14) -> TGMSetFree (15) / TGMExecuted (16) -> NewTGM (17)
+    if (conditionFlag(regionConditions, region, REGION_FLAGS.TGMSetFree)) {
+      turnOffConditionFlag(regionConditions, region, REGION_FLAGS.TGMSetFree);
+    } else if (conditionFlag(regionConditions, region, REGION_FLAGS.NewTGM)) {
+      turnOffConditionFlag(regionConditions, region, REGION_FLAGS.NewTGM);
+    } else if (conditionFlag(regionConditions, region, REGION_FLAGS.TGMExecuted)) {
+      turnOnConditionFlag(regionConditions, region, REGION_FLAGS.NewTGM, rolls);
+    } else if (conditionFlag(regionConditions, region, REGION_FLAGS.TGMInJail)) {
+      const escapeChance = Math.max(15, Math.min(85, 50 + Math.trunc(((thievesGuild.power || 50) - faction.power) / 2)));
+      if (dice100(escapeChance, rolls())) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.TGMSetFree, rolls);
+        if (thievesGuild.id !== 0) changePower(store, thievesGuild.id, 1);
+      } else {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.TGMExecuted, rolls);
+        if (thievesGuild.id !== 0) changePower(store, thievesGuild.id, -1);
+      }
+    } else if (conditionFlag(regionConditions, region, REGION_FLAGS.CrimeWave) || dice100(2, rolls())) {
+      const arrestChance = Math.max(10, Math.trunc((faction.power + rulerBonus - (thievesGuild.power || 50)) / 3));
+      if (dice100(arrestChance, rolls())) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.TGMInJail, rolls);
+      }
+    }
+
+    // 6. Arcane Anomaly Arc: MadWizardNearby (24) -> MadWizardDies (25)
+    if (conditionFlag(regionConditions, region, REGION_FLAGS.MadWizardDies)) {
+      turnOffConditionFlag(regionConditions, region, REGION_FLAGS.MadWizardDies);
+    } else if (conditionFlag(regionConditions, region, REGION_FLAGS.MadWizardNearby)) {
+      const subdueChance = Math.max(25, Math.trunc(faction.power / 2) + alliesPowerMod + 20);
+      if (dice100(subdueChance, rolls())) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.MadWizardDies, rolls);
+      } else {
+        changePower(store, faction.id, -1);
+      }
+    } else if (dice100(2, rolls()) && !dice100(faction.power + alliesPowerMod, rolls())) {
+      turnOnConditionFlag(regionConditions, region, REGION_FLAGS.MadWizardNearby, rolls);
+    }
+
+    // 7. Holidays & Seasonal Festivities: HappyHoliday (21), ScaryHoliday (22), HolyHoliday (23)
+    turnOffConditionFlag(regionConditions, region, REGION_FLAGS.HappyHoliday);
+    turnOffConditionFlag(regionConditions, region, REGION_FLAGS.ScaryHoliday);
+    turnOffConditionFlag(regionConditions, region, REGION_FLAGS.HolyHoliday);
+    if (dice100(6, rolls())) {
+      const effTemple = dict.get(getEffectiveRegionTempleId(region)) ?? ZERO_FACTION;
+      if (
+        conditionFlag(regionConditions, region, REGION_FLAGS.WitchBurnings) ||
+        conditionFlag(regionConditions, region, REGION_FLAGS.MadWizardNearby)
+      ) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.ScaryHoliday, rolls);
+      } else if ((effTemple.power || 40) >= faction.power) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.HolyHoliday, rolls);
+      } else if (
+        !conditionGroupFlag(regionConditions, region, 0) &&
+        !conditionGroupFlag(regionConditions, region, 1) &&
+        !conditionGroupFlag(regionConditions, region, 2)
+      ) {
+        turnOnConditionFlag(regionConditions, region, REGION_FLAGS.HappyHoliday, rolls);
+      }
+    }
+
+    if (conditionFlag(regionConditions, region, REGION_FLAGS.PricesHigh)) totalPricesHigh++;
+    if (conditionFlag(regionConditions, region, REGION_FLAGS.PricesLow)) totalPricesLow++;
+    if (conditionGroupFlag(regionConditions, region, 2)) totalFamines++;
+    if (conditionGroupFlag(regionConditions, region, 0)) totalWars++;
+  }
+
+  const merchants = dict.get(MERCHANTS_FACTION_ID) ?? ZERO_FACTION;
+  if (merchants.id !== 0) {
+    if (totalPricesHigh >= 3) changePower(store, merchants.id, 1);
+    if (totalPricesLow >= 3) changePower(store, merchants.id, -1);
+    if (totalFamines >= 3) changePower(store, merchants.id, -1);
+    if (totalWars >= 3) changePower(store, merchants.id, 1);
+  }
+  return true;
+}
+
 export function bootstrapRegionPower(store, { rumorMill = null, regionConditions = null, rolls = Math.random } = {}) {
   for (let i = 0; i < 12; i++) {
     regionPowerUpdate(store, { rumorMill, rolls });
@@ -649,7 +843,7 @@ export function bootstrapRegionPower(store, { rumorMill = null, regionConditions
 
 export function regionPowerUpdate(
   store,
-  { rumorMill = null, rolls = Math.random, updateConditions = false, regionConditions = null } = {},
+  { rumorMill = null, rolls = Math.random, updateConditions = false, regionConditions = null, extendConditions = null } = {},
 ) {
   const dict = store?.dict;
   if (!dict) return { walked: 0, changed: 0 };
@@ -672,6 +866,9 @@ export function regionPowerUpdate(
   // :2112-2118 - outside the faction walk, once per conditions update.
   if (updateConditions) {
     for (const textId of ALWAYS_AVAILABLE_RUMORS) rumorMill?.addNonQuestRumor?.(0, 0, -1, 100, textId);
+    if (regionConditions && (extendConditions ?? dict.size > 20)) {
+      completeExtendedRegionConditions(store, regionConditions, { rumorMill, rolls });
+    }
   }
   return { walked, changed };
 }

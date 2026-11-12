@@ -179,7 +179,7 @@ import { evaluateTravelInterruption, canEvadeAmbushWithStealth, TRAVEL_EVENT_TYP
 import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
-import { getActiveCrises, CRISIS_TYPE } from '../systems/living/regionState.js';
+import { getActiveCrises, bindLivingRegionConditions, getActiveRegionFlags, CRISIS_TYPE } from '../systems/living/regionState.js';
 import { REGION_FLAGS } from '../systems/region/regionConditions.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { stockTravelingMerchantTrunk, executeRoadsideFenceSale } from '../systems/living/travelingMerchant.js';
@@ -29977,37 +29977,66 @@ export async function bootWorld(canvas, renderer, params, status) {
       return ok ? `Teleported to ${name} (${x}, ${y})` : `Failed to teleport to (${x}, ${y})`;
     },
     tele2crisis: async (filterType = null) => {
+      if (Array.isArray(playerEntity?.regionConditions)) {
+        bindLivingRegionConditions(playerEntity.regionConditions, playerEntity.factionRep ?? null);
+      }
       const cleanFilter = filterType ? String(filterType).toLowerCase().trim() : null;
       const candidateRegions = [];
+      const matchFlagEntry = cleanFilter
+        ? Object.entries(REGION_FLAGS).find(([k]) => k.toLowerCase() === cleanFilter)
+        : null;
 
-      for (let r = 0; r < BAY_REGION_COUNT; r++) {
+      for (let r = 0; r < REGION_NAMES.length; r++) {
         const crises = getActiveCrises(r);
         const condFlags = playerEntity?.regionConditions?.[r]?.flags ?? [];
+        const activeFlagObjs = getActiveRegionFlags(r, playerEntity?.regionConditions);
 
         let matches = false;
         let matchedLabel = '';
 
         if (!cleanFilter) {
-          if (crises.length > 0) {
+          if (crises.length > 0 || activeFlagObjs.length > 0) {
             matches = true;
-            matchedLabel = crises.map((c) => `${c.type}.${c.phase}`).join(', ');
-          } else if (condFlags.some(Boolean)) {
+            const cText = crises.map((c) => `${c.type}.${c.phase}`).join(', ');
+            const fText = activeFlagObjs.map((f) => `${f.flagName}(${f.value})`).join(', ');
+            matchedLabel = [cText, fText].filter(Boolean).join(' | ');
+          }
+        } else if (matchFlagEntry) {
+          const [flagName, flagId] = matchFlagEntry;
+          if (condFlags[flagId]) {
             matches = true;
-            matchedLabel = 'Regional Condition Active';
+            matchedLabel = `${flagName}(${playerEntity?.regionConditions?.[r]?.values?.[flagId] ?? 0})`;
           }
         } else {
           if (cleanFilter === 'war') {
-            if (crises.some((c) => c.type === CRISIS_TYPE.WAR) || condFlags[REGION_FLAGS.WarBeginning] || condFlags[REGION_FLAGS.WarOngoing]) {
+            if (
+              crises.some((c) => c.type === CRISIS_TYPE.WAR) ||
+              condFlags[REGION_FLAGS.WarBeginning] ||
+              condFlags[REGION_FLAGS.WarOngoing] ||
+              condFlags[REGION_FLAGS.WarWon] ||
+              condFlags[REGION_FLAGS.WarLost]
+            ) {
               matches = true;
               matchedLabel = 'WAR';
             }
           } else if (cleanFilter === 'plague') {
-            if (crises.some((c) => c.type === CRISIS_TYPE.PLAGUE) || condFlags[REGION_FLAGS.PlagueBeginning] || condFlags[REGION_FLAGS.PlagueOngoing]) {
+            if (
+              crises.some((c) => c.type === CRISIS_TYPE.PLAGUE) ||
+              condFlags[REGION_FLAGS.PlagueBeginning] ||
+              condFlags[REGION_FLAGS.PlagueOngoing] ||
+              condFlags[REGION_FLAGS.PlagueEnding]
+            ) {
               matches = true;
               matchedLabel = 'PLAGUE';
             }
           } else if (cleanFilter === 'famine') {
-            if (crises.some((c) => c.type === CRISIS_TYPE.FAMINE) || condFlags[REGION_FLAGS.FamineBeginning] || condFlags[REGION_FLAGS.FamineOngoing]) {
+            if (
+              crises.some((c) => c.type === CRISIS_TYPE.FAMINE) ||
+              condFlags[REGION_FLAGS.BadHarvest] ||
+              condFlags[REGION_FLAGS.FamineBeginning] ||
+              condFlags[REGION_FLAGS.FamineOngoing] ||
+              condFlags[REGION_FLAGS.FamineEnding]
+            ) {
               matches = true;
               matchedLabel = 'FAMINE';
             }

@@ -20,7 +20,13 @@ import { LIVING_WORDS } from './livingWords.js';
 import { BORDER_REGIONS } from '../faction/factionRelations.js';
 import { SKILLS } from '../skills.js';
 import { REGION_FLAGS } from '../region/regionConditions.js';
-import { CRISIS_TYPE, CRISIS_PHASE, getRegionState, getActiveCrises } from './regionState.js';
+import {
+  CRISIS_TYPE,
+  CRISIS_PHASE,
+  getRegionState,
+  getActiveCrises,
+  getBoundRegionConditions,
+} from './regionState.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import {
   LIVING_ROLL_DEGREE,
@@ -147,7 +153,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Prisoner of War Execution',
     category: 'WAR',
     crisisTypes: [CRISIS_TYPE.WAR],
-    regionFlags: [REGION_FLAGS.WarOngoing, REGION_FLAGS.WarLost],
+    regionFlags: [REGION_FLAGS.WarOngoing, REGION_FLAGS.WarWon, REGION_FLAGS.WarLost],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.HomeFarms, LOCATION_TYPES.Tavern],
     baseDefenders: 2,
     baseAttackers: 2,
@@ -169,7 +175,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Deserters Shakedown',
     category: 'WAR',
     crisisTypes: [CRISIS_TYPE.WAR, CRISIS_TYPE.FAMINE],
-    regionFlags: [REGION_FLAGS.WarEnding, REGION_FLAGS.WarLost, REGION_FLAGS.FamineBeginning],
+    regionFlags: [REGION_FLAGS.WarWon, REGION_FLAGS.WarLost, REGION_FLAGS.FamineBeginning, REGION_FLAGS.BadHarvest],
     locationTypes: [LOCATION_TYPES.HomeFarms, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet],
     baseDefenders: 2,
     baseAttackers: 3,
@@ -209,7 +215,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Famine Bread Riot',
     category: 'FAMINE',
     crisisTypes: [CRISIS_TYPE.FAMINE],
-    regionFlags: [REGION_FLAGS.FamineBeginning, REGION_FLAGS.FamineOngoing],
+    regionFlags: [REGION_FLAGS.FamineBeginning, REGION_FLAGS.FamineOngoing, REGION_FLAGS.BadHarvest],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.HomeFarms],
     baseDefenders: 2,
     baseAttackers: 3,
@@ -228,7 +234,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Starving Predators Attack',
     category: 'FAMINE',
     crisisTypes: [CRISIS_TYPE.FAMINE],
-    regionFlags: [REGION_FLAGS.FamineOngoing, REGION_FLAGS.FamineEnding],
+    regionFlags: [REGION_FLAGS.FamineOngoing, REGION_FLAGS.FamineEnding, REGION_FLAGS.BadHarvest],
     locationTypes: [LOCATION_TYPES.HomeFarms, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet],
     baseDefenders: 2,
     baseAttackers: 3,
@@ -306,7 +312,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Quarantine Breach at Gate',
     category: 'PLAGUE',
     crisisTypes: [CRISIS_TYPE.PLAGUE],
-    regionFlags: [REGION_FLAGS.PlagueBeginning, REGION_FLAGS.PlagueOngoing],
+    regionFlags: [REGION_FLAGS.PlagueBeginning, REGION_FLAGS.PlagueOngoing, REGION_FLAGS.PlagueEnding],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 3,
@@ -363,7 +369,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Quack Healer with Fake Cure',
     category: 'PLAGUE',
     crisisTypes: [CRISIS_TYPE.PLAGUE],
-    regionFlags: [REGION_FLAGS.PlagueOngoing, REGION_FLAGS.PricesHigh],
+    regionFlags: [REGION_FLAGS.PlagueOngoing, REGION_FLAGS.PlagueEnding, REGION_FLAGS.PricesHigh],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 2,
@@ -403,7 +409,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Enthralled Coven Guards Ambush',
     category: 'OCCULT',
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
-    regionFlags: [REGION_FLAGS.WitchBurnings, REGION_FLAGS.ScaryHoliday],
+    regionFlags: [REGION_FLAGS.WitchBurnings, REGION_FLAGS.ScaryHoliday, REGION_FLAGS.MadWizardNearby],
     locationTypes: [LOCATION_TYPES.TownHamlet, LOCATION_TYPES.HomeFarms, LOCATION_TYPES.Coven],
     baseDefenders: 2,
     baseAttackers: 2,
@@ -441,7 +447,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Secret Night Daedra Summoning',
     category: 'OCCULT',
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
-    regionFlags: [REGION_FLAGS.WitchBurnings, REGION_FLAGS.ScaryHoliday],
+    regionFlags: [REGION_FLAGS.WitchBurnings, REGION_FLAGS.ScaryHoliday, REGION_FLAGS.MadWizardNearby, REGION_FLAGS.MadWizardDies],
     locationTypes: [LOCATION_TYPES.Graveyard, LOCATION_TYPES.DungeonRuin, LOCATION_TYPES.Coven],
     baseDefenders: 2,
     baseAttackers: 2,
@@ -462,7 +468,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Daylight Moneylender Heist',
     category: 'CRIME',
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
-    regionFlags: [REGION_FLAGS.CrimeWave],
+    regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.TGMInJail, REGION_FLAGS.TGMSetFree, REGION_FLAGS.NewTGM],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 3,
@@ -481,7 +487,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Dark Brotherhood Street Contract',
     category: 'CRIME',
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
-    regionFlags: [REGION_FLAGS.CrimeWave],
+    regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.TGMExecuted, REGION_FLAGS.NewTGM],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.Tavern],
     baseDefenders: 2,
     baseAttackers: 1,
@@ -500,7 +506,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Bazaar Pickpocket Chase',
     category: 'CRIME',
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
-    regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.PricesHigh],
+    regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.PricesHigh, REGION_FLAGS.TGMSetFree],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 1,
     baseAttackers: 1,
@@ -519,7 +525,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Watch Raid on Gambling Den',
     category: 'CRIME',
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
-    regionFlags: [REGION_FLAGS.CrimeWave],
+    regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.TGMInJail, REGION_FLAGS.TGMExecuted],
     locationTypes: [LOCATION_TYPES.Tavern, LOCATION_TYPES.TownCity],
     baseDefenders: 2,
     baseAttackers: 2,
@@ -717,7 +723,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Holiday Tavern Brawl',
     category: 'HOLIDAY',
     crisisTypes: [],
-    regionFlags: [REGION_FLAGS.HappyHoliday],
+    regionFlags: [REGION_FLAGS.HappyHoliday, REGION_FLAGS.WarWon, REGION_FLAGS.PricesLow],
     locationTypes: [LOCATION_TYPES.Tavern, LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 2,
@@ -736,7 +742,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Carnival Masquerade Turmoil',
     category: 'HOLIDAY',
     crisisTypes: [],
-    regionFlags: [REGION_FLAGS.HappyHoliday],
+    regionFlags: [REGION_FLAGS.HappyHoliday, REGION_FLAGS.HolyHoliday, REGION_FLAGS.WarWon, REGION_FLAGS.PricesLow],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 2,
@@ -795,7 +801,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Mad Wizard and Summoned Elementals',
     category: 'ARCANE',
     crisisTypes: [],
-    regionFlags: [REGION_FLAGS.MadWizardNearby],
+    regionFlags: [REGION_FLAGS.MadWizardNearby, REGION_FLAGS.MadWizardDies],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.DungeonRuin],
     baseDefenders: 2,
     baseAttackers: 3,
@@ -835,7 +841,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Robbery of Grieving Mourner at Grave',
     category: 'MUNDANE',
     crisisTypes: [],
-    regionFlags: [],
+    regionFlags: [REGION_FLAGS.MadWizardDies, REGION_FLAGS.WarLost],
     locationTypes: [LOCATION_TYPES.Graveyard, LOCATION_TYPES.TownHamlet],
     baseDefenders: 1,
     baseAttackers: 2,
@@ -854,7 +860,7 @@ export const CRISIS_EVENTS = Object.freeze([
     name: 'Tavern Chess Wager and War Dispute',
     category: 'MUNDANE',
     crisisTypes: [],
-    regionFlags: [REGION_FLAGS.PricesLow],
+    regionFlags: [REGION_FLAGS.PricesLow, REGION_FLAGS.WarWon],
     locationTypes: [LOCATION_TYPES.Tavern],
     baseDefenders: 1,
     baseAttackers: 1,
@@ -891,9 +897,10 @@ export function matchLivingCrisisEvent({
 }) {
   const regState = getRegionState(regionIndex);
   const activeCrises = getActiveCrises(regionIndex);
-  const condRecord = playerEntity?.regionConditions?.[regionIndex];
+  const condRecord = playerEntity?.regionConditions?.[regionIndex] ?? getBoundRegionConditions()?.[regionIndex];
   const condFlags = condRecord?.flags ?? [];
 
+  const flagCandidates = [];
   const candidates = [];
 
   for (let i = 0; i < CRISIS_EVENTS.length; i++) {
@@ -904,11 +911,23 @@ export function matchLivingCrisisEvent({
       continue;
     }
 
-    // 2. Crisis / Flag conditions check
-    let matchesCrisis = false;
+    // 2. Direct vanilla REGION_FLAGS match (prioritized so specific stages/flags spawn their own events)
+    let matchesFlag = false;
+    if (evt.regionFlags.length > 0) {
+      for (const flagId of evt.regionFlags) {
+        if (condFlags[flagId]) {
+          matchesFlag = true;
+          break;
+        }
+      }
+    }
+    if (matchesFlag) {
+      flagCandidates.push(evt);
+    }
 
-    // Check dynamic crisis (WAR, PLAGUE, FAMINE, CIVIL_STRIFE)
-    if (evt.crisisTypes.length > 0) {
+    // 3. Macro crisis category fallback (WAR, PLAGUE, FAMINE, CIVIL_STRIFE)
+    let matchesCrisis = matchesFlag;
+    if (!matchesCrisis && evt.crisisTypes.length > 0) {
       for (const ct of evt.crisisTypes) {
         if (activeCrises.some((c) => c.type === ct)) {
           matchesCrisis = true;
@@ -917,17 +936,7 @@ export function matchLivingCrisisEvent({
       }
     }
 
-    // Check vanilla 29 region condition flags (WarBeginning, PlagueOngoing, CrimeWave, etc.)
-    if (!matchesCrisis && evt.regionFlags.length > 0) {
-      for (const flagId of evt.regionFlags) {
-        if (condFlags[flagId]) {
-          matchesCrisis = true;
-          break;
-        }
-      }
-    }
-
-    // Check mundane category events (can appear anytime if no crisis is strict)
+    // 4. Mundane category events (can appear anytime if no crisis is strict)
     if (evt.category === 'MUNDANE' && !matchesCrisis) {
       matchesCrisis = rng() < 0.35; // 35% chance to consider mundane encounters
     }
@@ -937,13 +946,14 @@ export function matchLivingCrisisEvent({
     }
   }
 
-  if (candidates.length === 0) {
+  const pool = flagCandidates.length > 0 ? flagCandidates : candidates;
+  if (pool.length === 0) {
     // Fallback: interprovincial war or daylight crime if conditions are loose
     return CRISIS_EVENTS[0];
   }
 
-  const pickIdx = Math.floor(rng() * candidates.length);
-  return candidates[pickIdx];
+  const pickIdx = Math.floor(rng() * pool.length);
+  return pool[pickIdx];
 }
 
 /**

@@ -25,8 +25,22 @@ import {
   isSkirmishBlowCriminal,
   SKIRMISH_TEAMS,
 } from '../../src/systems/living/urbanDirector.js';
-import { setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from '../../src/systems/living/regionState.js';
-import { REGION_FLAGS } from '../../src/systems/region/regionConditions.js';
+import {
+  setRegionCrisis,
+  getRegionState,
+  bindLivingRegionConditions,
+  applyPlayerCrisisImpact,
+  CRISIS_TYPE,
+  CRISIS_PHASE,
+} from '../../src/systems/living/regionState.js';
+import {
+  REGION_FLAGS,
+  createRegionConditions,
+  turnOnConditionFlag,
+} from '../../src/systems/region/regionConditions.js';
+import { completeExtendedRegionConditions } from '../../src/systems/region/regionPower.js';
+import { FACTION_TYPES } from '../../src/formats/factionFile.js';
+import { THE_THIEVES_GUILD } from '../../src/systems/faction/factionRep.js';
 import { LivingTamrielConfig, PRESENCE } from '../../src/systems/living/livingConfig.js';
 import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
 
@@ -291,4 +305,128 @@ test('LT-Stability: Heightmap streaming guard, prop snap fallback and canonical 
   assert.equal(gold.group, 'Currency');
   assert.equal(gold.templateIndex, 276);
   assert.equal(gold.stackCount, 25);
+});
+
+test('LT-Vanilla-Bridge: All 26 vanilla REGION_FLAGS (0..25) have >= 2 events in CRISIS_EVENTS', () => {
+  for (const [flagName, flagId] of Object.entries(REGION_FLAGS)) {
+    if (flagId > 25) continue; // 26..29 are DFU's unused Condition26..29 slots
+    const matching = CRISIS_EVENTS.filter(
+      (evt) => Array.isArray(evt.regionFlags) && evt.regionFlags.includes(flagId),
+    );
+    assert.ok(
+      matching.length >= 2,
+      `Expected >= 2 events mapped to REGION_FLAGS.${flagName} (${flagId}), found ${matching.length}`,
+    );
+  }
+});
+
+test('LT-Vanilla-Bridge: RegionState derives WAR/PLAGUE/FAMINE/CIVIL_STRIFE & phases from vanilla regionConditions and nudges endurance counters + faction power', () => {
+  const rc = createRegionConditions();
+  const mockStore = {
+    dict: new Map([
+      [1018, { id: 1018, type: FACTION_TYPES.Province, region: 17, power: 50, enemy1: 1020, ruler: 1, rulerPowerBonus: 10 }],
+      [1020, { id: 1020, type: FACTION_TYPES.Province, region: 19, power: 50, enemy1: 1018, ruler: 2, rulerPowerBonus: 10 }],
+    ]),
+  };
+  try {
+    bindLivingRegionConditions(rc, mockStore);
+
+    // 1. Activate WarBeginning in region 17 (Daggerfall) with counter 2
+    turnOnConditionFlag(rc, 17, REGION_FLAGS.WarBeginning);
+    rc[17].values[REGION_FLAGS.WarBeginning] = 2;
+
+    let st = getRegionState(17);
+    assert.equal(st.crisis, CRISIS_TYPE.WAR);
+    assert.equal(st.phase, CRISIS_PHASE.START);
+    assert.equal(st.phaseDaysRemaining, 2);
+
+    // 2. First player victory on defenders side decrements counter from 2 -> 1 (does NOT skip stage yet!)
+    const hit1 = applyPlayerCrisisImpact(17, {
+      stance: 'defenders',
+      degree: 'SUCCESS',
+      category: 'WAR',
+    });
+    assert.equal(hit1.flagId, REGION_FLAGS.WarBeginning);
+    assert.equal(hit1.newValue, 1);
+    assert.equal(hit1.transitionedTo, null);
+    assert.equal(rc[17].flags[REGION_FLAGS.WarBeginning], true);
+    assert.equal(mockStore.dict.get(1018).power, 51, 'Province faction power must nudge +1');
+
+    // 3. Second player victory decrements counter from 1 -> 0 and transitions WarBeginning -> WarOngoing!
+    const hit2 = applyPlayerCrisisImpact(17, {
+      stance: 'peace',
+      degree: 'SUCCESS',
+      category: 'WAR',
+    });
+    assert.equal(hit2.transitionedTo, REGION_FLAGS.WarOngoing);
+    assert.equal(rc[17].flags[REGION_FLAGS.WarBeginning], false);
+    assert.equal(rc[17].flags[REGION_FLAGS.WarOngoing], true);
+    st = getRegionState(17);
+    assert.equal(st.crisis, CRISIS_TYPE.WAR);
+    assert.equal(st.phase, CRISIS_PHASE.MID);
+
+    // 4. Attacker victory prolongs counter (+1) and reduces province power (-1) while boosting enemy (+1)
+    const beforeVal = rc[17].values[REGION_FLAGS.WarOngoing];
+    const hit3 = applyPlayerCrisisImpact(17, {
+      stance: 'attackers',
+      degree: 'SUCCESS',
+      category: 'WAR',
+    });
+    assert.equal(hit3.newValue, beforeVal + 1);
+    assert.equal(mockStore.dict.get(1018).power, 51, 'Province power nudged -1 from 52 to 51');
+    assert.equal(mockStore.dict.get(1020).power, 51, 'Enemy province power nudged +1');
+  } finally {
+    bindLivingRegionConditions(null, null);
+  }
+});
+
+test('LT-Vanilla-Bridge: Extended vanilla simulation handles BadHarvest ruler gate, WitchBurnings decay, TGM lifecycle, and MadWizard lifecycle', () => {
+  const rc = createRegionConditions();
+  const store = {
+    dict: new Map([
+      // Region 0 (Alik'r): weak ruler (rulerBonus 5 + power/5 = 11 < roll 40) -> BadHarvest escalates to FamineBeginning
+      [1001, { id: 1001, type: FACTION_TYPES.Province, region: 0, power: 30, ruler: 1, rulerPowerBonus: 5 }],
+      // Region 1 (Dragontail): strong ruler (rulerBonus 60 + power/5 = 76 >= roll 40) -> BadHarvest resolves without Famine!
+      [1002, { id: 1002, type: FACTION_TYPES.Province, region: 1, power: 80, ruler: 2, rulerPowerBonus: 60 }],
+      // Region 2: TGMInJail -> TGMSetFree
+      [1003, { id: 1003, type: FACTION_TYPES.Province, region: 2, power: 30, ruler: 3, rulerPowerBonus: 20 }],
+      // Region 3: MadWizardNearby -> MadWizardDies
+      [1004, { id: 1004, type: FACTION_TYPES.Province, region: 3, power: 70, ruler: 4, rulerPowerBonus: 40 }],
+      // Region 62 (Morrowind): WitchBurnings decay
+      [1062, { id: 1062, type: FACTION_TYPES.Province, region: 62, power: 65, ruler: 5, rulerPowerBonus: 40 }],
+      [THE_THIEVES_GUILD, { id: THE_THIEVES_GUILD, type: FACTION_TYPES.Group, region: -1, power: 80 }],
+    ]),
+  };
+
+  // Seed BadHarvest in Region 0 and Region 1
+  turnOnConditionFlag(rc, 0, REGION_FLAGS.BadHarvest);
+  turnOnConditionFlag(rc, 1, REGION_FLAGS.BadHarvest);
+
+  // Seed WitchBurnings in Beyond-the-Bay Region 62 (Morrowind)
+  turnOnConditionFlag(rc, 62, REGION_FLAGS.WitchBurnings);
+
+  // Seed TGMInJail in Region 2, and MadWizardNearby in Region 3
+  turnOnConditionFlag(rc, 2, REGION_FLAGS.TGMInJail);
+  turnOnConditionFlag(rc, 3, REGION_FLAGS.MadWizardNearby);
+
+  completeExtendedRegionConditions(store, rc, { rolls: () => 0.35 });
+
+  // Weak ruler in Region 0 -> BadHarvest turned into FamineBeginning!
+  assert.equal(rc[0].flags[REGION_FLAGS.BadHarvest], false);
+  assert.equal(rc[0].flags[REGION_FLAGS.FamineBeginning], true);
+
+  // Strong ruler in Region 1 -> BadHarvest cleared without FamineBeginning!
+  assert.equal(rc[1].flags[REGION_FLAGS.BadHarvest], false);
+  assert.equal(rc[1].flags[REGION_FLAGS.FamineBeginning], false);
+
+  // WitchBurnings in Region 62 decayed and turned off!
+  assert.equal(rc[62].flags[REGION_FLAGS.WitchBurnings], false);
+
+  // TGMInJail in Region 2 transitioned to TGMSetFree (since Thieves Guild power 80 > roll 36)!
+  assert.equal(rc[2].flags[REGION_FLAGS.TGMInJail], false);
+  assert.equal(rc[2].flags[REGION_FLAGS.TGMSetFree], true);
+
+  // MadWizardNearby in Region 3 transitioned to MadWizardDies!
+  assert.equal(rc[3].flags[REGION_FLAGS.MadWizardNearby], false);
+  assert.equal(rc[3].flags[REGION_FLAGS.MadWizardDies], true);
 });

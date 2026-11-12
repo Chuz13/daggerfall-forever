@@ -23,7 +23,15 @@ import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
 import { LivingTamrielConfig, PRESENCE, getLivingEncounterScale, rollEncounterRange, LIVING_ENCOUNTER_SCALE, LIVING_URBAN_LOOT, LIVING_WILDERNESS_LOOT } from './livingConfig.js';
-import { getRegionState, isRegionInQuarantine, getActiveCrises, setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import {
+  getRegionState,
+  isRegionInQuarantine,
+  getActiveCrises,
+  setRegionCrisis,
+  applyPlayerCrisisImpact,
+  CRISIS_TYPE,
+  CRISIS_PHASE,
+} from './regionState.js';
 import { getQuarantineReliefPostInfo } from './quarantineGate.js';
 import { checkCampFootprintSlope, snapPropToGround } from './campInjector.js';
 import { lodgedIn, freeLodgedFeet } from '../../characters/foeSpacing.js';
@@ -2466,10 +2474,24 @@ export function createLivingSceneHost(deps) {
             if (c.stance === 'defenders' || c.stance === 'bodyguard') {
               s.skirmishStance = 'watch';
               retargetSkirmishFoes(s);
+              applyPlayerCrisisImpact(regIdx, {
+                stance: 'defenders',
+                degree: checkRes.degree || 'SUCCESS',
+                category: evt?.category || 'WAR',
+                playerEntity: player,
+                rolls: rng,
+              });
               deps.say(LIVING_WORDS.eventJoinedF1(f1Name), 5);
             } else if (c.stance === 'attackers') {
               s.skirmishStance = 'rebels';
               retargetSkirmishFoes(s);
+              applyPlayerCrisisImpact(regIdx, {
+                stance: 'attackers',
+                degree: checkRes.degree || 'SUCCESS',
+                category: evt?.category || 'WAR',
+                playerEntity: player,
+                rolls: rng,
+              });
               deps.say(LIVING_WORDS.eventJoinedF2(f2Name), 5);
             } else if (
               c.stance === 'peace' ||
@@ -2487,6 +2509,13 @@ export function createLivingSceneHost(deps) {
             ) {
               s.skirmishStance = 'peace';
               retargetSkirmishFoes(s);
+              applyPlayerCrisisImpact(regIdx, {
+                stance: 'peace',
+                degree: checkRes.degree || 'SUCCESS',
+                category: evt?.category || 'WAR',
+                playerEntity: player,
+                rolls: rng,
+              });
               onContractCompleted(regIdx);
               if (c.goldReward) deps.say(LIVING_WORDS.eventRewardGold(c.goldReward), 5);
               deps.say(LIVING_WORDS.eventPeaceResolved(f1Name, f2Name), 5);

@@ -9,10 +9,46 @@
 import { BAY_REGION_COUNT, REGION_NAMES, regionOfTheatre } from '../../formats/mapsTables.js';
 import { inBay } from '../../world/tamriel/tamrielFrame.js';
 import { theatreAt } from '../../world/worldWide/worldGrid.js';
+import { FORK_FLAGS } from '../../config/forkFlags.js';
+import { FACTION_TYPES } from '../../formats/factionFile.js';
+import { changePower, THE_THIEVES_GUILD, THE_DARK_BROTHERHOOD } from '../faction/factionRep.js';
+import { MERCHANTS_FACTION_ID } from '../guild/guilds.js';
+import {
+  REGION_FLAGS,
+  FLAGS_TO_FLAGS2,
+  turnOnConditionFlag,
+  turnOffConditionFlag,
+} from '../region/regionConditions.js';
+import { getEffectiveRegionTempleId } from '../region/regionPower.js';
+import { findFactionByTypeAndRegion } from '../talk/talk.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getLivingDirectorState } from './livingDirector.js';
 
 export const TOTAL_REGION_COUNT = REGION_NAMES.length;
+
+let _boundRegionConditions = null;
+let _boundFactionRep = null;
+
+/**
+ * Binds the active player's vanilla `regionConditions` and `factionRep` stores
+ * so Living Tamriel derives regional crises and stages directly from the vanilla simulation.
+ * @param {Array<Object>|null} regionConditions
+ * @param {Object|null} [factionRep]
+ */
+export function bindLivingRegionConditions(regionConditions, factionRep = undefined) {
+  _boundRegionConditions = Array.isArray(regionConditions) ? regionConditions : null;
+  if (factionRep !== undefined) {
+    _boundFactionRep = factionRep;
+  }
+}
+
+export function getBoundRegionConditions() {
+  return _boundRegionConditions;
+}
+
+export function getBoundFactionRep() {
+  return _boundFactionRep;
+}
 
 /**
  * Regional crisis types.
@@ -86,8 +122,174 @@ export function getRegionStates() {
 }
 
 /**
+ * Synchronizes a Living Tamriel `RegionStateRecord` directly from a vanilla
+ * `regionConditions[regionIndex]` record (`flags` + `values`).
+ *
+ * Maps the 26 vanilla `REGION_FLAGS` into `WAR`, `PLAGUE`, `FAMINE`, `CIVIL_STRIFE`
+ * and phases `START` (`Beginning`), `MID` (`Ongoing`/active peak), `END` (`Ending`/`Won`/`Lost`).
+ *
+ * @param {number} regionIndex
+ * @param {RegionStateRecord} state
+ * @param {Object} condRecord
+ */
+export function syncRegionStateFromVanilla(regionIndex, state, condRecord) {
+  if (!state || !condRecord || !Array.isArray(condRecord.flags)) return;
+  const f = condRecord.flags;
+  const v = condRecord.values || [];
+  const valOf = (flagId, fallback = 3) => Math.max(1, Number(v[flagId]) || fallback);
+
+  const nextCrises = {};
+
+  // 1. WAR (flags 0..3)
+  if (f[REGION_FLAGS.WarOngoing]) {
+    nextCrises[CRISIS_TYPE.WAR] = {
+      phase: CRISIS_PHASE.MID,
+      phaseDaysRemaining: valOf(REGION_FLAGS.WarOngoing, 5),
+      flagId: REGION_FLAGS.WarOngoing,
+    };
+  } else if (f[REGION_FLAGS.WarBeginning]) {
+    nextCrises[CRISIS_TYPE.WAR] = {
+      phase: CRISIS_PHASE.START,
+      phaseDaysRemaining: valOf(REGION_FLAGS.WarBeginning, 3),
+      flagId: REGION_FLAGS.WarBeginning,
+    };
+  } else if (f[REGION_FLAGS.WarWon] || f[REGION_FLAGS.WarLost]) {
+    const endFlag = f[REGION_FLAGS.WarWon] ? REGION_FLAGS.WarWon : REGION_FLAGS.WarLost;
+    nextCrises[CRISIS_TYPE.WAR] = {
+      phase: CRISIS_PHASE.END,
+      phaseDaysRemaining: valOf(endFlag, 2),
+      flagId: endFlag,
+    };
+  }
+
+  // 2. PLAGUE (flags 4..6)
+  if (f[REGION_FLAGS.PlagueOngoing]) {
+    nextCrises[CRISIS_TYPE.PLAGUE] = {
+      phase: CRISIS_PHASE.MID,
+      phaseDaysRemaining: valOf(REGION_FLAGS.PlagueOngoing, 5),
+      flagId: REGION_FLAGS.PlagueOngoing,
+    };
+  } else if (f[REGION_FLAGS.PlagueBeginning]) {
+    nextCrises[CRISIS_TYPE.PLAGUE] = {
+      phase: CRISIS_PHASE.START,
+      phaseDaysRemaining: valOf(REGION_FLAGS.PlagueBeginning, 3),
+      flagId: REGION_FLAGS.PlagueBeginning,
+    };
+  } else if (f[REGION_FLAGS.PlagueEnding]) {
+    nextCrises[CRISIS_TYPE.PLAGUE] = {
+      phase: CRISIS_PHASE.END,
+      phaseDaysRemaining: valOf(REGION_FLAGS.PlagueEnding, 2),
+      flagId: REGION_FLAGS.PlagueEnding,
+    };
+  }
+
+  // 3. FAMINE (flags 7..9, plus BadHarvest 13 as precursor)
+  if (f[REGION_FLAGS.FamineOngoing]) {
+    nextCrises[CRISIS_TYPE.FAMINE] = {
+      phase: CRISIS_PHASE.MID,
+      phaseDaysRemaining: valOf(REGION_FLAGS.FamineOngoing, 5),
+      flagId: REGION_FLAGS.FamineOngoing,
+    };
+  } else if (f[REGION_FLAGS.FamineBeginning] || f[REGION_FLAGS.BadHarvest]) {
+    const startFlag = f[REGION_FLAGS.FamineBeginning] ? REGION_FLAGS.FamineBeginning : REGION_FLAGS.BadHarvest;
+    nextCrises[CRISIS_TYPE.FAMINE] = {
+      phase: CRISIS_PHASE.START,
+      phaseDaysRemaining: valOf(startFlag, 3),
+      flagId: startFlag,
+    };
+  } else if (f[REGION_FLAGS.FamineEnding]) {
+    nextCrises[CRISIS_TYPE.FAMINE] = {
+      phase: CRISIS_PHASE.END,
+      phaseDaysRemaining: valOf(REGION_FLAGS.FamineEnding, 2),
+      flagId: REGION_FLAGS.FamineEnding,
+    };
+  }
+
+  // 4. CIVIL_STRIFE (CrimeWave 11, WitchBurnings 10, PersecutedTemple 18, MadWizardNearby 24,
+  //    NewRuler 12, TGMInJail 14, PricesHigh 19, TGMSetFree 15, TGMExecuted 16, NewTGM 17, MadWizardDies 25)
+  const midStrifeFlags = [
+    REGION_FLAGS.CrimeWave,
+    REGION_FLAGS.WitchBurnings,
+    REGION_FLAGS.PersecutedTemple,
+    REGION_FLAGS.MadWizardNearby,
+  ];
+  const startStrifeFlags = [
+    REGION_FLAGS.NewRuler,
+    REGION_FLAGS.TGMInJail,
+    REGION_FLAGS.PricesHigh,
+  ];
+  const endStrifeFlags = [
+    REGION_FLAGS.TGMSetFree,
+    REGION_FLAGS.TGMExecuted,
+    REGION_FLAGS.NewTGM,
+    REGION_FLAGS.MadWizardDies,
+  ];
+
+  const activeMidStrife = midStrifeFlags.find((id) => Boolean(f[id]));
+  const activeStartStrife = startStrifeFlags.find((id) => Boolean(f[id]));
+  const activeEndStrife = endStrifeFlags.find((id) => Boolean(f[id]));
+
+  if (activeMidStrife !== undefined) {
+    nextCrises[CRISIS_TYPE.CIVIL_STRIFE] = {
+      phase: CRISIS_PHASE.MID,
+      phaseDaysRemaining: valOf(activeMidStrife, 4),
+      flagId: activeMidStrife,
+    };
+  } else if (activeStartStrife !== undefined) {
+    nextCrises[CRISIS_TYPE.CIVIL_STRIFE] = {
+      phase: CRISIS_PHASE.START,
+      phaseDaysRemaining: valOf(activeStartStrife, 3),
+      flagId: activeStartStrife,
+    };
+  } else if (activeEndStrife !== undefined) {
+    nextCrises[CRISIS_TYPE.CIVIL_STRIFE] = {
+      phase: CRISIS_PHASE.END,
+      phaseDaysRemaining: valOf(activeEndStrife, 2),
+      flagId: activeEndStrife,
+    };
+  }
+
+  state.crises = nextCrises;
+  state.crisis = null;
+  _syncPrimaryCrisis(state);
+
+  const activeCount = Object.keys(nextCrises).length;
+  if (activeCount === 0) {
+    state.tension = 10;
+  } else {
+    const hasMid = Object.values(nextCrises).some((c) => c.phase === CRISIS_PHASE.MID);
+    state.tension = Math.min(100, (hasMid ? 55 : 30) + activeCount * 15);
+  }
+}
+
+/**
+ * Returns all active vanilla `REGION_FLAGS` in the given region with their names and endurance counters.
+ * @param {number} regionIndex
+ * @param {Array<Object>|null} [regionConditionsOverride]
+ * @returns {Array<{ flagId: number, flagName: string, value: number }>}
+ */
+export function getActiveRegionFlags(regionIndex, regionConditionsOverride = null) {
+  const rc = regionConditionsOverride ?? _boundRegionConditions;
+  const rec = rc?.[regionIndex];
+  if (!rec || !Array.isArray(rec.flags)) return [];
+  const out = [];
+  for (const [name, id] of Object.entries(REGION_FLAGS)) {
+    if (id <= 25 && rec.flags[id]) {
+      out.push({
+        flagId: id,
+        flagName: name,
+        value: Number(rec.values?.[id] ?? 0),
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * Returns state for a specific region by index (0..70), auto-initializing if missing.
  * Supports all 62 Iliac Bay regions and all 9 continental provinces of Tamriel.
+ * When bound to vanilla `regionConditions` (and `ENABLE_LT_STANDALONE_SIM` is false),
+ * automatically derives crisis types and phases from the vanilla simulation flags.
  * @param {number} regionIndex
  * @returns {RegionStateRecord}
  */
@@ -99,7 +301,11 @@ export function getRegionState(regionIndex) {
   if (!dict[regionIndex]) {
     dict[regionIndex] = createDefaultRegionState(regionIndex);
   }
-  return dict[regionIndex];
+  const state = dict[regionIndex];
+  if (!FORK_FLAGS.ENABLE_LT_STANDALONE_SIM && _boundRegionConditions?.[regionIndex]) {
+    syncRegionStateFromVanilla(regionIndex, state, _boundRegionConditions[regionIndex]);
+  }
+  return state;
 }
 
 /**
@@ -236,16 +442,110 @@ export function isRegionInSkirmishPhase(regionIndex) {
   );
 }
 
+const CRISIS_TYPE_VANILLA_FLAG_GROUPS = Object.freeze({
+  [CRISIS_TYPE.WAR]: [
+    REGION_FLAGS.WarBeginning,
+    REGION_FLAGS.WarOngoing,
+    REGION_FLAGS.WarWon,
+    REGION_FLAGS.WarLost,
+  ],
+  [CRISIS_TYPE.PLAGUE]: [
+    REGION_FLAGS.PlagueBeginning,
+    REGION_FLAGS.PlagueOngoing,
+    REGION_FLAGS.PlagueEnding,
+  ],
+  [CRISIS_TYPE.FAMINE]: [
+    REGION_FLAGS.BadHarvest,
+    REGION_FLAGS.FamineBeginning,
+    REGION_FLAGS.FamineOngoing,
+    REGION_FLAGS.FamineEnding,
+  ],
+  [CRISIS_TYPE.CIVIL_STRIFE]: [
+    REGION_FLAGS.WitchBurnings,
+    REGION_FLAGS.CrimeWave,
+    REGION_FLAGS.NewRuler,
+    REGION_FLAGS.TGMInJail,
+    REGION_FLAGS.TGMSetFree,
+    REGION_FLAGS.TGMExecuted,
+    REGION_FLAGS.NewTGM,
+    REGION_FLAGS.PersecutedTemple,
+    REGION_FLAGS.PricesHigh,
+    REGION_FLAGS.MadWizardNearby,
+    REGION_FLAGS.MadWizardDies,
+  ],
+});
+
+const CRISIS_PHASE_TO_VANILLA_FLAG = Object.freeze({
+  [CRISIS_TYPE.WAR]: {
+    [CRISIS_PHASE.START]: REGION_FLAGS.WarBeginning,
+    [CRISIS_PHASE.MID]: REGION_FLAGS.WarOngoing,
+    [CRISIS_PHASE.END]: REGION_FLAGS.WarWon,
+  },
+  [CRISIS_TYPE.PLAGUE]: {
+    [CRISIS_PHASE.START]: REGION_FLAGS.PlagueBeginning,
+    [CRISIS_PHASE.MID]: REGION_FLAGS.PlagueOngoing,
+    [CRISIS_PHASE.END]: REGION_FLAGS.PlagueEnding,
+  },
+  [CRISIS_TYPE.FAMINE]: {
+    [CRISIS_PHASE.START]: REGION_FLAGS.FamineBeginning,
+    [CRISIS_PHASE.MID]: REGION_FLAGS.FamineOngoing,
+    [CRISIS_PHASE.END]: REGION_FLAGS.FamineEnding,
+  },
+  [CRISIS_TYPE.CIVIL_STRIFE]: {
+    [CRISIS_PHASE.START]: REGION_FLAGS.NewRuler,
+    [CRISIS_PHASE.MID]: REGION_FLAGS.CrimeWave,
+    [CRISIS_PHASE.END]: REGION_FLAGS.TGMSetFree,
+  },
+});
+
+function _syncVanillaConditionsFromSet(regionIndex, crisisType, startPhase, days) {
+  const cond = _boundRegionConditions?.[regionIndex];
+  if (!cond || !Array.isArray(cond.flags)) return;
+
+  if (crisisType === CRISIS_TYPE.PEACE) {
+    for (const group of Object.values(CRISIS_TYPE_VANILLA_FLAG_GROUPS)) {
+      for (const fid of group) {
+        if (cond.flags[fid]) turnOffConditionFlag(_boundRegionConditions, regionIndex, fid);
+      }
+    }
+    return;
+  }
+
+  const group = CRISIS_TYPE_VANILLA_FLAG_GROUPS[crisisType];
+  if (!group) return;
+  for (const fid of group) {
+    if (cond.flags[fid]) turnOffConditionFlag(_boundRegionConditions, regionIndex, fid);
+  }
+  if (startPhase === CRISIS_PHASE.NONE) return;
+
+  const targetFlag = CRISIS_PHASE_TO_VANILLA_FLAG[crisisType]?.[startPhase];
+  if (targetFlag !== undefined) {
+    turnOnConditionFlag(_boundRegionConditions, regionIndex, targetFlag);
+    if (cond.values) {
+      cond.values[targetFlag] = Math.max(1, Math.min(99, Number(days) || 3));
+    }
+  }
+}
+
 /**
- * Manually trigger or set a crisis on a region (used by quests, bounties, or random rolls).
- * Supports simultaneous coexistence of one crisis per type.
+ * Manually trigger or set a crisis on a region (used by quests, bounties, console, or fallback rolls).
+ * When bound to vanilla `regionConditions`, also sets/clears the corresponding vanilla flags.
  * @param {number} regionIndex
  * @param {string} crisisType
  * @param {string} [startPhase]
  * @param {number} [daysRemaining]
  */
 export function setRegionCrisis(regionIndex, crisisType, startPhase = CRISIS_PHASE.START, daysRemaining = null) {
-  const state = getRegionState(regionIndex);
+  const days = daysRemaining ?? (PHASE_DURATIONS_DAYS[startPhase] || 5);
+  if (_boundRegionConditions?.[regionIndex]) {
+    _syncVanillaConditionsFromSet(regionIndex, crisisType, startPhase, days);
+  }
+
+  const dict = getRegionStates();
+  if (!dict[regionIndex]) {
+    dict[regionIndex] = createDefaultRegionState(regionIndex);
+  }
+  const state = dict[regionIndex];
   if (!state.crises || typeof state.crises !== 'object') {
     state.crises = {};
   }
@@ -259,10 +559,10 @@ export function setRegionCrisis(regionIndex, crisisType, startPhase = CRISIS_PHA
   }
   if (startPhase === CRISIS_PHASE.NONE) {
     delete state.crises[crisisType];
+    if (state.crisis === crisisType) state.crisis = null;
     _syncPrimaryCrisis(state);
     return;
   }
-  const days = daysRemaining ?? (PHASE_DURATIONS_DAYS[startPhase] || 5);
   state.crises[crisisType] = {
     phase: startPhase,
     phaseDaysRemaining: days,
@@ -279,12 +579,205 @@ export function setRegionCrisis(regionIndex, crisisType, startPhase = CRISIS_PHA
   }
 }
 
+const VANILLA_NEXT_STAGE_FLAG = Object.freeze({
+  [REGION_FLAGS.WarBeginning]: REGION_FLAGS.WarOngoing,
+  [REGION_FLAGS.WarOngoing]: REGION_FLAGS.WarWon,
+  [REGION_FLAGS.PlagueBeginning]: REGION_FLAGS.PlagueOngoing,
+  [REGION_FLAGS.PlagueOngoing]: REGION_FLAGS.PlagueEnding,
+  [REGION_FLAGS.BadHarvest]: null, // Prevented from escalating into famine!
+  [REGION_FLAGS.FamineBeginning]: REGION_FLAGS.FamineOngoing,
+  [REGION_FLAGS.FamineOngoing]: REGION_FLAGS.FamineEnding,
+  [REGION_FLAGS.TGMInJail]: REGION_FLAGS.TGMSetFree,
+  [REGION_FLAGS.TGMSetFree]: REGION_FLAGS.NewTGM,
+  [REGION_FLAGS.TGMExecuted]: REGION_FLAGS.NewTGM,
+  [REGION_FLAGS.MadWizardNearby]: REGION_FLAGS.MadWizardDies,
+});
+
+/**
+ * Translates player encounter outcomes and completed crisis contracts into:
+ *  1. Vanilla `faction.power` nudges (`changePower` on Province, Temple, WitchesCoven, Guilds, or Enemy).
+ *  2. Vanilla `regionConditions[regionIndex].values[flagId]` endurance counter adjustments:
+ *     - `defenders` / `peace`: decrements `values[flagId]` by 1 (or 2 on `TRIUMPH`),
+ *       advancing the vanilla flag stage ONLY when `values[flagId]` reaches `0`.
+ *     - `attackers`: increments `values[flagId]` by +1, prolonging the crisis stage.
+ *
+ * @param {number} regionIndex
+ * @param {Object} [opts]
+ * @param {'defenders'|'attackers'|'peace'|'neutral'} [opts.stance='defenders']
+ * @param {string} [opts.degree='SUCCESS']
+ * @param {string} [opts.category='WAR']
+ * @param {any} [opts.playerEntity=null]
+ * @param {() => number} [opts.rolls=Math.random]
+ * @returns {{ flagId: number|null, newValue: number|null, transitionedTo: number|null, powerDelta: number }}
+ */
+export function applyPlayerCrisisImpact(
+  regionIndex,
+  {
+    stance = 'defenders',
+    degree = 'SUCCESS',
+    category = 'WAR',
+    playerEntity = null,
+    rolls = Math.random,
+  } = {},
+) {
+  if (!Number.isInteger(regionIndex) || regionIndex < 0 || regionIndex >= REGION_NAMES.length) {
+    return { flagId: null, newValue: null, transitionedTo: null, powerDelta: 0 };
+  }
+  if (stance === 'neutral' || degree === 'FAILURE' || degree === 'CRITICAL_FAILURE') {
+    return { flagId: null, newValue: null, transitionedTo: null, powerDelta: 0 };
+  }
+
+  const rc = playerEntity?.regionConditions ?? _boundRegionConditions;
+  const fRep = playerEntity?.factionRep ?? _boundFactionRep;
+  const isTriumph = degree === 'TRIUMPH';
+  const step = isTriumph ? 2 : 1;
+  let powerDelta = 0;
+
+  // 1. Nudge vanilla faction power
+  if (fRep && fRep.dict) {
+    const prov = findFactionByTypeAndRegion(fRep.dict, FACTION_TYPES.Province, regionIndex);
+    const provId = prov?.id ?? 0;
+    const templeId = getEffectiveRegionTempleId(regionIndex);
+    const coven = findFactionByTypeAndRegion(fRep.dict, FACTION_TYPES.WitchesCoven, regionIndex);
+    const covenId = coven?.id ?? 0;
+
+    if (stance === 'defenders' || stance === 'peace') {
+      if (provId > 0) {
+        changePower(fRep, provId, step);
+        powerDelta += step;
+      }
+      if ((category === 'PLAGUE' || category === 'FAITH') && templeId > 0) {
+        changePower(fRep, templeId, 1);
+      }
+      if (category === 'COMMERCE') {
+        changePower(fRep, MERCHANTS_FACTION_ID, 1);
+      }
+    } else if (stance === 'attackers') {
+      if (provId > 0) {
+        changePower(fRep, provId, -1);
+        powerDelta -= 1;
+        if (category === 'WAR' && prov && prov.enemy1 > 0) {
+          changePower(fRep, prov.enemy1, 1);
+        }
+      }
+      if (category === 'CRIME') {
+        changePower(fRep, THE_THIEVES_GUILD, 1);
+        changePower(fRep, THE_DARK_BROTHERHOOD, 1);
+      } else if (category === 'OCCULT' && covenId > 0) {
+        changePower(fRep, covenId, 1);
+      }
+    }
+  }
+
+  // 2. Nudge vanilla regionConditions[regionIndex].values[flagId] endurance counter
+  const cond = rc?.[regionIndex];
+  let targetFlagId = null;
+  let newValue = null;
+  let transitionedTo = null;
+
+  if (cond && Array.isArray(cond.flags) && cond.values) {
+    const priorityFlags = [
+      REGION_FLAGS.WarOngoing,
+      REGION_FLAGS.WarBeginning,
+      REGION_FLAGS.WarWon,
+      REGION_FLAGS.WarLost,
+      REGION_FLAGS.PlagueOngoing,
+      REGION_FLAGS.PlagueBeginning,
+      REGION_FLAGS.PlagueEnding,
+      REGION_FLAGS.FamineOngoing,
+      REGION_FLAGS.FamineBeginning,
+      REGION_FLAGS.BadHarvest,
+      REGION_FLAGS.FamineEnding,
+      REGION_FLAGS.CrimeWave,
+      REGION_FLAGS.WitchBurnings,
+      REGION_FLAGS.PersecutedTemple,
+      REGION_FLAGS.MadWizardNearby,
+      REGION_FLAGS.TGMInJail,
+      REGION_FLAGS.NewRuler,
+      REGION_FLAGS.PricesHigh,
+      REGION_FLAGS.TGMSetFree,
+      REGION_FLAGS.TGMExecuted,
+      REGION_FLAGS.NewTGM,
+      REGION_FLAGS.MadWizardDies,
+    ];
+    for (const fid of priorityFlags) {
+      if (cond.flags[fid]) {
+        targetFlagId = fid;
+        break;
+      }
+    }
+
+    if (targetFlagId !== null) {
+      const curVal = Math.max(1, Number(cond.values[targetFlagId]) || 2);
+      if (stance === 'defenders' || stance === 'peace') {
+        const nextVal = curVal - step;
+        if (nextVal <= 0) {
+          turnOffConditionFlag(rc, regionIndex, targetFlagId);
+          const nextStageFlag = VANILLA_NEXT_STAGE_FLAG[targetFlagId];
+          if (nextStageFlag !== undefined && nextStageFlag !== null) {
+            turnOnConditionFlag(rc, regionIndex, nextStageFlag, rolls);
+            cond.values[nextStageFlag] = Math.max(2, Number(cond.values[nextStageFlag]) || 3);
+            transitionedTo = nextStageFlag;
+            newValue = cond.values[nextStageFlag];
+          } else {
+            newValue = 0;
+          }
+        } else {
+          cond.values[targetFlagId] = nextVal;
+          newValue = nextVal;
+        }
+      } else if (stance === 'attackers') {
+        cond.values[targetFlagId] = Math.min(99, curVal + 1);
+        newValue = cond.values[targetFlagId];
+      }
+    }
+  }
+
+  // 3. Also update the in-memory RegionStateRecord (and sync from vanilla if bound)
+  const dict = getRegionStates();
+  const state = dict[regionIndex] || createDefaultRegionState(regionIndex);
+  dict[regionIndex] = state;
+  if (!FORK_FLAGS.ENABLE_LT_STANDALONE_SIM && cond) {
+    syncRegionStateFromVanilla(regionIndex, state, cond);
+  } else if (state.crises && state.crisis && state.crises[state.crisis]) {
+    const rec = state.crises[state.crisis];
+    if (stance === 'defenders' || stance === 'peace') {
+      rec.phaseDaysRemaining = (rec.phaseDaysRemaining ?? 3) - step;
+      if (rec.phaseDaysRemaining <= 0) {
+        if (rec.phase === CRISIS_PHASE.START) {
+          rec.phase = CRISIS_PHASE.MID;
+          rec.phaseDaysRemaining = PHASE_DURATIONS_DAYS[CRISIS_PHASE.MID];
+        } else if (rec.phase === CRISIS_PHASE.MID) {
+          rec.phase = CRISIS_PHASE.END;
+          rec.phaseDaysRemaining = PHASE_DURATIONS_DAYS[CRISIS_PHASE.END];
+        } else {
+          delete state.crises[state.crisis];
+          state.crisis = null;
+        }
+      }
+    } else if (stance === 'attackers') {
+      rec.phaseDaysRemaining = (rec.phaseDaysRemaining ?? 3) + 1;
+    }
+    _syncPrimaryCrisis(state);
+  }
+
+  return { flagId: targetFlagId, newValue, transitionedTo, powerDelta };
+}
+
 /**
  * Advance a region's crisis lifecycle by one day.
+ * When `FORK_FLAGS.ENABLE_LT_STANDALONE_SIM` is false and vanilla `regionConditions`
+ * is bound, synchronizes directly from vanilla `regionConditions` without running
+ * the standalone random crisis generator.
  * @param {RegionStateRecord} state
  * @param {() => number} [rng]
  */
 export function tickRegionDay(state, rng = Math.random) {
+  if (!FORK_FLAGS.ENABLE_LT_STANDALONE_SIM && _boundRegionConditions?.[state?.regionIndex]) {
+    syncRegionStateFromVanilla(state.regionIndex, state, _boundRegionConditions[state.regionIndex]);
+    return;
+  }
+
   if (!state.crises || typeof state.crises !== 'object') {
     state.crises = {};
     if (state.crisis && state.crisis !== CRISIS_TYPE.PEACE && state.phase !== CRISIS_PHASE.NONE) {
@@ -297,7 +790,7 @@ export function tickRegionDay(state, rng = Math.random) {
 
   const activeTypes = Object.keys(state.crises);
   if (activeTypes.length === 0) {
-    // Chance to initiate a crisis scales with regional tension (base 1.5% + up to 15% at max tension)
+    // Legacy standalone generator (gated behind FORK_FLAGS.ENABLE_LT_STANDALONE_SIM in live play)
     const outbreakChance = Math.min(0.25, 0.015 + Math.max(0, state.tension || 0) * 0.0015);
     if (LivingTamrielConfig.political > PRESENCE.OFF && rng() < outbreakChance) {
       const roll = rng();

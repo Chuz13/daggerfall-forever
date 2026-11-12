@@ -23,6 +23,7 @@ import { restartHeldEnchantments } from '../enchantments.js';   // E2: the held 
 import { repairSoulSets } from '../enchanting.js';   // a bound soul's set made whole on load
 import { snapshotWeather, restoreWeather, rollClimateWeathersForDay } from '../weather/weatherSim.js';   // W1: playerPosition.weather (SerializablePlayer.cs:225) - one value, every host; AUDIT WORLD5 C4: the shared day's sky over a loaded one
 import { snapshotRegionConditions, restoreRegionConditions } from '../region/regionConditions.js';
+import { bindLivingRegionConditions } from '../living/regionState.js';
 import { arenaLadderSnapshot, arenaLadderRestore } from '../arena/arenaLadder.js';
 import { regularsBookRestore } from '../card/cardTableSession.js';   // AUDIT CARDS-2 H2: the tavern regulars' purses, by the day   // ARENA2: the arena's ladder, offline
 import { forfeitsBookRestore } from '../iliac/iliacTableSession.js';   // CARDS10: the regulars' forfeits
@@ -1243,6 +1244,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // carries none and restores a blank store, which is what
   // InitializeRegionData mints at a new game anyway.
   entity.regionConditions = restoreRegionConditions(snap.regionConditions);
+  bindLivingRegionConditions(entity.regionConditions, entity.factionRep ?? null);
   // S41 - SerializablePlayer.cs:338-339, "Set time tracked in player
   // entity": the entity's OWN clock marker is re-anchored to the
   // restored world time. It is not in the envelope for exactly this

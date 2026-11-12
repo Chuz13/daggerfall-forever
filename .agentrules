@@ -35,6 +35,12 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
    - Version bumps must synchronize across `app/package.json`, root `package.json`, and `scripts/updateLine.mjs`.
    - Git release tag format strictly follows `app-v<major>.<minor>.<patch>` (demanded by updater logic).
    - Version bumps only occur at milestone finalizations or upon direct command.
+8. **VANILLA AUDIT FIRST (Сначала покажи ванильный стор)**:
+   - Before adding any new state, timer, or simulation, always audit and present to the user how that entity or mechanic is stored in vanilla DFF/DFU (`entity.regionConditions`, `entity.factionRep`, `rumorMill`, `regionPrices`, `questMachine`, `itemTemplates`).
+9. **NO SHADOW STATE (Запрет на дублирующие стейты)**:
+   - Never create parallel state dictionaries (such as custom regional or faction stores) if `playerEntity` or the core engine already owns the canonical store. Every new gameplay layer must read from and mutate the canonical vanilla store directly.
+10. **EXTEND VANILLA INSTEAD OF DUPLICATING (Достраиваем ванильную функцию, а не пишем рядом вторую)**:
+    - When a vanilla flag, enum, or simulation step (e.g., `REGION_FLAGS` in `regionConditions.js` / `regionPower.js`) is incomplete in the classic engine, complete the missing logic inside the vanilla pipeline rather than building a competing simulation on top of it.
    
    
    Also always add any new text in all languages currently present in the game. 

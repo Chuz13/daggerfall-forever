@@ -8,7 +8,15 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { LivingTamrielConfig, PRESENCE, isLivingBountyScalingEnabled } from './livingConfig.js';
-import { getRegionState, CRISIS_PHASE, PHASE_DURATIONS_DAYS, CRISIS_TYPE, hasRegionCrisis } from './regionState.js';
+import {
+  getRegionState,
+  CRISIS_PHASE,
+  PHASE_DURATIONS_DAYS,
+  CRISIS_TYPE,
+  hasRegionCrisis,
+  applyPlayerCrisisImpact,
+  getBoundRegionConditions,
+} from './regionState.js';
 
 export const CONTRACT_KIND = Object.freeze({ WILDERNESS: 'WILDERNESS', DUNGEON: 'DUNGEON', FORT: 'FORT' });
 
@@ -77,11 +85,20 @@ export function getRegionFortCrisis(regionIndex) {
  * @param {string|null} [contractKind]
  * @returns {{ tension:number, phase:string }}
  */
-export function onContractCompleted(regionIndex, contractKind = null) {
-  const relief = contractKind === CONTRACT_KIND.FORT || contractKind === 'FORT' ? FORT_CONTRACT_TENSION_RELIEF : CONTRACT_TENSION_RELIEF;
+export function onContractCompleted(regionIndex, contractKind = null, playerEntity = null) {
+  const isFort = contractKind === CONTRACT_KIND.FORT || contractKind === 'FORT';
+  const relief = isFort ? FORT_CONTRACT_TENSION_RELIEF : CONTRACT_TENSION_RELIEF;
+  if (playerEntity?.regionConditions || getBoundRegionConditions()) {
+    applyPlayerCrisisImpact(regionIndex, {
+      stance: 'defenders',
+      degree: isFort ? 'TRIUMPH' : 'SUCCESS',
+      category: 'WAR',
+      playerEntity,
+    });
+  }
   const st = getRegionState(regionIndex);
   st.tension = Math.max(0, st.tension - relief);
-  const step = contractKind === CONTRACT_KIND.FORT || contractKind === 'FORT' ? 2 : 1;
+  const step = isFort ? 2 : 1;
   if (st.phase === CRISIS_PHASE.START || st.phase === CRISIS_PHASE.MID) {
     st.phaseDaysRemaining = Math.max(1, st.phaseDaysRemaining - step); // the crisis timer runs toward END
   } else if (st.phase === CRISIS_PHASE.END) {
