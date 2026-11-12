@@ -15,6 +15,8 @@ dist-pistol/
 app/game/
 app/release/
 dagger-viewer.html
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 
 # DA13: the bundled game's index, written by the release workflow before electron-builder packs it.
 app/game-seed.json
