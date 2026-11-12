@@ -12,6 +12,9 @@ export const DIALOG_CSS = `
   color: #d8cfae; }
 .dlg-shell .dlg-win.px-win { width: auto; height: auto; min-width: min(340px, 92vw); max-width: min(560px, 92vw);
   max-height: 80dvh; }
+.dlg-head { padding: 16px 24px 14px; border-bottom: 2px solid rgba(125,116,96,0.55);
+  background: rgba(30,24,16,0.35); display: flex; flex-direction: column; gap: 4px; text-align: center; }
+.dlg-head .dlg-row.hl { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .dlg-body { padding: 22px 28px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
   text-align: center; }
 .dlg-row { margin: 0; font-size: 17px; line-height: 1.45; text-shadow: 2px 2px 0 rgba(0,0,0,0.85);

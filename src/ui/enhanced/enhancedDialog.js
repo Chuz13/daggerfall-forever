@@ -217,7 +217,7 @@ export function drawEnhancedChoice(owner, lines, options, doc = globalThis.docum
   if (!doc?.body || inClassicScope() || !options?.length) return false;
   const shown = options.filter((o) => o.label);
   if (!shown.length) return false;
-  const sig = JSON.stringify([lines, shown.map((o) => [o.code, o.label])]);
+  const sig = JSON.stringify([owner?.consequences ?? [], lines, shown.map((o) => [o.code, o.label])]);
   if (choice && (choice.owner !== owner || choice.sig !== sig)) closeEnhancedChoice();
   if (!choice) {
     try {
@@ -226,12 +226,20 @@ export function drawEnhancedChoice(owner, lines, options, doc = globalThis.docum
       const win = el(doc, 'section', 'dlg-win px-win');
       win.setAttribute('role', 'alertdialog');
       win.setAttribute('aria-modal', 'true');
+      if (owner?.consequences?.length) {
+        const head = el(doc, 'header', 'dlg-head dlg-consequence');
+        for (const c of owner.consequences) {
+          head.append(el(doc, 'p', 'dlg-row hl', c || '\u00a0'));
+        }
+        win.append(head);
+      }
       const body = el(doc, 'div', 'dlg-body');
       for (const l of lines ?? []) body.append(el(doc, 'p', 'dlg-row', l || '\u00a0'));
       const acts = el(doc, 'footer', 'dlg-acts');
       for (const o of shown) {
         const { key, label } = choiceLabel(o.label);
-        const btn = el(doc, 'button', `dlg-btn${o.code === 'KeyY' ? ' primary' : ''}`);
+        const isPrimary = o.code === 'KeyY' || owner?.concluded;
+        const btn = el(doc, 'button', `dlg-btn${isPrimary ? ' primary' : ''}`);
         btn.type = 'button';
         btn.tabIndex = -1;
         if (key) btn.append(el(doc, 'span', 'dlg-key', key));
@@ -240,8 +248,8 @@ export function drawEnhancedChoice(owner, lines, options, doc = globalThis.docum
         btn.addEventListener('click', (e) => {
           e.preventDefault(); e.stopPropagation();
           if (windowCovered(owner)) return;   // PLEA-LOOP: asked at the press - a covered window answers nothing
-          closeEnhancedChoice();
           owner.input(o.code);
+          if (owner.done) closeEnhancedChoice();
         });
         acts.append(btn);
       }

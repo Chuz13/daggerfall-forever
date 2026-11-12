@@ -58,6 +58,18 @@ import { timeScale } from '../../systems/timeScale.js'; // CSA-G: PopupText.Upda
  *  unique one, because the failure this closes was exactly two
  *  instances agreeing on a default. */
 let _hudTextSeq = 0;
+let _captureSink = null;
+
+/** Capture notifications routed through any HudText model during the synchronous run of `fn`. */
+export function captureHudText(sink, fn) {
+  const prev = _captureSink;
+  _captureSink = sink;
+  try {
+    return fn();
+  } finally {
+    _captureSink = prev;
+  }
+}
 
 export const HUD_TEXT_POP_DELAY = 1.0; // PopupText.popDelay
 export const HUD_TEXT_MAX_ROWS = 7; // PopupText.maxRows
@@ -132,6 +144,7 @@ export class HudText {
   add(text, delayInSeconds = HUD_TEXT_POP_DELAY) {
     const pgText = processGrammar(text);
     if (String(pgText ?? '').trim() === '') return;
+    if (_captureSink) _captureSink(pgText);
     // NOTICE-SPAM (2026-09-22, Mac: "notification spam with the new
     // enhanced integration"; DragynDance had a column of the same line
     // over and over). A TOAST SYSTEM THAT STACKS ONE LINE TEN TIMES IS

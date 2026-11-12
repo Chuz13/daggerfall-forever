@@ -12,6 +12,8 @@ import { layoutMessageBox, drawMessageBox, messageBoxArtLoaded } from './message
 import { noticeDraw, noticeRelease } from './enhanced/enhancedNotice.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js'; // PLUS1
 import { drawEnhancedChoice, closeEnhancedChoice } from './enhanced/enhancedDialog.js'; // DLG2: a keyed menu as the enhanced dialog   // ENH-NOTICE1: the no-options box on the enhanced skin
+import { captureHudText } from './hud/hudText.js';
+import { t } from '../systems/textManager.js';
 
 const PANEL = [0.05, 0.05, 0.09, 0.92];
 /** UXB1-M: a clickable row's band starts this far (native px) above its glyphs' top - half the 12 px line's lead
@@ -19,6 +21,7 @@ const PANEL = [0.05, 0.05, 0.09, 0.92];
 const ROW_LEAD = 2;
 const TEXT = [0.86, 0.82, 0.68, 1];
 const DIM = [0.55, 0.52, 0.45, 1];
+const HL = [0.98, 0.94, 0.35, 1];
 
 // L10N2 (2026-09-27): WHERE A LINE MAY BREAK. A space, as ever; and Chinese and Japanese put no spaces between their
 // words, so between two of their characters as well - UAX #14's ideographic class, the line breaking every reader of
@@ -89,6 +92,8 @@ export class ChoiceWindow {
     this._hitRows = null; // set by draw(): this session's option rows, in real pixel space
     this._hitBox = null;
     this._m = null; // this session's nativeMetrics, so click() can undo pointToNative
+    this.consequences = null;
+    this.concluded = false;
   }
 
   input(code) {
@@ -97,10 +102,11 @@ export class ChoiceWindow {
     // page and left painted in the stack, pleaded again on every press: each plea halved the term and took the fine.
     if (this.done) return;
     if (
-      !this.options.length &&
-      (code === 'back' || code === 'confirm' || code === 'Escape' || code === 'Enter' || code === 'KeyE')
+      (!this.options.length || this.concluded) &&
+      (code === 'back' || code === 'confirm' || code === 'Escape' || code === 'Enter' || code === 'KeyE' || code === 'Space')
     ) {
       this.done = true;
+      closeEnhancedChoice(this);
       noticeRelease(this); // ENH-NOTICE1: the panel leaves with the box
       return;
     }
@@ -116,9 +122,33 @@ export class ChoiceWindow {
       return false;
     });
     if (opt) {
-      this.done = true;
-      closeEnhancedChoice(this);
-      opt.action?.();
+      if (this.concluded) {
+        this.done = true;
+        closeEnhancedChoice(this);
+        opt.action?.();
+        return;
+      }
+      const captured = [];
+      captureHudText((msg) => captured.push(msg), () => {
+        opt.action?.();
+      });
+      if (!this.done && captured.length > 0) {
+        this.consequences = captured;
+        this.concluded = true;
+        this.options = [
+          {
+            code: 'Escape',
+            label: t('portal.book.close', 'Esc - close'),
+            action: () => {
+              this.done = true;
+              closeEnhancedChoice(this);
+            },
+          },
+        ];
+      } else {
+        this.done = true;
+        closeEnhancedChoice(this);
+      }
     }
   }
 
@@ -170,10 +200,16 @@ export class ChoiceWindow {
     // DLG2: a keyed menu is a decision - on the enhanced skin it is the
     // stone-and-brass dialog with real buttons, not the flat canvas panel.
     if (this.options.length && isEnhancedPlus() && drawEnhancedChoice(this, this.lines, this.options)) return;
+    const consequenceWrapped = (this.consequences ?? []).flatMap((l) => (l === '' ? [''] : wrapText(font.fnt, l, 280)));
     const wrapped = this.lines.flatMap((l) => (l === '' ? [''] : wrapText(font.fnt, l, 280)));
     const optLines = this.options.filter((o) => o.label);
-    const bodyCount = wrapped.length + 1; // +1 for the blank spacer row below the text
-    const lines = [...wrapped, '', ...optLines.map((o) => o.label)];
+    const bodyCount = (consequenceWrapped.length ? consequenceWrapped.length + 1 : 0) + wrapped.length + 1; // +1 for the blank spacer row below the text
+    const lines = [
+      ...(consequenceWrapped.length ? [...consequenceWrapped, ''] : []),
+      ...wrapped,
+      '',
+      ...optLines.map((o) => o.label),
+    ];
     if (!this.options.length) lines.push('(continue)');
     const w = Math.max(...lines.map((l) => measureText(font.fnt, l))) * s + 24 * s;
     const lineH = 12 * s;
@@ -186,6 +222,9 @@ export class ChoiceWindow {
     this._hitRows = [];
     let ty = y + 12 * s;
     lines.forEach((l, i) => {
+      const isConsequence = consequenceWrapped.length > 0 && i < consequenceWrapped.length;
+      const isOption = this.options.some((o) => o.label === l) || l === '(continue)';
+      const color = isConsequence ? HL : isOption ? DIM : TEXT;
       drawText(
         renderer,
         font,
@@ -193,7 +232,7 @@ export class ChoiceWindow {
         x + 12 * s,
         ty,
         s,
-        this.options.some((o) => o.label === l) || l === '(continue)' ? DIM : TEXT,
+        color,
       );
       // Every row from bodyCount on is a clickable one: a real option
       // (its own code) or, when there are none at all, the single
