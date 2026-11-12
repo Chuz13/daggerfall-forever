@@ -15,6 +15,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { CLIMATES } from '../../formats/mapsFile.js';
+import { adoptLight } from '../../render/lightId.js';
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { SEASONS, seasonValue, dateFromClassicMinutes } from '../gameDate.js';
 import { encounterTable } from '../../characters/encounterTableDoor.js';
@@ -3328,15 +3329,25 @@ export function createLivingSceneHost(deps) {
     },
 
     /**
-     * Returns dynamic point lights `[x, y, z, radius]` for campfires and braziers at the active site.
+     * Returns dynamic point lights `{ x, y, z, range }` for campfires and braziers at the active site.
      */
     lights() {
       if (!stood) return [];
-      /** @type {number[][]} */
+      /** @type {any[]} */
       const out = [];
       for (const fl of stood.blueprint.flats) {
         if (fl.lightRadius > 0) {
-          out.push([fl.feet[0], fl.feet[1] + 1.0, fl.feet[2], fl.lightRadius]);
+          out.push(
+            adoptLight(
+              {
+                x: fl.feet[0],
+                y: fl.feet[1] + 1.0,
+                z: fl.feet[2],
+                range: fl.lightRadius,
+              },
+              fl,
+            ),
+          );
         }
       }
       return out;

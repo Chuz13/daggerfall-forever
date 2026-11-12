@@ -41,6 +41,11 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
    - Never create parallel state dictionaries (such as custom regional or faction stores) if `playerEntity` or the core engine already owns the canonical store. Every new gameplay layer must read from and mutate the canonical vanilla store directly.
 10. **EXTEND VANILLA INSTEAD OF DUPLICATING (Достраиваем ванильную функцию, а не пишем рядом вторую)**:
     - When a vanilla flag, enum, or simulation step (e.g., `REGION_FLAGS` in `regionConditions.js` / `regionPower.js`) is incomplete in the classic engine, complete the missing logic inside the vanilla pipeline rather than building a competing simulation on top of it.
+11. **ARCHITECTURAL SEAMS & PIPELINE INTEGRITY (Архитектурные швы и строгие контракты движка)**:
+    - **Свет и шейдеры (Lighting Seam)**: Любой динамический источник света обязан быть объектом вида `{ x: number, y: number, z: number, range: number, color?: number[] }` и регистрироваться через `adoptLight(lightObj, sourceEntity)` (`src/render/lightId.js`). Запрещено передавать сырые массивы `[x, y, z, r]`. Нарушение приводит к записи `NaN` в буфер `uPointLights`, ломает шейдер `charProgram` и превращает все 3D-меши Морровинда в черные силуэты.
+    - **Фабрики предметов (Item Factories)**: Запрещено напрямую пушить сырые JavaScript-объекты в `entity.items` или `playerEntity.items`. Все предметы, золото, зелья и артефакты обязаны создаваться строго через каноничные фабрики: `setItemFields`, `goldPieces` / `goldStack`, `createWeapon`, `armorOfMaterial`, `makePotion`. Каждый предмет обязан иметь `uid`, `value`, `weightInKg`, `currentCondition` и валидные иконки.
+    - **Экипировка мобов (Mob Equipment & 3D Bodies)**: Надетые вещи 3D-мобов обязаны регистрироваться в `equipTableOf(entity)` и `entity.items`. 3D-рендерер Морровинда читает визуал напрямую из слотов экипировки (`equipTableOf`), а труп лутает `entity.items`.
+    - **Локализация (26 языков)**: Все новые строки, названия, описания квестов и диалогов обязаны добавляться минималистично и одновременно во все 26 языковых файлов в `locales/<lang>/Port_Strings.csv` без хардкода строк в логике.
    
    
    Also always add any new text in all languages currently present in the game. 
