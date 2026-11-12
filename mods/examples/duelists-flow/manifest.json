@@ -1,0 +1,10 @@
+{
+  "id": "duelists-flow",
+  "name": "Duelist's Flow",
+  "version": "1.0.0",
+  "author": "13",
+  "description": "Rhythmic combat combo system: consecutive landed strikes build flow, restoring fatigue and focus, while missed swings break rhythm.",
+  "enabled": true,
+  "entry": "plugin.js"
+}
+

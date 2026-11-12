@@ -8,6 +8,7 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
+    "start": "cd app && npm start",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",

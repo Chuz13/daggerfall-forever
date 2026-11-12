@@ -91,6 +91,7 @@ export const DESKTOP_STAGED = Object.freeze([
   Object.freeze({ from: 'src/ui/menu/menuPad.js', to: 'app/launcher/menuPad.js' }),
   Object.freeze({ from: 'src/assets/branding/dfo-online.png', to: 'app/launcher/dfo-online.png' }),
   Object.freeze({ from: 'dist', to: 'app/dist' }),
+  Object.freeze({ from: 'mods', to: 'app/mods' }),
 ]);
 
 /** Copy DESKTOP_STAGED into app/ under `root`, each place emptied first so nothing stale rides along. */

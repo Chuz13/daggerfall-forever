@@ -51,6 +51,7 @@ import {
   getPerkBladeMasteryDamageMultiplier,
   getPerkCritBonus,
   getPerkBackstabBonus,
+  getPerkHitBonus,
 } from '../systems/perks/perkRegistry.js';
 import {
   getMaterialDamageMultiplier,
@@ -424,6 +425,7 @@ export function calculateSuccessfulHit(attacker, target, chanceToHitMod, struckB
   // audit-F4 zero. BadReactionsFrom is its one core writer.
   const enchMod = enchantChanceToHitMod(attacker);
   chance += enchMod;
+  chance += getPerkHitBonus(attacker);
   const statMod = statsToHit(attacker, target);
   chance += statMod;
   const skillRoll = rolls();

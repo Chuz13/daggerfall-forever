@@ -9,6 +9,8 @@ import { onModEvent, offModEvent, emitModEvent } from './modEventBus.js';
 import { registerModSaveData } from '../modSaveData.js';
 import { registerPerk, unregisterPerk, clearDynamicPerks, hasUnlockedPerk } from '../perks/perkRegistry.js';
 import { hudText } from '../notify.js';
+import { setMidScreenText } from '../../ui/midScreenText.js';
+import { t } from '../textManager.js';
 import { hurtPlayer } from '../../characters/playerEntity.js';
 import { FATIGUE_MULTIPLIER } from '../statMods.js';
 import { SOUND } from '../soundClips.js';
@@ -171,6 +173,26 @@ export function createModApi(modId) {
           console.log(`[HUD Notification]: ${text}`);
         }
       },
+      /**
+       * Display a prominent mid-screen battle or status line (native HUD text).
+       * @param {string} message
+       * @param {number} [durationSeconds=1.5]
+       */
+      showMidScreen: (message, durationSeconds = 1.5) => {
+        if (typeof setMidScreenText === 'function') {
+          setMidScreenText(message, durationSeconds);
+        } else {
+          console.log(`[MidScreen Text]: ${message}`);
+        }
+      },
+      /**
+       * Translate a localized key through the engine's 26-language text core.
+       * @param {string} key
+       * @param {string} fallbackEn
+       * @param {Record<string, any>} [vars]
+       * @returns {string}
+       */
+      t: (key, fallbackEn, vars) => t(key, fallbackEn, vars),
     },
 
     perks: {

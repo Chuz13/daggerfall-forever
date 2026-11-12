@@ -139,3 +139,9 @@ export function getPerkGoldModifier(entity) {
   if (!hasUnlockedPerk(entity, 'treasure_hunter')) return 1.0;
   return 1.20;
 }
+
+/** Hit chance bonus from duelists_trance (+5% chance to hit) */
+export function getPerkHitBonus(entity) {
+  if (!hasUnlockedPerk(entity, 'duelists_trance')) return 0;
+  return 5;
+}

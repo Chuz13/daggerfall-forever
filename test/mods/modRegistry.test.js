@@ -103,3 +103,30 @@ test('ModsStorage: desktop shell filesystem scanning & path sanitization', () =>
   }
 });
 
+test('ModsStorage: auto-seeds missing bundled examples into non-empty Mods folder', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dff-mods-seed-test-'));
+
+  try {
+    const modsFolder = path.join(tmpDir, 'Mods');
+    fs.mkdirSync(modsFolder, { recursive: true });
+    // Pre-populate with an existing mod to simulate an existing player profile
+    fs.mkdirSync(path.join(modsFolder, 'pre-existing-mod'), { recursive: true });
+    fs.writeFileSync(
+      path.join(modsFolder, 'pre-existing-mod', 'manifest.json'),
+      JSON.stringify({ id: 'pre-existing-mod', name: 'Pre-existing' })
+    );
+
+    const storage = createModsStorage(tmpDir, { seedExamples: true });
+    const list = storage.listMods();
+    const ids = list.map((m) => m.id);
+
+    // Both pre-existing mod AND bundled mods should be present
+    assert.ok(ids.includes('pre-existing-mod'));
+    assert.ok(ids.includes('heroic-feats'));
+    assert.ok(ids.includes('items-quality'));
+    assert.ok(ids.includes('duelists-flow'));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+

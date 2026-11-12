@@ -22,15 +22,37 @@ function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
     }
   }
 
-  function seedBundledExamplesIfEmpty() {
+  function findBundledExamplesDir() {
+    const candidates = [
+      path.resolve(__dirname, '..', '..', 'mods', 'examples'),
+      path.resolve(__dirname, '..', 'mods', 'examples'),
+      path.resolve(__dirname, '..', 'dist', 'mods', 'examples'),
+      ...(process.resourcesPath
+        ? [
+            path.join(process.resourcesPath, 'mods', 'examples'),
+            path.join(process.resourcesPath, 'app.asar.unpacked', 'mods', 'examples'),
+            path.join(process.resourcesPath, 'app', 'mods', 'examples'),
+          ]
+        : []),
+    ];
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) return cand;
+    }
+    return null;
+  }
+
+  function seedBundledExamples() {
     if (!seedExamples) return;
     try {
-      const existing = fs.readdirSync(modsDir);
-      if (existing.length === 0) {
-        // Check root-level mods/examples relative to project or app resources
-        const projectExamples = path.resolve(__dirname, '..', '..', 'mods', 'examples');
-        if (fs.existsSync(projectExamples)) {
-          fs.cpSync(projectExamples, modsDir, { recursive: true });
+      const examplesDir = findBundledExamplesDir();
+      if (!examplesDir) return;
+
+      const bundled = fs.readdirSync(examplesDir, { withFileTypes: true });
+      for (const ent of bundled) {
+        if (!ent.isDirectory()) continue;
+        const targetPath = path.join(modsDir, ent.name);
+        if (!fs.existsSync(targetPath)) {
+          fs.cpSync(path.join(examplesDir, ent.name), targetPath, { recursive: true });
         }
       }
     } catch (_e) {
@@ -39,7 +61,7 @@ function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
   }
 
   ensureDir();
-  seedBundledExamplesIfEmpty();
+  seedBundledExamples();
 
   function sanitizeRelPath(relPath) {
     const normalized = path.normalize(relPath).replace(/^(\.\.(\/|\\|$))+/, '');
@@ -48,6 +70,7 @@ function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
 
   function listMods() {
     ensureDir();
+    seedBundledExamples();
     const results = [];
     let entries = [];
     try {

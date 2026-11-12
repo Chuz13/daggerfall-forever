@@ -47,6 +47,7 @@
       "private/**",
       "game-seed.json",
       "dist/**",
+      "mods/**",
       "!**/node_modules/@img/**",
       "!**/node_modules/sharp/**"
     ],
@@ -91,7 +92,8 @@
     },
     "asarUnpack": [
       "**/node_modules/workerd/**",
-      "**/node_modules/@cloudflare/workerd-*/**"
+      "**/node_modules/@cloudflare/workerd-*/**",
+      "mods/**"
     ]
   },
   "dependencies": {
