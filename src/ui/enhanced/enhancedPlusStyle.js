@@ -1207,6 +1207,9 @@ export const BOUNTY_CSS = `/* ── BOUNTY1: THE BOUNTY BOARD ── */
 .bounty-title { flex: 1 1 280px; min-width: 0; }
 .bounty-title h2 { margin: 0; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; text-shadow: 2px 2px 0 #050608; }
 .bounty-sub { margin: 2px 0 0; font-size: 12px; color: #b9ab93; }
+.bounty-crisis-banner { margin: 6px 0 2px; padding: 6px 10px; background: rgba(5,6,8,0.55); border-left: 3px solid #c9a86a; display: flex; flex-direction: column; gap: 3px; border-radius: 2px; }
+.bounty-crisis-status { margin: 0; font-size: 12px; font-weight: 600; color: #f3cf86; letter-spacing: 0.04em; text-shadow: 1px 1px 0 #050608; }
+.bounty-crisis-rumor { margin: 0; font-size: 11px; line-height: 1.4; color: #d8cfae; font-style: italic; }
 .bounty-note { margin: 4px 0 0; font-size: 12px; color: #e59a8e; }
 .bounty-note:empty { display: none; }
 .bounty-note.ok { color: #9fe8b4; }

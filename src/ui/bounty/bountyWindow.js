@@ -147,7 +147,23 @@ export function mountBountyBoard(host, deps) {
   const note = el('p', 'bounty-note');
   note.setAttribute('aria-live', 'polite');
   const rankBox = el('div', 'bounty-rankbox'); // HUNTERS-MARK: the hunter's rank, redrawn with the list
-  title.append(el('h2', null, `Bounty Board of ${deps.town.name}`), sub, rankBox, note);
+
+  const crisisLines = Array.isArray(deps.crisisLines) ? deps.crisisLines : [];
+  const latestRumor = typeof deps.latestRumor === 'string' ? deps.latestRumor : null;
+  let crisisBox = null;
+  if (crisisLines.length > 0 || latestRumor) {
+    crisisBox = el('div', 'bounty-crisis-banner');
+    if (crisisLines.length > 0) {
+      crisisBox.append(el('p', 'bounty-crisis-status', crisisLines.join(' · ')));
+    }
+    if (latestRumor) {
+      crisisBox.append(el('p', 'bounty-crisis-rumor', `«${latestRumor}»`));
+    }
+  }
+
+  title.append(el('h2', null, `Bounty Board of ${deps.town.name}`), sub);
+  if (crisisBox) title.append(crisisBox);
+  title.append(rankBox, note);
   head.append(title, button('bounty-close', 'Close', exit));
   const body = el('div', 'bounty-body');
   const side = el('div', 'bounty-side');
