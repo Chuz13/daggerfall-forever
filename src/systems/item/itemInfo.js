@@ -53,7 +53,7 @@ import { isStarglass, STARGLASS_TEXT } from '../starfall/starglass.js';   // AUD
 import { isLockpick, LOCKPICK_TEXT } from '../lockpick/lockpickItem.js';   // LOCKPICK: the Lockpick's card
 import { isWeirKey } from '../eliteGates/weirKey.js'; import { EG_TEXT } from '../../net/eliteGates/egLaw.js';   // AUDIT EG V (c, L8-6): the Weir Key's card and its line (Elite-Gates.md section 5)
 import { isIliacCard, isCardBinder, iliacCardName, iliacCardLines, BINDER_CARD_LINES, isCardPack, CARD_PACK_LINES } from '../iliac/iliacItems.js';   // CARDS8: a card's name and lines, the binder's
-import { getMaterialConfig } from '../mods/modDataSync.js';
+import { getMaterialConfig, getEffectiveWeaponMaterialModifier, getQualityDamageModifier } from '../mods/modDataSync.js';
 import { isSurvivalItem, isCampingEquipment, isCampfireKit, isSkillet } from '../survival/items.js';   // SURV5: the survival items' own info box
 import { isFood, foodOf, foodStage, foodSatiety, isWaterskin, waterIn, WATERSKIN_CAPACITY_KG, STAGE_WORDS, FOOD_STAGE } from '../survival/food.js';   // ROAD-U: the identity DFU reads off the item's own record
 import { localizedText, localizedTable, formatText, t } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; RPT1026-CLIENT: and the Weir Key's account line
@@ -326,8 +326,8 @@ export function itemArmorTypeLine(item) {
  *  shifted by the material modifier - which weaponDamageString prints and the enhanced pack's card sets against the
  *  weapon a wear would replace (ui/armourCard.js), so the card's Damage row and its comparison are one law. */
 export function weaponDamageRange(item) {
-  const mod = weaponMaterialModifier(item?.material ?? WEAPON_MATERIALS.Iron);
-  return [weaponMinDamage(item.templateIndex) + mod, weaponMaxDamage(item.templateIndex) + mod];
+  const mod = getEffectiveWeaponMaterialModifier(item?.material ?? WEAPON_MATERIALS.Iron) + getQualityDamageModifier(item?.quality);
+  return [Math.max(1, weaponMinDamage(item.templateIndex) + mod), Math.max(1, weaponMaxDamage(item.templateIndex) + mod)];
 }
 
 /** The material NAMES the %mat macro resolves (TextProvider's
@@ -1085,6 +1085,22 @@ export function weaponMaterialTraitText(item) {
   return traits.length > 0 ? traits.join(', ') : null;
 }
 
+const QUALITY_L10N_KEYS = Object.freeze(['crude', 'standard', 'fine', 'superior', 'masterwork']);
+const DEFAULT_QUALITY_NAMES = Object.freeze(['Crude', 'Standard', 'Fine', 'Superior', 'Masterwork']);
+
+/**
+ * Format quality text for weapon or armor item.
+ * @param {any} item
+ * @returns {string|null}
+ */
+export function itemQualityText(item) {
+  if (!item || !Number.isInteger(item.quality) || item.quality < 0 || item.quality > 4) return null;
+  if (item.group !== 'Weapons' && item.group !== 'Armor') return null;
+  if (isAmmunition(item) || isHandWraps(item)) return null;
+  const key = QUALITY_L10N_KEYS[item.quality];
+  return t(`item.quality.${key}`, DEFAULT_QUALITY_NAMES[item.quality]);
+}
+
 export function itemStatRows(item) {
   if (!item) return [];
   const rows = [];
@@ -1094,6 +1110,8 @@ export function itemStatRows(item) {
   push('Type', itemArmorTypeLine(item));   // ARMOR-TYPE: Leather, Chain or Plate
   push('Hands', itemHandsLine(item));
   push('Material', itemNameParts(item).material);
+  const quality = itemQualityText(item);
+  if (quality) push(t('item.quality.label', 'Quality'), quality);
   const trait = weaponMaterialTraitText(item);
   if (trait) push('Special', trait);
   const survival = isSurvivalItem(item) || isRestItem(item) || isPortalStone(item) || isPortalBook(item) || isWalletItem(item) || isIliacCard(item) || isCardBinder(item) || isCardPack(item) || isOatsItem(item) || isWagonKitItem(item) || isLockpick(item);   // AUDIT LOCKPICK B2: and the Lockpick's lines   // STEED1/WAGONS4: the oats' and the kit's lines   // AUDIT CARDS-6 A5: and the pack's; CARDS8   // REST6: the seven's lines too; PORTAL1: and the Portal Stone's; WALLET1: and the wallet's

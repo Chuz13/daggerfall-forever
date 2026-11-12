@@ -119,7 +119,12 @@ import {
   silverDoubles, // RVN2: a Silver-scarred revenant's double gone, in this core as in the stock's
 } from './formulas.js';
 import { meanerMonstersOn } from './pcaaoMeanerMonsters.js';
-import { getMaterialDamageMultiplier, getMaterialConditionLossMultiplier } from '../systems/mods/modDataSync.js';
+import {
+  getMaterialDamageMultiplier,
+  getMaterialConditionLossMultiplier,
+  getEffectiveWeaponMaterialModifier,
+  getQualityDamageModifier,
+} from '../systems/mods/modDataSync.js';
 import {
   RR_VENDOR,
   rrAdjustWeaponHitChanceMod,
@@ -207,7 +212,7 @@ const leftHandShield = (e) => {
 const isArmorGroup = (item) => item?.group === 'Armor';
 const nativeMaterial = (item) => item?.material ?? 0;
 const weaponSkillOf = (weapon) => weaponSkillUsed(weapon?.templateIndex) ?? SKILLS.HandToHand;
-const materialModifier = (weapon) => WEAPON_MATERIAL_MODIFIER[weapon?.material] ?? 0; // GetWeaponMaterialModifier
+const materialModifier = (weapon) => getEffectiveWeaponMaterialModifier(weapon?.material); // GetWeaponMaterialModifier
 /** The mod's `item.shortName`, which DFU mints in the player's language
  *  (DaggerfallUnityItem.cs:551, :602). L10N3e: the port's item keeps its
  *  canonical name, so the warnings carry it as shown (shownItemName). */
@@ -596,6 +601,7 @@ export function pcaaoWeaponAttackDamage(
       ? pcaaoDamageModifier(stat(attacker, 'strength')) * 2
       : pcaaoDamageModifier(stat(attacker, 'strength'));
   damage += materialModifier(weapon);
+  damage += getQualityDamageModifier(weapon?.quality);
   if (damage < 1) damage = 0;
   if (damage >= 1) damage += pcaaoBonusOrPenaltyByEnemyType(attacker, target, rolls);
   damage = Math.round(damage * getMaterialDamageMultiplier(weapon?.material, target));

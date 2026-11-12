@@ -1,0 +1,9 @@
+{
+  "rebalanced": true,
+  "weaponModifiers": [0, 0, 0, 1, 1, 2, 2, 3, 3, 4],
+  "armorLadder": {
+    "leather": 4,
+    "chain": 6,
+    "plate": [7, 8, 8, 9, 10, 11, 11, 12, 13, 14]
+  }
+}

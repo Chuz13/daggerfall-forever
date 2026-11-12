@@ -28,6 +28,7 @@ import { KNIGHT_CITY_WATCH } from '../characters/mobile/mobileTypes.js'; // AUDI
 import { ARROW_TEMPLATE } from '../systems/inventory.js'; // X11b: CreateWeapon's one special case
 import { HAND_WRAPS_TEMPLATE } from '../characters/handWrapsIds.js'; // HAND-WRAPS: minted cloth
 import { customItemClass } from '../systems/roleplayRealismItems/rriItems.js'; // RRI2: a custom piece's body part is its class's equip slot
+import { rollItemQuality, getQualityArmorModifier } from '../systems/mods/modDataSync.js';
 
 export { materialArmorValue };
 
@@ -143,7 +144,7 @@ export function randomArmorMaterial(playerLevel, rolls = Math.random) {
  *  FormulaHelper.cs:742-744 - DFU halves EVERY weapon's damage against
  *  a Skeletal Warrior, and the port halved only blunt ones. Reproduced
  *  bug-for-bug: no port site mints the bit. */
-export function createWeapon(templateIndex, material, rolls = Math.random) {
+export function createWeapon(templateIndex, material, rolls = Math.random, quality = null) {
   // X11b: THE ARROW BRANCH MOVES IN. ItemBuilder.CreateWeapon
   // (:353-370) is ONE function with two arms, and the port had it in
   // two places: this one (the melee/bow arm) and an inline copy of the
@@ -176,7 +177,7 @@ export function createWeapon(templateIndex, material, rolls = Math.random) {
       value: itemBaseValue({ group: 'Weapons', templateIndex: ARROW_TEMPLATE, material: 0 }),
     };
   }
-  return weaponOfMaterial(templateIndex, material);
+  return weaponOfMaterial(templateIndex, material, quality);
 }
 
 /** CreateItem then ApplyWeaponMaterial (ItemBuilder.cs:365-369): SetItem's
@@ -188,27 +189,33 @@ export function createWeapon(templateIndex, material, rolls = Math.random) {
  *  multiplier lands on it, because `value *= 3 * mult` (:649) is a write
  *  to a stored field - itemBaseValue's ammunition floor is the arrow
  *  ARM's, not this pair's. */
-export function weaponOfMaterial(templateIndex, material) {
+export function weaponOfMaterial(templateIndex, material, quality = null) {
   if (templateIndex === HAND_WRAPS_TEMPLATE) material = 0; // HAND-WRAPS: cloth - no metal, whatever the roll (systems/handWraps.js)
   const t = templateByIndex(templateIndex);
   const name = WEAPON_BY_INDEX[templateIndex] ?? t?.name; // AUDIT-RR2 G12: SetItem's `shortName = itemTemplate.name` (DaggerfallUnityItem.cs:551) - the class enum has no 513/514
-  return mintCondition({
+  return mintCondition(setItemFields({
     name,
     templateIndex,
     group: 'Weapons',
     material,
     flags: 0,
-    value: t ? materialValue(t.basePrice, material) : 1, // F103: SetItem's basePrice through SetItemPropertiesByMaterial (:649)
     minDamage: weaponMinDamage(templateIndex),
     maxDamage: weaponMaxDamage(templateIndex),
-  }); // AUDIT 23 (items-5): the condition mints with the item
+    ...(quality != null ? { quality } : {}),
+  })); // AUDIT 23 (items-5): the condition mints with the item
 }
 
 /** CreateArmor (ItemBuilder.cs:428-436): CreateItem then ApplyArmorSettings - SetItem's fresh piece at the material,
  *  its variant given (UpgradeLoot's re-mint keeps the piece's own) or left to the mint. The corpse's pieces and There's a
  *  Hole in the Bottom of the Ocean's UpgradeLoot mint through it. */
-export const armorOfMaterial = (templateIndex, material, variant = null) =>
-  mintCondition(setItemFields({ group: 'Armor', templateIndex, material, ...(variant != null ? { variant } : {}) }));
+export const armorOfMaterial = (templateIndex, material, variant = null, quality = null) =>
+  mintCondition(setItemFields({
+    group: 'Armor',
+    templateIndex,
+    material,
+    ...(variant != null ? { variant } : {}),
+    ...(quality != null ? { quality } : {}),
+  }));
 
 /** Weapons.Arrow's template index - ItemBuilder.CreateWeapon's one
  *  special case, and IsItemStackable's. systems/inventory.js declares
@@ -244,19 +251,22 @@ export function rollEnemyEquipment(entity, variant, playerLevel, rolls = Math.ra
   const armorPieces = [];
   let chance = 0;
   if (variant === 0) {
-    rightHand = createWeapon(range(WEAPONS_ENUM.Broadsword, WEAPONS_ENUM.Longsword), randomMaterial(itemLevel, rolls));
+    rightHand = createWeapon(range(WEAPONS_ENUM.Broadsword, WEAPONS_ENUM.Longsword), randomMaterial(itemLevel, rolls), rolls, rollItemQuality(itemLevel, rolls));
     chance = 50;
     const shield = range(ARMOR_ENUM.Buckler, ARMOR_ENUM.Round_Shield);
     if (dice100(chance, rolls())) {
-      leftHand = { templateIndex: shield, shield: true };
-      armorPieces.push({ piece: shield, material: randomArmorMaterial(itemLevel, rolls), shield: true });
+      const q = rollItemQuality(itemLevel, rolls);
+      leftHand = { templateIndex: shield, shield: true, quality: q };
+      armorPieces.push({ piece: shield, material: randomArmorMaterial(itemLevel, rolls), shield: true, quality: q });
     } else if (dice100(chance, rolls())) {
-      leftHand = createWeapon(range(WEAPONS_ENUM.Dagger, WEAPONS_ENUM.Shortsword), randomMaterial(itemLevel, rolls));
+      leftHand = createWeapon(range(WEAPONS_ENUM.Dagger, WEAPONS_ENUM.Shortsword), randomMaterial(itemLevel, rolls), rolls, rollItemQuality(itemLevel, rolls));
     }
   } else {
     rightHand = createWeapon(
       range(WEAPONS_ENUM.Claymore, WEAPONS_ENUM['Battle Axe']),
       randomMaterial(itemLevel, rolls),
+      rolls,
+      rollItemQuality(itemLevel, rolls),
     );
     if (variant === 1) chance = 75;
     else if (variant === 2) chance = 90;
@@ -269,7 +279,7 @@ export function rollEnemyEquipment(entity, variant, playerLevel, rolls = Math.ra
     ARMOR_ENUM.Greaves,
     ARMOR_ENUM.Boots,
   ]) {
-    if (dice100(chance, rolls())) armorPieces.push({ piece, material: randomArmorMaterial(itemLevel, rolls) });
+    if (dice100(chance, rolls())) armorPieces.push({ piece, material: randomArmorMaterial(itemLevel, rolls), quality: rollItemQuality(itemLevel, rolls) });
   }
   // poisoned-weapon chance pends the poison system (Systems arc)
   return { rightHand, leftHand, armorPieces };
@@ -312,7 +322,9 @@ export function enemyArmorValues(entity, armorPieces) {
       // Items.AddItem gives it.
       const part = pieceBodyPart(a.piece);
       if (part == null || part === BODY_PARTS.Feet) continue; // RRI2: the Feet bound holds for a custom piece worn there (the Sollerets, the leather Boots) exactly as for the classic Boots
-      armorValues[part] -= (a.item ? itemArmorValue(a.item) : materialArmorValue(a.material)) * 5;
+      const qMod = a.quality != null ? getQualityArmorModifier(a.quality) : 0;
+      const pieceVal = a.item ? itemArmorValue(a.item) : Math.max(1, materialArmorValue(a.material) + qMod);
+      armorValues[part] -= pieceVal * 5;
     }
   }
   if (entity.isClass) {
@@ -372,7 +384,7 @@ export function equipmentItems(eq) {
   // carries both (createWeapon above); the cuirass beside it carried
   // neither, so staging it at an armorer summed the lot to NaN and the
   // smith offered 0 for everything in the deal. Through the one export.
-  for (const a of eq.armorPieces) items.push(armorOfMaterial(a.piece, a.material));
+  for (const a of eq.armorPieces) items.push(armorOfMaterial(a.piece, a.material, null, a.quality));
   return items;
 }
 

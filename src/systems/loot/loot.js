@@ -47,6 +47,7 @@ import {
 import { CLOTHING_DYES } from '../../characters/dyes.js';
 import { legacyEnchantmentValue, worksUnworn } from '../enchantments.js'; // G4: ItemBuilder's closing value sum; HELD-BASE: a power that works off the body
 import { wearableItem } from '../equip.js'; // HELD-BASE: whether any slot could ever take a piece (RARITY-WEAR's one law)
+import { rollItemQuality } from '../mods/modDataSync.js';
 import { validItemField, validItemFields, itemFieldsOfKind, ITEM_STR_MAX } from '../item/itemFields.js'; // RF5: the one declaration of every item field's kind (LR4's affix check rides it)
 import { validSetMarks } from '../aetheric.js'; // AUDIT SET D6: the wire's cross-checks of a sigil and an Aetheric piece
 import { validGildedMarks } from '../gilded.js'; // GILDED1: and a Gilded piece's - its record's exactly
@@ -521,7 +522,8 @@ export function createRandomWeapon(playerLevel, rolls = Math.random) {
   // AUDIT DW-F: FormulaHelper.RandomMaterial is drawn for EVERY slot, before the arrow test (ItemBuilder.cs:392-394) -
   // an arrow spends it and throws it away, so the stack's Range(1, 21) is the THIRD draw, not the second
   const material = randomMaterial(playerLevel, rolls);
-  if (groupIndex >= 19) return { group: 'Weapons', ...createWeapon(customs[groupIndex - 19], material) };
+  const quality = rollItemQuality(playerLevel, rolls);
+  if (groupIndex >= 19) return { group: 'Weapons', ...createWeapon(customs[groupIndex - 19], material, rolls, quality) };
   // AUDIT 24 systems: the arrow branch makes THREE writes
   // (ItemBuilder.cs:395-398) - the stack, `currentCondition = 0`
   // ("not sure if this is necessary, but classic does it") and
@@ -537,7 +539,7 @@ export function createRandomWeapon(playerLevel, rolls = Math.random) {
   // conjured arrows without a third copy of these four lines.
   if (groupIndex === 18) return createWeapon(ARROW_TEMPLATE, 0, rolls);
   const name = WEAPON_NAMES[groupIndex];
-  return { group: 'Weapons', ...createWeapon(WEAPONS_ENUM[name], material) };
+  return { group: 'Weapons', ...createWeapon(WEAPONS_ENUM[name], material, rolls, quality) };
 }
 
 /** ItemBuilder.CreateRandomArmor: uniform over the 11 armor pieces
@@ -548,7 +550,8 @@ export function createRandomArmor(playerLevel, rolls = Math.random) {
   const piece = i < ARMOR_PIECES.length ? ARMOR_PIECES[i] : customs[i - ARMOR_PIECES.length];
   // AUDIT-RR F6: the class ctor names the item from its template BEFORE SetVariant prefixes it (ItemJerkin.cs:29-46), and
   // ApplyArmorMaterial prices it before the fold - both are SetItem's own order, so the mint goes through it
-  return setItemFields({ group: 'Armor', templateIndex: piece, material: randomArmorMaterial(playerLevel, rolls) });
+  const quality = rollItemQuality(playerLevel, rolls);
+  return setItemFields({ group: 'Armor', templateIndex: piece, material: randomArmorMaterial(playerLevel, rolls), quality });
 }
 
 const pick = (list, rolls) => list[Math.floor(rolls() * list.length)];

@@ -26,6 +26,7 @@ import {
   rriStoredWeight,
   rriCustomItemsForGroup,
 } from '../roleplayRealismItems/rriItems.js'; // RRI1: DFU's custom-item dispatch, asked first   // DW3: GetItemImage's `color = (int)item.dyeColor` (ItemHelper.cs:402) rides the image
+import { getQualityPriceMultiplier, getQualityConditionMaxMultiplier } from '../mods/modDataSync.js';
 
 export { GROUP_TEMPLATE_INDICES };
 
@@ -186,6 +187,9 @@ export function itemBaseValue(item, lookup = templateByIndex) {
 export function setItemFields(item) {
   const named = { ...item, name: item.name ?? templateByIndex(item.templateIndex)?.name };
   if (named.templateIndex === HAND_WRAPS_TEMPLATE) named.material = 0; // HAND-WRAPS: cloth, no metal (a shelf mints at a random one)
+  if ((named.group === 'Weapons' || named.group === 'Armor') && named.quality == null) {
+    named.quality = 1; // Standard (guarantees safe default and migration)
+  }
   // RRI1: a custom class's CurrentVariant setter runs ONCE at the mint
   // (ApplyArmorSettings -> SetVariant): the name's prefix, and for fur
   // the material folded to Leather with `message` 1. Marked, so a
@@ -194,13 +198,17 @@ export function setItemFields(item) {
   // AUDIT-RR2 G7: a fur piece folded before AUDIT-RR F5 carries no weightInKg (its save predates the field) and would
   // read the derived leather half; the fold's stored number is written once on the way in
   const legacyWeight = named.rriVariant && !Number.isFinite(named.weightInKg) ? rriStoredWeight(named) : null;
+  let val = itemValueOf(named);
+  if (!Number.isFinite(item?.value) && named.quality != null && (named.group === 'Weapons' || named.group === 'Armor')) {
+    val = Math.max(1, Math.round(val * getQualityPriceMultiplier(named.quality)));
+  }
   return {
     ...named,
     ...(variant ? { ...variant, rriVariant: true } : {}),
     ...(legacyWeight != null ? { weightInKg: legacyWeight } : {}),
     // AUDIT-RR F5: ApplyArmorMaterial runs BEFORE the class's SetVariant (ItemBuilder.cs:466-485), so a fur piece's
     // value is the CHAIN stage's (x2) - the fold to Leather comes after and value is a stored field; priced on `named`
-    value: itemValueOf(named),
+    value: val,
   };
 }
 /** JAN1 (2026-09-18, Janome: "when I try to sell certain items I get COST:NaN ... he offers me 0"): THE ONE VALUE
@@ -343,6 +351,9 @@ export function mintCondition(item) {
     if (item.group === 'Weapons') max = Math.trunc((max * (conditionMultipliersByMaterial[mat] ?? 4)) / 4);
     else if (item.group === 'Armor' && isPlate(mat))
       max = Math.trunc((max * (conditionMultipliersByMaterial[plateMetal(mat)] ?? 4)) / 4); // BAL6-GAUNTLETS: the plate decode's one home (armorMaterials.js plateMetal)
+  }
+  if (item.quality != null && (item.group === 'Weapons' || item.group === 'Armor')) {
+    max = Math.max(1, Math.round(max * getQualityConditionMaxMultiplier(item.quality)));
   }
   item.maxCondition = max;
   item.currentCondition = max;

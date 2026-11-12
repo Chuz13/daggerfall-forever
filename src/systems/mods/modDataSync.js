@@ -9,8 +9,19 @@ import { getActiveMods, readModFile } from './modRegistry.js';
 import { deepMerge } from './jsonMerge.js';
 import { POTION_RECIPES } from '../potionRecipes.js';
 import { overridePotionRecipes } from '../potions.js';
-import { isPlate, isChain, isLeather } from '../armorMaterials.js';
+import { isPlate, isChain, isLeather, plateMetal, registerMaterialArmorResolver, registerQualityArmorModifierResolver } from '../armorMaterials.js';
 import { ENEMY_GROUPS, enemyEntityGroup } from '../../combat/enemyGroups.js';
+
+export const VANILLA_WEAPON_MATERIAL_MODIFIER = Object.freeze([-1, 0, 0, 1, 2, 3, 3, 4, 5, 6]);
+export const REBALANCED_WEAPON_MATERIAL_MODIFIER = Object.freeze([0, 0, 0, 1, 1, 2, 2, 3, 3, 4]);
+
+export const DEFAULT_QUALITY_TIERS = Object.freeze([
+  Object.freeze({ tier: 0, id: 'crude', damageModifier: -1, armorModifier: -1, conditionLossMultiplier: 1.25, conditionMaxMultiplier: 0.85, priceMultiplier: 0.6, baseWeight: 15 }),
+  Object.freeze({ tier: 1, id: 'standard', damageModifier: 0, armorModifier: 0, conditionLossMultiplier: 1.0, conditionMaxMultiplier: 1.0, priceMultiplier: 1.0, baseWeight: 55 }),
+  Object.freeze({ tier: 2, id: 'fine', damageModifier: 1, armorModifier: 1, conditionLossMultiplier: 0.85, conditionMaxMultiplier: 1.15, priceMultiplier: 1.5, baseWeight: 20 }),
+  Object.freeze({ tier: 3, id: 'superior', damageModifier: 2, armorModifier: 2, conditionLossMultiplier: 0.7, conditionMaxMultiplier: 1.3, priceMultiplier: 2.5, baseWeight: 8 }),
+  Object.freeze({ tier: 4, id: 'masterwork', damageModifier: 3, armorModifier: 3, conditionLossMultiplier: 0.5, conditionMaxMultiplier: 1.5, priceMultiplier: 4.0, baseWeight: 2 }),
+]);
 
 export const MATERIAL_NAMES = Object.freeze([
   'Iron',
@@ -52,7 +63,18 @@ const DEFAULT_MATERIALS_CONFIG = {
 
 let _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
 let _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
+let _currentQualityConfig = [...DEFAULT_QUALITY_TIERS];
+let _isMaterialsRebalanced = false;
+let _rebalancedWeaponModifiers = [...REBALANCED_WEAPON_MATERIAL_MODIFIER];
+let _rebalancedArmorLadder = {
+  leather: 4,
+  chain: 6,
+  plate: [7, 8, 8, 9, 10, 11, 11, 12, 13, 14],
+};
 let _synced = false;
+
+registerMaterialArmorResolver(getEffectiveMaterialArmorValue);
+registerQualityArmorModifierResolver(getQualityArmorModifier);
 
 /**
  * Sync and apply all data modifications from active mods.
@@ -60,6 +82,14 @@ let _synced = false;
 export function syncModData() {
   _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
   _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
+  _currentQualityConfig = [...DEFAULT_QUALITY_TIERS];
+  _isMaterialsRebalanced = false;
+  _rebalancedWeaponModifiers = [...REBALANCED_WEAPON_MATERIAL_MODIFIER];
+  _rebalancedArmorLadder = {
+    leather: 4,
+    chain: 6,
+    plate: [7, 8, 8, 9, 10, 11, 11, 12, 13, 14],
+  };
   const activeMods = getActiveMods();
 
   // 1. Sync Combat Overrides
@@ -113,6 +143,15 @@ export function syncModData() {
       if (raw) {
         try {
           const parsed = JSON.parse(raw);
+          if (parsed.rebalanced === true) {
+            _isMaterialsRebalanced = true;
+          }
+          if (Array.isArray(parsed.weaponModifiers)) {
+            _rebalancedWeaponModifiers = [...parsed.weaponModifiers];
+          }
+          if (parsed.armorLadder) {
+            _rebalancedArmorLadder = { ..._rebalancedArmorLadder, ...parsed.armorLadder };
+          }
           _currentMaterialsConfig = deepMerge(_currentMaterialsConfig, parsed);
         } catch (e) {
           console.error(`[ModDataSync] Failed to parse materials data in mod ${mod.id}:`, e);
@@ -120,6 +159,27 @@ export function syncModData() {
       }
     }
   }
+
+  // 4. Sync Quality Overrides
+  for (const mod of activeMods) {
+    const qualityFile = mod.manifest?.data?.quality;
+    if (qualityFile) {
+      const raw = readModFile(mod.id, qualityFile);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed?.tiers)) {
+            _currentQualityConfig = parsed.tiers;
+          }
+        } catch (e) {
+          console.error(`[ModDataSync] Failed to parse quality data in mod ${mod.id}:`, e);
+        }
+      }
+    }
+  }
+
+  registerMaterialArmorResolver(getEffectiveMaterialArmorValue);
+  registerQualityArmorModifierResolver(getQualityArmorModifier);
 
   _synced = true;
 }
@@ -294,11 +354,156 @@ export function getMaterialStaminaDrain(materialIndex) {
 }
 
 /**
+ * Get quality configuration for a given quality tier (0: Crude .. 4: Masterwork).
+ * @param {number|undefined|null} quality
+ */
+export function getQualityConfig(quality) {
+  if (!_synced) syncModData();
+  const q = Number.isInteger(quality) ? Math.max(0, Math.min(4, Number(quality))) : 1;
+  return _currentQualityConfig[q] ?? DEFAULT_QUALITY_TIERS[1];
+}
+
+/**
+ * Get damage modifier for an item's quality.
+ * @param {number|undefined|null} quality
+ * @returns {number}
+ */
+export function getQualityDamageModifier(quality) {
+  return getQualityConfig(quality).damageModifier ?? 0;
+}
+
+/**
+ * Get armor rating modifier for an item's quality.
+ * @param {number|undefined|null} quality
+ * @returns {number}
+ */
+export function getQualityArmorModifier(quality) {
+  return getQualityConfig(quality).armorModifier ?? 0;
+}
+
+/**
+ * Get base price multiplier for an item's quality.
+ * @param {number|undefined|null} quality
+ * @returns {number}
+ */
+export function getQualityPriceMultiplier(quality) {
+  return getQualityConfig(quality).priceMultiplier ?? 1.0;
+}
+
+/**
+ * Get condition degradation loss multiplier for an item's quality (e.g. 1.25 for crude, 0.5 for masterwork).
+ * @param {number|undefined|null} quality
+ * @returns {number}
+ */
+export function getQualityConditionLossMultiplier(quality) {
+  return getQualityConfig(quality).conditionLossMultiplier ?? 1.0;
+}
+
+/**
+ * Get max condition multiplier for an item's quality (e.g. 0.85 for crude, 1.5 for masterwork).
+ * @param {number|undefined|null} quality
+ * @returns {number}
+ */
+export function getQualityConditionMaxMultiplier(quality) {
+  return getQualityConfig(quality).conditionMaxMultiplier ?? 1.0;
+}
+
+/**
+ * Check whether materials rebalancing is currently active.
+ * @returns {boolean}
+ */
+export function isMaterialsRebalanced() {
+  if (!_synced) syncModData();
+  return _isMaterialsRebalanced;
+}
+
+/**
+ * Get weapon material damage modifier (Iron..Daedric).
+ * Uses rebalanced values if active, otherwise exact vanilla table.
+ * @param {number|undefined|null} materialIndex
+ * @returns {number}
+ */
+export function getEffectiveWeaponMaterialModifier(materialIndex) {
+  if (!_synced) syncModData();
+  const m = Number.isInteger(materialIndex) ? Number(materialIndex) : 0;
+  if (_isMaterialsRebalanced) {
+    return _rebalancedWeaponModifiers[m] ?? 0;
+  }
+  return VANILLA_WEAPON_MATERIAL_MODIFIER[m] ?? 0;
+}
+
+/**
+ * Get effective material armor rating (Leather, Chain, Iron..Daedric).
+ * Returns null if rebalance is not active (falling back to vanilla materialArmorValue).
+ * @param {number|undefined|null} material
+ * @returns {number|null}
+ */
+export function getEffectiveMaterialArmorValue(material) {
+  if (!_synced) syncModData();
+  if (!_isMaterialsRebalanced) return null;
+  if (isLeather(material)) return _rebalancedArmorLadder.leather ?? 4;
+  if (isChain(material)) return _rebalancedArmorLadder.chain ?? 6;
+  if (isPlate(material)) {
+    const p = plateMetal(material);
+    if (p !== null) {
+      return _rebalancedArmorLadder.plate?.[p] ?? 7;
+    }
+  }
+  return null;
+}
+
+/**
+ * Roll a quality tier (0: Crude, 1: Standard, 2: Fine, 3: Superior, 4: Masterwork)
+ * taking player/item level gating into account.
+ * @param {number} [level=1]
+ * @param {() => number} [rolls=Math.random]
+ * @returns {number}
+ */
+export function rollItemQuality(level = 1, rolls = Math.random) {
+  let w0 = 15;
+  let w1 = 55;
+  let w2 = 20;
+  let w3 = 8;
+  let w4 = 2;
+
+  if (level < 3) {
+    w4 = 0;
+    w3 = 3;
+    w1 += 7;
+  } else if (level < 6) {
+    w4 = 1;
+    w3 = 6;
+    w1 += 3;
+  }
+
+  const total = w0 + w1 + w2 + w3 + w4;
+  let roll = Math.floor(rolls() * total);
+  if (roll < w0) return 0;
+  roll -= w0;
+  if (roll < w1) return 1;
+  roll -= w1;
+  if (roll < w2) return 2;
+  roll -= w2;
+  if (roll < w3) return 3;
+  return 4;
+}
+
+/**
  * Reset data sync state (for test isolation).
  */
 export function _resetModDataSync() {
   _currentCombatConfig = { ...DEFAULT_COMBAT_CONFIG };
   _currentMaterialsConfig = JSON.parse(JSON.stringify(DEFAULT_MATERIALS_CONFIG));
+  _currentQualityConfig = [...DEFAULT_QUALITY_TIERS];
+  _isMaterialsRebalanced = false;
+  _rebalancedWeaponModifiers = [...REBALANCED_WEAPON_MATERIAL_MODIFIER];
+  _rebalancedArmorLadder = {
+    leather: 4,
+    chain: 6,
+    plate: [7, 8, 8, 9, 10, 11, 11, 12, 13, 14],
+  };
+  registerMaterialArmorResolver(getEffectiveMaterialArmorValue);
+  registerQualityArmorModifierResolver(getQualityArmorModifier);
   _synced = false;
   overridePotionRecipes(null);
 }

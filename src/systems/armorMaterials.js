@@ -50,7 +50,21 @@ export const NUMBER_BODY_PARTS = 7;
  *  material because the enemy equipment table (combat/
  *  enemyEquipment.js) has armor records and no items. */
 const PLATE_ARMOR_VALUES = [7, 9, 9, 11, 13, 15, 15, 17, 19, 21];
+let _materialArmorResolver = null;
+export function registerMaterialArmorResolver(fn) {
+  _materialArmorResolver = typeof fn === 'function' ? fn : null;
+}
+
+let _qualityArmorModifierResolver = null;
+export function registerQualityArmorModifierResolver(fn) {
+  _qualityArmorModifierResolver = typeof fn === 'function' ? fn : null;
+}
+
 export function materialArmorValue(material) {
+  if (_materialArmorResolver) {
+    const resolved = _materialArmorResolver(material);
+    if (resolved != null) return resolved;
+  }
   if (isLeather(material)) return 3;
   if (isChain(material)) return 6;
   if (isPlate(material)) return PLATE_ARMOR_VALUES[plateMetal(material)] ?? 0;
@@ -119,6 +133,9 @@ export function itemArmorValue(item) {
   }
   let result = materialArmorValue(item?.material ?? ARMOR_MATERIAL.Leather);
   if (item?.artifact && item?.group === 'Armor') result = Math.trunc(result / 2); // :1054-1056
+  if (item?.quality != null && item?.group === 'Armor' && _qualityArmorModifierResolver) {
+    result = Math.max(1, result + _qualityArmorModifierResolver(item.quality));
+  }
   return result;
 }
 

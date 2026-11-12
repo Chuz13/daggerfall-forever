@@ -1,0 +1,13 @@
+{
+  "id": "items-quality",
+  "name": "Items Quality & Rebalance",
+  "version": "1.0.0",
+  "author": "13",
+  "description": "Craftsmanship quality tiers for weapons and armor (Crude to Masterwork) with flattened material scaling and balanced modifiers to damage, armor rating, durability, and trade value.",
+  "enabled": true,
+  "data": {
+    "quality": "quality.json",
+    "materials": "materials.json"
+  },
+  "entry": "plugin.js"
+}

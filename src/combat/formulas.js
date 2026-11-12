@@ -55,6 +55,9 @@ import {
 import {
   getMaterialDamageMultiplier,
   getMaterialConditionLossMultiplier,
+  getEffectiveWeaponMaterialModifier,
+  getQualityDamageModifier,
+  getQualityConditionLossMultiplier,
 } from '../systems/mods/modDataSync.js';
 
 // ---- Dice100.cs verbatim ----
@@ -520,7 +523,8 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
     if (weapon.material === 2 && silverDoubles(target) && modMult === 1.0) damage *= 2;    // Silver (RVN2: unless a veto keeps it plain)
   }
   damage += damageModifier(liveStat(attacker, 'strength'));
-  damage += WEAPON_MATERIAL_MODIFIER[weapon.material] ?? 0;   // half of the in-game display, per the source comment
+  damage += getEffectiveWeaponMaterialModifier(weapon.material);   // half of the in-game display, per the source comment
+  damage += getQualityDamageModifier(weapon.quality);
   if (damage < 1) damage = 0;
   damage += bonusOrPenaltyByEnemyType(attacker, target);
   damage = Math.round(damage * getMaterialDamageMultiplier(weapon?.material, target));
@@ -620,7 +624,8 @@ export function damageEquipment(attacker, target, damage, weapon, struckBodyPart
     if (_overrides.get('applyConditionDamageThroughPhysicalHit')?.(item, owner, damage, { say, rolls }) === true) return;
     let amount = Math.trunc((10 * damage + 50) / 100);
     if (amount === 0 && dice100(20, rolls())) amount = 1;
-    const lossMult = item?.group === 'Weapons' && item.material !== undefined ? getMaterialConditionLossMultiplier(item.material) : 1.0;
+    let lossMult = item?.group === 'Weapons' && item.material !== undefined ? getMaterialConditionLossMultiplier(item.material) : 1.0;
+    if (item?.quality != null) lossMult *= getQualityConditionLossMultiplier(item.quality);
     lowerCondition(item, dfuBlowWear(Math.round(amount * lossMult), rolls), owner, say);   // BALANCE1: DFU's amount, on the port's wear scale; WEAR-TWICE: twice it, WEAR-ONE: once again
   };
   hit(weapon, attacker);
@@ -753,7 +758,7 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   // CalculateWeaponToHit: material modifier x 10 rides the WEAPON
   // branch only, verbatim (audit F3).
   // RR1: `if (TryGetOverride("CalculateWeaponToHit", out del)) return del(weapon);` (FormulaHelper.cs:1140-1146) - Roleplay & Realism's weaponMaterials registers x3
-  if (weapon) chanceToHitMod += _overrides.get('calculateWeaponToHit')?.(weapon) ?? (WEAPON_MATERIAL_MODIFIER[weapon.material] ?? 0) * 10;
+  if (weapon) chanceToHitMod += _overrides.get('calculateWeaponToHit')?.(weapon) ?? (getEffectiveWeaponMaterialModifier(weapon.material) * 10);
   if (weapon) chanceToHitMod = adjustWeaponHitChanceMod(attacker, target, chanceToHitMod, weaponAnimTime, weapon);   // AUDIT PCO1: the stock's mod hook, right after CalculateWeaponToHit
   const struck = calculateStruckBodyPart(rolls());
   struckPart = struck;   // SW1: carried out to the tail's hook, which sits past this block

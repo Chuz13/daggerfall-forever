@@ -1,0 +1,64 @@
+{
+  "tiers": [
+    {
+      "tier": 0,
+      "id": "crude",
+      "name": "Crude",
+      "damageModifier": -1,
+      "armorModifier": -1,
+      "conditionLossMultiplier": 1.25,
+      "conditionMaxMultiplier": 0.85,
+      "priceMultiplier": 0.6,
+      "weightMultiplier": 1.0,
+      "baseWeight": 15
+    },
+    {
+      "tier": 1,
+      "id": "standard",
+      "name": "Standard",
+      "damageModifier": 0,
+      "armorModifier": 0,
+      "conditionLossMultiplier": 1.0,
+      "conditionMaxMultiplier": 1.0,
+      "priceMultiplier": 1.0,
+      "weightMultiplier": 1.0,
+      "baseWeight": 55
+    },
+    {
+      "tier": 2,
+      "id": "fine",
+      "name": "Fine",
+      "damageModifier": 1,
+      "armorModifier": 1,
+      "conditionLossMultiplier": 0.85,
+      "conditionMaxMultiplier": 1.15,
+      "priceMultiplier": 1.5,
+      "weightMultiplier": 1.0,
+      "baseWeight": 20
+    },
+    {
+      "tier": 3,
+      "id": "superior",
+      "name": "Superior",
+      "damageModifier": 2,
+      "armorModifier": 2,
+      "conditionLossMultiplier": 0.7,
+      "conditionMaxMultiplier": 1.3,
+      "priceMultiplier": 2.5,
+      "weightMultiplier": 1.0,
+      "baseWeight": 8
+    },
+    {
+      "tier": 4,
+      "id": "masterwork",
+      "name": "Masterwork",
+      "damageModifier": 3,
+      "armorModifier": 3,
+      "conditionLossMultiplier": 0.5,
+      "conditionMaxMultiplier": 1.5,
+      "priceMultiplier": 4.0,
+      "weightMultiplier": 1.0,
+      "baseWeight": 2
+    }
+  ]
+}
