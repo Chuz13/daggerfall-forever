@@ -1865,7 +1865,7 @@ export function createLivingSceneHost(deps) {
             action: () => {
               deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
               const foe = s.foes.find((f) => f?.livingRole === 'rival_adventurer' || f?.livingRole === 'wandering_adventurer');
-              if (foe) {
+              if (foe && foe.motor) {
                 foe._isSparring = true;
                 foe._duelWager = wager;
                 foe._advRecord = adv;
@@ -1877,8 +1877,24 @@ export function createLivingSceneHost(deps) {
                   foe.ai.secondaryTarget = null;
                   if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
                 }
+                deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
+              } else {
+                const res = resolveAdventurerEncounter({
+                  adv,
+                  playerEntity: player,
+                  action: 'ACCEPT_DARE',
+                  wagerGold: wager,
+                  rng,
+                });
+                if (player && res.goldDelta) {
+                  player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+                }
+                if (res.outcome === DUEL_OUTCOME.PLAYER_WON) {
+                  deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                  recordAdventurerGrudge(adv.name);
+                }
+                deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)), 5);
               }
-              deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
             },
           },
           {
@@ -2264,7 +2280,7 @@ export function createLivingSceneHost(deps) {
             action: () => {
               deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
               const foe = s.foes.find((f) => f?.livingRole === 'wandering_adventurer' || f?.livingRole === 'rival_adventurer');
-              if (foe) {
+              if (foe && foe.motor) {
                 foe._isSparring = true;
                 foe._duelWager = wager;
                 foe._advRecord = adv;
@@ -2276,8 +2292,29 @@ export function createLivingSceneHost(deps) {
                   foe.ai.secondaryTarget = null;
                   if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
                 }
+                deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
+              } else {
+                const res = resolveWanderingAdventurerInteraction({
+                  adv,
+                  situation,
+                  playerEntity: player,
+                  action: 'WAGER_SPAR',
+                  regionIndex: regIdx,
+                  rng,
+                });
+                if (res.outcome === WANDERING_OUTCOME.SPAR_WON) {
+                  deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                  recordAdventurerGrudge(adv.name);
+                }
+                deps.say(
+                  LIVING_WORDS.adventurerOutcome(
+                    res.outcome === WANDERING_OUTCOME.SPAR_WON ? DUEL_OUTCOME.PLAYER_WON : DUEL_OUTCOME.PLAYER_LOST,
+                    adv.name,
+                    Math.abs(res.goldDelta),
+                  ),
+                  5,
+                );
               }
-              deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
             },
           },
           {

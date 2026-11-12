@@ -185,6 +185,13 @@ const LT_WILDERNESS_LOOT_TIERS = Object.freeze([
   tier('supplies', () => t('features.ltWildernessLoot.supplies', 'Supplies Only')),
 ]);
 
+const LT_ADVENTURER_LOOT_TIERS = Object.freeze([
+  tier('zero', () => t('features.livingAdventurerLoot.zero', 'Empty')),
+  tier('supplies', () => t('features.livingAdventurerLoot.supplies', 'Supplies')),
+  tier('standard', () => t('features.livingAdventurerLoot.standard', 'Standard')),
+  tier('full', () => t('features.livingAdventurerLoot.full', 'Full Gear')),
+]);
+
 /** FT14 (2026-09-15) - WHAT A MOD'S TILE SHOWS, AND WHAT IT DOES NOT.
  *
  *  The eight vendored mods carried 125 settings keys between them when
@@ -2059,26 +2066,6 @@ export const FEATURES = Object.freeze([
     }),
   }),
   Object.freeze({
-    id: 'living-adventurer-loot',
-    group: 'world',
-    get title() { return t('features.livingAdventurerLoot.title', 'Adventurer corpse loot'); },
-    get note() { return t('features.livingAdventurerLoot.note', 'Governs equipment dropped by defeated adventurers: empty, supplies only, standard humanoid, or full equipment.'); },
-    get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
-    kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({
-      store: 'prefs',
-      key: 'livingAdventurerLootMode',
-      initial: 'full',
-      online: 'player',
-      tiers: Object.freeze([
-        Object.freeze({ value: 'zero', get label() { return t('features.livingAdventurerLoot.zero', 'Empty'); } }),
-        Object.freeze({ value: 'supplies', get label() { return t('features.livingAdventurerLoot.supplies', 'Supplies'); } }),
-        Object.freeze({ value: 'standard', get label() { return t('features.livingAdventurerLoot.standard', 'Standard'); } }),
-        Object.freeze({ value: 'full', get label() { return t('features.livingAdventurerLoot.full', 'Full Gear'); } }),
-      ]),
-    }),
-  }),
-  Object.freeze({
     id: 'living-road-adventurers',
     group: 'world',
     get title() { return t('features.livingRoadAdventurers.title', 'Wandering road adventurers'); },
@@ -2167,6 +2154,15 @@ export const FEATURES = Object.freeze([
     get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'livingWildernessLootMode', initial: 'full', online: 'player', tiers: LT_WILDERNESS_LOOT_TIERS }),
+  }),
+  Object.freeze({
+    id: 'lt-adventurer-loot',
+    group: 'world',
+    get title() { return t('features.livingAdventurerLoot.title', 'Adventurer corpse loot'); },
+    get note() { return t('features.livingAdventurerLoot.note', 'Governs equipment dropped by defeated adventurers: empty, supplies only, standard humanoid, or full equipment.'); },
+    get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingAdventurerLootMode', initial: 'full', online: 'player', tiers: LT_ADVENTURER_LOOT_TIERS }),
   }),
 ]);
 

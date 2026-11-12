@@ -20,7 +20,7 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
   assert.equal(CATEGORIES[0].id, 'graphics');
   assert.equal(CATEGORIES[CATEGORIES.length - 1].id, 'dff');
 
-  // Verify all 10 features are placed in the dff tab under living section
+  // Verify all 16 features are placed in the dff tab under living section
   const expectedFeatures = [
     'feat:living-political',
     'feat:living-quarantine',
@@ -34,6 +34,10 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
     'feat:living-naval',
     'feat:living-mob-traits',
     'feat:living-dungeon-mob-traits',
+    'feat:lt-encounter-scale',
+    'feat:lt-urban-loot',
+    'feat:lt-wilderness-loot',
+    'feat:lt-adventurer-loot',
   ];
 
   for (const featId of expectedFeatures) {
@@ -141,6 +145,12 @@ test('LT-07: Localization keys for all living settings are registered in en and 
     'features.livingMobTraits.note',
     'features.livingDungeonMobTraits.title',
     'features.livingDungeonMobTraits.note',
+    'features.livingAdventurerLoot.title',
+    'features.livingAdventurerLoot.note',
+    'features.livingAdventurerLoot.zero',
+    'features.livingAdventurerLoot.supplies',
+    'features.livingAdventurerLoot.standard',
+    'features.livingAdventurerLoot.full',
   ];
 
   for (const k of requiredKeys) {

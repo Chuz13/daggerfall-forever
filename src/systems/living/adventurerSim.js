@@ -328,7 +328,7 @@ export function calculateDelveOutcome(adv, dungeonType, regionCrisis = null, pla
 
   baseSuccess = Math.max(0.15, Math.min(0.95, baseSuccess));
   const success = rng() < baseSuccess;
-  const demise = !success && rng() < demiseChanceOnFail;
+  const demise = !success && rng() >= (1 - demiseChanceOnFail);
 
   return { success, demise, baseSuccess, demiseChanceOnFail };
 }

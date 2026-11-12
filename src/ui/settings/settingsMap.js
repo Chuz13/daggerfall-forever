@@ -489,6 +489,7 @@ export const CATEGORIES = Object.freeze([
       'feat:lt-encounter-scale',
       'feat:lt-urban-loot',
       'feat:lt-wilderness-loot',
+      'feat:lt-adventurer-loot',
     ]),
   ]),
 ]);
