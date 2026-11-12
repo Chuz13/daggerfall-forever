@@ -19,10 +19,11 @@ import {
   createWeapon,
   armorOfMaterial,
 } from '../../combat/enemyEquipment.js';
-import { addItem } from '../inventory.js';
+import { addItem, goldStack, isGoldPieces } from '../inventory.js';
 import { equipItem, equipTableOf, getEquipSlot, EQUIP_SLOTS } from '../equip.js';
 import { applyRarity, rarityEligible } from '../loot/lootRarity.js';
 import { createArtifact, getMagicItemTemplates } from '../loot/loot.js';
+import { makePotion, potionRecipeKey, POTION_RECIPES } from '../potions.js';
 import { LivingTamrielConfig, LIVING_ADVENTURER_LOOT } from './livingConfig.js';
 
 export { LIVING_ADVENTURER_LOOT };
@@ -285,9 +286,23 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
     }
   }
 
-  // 5. Gold Purse (Tier-scaled)
+  // 5. Gold Purse (Tier-scaled) and Field Supplies
   const baseGold = Math.max(30, (adv?.level || 1) * 25);
-  entity.goldPieces = baseGold + Math.floor(rolls() * baseGold * 0.5);
+  const totalGold = baseGold + Math.floor(rolls() * baseGold * 0.5);
+  entity.goldPieces = totalGold;
+  addItem(entity.items, goldStack(totalGold));
+
+  // Adventurers carry 1-2 standard field supplies (potions)
+  const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
+  if (healRec) {
+    addItem(entity.items, makePotion(potionRecipeKey(healRec.ingredients)));
+  }
+  if (rolls() < 0.5) {
+    const stamRec = POTION_RECIPES.find((r) => r.name === 'stamina');
+    if (stamRec) {
+      addItem(entity.items, makePotion(potionRecipeKey(stamRec.ingredients)));
+    }
+  }
 }
 
 /**
@@ -296,8 +311,8 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
  * Modes:
  *  - ZERO: empty corpse (protects local economy).
  *  - SUPPLIES: potions, bandages, small gold purse only.
- *  - STANDARD: ~25% chance for 1 weapon or armor piece (DFU humanoid loot).
- *  - FULL: 100% droppable loot (exact gear worn, gold, and artifacts).
+ *  - STANDARD: ~25% chance for 1 weapon or armor piece (DFU humanoid loot) + supplies + gold.
+ *  - FULL: 100% droppable loot (all worn gear from equipTable, carried supplies, gold, and artifacts).
  *
  * @param {any} entity Corpse entity
  * @param {string} [mode]
@@ -305,6 +320,9 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
  */
 export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.random) {
   if (!entity || !Array.isArray(entity.items)) return;
+  // Clear any mob lootCap so standard plain-foe caps don't strip adventurer gear
+  delete entity.lootCap;
+
   const lootMode = (mode || LivingTamrielConfig.adventurerLootMode || LIVING_ADVENTURER_LOOT.FULL).toLowerCase();
 
   if (lootMode === LIVING_ADVENTURER_LOOT.ZERO) {
@@ -314,23 +332,50 @@ export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.rand
   }
 
   if (lootMode === LIVING_ADVENTURER_LOOT.SUPPLIES) {
-    entity.items = entity.items.filter((it) => it?.isPotion || it?.category === 'Consumables' || it?.group === 'Gems');
-    entity.goldPieces = Math.min(Number(entity.goldPieces) || 0, 40);
+    const supplies = entity.items.filter((it) => it?.isPotion || it?.category === 'Consumables' || it?.group === 'Gems');
+    const goldCoins = Math.min(Number(entity.goldPieces) || 30, 40);
+    entity.goldPieces = goldCoins;
+    if (goldCoins > 0) {
+      supplies.push(goldStack(goldCoins));
+    }
+    // Guarantee at least 1 healing potion if empty so corpse is never unexpectedly barren
+    if (!supplies.some((it) => it?.isPotion)) {
+      const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
+      if (healRec) {
+        supplies.push(makePotion(potionRecipeKey(healRec.ingredients)));
+      }
+    }
+    entity.items = supplies;
     return;
   }
 
   if (lootMode === LIVING_ADVENTURER_LOOT.STANDARD) {
-    // 25% chance to retain 1 equipped piece, plus keep any artifacts
+    // 25% chance to retain 1 equipped piece, plus keep any artifacts, supplies, and modest gold
     const kept = [];
     const artifacts = entity.items.filter((it) => it?.artifact);
     const standardGear = entity.items.filter((it) => !it?.artifact && (it?.group === 'Weapons' || it?.group === 'Armor'));
     if (standardGear.length > 0 && rolls() < 0.25) {
       kept.push(standardGear[Math.floor(rolls() * standardGear.length)]);
     }
-    entity.items = [...kept, ...artifacts];
-    entity.goldPieces = Math.min(Number(entity.goldPieces) || 0, 100);
+    const potions = entity.items.filter((it) => it?.isPotion);
+    const goldCoins = Math.min(Number(entity.goldPieces) || 50, 75);
+    entity.goldPieces = goldCoins;
+    const goldItem = goldCoins > 0 ? [goldStack(goldCoins)] : [];
+    entity.items = [...kept, ...artifacts, ...potions.slice(0, 1), ...goldItem];
     return;
   }
 
-  // FULL mode: leave all gear, weapons, artifacts and gold untouched!
+  // FULL mode: ensure ALL worn equipment from equipTable, artifacts, inventory supplies, and full gold purse are in items
+  const table = equipTableOf(entity);
+  if (table) {
+    for (const slotItem of Object.values(table)) {
+      if (slotItem && !entity.items.includes(slotItem)) {
+        entity.items.push(slotItem);
+      }
+    }
+  }
+  const fullGold = Number(entity.goldPieces) || 50;
+  if (fullGold > 0 && !entity.items.some(isGoldPieces)) {
+    entity.items.push(goldStack(fullGold));
+  }
 }

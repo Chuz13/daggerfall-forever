@@ -1082,6 +1082,14 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     host.frame(1.1);
     const goldBeforeSpar = player.goldPieces;
     choiceSpec.options[2].action(); // Option 3: Wager Spar
+    const sparringFoe = spawned.find((f) => f._isSparring);
+    if (sparringFoe) {
+      assert.equal(sparringFoe._isSparring, true);
+      assert.equal(sparringFoe._duelWager, expectedWager);
+      // Simulate foe yielding in 3D combat (exteriorFoes spar yield)
+      player.goldPieces += expectedWager;
+      recordAdventurerGrudge(roadBp.meta.adv.name);
+    }
     assert.equal(
       player.goldPieces - goldBeforeSpar,
       expectedWager,

@@ -99,22 +99,24 @@ describe('Living Tamriel Adventurer Gear & Combat Systems', () => {
     assert.equal(eZero.items.length, 0);
     assert.ok(eZero.goldPieces <= 5);
 
-    // SUPPLIES: only consumables
+    // SUPPLIES: consumables and gold stack
     const eSupplies = { items: [...baseItems], goldPieces: 250 };
     applyAdventurerCorpseLoot(eSupplies, LIVING_ADVENTURER_LOOT.SUPPLIES);
-    assert.equal(eSupplies.items.length, 1);
-    assert.equal(eSupplies.items[0].name, 'Healing Potion');
+    assert.ok(eSupplies.items.some((it) => it.name === 'Healing Potion'));
+    assert.ok(eSupplies.items.some((it) => it.isGold || it.stackCount != null));
     assert.ok(eSupplies.goldPieces <= 40);
 
-    // STANDARD: classic DFU humanoid loot keeps ~25% gear plus artifacts
+    // STANDARD: classic DFU humanoid loot keeps ~25% gear plus artifacts, potion, and gold
     const eStandard = { items: [...baseItems], goldPieces: 250 };
     applyAdventurerCorpseLoot(eStandard, LIVING_ADVENTURER_LOOT.STANDARD, () => 0.10); // forces 25% roll to hit
     assert.ok(eStandard.items.some((it) => it.artifact));
+    assert.ok(eStandard.items.some((it) => it.isGold || it.stackCount != null));
 
     // FULL: 100% droppable
     const eFull = { items: [...baseItems], goldPieces: 250 };
     applyAdventurerCorpseLoot(eFull, LIVING_ADVENTURER_LOOT.FULL);
-    assert.equal(eFull.items.length, baseItems.length);
+    assert.ok(eFull.items.length >= baseItems.length);
+    assert.ok(eFull.items.some((it) => it.isGold || it.stackCount != null));
     assert.equal(eFull.goldPieces, 250);
   });
 

@@ -405,8 +405,9 @@ export function setAdventurerLevel(identifier, newLevel) {
  * @param {any} [params.playerEntity]
  */
 export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.random, playerEntity = null } = {}) {
+  const events = [];
   const tier = Number(LivingTamrielConfig.adventurers);
-  if (tier === PRESENCE.OFF) return;
+  if (tier === PRESENCE.OFF) return { events };
 
   const reg = getAdventurerSimRegistry();
   // Prune any dead records from previous days before today's simulation step
@@ -448,6 +449,7 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
 
       const slot = Math.abs(parseInt(String(locId).replace(/\D/g, ''), 10) || 0) % 10;
       const desc = getRegionalDungeonDescriptor(adv.currentRegion, slot);
+      const dungName = adv.targetLocationName || desc.name;
       const dungeonType = adv.targetDungeonType || desc.type;
       const regCrisis = getRegionState(adv.currentRegion)?.crisis;
       const pLevel = Number(playerEntity?.level || 1);
@@ -458,12 +460,15 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
         adv.delveSuccessCount++;
         adv.daysRemainingInAction = 0;
 
+        let lvlMsg = '';
         // Level up & gear upgrade up to LEVEL_CAP (45 parity)
         if (adv.delveSuccessCount % 2 === 0 && adv.level < LEVEL_CAP) {
           adv.level++;
           // Gear tiers 1..9 (Iron/Steel to Daedric/Artifact)
           adv.gearTier = Math.min(9, Math.floor(adv.level / 5) + 1);
+          lvlMsg = ` (Leveled up to ${adv.level}!)`;
         }
+        events.push(`${adv.name} (${adv.className}) cleared ${dungName}${lvlMsg}`);
 
         // Apply dungeon clear cooldown (3..5 days)
         if (locId) {
@@ -485,6 +490,7 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
                 recovered: false,
                 claimedByAdventurer: true,
               };
+              events.push(`${adv.name} intercepted quest item in ${dungName}!`);
             }
           }
         }
@@ -503,7 +509,7 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
             trait: adv.trait,
             level: adv.level,
             gearTier: adv.gearTier,
-            dungeonName: adv.targetLocationName || desc.name,
+            dungeonName: dungName,
           });
         }
 
@@ -512,10 +518,12 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
         reg.nextId = (reg.nextId || pool.length) + 1;
         const newcomer = createVirtualAdventurer(reg.nextId, adv.currentRegion, rng);
         pool.push(newcomer);
+        events.push(`${adv.name} fell in ${dungName}! Newcomer ${newcomer.name} arrived in region.`);
       } else {
         // Failed delve, but survived (retreated wounded)
         adv.status = ADVENTURER_STATUS.IDLE;
         adv.daysRemainingInAction = 1;
+        events.push(`${adv.name} retreated wounded from ${dungName}`);
       }
       adv.targetLocationId = null;
       adv.targetLocationName = null;
@@ -526,6 +534,7 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
     if (adv.status === ADVENTURER_STATUS.TRAVELING) {
       adv.status = ADVENTURER_STATUS.IDLE;
       adv.daysRemainingInAction = 0;
+      events.push(`${adv.name} arrived in Region ${adv.currentRegion}`);
     }
 
     // Currently IDLE: Pick next endeavor (Move or Delve)
@@ -539,6 +548,7 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
         adv.targetLocationName = desc.name;
         adv.targetDungeonType = desc.type;
         adv.daysRemainingInAction = 2 + Math.floor(rng() * 2);
+        events.push(`${adv.name} set out to delve ${desc.name}`);
       }
     } else {
       // Travel to adjacent region
@@ -546,8 +556,11 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
       adv.status = ADVENTURER_STATUS.TRAVELING;
       adv.currentRegion = neighborRegion;
       adv.daysRemainingInAction = 1 + Math.floor(rng() * 2);
+      events.push(`${adv.name} traveled toward Region ${neighborRegion}`);
     }
   }
+
+  return { events };
 }
 
 /**

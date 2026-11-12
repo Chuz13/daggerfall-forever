@@ -1116,7 +1116,7 @@ export function buildLivingSiteBlueprint({
       rng,
     });
     const adv = passedAdv ?? wandering.adv;
-    const situation = wandering.situation;
+    const situation = passedAdv ? ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP : wandering.situation;
     const displayName = getAdventurerDisplayName(adv);
     adv.name = displayName;
     meta = { ...meta, ...wandering, adv, displayName };
@@ -1868,7 +1868,7 @@ export function createLivingSceneHost(deps) {
             action: () => {
               deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
               const foe = s.foes.find((f) => f?.livingRole === 'rival_adventurer' || f?.livingRole === 'wandering_adventurer');
-              if (foe && foe.motor) {
+              if (foe && (foe.motor || (foe.entity && foe.ai))) {
                 foe._isSparring = true;
                 foe._duelWager = wager;
                 foe._advRecord = adv;
@@ -2283,7 +2283,7 @@ export function createLivingSceneHost(deps) {
             action: () => {
               deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
               const foe = s.foes.find((f) => f?.livingRole === 'wandering_adventurer' || f?.livingRole === 'rival_adventurer');
-              if (foe && foe.motor) {
+              if (foe && (foe.motor || (foe.entity && foe.ai))) {
                 foe._isSparring = true;
                 foe._duelWager = wager;
                 foe._advRecord = adv;
@@ -2769,7 +2769,9 @@ export function createLivingSceneHost(deps) {
             // Wilderness / Camps / Checkpoints
             const wildLoot = LivingTamrielConfig.wildernessLootMode;
             if (wildLoot === LIVING_WILDERNESS_LOOT.SUPPLIES && rec.entity?.items?.length) {
-              rec.entity.items = rec.entity.items.filter((it) => isGoldPieces(it) || it.isGold || it.isPotion || it.isArrow || it.category === 'Consumables');
+              if (a.role !== 'wandering_adventurer' && a.role !== 'rival_adventurer') {
+                rec.entity.items = rec.entity.items.filter((it) => isGoldPieces(it) || it.isGold || it.isPotion || it.isArrow || it.category === 'Consumables');
+              }
             }
           }
           if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || a.role?.startsWith('skirmish_')) {
@@ -2789,6 +2791,11 @@ export function createLivingSceneHost(deps) {
           }
           rec.livingRole = a.role;
           if (a.role === 'wandering_adventurer' || a.role === 'rival_adventurer') {
+            rec.lootDropped = false;
+            rec._suppressLoot = false;
+            if (rec.entity) {
+              delete rec.entity.lootCap;
+            }
             const adv = a.adv ?? blueprint.meta?.adv;
             if (adv && rec.entity) {
               rec._advRecord = adv;
@@ -3834,10 +3841,18 @@ export function executeLivingConsoleCommand(args, ctx) {
     }
     if (act === 'tick') {
       const days = Math.max(1, Math.min(365, parseInt(cleanArgs[2], 10) || 1));
+      const dailyLogs = [];
       for (let d = 0; d < days; d++) {
-        tickAdventurerSimulation({ playerEntity: ctx?.playerEntity, rng: Math.random });
+        const res = tickAdventurerSimulation({ playerEntity: ctx?.playerEntity, rng: Math.random });
+        if (res?.events?.length) {
+          dailyLogs.push(`Day ${d + 1}: ${res.events.slice(0, 3).join('; ')}` + (res.events.length > 3 ? ` (+${res.events.length - 3} more)` : ''));
+        }
       }
-      return `[Living Tamriel] Simulated ${days} day(s) of adventurer ecosystem activity.`;
+      const summary = `[Living Tamriel] Simulated ${days} day(s) of adventurer ecosystem activity.`;
+      if (dailyLogs.length === 0) {
+        return summary + ' (All adventurers currently resting or in transit)';
+      }
+      return summary + '\n' + dailyLogs.slice(0, 6).join('\n') + (dailyLogs.length > 6 ? `\n...and ${dailyLogs.length - 6} more days.` : '');
     }
     if (act === 'kill_in_dungeon') {
       const targetReg = cleanArgs[2] != null ? parseInt(cleanArgs[2], 10) : regIdx;
