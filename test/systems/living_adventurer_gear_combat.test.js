@@ -106,11 +106,14 @@ describe('Living Tamriel Adventurer Gear & Combat Systems', () => {
     assert.ok(eSupplies.items.some((it) => it.isGold || it.stackCount != null));
     assert.ok(eSupplies.goldPieces <= 40);
 
-    // STANDARD: classic DFU humanoid loot keeps ~25% gear plus artifacts, potion, and gold
+    // STANDARD: humanoid loot guarantees 1 gear piece + artifacts + potion supplies + gold
     const eStandard = { items: [...baseItems], goldPieces: 250 };
-    applyAdventurerCorpseLoot(eStandard, LIVING_ADVENTURER_LOOT.STANDARD, () => 0.10); // forces 25% roll to hit
-    assert.ok(eStandard.items.some((it) => it.artifact));
-    assert.ok(eStandard.items.some((it) => it.isGold || it.stackCount != null));
+    applyAdventurerCorpseLoot(eStandard, LIVING_ADVENTURER_LOOT.STANDARD, () => 0.10);
+    assert.ok(eStandard.items.some((it) => it.artifact), 'Artifact dropped');
+    assert.ok(eStandard.items.some((it) => it.group === 'Weapons' || it.group === 'Armor'), '1 piece of gear dropped');
+    assert.ok(eStandard.items.some((it) => it.name === 'Healing Potion' || it.potionRecipeKey != null), 'Supplies potion dropped');
+    assert.ok(eStandard.items.some((it) => it.isGold || it.stackCount != null), 'Gold stack dropped');
+    assert.ok(eStandard.goldPieces >= 50 && eStandard.goldPieces <= 75, 'Modest gold bounded');
 
     // FULL: 100% droppable
     const eFull = { items: [...baseItems], goldPieces: 250 };

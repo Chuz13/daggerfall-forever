@@ -24,6 +24,7 @@ import { equipItem, equipTableOf, getEquipSlot, EQUIP_SLOTS } from '../equip.js'
 import { applyRarity, rarityEligible } from '../loot/lootRarity.js';
 import { createArtifact, getMagicItemTemplates } from '../loot/loot.js';
 import { makePotion, potionRecipeKey, POTION_RECIPES } from '../potions.js';
+import { isPotion } from '../item/itemKinds.js';
 import { LivingTamrielConfig, LIVING_ADVENTURER_LOOT } from './livingConfig.js';
 
 export { LIVING_ADVENTURER_LOOT };
@@ -305,13 +306,15 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
   }
 }
 
+export const isAdventurerPotion = (it) => isPotion(it) || it?.potionRecipeKey != null || it?.isPotion === true;
+
 /**
  * Applies adventurer loot mode policy to an adventurer corpse's items.
  *
  * Modes:
  *  - ZERO: empty corpse (protects local economy).
  *  - SUPPLIES: potions, bandages, small gold purse only.
- *  - STANDARD: ~25% chance for 1 weapon or armor piece (DFU humanoid loot) + supplies + gold.
+ *  - STANDARD: 1 weapon or armor piece (DFU humanoid loot) + artifacts + supplies + modest gold.
  *  - FULL: 100% droppable loot (all worn gear from equipTable, carried supplies, gold, and artifacts).
  *
  * @param {any} entity Corpse entity
@@ -332,14 +335,14 @@ export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.rand
   }
 
   if (lootMode === LIVING_ADVENTURER_LOOT.SUPPLIES) {
-    const supplies = entity.items.filter((it) => it?.isPotion || it?.category === 'Consumables' || it?.group === 'Gems');
+    const supplies = entity.items.filter((it) => isAdventurerPotion(it) || it?.category === 'Consumables' || it?.group === 'Gems');
     const goldCoins = Math.min(Number(entity.goldPieces) || 30, 40);
     entity.goldPieces = goldCoins;
     if (goldCoins > 0) {
       supplies.push(goldStack(goldCoins));
     }
     // Guarantee at least 1 healing potion if empty so corpse is never unexpectedly barren
-    if (!supplies.some((it) => it?.isPotion)) {
+    if (!supplies.some(isAdventurerPotion)) {
       const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
       if (healRec) {
         supplies.push(makePotion(potionRecipeKey(healRec.ingredients)));
@@ -350,18 +353,55 @@ export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.rand
   }
 
   if (lootMode === LIVING_ADVENTURER_LOOT.STANDARD) {
-    // 25% chance to retain 1 equipped piece, plus keep any artifacts, supplies, and modest gold
+    // 1 part of equipment/artifact + supplies (potions) + modest gold
     const kept = [];
-    const artifacts = entity.items.filter((it) => it?.artifact);
-    const standardGear = entity.items.filter((it) => !it?.artifact && (it?.group === 'Weapons' || it?.group === 'Armor'));
-    if (standardGear.length > 0 && rolls() < 0.25) {
-      kept.push(standardGear[Math.floor(rolls() * standardGear.length)]);
+    const table = equipTableOf(entity);
+    const allGear = [];
+    if (table) {
+      for (const slotItem of Object.values(table)) {
+        if (slotItem && (slotItem.group === 'Weapons' || slotItem.group === 'Armor')) {
+          allGear.push(slotItem);
+        }
+      }
     }
-    const potions = entity.items.filter((it) => it?.isPotion);
-    const goldCoins = Math.min(Number(entity.goldPieces) || 50, 75);
+    for (const it of entity.items || []) {
+      if (it && (it.group === 'Weapons' || it.group === 'Armor' || it.artifact) && !allGear.includes(it)) {
+        allGear.push(it);
+      }
+    }
+
+    const artifacts = allGear.filter((it) => it?.artifact);
+    const standardGear = allGear.filter((it) => !it?.artifact && (it?.group === 'Weapons' || it?.group === 'Armor'));
+
+    // Keep any artifacts
+    if (artifacts.length > 0) {
+      kept.push(...artifacts);
+    }
+    // Always guarantee 1 piece of equipment (weapon or armor)
+    if (standardGear.length > 0) {
+      const chosen = standardGear[Math.floor(rolls() * standardGear.length)];
+      kept.push(chosen);
+    }
+
+    // Supplies: at least 1 potion
+    const potions = (entity.items || []).filter(isAdventurerPotion);
+    if (potions.length > 0) {
+      kept.push(potions[0]);
+    } else {
+      const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
+      if (healRec) {
+        kept.push(makePotion(potionRecipeKey(healRec.ingredients)));
+      }
+    }
+
+    // Modest gold (50-75)
+    const goldCoins = Math.min(Math.max(Number(entity.goldPieces) || 50, 50), 75);
     entity.goldPieces = goldCoins;
-    const goldItem = goldCoins > 0 ? [goldStack(goldCoins)] : [];
-    entity.items = [...kept, ...artifacts, ...potions.slice(0, 1), ...goldItem];
+    if (goldCoins > 0) {
+      kept.push(goldStack(goldCoins));
+    }
+
+    entity.items = kept;
     return;
   }
 
@@ -372,6 +412,12 @@ export function applyAdventurerCorpseLoot(entity, mode = null, rolls = Math.rand
       if (slotItem && !entity.items.includes(slotItem)) {
         entity.items.push(slotItem);
       }
+    }
+  }
+  if (!entity.items.some(isAdventurerPotion)) {
+    const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
+    if (healRec) {
+      entity.items.push(makePotion(potionRecipeKey(healRec.ingredients)));
     }
   }
   const fullGold = Number(entity.goldPieces) || 50;
