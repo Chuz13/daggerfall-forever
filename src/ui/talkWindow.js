@@ -72,6 +72,14 @@ export function wrapText(fnt, text, maxWidth, measure = measureText) {
   return lines;
 }
 
+/** Strips prompt call-to-action suffixes (e.g. "Make your choice:") when a ChoiceWindow transitions to displaying outcomes. */
+export function stripChoicePrompt(line) {
+  if (typeof line !== 'string') return line;
+  return line
+    .replace(/\s*(?:Make your choice|Сделайте выбор|Trefft Eure Wahl|Elige tu bando|Faites votre choix)\s*:?\s*$/i, '')
+    .trimEnd();
+}
+
 /** G2: a text panel with keyed choices (the surrender prompt and the
  *  court sequence ride it). options = [{ code, label, action }];
  *  input(code) runs the matching action and closes; done after.
@@ -135,6 +143,10 @@ export class ChoiceWindow {
       if (!this.done && captured.length > 0) {
         this.consequences = captured;
         this.concluded = true;
+        this.lines = this.lines.map(stripChoicePrompt);
+        while (this.lines.length > 1 && this.lines[this.lines.length - 1] === '') {
+          this.lines.pop();
+        }
         this.options = [
           {
             code: 'Escape',

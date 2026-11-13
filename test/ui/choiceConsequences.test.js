@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ChoiceWindow } from '../../src/ui/talkWindow.js';
+import { ChoiceWindow, stripChoicePrompt } from '../../src/ui/talkWindow.js';
 import { HudText } from '../../src/ui/hud/hudText.js';
 import { drawEnhancedChoice, closeEnhancedChoice } from '../../src/ui/enhanced/enhancedDialog.js';
 
@@ -68,7 +68,10 @@ test('ChoiceWindow keeps window open and presents consequences in header when ac
     let chosen = false;
 
     const win = new ChoiceWindow({
-      lines: ['The guard demands a toll.'],
+      lines: [
+        '[EVENT: Interprovincial Skirmish]',
+        'Conflicting sides: [Dragontail Mountains Defenders] vs [Mournoth Vanguard]. Make your choice:',
+      ],
       options: [
         {
           code: 'Digit1',
@@ -90,6 +93,11 @@ test('ChoiceWindow keeps window open and presents consequences in header when ac
     assert.equal(win.done, false);
     assert.equal(win.concluded, false);
     assert.equal(win.consequences, null);
+    assert.equal(
+      win.lines[1],
+      'Conflicting sides: [Dragontail Mountains Defenders] vs [Mournoth Vanguard]. Make your choice:',
+      'initial prompt remains untouched while choices are active',
+    );
 
     // Pick option 1
     win.input('Digit1');
@@ -97,6 +105,11 @@ test('ChoiceWindow keeps window open and presents consequences in header when ac
     assert.equal(chosen, true);
     assert.equal(win.done, false, 'window stays open to show consequences');
     assert.equal(win.concluded, true);
+    assert.equal(
+      win.lines[1],
+      'Conflicting sides: [Dragontail Mountains Defenders] vs [Mournoth Vanguard].',
+      'Make your choice: is trimmed from lines on the concluded stage',
+    );
     assert.deepEqual(win.consequences, [
       'Toll paid: 50 gold deducted.',
       'Guard says: "Move along."',
@@ -115,6 +128,11 @@ test('ChoiceWindow keeps window open and presents consequences in header when ac
     assert.equal(head.children.length, 2);
     assert.equal(head.children[0].textContent, 'Toll paid: 50 gold deducted.');
     assert.equal(head.children[1].textContent, 'Guard says: "Move along."');
+
+    // dlg-body displays trimmed line without Make your choice:
+    const body = find(shell, 'dlg-body')[0];
+    assert.ok(body, 'dialog body rendered');
+    assert.equal(body.children[1].textContent, 'Conflicting sides: [Dragontail Mountains Defenders] vs [Mournoth Vanguard].');
 
     // Check close button
     const btns = find(shell, 'dlg-btn');
@@ -149,4 +167,31 @@ test('ChoiceWindow closes immediately when chosen action produces no notificatio
   assert.equal(chosen, true);
   assert.equal(win.done, true, 'window closes immediately when no notifications were emitted');
   assert.equal(win.consequences, null);
+});
+
+test('stripChoicePrompt removes choice prompt suffix across locales', () => {
+  assert.equal(
+    stripChoicePrompt('Conflicting sides: [A] vs [B]. Make your choice:'),
+    'Conflicting sides: [A] vs [B].',
+  );
+  assert.equal(
+    stripChoicePrompt('Стороны конфликта: [A] против [B]. Сделайте выбор:'),
+    'Стороны конфликта: [A] против [B].',
+  );
+  assert.equal(
+    stripChoicePrompt('Konfliktparteien: [A] gegen [B]. Trefft Eure Wahl:'),
+    'Konfliktparteien: [A] gegen [B].',
+  );
+  assert.equal(
+    stripChoicePrompt('Bandos en conflicto: [A] contra [B]. Elige tu bando:'),
+    'Bandos en conflicto: [A] contra [B].',
+  );
+  assert.equal(
+    stripChoicePrompt('Factions rivales : [A] contre [B]. Faites votre choix :'),
+    'Factions rivales : [A] contre [B].',
+  );
+  assert.equal(
+    stripChoicePrompt('Plain narrative text without prompt.'),
+    'Plain narrative text without prompt.',
+  );
 });
