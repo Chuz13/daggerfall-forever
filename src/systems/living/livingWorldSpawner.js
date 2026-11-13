@@ -1299,7 +1299,7 @@ export function buildLivingSiteBlueprint({
  *   rng?: () => number,
  * }} deps
  */
-export {
+import {
   LOCATION_EVENT_COOLDOWN_MINUTES,
   SKIRMISH_LOCATION_COOLDOWN_MINUTES,
   locationEventCooldowns,
@@ -1307,6 +1307,15 @@ export {
   getLocationEventCooldownsSnapshot,
   restoreLocationEventCooldownsSnapshot,
 } from './locationCooldowns.js';
+
+export {
+  LOCATION_EVENT_COOLDOWN_MINUTES,
+  SKIRMISH_LOCATION_COOLDOWN_MINUTES,
+  locationEventCooldowns,
+  locationSkirmishCooldowns,
+  getLocationEventCooldownsSnapshot,
+  restoreLocationEventCooldownsSnapshot,
+};
 
 export function createLivingSceneHost(deps) {
   const rng = deps.rng ?? Math.random;

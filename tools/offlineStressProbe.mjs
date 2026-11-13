@@ -34,10 +34,12 @@ import {
 import { giveCarried } from '../src/systems/materialsBag.js';
 import { isUnifiedBankActive, depositGold, withdrawGold, createBankAccounts, bankedGold } from '../src/systems/banking.js';
 import { foundFamily, addChild, recordDeath, successors, readFamily } from '../src/systems/legacy/family.js';
+import { createRegionConditions } from '../src/systems/region/regionConditions.js';
 import {
   getRegionState,
   setRegionCrisis,
   tickAllRegions,
+  bindLivingRegionConditions,
   CRISIS_TYPE,
   CRISIS_PHASE,
 } from '../src/systems/living/regionState.js';
@@ -97,7 +99,9 @@ export async function runOfflineStressTest({ verbose = false } = {}) {
     goldPieces: 25000,
     bankAccounts: createBankAccounts(),
     legalRep: { 17: 30, 20: -15, 0: 10 },
+    regionConditions: createRegionConditions(),
   };
+  bindLivingRegionConditions(initialPlayer.regionConditions);
   initialPlayer.bankAccounts[17].accountGold = 12000;
   initialPlayer.bankAccounts[20].accountGold = 4500;
   initialPlayer.bankAccounts[20].loanTotal = 1500;
