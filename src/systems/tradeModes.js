@@ -72,7 +72,9 @@ import { activeWagonItem } from './wagon/wagonKinds.js'; // WAGONS2 (FINAL AUDIT
 import { wagonSoldWhole } from './wagon/wagonUpkeep.js'; // WAGON-TIERS: a wagon's wear prices its sale only on Hard
 import { wagonUpkeepRules } from './upkeep/upkeepSwitch.js'; // WAGON-TIERS: the tier, through wagon upkeep's one accessor
 import { PATRON_COUNTER_MARK, COUNTER_PAID_MARK, COUNTER_VALUE_MARK } from '../net/patronLaw.js'; // AUDIT LW-II-2 S1: online, a counter's piece is no patron's; LAW-3: nor sold on for more than it cost
-import { clearStolen } from './stolenGoods.js'; // STOLEN-GOODS AUDIT S3: a piece bought at a counter is the buyer's, honestly
+import { clearStolen, isStolen } from './stolenGoods.js'; // STOLEN-GOODS AUDIT S3: a piece bought at a counter is the buyer's, honestly
+import { getReputationPriceModifier } from './living/reputationConsequences.js';
+import { playerEntity } from '../characters/playerEntity.js';
 import { cureOfferMessageOffset, TRADE_MESSAGE_BASE_ID, NOT_ENOUGH_GOLD_ID } from './guild/guildServiceActions.js';
 import { localizedText, formatText } from './textManager.js'; // L10N3d: the window's own lines
 
@@ -378,6 +380,7 @@ export function tradeCost(
     usingIdentifySpell = false,
     isBeingRepaired = () => false,
     online = undefined,
+    entity = playerEntity,
   } = {},
 ) {
   let cost = 0;
@@ -418,9 +421,13 @@ export function tradeCost(
         // CalculateCost never reads - see the header; RRI2: Roleplay &
         // Realism: Items' override reads it, so the slot is passed.
         // SELL-AS-FOUND and MEND-THIRD: online, a found piece at its mark and a third of its owner's own mends past it
-        const c =
+        let c =
           calculateCost(counterValueOf(item), quality, priceAdjustment, saleConditionPercentage(item, { online })) *
           stack; // JAN1: an item with no finite value is priced at its base, never NaN; CRAFT-WORTH: a crafted piece at its plain worth
+        if (isStolen(item)) {
+          const fenceBonus = getReputationPriceModifier(entity).fenceBonus;
+          if (fenceBonus > 0) c = Math.round(c * (1 + fenceBonus));
+        }
         cost += c;
         sold(item, c, stack); // LAW-3
         break;
@@ -436,7 +443,11 @@ export function tradeCost(
         // at no gold: a Daedric cuirass found at 47% sold for 22,350 and fenced, unmended, for 47,553. An unmarked piece -
         // a magic item's condition is its uses - and every piece offline fence as DFU's do.
         const fenced = live && isFoundMarked(item) ? saleConditionPercentage(item, { online: true }) : -1;
-        const c = calculateCost(counterValueOf(item), quality, priceAdjustment, fenced); // CRAFT-WORTH: a fenced crafted piece at its plain worth
+        let c = calculateCost(counterValueOf(item), quality, priceAdjustment, fenced); // CRAFT-WORTH: a fenced crafted piece at its plain worth
+        if (isStolen(item)) {
+          const fenceBonus = getReputationPriceModifier(entity).fenceBonus;
+          if (fenceBonus > 0) c = Math.round(c * (1 + fenceBonus));
+        }
         cost += c;
         sold(item, c, stack); // LAW-3: the stack it hands over cost what it cost
         break;

@@ -164,7 +164,7 @@ export function determineNemesisArchetype(player, {
 
   const factionArchetype = evaluateFactionNemesisArchetype(player);
   if (factionArchetype && NEMESIS_ARCHETYPES[factionArchetype]) {
-    candidates.push(NEMESIS_ARCHETYPES[factionArchetype]);
+    return NEMESIS_ARCHETYPES[factionArchetype];
   }
 
   if (legalReputation <= -20 && playerLevel >= 3) {

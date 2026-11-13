@@ -45,9 +45,12 @@ import {
   shipWorth,
   saleRefusal,
   SHIPYARD_TEXT,
+  shipyardRefusalText,
   BOAT_DEED_TEMPLATE,
   BOAT_PARTS_TEMPLATE,
 } from '../systems/shipyards.js';
+import { evaluateShipyardReputation } from '../systems/living/reputationConsequences.js';
+import { playerEntity } from '../characters/playerEntity.js';
 import { recruitsOf, enlistPlan, recruitFee, hireCharge, recruitDay, CREW_HALL_TEXT } from '../systems/crewHall.js';
 import { DOCK_REFUSED } from '../systems/naval/quays.js';
 import { CREWED_HULLS } from './fleetHost.js';
@@ -153,6 +156,7 @@ export function createShipyardHost(deps) {
     const pick = (cands) => cands.find((s) => s.row.uid === view.uid) ?? cands[0] ?? null;
     const choice = (cands) => cands.map((s) => ({ uid: s.row.uid, label: s.row.label, hullName: s.row.hullName }));
     if (page === 'ships') {
+      const repRefused = evaluateShipyardReputation(playerEntity).refused;
       return {
         ...base,
         ships: SHIPYARD_HULLS.map((hull) => {
@@ -162,7 +166,7 @@ export function createShipyardHost(deps) {
             ...spec,
             asked: price,
             docks: !DOCK_REFUSED.includes(hull),
-            why: !csa() ? SHIPYARD_TEXT.noSail : purse < price ? SHIPYARD_TEXT.short(price) : null,
+            why: repRefused ? shipyardRefusalText() : !csa() ? SHIPYARD_TEXT.noSail : purse < price ? SHIPYARD_TEXT.short(price) : null,
           };
         }),
       };
@@ -286,6 +290,7 @@ export function createShipyardHost(deps) {
     if (verb === 'buy') {
       const hull = Number(a);
       if (!SHIPYARD_HULLS.includes(hull)) return said(false, 'The shipmaster builds no such ship.');
+      if (evaluateShipyardReputation(playerEntity).refused) return said(false, shipyardRefusalText());
       if (!csa()) return said(false, SHIPYARD_TEXT.noSail);
       const price = shipBuyPrice(shipSpec(hull).price, skills());
       if (gold() < price) return said(false, SHIPYARD_TEXT.short(price));

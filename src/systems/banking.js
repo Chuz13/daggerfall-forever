@@ -43,7 +43,7 @@ import { isOnlinePage } from './online/onlineLane.js';   // EMPIRE-BANK: online,
 import { getPref, addPrefListener, isOfflineHousingActive } from './uiPrefs.js';
 import { playerEntity } from '../characters/playerEntity.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
-import { evaluateHousePurchaseReputation } from './living/reputationConsequences.js';
+import { evaluateHousePurchaseReputation, evaluateShipyardReputation } from './living/reputationConsequences.js';
 import { stampLayout, layoutStampOfMapId, recordStands } from './layoutPins.js';   // WD3: a deed keeps the layout its town was bought in
 import { GOLD_PIECE_WEIGHT_KG, letterOfCredit } from './inventory.js';
 import {
@@ -131,15 +131,30 @@ export const LOAN_MINIMUM = 100;
 export const MINUTES_PER_MONTH = MINUTES_PER_DAY * DAYS_PER_MONTH;
 export const LOAN_REMINDER_MONTHS = Object.freeze([6, 3, 1]);
 
-export const shipPrice = (ship) => (ship >= 0 ? SHIP_PRICES[ship] : 0);
+export const shipPrice = (ship, entity = playerEntity) => {
+  if (!(ship >= 0)) return 0;
+  const base = SHIP_PRICES[ship];
+  if (entity) {
+    const evalShip = evaluateShipyardReputation(entity);
+    if (evalShip.discountMult !== 1.0) return Math.trunc(base * evalShip.discountMult);
+  }
+  return base;
+};
 /** GetShipSellPrice (:120) - a C# (int) cast, so it TRUNCATES. */
-export const shipSellPrice = (ship) => Math.trunc(shipPrice(ship) * DEED_SELL_MULT);
+export const shipSellPrice = (ship, entity = playerEntity) => Math.trunc(shipPrice(ship, entity) * DEED_SELL_MULT);
 
 /** GetHousePrice (:165-172): the model's radius times 1280, truncated.
  *  `radius` is DFMesh.Radius, which the port's arch3d reader already
  *  divides by POINT_DIVISOR exactly as DFU's does. */
-export const housePrice = (meshRadius) => Math.trunc(meshRadius * HOUSE_PRICE_MULT);
-export const houseSellPrice = (meshRadius) => Math.trunc(housePrice(meshRadius) * DEED_SELL_MULT);
+export const housePrice = (meshRadius, entity = playerEntity) => {
+  let base = Math.trunc(meshRadius * HOUSE_PRICE_MULT);
+  if (entity) {
+    const evalHouse = evaluateHousePurchaseReputation(entity);
+    if (evalHouse.discountMult !== 1.0) base = Math.trunc(base * evalHouse.discountMult);
+  }
+  return base;
+};
+export const houseSellPrice = (meshRadius, entity = playerEntity) => Math.trunc(housePrice(meshRadius, entity) * DEED_SELL_MULT);
 
 /** SetupAccounts (:237-246) / SetupHouses (:175-184) - one record per
  *  region, each remembering its own index. */
@@ -215,6 +230,7 @@ export const regionHousesFull = (houses, regionIndex) => regionDeeds(houses, reg
  *  "You already own a house. You must sell it before we can sell you another.") counted to three. */
 export const housesFullText = () => t('bank.housesFull', 'You already own {max} houses in this region. You must sell one before we can sell you another.', { max: HOUSES_PER_REGION });
 export const housesRefusedRepText = () => t('rcfHouseRefusal', 'The local council refuses to sell property to an outcast of your reputation.');
+export const shipsRefusedRepText = () => t('rcfShipyardRefusal', 'The harbourmaster refuses to outfit a vessel for a known enemy of the merchant guilds.');
 /**
  * HOUSES-3: THE REGION'S HOUSES A BANK BUYS BACK IN ITS TOWN - each deed of the region that stands (WD3 H1: a sleeping deed
  * is neither priced nor sold), is held in this town (deedHeldIn - AUDIT RELEASE R2-9: never a capital's slice's in another)
@@ -1128,7 +1144,13 @@ export function buyHouseDecision({ housesFull = false, housesForSale = 0, entity
   if (housesForSale < 1) return { kind: 'refuse', result: TRANSACTION_RESULT.NO_HOUSES_FOR_SALE };
   return { kind: 'pick' };
 }
-export function buyShipDecision({ ownsShip = false, isPortTown = false } = {}) {
+export function buyShipDecision({ ownsShip = false, isPortTown = false, entity = playerEntity } = {}) {
+  if (entity) {
+    const evalShip = evaluateShipyardReputation(entity);
+    if (evalShip.refused) {
+      return { kind: 'refuse', result: TRANSACTION_RESULT.ALREADY_OWN_SHIP, lines: [shipsRefusedRepText()] };
+    }
+  }
   if (ownsShip) return { kind: 'refuse', result: TRANSACTION_RESULT.ALREADY_OWN_SHIP };
   if (!isPortTown) return { kind: 'refuse', result: TRANSACTION_RESULT.NOT_PORT_TOWN };
   return { kind: 'pick' };

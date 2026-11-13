@@ -69,6 +69,8 @@ import { survivalOf } from '../../systems/survival/needs.js';
 import { stiffen, REST_KIND } from '../../systems/survival/rest.js';
 import { listenWindowKeys } from '../windowStack.js'; // COVERED-KEYS: the window's keys, gated while a box covers it
 import { cardPackPrice, buyCardPack } from '../../systems/card/cardSources.js'; // CARDS9: the keeper's packs
+import { getTavernReputationAdjustment } from '../../systems/living/reputationConsequences.js';
+import { localizedText } from '../../systems/textManager.js';
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -166,6 +168,13 @@ function currentRoom() {
 }
 
 function openRoom() {
+  if (!deps.freeRooms?.()) {
+    const repAdj = getTavernReputationAdjustment(deps.entity);
+    if (repAdj.refused) {
+      say(line(localizedText('rcfTavernRefusal', "The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'")));
+      return;
+    }
+  }
   screen = 'room';
   roomDraft = '1';
   render();
@@ -181,10 +190,15 @@ function submitRoom() {
     free: !!deps.freeRooms?.(),
     skills: deps.skills?.(),
     regionIndex: deps.regionIndex?.() ?? 0,
+    entity: deps.entity,
   });
   if (d.kind === 'ignore') return; // int.TryParse: nothing at all
   if (d.kind === 'tooMany') {
     say(rows(TOO_MANY_DAYS_ID, { room, roomHours: room ? roomRemainingHours(room, now) : null }));
+    return;
+  }
+  if (d.kind === 'refuse') {
+    say(line(d.line));
     return;
   }
   if (d.kind === 'free') {

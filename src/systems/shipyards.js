@@ -42,6 +42,8 @@ import { YARD_QUALITY, YARD_PRICE_INDEX } from './merchantYards.js';
 import { calculateCost } from './shopStock.js';
 import { getTradePrice } from './tradeModes.js';
 import { evaluateShipyardReputation } from './living/reputationConsequences.js';
+import { playerEntity } from '../characters/playerEntity.js';
+import { t } from './textManager.js';
 import { upgradeCost, UPGRADE_LINES, UPGRADE_TIERS } from './fleet.js';
 import { hullBuild, batteriesOf } from './naval/navalShips.js';
 import { playerCrewCount } from './naval/crewLife.js';
@@ -110,11 +112,11 @@ export function shipWorth(rec, hullShare = 1) {
 
 /** What the shipyard asks for a ship worth `value` - the counter's buying law at its quality and index, `skills` the
  *  buyer's live Mercantile and Personality. Pure. */
-export function shipBuyPrice(value, skills, { playerEntity = null } = {}) {
+export function shipBuyPrice(value, skills, { playerEntity: ent = playerEntity } = {}) {
   const pieces = 1;   // a ship is one piece (FB0929's floor: a gold a piece)
   let cost = calculateCost(Math.max(0, value), SHIPYARD_QUALITY, SHIPYARD_PRICE_INDEX);
-  if (playerEntity) {
-    const evalShip = evaluateShipyardReputation(playerEntity);
+  if (ent) {
+    const evalShip = evaluateShipyardReputation(ent);
     if (evalShip.discountMult !== 1.0) cost = Math.round(cost * evalShip.discountMult);
   }
   return getTradePrice('Buy', cost, SHIPYARD_QUALITY, skills, pieces);
@@ -160,5 +162,8 @@ export const SHIPYARD_TEXT = Object.freeze({
   noSail: 'Turn on Come Sail Away in the mod settings and reload to buy a ship here.',   // AUDIT SHIPYARDS L7-11: the switch is read at a load
   steal: 'The shipmaster never takes an eye off his yard.',
 });
+
+export const shipyardRefusalText = () =>
+  t('rcfShipyardRefusal', 'The harbourmaster refuses to outfit a vessel for a known enemy of the merchant guilds.');
 
 export { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE };

@@ -45,6 +45,7 @@ import {
   grantRegionalCheckpointPass,
   CHECKPOINT_OUTCOME,
 } from './roadCheckpointHost.js';
+import { evaluateCheckpointInspection } from './reputationConsequences.js';
 import {
   shouldSpawnUrbanSkirmish,
   planUrbanSkirmish,
@@ -1651,6 +1652,12 @@ export function createLivingSceneHost(deps) {
       }
       deps.playSound?.(LIVING_SOUNDS.HALT);
       const tollGold = s.blueprint.meta?.tollGold ?? 50;
+      const isKnight = Boolean(
+        player?.guildMemberships?.[10]?.rank > 0 ||
+        player?.guilds?.[10]?.rank > 0 ||
+        player?.guilds?.KnightlyOrder?.rank > 0
+      );
+      const insp = evaluateCheckpointInspection(player, isKnight);
       const options = [
         {
           code: 'Digit1',
@@ -1766,11 +1773,34 @@ export function createLivingSceneHost(deps) {
           },
         });
       }
+      if (insp.demandInspection) {
+        const idx = options.length + 1;
+        options.push({
+          code: `Digit${idx}`,
+          label: `${idx}. Submit pack to contraband inspection`,
+          action: () => {
+            const res = resolveCheckpointInteraction({
+              playerEntity: player,
+              method: 'submit_inspection',
+              tollGoldRequired: tollGold,
+              regionIndex: regIdx,
+              nowMinutes: nowMin,
+              rng,
+            });
+            if (res.finePaid > 0) deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+            deps.say(res.message, 6);
+          },
+        });
+      }
+      const promptLines = [
+        `${LIVING_WORDS.checkpointSpeaker()}: "${LIVING_WORDS.checkpointHalt()}"`,
+        `${LIVING_WORDS.checkpointTollLabel()}: ${LIVING_WORDS.checkpointTollDemand(tollGold)}`,
+      ];
+      if (insp.demandInspection) {
+        promptLines.push('The guard captain eyes your Underworld associates and demands a contraband baggage inspection.');
+      }
       deps.openChoice({
-        lines: [
-          `${LIVING_WORDS.checkpointSpeaker()}: "${LIVING_WORDS.checkpointHalt()}"`,
-          `${LIVING_WORDS.checkpointTollLabel()}: ${LIVING_WORDS.checkpointTollDemand(tollGold)}`,
-        ],
+        lines: promptLines,
         options,
       });
     } else if (s.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH) {

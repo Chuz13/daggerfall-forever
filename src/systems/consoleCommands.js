@@ -128,6 +128,7 @@ import {
 } from './living/reputationConsequences.js';
 import { SOCIAL_GROUPS } from '../formats/factionFile.js';
 import { changeReputation } from './faction/factionRep.js';
+import { markStolen } from './stolenGoods.js';
 
 let _sceneContext = null;
 /** Register active scene debug context (player control, enemy pools, travel). */
@@ -1914,8 +1915,8 @@ registerCommand(
 
 registerCommand(
   'rcf',
-  'Reputation Consequences Framework: rcf <status|tier <0..3>|set_sgroup <group> <n>|set_faction <id> <n>|test_rumor|test_contraband>',
-  'rcf <status | tier [0..3|off|light|mid|high] | set_sgroup [0..10|name] [n] | set_faction [id] [n] | test_rumor | test_contraband>',
+  'Reputation Consequences Framework: rcf <status|tier <0..3>|set_sgroup <group> <n>|set_faction <id|alias> <n>|give_stolen [item]|test_rumor|test_contraband>',
+  'rcf <status | tier [0..3|off|light|mid|high] | set_sgroup [0..10|name] [n] | set_faction [id|db|thieves|knights|mages|temple|arkay|julianos|kynareth|mara|stendarr|dibella|zenithar|akatosh] [n] | give_stolen [item] | test_rumor | test_contraband>',
   (args = []) => {
     const sub = String(args[0] || 'status').toLowerCase();
     if (sub === 'status') {
@@ -1978,14 +1979,63 @@ registerCommand(
       return `[RCF] Social group ${idx} reputation set to ${playerEntity.sGroupReputations[idx]}.`;
     }
     if (sub === 'set_faction') {
-      const fid = parseInt(args[1], 10);
+      const FACTION_ALIASES = {
+        db: 108,
+        thieves: 42,
+        tg: 42,
+        knights: 844,
+        ko: 844,
+        mages: 40,
+        mg: 40,
+        temple: 450,
+        arkay: 21,
+        julianos: 22,
+        kynareth: 24,
+        mara: 26,
+        stendarr: 29,
+        dibella: 98,
+        zenithar: 36,
+        akatosh: 33,
+      };
+      const rawFaction = String(args[1] || '').toLowerCase();
+      const fid = Number.isFinite(parseInt(rawFaction, 10)) ? parseInt(rawFaction, 10) : FACTION_ALIASES[rawFaction];
       const val = parseInt(args[2], 10);
-      if (!Number.isFinite(fid) || !Number.isFinite(val)) return 'Usage: rcf set_faction <faction_id> <value>';
+      if (!Number.isFinite(fid) || !Number.isFinite(val)) {
+        return 'Usage: rcf set_faction <faction_id | db|thieves|tg|knights|ko|mages|mg|temple|arkay|julianos|kynareth|mara|stendarr|dibella|zenithar|akatosh> <value>';
+      }
       if (playerEntity?.factionRep) {
-        changeReputation(playerEntity.factionRep, fid, val, false);
-        return `[RCF] Changed reputation with faction ${fid} by delta ${val}. Current: ${getFactionStanding(playerEntity, fid)}.`;
+        const cur = getFactionStanding(playerEntity, fid);
+        const clamped = Math.max(-100, Math.min(100, val));
+        changeReputation(playerEntity.factionRep, fid, clamped - cur, false);
+        return `[RCF] Set reputation with faction ${fid} to ${getFactionStanding(playerEntity, fid)} (target ${clamped}).`;
       }
       return 'Player factionRep store is not initialized.';
+    }
+    if (sub === 'give_stolen') {
+      const query = args.slice(1).join(' ').trim() || 'dagger';
+      const match = findItemTemplate(query);
+      if (!match) return `[RCF] Item template "${query}" not found.`;
+      const t = match.template;
+      const group = TEMPLATE_TO_GROUP.get(match.index);
+      let item;
+      if (group === 'Weapons') {
+        item = weaponOfMaterial(match.index, 0);
+      } else if (group === 'Armor') {
+        item = armorOfMaterial(match.index, ARMOR_MATERIAL.Iron);
+      } else {
+        item = mintCondition(setItemFields({
+          group: group ?? 'MiscItems',
+          templateIndex: match.index,
+          currentCondition: t.hitPoints ?? 100,
+          maxCondition: t.hitPoints ?? 100,
+        }));
+      }
+      markStolen([item]);
+      if (!playerEntity.items) playerEntity.items = [];
+      addItem(playerEntity.items, item);
+      surfacePlayer?.();
+      const insp = inspectPlayerContraband(playerEntity);
+      return `[RCF] Added stolen ${t.name} (Template ${match.index}) to pack. Total stolen items: ${insp.stolenCount}.`;
     }
     if (sub === 'test_rumor') {
       const reg = playerEntity?.currentRegionIndex ?? 0;
@@ -1996,7 +2046,7 @@ registerCommand(
       const insp = inspectPlayerContraband(playerEntity);
       return `[RCF Contraband]: Stolen items in pack: ${insp.stolenCount}, Confiscation penalty: ${insp.fineGold} gold.`;
     }
-    return 'Usage: rcf <status | tier [0..3|off|light|mid|high] | set_sgroup [0..10|name] [n] | set_faction [id] [n] | test_rumor | test_contraband>';
+    return 'Usage: rcf <status | tier [0..3|off|light|mid|high] | set_sgroup [0..10|name] [n] | set_faction [id|alias] [n] | give_stolen [item] | test_rumor | test_contraband>';
   }
 );
 

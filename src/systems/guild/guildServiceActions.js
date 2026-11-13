@@ -281,6 +281,11 @@ export function cureDiseaseOffer(
   membership,
   { quality = 0, regionIndex = 0, nowClassicMinutes = 0, priceAdjustment = 1000, online = undefined } = {},
 ) {
+  const access = getTempleServiceAccessibility(entity, guild?.factionId);
+  if (!access.accessible) {
+    return { kind: 'refused', reason: access.reasonKey || 'rcfTempleRefusal' };
+  }
+
   let numberOfDiseases = curableDiseaseCount(entity); // FIELD BUGS 29h (INFECTION-KEPT): never an infection the cure leaves
   if (becomingVampireOrWerebeast(entity)) numberOfDiseases++;
   const holidayId = getHolidayId(nowClassicMinutes, regionIndex);
@@ -289,11 +294,6 @@ export function cureDiseaseOffer(
     return { kind: 'freeHoliday', holidayId, diseases: numberOfDiseases };
   }
   if (numberOfDiseases === 0) return { kind: 'noDisease', textId: NO_DISEASE_ID };
-
-  const access = getTempleServiceAccessibility(entity, guild?.factionId);
-  if (!access.accessible) {
-    return { kind: 'refused', reason: access.reasonKey || 'rcfTempleRefusal' };
-  }
 
   let baseCost = CURE_BASE_COST_PER_DISEASE * numberOfDiseases;
   if (access.priceMult !== 1.0) baseCost = Math.round(baseCost * access.priceMult);

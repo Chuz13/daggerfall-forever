@@ -15,6 +15,7 @@ import { localizedText, localizedStrings } from './textManager.js'; // L10N3d: t
 import { stampLayout, layoutStampOfMapId, recordStands } from './layoutPins.js'; // WD3: a room keeps the layout its inn was rented in
 import { applyTavernRoomCrisisPrice } from './living/regionEconomy.js';
 import { getTavernReputationAdjustment } from './living/reputationConsequences.js';
+import { playerEntity } from '../characters/playerEntity.js';
 
 /** The TEXT.RSC records the window speaks (:37-41). */
 export const TOO_MANY_DAYS_ID = 16;
@@ -165,7 +166,7 @@ export function daysAlreadyRented(room, nowMinutes) {
  *  booked past 350 days. */
 export function rentalDecision(
   input,
-  { room = null, nowMinutes = 0, date, quality = 0, free = false, skills = undefined, online = undefined, regionIndex = 0, entity = null } = {},
+  { room = null, nowMinutes = 0, date, quality = 0, free = false, skills = undefined, online = undefined, regionIndex = 0, entity = playerEntity } = {},
 ) {
   const days = Number.parseInt(input, 10);
   if (!Number.isFinite(days) || days < 1) return { kind: 'ignore' };

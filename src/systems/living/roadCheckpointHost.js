@@ -18,6 +18,7 @@ import {
   getPlayerRoleplayContextMod,
 } from './livingRolls.js';
 import { evaluateCheckpointInspection, inspectPlayerContraband } from './reputationConsequences.js';
+import { confiscateStolen } from '../court.js';
 
 export const CHECKPOINT_OUTCOME = Object.freeze({
   PASSED_FREE: 'PASSED_FREE',           // Knightly order or noble standing
@@ -156,25 +157,32 @@ export function resolveCheckpointInteraction({
     playerEntity?.guilds?.KnightlyOrder?.rank > 0
   );
   const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
+  const insp = evaluateCheckpointInspection(playerEntity, isKnight);
 
   if (method === 'submit_inspection') {
-    const insp = inspectPlayerContraband(playerEntity);
-    if (insp.stolenCount === 0) {
+    const contraband = inspectPlayerContraband(playerEntity);
+    if (contraband.stolenCount === 0) {
       grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.PASSED_FREE,
+        finePaid: 0,
+        stolenConfiscated: 0,
         message: 'The guard finishes inspecting your sacks and rolls. "Baggage is clean. Move along, citizen."',
       };
     }
-    // Confiscate contraband and penalize
-    for (const it of insp.stolenItems) {
-      if (it && typeof it === 'object') delete it.stolen;
+    const taken = confiscateStolen(playerEntity);
+    const haveGold = Math.max(0, Number(playerEntity?.goldPieces ?? 0));
+    const finePaid = Math.min(haveGold, contraband.fineGold);
+    if (playerEntity && finePaid > 0) {
+      playerEntity.goldPieces = haveGold - finePaid;
     }
     grantRegionalCheckpointPass(regionIndex, nowMinutes);
     return {
-      outcome: CHECKPOINT_OUTCOME.SURRENDERED_PAID,
-      tollCost: insp.fineGold,
-      message: `Guard: "Contraband detected! ${insp.stolenCount} illicit item(s) confiscated. Pay the ${insp.fineGold} gold penalty and move along."`,
+      outcome: CHECKPOINT_OUTCOME.TOLL_PAID,
+      tollCost: finePaid,
+      finePaid,
+      stolenConfiscated: taken.length || contraband.stolenCount,
+      message: `Guard: "Contraband detected! ${taken.length || contraband.stolenCount} illicit item(s) confiscated and a ${finePaid}-gold penalty levied. Move along."`,
     };
   }
 
@@ -200,11 +208,13 @@ export function resolveCheckpointInteraction({
   }
 
   if (method === 'reputation') {
-    if (rep >= 15) {
+    if (rep >= 15 || insp.saluted) {
       grantRegionalCheckpointPass(regionIndex, nowMinutes);
       return {
         outcome: CHECKPOINT_OUTCOME.PASSED_FREE,
-        message: 'The guard captain nods respectfully. "Your good deeds in this province are well known. Pass through, citizen."',
+        message: insp.saluted && !(rep >= 15)
+          ? 'The guard captain snaps to attention and salutes your standing. "Pass through cleanly, traveler."'
+          : 'The guard captain nods respectfully. "Your good deeds in this province are well known. Pass through, citizen."',
       };
     }
     return {

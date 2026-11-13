@@ -163,13 +163,14 @@ export function getTempleServiceAccessibility(playerEntity, templeFactionId = GE
 
   const rep = getFactionStanding(playerEntity, templeFactionId);
   const genericRep = getFactionStanding(playerEntity, GENERIC_TEMPLE);
-  const effectiveRep = Math.min(rep, genericRep);
+  const minRep = Math.min(rep, genericRep);
+  const maxRep = Math.max(rep, genericRep);
 
-  if (effectiveRep <= -20) {
+  if (minRep <= -20) {
     return { accessible: false, priceMult: 1.0, reasonKey: 'rcfTempleRefusal' };
   }
 
-  const priceMult = effectiveRep >= 40 ? 0.80 : 1.0;
+  const priceMult = maxRep >= 40 ? 0.80 : 1.0;
   return { accessible: true, priceMult, reasonKey: null };
 }
 
@@ -235,7 +236,8 @@ export function evaluateCheckpointInspection(playerEntity, isKnight = false) {
   if (scale === 0 || !playerEntity) return { demandInspection: false, saluted: false, reasonKey: null };
 
   const nobleRep = getSocialRep(playerEntity, SOCIAL_GROUPS.Nobility);
-  if (isKnight || nobleRep >= 20) {
+  const knightRep = getFactionStanding(playerEntity, GENERIC_KNIGHTLY_ORDER);
+  if (isKnight || nobleRep >= 20 || knightRep >= 20) {
     return { demandInspection: false, saluted: true, reasonKey: 'rcfCheckpointSalute' };
   }
 

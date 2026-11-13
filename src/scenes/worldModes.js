@@ -501,6 +501,7 @@ import { adoptLight } from '../render/lightId.js';   // LIGHT-ID: a tinted copy 
 import { createQuestClickFirst, clickHeardByQuest } from './quest/questClickFirst.js';   // QUEST-WORDS-FIRST: a quest's words and reward before the NPC's door
 import { ownerFoes } from './ownerCatchUp.js';   // HOST-CLOCK: a building's two pools through the page's one catch-up (OWNER-CLOCK's parity)
 import { windowHoldsDungeon } from './windowWorld.js';   // RPT1026-FIGHTS (WINDOW-ONLINE): online a window holds no dungeon while I live under it
+import { getTempleServiceAccessibility, isSoulGemPurchaseAllowed } from '../systems/living/reputationConsequences.js';
 let _charT0 = (typeof performance !== 'undefined' ? performance.now() : 0);
 let _charAnimMode = 'idle'; // in-engine character animation: idle | walk | off (window.__anim)
 
@@ -6123,6 +6124,15 @@ export function createWorldModes(host) {
       onService: () => {
         const shut = shutBox();   // AUDIT CHAP5 D2
         if (shut) return shut;
+        if (service === 'BuySoulgems' && !isSoulGemPurchaseAllowed(playerEntity, 0).allowed) {
+          return { rows: [{ text: t('rcfMagesGemsRefusal', "The guild magistrate shakes his head. 'Soul gems are restricted to trusted allies of the Guild.'"), center: true }] };
+        }
+        if ((guild?.divine || route?.guildGroup === GUILD_GROUPS.HolyOrder) && service !== 'Donate') {
+          const templeAccess = getTempleServiceAccessibility(playerEntity, guild?.factionId);
+          if (!templeAccess.accessible) {
+            return { rows: [{ text: t(templeAccess.reasonKey || 'rcfTempleRefusal', "The priests turn you away. 'The Divines grant no mercy to the profane!'"), center: true }] };
+          }
+        }
         const access = serviceAccess(guild, membershipOf(seated(), guild), service, { rankCeiling: host.rollPace?.(guild.factionId)?.book ?? null });   // CHAP4b: a seat's rank here; SEAT-WORDS: a seat's service says so (AUDIT GUILD-WORDS II F-3: ROLL-PACE's door)
         if (!access.allowed) {
           return { rows: access.textId ? rows(access.textId) : [access.text] };
@@ -6316,7 +6326,15 @@ export function createWorldModes(host) {
     // every time player opens window") - so a closed window gave back
     // everything just bought; the players found it as an endless shop.
     if (destination === 'guildServiceBuySoulgems' && tradeDoorReady()) {
-      const shelf = guildShelf('BuySoulgems', () => stockSoulGems(
+      const gemAccess = isSoulGemPurchaseAllowed(playerEntity, 0);
+      if (!gemAccess.allowed) {
+        return {
+          rows: [{ text: t(gemAccess.reasonKey || 'rcfMagesGemsRefusal', "The guild magistrate shakes his head. 'Soul gems are restricted to trusted allies of the Guild.'"), center: true }],
+          closesWindow: true,
+        };
+      }
+      const rareGemAllowed = isSoulGemPurchaseAllowed(playerEntity, 250).allowed ? 1 : 0;
+      const shelf = guildShelf(`BuySoulgems|${rareGemAllowed}`, () => stockSoulGems(
         { quality: shelfQuality(), gameMinutes: Math.floor(worldMinutes()) },   // CHAP3c: the chapter's band on the shelf
         { soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0 }));
       // The slot is freed by the frame's own `done` sweep (:2450,
@@ -6354,8 +6372,9 @@ export function createWorldModes(host) {
       // AUDIT GUILD-SHELF A10: the day's shelf FOR WHAT IT WAS MINTED FROM - the soul gems the rank opens, the level and
       // the body the items are rolled for: a rank-3 member promoted at noon saw no gems until the next day
       const sellsSoulGems = canAccessService(guild, membership, 'BuySoulgems');
+      const gemTier = !isSoulGemPurchaseAllowed(playerEntity, 0).allowed ? 0 : isSoulGemPurchaseAllowed(playerEntity, 250).allowed ? 2 : 1;
       const playerLevel = playerEntity.level ?? 1, gender = playerEntity.gender ?? 0;
-      const shelf = guildShelf(`BuyMagicItems|${sellsSoulGems ? 1 : 0}|${playerLevel}|${gender}`, () => stockGuildMagicItems({   // GUILD-SHELF: the day's, as the soul gems'
+      const shelf = guildShelf(`BuyMagicItems|${sellsSoulGems ? 1 : 0}|${gemTier}|${playerLevel}|${gender}`, () => stockGuildMagicItems({   // GUILD-SHELF: the day's, as the soul gems'
         quality: shelfQuality(),   // CHAP3c: the chapter's band on the shelf
         gameMinutes: Math.floor(worldMinutes()),
         sellsSoulGems,

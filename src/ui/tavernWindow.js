@@ -77,6 +77,8 @@ import {
 } from '../systems/survival/tavernMenu.js'; // INN-WATER: tavernWater, the fountain's law at the bar; AUDIT C&C I6: tavernRefresh, the drink's fatigue and magicka; I4: blackoutWaking, the line under the sky
 import { survivalOf } from '../systems/survival/needs.js';
 import { stiffen, REST_KIND } from '../systems/survival/rest.js';
+import { getTavernReputationAdjustment } from '../systems/living/reputationConsequences.js';
+import { localizedText } from '../systems/textManager.js';
 import {
   TOO_MANY_DAYS_ID,
   OFFER_PRICE_ID,
@@ -235,6 +237,13 @@ export class TavernWindow {
     const now = h.now();
     h.entity.rentedRooms = removeExpiredRooms(h.entity.rentedRooms ?? [], now, h.sceneCache?.());
     const room = findRentedRoom(h.entity.rentedRooms, h.mapId(), h.buildingKey());
+    if (!h.freeRooms?.()) {
+      const repAdj = getTavernReputationAdjustment(h.entity);
+      if (repAdj.refused) {
+        this._chain([{ rows: line(localizedText('rcfTavernRefusal', "The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'")) }]);
+        return;
+      }
+    }
     this._chain([
       {
         // 5100 quotes the hours left (%dwr); 5102 has no room to quote.
@@ -261,9 +270,11 @@ export class TavernWindow {
       free: !!h.freeRooms?.(),
       skills: h.skills?.(),
       regionIndex: h.regionIndex?.() ?? 0,
+      entity: h.entity,
     });
     if (d.kind === 'ignore') return null; // int.TryParse: nothing at all
     if (d.kind === 'tooMany') return [{ rows: this._rows(TOO_MANY_DAYS_ID, { room, now }) }];
+    if (d.kind === 'refuse') return [{ rows: line(d.line) }];
     if (d.kind === 'free') {
       this._rent(room, d.days);
       return [{ rows: line(roomFreeForKnightText()) }];

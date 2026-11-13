@@ -420,7 +420,8 @@ export class BankWindow {
       // a missing directory (:433-434), the ships list is a fixed pair
       // that cannot be empty, so DFU pushes unconditionally.
       if (d.kind === 'refuse') {
-        this._popup(d.result);
+        if (d.lines) this._lines(d.lines);
+        else this._popup(d.result);
         return;
       }
       this.hooks.openShipPurchase?.();
