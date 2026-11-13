@@ -435,7 +435,11 @@ export function mwViewFrame({
       // the Morrowind body is off, hand third person over to it so its
       // sprite camera stays armed even while its first sprite decodes.
       let eotbOn = false;
-      try { eotbOn = !!modSetting('eye-of-the-beholder', 'Enabled'); } catch { eotbOn = false; }
+      try {
+        eotbOn = !!modSetting('eye-of-the-beholder', 'Enabled');
+      } catch {
+        eotbOn = false;
+      }
       if (!mwCanThirdPerson() && eotbOn && !eotbCamera.thirdPerson()) eotbCamera.toggleOffset(true);
       mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
       fpArm.setViewMode('first');

@@ -111,9 +111,6 @@ test('NecroIntegration: applySpell executes Corpse Explosion and damages targets
         magnitudeLevelBase: 0,
         magnitudeLevelHigh: 0,
         magnitudePerLevel: 1,
-        chanceBase: 100,
-        chanceMod: 0,
-        chancePerLevel: 1,
       },
     ],
   };
@@ -155,9 +152,6 @@ test('NecroIntegration: applySpell with Corpse Explosion fizzles and deals 0 dam
         magnitudeLevelBase: 0,
         magnitudeLevelHigh: 0,
         magnitudePerLevel: 1,
-        chanceBase: 100,
-        chanceMod: 0,
-        chancePerLevel: 1,
       },
     ],
   };

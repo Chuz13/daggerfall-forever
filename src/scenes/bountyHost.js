@@ -41,6 +41,7 @@ import { festivalBountyPaid } from '../systems/festival/festivalClient.js';   //
 import { passBountyPaid } from '../systems/pass/passClient.js';   // STOREFRONT: and a Battle Pass find
 import { longitudeLatitudeToMapPixel } from '../formats/mapsFile.js';
 import { createHuntersMark } from './huntersMark.js';   // HUNTERS-MARK: the hunter's rank and the week's named mark
+import { t } from '../systems/textManager.js';
 
 /** THE PIXEL OF THE DUNGEON I AM IN, for a hunt underground (the host's `dungeonPixel`): the dungeon's OWN pixel - its
  *  location's map-table position - rather than the streamer's last pixel (frozen at the entrance underground, which is
