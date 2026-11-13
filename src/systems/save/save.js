@@ -78,6 +78,7 @@ import { stashedItemLists } from '../../net/realm/realmGoldLaw.js';   // AUDIT P
 import { DEPOSIT_MAX, depositOrderOk } from '../../net/bagLaw.js';   // AUDIT2 BAG1: a deposit's stamp, kept to a deposit's bounds
 import { dragonKeepSaved, dragonKeepRestored } from '../dragon/dragonKeep.js';   // DRAGON5b: the tamed dragon's keep, saved with the character
 import { resetBlowEffects } from '../blowEffects.js';   // AUDIT TELL L2: a load forgets the last game's landings
+import { syncNecroTaintFromEntity } from '../necromancy/necroTaint.js';
 
 /** One membership book, rows copied (GuildMembership_v1's shape). */
 const copyMembershipBook = (book) => Object.fromEntries(
@@ -143,7 +144,7 @@ const ENTITY_FIELDS = [
   // player could train every skill to its cap by saving and loading
   // between sessions. Twelve hours of a law, undone by a reload.
   'timeOfLastSkillTraining',
-  'NecroGrimoireRead', 'necroGrimoireRead',
+  'NecroGrimoireRead', 'necroGrimoireRead', 'necroTaint',
   'maxMagickaOverride',
   // AUDIT 23 (save-load + entity-laws lanes): timeOfLastSkillIncreaseCheck,
   // persisted one-for-one by DFU (SerializablePlayer.cs:124, :293). Without
@@ -1050,7 +1051,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // CURSE-PERSIST1: a save written before the curse and the infection carried `permanent` holds them with a null round
   // budget (NaN, as JSON writes it), which the next tick read as spent and pruned - the flag is given at the one door old
   // data comes in by, so tickActiveEffects keeps its one law and never learns these kinds by name.
-  for (const a of entity.activeEffects) if ((a.kind === 'racialOverride' || a.infection) && !a.permanent) a.permanent = true;
+  for (const a of entity.activeEffects) if ((a.kind === 'racialOverride' || a.kind === 'lichdom' || a.kind === 'ancient_lichdom' || a.infection) && !a.permanent) a.permanent = true;
   // CURE-ENDS (AUDIT 2026-10-01 part four): a drain a cure zeroed and left (the guild's stat reset before this, and a
   // vampire's or a werewolf's turn since part four) stood on the HUD as a debuff that did nothing, for good - it ends here,
   // at the same door (guildServiceFlow.js cureAllAttributes ends what it cures now)
@@ -1059,7 +1060,20 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // just restored - rebuilt here, never serialized on its own, so the
   // marker and the entry can never disagree (the gates - a second
   // infection, the disease immunity - read the marker).
-  entity.racialOverride = entity.activeEffects.find((a) => a.kind === 'racialOverride' && !a.ended) ?? null;
+  entity.racialOverride = entity.activeEffects.find((a) => (a.kind === 'racialOverride' || a.kind === 'lichdom' || a.kind === 'ancient_lichdom') && !a.ended) ?? null;
+  const isLichRestored = Boolean(
+    entity.racialOverride &&
+    (entity.racialOverride.kind === 'lichdom' ||
+      entity.racialOverride.kind === 'ancient_lichdom' ||
+      entity.racialOverride.racial === 'lichdom' ||
+      entity.racialOverride.racial === 'ancient_lichdom'),
+  );
+  entity.necroTaint = isLichRestored
+    ? 100
+    : typeof snap.necroTaint === 'number' && Number.isFinite(snap.necroTaint)
+      ? Math.max(0, Math.min(100, snap.necroTaint))
+      : 0;
+  syncNecroTaintFromEntity(entity, Math.floor((snap.classicMinutes ?? 0) / 1440));
   // AUDIT CLAWS A2: and the beast-form flag, the curse entry's mirror (lycanthropy.js writes it from `isTransformed` at
   // each change and each round) - a load onto the same entity left the last game's: a man loaded over a transformed
   // werewolf kept it (the round returns at once for a character with no curse), and a transformed save on a fresh page

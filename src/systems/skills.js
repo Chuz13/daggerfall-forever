@@ -210,7 +210,9 @@ export function skillValue(entity, skillId) {
   const list = entity.activeEffects;
   if (list) {
     for (const a of list) {
-      if (a.kind === 'racialOverride' && !a.ended) mod += a.skillMods?.[skillId] ?? 0;
+      if ((a.kind === 'racialOverride' || a.kind === 'lichdom' || a.kind === 'ancient_lichdom') && !a.ended) {
+        mod += a.skillMods?.[skillId] ?? 0;
+      }
     }
   }
   mod += entity._mods?.skills?.[skillId] ?? 0; // RF1: the port's modifier channels (systems/entityMods.js), a field read - this leaf stays import-free
@@ -230,7 +232,13 @@ export function skillValue(entity, skillId) {
 export function skillModOf(entity, skillId) {
   let mod = entity._enchantMods?.skillMods?.[skillId] ?? 0;
   const list = entity.activeEffects;
-  if (list) for (const a of list) if (a.kind === 'racialOverride' && !a.ended) mod += a.skillMods?.[skillId] ?? 0;
+  if (list) {
+    for (const a of list) {
+      if ((a.kind === 'racialOverride' || a.kind === 'lichdom' || a.kind === 'ancient_lichdom') && !a.ended) {
+        mod += a.skillMods?.[skillId] ?? 0;
+      }
+    }
+  }
   return mod + (entity._mods?.skills?.[skillId] ?? 0);
 }
 

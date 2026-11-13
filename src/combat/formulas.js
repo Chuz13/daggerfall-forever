@@ -41,7 +41,7 @@ import { SHIELD_PARTS } from '../systems/armorMaterials.js';
 import { isHandWraps } from '../characters/handWrapsIds.js';   // HAND-WRAPS: the fists' weapon (a leaf)
 import { clawMetalDamage } from './clawMetal.js';   // BAL6-GAUNTLETS: the beast's claws take its gauntlets' metal
 import { totalWeight } from '../systems/inventory.js';   // EW1: ItemCollection.GetWeight, the one home for a stack's kg
-import { liveVampirism } from '../systems/racialLive.js';   // VU1: an import-free LEAF - vampirism.js cycles back here through loot.js
+import { liveVampirism, liveUndeadCurse } from '../systems/racialLive.js';   // VU1: an import-free LEAF - vampirism.js cycles back here through loot.js
 import { breakNormalPowerConcealment } from '../systems/concealment.js';   // wave 31: BreakNormalPowerConcealmentEffects, in its own leaf so this import cannot cycle
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language (an import-free leaf)
 import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what the target takes - a leaf, for the brain that registers into it imports the motor that imports this file
@@ -256,7 +256,9 @@ export function bonusOrPenaltyByEnemyType(attacker, target) {
     // a career with a humanoid BONUS was quietly helping itself
     // against a target it should have feared, and a monster with an
     // undead phobia lost its penalty entirely.
-    group = liveVampirism(target) ? ENEMY_GROUPS.Undead : ENEMY_GROUPS.Humanoid;
+    group = (liveUndeadCurse(target) && !liveVampirism(target))
+      ? ENEMY_GROUPS.Undead
+      : liveVampirism(target) ? ENEMY_GROUPS.Undead : ENEMY_GROUPS.Humanoid;
   } else if (target.affinity === 'Human') {
     group = ENEMY_GROUPS.Humanoid;
   } else {

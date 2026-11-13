@@ -622,7 +622,9 @@ export function claimFallenAdventurerRemains(locationId, regionIndex = null) {
  */
 export function evaluateAdventurerTension(adv, playerEntity) {
   const playerLevel = Number(playerEntity?.level ?? 1);
-  const playerRep = Number(playerEntity?.regionalReputations?.[adv.currentRegion] ?? 0);
+  const playerRep = Number(
+    playerEntity?.legalRep?.[adv.currentRegion] ?? playerEntity?.regionalReputations?.[adv.currentRegion] ?? 0,
+  );
 
   let tensionScore = 20;
   /** @type {string} */
@@ -1219,9 +1221,19 @@ export function resolveWanderingAdventurerInteraction({
   const wagerGold = Math.max(25, advLevel * 15);
 
   const applyRep = (delta) => {
-    if (delta && playerEntity?.regionalReputations && typeof playerEntity.regionalReputations === 'object') {
-      playerEntity.regionalReputations[regionIndex] =
-        Number(playerEntity.regionalReputations[regionIndex] || 0) + delta;
+    if (delta && playerEntity && typeof playerEntity === 'object' && regionIndex !== undefined) {
+      const current = Number(
+        playerEntity.legalRep?.[regionIndex] ?? playerEntity.regionalReputations?.[regionIndex] ?? 0,
+      );
+      const next = Math.max(-100, Math.min(100, current + delta));
+      if (!playerEntity.legalRep || typeof playerEntity.legalRep !== 'object') {
+        playerEntity.legalRep = {};
+      }
+      playerEntity.legalRep[regionIndex] = next;
+      if (!playerEntity.regionalReputations || typeof playerEntity.regionalReputations !== 'object') {
+        playerEntity.regionalReputations = {};
+      }
+      playerEntity.regionalReputations[regionIndex] = next;
     }
   };
 

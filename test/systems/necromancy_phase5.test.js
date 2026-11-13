@@ -64,10 +64,10 @@ test('NecroL10N: all 26 locale files contain the necromancy keys', () => {
     'spell.necro.corpseExplosion',
     'spell.necro.lifeTap',
     'spell.necro.boneArmor',
-    'necro.alert.abomination',
+    'necro.lich.success',
     'necro.alert.witchHunters',
-    'necro.alert.rebellion',
-    'necro.alert.lichdom',
+    'necro.cmd.recall',
+    'necro.harvest.action',
   ];
 
   for (const dir of dirs) {

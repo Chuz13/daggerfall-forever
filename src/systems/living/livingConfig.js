@@ -261,6 +261,7 @@ export function resetLivingConfig() {
   setPref('livingEncounterScale', LIVING_ENCOUNTER_SCALE.LOW);
   setPref('livingUrbanLootMode', LIVING_URBAN_LOOT.ZERO);
   setPref('livingWildernessLootMode', LIVING_WILDERNESS_LOOT.FULL);
+  setPref('livingAdventurerLootMode', LIVING_ADVENTURER_LOOT.FULL);
 
   LivingTamrielConfig.adventurerPoolPerRegion = 13;
   LivingTamrielConfig.navalSpawnDistanceMeters = 250;

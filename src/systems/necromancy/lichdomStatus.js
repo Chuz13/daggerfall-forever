@@ -320,6 +320,9 @@ export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient
   if (!FORK_FLAGS.ENABLE_NECROMANCY) return null;
   if (!entity) return null;
   if (liveAncientLichdom(entity) || entity.racialOverride?.racial === 'ancient_lichdom') return null;
+  if (entity.racialOverride && !liveLichdom(entity) && entity.racialOverride?.racial !== 'lichdom') {
+    return null;
+  }
   if (liveLichdom(entity) || entity.racialOverride?.racial === 'lichdom') {
     cureLichdom(entity);
   }

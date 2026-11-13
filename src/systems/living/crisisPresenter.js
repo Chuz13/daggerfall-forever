@@ -388,10 +388,18 @@ export function completeRegionalCrisisContract(regionIndex, playerEntity = null)
     } else {
       playerEntity.goldPieces = rewardGold;
     }
-    if (playerEntity.regionalReputations && typeof playerEntity.regionalReputations === 'object') {
-      playerEntity.regionalReputations[regionIndex] =
-        Number(playerEntity.regionalReputations[regionIndex] || 0) + repDelta;
+    const currentRep = Number(
+      playerEntity.legalRep?.[regionIndex] ?? playerEntity.regionalReputations?.[regionIndex] ?? 0,
+    );
+    const nextRep = Math.max(-100, Math.min(100, currentRep + repDelta));
+    if (!playerEntity.legalRep || typeof playerEntity.legalRep !== 'object') {
+      playerEntity.legalRep = {};
     }
+    playerEntity.legalRep[regionIndex] = nextRep;
+    if (!playerEntity.regionalReputations || typeof playerEntity.regionalReputations !== 'object') {
+      playerEntity.regionalReputations = {};
+    }
+    playerEntity.regionalReputations[regionIndex] = nextRep;
   }
 
   onContractCompleted(regionIndex);

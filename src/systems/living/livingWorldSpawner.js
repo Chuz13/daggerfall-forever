@@ -121,6 +121,27 @@ import { mobTraitChance } from '../bossTraits.js';
 
 export { LIVING_WORDS };
 
+/**
+ * Adjusts regional legal reputation on both the canonical `player.legalRep` map and
+ * the Living Tamriel alias `player.regionalReputations`, clamped to [-100, 100].
+ * @param {any} player
+ * @param {number} regIdx
+ * @param {number} delta
+ */
+export function adjustPlayerRegionalRep(player, regIdx, delta) {
+  if (!player || typeof player !== 'object' || !Number.isFinite(delta) || delta === 0) return;
+  const current = Number(player.legalRep?.[regIdx] ?? player.regionalReputations?.[regIdx] ?? 0);
+  const next = Math.max(-100, Math.min(100, current + delta));
+  if (!player.legalRep || typeof player.legalRep !== 'object') {
+    player.legalRep = {};
+  }
+  player.legalRep[regIdx] = next;
+  if (!player.regionalReputations || typeof player.regionalReputations !== 'object') {
+    player.regionalReputations = {};
+  }
+  player.regionalReputations[regIdx] = next;
+}
+
 /** Existing ARCH3D.BSA 3D model IDs used for Living Tamriel props. */
 export const LIVING_MODELS = Object.freeze({
   TENT: 41606,      // Standard wilderness camp tent
@@ -1018,7 +1039,7 @@ export function buildLivingSiteBlueprint({
       });
     }
   } else if (kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH) {
-    const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? 0);
+    const rep = Number(playerEntity?.legalRep?.[regionIndex] ?? playerEntity?.regionalReputations?.[regionIndex] ?? 0);
     const regState = getRegionState(regionIndex);
     const isCrisis = regState?.crisis !== CRISIS_TYPE.PEACE;
     const nemMem = getNemesisMemory();
@@ -2542,10 +2563,9 @@ export function createLivingSceneHost(deps) {
               deps.say(LIVING_WORDS.notifyGoldGained(checkRes.goldReward), 4);
             }
 
-            if (player?.regionalReputations) {
+            if (player) {
               if (checkRes.repF1Delta) {
-                player.regionalReputations[regIdx] =
-                  (player.regionalReputations[regIdx] ?? 0) + checkRes.repF1Delta;
+                adjustPlayerRegionalRep(player, regIdx, checkRes.repF1Delta);
                 if (checkRes.repF1Delta > 0) {
                   deps.say(LIVING_WORDS.notifyRepGained(f1Name, checkRes.repF1Delta), 4);
                 } else {
@@ -2553,8 +2573,7 @@ export function createLivingSceneHost(deps) {
                 }
               }
               if (checkRes.repF2Delta) {
-                player.regionalReputations[regIdx] =
-                  (player.regionalReputations[regIdx] ?? 0) + checkRes.repF2Delta;
+                adjustPlayerRegionalRep(player, regIdx, checkRes.repF2Delta);
                 if (checkRes.repF2Delta > 0) {
                   deps.say(LIVING_WORDS.notifyRepGained(f2Name, checkRes.repF2Delta), 4);
                 } else {
@@ -2660,9 +2679,7 @@ export function createLivingSceneHost(deps) {
               action: () => {
                 s.skirmishStance = 'watch';
                 retargetSkirmishFoes(s);
-                if (player?.regionalReputations) {
-                  player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) + 5;
-                }
+                adjustPlayerRegionalRep(player, regIdx, 5);
                 deps.say(LIVING_WORDS.eventJoinedWatch(), 5);
               },
             },
@@ -2672,9 +2689,7 @@ export function createLivingSceneHost(deps) {
               action: () => {
                 s.skirmishStance = 'rebels';
                 retargetSkirmishFoes(s);
-                if (player?.regionalReputations) {
-                  player.regionalReputations[regIdx] = (player.regionalReputations[regIdx] ?? 0) - 15;
-                }
+                adjustPlayerRegionalRep(player, regIdx, -15);
                 if (player?.guildMemberships?.[9]) {
                   player.guildMemberships[9].reputation = (player.guildMemberships[9].reputation ?? 0) + 10;
                 }
@@ -2725,11 +2740,7 @@ export function createLivingSceneHost(deps) {
                   if (p?.ship) { p.ship.target = pId; p.ship.mode = 'engage'; }
                 }
               }
-              if (player) {
-                player.regionalReputations = player.regionalReputations || {};
-                player.regionalReputations[regIdx] =
-                  Number(player.regionalReputations[regIdx] ?? 0) + 5;
-              }
+              adjustPlayerRegionalRep(player, regIdx, 5);
               onContractCompleted(regIdx);
               deps.say(LIVING_WORDS.navalChoiceLaw(), 5);
             },
@@ -2757,11 +2768,7 @@ export function createLivingSceneHost(deps) {
                   if (l?.ship) { l.ship.target = pId; l.ship.mode = 'engage'; }
                 }
               }
-              if (player) {
-                player.regionalReputations = player.regionalReputations || {};
-                player.regionalReputations[regIdx] =
-                  Number(player.regionalReputations[regIdx] ?? 0) - (res.underworldRep || 5);
-              }
+              adjustPlayerRegionalRep(player, regIdx, -(res.underworldRep || 5));
               deps.say(LIVING_WORDS.navalChoicePirates(), 5);
             },
           },
@@ -3055,7 +3062,7 @@ export function createLivingSceneHost(deps) {
       }
 
       // 3. Priority 3: Nemesis & Retinue Ambush inside town
-      const rep = Number(player?.regionalReputations?.[regIdx] ?? 0);
+      const rep = Number(player?.legalRep?.[regIdx] ?? player?.regionalReputations?.[regIdx] ?? 0);
       const nemMem = getNemesisMemory();
       const angle = rng() * Math.PI * 2;
       if (
@@ -3169,7 +3176,7 @@ export function createLivingSceneHost(deps) {
     }
 
     // 4. Nemesis & Retinue Ambush
-    const rep = Number(player?.regionalReputations?.[regIdx] ?? 0);
+    const rep = Number(player?.legalRep?.[regIdx] ?? player?.regionalReputations?.[regIdx] ?? 0);
     const wildNemMem = getNemesisMemory();
     if (
       shouldDispatchNemesis(player, {

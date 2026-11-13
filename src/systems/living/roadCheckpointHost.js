@@ -103,7 +103,7 @@ export function evaluateCheckpointEncounter({
     playerEntity?.guilds?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
     playerEntity?.guilds?.KnightlyOrder?.rank > 0
   );
-  const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
+  const rep = Number(playerEntity?.legalRep?.[regionIndex] ?? playerEntity?.regionalReputations?.[regionIndex] ?? 0);
   const insp = evaluateCheckpointInspection(playerEntity, isKnight);
   const hasHighReputation = rep >= 15;
   const canPassFree = isKnight || hasHighReputation || insp.saluted;
@@ -156,7 +156,7 @@ export function resolveCheckpointInteraction({
     playerEntity?.guilds?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
     playerEntity?.guilds?.KnightlyOrder?.rank > 0
   );
-  const rep = Number(playerEntity?.regionalReputations?.[regionIndex] ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
+  const rep = Number(playerEntity?.legalRep?.[regionIndex] ?? playerEntity?.regionalReputations?.[regionIndex] ?? 0);
   const insp = evaluateCheckpointInspection(playerEntity, isKnight);
 
   if (method === 'submit_inspection') {

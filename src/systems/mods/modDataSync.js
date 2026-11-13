@@ -135,6 +135,8 @@ export function syncModData() {
 
   if (customPotionsAdded) {
     overridePotionRecipes(aggregatedPotions);
+  } else {
+    overridePotionRecipes(null);
   }
 
   // 3. Sync Materials Overrides
@@ -273,10 +275,15 @@ export function getMaterialDamageMultiplier(materialIndex, target) {
   let mult = cfg.damageMultiplier ?? 1.0;
 
   if (target) {
-    const isMonsterCareer = !target.isClass && target.careerIndex !== undefined;
+    const isMonsterCareer = !target.isPlayer && !target.isClass && target.careerIndex !== undefined;
+    const ro = target?.racialOverride && !target.racialOverride.ended ? target.racialOverride : null;
+    const roKind = typeof ro === 'string' ? ro : ro ? (ro.racial || ro.kind) : null;
     const isUndead =
       Boolean(target.isUndead) ||
       target.affinity === 'Undead' ||
+      roKind === 'vampirism' ||
+      roKind === 'lichdom' ||
+      roKind === 'ancient_lichdom' ||
       (isMonsterCareer && enemyEntityGroup(target.careerIndex) === ENEMY_GROUPS.Undead);
 
     if (isUndead && cfg.vsUndeadMultiplier) {
@@ -285,6 +292,8 @@ export function getMaterialDamageMultiplier(materialIndex, target) {
 
     const isWerecreature =
       Boolean(target.isWerecreature) ||
+      target.affinity === 'Werecreature' ||
+      roKind === 'lycanthropy' ||
       (isMonsterCareer &&
         (target.careerIndex === 9 || target.careerIndex === 14 ||
           (enemyEntityGroup(target.careerIndex) === ENEMY_GROUPS.Animals && target.minMetalToHit >= 2)));

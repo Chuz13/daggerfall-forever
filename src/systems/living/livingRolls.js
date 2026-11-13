@@ -549,8 +549,8 @@ export function resolveLivingRoll({
   const reputation =
     regionIndex != null
       ? Number(
-          playerEntity?.regionalReputations?.[regionIndex] ??
-            playerEntity?.legalRep?.[regionIndex] ??
+          playerEntity?.legalRep?.[regionIndex] ??
+            playerEntity?.regionalReputations?.[regionIndex] ??
             0,
         )
       : 0;

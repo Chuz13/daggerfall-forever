@@ -42,7 +42,7 @@ import { takeRevived, stampRevived, dropRevived, revivedOf, REZ_HOLD_S } from '.
 import { birthSearch } from '../systems/legacy/places.js';
 import { payToll, tollLine, ageOf, isElder, isSpent } from '../systems/legacy/age.js';
 import { offlineRespawnOn } from '../systems/deathRespawn.js';
-import { liveVampirism } from '../systems/racialLive.js';   // AGELESS-CURSE
+import { liveVampirism, liveUndeadCurse } from '../systems/racialLive.js';   // AGELESS-CURSE
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // AGELESS-CURSE
 import { legacySettings } from '../systems/legacy/settings.js';
 import { registerModSaveData } from '../systems/modSaveData.js';
@@ -564,7 +564,7 @@ export function createLegacyHost(deps) {
         return outcome;
       }
     } else if (family.model === MODELS.enduring) {
-      const cursed = !!(deps.entity && (liveVampirism(deps.entity) || liveLycanthropy(deps.entity)));   // AGELESS-CURSE: a vampire or a lycanthrope pays no toll
+      const cursed = !!(deps.entity && (liveVampirism(deps.entity) || liveLycanthropy(deps.entity) || liveUndeadCurse(deps.entity)));   // AGELESS-CURSE: a vampire, lycanthrope, or lich pays no toll
       const toll = { share: legacySettings().tollShare, lived: p.lived, ageless: cursed };
       const paid = payToll({ ...p }, toll.share, toll.lived, toll);   // asked of a copy first: a span already spent is a fall
       if (!paid.final) { h.rise = { kind: 'rise', line: tollLine(p.given, paid) }; h.toll = toll; }

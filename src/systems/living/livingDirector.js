@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { registerModSaveData } from '../modSaveData.js';
-import { LivingTamrielConfig, PRESENCE, resetLivingConfig, enableLivingBountyScaling } from './livingConfig.js';
+import { LivingTamrielConfig, PRESENCE, LIVING_ADVENTURER_LOOT, resetLivingConfig, enableLivingBountyScaling } from './livingConfig.js';
 import { tickAllRegions } from './regionState.js';
 import { tickAdventurerSimulation } from './adventurerSim.js';
 import { getLocationEventCooldownsSnapshot, restoreLocationEventCooldownsSnapshot } from './locationCooldowns.js';
@@ -85,10 +85,14 @@ export function newLivingSaveData() {
       camps: LivingTamrielConfig.camps,
       quarantine: LivingTamrielConfig.quarantine,
       bounties: LivingTamrielConfig.bounties,
+      mobTraits: LivingTamrielConfig.mobTraits,
+      dungeonMobTraits: LivingTamrielConfig.dungeonMobTraits,
+      reputationConsequences: LivingTamrielConfig.reputationConsequences,
       allowQuestCompetition: Boolean(LivingTamrielConfig.allowQuestCompetition),
       encounterScale: LivingTamrielConfig.encounterScale,
       urbanLootMode: LivingTamrielConfig.urbanLootMode,
       wildernessLootMode: LivingTamrielConfig.wildernessLootMode,
+      adventurerLootMode: LivingTamrielConfig.adventurerLootMode,
     },
     subsystems: {
       regions: {},
@@ -123,10 +127,14 @@ export function getLivingSaveData() {
       camps: LivingTamrielConfig.camps,
       quarantine: LivingTamrielConfig.quarantine,
       bounties: LivingTamrielConfig.bounties,
+      mobTraits: LivingTamrielConfig.mobTraits,
+      dungeonMobTraits: LivingTamrielConfig.dungeonMobTraits,
+      reputationConsequences: LivingTamrielConfig.reputationConsequences,
       allowQuestCompetition: Boolean(LivingTamrielConfig.allowQuestCompetition),
       encounterScale: LivingTamrielConfig.encounterScale,
       urbanLootMode: LivingTamrielConfig.urbanLootMode,
       wildernessLootMode: LivingTamrielConfig.wildernessLootMode,
+      adventurerLootMode: LivingTamrielConfig.adventurerLootMode,
     },
     subsystems: {
       regions: _state.subsystems.regions || {},
@@ -189,6 +197,9 @@ export function restoreLivingSaveData(data) {
       restoreTier(data.config.camps, (v) => { LivingTamrielConfig.camps = v; });
       restoreTier(data.config.quarantine, (v) => { LivingTamrielConfig.quarantine = v; });
       restoreTier(data.config.bounties, (v) => { LivingTamrielConfig.bounties = v; });
+      restoreTier(data.config.mobTraits, (v) => { LivingTamrielConfig.mobTraits = v; });
+      restoreTier(data.config.dungeonMobTraits, (v) => { LivingTamrielConfig.dungeonMobTraits = v; });
+      restoreTier(data.config.reputationConsequences, (v) => { LivingTamrielConfig.reputationConsequences = v; });
       if (typeof data.config.allowQuestCompetition === 'boolean') {
         LivingTamrielConfig.allowQuestCompetition = data.config.allowQuestCompetition;
       }
@@ -200,6 +211,12 @@ export function restoreLivingSaveData(data) {
       }
       if (typeof data.config.wildernessLootMode === 'string') {
         LivingTamrielConfig.wildernessLootMode = data.config.wildernessLootMode;
+      }
+      if (
+        typeof data.config.adventurerLootMode === 'string' &&
+        Object.values(LIVING_ADVENTURER_LOOT).includes(data.config.adventurerLootMode.toLowerCase())
+      ) {
+        LivingTamrielConfig.adventurerLootMode = data.config.adventurerLootMode;
       }
     }
 

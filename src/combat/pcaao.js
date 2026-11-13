@@ -104,6 +104,7 @@ import { entityEnchantArmorMod, entityArmorPoints, weaponDamageMods, weaponBlowM
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
 import { createWeapon } from './enemyEquipment.js';
 import { clawMetalDamage } from './clawMetal.js'; // BAL6-GAUNTLETS: the beast's claws take its gauntlets' metal
+import { liveUndeadCurse } from '../systems/racialLive.js'; // VU1: leaf, avoids circular imports
 import {
   registerFormulaOverride,
   handToHandMinDamage,
@@ -516,7 +517,7 @@ export function pcaaoBonusOrPenaltyByEnemyType(attacker, target, rolls) {
   }
   bonus = rangeExclusive(bonus, rolls);
   let group = ENEMY_GROUPS.None;
-  if (isPlayer(target)) group = ENEMY_GROUPS.Humanoid;
+  if (isPlayer(target)) group = liveUndeadCurse(target) ? ENEMY_GROUPS.Undead : ENEMY_GROUPS.Humanoid;
   else group = enemyEntityGroup(target.careerIndex);
   if (flags == null || group === ENEMY_GROUPS.None) return 0;
   const decoded = careerAttackModifier(flags, group); // 1 bonus, -1 phobia (DFU decodes exclusively)

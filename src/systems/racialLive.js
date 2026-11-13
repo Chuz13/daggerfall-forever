@@ -32,3 +32,36 @@ export const liveVampirism = (entity) =>
       a.racial === 'vampirism' &&
       !a.ended,
   ) ?? null;
+
+/** Live undead racial override (vampirism, lichdom, or ancient_lichdom), or null.
+ *  Imports nothing so combat/formulas.js and combat/pcaao.js can consume it safely. */
+export const liveUndeadCurse = (entity) => {
+  if (!entity) return null;
+  const vamp = liveVampirism(entity);
+  if (vamp) return vamp;
+  const fromEffects = (entity.activeEffects ?? []).find(
+    (a) =>
+      a &&
+      !a.ended &&
+      (a.kind === 'lichdom' ||
+        a.kind === 'ancient_lichdom' ||
+        a.racial === 'lichdom' ||
+        a.racial === 'ancient_lichdom'),
+  );
+  if (fromEffects) return fromEffects;
+  const ro = entity.racialOverride;
+  if (ro === 'lichdom' || ro === 'ancient_lichdom') {
+    return { kind: 'racialOverride', racial: ro, ended: false };
+  }
+  if (
+    ro &&
+    !ro.ended &&
+    (ro.kind === 'lichdom' ||
+      ro.kind === 'ancient_lichdom' ||
+      ro.racial === 'lichdom' ||
+      ro.racial === 'ancient_lichdom')
+  ) {
+    return ro;
+  }
+  return null;
+};

@@ -71,7 +71,7 @@ export function liveStat(entity, statName, skipKind = null) {
       // V2a: the racial override's SetStatMod channel - the curse
       // entry's map, re-applied every round by lycanthropyMagicRound
       // exactly as RacialOverrideEffect's constant pass does
-      if (a.kind === 'racialOverride') {
+      if (a.kind === 'racialOverride' || a.kind === 'lichdom' || a.kind === 'ancient_lichdom') {
         const v = a.ended ? 0 : (a.statMods?.[statName] ?? 0);
         if (v < 0) curse += v;
         else mod += v;

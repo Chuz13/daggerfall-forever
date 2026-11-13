@@ -154,15 +154,18 @@ export function resolvePleaResponse({
     // Award regional reputation, lower regional tension, and bless player vitals
     root.subsystems.pleas.lastPleaMinute = nowMinutes;
     if (playerEntity && typeof playerEntity === 'object') {
+      const currentRep = Number(
+        playerEntity.legalRep?.[regionIndex] ?? playerEntity.regionalReputations?.[regionIndex] ?? 0,
+      );
+      const nextRep = Math.max(-100, Math.min(100, currentRep + 3));
+      if (!playerEntity.legalRep || typeof playerEntity.legalRep !== 'object') {
+        playerEntity.legalRep = {};
+      }
+      playerEntity.legalRep[regionIndex] = nextRep;
       if (!playerEntity.regionalReputations || typeof playerEntity.regionalReputations !== 'object') {
         playerEntity.regionalReputations = {};
       }
-      playerEntity.regionalReputations[regionIndex] =
-        (playerEntity.regionalReputations[regionIndex] || 0) + 3;
-      if (playerEntity.legalRep && typeof playerEntity.legalRep === 'object') {
-        playerEntity.legalRep[regionIndex] =
-          (playerEntity.legalRep[regionIndex] || 0) + 3;
-      }
+      playerEntity.regionalReputations[regionIndex] = nextRep;
       if (typeof playerEntity.health === 'number' && typeof playerEntity.maxHealth === 'number') {
         playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + 15);
       }
@@ -227,9 +230,19 @@ export function resolvePleaResponse({
 
   // REFUSE_RUDE:
   root.subsystems.pleas.lastPleaMinute = nowMinutes;
-  if (playerEntity?.regionalReputations && typeof playerEntity.regionalReputations === 'object') {
-    playerEntity.regionalReputations[regionIndex] =
-      (playerEntity.regionalReputations[regionIndex] || 0) - 2;
+  if (playerEntity && typeof playerEntity === 'object') {
+    const currentRep = Number(
+      playerEntity.legalRep?.[regionIndex] ?? playerEntity.regionalReputations?.[regionIndex] ?? 0,
+    );
+    const nextRep = Math.max(-100, Math.min(100, currentRep - 2));
+    if (!playerEntity.legalRep || typeof playerEntity.legalRep !== 'object') {
+      playerEntity.legalRep = {};
+    }
+    playerEntity.legalRep[regionIndex] = nextRep;
+    if (!playerEntity.regionalReputations || typeof playerEntity.regionalReputations !== 'object') {
+      playerEntity.regionalReputations = {};
+    }
+    playerEntity.regionalReputations[regionIndex] = nextRep;
   }
   const spawnMugger = rng() < 0.40;
   return {

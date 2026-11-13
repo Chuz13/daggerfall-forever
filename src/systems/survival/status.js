@@ -143,7 +143,16 @@ export function survivalHudChips(entity, now, { vampire = false, endurance = 50,
       of: ladder.length,
     });
   };
-  const isLich = !!entity?.racialOverride && (entity.racialOverride.racial === 'lichdom' || entity.racialOverride.racial === 'ancient_lichdom');
+  const isLich = Boolean(
+    entity?.racialOverride &&
+    !entity.racialOverride.ended &&
+    (entity.racialOverride === 'lichdom' ||
+      entity.racialOverride === 'ancient_lichdom' ||
+      entity.racialOverride.racial === 'lichdom' ||
+      entity.racialOverride.racial === 'ancient_lichdom' ||
+      entity.racialOverride.kind === 'lichdom' ||
+      entity.racialOverride.kind === 'ancient_lichdom'),
+  );
   if (!vampire && !isLich) push('hunger', HUD_NEED_WORDS.hunger, hungerStage(hungerMinutes(s, now))); // AUDIT SURV C: no need for food or sleep
   if (!vampire && !isLich) push('thirst', HUD_NEED_WORDS.thirst, thirstStage(s.thirst)); // AUDIT SURV-TIERS (the third pass): nor drink - the law freezes it, and its red chip never cost
   if (!vampire && !isLich) push('sleep', HUD_NEED_WORDS.sleep, sleepStage(s.sleepDebt), { held: wakingHeld(s, now) });
@@ -320,7 +329,16 @@ export function survivalStatusLines(entity, now, { vampire = false, endurance = 
   const kept = !!tierOf(s, rules).boons;
   const boons = kept && Array.isArray(s.boons) ? s.boons : [];
   const lines = [];
-  const isLich = !!entity?.racialOverride && (entity.racialOverride.racial === 'lichdom' || entity.racialOverride.racial === 'ancient_lichdom');
+  const isLich = Boolean(
+    entity?.racialOverride &&
+    !entity.racialOverride.ended &&
+    (entity.racialOverride === 'lichdom' ||
+      entity.racialOverride === 'ancient_lichdom' ||
+      entity.racialOverride.racial === 'lichdom' ||
+      entity.racialOverride.racial === 'ancient_lichdom' ||
+      entity.racialOverride.kind === 'lichdom' ||
+      entity.racialOverride.kind === 'ancient_lichdom'),
+  );
   if (isLich) {
     lines.push(
       t('survival.status.undeadVessel', 'Undead vessel - immune to hunger, thirst and sleep.'),

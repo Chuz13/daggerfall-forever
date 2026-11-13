@@ -36,8 +36,14 @@ export function getPlayerTaint(playerEntity = null) {
     _playerTaint = 100;
     return 100;
   }
-  if (playerEntity && typeof playerEntity.necroTaint === 'number' && playerEntity.necroTaint > _playerTaint) {
-    return Math.min(100, playerEntity.necroTaint);
+  if (
+    playerEntity &&
+    typeof playerEntity === 'object' &&
+    typeof playerEntity.necroTaint === 'number' &&
+    Number.isFinite(playerEntity.necroTaint)
+  ) {
+    _playerTaint = Math.max(0, Math.min(100, playerEntity.necroTaint));
+    return _playerTaint;
   }
   return _playerTaint;
 }
@@ -76,9 +82,13 @@ export function getTaintTier(playerEntity = null) {
 export function addNecroTaint(amount, playerEntity = null) {
   if (playerEntity && isAnyLich(playerEntity)) {
     _playerTaint = 100;
+    if (typeof playerEntity === 'object') playerEntity.necroTaint = 100;
     return 100;
   }
   _playerTaint = Math.min(100, Math.max(0, _playerTaint + Math.max(0, amount)));
+  if (playerEntity && typeof playerEntity === 'object') {
+    playerEntity.necroTaint = _playerTaint;
+  }
   return _playerTaint;
 }
 
@@ -90,13 +100,57 @@ export function addNecroTaint(amount, playerEntity = null) {
 export function tickTaintDaily(currentDay, playerEntity = null) {
   if (playerEntity && isAnyLich(playerEntity)) {
     _playerTaint = 100;
+    if (typeof playerEntity === 'object') playerEntity.necroTaint = 100;
+    return;
+  }
+  if (!Number.isFinite(currentDay)) return;
+  if (currentDay < _lastDecayDay) {
+    _lastDecayDay = currentDay;
+    return;
+  }
+  if (_lastDecayDay === 0 && currentDay > 365) {
+    _lastDecayDay = currentDay;
     return;
   }
   if (currentDay > _lastDecayDay) {
     const daysPassed = currentDay - _lastDecayDay;
     _playerTaint = Math.max(0, _playerTaint - daysPassed);
     _lastDecayDay = currentDay;
+    if (playerEntity && typeof playerEntity === 'object') {
+      playerEntity.necroTaint = _playerTaint;
+    }
   }
+}
+
+/**
+ * Synchronizes module-level taint state and decay anchor from a restored save entity.
+ * Prevents taint from a previous Lich session bleeding onto a newly loaded mortal save.
+ * @param {object} [playerEntity]
+ * @param {number|null} [currentDay]
+ * @returns {number}
+ */
+export function syncNecroTaintFromEntity(playerEntity = null, currentDay = null) {
+  if (playerEntity && isAnyLich(playerEntity)) {
+    _playerTaint = 100;
+    playerEntity.necroTaint = 100;
+  } else if (
+    playerEntity &&
+    typeof playerEntity === 'object' &&
+    typeof playerEntity.necroTaint === 'number' &&
+    Number.isFinite(playerEntity.necroTaint)
+  ) {
+    _playerTaint = Math.max(0, Math.min(100, playerEntity.necroTaint));
+    playerEntity.necroTaint = _playerTaint;
+  } else {
+    _playerTaint = 0;
+    if (playerEntity && typeof playerEntity === 'object') {
+      playerEntity.necroTaint = 0;
+    }
+  }
+  if (typeof currentDay === 'number' && Number.isFinite(currentDay) && currentDay >= 0) {
+    _lastDecayDay = Math.floor(currentDay);
+  }
+  return _playerTaint;
 }
 
 /**
