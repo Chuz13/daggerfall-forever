@@ -25,7 +25,7 @@ import {
   computeRoleplayBribeMultiplier,
   readPlayerSkill,
 } from './livingRolls.js';
-import { evaluateFactionNemesisArchetype } from './reputationConsequences.js';
+import { evaluateFactionNemesisPool } from './reputationConsequences.js';
 
 export const NEMESIS_ARCHETYPES = Object.freeze({
   BOUNTY_HUNTER: 'BOUNTY_HUNTER',       // Enforcer hunting legal bounties & criminals
@@ -106,8 +106,7 @@ export function shouldDispatchNemesis(player, repOrOptions = 0, playerLevel = 1)
   if (legalReputation <= -20 && level >= 3) return true;
 
   // 1b. Reputation Consequences Framework: severe faction hostilities
-  const factionNemesis = evaluateFactionNemesisArchetype(player);
-  if (factionNemesis && level >= 3) return true;
+  if (evaluateFactionNemesisPool(player).length > 0 && level >= 3) return true;
 
   // 2. Shadow Assassin: Deep infamy <= -40 and level >= 5
   if (legalReputation <= -40 && level >= 5) return true;
@@ -161,9 +160,14 @@ export function determineNemesisArchetype(player, {
   /** @type {string[]} */
   const candidates = [];
 
-  const factionArchetype = evaluateFactionNemesisArchetype(player);
-  if (factionArchetype && NEMESIS_ARCHETYPES[factionArchetype]) {
-    return NEMESIS_ARCHETYPES[factionArchetype];
+  const pool = evaluateFactionNemesisPool(player);
+  if (pool.length === 1) {
+    return NEMESIS_ARCHETYPES[pool[0].archetype];
+  }
+  if (pool.length > 1) {
+    const roll = typeof rng === 'function' ? rng() : Math.random();
+    const idx = Math.floor(Math.max(0, Math.min(0.9999999, roll)) * pool.length);
+    return NEMESIS_ARCHETYPES[pool[idx].archetype];
   }
 
   if (legalReputation <= -20 && playerLevel >= 3) {
@@ -200,6 +204,59 @@ export function determineNemesisArchetype(player, {
 }
 
 /**
+ * Selects a specific faction/generic nemesis assignment for the next ambush spawn,
+ * rotating round-robin across all hostile factions and preserving recurring rival names.
+ *
+ * @param {Object} player
+ * @param {Object} [context]
+ * @returns {{ archetype: string, factionKey: string|null, factionId: number|null, factionName: string|null, customName: string|undefined }}
+ */
+export function selectNemesisAssignment(player, context = {}) {
+  const pool = evaluateFactionNemesisPool(player);
+  const mem = ensureNemesisMem();
+  if (pool.length > 0) {
+    const nextIdx = (mem.lastFactionIndex + 1) % pool.length;
+    mem.lastFactionIndex = nextIdx;
+    const chosen = pool[nextIdx];
+    const tracked = mem.factionHunters?.[chosen.factionKey];
+    const customName =
+      tracked?.name ||
+      (chosen.archetype === 'GRUDGE_AVENGER' && mem.hasGrudge && mem.lastNemesisName ? mem.lastNemesisName : undefined);
+    return {
+      archetype: NEMESIS_ARCHETYPES[chosen.archetype] || NEMESIS_ARCHETYPES.BOUNTY_HUNTER,
+      factionKey: chosen.factionKey,
+      factionId: chosen.factionId ?? null,
+      factionName: chosen.factionName,
+      customName,
+    };
+  }
+  const archetype = determineNemesisArchetype(player, context);
+  const customName =
+    archetype === NEMESIS_ARCHETYPES.GRUDGE_AVENGER && mem.hasGrudge && mem.lastNemesisName
+      ? mem.lastNemesisName
+      : undefined;
+  return {
+    archetype,
+    factionKey: null,
+    factionId: null,
+    factionName: null,
+    customName,
+  };
+}
+
+/**
+ * Returns active hostile-faction nemeses enriched with encounter memory.
+ * @param {Object} player
+ */
+export function getActiveFactionNemeses(player) {
+  const mem = getNemesisMemory();
+  return evaluateFactionNemesisPool(player).map((entry) => ({
+    ...entry,
+    hunter: mem?.factionHunters?.[entry.factionKey] ?? null,
+  }));
+}
+
+/**
  * Creates a leveled Nemesis hunter record complete with archetype, motive,
  * and scaled retinue / minions.
  *
@@ -209,6 +266,9 @@ export function determineNemesisArchetype(player, {
 export function createNemesisHunter(playerLevel, nameOrOptions) {
   let customName = null;
   let customArchetype = null;
+  let factionKey = null;
+  let factionId = null;
+  let factionName = null;
   let rng = Math.random;
 
   if (typeof nameOrOptions === 'string') {
@@ -216,6 +276,9 @@ export function createNemesisHunter(playerLevel, nameOrOptions) {
   } else if (typeof nameOrOptions === 'object' && nameOrOptions !== null) {
     if (nameOrOptions.name) customName = nameOrOptions.name;
     if (nameOrOptions.archetype) customArchetype = nameOrOptions.archetype;
+    if (nameOrOptions.factionKey) factionKey = nameOrOptions.factionKey;
+    if (nameOrOptions.factionId != null) factionId = nameOrOptions.factionId;
+    if (nameOrOptions.factionName) factionName = nameOrOptions.factionName;
     if (typeof nameOrOptions.rng === 'function') rng = nameOrOptions.rng;
   }
 
@@ -269,6 +332,9 @@ export function createNemesisHunter(playerLevel, nameOrOptions) {
   return {
     name,
     archetype,
+    factionKey,
+    factionId,
+    factionName,
     motiveKey,
     className,
     level: nemesisLevel,
@@ -444,6 +510,25 @@ export function resolveNemesisConfrontation(
   };
 }
 
+function ensureNemesisMem() {
+  const root = getLivingDirectorState();
+  if (!root.subsystems.nemesis) {
+    root.subsystems.nemesis = {
+      encounters: 0,
+      escapedCount: 0,
+      lastNemesisName: null,
+      lastArchetype: null,
+      hasGrudge: false,
+      lastFactionIndex: -1,
+      factionHunters: {},
+    };
+  }
+  const mem = root.subsystems.nemesis;
+  if (typeof mem.lastFactionIndex !== 'number') mem.lastFactionIndex = -1;
+  if (!mem.factionHunters || typeof mem.factionHunters !== 'object') mem.factionHunters = {};
+  return mem;
+}
+
 /**
  * Records a Nemesis confrontation outcome into the persistent LivingDirector state
  * so recurring rivals remember past escapes, bribes, and defeats.
@@ -453,25 +538,38 @@ export function resolveNemesisConfrontation(
  */
 export function recordNemesisMemory(nemesis, resolution) {
   if (!nemesis) return;
-  const root = getLivingDirectorState();
-  if (!root.subsystems.nemesis) {
-    root.subsystems.nemesis = { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
-  }
-  const mem = root.subsystems.nemesis;
+  const mem = ensureNemesisMem();
   mem.encounters = (mem.encounters || 0) + 1;
   mem.lastNemesisName = nemesis.name || mem.lastNemesisName;
   mem.lastArchetype = nemesis.archetype || mem.lastArchetype;
-  if (
+  const escaped =
     resolution === NEMESIS_RESOLUTION.PACIFIED ||
     resolution === NEMESIS_RESOLUTION.BRIBED ||
     resolution === NEMESIS_RESOLUTION.INTIMIDATED ||
-    resolution === NEMESIS_RESOLUTION.LUCK_SAVED
-  ) {
+    resolution === NEMESIS_RESOLUTION.LUCK_SAVED;
+  if (escaped) {
     mem.escapedCount = (mem.escapedCount || 0) + 1;
     nemesis.escapedCount = (nemesis.escapedCount || 0) + 1;
   } else {
     mem.hasGrudge = true;
     nemesis.hasMemoryOfDefeat = true;
+  }
+  if (nemesis.factionKey) {
+    const fh = mem.factionHunters[nemesis.factionKey] ?? {
+      factionKey: nemesis.factionKey,
+      factionName: nemesis.factionName || nemesis.factionKey,
+      archetype: nemesis.archetype,
+      name: nemesis.name,
+      encounters: 0,
+      escapedCount: 0,
+      hasGrudge: false,
+    };
+    fh.encounters = (fh.encounters || 0) + 1;
+    fh.name = nemesis.name || fh.name;
+    fh.archetype = nemesis.archetype || fh.archetype;
+    if (escaped) fh.escapedCount = (fh.escapedCount || 0) + 1;
+    fh.hasGrudge = true;
+    mem.factionHunters[nemesis.factionKey] = fh;
   }
 }
 
@@ -483,13 +581,10 @@ export function recordNemesisMemory(nemesis, resolution) {
  */
 export function recordAdventurerGrudge(advName) {
   if (!advName) return;
-  const root = getLivingDirectorState();
-  if (!root.subsystems.nemesis) {
-    root.subsystems.nemesis = { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
-  }
-  root.subsystems.nemesis.hasGrudge = true;
-  root.subsystems.nemesis.lastNemesisName = String(advName);
-  root.subsystems.nemesis.lastArchetype = NEMESIS_ARCHETYPES.GRUDGE_AVENGER;
+  const mem = ensureNemesisMem();
+  mem.hasGrudge = true;
+  mem.lastNemesisName = String(advName);
+  mem.lastArchetype = NEMESIS_ARCHETYPES.GRUDGE_AVENGER;
 }
 
 /**
@@ -507,5 +602,13 @@ export function clearNemesisGrudge() {
  */
 export function getNemesisMemory() {
   const root = getLivingDirectorState();
-  return root?.subsystems?.nemesis || { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
+  return root?.subsystems?.nemesis || {
+    encounters: 0,
+    escapedCount: 0,
+    lastNemesisName: null,
+    lastArchetype: null,
+    hasGrudge: false,
+    lastFactionIndex: -1,
+    factionHunters: {},
+  };
 }

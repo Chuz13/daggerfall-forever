@@ -10,6 +10,7 @@ import { decorSaleBack } from '../net/decorLaw.js';
 import { playerEntity } from '../characters/playerEntity.js';
 import { isDfuHouseOwned } from './banking.js';
 import { yardCellOf } from '../net/yardCellLaw.js';
+import { evaluateHousePurchaseReputation } from './living/reputationConsequences.js';
 
 export const OFFLINE_HOMES_VENDOR = 'offlineHomes';
 
@@ -209,6 +210,9 @@ export function createOfflineHomes({
     const reg = Number(region) || 0;
     const key = Number(buildingKey);
 
+    if (evaluateHousePurchaseReputation(player?.() ?? playerEntity).refused) {
+      return { ok: false, error: 'rep-refused' };
+    }
     if (offlineHomesInRegion(reg).length >= HOME_CAP) {
       return { ok: false, error: 'home-cap' };
     }

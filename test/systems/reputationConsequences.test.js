@@ -19,7 +19,10 @@ import {
   inspectPlayerContraband,
   getCourtReputationBias,
   getReputationRumor,
+  getReputationRumors,
   evaluateFactionNemesisArchetype,
+  evaluateFactionNemesisPool,
+  evaluateFactionNemesisArchetypes,
   RARE_SOUL_PTS_THRESHOLD,
   MAGES_GUILD_FACTION_ID,
 } from '../../src/systems/living/reputationConsequences.js';
@@ -33,12 +36,30 @@ import { startDisease, diseaseCount } from '../../src/systems/diseases.js';
 import { HOLIDAY_DAYS_OF_YEAR } from '../../src/systems/holidays.js';
 import { MINUTES_PER_DAY } from '../../src/systems/gameDate.js';
 import { housePrice, shipPrice, buyShipDecision, SHIP_TYPES } from '../../src/systems/banking.js';
-import { shipBuyPrice } from '../../src/systems/shipyards.js';
+import { shipBuyPrice, shipyardRefusalText } from '../../src/systems/shipyards.js';
 import { createShipyardHost } from '../../src/scenes/shipyardHost.js';
+import { createFleetHost } from '../../src/scenes/fleetHost.js';
+import { titleDeed, _resetFleetForTests } from '../../src/systems/fleet.js';
+import { mintDeed } from '../../src/systems/comeSailAway/comeSailAwayItems.js';
+import { createOfflineHomes, _resetForTests as resetOfflineHomesForTests } from '../../src/systems/offlineHomes.js';
 import { tradeCost } from '../../src/systems/tradeModes.js';
 import { markStolen } from '../../src/systems/stolenGoods.js';
-import { resolveCheckpointInteraction, hasRegionalCheckpointPass, CHECKPOINT_OUTCOME } from '../../src/systems/living/roadCheckpointHost.js';
-import { determineNemesisArchetype, NEMESIS_ARCHETYPES } from '../../src/systems/living/nemesisHost.js';
+import {
+  resolveCheckpointInteraction,
+  hasRegionalCheckpointPass,
+  grantRegionalCheckpointPass,
+  clearRegionalCheckpointPass,
+  CHECKPOINT_OUTCOME,
+} from '../../src/systems/living/roadCheckpointHost.js';
+import {
+  determineNemesisArchetype,
+  selectNemesisAssignment,
+  recordNemesisMemory,
+  getNemesisMemory,
+  NEMESIS_ARCHETYPES,
+  NEMESIS_RESOLUTION,
+} from '../../src/systems/living/nemesisHost.js';
+import { RumorMill, RUMOR_TYPE } from '../../src/systems/rumorMill.js';
 
 test('RCF: Default presence tier is HIGH (3)', () => {
   assert.equal(LivingTamrielConfig.reputationConsequences, PRESENCE.HIGH);
@@ -404,6 +425,262 @@ test('RCF Integration: Nemesis archetype deterministically prioritizes hostile f
       determineNemesisArchetype(magesEnemy, { legalReputation: -30, playerLevel: 10, hasGrudge: true, rng: () => 0.99 }),
       NEMESIS_ARCHETYPES.ARCANE_RIVAL,
     );
+  } finally {
+    LivingTamrielConfig.reputationConsequences = origTier;
+  }
+});
+
+test('RCF V2: Offline door housing enforces Nobility refusal and discount', async () => {
+  const origTier = LivingTamrielConfig.reputationConsequences;
+  const origSGroup = playerEntity.sGroupReputations;
+  LivingTamrielConfig.reputationConsequences = PRESENCE.HIGH;
+  resetOfflineHomesForTests();
+  try {
+    playerEntity.sGroupReputations = [0, 0, 0, -25, 0, 0, 0];
+    const homes = createOfflineHomes({ player: () => playerEntity });
+    const refused = await homes.claim({ mapId: 500, buildingKey: 12, region: 17, price: 20000 });
+    assert.equal(refused.ok, false);
+    assert.equal(refused.error, 'rep-refused');
+    assert.equal(homes.homeAt(500, 12), null);
+
+    playerEntity.sGroupReputations = [0, 0, 0, 40, 0, 0, 0];
+    const evalNoble = evaluateHousePurchaseReputation(playerEntity);
+    assert.equal(evalNoble.refused, false);
+    assert.equal(evalNoble.discountMult, 0.85);
+    const accepted = await homes.claim({
+      mapId: 500,
+      buildingKey: 12,
+      region: 17,
+      price: Math.trunc(20000 * evalNoble.discountMult),
+    });
+    assert.equal(accepted.ok, true);
+  } finally {
+    resetOfflineHomesForTests();
+    playerEntity.sGroupReputations = origSGroup;
+    LivingTamrielConfig.reputationConsequences = origTier;
+  }
+});
+
+test('RCF V2: DFO Standalone Shipyard (yard/refits/crew) and FleetHost enforce Merchants refusal and discount', () => {
+  const origTier = LivingTamrielConfig.reputationConsequences;
+  const origSGroup = playerEntity.sGroupReputations;
+  LivingTamrielConfig.reputationConsequences = PRESENCE.HIGH;
+  _resetFleetForTests();
+  try {
+    const uid = 9101;
+    titleDeed(mintDeed(2, 0, uid, 50000));
+    let gold = 500000;
+    const csaRuntime = {
+      AllBoats: [],
+      state: { PackedCargoes: new Map() },
+      isSailing: () => false,
+      laidUpHold: () => [],
+    };
+    const navalRuntime = {
+      fleetStatus: () => ({ hull: 80, maxHull: 100, sail: 10, maxSail: 10, crew: 12, maxCrew: 24, inFight: false }),
+      crewHands: () => [],
+      awayOf: () => new Set(),
+      yardModelOf: () => ({ ok: true }),
+    };
+    const fleet = createFleetHost({
+      csa: () => csaRuntime,
+      naval: () => navalRuntime,
+      pack: () => [],
+      gold: () => gold,
+      pay: (n) => { gold -= n; },
+      where: () => ({ inside: false, pixel: { X: 0, Y: 0 }, feet: [0, 0, 0], sea: false }),
+      nearPort: () => true,
+      nearestPort: () => ({ name: 'Daggerfall', way: 'south' }),
+      captain: () => null,
+    });
+    const yard = createShipyardHost({
+      fleet: () => fleet,
+      naval: () => navalRuntime,
+      csa: () => csaRuntime,
+      pack: () => [],
+      gold: () => gold,
+      pay: (n) => { gold -= n; },
+      skills: () => ({ mercantile: 40, personality: 50 }),
+      mintUid: () => 9200,
+      day: () => 50,
+    });
+    const SITE = { mapId: 105, regionIndex: 17, townName: 'Daggerfall' };
+
+    playerEntity.sGroupReputations = [0, 0, 0, 0, 0, 0, 0];
+    const neutralOffer = fleet.offer(uid);
+    const neutralCrewModel = yard.model(SITE, { page: 'crew', uid });
+    assert.ok(neutralOffer.rows.length > 0 && neutralOffer.rows[0].next);
+    assert.ok(neutralCrewModel.recruits.length > 0);
+    const neutralRefitGold = neutralOffer.rows[0].next.gold;
+    const neutralCrewPrice = neutralCrewModel.recruits[0].price;
+
+    // Merchants >= 40 -> 12% discount in refit offer and crew hire pricing
+    playerEntity.sGroupReputations = [0, 40, 0, 0, 0, 0, 0];
+    const favoredOffer = fleet.offer(uid);
+    const favoredCrewModel = yard.model(SITE, { page: 'crew', uid });
+    assert.equal(favoredOffer.rows[0].next.gold, Math.trunc(neutralRefitGold * 0.88));
+    assert.ok(favoredCrewModel.recruits[0].price < neutralCrewPrice);
+
+    // Merchants <= -30 -> refusal across yard, refits, crew tabs + FleetHost & ShipyardHost actions
+    playerEntity.sGroupReputations = [0, -30, 0, 0, 0, 0, 0];
+    const refusedYard = yard.model(SITE, { page: 'yard', uid });
+    const refusedRefits = yard.model(SITE, { page: 'refits', uid });
+    const refusedCrew = yard.model(SITE, { page: 'crew', uid });
+    assert.equal(refusedYard.yard, null);
+    assert.equal(refusedYard.why, shipyardRefusalText());
+    assert.equal(refusedRefits.refit, null);
+    assert.equal(refusedRefits.why, shipyardRefusalText());
+    assert.equal(refusedCrew.why, shipyardRefusalText());
+    assert.ok(refusedCrew.recruits.every((r) => r.why === shipyardRefusalText()));
+
+    assert.equal(yard.act(SITE, 'refit', uid, neutralOffer.rows[0].id).ok, false);
+    assert.equal(yard.act(SITE, 'hire', uid, neutralCrewModel.recruits[0].id).ok, false);
+    assert.equal(fleet.act(uid, 'refit', neutralOffer.rows[0].id).ok, false);
+    assert.equal(fleet.model().ships[0].can.yard, shipyardRefusalText());
+    assert.equal(fleet.model().ships[0].can.refit, shipyardRefusalText());
+  } finally {
+    _resetFleetForTests();
+    playerEntity.sGroupReputations = origSGroup;
+    LivingTamrielConfig.reputationConsequences = origTier;
+  }
+});
+
+test('RCF V2: Checkpoint Underworld inspection overrides regional pass & turns hostile on contraband fine shortfall', () => {
+  const origTier = LivingTamrielConfig.reputationConsequences;
+  LivingTamrielConfig.reputationConsequences = PRESENCE.HIGH;
+  clearRegionalCheckpointPass();
+  try {
+    // Player recently got a pass as an ordinary traveler (now has Underworld = 35 and stolen goods, short on gold)
+    grantRegionalCheckpointPass(43, 7000);
+    assert.equal(hasRegionalCheckpointPass(43, 7050), true);
+
+    const brokeSmuggler = {
+      sGroupReputations: [0, 0, 0, 0, 35, 0, 0],
+      goldPieces: 40,
+      items: [
+        { uid: 'st1', stolen: true },
+        { uid: 'st2', stolen: true },
+        { uid: 'st3', stolen: true },
+        { uid: 'clean1' },
+      ],
+    };
+
+    // Even with active transit pass, Underworld >= 25 blocks auto-wave-through and demands inspection
+    const halted = resolveCheckpointInteraction({
+      playerEntity: brokeSmuggler,
+      method: 'submit_inspection',
+      regionIndex: 43,
+      nowMinutes: 7050,
+    });
+    assert.equal(halted.outcome, CHECKPOINT_OUTCOME.HOSTILE);
+    assert.equal(halted.stolenConfiscated, 3);
+    assert.equal(halted.finePaid, 40);
+    assert.equal(halted.fineShortfall, 110);
+    assert.equal(brokeSmuggler.goldPieces, 0);
+    assert.equal(brokeSmuggler.items.length, 1);
+
+    clearRegionalCheckpointPass(43);
+    assert.equal(hasRegionalCheckpointPass(43, 7050), false);
+  } finally {
+    clearRegionalCheckpointPass();
+    LivingTamrielConfig.reputationConsequences = origTier;
+  }
+});
+
+test('RCF V2: Multi-faction Nemesis pool rotates across all hostile factions and records per-faction hunters', () => {
+  const origTier = LivingTamrielConfig.reputationConsequences;
+  const mem = getNemesisMemory();
+  const prevIdx = mem.lastFactionIndex;
+  const prevHunters = mem.factionHunters ? { ...mem.factionHunters } : {};
+  LivingTamrielConfig.reputationConsequences = PRESENCE.HIGH;
+  try {
+    const multiEnemy = {
+      factionRep: {
+        dict: new Map([
+          [THE_DARK_BROTHERHOOD, { rep: -45 }],
+          [THE_THIEVES_GUILD, { rep: -50 }],
+          [GENERIC_KNIGHTLY_ORDER, { rep: -40 }],
+          [MAGES_GUILD_FACTION_ID, { rep: -45 }],
+        ]),
+      },
+      sGroupReputations: [0, 0, 0, 0, 0, 0, 0],
+    };
+
+    const pool = evaluateFactionNemesisPool(multiEnemy);
+    assert.equal(pool.length, 4);
+    assert.deepEqual(
+      evaluateFactionNemesisArchetypes(multiEnemy),
+      ['SHADOW_ASSASSIN', 'GRUDGE_AVENGER', 'BOUNTY_HUNTER', 'ARCANE_RIVAL'],
+    );
+    assert.equal(determineNemesisArchetype(multiEnemy, { rng: () => 0.0 }), NEMESIS_ARCHETYPES.SHADOW_ASSASSIN);
+    assert.equal(determineNemesisArchetype(multiEnemy, { rng: () => 0.99 }), NEMESIS_ARCHETYPES.ARCANE_RIVAL);
+
+    // Round-robin assignment across all 4 hostile factions
+    mem.lastFactionIndex = -1;
+    const picks = [
+      selectNemesisAssignment(multiEnemy),
+      selectNemesisAssignment(multiEnemy),
+      selectNemesisAssignment(multiEnemy),
+      selectNemesisAssignment(multiEnemy),
+      selectNemesisAssignment(multiEnemy),
+    ];
+    assert.deepEqual(
+      picks.map((p) => p.factionKey),
+      ['dark_brotherhood', 'thieves_guild', 'knightly_order', 'mages_guild', 'dark_brotherhood'],
+    );
+
+    recordNemesisMemory({
+      name: 'Vesper',
+      archetype: NEMESIS_ARCHETYPES.SHADOW_ASSASSIN,
+      factionKey: 'dark_brotherhood',
+      factionName: 'Dark Brotherhood',
+    }, NEMESIS_RESOLUTION.BRIBED);
+    assert.equal(getNemesisMemory().factionHunters.dark_brotherhood.name, 'Vesper');
+  } finally {
+    mem.lastFactionIndex = prevIdx;
+    mem.factionHunters = prevHunters;
+    LivingTamrielConfig.reputationConsequences = origTier;
+  }
+});
+
+test('RCF V2: Multi-threshold reputation rumors populate RumorMill pool and sample across thresholds', () => {
+  const origTier = LivingTamrielConfig.reputationConsequences;
+  LivingTamrielConfig.reputationConsequences = PRESENCE.HIGH;
+  try {
+    const heroOutlaw = {
+      name: 'Kaelen',
+      factionRep: {
+        dict: new Map([
+          [GENERIC_KNIGHTLY_ORDER, { rep: 50 }],
+          [MAGES_GUILD_FACTION_ID, { rep: 50 }],
+          [THE_DARK_BROTHERHOOD, { rep: -40 }],
+        ]),
+      },
+      sGroupReputations: [0, 0, 0, 0, 50, 0, 0],
+    };
+
+    const pool = getReputationRumors(heroOutlaw, 17);
+    assert.ok(pool.length >= 4, `Expected >=4 active threshold rumors, got ${pool.length}`);
+    assert.ok(pool.some((r) => /noble champion/i.test(r)));
+    assert.ok(pool.some((r) => /arcane prowess/i.test(r)));
+    assert.ok(pool.some((r) => /Shadow brokers/i.test(r)));
+    assert.ok(pool.some((r) => /Dark Brotherhood/i.test(r)));
+
+    const rmLow = new RumorMill({
+      currentRegionIndex: () => 17,
+      playerEntity: () => heroOutlaw,
+      rolls: () => 0.0,
+    });
+    const rmHigh = new RumorMill({
+      currentRegionIndex: () => 17,
+      playerEntity: () => heroOutlaw,
+      rolls: () => 0.99,
+    });
+    const first = rmLow.getNewsOrRumors();
+    const last = rmHigh.getNewsOrRumors();
+    assert.ok(pool.includes(first));
+    assert.ok(pool.includes(last));
+    assert.notEqual(first, last, 'RumorMill should draw different rumors across the active threshold pool');
   } finally {
     LivingTamrielConfig.reputationConsequences = origTier;
   }

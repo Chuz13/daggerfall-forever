@@ -35,6 +35,9 @@ import { guildWareHeld } from '../net/guild/guildStock.js';
 import { SAILCLOTH_SHUT } from '../ui/sailClothPanel.js';
 import { cabinShipType } from '../systems/sailingCabin.js';   // CABIN-LOOK: the hulls with a cabin below
 import { SHIP_TYPES } from '../systems/banking.js';
+import { shipyardRefusalText } from '../systems/shipyards.js';
+import { evaluateShipyardReputation } from '../systems/living/reputationConsequences.js';
+import { playerEntity } from '../characters/playerEntity.js';
 import { HULL_NAMES, HULL_PRICES } from '../systems/comeSailAway/comeSailAwayBoat.js';
 import { mintDeed } from '../systems/comeSailAway/comeSailAwayItems.js';
 import { TERRAIN_EDGE } from '../systems/comeSailAway/comeSailAway.js';
@@ -153,12 +156,15 @@ export function createFleetHost(deps) {
       : !st.wants && !st.fire ? 'This ship doesn\'t need repairs.'
       : st.inFight ? 'The crew is busy fighting.'
       : null;
-    const yard = !n ? `Shipwrights need Naval Combat turned on (${optionPath('feat:naval-combat')}).`   // ORG2
+    const repShip = evaluateShipyardReputation(playerEntity);
+    const yard = repShip.refused ? shipyardRefusalText()
+      : !n ? `Shipwrights need Naval Combat turned on (${optionPath('feat:naval-combat')}).`   // ORG2
       : !atPort ? 'A shipwright works at a port.'
       : at.where === 'away' || at.where === 'packed' ? 'Bring the ship to this port first.'
       : inFight ? 'Not while the ship is in combat.'
       : null;
-    const refit = loan ? `This ship was bought on credit. Pay the ${loan.owed} gold owed to ${deps.regionName?.(loan.region) ?? 'the bank'} first.`
+    const refit = repShip.refused ? shipyardRefusalText()
+      : loan ? `This ship was bought on credit. Pay the ${loan.owed} gold owed to ${deps.regionName?.(loan.region) ?? 'the bank'} first.`
       : !atPort ? 'Ships are refitted at a port.'
       : at.where === 'away' || at.where === 'packed' ? 'Bring the ship to this port first.'
       : inFight ? 'Not while the ship is in combat.'
@@ -219,17 +225,19 @@ export function createFleetHost(deps) {
     const lists = [pack(), at.boat?.Cargo?.Items ?? []];
     const gold = deps.gold?.() ?? 0;
     const level = captainLevel();
+    const repShip = evaluateShipyardReputation(playerEntity);
     const rows = UPGRADE_LINES.filter((l) => !l.guns || hasGuns(rec.hull)).map((l) => {
       const tier = Math.max(0, Math.min(UPGRADE_TIERS, rec.upgrades[l.id] | 0));
       const cost = upgradeCost(rec.hull, l.id, tier);
+      const costGold = cost ? (repShip.discountMult !== 1.0 ? Math.trunc(cost.gold * repShip.discountMult) : cost.gold) : 0;
       // REFIT-ORES: a metal's count says how much of it a piece of plate or a blade melted down would give (`melt`)
       const melts = cost ? meltCounts(lists, cost.mats) : [];   // AUDIT 2: the stores taken together, as the act takes them
       const mats = cost ? cost.mats.map((m, i) => ({ kind: m.kind, label: MATERIALS[m.kind].label, hint: MATERIALS[m.kind].hint, n: m.n, have: materialCount(lists, m.kind), melt: melts[i] })) : [];
       const locked = !!cost && cost.level > level;   // REFIT-ORES: a metal tier asks her captain's level
-      const afford = !!cost && !locked && gold >= cost.gold && materialsFor(lists, cost.mats);
+      const afford = !!cost && !locked && gold >= costGold && materialsFor(lists, cost.mats);
       return {
         id: l.id, label: l.label, what: l.what, per: l.per, tier, max: UPGRADE_TIERS, share: refitShare(l.id, tier),   // REFIT-ORES: what she has of it now
-        next: cost ? { gold: cost.gold, mats, level: cost.level, locked, share: refitShare(l.id, tier + 1) } : null, afford,
+        next: cost ? { gold: costGold, mats, level: cost.level, locked, share: refitShare(l.id, tier + 1) } : null, afford,
       };
     });
     return { why, rows, gold, level };

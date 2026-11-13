@@ -71,7 +71,7 @@ import { getInt } from './settings/settings.js'; // AUDIT 28 W1: QuestRumorWeigh
 import { dice100 } from '../combat/formulas.js';
 import { localizedText } from './textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
 import { getRegionCrisisRumor, getRegionCrisisBulletinTokens } from './living/crisisPresenter.js';
-import { getReputationRumor } from './living/reputationConsequences.js';
+import { getReputationRumors } from './living/reputationConsequences.js';
 import { playerEntity } from '../characters/playerEntity.js';
 
 /** TalkManager.RumorType (:341-346). */
@@ -244,7 +244,7 @@ export class RumorMill {
     let totalWeight = 0;
     let selected = validRumors[0];
     for (const rumor of validRumors) {
-      const weight = rumor.questID !== 0 ? questRumorWeight : 1;
+      const weight = rumor.questID !== 0 ? questRumorWeight : (rumor._weight ?? 1);
       const r = this._range(totalWeight + weight);
       if (r >= totalWeight) selected = rumor;
       totalWeight += weight;
@@ -290,18 +290,29 @@ export class RumorMill {
       const validRumors = this.getValidRumors();
       const currentReg = this.deps.currentRegionIndex?.() ?? -1;
       const targetEntity = this.deps.playerEntity?.() ?? playerEntity;
-      const repRumor = targetEntity && currentReg >= 0 ? getReputationRumor(targetEntity, currentReg) : null;
-      if (repRumor && (validRumors.length === 0 || this._rolls()() < 0.25)) {
-        npcSession.numAnswersGivenTellMeAboutOrRumors++;
-        return repRumor;
-      }
       const crisisRumor = currentReg >= 0 ? getRegionCrisisRumor(currentReg) : null;
       if (crisisRumor && (validRumors.length === 0 || this._rolls()() < 0.65)) {
         npcSession.numAnswersGivenTellMeAboutOrRumors++;
         return crisisRumor;
       }
-      if (validRumors.length === 0) return this.deps.expandRandomTextRecord?.(OUT_OF_NEWS_RECORD_INDEX) ?? '';
-      const entry = this.weightedRandomRumor(validRumors);
+      const repRumors = targetEntity && currentReg >= 0 ? getReputationRumors(targetEntity, currentReg) : [];
+      const repEntries = repRumors.map((text) => ({
+        rumorType: RUMOR_TYPE.CommonRumor,
+        questID: 0,
+        regionID: currentReg,
+        faction1: -1,
+        faction2: -1,
+        _weight: 3,
+        _isReputationRumor: true,
+        listRumorVariants: [[text]],
+      }));
+      const pool = repEntries.length > 0 ? [...validRumors, ...repEntries] : validRumors;
+      if (pool.length === 0) return this.deps.expandRandomTextRecord?.(OUT_OF_NEWS_RECORD_INDEX) ?? '';
+      const entry = this.weightedRandomRumor(pool);
+      if (entry._isReputationRumor) {
+        npcSession.numAnswersGivenTellMeAboutOrRumors++;
+        return entry.listRumorVariants[0][0];
+      }
       if (entry.rumorType === RUMOR_TYPE.CommonRumor) {
         if (entry.listRumorVariants != null) {
           const tokens = this._expandCommon(entry, entry.listRumorVariants[0]);

@@ -181,6 +181,7 @@ export function createShipyardHost(deps) {
       };
     }
     if (page === 'yard') {
+      const repRefused = evaluateShipyardReputation(playerEntity).refused;
       const cands = atHand.filter((s) => s.row.can?.yard == null);
       const s = pick(cands);
       return {
@@ -188,15 +189,18 @@ export function createShipyardHost(deps) {
         choices: choice(cands),
         uid: s?.row.uid ?? null,
         ship: s?.row ?? null,
-        yard: s && s.at.boat ? (naval()?.yardModelOf?.(s.at.boat) ?? null) : null,
-        why: !naval()
-          ? 'Turn on Naval Combat to use the shipwrights.'
-          : cands.length
-            ? null
-            : 'No ship of yours lies at this port or laid up.',
+        yard: repRefused ? null : s && s.at.boat ? (naval()?.yardModelOf?.(s.at.boat) ?? null) : null,
+        why: repRefused
+          ? shipyardRefusalText()
+          : !naval()
+            ? 'Turn on Naval Combat to use the shipwrights.'
+            : cands.length
+              ? null
+              : 'No ship of yours lies at this port or laid up.',
       };
     }
     if (page === 'refits') {
+      const repRefused = evaluateShipyardReputation(playerEntity).refused;
       const cands = atHand.filter((s) => s.row.can?.refit == null || s.row.loan);
       const s = pick(cands);
       return {
@@ -204,8 +208,8 @@ export function createShipyardHost(deps) {
         choices: choice(cands),
         uid: s?.row.uid ?? null,
         ship: s?.row ?? null,
-        refit: s ? (fleet()?.offer?.(s.row.uid) ?? null) : null,
-        why: cands.length ? null : 'No ship of yours lies at this port or laid up.',
+        refit: repRefused ? null : s ? (fleet()?.offer?.(s.row.uid) ?? null) : null,
+        why: repRefused ? shipyardRefusalText() : cands.length ? null : 'No ship of yours lies at this port or laid up.',
       };
     }
     // the crew hall
@@ -239,24 +243,30 @@ export function createShipyardHost(deps) {
       const st = s.row.status;
       room = st ? enlistPlan({ hull: s.row.hull, crew: st.crew, maxCrew: st.maxCrew, hands: hands.length }) : null;
     }
+    const repShip = evaluateShipyardReputation(playerEntity);
     const fighting = !!s?.row.status?.inFight;
     const swappable = hands.some((h) => !h.ashore);
     /** What signing `r` on costs on this ship: his fee, or the shipwright's price for the men a hire raises her by. */
-    const priceOf = (r) => (room?.ok ? hireCharge(r.fee, room.raise) : r.fee);
+    const priceOf = (r) => {
+      const baseFee = repShip.discountMult !== 1.0 ? Math.trunc(r.fee * repShip.discountMult) : r.fee;
+      return room?.ok ? hireCharge(baseFee, room.raise) : baseFee;
+    };
     const whyOf = (r) =>
-      !naval()
-        ? CREW_HALL_TEXT.noSea
-        : !s
-          ? CREW_HALL_TEXT.noShip
-          : fighting
-            ? CREW_HALL_TEXT.fighting
-            : room && !room.ok && !room.full
-              ? room.why
-              : room?.full && !swappable
-                ? CREW_HALL_TEXT.ashore('The whole crew')
-                : purse < priceOf(r)
-                  ? CREW_HALL_TEXT.short(priceOf(r))
-                  : null;
+      repShip.refused
+        ? shipyardRefusalText()
+        : !naval()
+          ? CREW_HALL_TEXT.noSea
+          : !s
+            ? CREW_HALL_TEXT.noShip
+            : fighting
+              ? CREW_HALL_TEXT.fighting
+              : room && !room.ok && !room.full
+                ? room.why
+                : room?.full && !swappable
+                  ? CREW_HALL_TEXT.ashore('The whole crew')
+                  : purse < priceOf(r)
+                    ? CREW_HALL_TEXT.short(priceOf(r))
+                    : null;
     return {
       ...base,
       choices: choice(crewed),
@@ -267,13 +277,15 @@ export function createShipyardHost(deps) {
       fighting,
       // AUDIT SHIPYARDS L7-2: a full deck signs a recruit on IN A HAND'S PLACE (`swap`), the player naming the hand
       recruits: recruits.map((r) => ({ ...r, price: priceOf(r), swap: !!room?.full, why: whyOf(r) })),
-      why: !naval()
-        ? CREW_HALL_TEXT.noSea
-        : crewed.length
-          ? fighting
-            ? CREW_HALL_TEXT.fighting
-            : null
-          : CREW_HALL_TEXT.noShip,
+      why: repShip.refused
+        ? shipyardRefusalText()
+        : !naval()
+          ? CREW_HALL_TEXT.noSea
+          : crewed.length
+            ? fighting
+              ? CREW_HALL_TEXT.fighting
+              : null
+            : CREW_HALL_TEXT.noShip,
       wait: signed.wait, // CREW-SIGNED: the hall's read in flight - the window paints again when it lands
     };
   }
@@ -341,6 +353,9 @@ export function createShipyardHost(deps) {
       return said(true, SHIPYARD_TEXT.sold(name, offer), { gold: offer });
     }
     if (verb === 'summon' || verb === 'away' || verb === 'rename' || verb === 'refit' || verb === 'role') {
+      if (verb === 'refit' && evaluateShipyardReputation(playerEntity).refused) {
+        return said(false, shipyardRefusalText());
+      }
       // AUDIT SHIPYARDS L1-9: a summons while another placing is armed lets that one go - Come Sail Away's StartPlacing
       // keeps the first and the window's second press was nothing, its next click standing the other ship
       if (verb === 'summon') {
@@ -350,6 +365,9 @@ export function createShipyardHost(deps) {
       return f.act(uid, verb === 'refit' ? 'refit' : verb, b);
     }
     if (verb === 'hire' || verb === 'payoff') {
+      if (verb === 'hire' && evaluateShipyardReputation(playerEntity).refused) {
+        return said(false, shipyardRefusalText());
+      }
       const n = naval();
       if (!n) return said(false, CREW_HALL_TEXT.noSea);
       if (!CREWED_HULLS.includes(rec.hull) || !s.at.boat || !AT_HAND.includes(s.at.where))
@@ -405,7 +423,9 @@ export function createShipyardHost(deps) {
     // AUDIT SHIPYARDS L2-8: a roster turned while the window stood says so - not "signed on elsewhere"
     if (!recruit)
       return said(false, recruitDay(id) !== Math.floor(Number(day) || 0) ? CREW_HALL_TEXT.newDay : CREW_HALL_TEXT.gone);
-    const fee = recruitFee(recruit.grade, recruit.trade);
+    const repEval = evaluateShipyardReputation(playerEntity);
+    const rawFee = recruitFee(recruit.grade, recruit.trade);
+    const fee = repEval.discountMult !== 1.0 ? Math.trunc(rawFee * repEval.discountMult) : rawFee;
     if (replace) {
       // AUDIT SHIPYARDS L7-2: her deck full - he signs on in the named hand's place
       if (gold() < fee) return said(false, CREW_HALL_TEXT.short(fee));

@@ -63,6 +63,21 @@ export function hasRegionalCheckpointPass(regionIndex, nowMinutes = 0) {
 }
 
 /**
+ * Clears cached transit pass(es) (e.g. when spawning a fresh debug checkpoint or shifting reputation).
+ * @param {number|null} [regionIndex=null]
+ */
+export function clearRegionalCheckpointPass(regionIndex = null) {
+  const root = getLivingDirectorState();
+  const passes = root?.subsystems?.checkpoints?.passesByRegion;
+  if (!passes) return;
+  if (regionIndex == null) {
+    root.subsystems.checkpoints.passesByRegion = {};
+  } else {
+    delete passes[regionIndex];
+  }
+}
+
+/**
  * Checks whether a roadside checkpoint should spawn along this route.
  *
  * @param {Object} params
@@ -143,13 +158,6 @@ export function resolveCheckpointInteraction({
   nowMinutes = 0,
   rng = Math.random,
 }) {
-  if (hasRegionalCheckpointPass(regionIndex, nowMinutes)) {
-    return {
-      outcome: CHECKPOINT_OUTCOME.PASSED_FREE,
-      message: 'The guard inspects your stamped provincial transit pass and waves you through.',
-    };
-  }
-
   const isKnight = Boolean(
     playerEntity?.guildMemberships?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
     playerEntity?.guilds?.[GUILD_GROUPS.KnightlyOrder]?.rank > 0 ||
@@ -157,6 +165,18 @@ export function resolveCheckpointInteraction({
   );
   const rep = Number(playerEntity?.legalRep?.[regionIndex] ?? playerEntity?.regionalReputations?.[regionIndex] ?? 0);
   const insp = evaluateCheckpointInspection(playerEntity, isKnight);
+
+  if (
+    hasRegionalCheckpointPass(regionIndex, nowMinutes) &&
+    method !== 'submit_inspection' &&
+    method !== 'refuse_inspection' &&
+    !insp.demandInspection
+  ) {
+    return {
+      outcome: CHECKPOINT_OUTCOME.PASSED_FREE,
+      message: 'The guard inspects your stamped provincial transit pass and waves you through.',
+    };
+  }
 
   if (method === 'submit_inspection') {
     const contraband = inspectPlayerContraband(playerEntity);
@@ -170,8 +190,23 @@ export function resolveCheckpointInteraction({
       };
     }
     const taken = confiscateStolen(playerEntity);
+    const confiscatedCount = taken.length || contraband.stolenCount;
     const haveGold = Math.max(0, Number(playerEntity?.goldPieces ?? 0));
-    const finePaid = Math.min(haveGold, contraband.fineGold);
+    if (haveGold < contraband.fineGold) {
+      if (playerEntity && haveGold > 0) {
+        playerEntity.goldPieces = 0;
+      }
+      const shortfall = contraband.fineGold - haveGold;
+      return {
+        outcome: CHECKPOINT_OUTCOME.HOSTILE,
+        tollCost: haveGold,
+        finePaid: haveGold,
+        fineShortfall: shortfall,
+        stolenConfiscated: confiscatedCount,
+        message: `Guard Captain: "Contraband detected! ${confiscatedCount} illicit item(s) seized and your remaining ${haveGold} gold taken, yet you are ${shortfall} gold short of the ${contraband.fineGold}-gold penalty! Seize this destitute smuggler!"`,
+      };
+    }
+    const finePaid = contraband.fineGold;
     if (playerEntity && finePaid > 0) {
       playerEntity.goldPieces = haveGold - finePaid;
     }
@@ -180,8 +215,9 @@ export function resolveCheckpointInteraction({
       outcome: CHECKPOINT_OUTCOME.TOLL_PAID,
       tollCost: finePaid,
       finePaid,
-      stolenConfiscated: taken.length || contraband.stolenCount,
-      message: `Guard: "Contraband detected! ${taken.length || contraband.stolenCount} illicit item(s) confiscated and a ${finePaid}-gold penalty levied. Move along."`,
+      fineShortfall: 0,
+      stolenConfiscated: confiscatedCount,
+      message: `Guard: "Contraband detected! ${confiscatedCount} illicit item(s) confiscated and a ${finePaid}-gold penalty levied. Move along."`,
     };
   }
 

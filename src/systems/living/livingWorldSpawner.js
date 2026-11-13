@@ -42,6 +42,7 @@ import {
   resolveCheckpointInteraction,
   hasRegionalCheckpointPass,
   grantRegionalCheckpointPass,
+  clearRegionalCheckpointPass,
   CHECKPOINT_OUTCOME,
 } from './roadCheckpointHost.js';
 import { evaluateCheckpointInspection } from './reputationConsequences.js';
@@ -82,6 +83,7 @@ import { makePotion, potionRecipeKey, POTION_RECIPES } from '../potions.js';
 import {
   shouldDispatchNemesis,
   determineNemesisArchetype,
+  selectNemesisAssignment,
   createNemesisHunter,
   resolveNemesisConfrontation,
   getNemesisMemory,
@@ -1043,7 +1045,7 @@ export function buildLivingSiteBlueprint({
     const isCrisis = regState?.crisis !== CRISIS_TYPE.PEACE;
     const nemMem = getNemesisMemory();
     const hasGrudge = Boolean(nemMem?.hasGrudge);
-    const archetype = determineNemesisArchetype(playerEntity, {
+    const assignment = selectNemesisAssignment(playerEntity, {
       legalReputation: rep,
       playerLevel,
       isCrisis,
@@ -1051,11 +1053,14 @@ export function buildLivingSiteBlueprint({
       playerGold: Number(playerEntity?.goldPieces ?? 0),
       rng,
     });
-    const customName =
-      archetype === NEMESIS_ARCHETYPES.GRUDGE_AVENGER && nemMem?.lastNemesisName
-        ? nemMem.lastNemesisName
-        : undefined;
-    const nemesis = createNemesisHunter(playerLevel, { name: customName, archetype, rng });
+    const nemesis = createNemesisHunter(playerLevel, {
+      name: assignment.customName,
+      archetype: assignment.archetype,
+      factionKey: assignment.factionKey,
+      factionId: assignment.factionId,
+      factionName: assignment.factionName,
+      rng,
+    });
     meta = { ...meta, nemesis };
 
     const leaderType = CLASS_TO_MOBILE_TYPE[nemesis.className] ?? MOBILE_TYPES.Assassin;
@@ -1666,18 +1671,18 @@ export function createLivingSceneHost(deps) {
       const contractOffer = !getActiveCrisisContract(regIdx)
         ? offerRegionalCrisisContract(regIdx, Number(player?.level ?? 1))
         : null;
-      if (hasRegionalCheckpointPass(regIdx, nowMin) && !contractOffer) {
-        deps.say(LIVING_WORDS.checkpointPassed(), 5);
-        return;
-      }
-      deps.playSound?.(LIVING_SOUNDS.HALT);
-      const tollGold = s.blueprint.meta?.tollGold ?? 50;
       const isKnight = Boolean(
         player?.guildMemberships?.[10]?.rank > 0 ||
         player?.guilds?.[10]?.rank > 0 ||
         player?.guilds?.KnightlyOrder?.rank > 0
       );
       const insp = evaluateCheckpointInspection(player, isKnight);
+      if (hasRegionalCheckpointPass(regIdx, nowMin) && !contractOffer && !insp.demandInspection) {
+        deps.say(LIVING_WORDS.checkpointPassed(), 5);
+        return;
+      }
+      deps.playSound?.(LIVING_SOUNDS.HALT);
+      const tollGold = s.blueprint.meta?.tollGold ?? 50;
       const options = [
         {
           code: 'Digit1',
@@ -1808,6 +1813,9 @@ export function createLivingSceneHost(deps) {
               rng,
             });
             if (res.finePaid > 0) deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+            if (res.outcome === CHECKPOINT_OUTCOME.HOSTILE || res.outcome === CHECKPOINT_OUTCOME.REFUSED) {
+              setSiteHostile(s, true);
+            }
             deps.say(res.message, 6);
           },
         });
@@ -1829,7 +1837,7 @@ export function createLivingSceneHost(deps) {
       if (!nemesis) return;
       deps.openChoice({
         lines: [
-          `${nemesis.name} (${nemesis.archetype || LIVING_WORDS.nemesisBountyHunter()}): "${LIVING_WORDS.nemesisMotive(nemesis.archetype)}"`,
+          `${nemesis.name} (${nemesis.factionName ? `${nemesis.factionName} — ` : ''}${nemesis.archetype || LIVING_WORDS.nemesisBountyHunter()}): "${LIVING_WORDS.nemesisMotive(nemesis.archetype)}"`,
           LIVING_WORDS.nemesisDemands(),
         ],
         options: [
@@ -4034,6 +4042,9 @@ export function executeLivingConsoleCommand(args, ctx) {
     const validKind = Object.values(LIVING_SITE_KINDS).includes(/** @type {any} */ (mapped))
       ? mapped
       : LIVING_SITE_KINDS.CHECKPOINT;
+    if (validKind === LIVING_SITE_KINDS.CHECKPOINT) {
+      clearRegionalCheckpointPass(regIdx);
+    }
     const feet = ctx?.playerFeet ?? [0, 0, 0];
     const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
     const safe = findSafeSiteCenter(ctx, feet, 14, Math.PI * 0.25, 4.0);

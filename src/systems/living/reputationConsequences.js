@@ -299,76 +299,216 @@ export function getCourtReputationBias(playerEntity, regionIndex) {
 }
 
 /**
- * Generates an emergent rumor describing the player's reputation extremes.
+ * Returns the full pool of emergent reputation rumors currently unlocked by the player's
+ * social, guild, and regional legal standings (so RumorMill can sample across all active thresholds).
  * @param {any} playerEntity
  * @param {number} regionIndex
- * @returns {string|null}
+ * @returns {string[]}
  */
-export function getReputationRumor(playerEntity, regionIndex) {
+export function getReputationRumors(playerEntity, regionIndex = 0) {
   const scale = getTierScale();
-  if (scale === 0 || !playerEntity) return null;
+  if (scale === 0 || !playerEntity) return [];
 
-  const knightRep = getFactionStanding(playerEntity, GENERIC_KNIGHTLY_ORDER);
+  const commonersRep = getSocialRep(playerEntity, SOCIAL_GROUPS.Commoners);
   const mercRep = getSocialRep(playerEntity, SOCIAL_GROUPS.Merchants);
-  const magesRep = getFactionStanding(playerEntity, MAGES_GUILD_FACTION_ID);
-  const templeRep = getFactionStanding(playerEntity, GENERIC_TEMPLE);
+  const scholarsRep = getSocialRep(playerEntity, SOCIAL_GROUPS.Scholars);
+  const nobleRep = getSocialRep(playerEntity, SOCIAL_GROUPS.Nobility);
   const underworldRep = getSocialRep(playerEntity, SOCIAL_GROUPS.Underworld);
   const superRep = getSocialRep(playerEntity, SOCIAL_GROUPS.SupernaturalBeings);
 
+  const dbRep = getFactionStanding(playerEntity, THE_DARK_BROTHERHOOD);
+  const tgRep = getFactionStanding(playerEntity, THE_THIEVES_GUILD);
+  const knightRep = getFactionStanding(playerEntity, GENERIC_KNIGHTLY_ORDER);
+  const magesRep = getFactionStanding(playerEntity, MAGES_GUILD_FACTION_ID);
+  const templeRep = getFactionStanding(playerEntity, GENERIC_TEMPLE);
+  const regionLegalRep = Number(legalRepOf(playerEntity, regionIndex) ?? playerEntity?.legalRep?.[regionIndex] ?? 0);
+
   const name = playerEntity.name || 'the traveler';
+  const pool = [];
+  const add = (key, fallback) => {
+    pool.push(t(key, fallback).replaceAll('%pcf', name));
+  };
 
   if (knightRep >= 40) {
-    return t('rcfRumorKnightHero', 'Travelers speak highly of %pcf, naming %pcf a noble champion of the realm.').replaceAll('%pcf', name);
-  }
-  if (mercRep <= -35) {
-    return t('rcfRumorMerchantBane', 'Merchants whisper bitter warnings against %pcf, blaming %pcf for losses on the roads.').replaceAll('%pcf', name);
-  }
-  if (magesRep >= 45) {
-    return t('rcfRumorMagePraise', 'Mages across the province admire the arcane prowess demonstrated by %pcf.').replaceAll('%pcf', name);
-  }
-  if (templeRep <= -35) {
-    return t('rcfRumorHeretic', 'Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines.').replaceAll('%pcf', name);
-  }
-  if (underworldRep >= 40) {
-    return t('rcfRumorUnderworldKingpin', 'Shadow brokers whisper that %pcf commands respect in every den of the province.').replaceAll('%pcf', name);
-  }
-  if (superRep <= -30 && (playerEntity.isVampire || playerEntity.isWerebeast || playerEntity.timeToBecomeVampireOrWerebeast > 0)) {
-    return t('rcfRumorMonsterHunt', 'The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.').replaceAll('%pcf', name);
+    add('rcfRumorKnightHero', 'Travelers speak highly of %pcf, naming %pcf a noble champion of the realm.');
+  } else if (knightRep <= -35) {
+    add('rcfRumorKnightEnemy', 'Knights speak in cold anger of %pcf, naming %pcf a dishonourable oathbreaker.');
   }
 
-  return null;
+  if (mercRep <= -35) {
+    add('rcfRumorMerchantBane', 'Merchants whisper bitter warnings against %pcf, blaming %pcf for losses on the roads.');
+  } else if (mercRep >= 40) {
+    add('rcfRumorMerchantFavored', 'Caravan masters praise %pcf across the markets for fair dealing and safe passage.');
+  }
+
+  if (magesRep >= 45) {
+    add('rcfRumorMagePraise', 'Mages across the province admire the arcane prowess demonstrated by %pcf.');
+  } else if (magesRep <= -40) {
+    add('rcfRumorMagesOutcast', 'Mystics of the Mages Guild whisper warnings about the rogue arcanist %pcf.');
+  }
+
+  if (templeRep <= -35) {
+    add('rcfRumorHeretic', 'Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines.');
+  }
+
+  if (underworldRep >= 40) {
+    add('rcfRumorUnderworldKingpin', 'Shadow brokers whisper that %pcf commands respect in every den of the province.');
+  }
+
+  if (superRep <= -30 && (playerEntity.isVampire || playerEntity.isWerebeast || playerEntity.timeToBecomeVampireOrWerebeast > 0)) {
+    add('rcfRumorMonsterHunt', 'The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.');
+  }
+
+  if (nobleRep >= 50) {
+    add('rcfRumorNoblePatron', 'Stewards say %pcf holds the ear of the high nobility throughout the realm.');
+  } else if (nobleRep <= -25) {
+    add('rcfRumorNoblePariah', 'Noble houses bar their gates against %pcf, murmuring of past slights.');
+  }
+
+  if (commonersRep >= 40) {
+    add('rcfRumorFolkHero', 'Common folk raise a mug to %pcf in every tavern across the province.');
+  } else if (commonersRep <= -40) {
+    add('rcfRumorFolkReviled', 'Villagers lower their voices and bolt their doors whenever %pcf rides near.');
+  }
+
+  if (scholarsRep >= 40) {
+    add('rcfRumorScholarPraise', 'Sages in the halls compare notes on the rare lore uncovered by %pcf.');
+  }
+
+  if (dbRep <= -30) {
+    add('rcfRumorDbMarked', 'Tavern whispers claim the Dark Brotherhood has already signed a black parchment for %pcf.');
+  }
+
+  if (tgRep <= -40) {
+    add('rcfRumorThievesMarked', 'Cutpurses in the alleys warn that %pcf crossed the Thieves Guild once too often.');
+  }
+
+  if (regionLegalRep >= 60) {
+    add('rcfRumorLawChampion', 'Magistrates commend %pcf as a stalwart defender of the Crown and law.');
+  } else if (regionLegalRep <= -40) {
+    add('rcfRumorOutlaw', 'Bailiffs post fresh wanted writs bearing the name of %pcf on every gatepost.');
+  }
+
+  return pool;
+}
+
+/**
+ * Picks a single emergent rumor describing the player's reputation extremes.
+ * @param {any} playerEntity
+ * @param {number} regionIndex
+ * @param {(() => number)|null} [rng=null]
+ * @returns {string|null}
+ */
+export function getReputationRumor(playerEntity, regionIndex, rng = null) {
+  const pool = getReputationRumors(playerEntity, regionIndex);
+  if (pool.length === 0) return null;
+  if (typeof rng === 'function') {
+    const idx = Math.floor(Math.max(0, Math.min(0.9999999, rng())) * pool.length);
+    return pool[idx];
+  }
+  return pool[0];
+}
+
+/**
+ * Evaluates all hostile factions whose enmity currently warrants dispatching nemesis retribution squads.
+ * @param {any} playerEntity
+ * @returns {Array<{ factionKey: string, factionId: number|null, factionName: string, archetype: string, rep: number, severity: number }>}
+ */
+export function evaluateFactionNemesisPool(playerEntity) {
+  const scale = getTierScale();
+  if (scale === 0 || !playerEntity) return [];
+
+  const pool = [];
+
+  // 1. Dark Brotherhood retribution
+  const dbRep = getFactionStanding(playerEntity, THE_DARK_BROTHERHOOD);
+  if (dbRep <= -30) {
+    pool.push({
+      factionKey: 'dark_brotherhood',
+      factionId: THE_DARK_BROTHERHOOD,
+      factionName: 'Dark Brotherhood',
+      archetype: 'SHADOW_ASSASSIN',
+      rep: dbRep,
+      severity: Math.abs(dbRep),
+    });
+  }
+
+  // 2. Thieves Guild retribution
+  const tgRep = getFactionStanding(playerEntity, THE_THIEVES_GUILD);
+  if (tgRep <= -40) {
+    pool.push({
+      factionKey: 'thieves_guild',
+      factionId: THE_THIEVES_GUILD,
+      factionName: 'Thieves Guild',
+      archetype: 'GRUDGE_AVENGER',
+      rep: tgRep,
+      severity: Math.abs(tgRep),
+    });
+  }
+
+  // 3. Knightly Order inquisitor
+  const knightRep = getFactionStanding(playerEntity, GENERIC_KNIGHTLY_ORDER);
+  if (knightRep <= -35) {
+    pool.push({
+      factionKey: 'knightly_order',
+      factionId: GENERIC_KNIGHTLY_ORDER,
+      factionName: 'Knightly Order',
+      archetype: 'BOUNTY_HUNTER',
+      rep: knightRep,
+      severity: Math.abs(knightRep),
+    });
+  }
+
+  // 4. Arcane Rival (Mages Guild renegade)
+  const magesRep = getFactionStanding(playerEntity, MAGES_GUILD_FACTION_ID);
+  if (magesRep <= -40) {
+    pool.push({
+      factionKey: 'mages_guild',
+      factionId: MAGES_GUILD_FACTION_ID,
+      factionName: 'Mages Guild',
+      archetype: 'ARCANE_RIVAL',
+      rep: magesRep,
+      severity: Math.abs(magesRep),
+    });
+  }
+
+  // 5. Dawn Vigilant (Monster Hunter)
+  const superRep = getSocialRep(playerEntity, SOCIAL_GROUPS.SupernaturalBeings);
+  if (superRep <= -20 && (playerEntity.isVampire || playerEntity.isWerebeast)) {
+    pool.push({
+      factionKey: 'supernatural_hunters',
+      factionId: null,
+      factionName: 'Order of the Vigil',
+      archetype: 'GLORY_CHALLENGER',
+      rep: superRep,
+      severity: Math.abs(superRep),
+    });
+  }
+
+  return pool;
+}
+
+/**
+ * Returns all nemesis archetypes currently active across hostile factions.
+ * @param {any} playerEntity
+ * @returns {string[]}
+ */
+export function evaluateFactionNemesisArchetypes(playerEntity) {
+  return evaluateFactionNemesisPool(playerEntity).map((entry) => entry.archetype);
 }
 
 /**
  * Evaluates whether severe faction hostilities merit dispatching specialized retribution squads.
  * @param {any} playerEntity
+ * @param {(() => number)|null} [rng=null]
  * @returns {string|null} Archetype name or null
  */
-export function evaluateFactionNemesisArchetype(playerEntity) {
-  const scale = getTierScale();
-  if (scale === 0 || !playerEntity) return null;
-
-  // 1. Dark Brotherhood retribution
-  const dbRep = getFactionStanding(playerEntity, THE_DARK_BROTHERHOOD);
-  if (dbRep <= -30) return 'SHADOW_ASSASSIN';
-
-  // 2. Thieves Guild retribution
-  const tgRep = getFactionStanding(playerEntity, THE_THIEVES_GUILD);
-  if (tgRep <= -40) return 'GRUDGE_AVENGER'; // Uses standard humanoid enforcers / thugs
-
-  // 3. Knightly Order inquisitor
-  const knightRep = getFactionStanding(playerEntity, GENERIC_KNIGHTLY_ORDER);
-  if (knightRep <= -35) return 'BOUNTY_HUNTER';
-
-  // 4. Arcane Rival (Mages Guild renegade)
-  const magesRep = getFactionStanding(playerEntity, MAGES_GUILD_FACTION_ID);
-  if (magesRep <= -40) return 'ARCANE_RIVAL';
-
-  // 5. Dawn Vigilant (Monster Hunter)
-  const superRep = getSocialRep(playerEntity, SOCIAL_GROUPS.SupernaturalBeings);
-  if (superRep <= -20 && (playerEntity.isVampire || playerEntity.isWerebeast)) {
-    return 'GLORY_CHALLENGER';
+export function evaluateFactionNemesisArchetype(playerEntity, rng = null) {
+  const pool = evaluateFactionNemesisPool(playerEntity);
+  if (pool.length === 0) return null;
+  if (typeof rng === 'function') {
+    const idx = Math.floor(Math.max(0, Math.min(0.9999999, rng())) * pool.length);
+    return pool[idx].archetype;
   }
-
-  return null;
+  return pool[0].archetype;
 }

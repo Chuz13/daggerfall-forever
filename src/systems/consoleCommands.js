@@ -122,10 +122,11 @@ import {
   getFactionStanding,
   getReputationPriceModifier,
   inspectPlayerContraband,
-  getReputationRumor,
-  evaluateFactionNemesisArchetype,
+  getReputationRumors,
+  evaluateFactionNemesisPool,
   getCourtReputationBias,
 } from './living/reputationConsequences.js';
+import { clearRegionalCheckpointPass } from './living/roadCheckpointHost.js';
 import { SOCIAL_GROUPS } from '../formats/factionFile.js';
 import { changeReputation } from './faction/factionRep.js';
 import { markStolen } from './stolenGoods.js';
@@ -1940,13 +1941,16 @@ registerCommand(
       const pMod = getReputationPriceModifier(playerEntity);
       const reg = playerEntity?.currentRegionIndex ?? 0;
       const courtBias = getCourtReputationBias(playerEntity, reg);
-      const nemesis = evaluateFactionNemesisArchetype(playerEntity);
+      const nemesisPool = evaluateFactionNemesisPool(playerEntity);
+      const nemesisSummary = nemesisPool.length
+        ? nemesisPool.map((n) => `${n.factionName} [${n.archetype}] (rep ${n.rep})`).join('; ')
+        : 'None';
       const lines = [
         `<b>[Reputation Consequences Framework]</b>`,
         `- Current Tier: ${tierName}`,
         `- Trade Modifiers: Buy x${pMod.buyMult.toFixed(3)}, Sell x${pMod.sellMult.toFixed(3)}, Fence +${(pMod.fenceBonus * 100).toFixed(1)}%`,
         `- Court Bias (Region ${reg}): ${courtBias > 0 ? '+' : ''}${courtBias}%`,
-        `- Active Faction Nemesis: ${nemesis || 'None'}`,
+        `- Active Faction Nemeses (${nemesisPool.length}): ${nemesisSummary}`,
         `- Social Groups:`,
         `  * Commoners (0): ${getSocialRep(playerEntity, SOCIAL_GROUPS.Commoners)}`,
         `  * Merchants (1): ${getSocialRep(playerEntity, SOCIAL_GROUPS.Merchants)}`,
@@ -1991,6 +1995,7 @@ registerCommand(
         playerEntity.sGroupReputations = new Array(11).fill(0);
       }
       playerEntity.sGroupReputations[idx] = Math.max(-100, Math.min(100, val));
+      clearRegionalCheckpointPass();
       return `[RCF] Social group ${idx} reputation set to ${playerEntity.sGroupReputations[idx]}.`;
     }
     if (sub === 'set_faction') {
@@ -2022,6 +2027,7 @@ registerCommand(
         const cur = getFactionStanding(playerEntity, fid);
         const clamped = Math.max(-100, Math.min(100, val));
         changeReputation(playerEntity.factionRep, fid, clamped - cur, false);
+        clearRegionalCheckpointPass();
         return `[RCF] Set reputation with faction ${fid} to ${getFactionStanding(playerEntity, fid)} (target ${clamped}).`;
       }
       return 'Player factionRep store is not initialized.';
@@ -2054,8 +2060,11 @@ registerCommand(
     }
     if (sub === 'test_rumor') {
       const reg = playerEntity?.currentRegionIndex ?? 0;
-      const rumor = getReputationRumor(playerEntity, reg);
-      return rumor ? `[RCF Rumor]: "${rumor}"` : '[RCF Rumor]: No extreme reputation threshold reached for an emergent rumor.';
+      const pool = getReputationRumors(playerEntity, reg);
+      if (!pool.length) {
+        return '[RCF Rumor]: No extreme reputation threshold reached for an emergent rumor.';
+      }
+      return `[RCF Rumor Pool (${pool.length})]:\n` + pool.map((r, i) => `  ${i + 1}. "${r}"`).join('\n');
     }
     if (sub === 'test_contraband') {
       const insp = inspectPlayerContraband(playerEntity);

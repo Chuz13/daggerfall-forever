@@ -360,7 +360,7 @@ import { freeTavernRooms } from '../systems/guild/guildServices.js';
 import { BankWindow, preloadBankArt, bankArtLoaded, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../ui/bankWindow.js';
 import { BankPurchaseWindow, preloadPurchaseArt, purchaseArtLoaded } from '../ui/bankPurchaseWindow.js';   // H2
 import { titleDeed, shipLabel, BOAT_DEED_TEMPLATE as FLEET_DEED_TEMPLATE } from '../systems/fleet.js';   // HOLDINGS: a bought deed into the Fleet's book
-import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, deedStands, deedHeldIn, regionDeeds, regionHousesFull, dropDeed, townDeeds, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
+import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, deedStands, deedHeldIn, regionDeeds, regionHousesFull, dropDeed, townDeeds, houseSellPrice, housesRefusedRepText, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
 import { isEtherPlaceId } from '../world/etherPlaces.js';   // AUDIT CAPTAIN'S SEA P9: an isle town's buildings are no deed's
 // HOME1: the online homes - the door's one answer, the offer, the owner's menu, and an owned home's own scene
 import {
@@ -501,7 +501,7 @@ import { adoptLight } from '../render/lightId.js';   // LIGHT-ID: a tinted copy 
 import { createQuestClickFirst, clickHeardByQuest } from './quest/questClickFirst.js';   // QUEST-WORDS-FIRST: a quest's words and reward before the NPC's door
 import { ownerFoes } from './ownerCatchUp.js';   // HOST-CLOCK: a building's two pools through the page's one catch-up (OWNER-CLOCK's parity)
 import { windowHoldsDungeon } from './windowWorld.js';   // RPT1026-FIGHTS (WINDOW-ONLINE): online a window holds no dungeon while I live under it
-import { getTempleServiceAccessibility, isSoulGemPurchaseAllowed } from '../systems/living/reputationConsequences.js';
+import { getTempleServiceAccessibility, isSoulGemPurchaseAllowed, evaluateHousePurchaseReputation } from '../systems/living/reputationConsequences.js';
 let _charT0 = (typeof performance !== 'undefined' ? performance.now() : 0);
 let _charAnimMode = 'idle'; // in-engine character animation: idle | walk | off (window.__anim)
 
@@ -7585,7 +7585,14 @@ export function createWorldModes(host) {
    *  nobody can measure. */
   function homeListPrice(bd) {
     const price = homeOnlinePrice(houseFootprintM2(bd), bd?.townBlocks ?? 0);
-    return homePriceOk(price) ? homeListedPrice(homeTownOf(bd), bd?.buildingKey, price, undefined, homeClaimLayout(homeTownOf(bd))) : 0;   // FOUNDATION F3: its row's price, where one sets it
+    if (!homePriceOk(price)) return 0;
+    const listed = homeListedPrice(homeTownOf(bd), bd?.buildingKey, price, undefined, homeClaimLayout(homeTownOf(bd)));   // FOUNDATION F3: its row's price, where one sets it
+    if (!listed) return 0;
+    if (!isOnlinePage()) {
+      const repEval = evaluateHousePurchaseReputation(playerEntity);
+      if (repEval.discountMult !== 1.0) return Math.trunc(listed * repEval.discountMult);
+    }
+    return listed;
   }
   /** What a house I could buy costs - online, its town known, nobody's home, for sale (no quest in it) - at its online
    *  price (homeListPrice); 0 for none. */
@@ -7614,7 +7621,10 @@ export function createWorldModes(host) {
   const homeArmed = (bd) => !!_homeArm && _homeArm.id === homeIdOf(bd) && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS;
   /** What the door's cached text depends on beyond the door: whether verbs are listed at all (Steal lists none) and the
    *  arm that is live - its lapse repaints the row back to "Buy it". */
-  const homeVerbsSig = () => `${host.onlineHomes && getInteractionMode() !== 'steal' ? 'v' : ''}|${_homeArm && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS ? _homeArm.id : ''}`;
+  const homeVerbsSig = () => {
+    const offRep = !isOnlinePage() ? evaluateHousePurchaseReputation(playerEntity) : null;
+    return `${host.onlineHomes && getInteractionMode() !== 'steal' ? 'v' : ''}|${_homeArm && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS ? _homeArm.id : ''}|${offRep ? `${offRep.refused ? 'r' : 'a'}:${offRep.discountMult}` : ''}`;
+  };
   /** The door's verbs, or null: my own home's, or a house's I could buy (homeOfferPrice), in any mode but Steal. */
   function homeDoorVerbs(bd, home) {
     if (!host.onlineHomes || getInteractionMode() === 'steal') return null;
@@ -8119,6 +8129,11 @@ export function createWorldModes(host) {
   /** HOME2: THE BUY ROW PRESSED - the first press arms it ("Click again to buy"), a second on the same house within
    *  HOME_BUY_ARM_MS buys. */
   function pressHomeBuy(bd, price) {
+    if (!isOnlinePage() && evaluateHousePurchaseReputation(playerEntity).refused) {
+      _homeArm = null;
+      townTalk?.say?.(housesRefusedRepText());
+      return;
+    }
     if (homeArmed(bd)) { _homeArm = null; buyHomeAt(bd, price).catch((e) => console.error(e)); return; }
     _homeArm = { id: homeIdOf(bd), at: performance.now() };
   }
@@ -8135,6 +8150,10 @@ export function createWorldModes(host) {
   async function buyHomeAt(bd, price) {
     const homes = host.onlineHomes;
     if (!homes) return;
+    if (!isOnlinePage() && evaluateHousePurchaseReputation(playerEntity).refused) {
+      townTalk?.say?.(housesRefusedRepText());
+      return;
+    }
     // WD3 (AUDIT WD3 O1/O2): a home is a building key, which names a building only in its town's layout - none is bought
     // before the room's layouts of the homes' towns are heard, and a claim refused for its town's layout hears them again
     if (host.homeTownsMissing?.()) { townTalk?.say?.(accountRefusalText('home-towns')); return; }   // AUDIT WD3 B1: a town mod's pack did not load here
@@ -8153,7 +8172,7 @@ export function createWorldModes(host) {
     });
     if (r.error === HOME_BUY_BUSY) return;   // AUDIT MERGE-PLUS A1: a second press while the first claim is out - its answer speaks
     if (!r.ok) {
-      townTalk?.say?.(r.error === 'gold' ? homeShortLine(price) : accountRefusalText(r.error));
+      townTalk?.say?.(r.error === 'gold' ? homeShortLine(price) : r.error === 'rep-refused' ? housesRefusedRepText() : accountRefusalText(r.error));
       if (r.error === 'home-layout') host.hearHomeLayouts?.();   // the town stood another layout here: it is built again as the room's
       return;
     }
