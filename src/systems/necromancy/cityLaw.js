@@ -1,4 +1,3 @@
-// @ts-check
 // CITY-LAW: Settlement vigilance, social reactions, and anti-necromantic criminal infractions.
 //
 // Key principles:

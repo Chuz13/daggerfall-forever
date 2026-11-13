@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // CHRONOLOGICAL EVENT TIMELINE LOGGER (Daggerfall Forever)
 //

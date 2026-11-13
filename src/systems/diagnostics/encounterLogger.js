@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // ENCOUNTER & SPAWNER DIAGNOSTIC LOGGER (Daggerfall Forever)
 //

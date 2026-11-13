@@ -1,4 +1,3 @@
-// @ts-check
 // DFF NATIVE MOD REGISTRY & LOADER
 //
 // Discovers, validates, and manages active native mods (Data-driven & Plugins).

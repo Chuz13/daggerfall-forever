@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // COMBAT ENCOUNTER & RESOLUTION DIAGNOSTIC LOGGER (Daggerfall Forever)
 //

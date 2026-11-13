@@ -1,4 +1,3 @@
-// @ts-check
 // NECRO-TAINT: Tracking occult infamy, spiritual decay, and physical pallor.
 //
 // Key principles:

@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLEA & EMERGENCE ENCOUNTER HOST (Living Tamriel)
 //

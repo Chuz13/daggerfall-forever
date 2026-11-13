@@ -1,4 +1,3 @@
-// @ts-check
 // DRAGON-RIDE (2026-10-28, systems/staffDragon.js; Staff-Events.md section 12) - THE PAGE'S HALF OF THE DRAGON'S RIDE,
 // out of bootWorld (HOST-SPLIT): /dragon's word, the flight's pace on the motor, and the saddle drawn over my view - its
 // firing picture for a moment after each volley. The cannons themselves fire in the cast engine (scenes/hostMagic.js).

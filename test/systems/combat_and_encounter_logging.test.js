@@ -51,7 +51,7 @@ test('Encounter Logger: records entity minting, scaling, and placement with orig
 
   const basics = { name: 'Skeletal Warrior', minMetalToHit: 1 };
   recordEntityMint(mockEntity, basics, null, 5, {
-    originContext: { system: 'CampEncounters', reason: 'Bandit Camp Ambush', callSite: 'campEncounters.js:120' },
+    originContext: { system: 'CampEncounters', reason: 'Bandit Camp Ambush', callSite: 'campEncounters.js' },
   });
 
   const infoBeforeScale = getEncounterInfo(mockEntity);

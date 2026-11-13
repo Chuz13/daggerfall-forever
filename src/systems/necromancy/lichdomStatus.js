@@ -1,4 +1,3 @@
-// @ts-check
 // LICHDOM-STATUS: The immortal pinnacle of dark necromantic transformation.
 // Built natively into Daggerfall Forever as a racialOverride entry, mirroring
 // the architecture of vampirism.js and lycanthropy.js.

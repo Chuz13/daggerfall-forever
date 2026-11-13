@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // REVENANTS (2026-10-02, Mac: "the ability for these enemies that kill you, or a very small chance to flee at low
 // health. These enemies can return at a later time stronger, with a new name, a chance of more loot and taunt the

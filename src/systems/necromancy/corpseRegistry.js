@@ -1,4 +1,3 @@
-// @ts-check
 // CORPSE-REGISTRY: Lifecycle, decay, proximity search, and harvesting of
 // corpses across dungeons and exterior cells.
 // Designed natively for Daggerfall Forever (DFF).

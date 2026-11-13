@@ -1,4 +1,3 @@
-// @ts-check
 // ORE-MAP (2026-10-11, from play - "Arbitrary mining conditions to 'unlock' higher nodes. Why is this a thing? Also how
 // are we supposed to tell if higher tier veins have been unlocked in an area?", then "If at all possible can you please
 // add something to the overworld map like 'this area is known for X ore' so its easier to know which locations have

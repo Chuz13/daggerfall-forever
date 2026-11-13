@@ -1,4 +1,3 @@
-// @ts-check
 // WITCH-HUNTERS: Holy zealots, Templars of Arkay, and purifiers of unlife.
 //
 // Key principles:

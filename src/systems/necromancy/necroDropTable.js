@@ -1,4 +1,3 @@
-// @ts-check
 // NECRO-DROP-TABLE: Curated alchemical & necromantic reagent drop tables
 // for all monsters, animals, daedra, and humanoids in Daggerfall Forever.
 // Replaces previous hardcoded harvest yields.

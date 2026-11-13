@@ -1,4 +1,3 @@
-// @ts-check
 // BOUNTY1 (2026-09-28, Mac: "one of the two when opened gives a quest screen in Enhanced Plus UI look"): THE BOUNTY
 // BOARD'S WINDOW and THE PAYDAY NOTICE.
 //

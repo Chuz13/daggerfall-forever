@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════════════════
 // REGIONAL ECONOMY & CRISIS MARKET DYNAMICS (Living Tamriel)
 //

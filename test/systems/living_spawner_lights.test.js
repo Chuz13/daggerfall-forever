@@ -55,7 +55,7 @@ test('LivingWorldSpawner: campfire/brazier lights conform to canonical point lig
     assert.ok(Number.isFinite(l.range), 'l.range must be finite');
   }
 
-  // Pack through withPlayerLights as done in world.js:33818
+  // Pack through withPlayerLights as done in world.js (withPlayerLights)
   const baseLights = new Float32Array(0);
   const packed = withPlayerLights(baseLights, ...lights);
   assert.ok(packed instanceof Float32Array, 'packed lights must be Float32Array');

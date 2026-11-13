@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // GAME DIAGNOSTICS & SESSION LOGGER (Daggerfall Forever)
 //

@@ -1,4 +1,3 @@
-// @ts-check
 // BOUNTY1 (2026-09-28, Mac: "Cities in this game have always 2 Bulletin Boards can we make it so that one of the two
 // when opened gives a quest screen in Enhanced Plus UI look"): THE TOWN'S BOUNTY BOARD - the law, pure.
 //

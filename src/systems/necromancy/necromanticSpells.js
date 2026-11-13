@@ -1,4 +1,3 @@
-// @ts-check
 // NECROMANTIC-SPELLS: Dark Arts spell builders and runtime cast resolvers.
 // Integrated into DFF's classic spell record system and magic schools:
 // - Animate Dead (47,255) -> Mysticism

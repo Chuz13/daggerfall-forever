@@ -1,4 +1,3 @@
-// @ts-check
 // UNDEAD-CAPACITY: Control limit calculations and integration with
 // Daggerfall Forever's unified companion slots system (companionSlots.js).
 //

@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // LIVING TAMRIEL & RCF DIAGNOSTIC LOGGER (Daggerfall Forever)
 //

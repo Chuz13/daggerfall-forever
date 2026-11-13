@@ -1,4 +1,3 @@
-// @ts-check
 // NECRO-GRIMOIRE: The Grimoire of the Worm (Necronomicon equivalent in TES lore).
 // A forbidden tome inscribed by the Order of the Black Worm.
 // Reading unlocks the dark arts in the Spell Maker and grants all 4 necromantic spells.

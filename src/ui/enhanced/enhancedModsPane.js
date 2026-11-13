@@ -1,4 +1,3 @@
-// @ts-check
 // DFF ENHANCED MODS PANE
 //
 // Native in-game Mod Manager pane for Daggerfall Forever.

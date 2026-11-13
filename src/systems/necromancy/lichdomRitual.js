@@ -1,4 +1,3 @@
-// @ts-check
 // LICHDOM-RITUAL: The dark apotheosis — phylactery binding, the death elixir,
 // and eternal reconstitution upon physical destruction.
 //

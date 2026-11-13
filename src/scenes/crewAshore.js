@@ -1,4 +1,3 @@
-// @ts-check
 // CREW-COMPANIONS (2026-09-30, Mac: take the crew "along as companions in the world that travel with you and can fight
 // by your side" - through every door: "maybe this is a time for a refactor?") - THE COMPANION LAYER. The party
 // (systems/naval/crewCompanions.js) says who walks with the player; this stands them in whatever place the player is

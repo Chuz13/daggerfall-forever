@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // PROF7 (2026-09-29, Mac: "Do it") - HUNTING, a kind in the gathering
 // host (scenes/gatherHost.js; bible/06-Systems/Professions-Arc.md 4.4,

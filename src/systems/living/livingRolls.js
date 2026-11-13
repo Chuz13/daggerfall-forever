@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIVING TAMRIEL TYPED ROLEPLAY ROLLS & FORMULA ENGINE
 //

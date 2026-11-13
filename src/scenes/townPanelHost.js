@@ -1,4 +1,3 @@
-// @ts-check
 // NOTICE-PANEL (bible/01-Overview/bugs/Field-Bugs-2026-10-29g.md; the owner: "remove the notice board prop from all
 // cities", its replacement "a detailed drop down from the compass ... always be present when inside a city and go away
 // when leaving a city. This goes for any settlement"): THE TOWN PANEL AS THE WORLD HOST WIRES IT (HOST-SPLIT: the module

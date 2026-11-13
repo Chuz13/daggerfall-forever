@@ -1,4 +1,3 @@
-// @ts-check
 // MINION-CONTROLLER: Tactical command system, AI stance management,
 // shadow tethering, and willpower rebellion checks for active undead.
 //

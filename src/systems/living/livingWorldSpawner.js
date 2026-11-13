@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIVING TAMRIEL 3D ACTOR, GEOMETRY & ECOLOGICAL WILDERNESS SPAWNER
 //

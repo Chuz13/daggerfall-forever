@@ -1,4 +1,3 @@
-// @ts-check
 // BOUNTY1 (2026-09-28): THE BOUNTY BOARD IN THE WORLD - the ledger held, the packs stood and counted, the purse paid.
 //
 // The law is systems/bounty/bountyBoard.js (what a board posts, what it pays) and systems/bounty/bountyReward.js (the piece); the

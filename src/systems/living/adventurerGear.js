@@ -1,4 +1,3 @@
-// @ts-check
 // ═══════════════════════════════════════════════════════════════════════════════
 // ADVENTURER EQUIPMENT & CORPSE LOOT GENERATOR (Living Tamriel)
 //
