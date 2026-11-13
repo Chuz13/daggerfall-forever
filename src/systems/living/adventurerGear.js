@@ -25,6 +25,7 @@ import { applyRarity, rarityEligible } from '../loot/lootRarity.js';
 import { createArtifact, getMagicItemTemplates } from '../loot/loot.js';
 import { makePotion, potionRecipeKey, POTION_RECIPES } from '../potions.js';
 import { isPotion } from '../item/itemKinds.js';
+import { rollItemQuality } from '../mods/modDataSync.js';
 import { LivingTamrielConfig, LIVING_ADVENTURER_LOOT } from './livingConfig.js';
 import { recordAdventurerDuelResolution } from '../diagnostics/livingLogger.js';
 
@@ -185,6 +186,7 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
   const baseTier = Math.max(1, Math.min(9, Math.trunc(Number(adv?.gearTier) || Math.floor((adv?.level || 1) / 5) + 1)));
   const className = String(adv?.className || 'Warrior');
   const gender = adv?.gender === 'female' ? 'female' : 'male';
+  const advLevel = Math.max(1, Math.trunc(Number(adv?.level) || playerLevel || 1));
 
   const classWeaponPool = CLASS_WEAPONS[className] ?? CLASS_WEAPONS.Warrior;
   const weaponTmpl = classWeaponPool[Math.floor(rolls() * classWeaponPool.length)];
@@ -193,7 +195,7 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
   // 1. Weapon
   const wepTier = rollTierWithVariance(baseTier, rolls);
   const wepMat = getWeaponMaterialForTier(wepTier, rolls);
-  const weapon = createWeapon(weaponTmpl, wepMat, rolls);
+  const weapon = createWeapon(weaponTmpl, wepMat, rolls, rollItemQuality(advLevel, rolls));
   if (weapon) {
     const wepRarity = rollRarityForTier(wepTier, rolls);
     if (wepRarity && rarityEligible(weapon)) {
@@ -210,7 +212,7 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
       const shieldTmpl = SHIELD_TEMPLATES[Math.floor(rolls() * SHIELD_TEMPLATES.length)];
       const shieldTier = rollTierWithVariance(baseTier, rolls);
       const shieldMat = getArmorMaterialForTier(shieldTier, rolls);
-      shield = armorOfMaterial(shieldTmpl, shieldMat);
+      shield = armorOfMaterial(shieldTmpl, shieldMat, null, rollItemQuality(advLevel, rolls));
       if (shield) {
         const shieldRarity = rollRarityForTier(shieldTier, rolls);
         if (shieldRarity && rarityEligible(shield)) {
@@ -236,7 +238,7 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
   for (const piece of armorPieces) {
     const pTier = rollTierWithVariance(baseTier, rolls);
     const pMat = getArmorMaterialForTier(pTier, rolls);
-    const armorItem = armorOfMaterial(piece, pMat);
+    const armorItem = armorOfMaterial(piece, pMat, null, rollItemQuality(advLevel, rolls));
     if (armorItem) {
       const pRarity = rollRarityForTier(pTier, rolls);
       if (pRarity && rarityEligible(armorItem)) {

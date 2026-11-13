@@ -951,7 +951,7 @@ function detailStrip() {
   bar.append(itemTile(line));
   const info = el('div', 'trade-detail-info');
   info.append(el('h4', null, line.name + (line.stack ? ` ×${line.stack}` : '')));
-  const bits = [line.material, line.word, `${line.weight.toFixed(2)} kg`];
+  const bits = [line.material, line.quality, line.word, `${line.weight.toFixed(2)} kg`];
   if (line.damage != null) bits.push(`Damage ${line.damage}`);
   if (line.armour != null) bits.push(`Armour ${line.armour}`);
   if (line.armorType != null) bits.push(`${line.armorType} armor`);   // ARMOR-TYPE (Voice.md rule 8: American spelling)

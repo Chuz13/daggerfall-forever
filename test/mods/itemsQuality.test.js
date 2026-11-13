@@ -19,6 +19,7 @@ import {
   isMaterialsRebalanced,
   isQualityEnabled,
   rollItemQuality,
+  rollShopItemQuality,
 } from '../../src/systems/mods/modDataSync.js';
 import {
   itemBaseValue,
@@ -30,6 +31,9 @@ import { itemFindings } from '../../src/systems/item/itemLaw.js';
 import { itemQualityText, itemStatRows, weaponDamageRange } from '../../src/systems/item/itemInfo.js';
 import { calculateAttackDamage } from '../../src/combat/formulas.js';
 import { WEAPONS_ENUM } from '../../src/combat/enemyEquipment.js';
+import { stockShopShelf } from '../../src/systems/shopStock.js';
+import { BUILDING_TYPES } from '../../src/world/buildingNames.js';
+import { itemLine } from '../../src/ui/enhanced/enhancedInventory.js';
 
 test('items-quality: zero changes when mod is disabled (exact vanilla baseline)', () => {
   clearVirtualMods();
@@ -282,6 +286,89 @@ test('items-quality: roll quality distribution when active', () => {
   // Level 10: roll high can give Masterwork
   const highLvlResult = rollItemQuality(10, mockRoll(0.999));
   assert.equal(highLvlResult, 4, 'Level 10 with max roll should give Masterwork');
+
+  clearVirtualMods();
+  _resetModDataSync();
+});
+
+test('items-quality: roll shop quality distribution and shelf stocking', () => {
+  clearVirtualMods();
+  _resetModDataSync();
+
+  // 1. Mod disabled: rollShopItemQuality always returns 1 (Standard)
+  assert.equal(isQualityEnabled(), false);
+  for (let sq = 0; sq <= 20; sq += 5) {
+    assert.equal(rollShopItemQuality(sq, () => 0.0), 1);
+    assert.equal(rollShopItemQuality(sq, () => 0.999), 1);
+  }
+
+  // Stocking shop shelves with mod disabled: all weapons & armor have quality === 1
+  const vanillaStock = stockShopShelf(
+    { buildingType: BUILDING_TYPES.Armorer, quality: 18 },
+    { level: 5 },
+    { rolls: () => 0.5 },
+  );
+  const vanillaArmorOrWeapons = vanillaStock.filter((it) => it.group === 'Armor' || it.group === 'Weapons');
+  assert.ok(vanillaArmorOrWeapons.length > 0, 'Shop stocked armor or weapons');
+  for (const it of vanillaArmorOrWeapons) {
+    assert.equal(it.quality, 1, 'Without mod, shelf item quality is standard (1)');
+    const line = itemLine(it);
+    assert.equal(line.quality, null, 'Without mod, itemLine quality is null');
+  }
+
+  // 2. Mod enabled:
+  registerVirtualMod({
+    id: 'items-quality',
+    name: 'Items Quality & Rebalance',
+    enabled: true,
+    data: { quality: 'quality.json' },
+  }, {
+    'quality.json': JSON.stringify({
+      tiers: [
+        { tier: 0, id: 'crude', priceMultiplier: 0.6 },
+        { tier: 1, id: 'standard', priceMultiplier: 1.0 },
+        { tier: 2, id: 'fine', priceMultiplier: 1.5 },
+        { tier: 3, id: 'superior', priceMultiplier: 2.5 },
+        { tier: 4, id: 'masterwork', priceMultiplier: 4.0 },
+      ],
+    }),
+  });
+  syncModData();
+  assert.equal(isQualityEnabled(), true);
+
+  const mockRoll = (val) => () => val;
+
+  // In decrepit shop (quality 2): 0.0 roll gives Crude (0), max roll gives Fine (2), never Superior/Masterwork
+  assert.equal(rollShopItemQuality(2, mockRoll(0.0)), 0);
+  assert.equal(rollShopItemQuality(2, mockRoll(0.999)), 2);
+
+  // In palatial shop (quality 20): 0.0 roll gives Standard (1, no Crude!), max roll gives Masterwork (4)
+  assert.equal(rollShopItemQuality(20, mockRoll(0.0)), 1);
+  assert.equal(rollShopItemQuality(20, mockRoll(0.999)), 4);
+
+  // Stocking shop shelf in high-end shop: verifies quality roll is active on shelf items
+  let rollIdx = 0;
+  // Use rolls that give Masterwork for quality roll (0.95) and pass dice100 (0.01)
+  const controlledRoll = () => {
+    rollIdx++;
+    // Dice100 stock check: low roll
+    // Quality roll: high roll (0.95 -> Masterwork in quality 20 shop)
+    return rollIdx % 3 === 0 ? 0.95 : 0.01;
+  };
+
+  const modStock = stockShopShelf(
+    { buildingType: BUILDING_TYPES.Armorer, quality: 20 },
+    { level: 5 },
+    { rolls: controlledRoll },
+  );
+  const modEquip = modStock.filter((it) => (it.group === 'Armor' || it.group === 'Weapons') && it.name !== 'Arrow' && it.name !== 'Hand Wraps');
+  assert.ok(modEquip.length > 0, 'High-end shop stocked items');
+  for (const it of modEquip) {
+    assert.ok(it.quality >= 1 && it.quality <= 4, `Quality is valid tier, got ${it.quality}`);
+    assert.notEqual(it.quality, 0, 'Quality 20 shop never rolls Crude (tier 0)');
+    const line = itemLine(it);
+    assert.ok(line.quality != null, 'itemLine has quality label');
+  }
 
   clearVirtualMods();
   _resetModDataSync();

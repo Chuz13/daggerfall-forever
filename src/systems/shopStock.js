@@ -42,6 +42,7 @@
 import { dice100 } from '../combat/formulas.js';
 import { rand } from '../formats/dfRandom.js'; // F209: StockHouseContainer's one classic-stream draw
 import { randomMaterial, randomArmorMaterial, createWeapon } from '../combat/enemyEquipment.js';
+import { rollShopItemQuality } from './mods/modDataSync.js';
 import {
   groupTemplates,
   GROUP_TEMPLATE_INDICES,
@@ -611,17 +612,20 @@ export function stockShopShelf(
         // - one extra draw per shelved arrow, in DFU's stream.
         const templateIndex = GROUP_TEMPLATE_INDICES.Weapons[j];
         const material = randomMaterial(level, rolls); // the ARGUMENT, drawn before the call - arrows included
-        add(createWeapon(templateIndex, material, rolls));
+        const itemQuality = rollShopItemQuality(quality, rolls);
+        add(createWeapon(templateIndex, material, rolls, itemQuality));
       } else if (group === 'Armor') {
         // CreateArmor(gender, race, piece, RandomArmorMaterial(level))
         // - the material roll, THEN RandomizeArmorVariant's roll.
         const templateIndex = GROUP_TEMPLATE_INDICES.Armor[j];
         const material = randomArmorMaterial(level, rolls);
+        const itemQuality = rollShopItemQuality(quality, rolls);
         add({
           group: 'Armor',
           templateIndex,
           material,
           variant: randomizeArmorVariant(templateIndex, material, rolls),
+          quality: itemQuality,
         });
       } else if (group === 'MensClothing' || group === 'WomensClothing') {
         // CreateMensClothing/CreateWomensClothing roll the VARIANT
@@ -665,8 +669,9 @@ export function stockShopShelf(
         if (!t || t.rarity > quality) continue;
         const stockChance = Math.trunc((customChanceMod * 5 * (21 - t.rarity)) / 100);
         if (!dice100(stockChance, rolls())) continue;
-        if (group === 'Weapons') add({ group, templateIndex, material: randomMaterial(level, rolls), flags: 0 });
-        else if (group === 'Armor') add({ group, templateIndex, material: randomArmorMaterial(level, rolls) });
+        const itemQuality = rollShopItemQuality(quality, rolls);
+        if (group === 'Weapons') add({ group, templateIndex, material: randomMaterial(level, rolls), flags: 0, quality: itemQuality });
+        else if (group === 'Armor') add({ group, templateIndex, material: randomArmorMaterial(level, rolls), quality: itemQuality });
         else add({ group, templateIndex });
       }
     }

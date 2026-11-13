@@ -518,6 +518,74 @@ export function rollItemQuality(level = 1, rolls = Math.random) {
 }
 
 /**
+ * Roll a quality tier for shop shelves (0: Crude, 1: Standard, 2: Fine, 3: Superior, 4: Masterwork)
+ * taking shop quality (0..20) into account.
+ * If quality mod is not enabled, always returns 1 (Standard).
+ * @param {number} [shopQuality=10]
+ * @param {() => number} [rolls=Math.random]
+ * @returns {number}
+ */
+export function rollShopItemQuality(shopQuality = 10, rolls = Math.random) {
+  if (!_synced) syncModData();
+  if (!_isQualityEnabled) return 1;
+
+  const sq = Math.max(0, Math.min(20, Math.round(Number(shopQuality) || 10)));
+  let w0 = 5;
+  let w1 = 65;
+  let w2 = 25;
+  let w3 = 5;
+  let w4 = 0;
+
+  if (sq <= 4) {
+    // 0..4 (Decrepit / Rusty / Flea shops)
+    w0 = 35;
+    w1 = 55;
+    w2 = 10;
+    w3 = 0;
+    w4 = 0;
+  } else if (sq <= 9) {
+    // 5..9 (Shabby / Modest shops)
+    w0 = 20;
+    w1 = 65;
+    w2 = 15;
+    w3 = 0;
+    w4 = 0;
+  } else if (sq <= 14) {
+    // 10..14 (Average / Good shops)
+    w0 = 5;
+    w1 = 65;
+    w2 = 25;
+    w3 = 5;
+    w4 = 0;
+  } else if (sq <= 18) {
+    // 15..18 (Quality / Fine shops)
+    w0 = 0;
+    w1 = 40;
+    w2 = 40;
+    w3 = 17;
+    w4 = 3;
+  } else {
+    // 19..20 (Palatial / "Finest" shops, like Togar's Finest Shields)
+    w0 = 0;
+    w1 = 20;
+    w2 = 45;
+    w3 = 25;
+    w4 = 10;
+  }
+
+  const total = w0 + w1 + w2 + w3 + w4;
+  let roll = Math.floor(rolls() * total);
+  if (roll < w0) return 0;
+  roll -= w0;
+  if (roll < w1) return 1;
+  roll -= w1;
+  if (roll < w2) return 2;
+  roll -= w2;
+  if (roll < w3) return 3;
+  return 4;
+}
+
+/**
  * Reset data sync state (for test isolation).
  */
 export function _resetModDataSync() {

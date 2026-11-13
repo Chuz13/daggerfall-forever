@@ -59,6 +59,7 @@ import { liveStat } from './statMods.js';
 import { registerFormulaOverride, dice100 } from '../combat/formulas.js';
 import { createWeapon } from '../combat/enemyEquipment.js';
 import { createRandomArmor } from './loot/loot.js';
+import { rollItemQuality } from './mods/modDataSync.js';
 import { mintCondition, setItemFields } from './item/itemTemplates.js'; // MAC-N1: SetItem's name + value, the one export
 import { registerEnemyDeathHandler } from '../scenes/corpseMarker.js';
 import { GOLD_TEMPLATE } from './inventory.js';
@@ -286,7 +287,7 @@ export function unleveledGoldLootPiles(
  *  ApplyWeaponMaterial(material), condition 30-75% of its own max,
  *  AddItem(Back). */
 function dropWeapon(loot, material, rolls) {
-  const item = createWeapon(rangeInt(113, 131, rolls), material, rolls);
+  const item = createWeapon(rangeInt(113, 131, rolls), material, rolls, rollItemQuality(playerLevel(), rolls));
   item.currentCondition = int(F(rangeFloat(0.3, 0.75, rolls) * F(item.maxCondition ?? 0)));
   item.foundCondition = item.currentCondition; // ASF-DEATH: SELL-AS-FOUND's mark (tradeModes.js saleConditionPercentage)
   loot.push(item);
@@ -298,7 +299,7 @@ function dropWeapon(loot, material, rolls) {
  *  condition 30-75% of the RANDOM piece's maxCondition. */
 function dropArmor(loot, material, rolls) {
   const random = mintCondition(named(createRandomArmor(playerLevel(), rolls)));
-  const item = mintCondition(named({ group: 'Armor', templateIndex: random.templateIndex, material, variant: 0 }));
+  const item = mintCondition(named({ group: 'Armor', templateIndex: random.templateIndex, material, variant: 0, quality: random.quality }));
   item.currentCondition = int(F(rangeFloat(0.3, 0.75, rolls) * F(random.maxCondition ?? 0)));
   // AUDIT SUGGESTIONS-1019 L1-2: never over the piece's own maximum - the ramp's middle metal can be lighter plate than
   // the random piece the condition was read off (1.1.2's bug for bug had always made it the heavier)
