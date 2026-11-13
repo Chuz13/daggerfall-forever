@@ -35,9 +35,9 @@ export const LIVING_WORDS = Object.freeze({
   navalBattleNotice: () =>
     t('living.naval.battleNotice', 'A naval skirmish rages between patrol ships and pirates!'),
   navalChoiceLaw: () =>
-    t('living.naval.choiceLaw', 'Stand with the Crown fleet! (+Regional renown, fight pirates)'),
+    t('living.naval.choiceLaw', 'Stand with the Crown fleet! (+Regional reputation, fight pirates)'),
   navalChoicePirates: () =>
-    t('living.naval.choicePirates', 'Join the pirates! (+Pirate ally, -Regional renown)'),
+    t('living.naval.choicePirates', 'Join the pirates! (+Pirate ally, -Regional reputation)'),
   navalChoiceNeutral: () =>
     t('living.naval.choiceNeutral', 'Remain neutral and observe. (No intervention)'),
 
@@ -247,14 +247,14 @@ export const LIVING_WORDS = Object.freeze({
   crisisContractAccepted: (title) =>
     t('living.contract.accepted', 'Crisis contract accepted: {title}. Track the target in regional camps or dungeons.', { title }),
   crisisContractCompleted: (gold) =>
-    t('living.contract.completed', 'Crisis contract fulfilled! Earned {gold}g, regional renown, and eased tensions across the land.', { gold }),
+    t('living.contract.completed', 'Crisis contract fulfilled! Earned {gold}g, regional reputation, and eased tensions across the land.', { gold }),
   navalScavenged: (gold) =>
     t('living.naval.scavenged', 'You salvage {gold}g worth of floating cargo from the naval wreckage.', { gold }),
 
   // Composite helpers for 3D scene interactions (ChoiceWindow)
   urbanSkirmishAlert: () => LIVING_WORDS.urbanSkirmishStart(),
   checkpointOptionKnight: () =>
-    t('living.checkpoint.optKnight', 'Present Knight credentials or Regional renown (Etiquette + Personality roll if unranked)'),
+    t('living.checkpoint.optKnight', 'Present Knight credentials or Regional reputation (Etiquette + Personality roll if unranked)'),
   checkpointOptionToll: (gold = 50) =>
     t('living.checkpoint.optToll', 'Pay wartime transit toll of {gold}g (+Safe passage)', { gold }),
   checkpointOptionDiplomacy: () =>
@@ -365,10 +365,6 @@ export const LIVING_WORDS = Object.freeze({
     t('living.notify.fatigueLost', '-{fatigue} Fatigue', { fatigue }),
   notifyHealthLost: (health) =>
     t('living.notify.healthLost', '-{health} Health', { health }),
-  notifyXpGained: (xp) =>
-    t('living.notify.xpGained', '+{xp} XP', { xp }),
-  notifyBountyIssued: () =>
-    t('living.notify.bountyIssued', 'A bounty has been placed on your head for aiding rebels!'),
 
   // Factions & Urban Skirmishes
   skirmishAlert: (event, f1, f2) =>

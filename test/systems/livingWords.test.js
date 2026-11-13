@@ -33,6 +33,9 @@ test('LIVING_WORDS: all strings exist in locales, are bounded in length and retu
 });
 
 test('LIVING_WORDS: roll degree and event option strings contain no phantom XP, renown, virtue, or underworld mentions', () => {
+  assert.equal(LIVING_WORDS.notifyXpGained, undefined, 'notifyXpGained must not exist');
+  assert.equal(LIVING_WORDS.notifyBountyIssued, undefined, 'notifyBountyIssued must not exist');
+
   const triumph = LIVING_WORDS.rollTriumph(80, 50);
   const success = LIVING_WORDS.rollSuccess(60, 50);
   const partial = LIVING_WORDS.rollPartial(45, 50);

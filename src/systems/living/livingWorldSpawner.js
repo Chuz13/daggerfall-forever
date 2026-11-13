@@ -2533,10 +2533,6 @@ export function createLivingSceneHost(deps) {
               }
             }
 
-            if (c.bountyHostile) {
-              deps.say(LIVING_WORDS.notifyBountyIssued(), 5);
-            }
-
             const isSkillCheck = Boolean(c.skillCheck);
             recordCrisisChoiceResolution({
               regionIndex: regIdx,
@@ -2606,7 +2602,6 @@ export function createLivingSceneHost(deps) {
                 rolls: rng,
               });
               onContractCompleted(regIdx);
-              if (c.goldReward) deps.say(LIVING_WORDS.eventRewardGold(c.goldReward), 5);
               deps.say(LIVING_WORDS.eventPeaceResolved(f1Name, f2Name), 5);
             } else {
               s.skirmishStance = 'chaos';
