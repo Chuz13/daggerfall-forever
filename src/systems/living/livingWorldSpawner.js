@@ -2533,6 +2533,11 @@ export function createLivingSceneHost(deps) {
               }
             }
 
+            if (c.bountyHostile) {
+              deps.say(LIVING_WORDS.notifyBountyIssued(), 5);
+            }
+
+            const isSkillCheck = Boolean(c.skillCheck);
             recordCrisisChoiceResolution({
               regionIndex: regIdx,
               crisisType: s.blueprint?.meta?.crisisType || 'SKIRMISH',
@@ -2541,7 +2546,9 @@ export function createLivingSceneHost(deps) {
               choiceLabel: c.text,
               predicted: {
                 gold: (c.goldReward ?? 0) - (c.goldCost ?? 0),
-                rep: (c.repF1Delta ?? 0) + (c.repF2Delta ?? 0),
+                rep: isSkillCheck
+                  ? (checkRes.repF1Delta || 0) + (checkRes.repF2Delta || 0)
+                  : ((c.repF1 ?? c.repF1Delta ?? 0) + (c.repF2 ?? c.repF2Delta ?? 0)),
                 fatigue: c.fatigueCost ?? 0,
                 xp: 0,
               },
