@@ -11,8 +11,8 @@ import { registerPerk, unregisterPerk, clearDynamicPerks, hasUnlockedPerk } from
 import { hudText } from '../notify.js';
 import { setMidScreenText } from '../../ui/midScreenText.js';
 import { t } from '../textManager.js';
-import { hurtPlayer } from '../../characters/playerEntity.js';
-import { FATIGUE_MULTIPLIER } from '../statMods.js';
+import { hurtPlayer, surfacePlayer } from '../../characters/playerEntity.js';
+import { FATIGUE_MULTIPLIER, maxFatigue } from '../statMods.js';
 import { SOUND } from '../soundClips.js';
 import { audio } from '../audio.js';
 
@@ -39,6 +39,34 @@ export function getAllRegisteredPerks() {
     }
   }
   return all;
+}
+
+/**
+ * Safely resolve maximum fatigue for a player entity.
+ * Works with live DFO playerEntity, derived stat objects, or simple test mocks with .maxFatigue.
+ * @param {any} entity
+ * @returns {number}
+ */
+export function getPlayerMaxFatigue(entity) {
+  if (!entity) return 100;
+  if (typeof entity.maxFatigue === 'number' && entity.maxFatigue > 0) {
+    return entity.maxFatigue;
+  }
+  if (!entity.stats && (entity.fatigue ?? 0) <= 100) {
+    return 100;
+  }
+  try {
+    const calc = maxFatigue(entity);
+    if (Number.isFinite(calc) && calc > 0) return calc;
+  } catch {
+    // liveStat lookup fallback
+  }
+  if (entity.stats) {
+    const str = entity.stats?.strength ?? 50;
+    const end = entity.stats?.endurance ?? 50;
+    return (str + end) * FATIGUE_MULTIPLIER;
+  }
+  return 100;
 }
 
 /**
@@ -97,19 +125,21 @@ export function createModApi(modId) {
        */
       damageFatigue: (amount) => {
         if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
-        const max = _playerRef.maxFatigue ?? 100;
+        const max = getPlayerMaxFatigue(_playerRef);
         const scale = max > 200 ? FATIGUE_MULTIPLIER : 1;
         _playerRef.fatigue = Math.max(0, (_playerRef.fatigue ?? 0) - amount * scale);
+        surfacePlayer?.();
       },
       /**
-       * Restore player fatigue points.
+       * Restore player fatigue points up to maximum cap.
        * @param {number} amount
        */
       restoreFatigue: (amount) => {
         if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
-        const max = _playerRef.maxFatigue ?? 100;
+        const max = getPlayerMaxFatigue(_playerRef);
         const scale = max > 200 ? FATIGUE_MULTIPLIER : 1;
         _playerRef.fatigue = Math.min(max, (_playerRef.fatigue ?? 0) + amount * scale);
+        surfacePlayer?.();
       },
       /**
        * Reduce player health points.
@@ -118,15 +148,36 @@ export function createModApi(modId) {
       damageHealth: (amount) => {
         if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
         hurtPlayer(_playerRef, amount);
+        surfacePlayer?.();
       },
       /**
-       * Restore player health points.
+       * Restore player health points up to maximum cap.
        * @param {number} amount
        */
       heal: (amount) => {
         if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
         const max = _playerRef.maxHealth ?? 100;
         _playerRef.health = Math.min(max, (_playerRef.health ?? 0) + amount);
+        surfacePlayer?.();
+      },
+      /**
+       * Reduce player magicka / spell points.
+       * @param {number} amount
+       */
+      damageMagicka: (amount) => {
+        if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
+        _playerRef.magicka = Math.max(0, (_playerRef.magicka ?? 0) - amount);
+        surfacePlayer?.();
+      },
+      /**
+       * Restore player magicka / spell points up to maximum cap.
+       * @param {number} amount
+       */
+      restoreMagicka: (amount) => {
+        if (!_playerRef || !Number.isFinite(amount) || amount <= 0) return;
+        const max = _playerRef.maxMagicka ?? _playerRef.stats?.intelligence ?? 100;
+        _playerRef.magicka = Math.min(max, (_playerRef.magicka ?? 0) + amount);
+        surfacePlayer?.();
       },
       /**
        * Check if player has an active magic effect by key or name.

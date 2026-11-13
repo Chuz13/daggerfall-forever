@@ -101,12 +101,12 @@ test("Duelist's Flow: Rhythmic combat combo system, perk unlock, save safety, to
   assert.equal(api.storage.get('bestStreak'), 5);
 
   // 4. Test Miss / Rhythm Broken with Perk Halved Penalty
-  // Current streak is 5 (>= 2). A miss should drain 5 SP (instead of default 10 SP) because of 'duelists_trance'
+  // Current streak is 5 (>= 2). A miss should drain 5 FP (instead of default 10 FP) because of 'duelists_trance'
   const spBeforeMiss = player.fatigue;
   emitModEvent('combatAttackResolved', { attacker: player, hit: false });
   assert.equal(player.fatigue, spBeforeMiss - 5);
   assert.equal(midScreenLogs[midScreenLogs.length - 1].msg, 'Flow broken!');
-  assert.ok(hudLogs.some((m) => m.includes('-5 SP')));
+  assert.ok(hudLogs.some((m) => m.includes('-5 FP') || m.includes('-5 SP')));
 
   // 5. Test Toggling Off / Mod Disable Safety
   // Simulating disabling the mod (clearing registered perks)
@@ -128,5 +128,44 @@ test("Duelist's Flow: Rhythmic combat combo system, perk unlock, save safety, to
 
   _resetModPluginApi();
   clearDynamicPerks();
+});
+
+test("Duelist's Flow: Live DFO player entity stamina scaling, fatigue cap safety and clamp", () => {
+  _resetModPluginApi();
+
+  // Live DFO player structure: stats 60 STR / 60 END -> maxFatigue = (60+60)*64 = 7680 raw units
+  const livePlayer = {
+    isPlayer: true,
+    stats: { strength: 60, endurance: 60 },
+    fatigue: 3000,
+    health: 80,
+    maxHealth: 100,
+  };
+  setModApiContext({ player: livePlayer });
+
+  const api = createModApi('test-stamina-scaling');
+
+  // 1. Restore fatigue by 12 points -> should add 12 * 64 = 768 raw units
+  api.player.restoreFatigue(12);
+  assert.equal(livePlayer.fatigue, 3768);
+
+  // 2. Restore fatigue near cap -> must NOT exceed maxFatigue cap (7680)
+  livePlayer.fatigue = 7600;
+  api.player.restoreFatigue(25); // 25 * 64 = 1600 units, would exceed 7680
+  assert.equal(livePlayer.fatigue, 7680); // strictly clamped to cap
+
+  // 3. Already at cap -> must stay at cap, never grow higher
+  api.player.restoreFatigue(35);
+  assert.equal(livePlayer.fatigue, 7680);
+
+  // 4. Damage fatigue -> drains 10 points (10 * 64 = 640 raw units)
+  api.player.damageFatigue(10);
+  assert.equal(livePlayer.fatigue, 7680 - 640);
+
+  // 5. Massive drain -> must clamp at 0, never drop below zero
+  api.player.damageFatigue(500);
+  assert.equal(livePlayer.fatigue, 0);
+
+  _resetModPluginApi();
 });
 

@@ -701,6 +701,44 @@ function handleHealCommand() {
 registerCommand('heal', 'Restore player health, fatigue, and magicka to maximum', 'heal', handleHealCommand);
 registerCommand('player_heal', 'Restore player health, fatigue, and magicka to maximum', 'player_heal', handleHealCommand);
 
+function handleSetFatigueCommand(args = []) {
+  if (!playerEntity) return 'No player entity found.';
+  if (!args || !args.length) return 'Usage: set_fatigue <amount|percent%>. Examples: set_fatigue 0, set_fatigue 50, set_fatigue 10%';
+  const arg = String(args[0]).trim();
+  const str = playerEntity.stats?.strength ?? 50;
+  const end = playerEntity.stats?.endurance ?? 50;
+  const maxF = (str + end) * 64;
+
+  let targetValue;
+  if (arg.endsWith('%')) {
+    const pct = parseFloat(arg.slice(0, -1));
+    if (!Number.isFinite(pct) || pct < 0) return 'Invalid percent value.';
+    targetValue = Math.round((Math.min(100, pct) / 100) * maxF);
+  } else {
+    const val = parseFloat(arg);
+    if (!Number.isFinite(val) || val < 0) return 'Invalid fatigue value. Must be a non-negative number.';
+    if (val === 0) {
+      targetValue = 0;
+    } else if (val <= (str + end)) {
+      // Interpreted as display points (0..(str+end)), scale by 64
+      targetValue = Math.round(val * 64);
+    } else {
+      // Interpreted as raw fatigue points
+      targetValue = Math.round(val);
+    }
+  }
+
+  playerEntity.fatigue = Math.max(0, Math.min(maxF, targetValue));
+  surfacePlayer?.();
+  const displayVal = Math.round(playerEntity.fatigue / 64);
+  const maxDisplay = Math.round(maxF / 64);
+  const pctDisplay = Math.round((playerEntity.fatigue / maxF) * 100);
+  return `Player fatigue set to ${playerEntity.fatigue} raw (${displayVal}/${maxDisplay} pts, ${pctDisplay}%).`;
+}
+registerCommand('set_fatigue', 'Set player fatigue: set_fatigue <amount|percent%>', 'set_fatigue <amount|percent%>', handleSetFatigueCommand);
+registerCommand('setfatigue', 'Set player fatigue: setfatigue <amount|percent%>', 'setfatigue <amount|percent%>', handleSetFatigueCommand);
+registerCommand('fatigue', 'Set player fatigue: fatigue <amount|percent%>', 'fatigue <amount|percent%>', handleSetFatigueCommand);
+
 export const MATERIAL_ALIASES = new Map([
   ['iron', 0],
   ['steel', 1],

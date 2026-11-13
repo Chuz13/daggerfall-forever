@@ -44,13 +44,13 @@ export default function init(api) {
       // Tier 1: Flow State (3 hits)
       if (currentStreak === 3) {
         api.player.restoreFatigue(12);
-        api.ui.notify(api.ui.t('combo.flow_state', 'Combo x3: Flow State! (+12 SP)'));
+        api.ui.notify(api.ui.t('combo.flow_state', 'Combo x3: Flow State! (+12 FP)'));
       }
       // Tier 2: Deadly Precision (5 hits)
       else if (currentStreak === 5) {
         api.player.heal(5);
         api.player.restoreFatigue(25);
-        api.ui.notify(api.ui.t('combo.deadly_precision', 'Combo x5: Deadly Precision! (+5 HP, +25 SP)'));
+        api.ui.notify(api.ui.t('combo.deadly_precision', 'Combo x5: Deadly Precision! (+5 HP, +25 FP)'));
 
         // Unlock feat milestone
         if (!api.perks.has('duelists_trance')) {
@@ -62,7 +62,7 @@ export default function init(api) {
       else if (currentStreak >= 7 && currentStreak % 2 === 1) {
         api.player.heal(10);
         api.player.restoreFatigue(35);
-        api.ui.notify(api.ui.t('combo.master_duelist', 'Combo x7: Master Duelist! Flow perfected! (+10 HP, +35 SP)'));
+        api.ui.notify(api.ui.t('combo.master_duelist', 'Combo x7: Master Duelist! Flow perfected! (+10 HP, +35 FP)'));
       }
     } else {
       // Missed swing: break flow if combo was active
@@ -71,7 +71,7 @@ export default function init(api) {
         const drain = hasPerk ? 5 : 10;
         api.player.damageFatigue(drain);
         api.ui.showMidScreen(api.ui.t('combo.broken', 'Flow broken!'), 1.0);
-        api.ui.notify(api.ui.t('combo.broken_drain', 'Rhythm lost! (-{drain} SP)', { drain }));
+        api.ui.notify(api.ui.t('combo.broken_drain', 'Rhythm lost! (-{drain} FP)', { drain }));
       }
       currentStreak = 0;
     }
