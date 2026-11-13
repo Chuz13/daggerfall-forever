@@ -2474,20 +2474,18 @@ export function createLivingSceneHost(deps) {
               }
 
               if (checkRes.degree === LIVING_ROLL_DEGREE.TRIUMPH) {
-                deps.say(LIVING_WORDS.rollTriumph(score, dc, checkRes.xpAwarded), 5);
+                deps.say(LIVING_WORDS.rollTriumph(score, dc), 5);
               } else if (checkRes.degree === LIVING_ROLL_DEGREE.PARTIAL) {
                 if (player && typeof player.fatigue === 'number') {
                   player.fatigue = Math.max(1, player.fatigue - checkRes.fatigueCost);
                 }
-                deps.say(LIVING_WORDS.rollPartial(score, dc, checkRes.xpAwarded), 5);
+                deps.say(LIVING_WORDS.rollPartial(score, dc), 5);
                 if (checkRes.fatigueCost > 0) {
                   deps.say(LIVING_WORDS.notifyFatigueLost(checkRes.fatigueCost), 4);
                 }
               } else {
-                deps.say(LIVING_WORDS.rollSuccess(score, dc, checkRes.xpAwarded), 5);
+                deps.say(LIVING_WORDS.rollSuccess(score, dc), 5);
               }
-            } else if (c.xp && c.xp > 0) {
-              deps.say(LIVING_WORDS.notifyXpGained(c.xp), 4);
             }
 
             if (checkRes.goldCost > 0 && player) {
@@ -2520,10 +2518,6 @@ export function createLivingSceneHost(deps) {
               }
             }
 
-            if (c.bountyHostile) {
-              deps.say(LIVING_WORDS.notifyBountyIssued(), 5);
-            }
-
             recordCrisisChoiceResolution({
               regionIndex: regIdx,
               crisisType: s.blueprint?.meta?.crisisType || 'SKIRMISH',
@@ -2534,13 +2528,13 @@ export function createLivingSceneHost(deps) {
                 gold: (c.goldReward ?? 0) - (c.goldCost ?? 0),
                 rep: (c.repF1Delta ?? 0) + (c.repF2Delta ?? 0),
                 fatigue: c.fatigueCost ?? 0,
-                xp: c.xp ?? 0,
+                xp: 0,
               },
               applied: {
                 goldDelta: (checkRes.goldReward || 0) - (checkRes.goldCost || 0),
                 repDelta: (checkRes.repF1Delta || 0) + (checkRes.repF2Delta || 0),
                 fatigueDelta: -(checkRes.fatigueCost || 0),
-                xpGained: checkRes.xpAwarded || c.xp || 0,
+                xpGained: 0,
               },
             });
 

@@ -49,7 +49,7 @@ export const LIVING_WORDS = Object.freeze({
   urbanSkirmishOptionWatch: () =>
     t('living.urban.optionWatch', 'Stand with the City Watch (+5 Rep, Watchmen allied, Insurgents hostile)'),
   urbanSkirmishOptionRebels: () =>
-    t('living.urban.optionRebels', 'Join the Insurgents (-15 Rep, +10 Underworld, Insurgents allied, Watch hostile)'),
+    t('living.urban.optionRebels', 'Join the Insurgents (-15 Rep, Insurgents allied, Watch hostile)'),
   urbanSkirmishOptionChaos: () =>
     t('living.urban.optionChaos', 'Chaos Mode / Remain Neutral (Both sides damagable, no friendly fire bounty)'),
   urbanOrderRestored: () =>
@@ -309,7 +309,7 @@ export const LIVING_WORDS = Object.freeze({
     return LIVING_WORDS.pleaEscort();
   },
   pleaOptionHelp: (gold = 25) =>
-    t('living.plea.optHelp', 'Offer assistance and alms (-{gold}g, +Renown, +Virtue)', { gold }),
+    t('living.plea.optHelp', 'Offer assistance and alms (-{gold}g, +Reputation)', { gold }),
   pleaOptionPolite: () =>
     t('living.plea.optPolite', 'Politely decline assistance (Etiquette + Personality + Luck roll)'),
   pleaOptionRude: () =>
@@ -321,12 +321,12 @@ export const LIVING_WORDS = Object.freeze({
   },
 
   // Typed Roleplay Roll Degree Outcomes (Crisis & Encounter Checks)
-  rollTriumph: (score = 80, dc = 50, xp = 150) =>
-    t('living.roll.triumph', '[Triumph: {score} vs {dc}] Brilliant mastery! Conflict resolved with honor and bonus renown! (+{xp} XP)', { score, dc, xp }),
-  rollSuccess: (score = 60, dc = 50, xp = 100) =>
-    t('living.roll.success', '[Success: {score} vs {dc}] Negotiations succeeded peacefully! (+{xp} XP)', { score, dc, xp }),
-  rollPartial: (score = 45, dc = 50, xp = 50) =>
-    t('living.roll.partial', '[Partial Success: {score} vs {dc}] Bloodshed averted through a hard compromise. (+{xp} XP)', { score, dc, xp }),
+  rollTriumph: (score = 80, dc = 50, _xp = 0) =>
+    t('living.roll.triumph', '[Triumph: {score} vs {dc}] Brilliant mastery! Conflict resolved with honor!', { score, dc }),
+  rollSuccess: (score = 60, dc = 50, _xp = 0) =>
+    t('living.roll.success', '[Success: {score} vs {dc}] Negotiations succeeded peacefully!', { score, dc }),
+  rollPartial: (score = 45, dc = 50, _xp = 0) =>
+    t('living.roll.partial', '[Partial Success: {score} vs {dc}] Bloodshed averted through a hard compromise.', { score, dc }),
   rollFailure: (score = 30, dc = 50) =>
     t('living.roll.failure', '[Check Failed: {score} vs {dc}] Neither side heeds your words; the clash continues without you.', { score, dc }),
   rollCriticalFailure: (score = 10, dc = 50) =>
@@ -410,7 +410,7 @@ export const LIVING_WORDS = Object.freeze({
   eventJoinedWatch: () =>
     t('living.event.joinedWatch', 'You joined the City Watch! Defend the town against the rebels! (+5 Regional Rep)'),
   eventJoinedRebels: () =>
-    t('living.event.joinedRebels', 'You joined the Insurgents! Overthrow the guards! (-15 Regional Rep, +10 Underworld)'),
+    t('living.event.joinedRebels', 'You joined the Insurgents! Overthrow the guards! (-15 Regional Rep)'),
   eventChosenChaos: () =>
     t('living.event.chosenChaos', 'You choose Chaos! Both sides remain neutral to you unless struck, and crossfire is not a crime.'),
 

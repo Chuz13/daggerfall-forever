@@ -32,3 +32,26 @@ test('LIVING_WORDS: all strings exist in locales, are bounded in length and retu
   }
 });
 
+test('LIVING_WORDS: roll degree and event option strings contain no phantom XP, renown, virtue, or underworld mentions', () => {
+  const triumph = LIVING_WORDS.rollTriumph(80, 50);
+  const success = LIVING_WORDS.rollSuccess(60, 50);
+  const partial = LIVING_WORDS.rollPartial(45, 50);
+  const pleaHelp = LIVING_WORDS.pleaOptionHelp(25);
+  const rebelsOpt = LIVING_WORDS.urbanSkirmishOptionRebels();
+  const rebelsJoined = LIVING_WORDS.eventJoinedRebels();
+
+  for (const text of [triumph, success, partial]) {
+    assert.doesNotMatch(text, /\bXP\b/i, `Roll message contains phantom XP: "${text}"`);
+    assert.doesNotMatch(text, /bonus renown/i, `Roll message contains phantom bonus renown: "${text}"`);
+  }
+
+  assert.doesNotMatch(pleaHelp, /\+Renown/i, `Plea help option contains phantom Renown: "${pleaHelp}"`);
+  assert.doesNotMatch(pleaHelp, /\+Virtue/i, `Plea help option contains phantom Virtue: "${pleaHelp}"`);
+  assert.doesNotMatch(pleaHelp, /Добродетель/i, `Plea help option contains phantom Virtue: "${pleaHelp}"`);
+
+  assert.doesNotMatch(rebelsOpt, /Underworld/i, `Rebel option contains phantom Underworld: "${rebelsOpt}"`);
+  assert.doesNotMatch(rebelsOpt, /воровском/i, `Rebel option contains phantom Underworld: "${rebelsOpt}"`);
+  assert.doesNotMatch(rebelsJoined, /Underworld/i, `Rebel joined contains phantom Underworld: "${rebelsJoined}"`);
+  assert.doesNotMatch(rebelsJoined, /преступном/i, `Rebel joined contains phantom Underworld: "${rebelsJoined}"`);
+});
+
