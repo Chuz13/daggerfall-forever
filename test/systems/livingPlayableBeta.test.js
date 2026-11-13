@@ -1127,4 +1127,86 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     );
     assert.equal(getNemesisMemory().hasGrudge, false, 'Slaying Nemesis leader clears active grudge');
   });
+
+  it('Step 10: Naval squadron interaction prompt & time add / crisis status tension commands', async () => {
+    resetLivingConfig();
+    const choicesOpened = [];
+    const player = {
+      level: 5,
+      goldPieces: 500,
+      skills: { Etiquette: 60, Streetwise: 50, Mercantile: 50 },
+      regionalReputations: { 17: 0 },
+      regionConditions: { 17: { flags: 0, values: new Uint8Array(26) } },
+      factionRep: null,
+    };
+
+    const host = createLivingSceneHost({
+      playerEntity: () => player,
+      regionIndex: () => 17,
+      clock: () => 600,
+      spawn: (type, feet, o) => {
+        const foe = { entity: { team: 'Enemy', mobileTeam: 'Enemy' }, ai: { isHostile: true, detected: false }, livingRole: o.role, dead: false };
+        return foe;
+      },
+      remove: (rec) => { rec.dead = true; },
+      inPool: (rec) => !rec.dead,
+      say: () => {},
+      openChoice: (spec) => choicesOpened.push(spec),
+      playSound: () => {},
+      myId: () => 'player',
+      spawnNavalSquadron: () => ({
+        lawShips: [{ ship: { target: null, mode: null } }],
+        pirateShips: [{ ship: { target: null, mode: null } }],
+      }),
+    });
+
+    // 1. Standing a NAVAL_SQUADRON blueprint triggers openChoice immediately
+    const navalBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.NAVAL_SQUADRON,
+      centerX: 0,
+      centerZ: 0,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: player,
+      nowMinutes: 600,
+      rng: () => 0.5,
+    });
+    const site = host.standBlueprint(navalBp);
+    assert.ok(site);
+    assert.equal(choicesOpened.length, 1, 'Naval squadron standBlueprint immediately opens side choice window');
+    assert.equal(choicesOpened[0].options.length, 3, 'Presents 3 naval allegiances: Law, Pirates, Neutral');
+
+    // 2. Selecting Option 1 (Law) allies law foes and directs pirate ships to player
+    choicesOpened[0].options[0].action();
+    assert.equal(player.regionalReputations[17], 5, 'Joining Law awards +5 regional reputation');
+    assert.equal(site.navalSquadron.pirateShips[0].ship.target, 'player', 'Pirate ships target player');
+
+    // 3. Console Commands: time add & crisis status
+    const { getConsoleCommand } = await import('../../src/systems/consoleCommands.js');
+    const timeCmd = getConsoleCommand('time');
+    const crisisCmd = getConsoleCommand('crisis');
+
+    assert.ok(timeCmd);
+    assert.ok(crisisCmd);
+
+    // Test time add with minute auto-detect (>= 100)
+    const timeResMin = timeCmd.callback(['add', '4320']);
+    assert.ok(timeResMin.includes('4320 minute(s)'), `time add 4320 advances minutes: ${timeResMin}`);
+
+    // Test time add with hour auto-detect (< 100)
+    const timeResHr = timeCmd.callback(['add', '23']);
+    assert.ok(timeResHr.includes('23 hour(s)'), `time add 23 advances hours: ${timeResHr}`);
+
+    // Test time add hour 23
+    const timeResWord = timeCmd.callback(['add', 'hour', '23']);
+    assert.ok(timeResWord.includes('23 hour(s)'), `time add hour 23 advances hours: ${timeResWord}`);
+
+    // Test time add 3d
+    const timeResDays = timeCmd.callback(['add', '3d']);
+    assert.ok(timeResDays.includes('3 day(s)'), `time add 3d advances days: ${timeResDays}`);
+
+    // Test crisis status output contains tension
+    const crisisRes = await crisisCmd.callback(['status', '17']);
+    assert.ok(crisisRes.includes('Tension:'), `crisis status includes tension: ${crisisRes}`);
+  });
 });

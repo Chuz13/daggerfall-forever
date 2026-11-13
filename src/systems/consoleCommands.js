@@ -512,12 +512,106 @@ registerCommand(
 );
 registerCommand('noclip', 'Toggle Collision (noclip and flight)', 'noclip', () => getConsoleCommand('tcl').callback());
 
+function advanceGameTimeMinutes(minutes) {
+  const scene = getDebugSceneContext();
+  const advance = scene?.advanceMinutes ?? scene?.advanceTime;
+  if (typeof advance === 'function') {
+    advance(minutes);
+  } else {
+    setSyntheticTimeIncrease(true);
+    advanceOwnMinutes(minutes);
+  }
+  const m = worldMinutes();
+  const d = dateFromClassicMinutes(m);
+  return { m, d };
+}
+
 function handleTimeCommand(args = []) {
-  if (!args || !args.length) return 'Usage: set_time <hour> [minute]';
-  const hour = parseInt(args[0], 10);
-  const minute = args[1] ? parseInt(args[1], 10) : 0;
+  if (!args || !args.length) {
+    return 'Usage: time <hour> [minute]  OR  time add <amount>[m|h|d]  OR  time set <hour> [minute]';
+  }
+
+  const first = String(args[0]).toLowerCase();
+
+  // 1. Advance time: "time add ..."
+  if (first === 'add') {
+    const rawVal1 = args[1] != null ? String(args[1]).toLowerCase() : '';
+    const rawVal2 = args[2] != null ? String(args[2]).toLowerCase() : '';
+
+    let amount = NaN;
+    let unit = 'auto';
+
+    // Patterns:
+    // "time add hour 23" / "time add days 3" / "time add min 4320"
+    if (['hour', 'hours', 'h'].includes(rawVal1)) {
+      amount = parseFloat(rawVal2);
+      unit = 'hours';
+    } else if (['day', 'days', 'd'].includes(rawVal1)) {
+      amount = parseFloat(rawVal2);
+      unit = 'days';
+    } else if (['minute', 'minutes', 'min', 'm'].includes(rawVal1)) {
+      amount = parseFloat(rawVal2);
+      unit = 'minutes';
+    } else {
+      // "time add 23" / "time add 4320" / "time add 23h" / "time add 3d" / "time add 4320m"
+      const match = rawVal1.match(/^([0-9.]+)([a-z]*)$/);
+      if (match) {
+        amount = parseFloat(match[1]);
+        const suffix = match[2];
+        if (suffix === 'd' || suffix === 'day' || suffix === 'days') unit = 'days';
+        else if (suffix === 'm' || suffix === 'min' || suffix === 'minutes') unit = 'minutes';
+        else if (suffix === 'h' || suffix === 'hr' || suffix === 'hrs' || suffix === 'hour' || suffix === 'hours') unit = 'hours';
+      } else {
+        amount = parseFloat(rawVal1);
+      }
+
+      if (['hour', 'hours', 'h'].includes(rawVal2)) unit = 'hours';
+      else if (['day', 'days', 'd'].includes(rawVal2)) unit = 'days';
+      else if (['minute', 'minutes', 'min', 'm'].includes(rawVal2)) unit = 'minutes';
+    }
+
+    if (Number.isNaN(amount) || amount <= 0) {
+      return 'Usage: time add <amount>[m|h|d] (e.g. time add 4320m, time add 3d, time add 24h)';
+    }
+
+    let minutesToAdd = 0;
+    let label = '';
+    if (unit === 'days') {
+      minutesToAdd = Math.round(amount * 1440);
+      label = `${amount} day(s) (${minutesToAdd} mins)`;
+    } else if (unit === 'minutes') {
+      minutesToAdd = Math.round(amount);
+      label = `${minutesToAdd} minute(s) (${(minutesToAdd / 60).toFixed(1)} hrs)`;
+    } else if (unit === 'hours') {
+      minutesToAdd = Math.round(amount * 60);
+      label = `${amount} hour(s) (${minutesToAdd} mins)`;
+    } else {
+      // Auto-detect: if >= 100, user passed minutes (e.g. 4320 or 4250); if < 100, hours (e.g. 23)
+      if (amount >= 100) {
+        minutesToAdd = Math.round(amount);
+        label = `${minutesToAdd} minute(s) (${(minutesToAdd / 60).toFixed(1)} hrs / ${(minutesToAdd / 1440).toFixed(2)} days)`;
+      } else {
+        minutesToAdd = Math.round(amount * 60);
+        label = `${amount} hour(s) (${minutesToAdd} mins)`;
+      }
+    }
+
+    const { d } = advanceGameTimeMinutes(minutesToAdd);
+    return `Advanced time by ${label}. New Date: ${dateTimeString(d)}`;
+  }
+
+  // 2. Set time: "time set <hour> [minute]" or "time <hour> [minute]"
+  let hourArg = args[0];
+  let minuteArg = args[1];
+  if (first === 'set') {
+    hourArg = args[1];
+    minuteArg = args[2];
+  }
+
+  const hour = parseInt(hourArg, 10);
+  const minute = minuteArg ? parseInt(minuteArg, 10) : 0;
   if (Number.isNaN(hour) || hour < 0 || hour > 23 || Number.isNaN(minute) || minute < 0 || minute > 59) {
-    return 'Invalid time. Hour must be 0..23, minute 0..59.';
+    return 'Invalid time. Hour must be 0..23, minute 0..59 (or use: time add <amount>[m|h|d]).';
   }
   const current = worldMinutes();
   const currentMod = Math.floor(current) % 1440;
@@ -531,7 +625,7 @@ function handleTimeCommand(args = []) {
   return `Time set to ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} (Day ${day}).`;
 }
 registerCommand('set_time', 'Set in-game time of day: set_time <hour> [minute]', 'set_time <hour> [minute]', handleTimeCommand);
-registerCommand('time', 'Set in-game time of day: time <hour> [minute]', 'time <hour> [minute]', handleTimeCommand);
+registerCommand('time', 'Set or advance in-game time: time <hour> [minute] OR time add <amount>[m|h|d]', 'time <hour> [minute] | time add <amount>', handleTimeCommand);
 
 function handleDateCommand() {
   const m = worldMinutes();
@@ -547,16 +641,7 @@ function handleAdvanceTimeCommand(args = []) {
   const hours = parseFloat(args[0]);
   if (!Number.isFinite(hours) || hours <= 0) return 'Invalid hours. Must be a positive number.';
   const minutes = Math.round(hours * 60);
-  const scene = getDebugSceneContext();
-  const advance = scene?.advanceMinutes ?? scene?.advanceTime;
-  if (typeof advance === 'function') {
-    advance(minutes);
-  } else {
-    setSyntheticTimeIncrease(true);
-    advanceOwnMinutes(minutes);
-  }
-  const m = worldMinutes();
-  const d = dateFromClassicMinutes(m);
+  const { d } = advanceGameTimeMinutes(minutes);
   return `Advanced time by ${hours} hr(s) (${minutes} mins). New Date: ${dateTimeString(d)}`;
 }
 registerCommand('advance_time', 'Advance in-game time by hours: advance_time <hours>', 'advance_time <hours>', handleAdvanceTimeCommand);
@@ -569,16 +654,7 @@ function handleAdvanceDaysCommand(args = []) {
   const days = parseFloat(args[0]);
   if (!Number.isFinite(days) || days <= 0) return 'Invalid days. Must be a positive number.';
   const minutes = Math.round(days * 1440);
-  const scene = getDebugSceneContext();
-  const advance = scene?.advanceMinutes ?? scene?.advanceTime;
-  if (typeof advance === 'function') {
-    advance(minutes);
-  } else {
-    setSyntheticTimeIncrease(true);
-    advanceOwnMinutes(minutes);
-  }
-  const m = worldMinutes();
-  const d = dateFromClassicMinutes(m);
+  const { d } = advanceGameTimeMinutes(minutes);
   return `Advanced time by ${days} day(s) (${minutes} mins). New Date: ${dateTimeString(d)}`;
 }
 registerCommand('advance_days', 'Advance in-game time by days: advance_days <days>', 'advance_days <days>', handleAdvanceDaysCommand);
@@ -1658,14 +1734,18 @@ registerCommand(
       return `Executed 38-day vanilla regionPowerUpdate + conditions step across all 71 regions. Current Region ${defReg} (${st.regionName}): ${st.crisis} [${st.phase}] | Flags: ${flagSummary}`;
     }
     if (sub === 'status') {
+      if (playerEntity?.regionConditions) {
+        bindLivingRegionConditions(playerEntity.regionConditions, playerEntity.factionRep ?? null);
+      }
       const st = getRegionState(reg);
       const active = getActiveCrises(reg);
       const activeFlags = getActiveRegionFlags(reg, playerEntity?.regionConditions);
+      const tensionStr = `Tension: ${Math.round(st.tension ?? 0)}/100`;
 
       if (active.length === 0 && activeFlags.length === 0) {
-        return `Region ${reg} (${st.regionName}): At Peace.`;
+        return `Region ${reg} (${st.regionName}): At Peace. | ${tensionStr}`;
       }
-      const lines = [`<b>Region ${reg} (${st.regionName}) Active Crises & Vanilla Conditions:</b>`];
+      const lines = [`<b>Region ${reg} (${st.regionName}) Active Crises & Vanilla Conditions [${tensionStr}]:</b>`];
       for (const c of active) {
         lines.push(`- Macro Crisis: ${c.type} (Phase: ${c.phase}, Counter/Days: ${c.phaseDaysRemaining})`);
       }

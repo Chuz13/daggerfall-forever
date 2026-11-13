@@ -2648,6 +2648,97 @@ export function createLivingSceneHost(deps) {
           ],
         });
       }
+    } else if (s.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON) {
+      const squad = s.blueprint.meta?.squadron;
+      if (!squad) return;
+      deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
+      deps.openChoice({
+        lines: [
+          LIVING_WORDS.navalBattleNotice(),
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: `1. ${LIVING_WORDS.navalChoiceLaw()}`,
+            action: () => {
+              resolveSideChoice(squad, NAVAL_CHOICE.LAW, player, rng);
+              for (const f of s.foes) {
+                if (f?.livingRole === 'naval_law') {
+                  if (f.entity) {
+                    f.entity.team = 'PlayerAlly';
+                    f.entity.mobileTeam = 'PlayerAlly';
+                  }
+                  if (f.ai) f.ai.isHostile = false;
+                } else if (f?.livingRole === 'naval_pirate' && f.ai) {
+                  f.ai.isHostile = true;
+                  f.ai.detected = true;
+                }
+              }
+              if (s.navalSquadron?.pirateShips) {
+                const pId = deps.myId?.() ?? 'player';
+                for (const p of s.navalSquadron.pirateShips) {
+                  if (p?.ship) { p.ship.target = pId; p.ship.mode = 'engage'; }
+                }
+              }
+              if (player) {
+                player.regionalReputations = player.regionalReputations || {};
+                player.regionalReputations[regIdx] =
+                  Number(player.regionalReputations[regIdx] ?? 0) + 5;
+              }
+              onContractCompleted(regIdx);
+              deps.say(LIVING_WORDS.navalChoiceLaw(), 5);
+            },
+          },
+          {
+            code: 'Digit2',
+            label: `2. ${LIVING_WORDS.navalChoicePirates()}`,
+            action: () => {
+              const res = resolveSideChoice(squad, NAVAL_CHOICE.PIRATES, player, rng);
+              for (const f of s.foes) {
+                if (f?.livingRole === 'naval_pirate') {
+                  if (f.entity) {
+                    f.entity.team = 'PlayerAlly';
+                    f.entity.mobileTeam = 'PlayerAlly';
+                  }
+                  if (f.ai) f.ai.isHostile = false;
+                } else if (f?.livingRole === 'naval_law' && f.ai) {
+                  f.ai.isHostile = true;
+                  f.ai.detected = true;
+                }
+              }
+              if (s.navalSquadron?.lawShips) {
+                const pId = deps.myId?.() ?? 'player';
+                for (const l of s.navalSquadron.lawShips) {
+                  if (l?.ship) { l.ship.target = pId; l.ship.mode = 'engage'; }
+                }
+              }
+              if (player) {
+                player.regionalReputations = player.regionalReputations || {};
+                player.regionalReputations[regIdx] =
+                  Number(player.regionalReputations[regIdx] ?? 0) - (res.underworldRep || 5);
+              }
+              deps.say(LIVING_WORDS.navalChoicePirates(), 5);
+            },
+          },
+          {
+            code: 'Digit3',
+            label: `3. ${LIVING_WORDS.navalChoiceNeutral()}`,
+            action: () => {
+              const res = resolveSideChoice(squad, NAVAL_CHOICE.NEUTRAL, player, rng);
+              if (res.scavenge && player) {
+                const salvageGold = Math.round(
+                  (50 + Math.max(1, Number(player?.level ?? 1)) * 15) * (res.salvageBonusMult || 1)
+                );
+                player.goldPieces = Number(player.goldPieces ?? 0) + salvageGold;
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                deps.say(LIVING_WORDS.navalScavenged(salvageGold), 5);
+              } else {
+                deps.say(LIVING_WORDS.navalChoiceNeutral(), 4);
+              }
+            },
+          },
+        ],
+      });
     }
   }
 
@@ -3227,10 +3318,13 @@ export function createLivingSceneHost(deps) {
             );
           }
         }
+        const isNaval = stood.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON;
+        const interactDistance = isNaval ? 350 : SITE_INTERACT_DISTANCE_M;
         if (
           !stood.interacted &&
-          d <= SITE_INTERACT_DISTANCE_M &&
-          (stood.kind === LIVING_SITE_KINDS.CHECKPOINT ||
+          d <= interactDistance &&
+          (isNaval ||
+            stood.kind === LIVING_SITE_KINDS.CHECKPOINT ||
             stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH ||
             stood.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH ||
             stood.kind === LIVING_SITE_KINDS.ADVENTURER_MEETING ||
@@ -3262,97 +3356,10 @@ export function createLivingSceneHost(deps) {
               rng,
             });
             const squad = bp.meta?.squadron;
-            if (squad && shouldPromptSideChoice(35)) {
+            if (squad) {
               lastSpawnMinute = nowMin;
               const site = standSite(bp);
-              deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
-              if (deps.openChoice) {
-                deps.openChoice({
-                  lines: [
-                    LIVING_WORDS.navalBattleNotice(),
-                  ],
-                  options: [
-                    {
-                      code: 'Digit1',
-                      label: `1. ${LIVING_WORDS.navalChoiceLaw()}`,
-                      action: () => {
-                        resolveSideChoice(squad, NAVAL_CHOICE.LAW);
-                        for (const f of site.foes) {
-                          if (f?.livingRole === 'naval_law') {
-                            if (f.entity) {
-                              f.entity.team = 'PlayerAlly';
-                              f.entity.mobileTeam = 'PlayerAlly';
-                            }
-                            if (f.ai) f.ai.isHostile = false;
-                          } else if (f?.livingRole === 'naval_pirate' && f.ai) {
-                            f.ai.isHostile = true;
-                            f.ai.detected = true;
-                          }
-                        }
-                        if (site.navalSquadron?.pirateShips) {
-                          const pId = deps.myId?.() ?? 'player';
-                          for (const p of site.navalSquadron.pirateShips) {
-                            if (p?.ship) { p.ship.target = pId; p.ship.mode = 'engage'; }
-                          }
-                        }
-                        if (player) {
-                          player.regionalReputations = player.regionalReputations || {};
-                          player.regionalReputations[regIdx] =
-                            Number(player.regionalReputations[regIdx] ?? 0) + 5;
-                        }
-                        onContractCompleted(regIdx);
-                        deps.say(LIVING_WORDS.navalChoiceLaw(), 5);
-                      },
-                    },
-                    {
-                      code: 'Digit2',
-                      label: `2. ${LIVING_WORDS.navalChoicePirates()}`,
-                      action: () => {
-                        const res = resolveSideChoice(squad, NAVAL_CHOICE.PIRATES);
-                        for (const f of site.foes) {
-                          if (f?.livingRole === 'naval_pirate') {
-                            if (f.entity) {
-                              f.entity.team = 'PlayerAlly';
-                              f.entity.mobileTeam = 'PlayerAlly';
-                            }
-                            if (f.ai) f.ai.isHostile = false;
-                          } else if (f?.livingRole === 'naval_law' && f.ai) {
-                            f.ai.isHostile = true;
-                            f.ai.detected = true;
-                          }
-                        }
-                        if (site.navalSquadron?.lawShips) {
-                          const pId = deps.myId?.() ?? 'player';
-                          for (const l of site.navalSquadron.lawShips) {
-                            if (l?.ship) { l.ship.target = pId; l.ship.mode = 'engage'; }
-                          }
-                        }
-                        if (player) {
-                          player.regionalReputations = player.regionalReputations || {};
-                          player.regionalReputations[regIdx] =
-                            Number(player.regionalReputations[regIdx] ?? 0) - (res.underworldRep || 5);
-                        }
-                        deps.say(LIVING_WORDS.navalChoicePirates(), 5);
-                      },
-                    },
-                    {
-                      code: 'Digit3',
-                      label: `3. ${LIVING_WORDS.navalChoiceNeutral()}`,
-                      action: () => {
-                        const res = resolveSideChoice(squad, NAVAL_CHOICE.NEUTRAL);
-                        if (res.scavenge && player) {
-                          const salvageGold = 50 + Math.max(1, Number(player.level ?? 1)) * 15;
-                          player.goldPieces = Number(player.goldPieces ?? 0) + salvageGold;
-                          deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                          deps.say(LIVING_WORDS.navalScavenged(salvageGold), 5);
-                        } else {
-                          deps.say(LIVING_WORDS.navalChoiceNeutral(), 4);
-                        }
-                      },
-                    },
-                  ],
-                });
-              }
+              triggerSiteInteraction(site);
             }
           }
         }
@@ -3490,7 +3497,11 @@ export function createLivingSceneHost(deps) {
      * @param {any} blueprint
      */
     standBlueprint(blueprint) {
-      return standSite(blueprint);
+      const site = standSite(blueprint);
+      if (site && !site.interacted && site.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON) {
+        triggerSiteInteraction(site);
+      }
+      return site;
     },
 
     /** Returns a summary of the currently stood site for inspection/testing. */
