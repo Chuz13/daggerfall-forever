@@ -10,6 +10,7 @@ import { registerModSaveData } from '../modSaveData.js';
 import { LivingTamrielConfig, PRESENCE, resetLivingConfig, enableLivingBountyScaling } from './livingConfig.js';
 import { tickAllRegions } from './regionState.js';
 import { tickAdventurerSimulation } from './adventurerSim.js';
+import { getLocationEventCooldownsSnapshot, restoreLocationEventCooldownsSnapshot } from './locationCooldowns.js';
 
 export const LIVING_TAMRIEL_VENDOR = 'livingTamriel';
 export const LIVING_TAMRIEL_SAVE_VERSION = 1;
@@ -46,6 +47,7 @@ class LivingDirectorState {
     this.subsystems.nemesis = { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
     this.subsystems.checkpoints = { passesByRegion: {} };
     this.subsystems.crisisQuests = {};
+    restoreLocationEventCooldownsSnapshot(null);
   }
 }
 
@@ -146,6 +148,7 @@ export function getLivingSaveData() {
         passesByRegion: { ...(_state.subsystems.checkpoints?.passesByRegion || {}) },
       },
       crisisQuests: { ...(_state.subsystems.crisisQuests || {}) },
+      locationCooldowns: getLocationEventCooldownsSnapshot(),
     },
   };
 }
@@ -233,6 +236,9 @@ export function restoreLivingSaveData(data) {
       }
       if (data.subsystems.crisisQuests && typeof data.subsystems.crisisQuests === 'object') {
         _state.subsystems.crisisQuests = { ...data.subsystems.crisisQuests };
+      }
+      if (data.subsystems.locationCooldowns && typeof data.subsystems.locationCooldowns === 'object') {
+        restoreLocationEventCooldownsSnapshot(data.subsystems.locationCooldowns);
       }
     }
   } catch (err) {

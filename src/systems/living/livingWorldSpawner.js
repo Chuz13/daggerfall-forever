@@ -1299,10 +1299,14 @@ export function buildLivingSiteBlueprint({
  *   rng?: () => number,
  * }} deps
  */
-export const LOCATION_EVENT_COOLDOWN_MINUTES = 4320; // 3 in-game days (72 hours)
-export const SKIRMISH_LOCATION_COOLDOWN_MINUTES = LOCATION_EVENT_COOLDOWN_MINUTES; // backwards-compatible alias
-export const locationEventCooldowns = new Map();
-export const locationSkirmishCooldowns = locationEventCooldowns; // backwards-compatible alias
+export {
+  LOCATION_EVENT_COOLDOWN_MINUTES,
+  SKIRMISH_LOCATION_COOLDOWN_MINUTES,
+  locationEventCooldowns,
+  locationSkirmishCooldowns,
+  getLocationEventCooldownsSnapshot,
+  restoreLocationEventCooldownsSnapshot,
+} from './locationCooldowns.js';
 
 export function createLivingSceneHost(deps) {
   const rng = deps.rng ?? Math.random;
@@ -2980,8 +2984,6 @@ export function createLivingSceneHost(deps) {
         const safe = findSafeSiteCenter(deps, feet, 28, angle, 4.0);
         if (safe.suitable) {
           lastSkirmishRegion = regIdx;
-          locationEventCooldowns.set(locKey, nowMin);
-          lastSpawnMinute = nowMin;
           const bp = buildLivingSiteBlueprint({
             kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
             centerX: safe.x,
@@ -2995,6 +2997,8 @@ export function createLivingSceneHost(deps) {
             rng,
           });
           if (bp.actors.length > 0) {
+            locationEventCooldowns.set(locKey, nowMin);
+            lastSpawnMinute = nowMin;
             standSite(bp);
             const alertText = bp.meta?.event
               ? LIVING_WORDS.skirmishAlert(

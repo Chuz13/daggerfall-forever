@@ -144,15 +144,15 @@ test('LT-09: Quest competition toggle shields main story while allowing radiant 
     { mapId: 'side_cave_88', isMainQuest: false }, // Radiant guild quest
   ];
 
-  // When competition is OFF:
+  // When competition is OFF (default & permanently muted in config):
   LivingTamrielConfig.allowQuestCompetition = false;
+  assert.equal(LivingTamrielConfig.allowQuestCompetition, false);
   assert.equal(isQuestImmuneLocation(101, activeQuestSites), true);
   assert.equal(isQuestImmuneLocation('side_cave_88', activeQuestSites), true);
 
-  // When competition is ON:
-  LivingTamrielConfig.allowQuestCompetition = true;
-  assert.equal(isQuestImmuneLocation(101, activeQuestSites), true); // Still immune!
-  assert.equal(isQuestImmuneLocation('side_cave_88', activeQuestSites), false); // Open to competition!
+  // If competition were explicitly enabled in logic parameter:
+  assert.equal(isQuestImmuneLocation(101, activeQuestSites, true), true); // Still immune!
+  assert.equal(isQuestImmuneLocation('side_cave_88', activeQuestSites, true), false); // Open to competition!
 
   // Simulate adventurer clearing the side quest dungeon
   const reg = getAdventurerSimRegistry();
@@ -164,7 +164,7 @@ test('LT-09: Quest competition toggle shields main story while allowing radiant 
   adv.daysRemainingInAction = 1;
   reg.pool = [adv];
 
-  tickAdventurerSimulation({ activeQuestSites, rng: () => 0.01 });
+  tickAdventurerSimulation({ activeQuestSites, rng: () => 0.01, allowQuestCompetition: true });
 
   // Adventurer intercepted the quest!
   const interception = reg.interceptedQuests['side_cave_88'];

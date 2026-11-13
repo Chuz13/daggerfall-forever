@@ -67,10 +67,10 @@ test('LT-07: Living Tamriel feature rows have valid controls, 4-tier presence, a
     assert.equal(c.tiers[3][0], PRESENCE.HIGH);
   }
 
-  // Verify adventurers row has quest competition part toggle
+  // Verify adventurers row has quest competition part toggle hidden and removed
   const advRow = FEATURES.find((f) => f.id === 'living-adventurers');
   assert.ok(advRow, 'living-adventurers row must exist');
-  assert.ok(advRow.control.parts?.some((p) => p.key === 'livingQuestCompetition'));
+  assert.ok(!advRow.control.parts?.some((p) => p.key === 'livingQuestCompetition'), 'Quest competition toggle must be hidden from settings');
 });
 
 test('LT-07: LivingTamrielConfig is synchronized with uiPrefs and settings mutations', () => {
@@ -101,11 +101,11 @@ test('LT-07: LivingTamrielConfig is synchronized with uiPrefs and settings mutat
   setPref('livingDungeonMobTraits', PRESENCE.OFF);
   assert.equal(LivingTamrielConfig.dungeonMobTraits, PRESENCE.OFF);
 
-  // Test Quest competition toggle synchronization
+  // Test Quest competition is permanently muted to false
   assert.equal(LivingTamrielConfig.allowQuestCompetition, false);
   LivingTamrielConfig.allowQuestCompetition = true;
-  assert.equal(LivingTamrielConfig.allowQuestCompetition, true);
-  assert.equal(getPref('livingQuestCompetition'), true);
+  assert.equal(LivingTamrielConfig.allowQuestCompetition, false, 'allowQuestCompetition must remain false');
+  assert.equal(getPref('livingQuestCompetition'), false, 'livingQuestCompetition pref must remain false');
 
   resetLivingConfig();
   assert.equal(LivingTamrielConfig.political, PRESENCE.MID);

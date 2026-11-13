@@ -404,7 +404,12 @@ export function setAdventurerLevel(identifier, newLevel) {
  * @param {() => number} [params.rng]
  * @param {any} [params.playerEntity]
  */
-export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.random, playerEntity = null } = {}) {
+export function tickAdventurerSimulation({
+  activeQuestSites = [],
+  rng = Math.random,
+  playerEntity = null,
+  allowQuestCompetition = undefined,
+} = {}) {
   const events = [];
   const tier = Number(LivingTamrielConfig.adventurers);
   if (tier === PRESENCE.OFF) return { events };
@@ -416,7 +421,9 @@ export function tickAdventurerSimulation({ activeQuestSites = [], rng = Math.ran
     reg.pool = reg.pool.filter((a) => a.status !== ADVENTURER_STATUS.DEAD);
   }
   const pool = ensureAdventurerPool(rng);
-  const allowComp = Boolean(LivingTamrielConfig.allowQuestCompetition);
+  const allowComp = allowQuestCompetition !== undefined
+    ? Boolean(allowQuestCompetition)
+    : Boolean(LivingTamrielConfig.allowQuestCompetition);
 
   // 1. Tick dungeon cooldowns down
   if (reg.dungeonCooldowns) {
