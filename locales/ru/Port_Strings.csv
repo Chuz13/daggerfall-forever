@@ -4105,7 +4105,7 @@ living.checkpoint.halt,"Стой! Назови цель поездки пере�
 living.checkpoint.knightPass,"Приветствуем благородного рыцаря! Дорога открыта, проезжайте."
 living.checkpoint.optDiplomacy,"Убедить стражника (Бросок Этикета + Личности + Удачи)"
 living.checkpoint.optForce,"Отказаться от досмотра и обнажить оружие (+Бой со стражей)"
-living.checkpoint.optKnight,"Предъявить рыцарские грамоты или репутацию в регионе (Бросок Этикета + Личности)"
+living.checkpoint.optKnight,"Предъявить рыцарские грамоты или репутацию в регионе (Бросок Этикета + Личности без ранга)"
 living.checkpoint.optToll,"Оплатить военную пошлину {gold} золотых (+Безопасный проезд)"
 living.checkpoint.passed,"Документы в порядке. Проезжайте, путник."
 living.checkpoint.refused,"Стой! Без разрешения прохода нет!"

@@ -58,3 +58,72 @@ test('LIVING_WORDS: roll degree and event option strings contain no phantom XP, 
   assert.doesNotMatch(rebelsJoined, /преступном/i, `Rebel joined contains phantom Underworld: "${rebelsJoined}"`);
 });
 
+test('LIVING_WORDS: all 26 catalog locales have localized non-English strings for choice & contract keys', () => {
+  const catalog = [
+    'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'fi', 'fr', 'hu', 'id', 'it', 'ja',
+    'ko', 'nb', 'nl', 'pl', 'pt-BR', 'ro', 'ru', 'sv', 'tr', 'uk', 'vi', 'zh-Hans', 'zh-Hant',
+  ];
+
+  const auditedKeys = [
+    'living.checkpoint.optKnight',
+    'living.contract.completed',
+    'living.naval.choiceLaw',
+    'living.naval.choicePirates',
+    'living.plea.optHelp',
+  ];
+
+  const enCsv = rd('locales/en/Port_Strings.csv');
+  const enLines = Object.fromEntries(
+    enCsv.split('\n').filter(Boolean).map((line) => {
+      const idx = line.indexOf(',');
+      return [line.slice(0, idx), line.slice(idx + 1).trim()];
+    }),
+  );
+
+  for (const loc of catalog) {
+    const csv = rd(`locales/${loc}/Port_Strings.csv`);
+    const locLines = Object.fromEntries(
+      csv.split('\n').filter(Boolean).map((line) => {
+        const idx = line.indexOf(',');
+        return [line.slice(0, idx), line.slice(idx + 1).trim()];
+      }),
+    );
+
+    for (const key of auditedKeys) {
+      assert.ok(locLines[key], `Missing ${key} in ${loc}`);
+      if (loc !== 'en') {
+        assert.notEqual(
+          locLines[key],
+          enLines[key],
+          `Locale ${loc} must have translated string for ${key}, but fell back to English: ${locLines[key]}`,
+        );
+      }
+    }
+  }
+});
+
+test('LIVING_WORDS: notify and roll keys across all 26 locales contain no XP or phantom bounty mentions', () => {
+  const catalog = [
+    'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'fi', 'fr', 'hu', 'id', 'it', 'ja',
+    'ko', 'nb', 'nl', 'pl', 'pt-BR', 'ro', 'ru', 'sv', 'tr', 'uk', 'vi', 'zh-Hans', 'zh-Hant',
+  ];
+
+  for (const loc of catalog) {
+    const csv = rd(`locales/${loc}/Port_Strings.csv`);
+    assert.doesNotMatch(csv, /^living\.notify\.xpGained,/m, `${loc} must not contain living.notify.xpGained`);
+    assert.doesNotMatch(csv, /^living\.notify\.bountyIssued,/m, `${loc} must not contain living.notify.bountyIssued`);
+
+    const lines = csv.split('\n');
+    for (const line of lines) {
+      if (
+        line.startsWith('living.roll.triumph,') ||
+        line.startsWith('living.roll.success,') ||
+        line.startsWith('living.roll.partial,') ||
+        line.startsWith('living.notify.')
+      ) {
+        assert.doesNotMatch(line, /\bXP\b/i, `Found phantom XP in ${loc}: "${line}"`);
+      }
+    }
+  }
+});
+
