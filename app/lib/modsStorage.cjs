@@ -24,21 +24,34 @@ function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
 
   function findBundledExamplesDir() {
     const candidates = [
-      path.resolve(__dirname, '..', '..', 'mods', 'examples'),
-      path.resolve(__dirname, '..', 'mods', 'examples'),
-      path.resolve(__dirname, '..', 'dist', 'mods', 'examples'),
       ...(process.resourcesPath
         ? [
-            path.join(process.resourcesPath, 'mods', 'examples'),
             path.join(process.resourcesPath, 'app.asar.unpacked', 'mods', 'examples'),
+            path.join(process.resourcesPath, 'mods', 'examples'),
             path.join(process.resourcesPath, 'app', 'mods', 'examples'),
           ]
         : []),
+      path.resolve(__dirname, '..', '..', 'mods', 'examples'),
+      path.resolve(__dirname, '..', 'mods', 'examples'),
+      path.resolve(__dirname, '..', 'dist', 'mods', 'examples'),
     ];
     for (const cand of candidates) {
       if (fs.existsSync(cand)) return cand;
     }
     return null;
+  }
+
+  function copyDirSync(src, dest) {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const ent of fs.readdirSync(src, { withFileTypes: true })) {
+      const s = path.join(src, ent.name);
+      const d = path.join(dest, ent.name);
+      if (ent.isDirectory()) {
+        copyDirSync(s, d);
+      } else if (ent.isFile()) {
+        fs.writeFileSync(d, fs.readFileSync(s));
+      }
+    }
   }
 
   function seedBundledExamples() {
@@ -52,11 +65,15 @@ function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
         if (!ent.isDirectory()) continue;
         const targetPath = path.join(modsDir, ent.name);
         if (!fs.existsSync(targetPath)) {
-          fs.cpSync(path.join(examplesDir, ent.name), targetPath, { recursive: true });
+          try {
+            copyDirSync(path.join(examplesDir, ent.name), targetPath);
+          } catch (err) {
+            console.warn(`[ModsStorage] Failed to seed mod ${ent.name}:`, err?.message ?? err);
+          }
         }
       }
-    } catch (_e) {
-      // safe fallback on read-only environments
+    } catch (e) {
+      console.warn('[ModsStorage] Failed to seed bundled examples:', e?.message ?? e);
     }
   }
 
