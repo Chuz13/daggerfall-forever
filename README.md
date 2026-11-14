@@ -120,6 +120,7 @@ Pull requests are welcome, but tbh I somehow don't have much experience with Git
 * Living Tamriel - my own analog of Power Struggle and DoomFeud mods. Currently in Pre-Alpha but overall working
 * Necromancy and Lichdom
 * Additional spell icons
+* Very basic mod support - not DFU mods, but a custom solution
 
 ## FAQ
 
