@@ -1,6 +1,6 @@
 # Global Non-LT Changes
 
-Beyond Living Tamriel and Necromancy, **Daggerfall Forever** introduces broad single-player, quality-of-life, and mechanical changes across the entire game compared to Daggerfall Online (DFO) and vanilla Daggerfall Unity (DFU).
+Beyond Living Tamriel and Necromancy, **Daggerfall Forever** introduces broad single-player, quality-of-life, and mechanical changes across the entire game compared to upstream DFO and vanilla Daggerfall Unity (DFU).
 
 ---
 

@@ -5,7 +5,7 @@ aside: false
 
 # Daggerfall Forever (DFF)
 
-**Daggerfall Forever** is an open-source, single-player, offline-first fork of **Daggerfall Online (DFO)** (itself built on the Daggerfall Unity foundation). Its goal is to deliver a self-contained, modular, and deeply customizable single-player Daggerfall experience - with zero monetization, no persistent MMO servers, and full player control over every system.
+**Daggerfall Forever** is an open-source, single-player, offline-first fork of **upstream DFO** (itself built on the Daggerfall Unity foundation). Its goal is to deliver a self-contained, modular, and deeply customizable single-player Daggerfall experience - with zero monetization, no persistent MMO servers, and full player control over every system.
 
 > *Your game, your rules. Open source, customizable, without monetization, and expanded with new gameplay systems.*
 
