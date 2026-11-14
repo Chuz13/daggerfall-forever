@@ -578,6 +578,9 @@ function autoUpdater() {
   if (app.isPackaged && process.platform === 'win32') {
     try { au.installDirectory = path.dirname(process.execPath); } catch {}
   }
+  if (process.platform === 'win32') {
+    au.verifyUpdateCodeSignature = async () => null;
+  }
   au.logger = null;
   au.on('error', () => onUpdaterEvent('error'));
   au.on('update-not-available', () => onUpdaterEvent('none'));

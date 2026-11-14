@@ -2,7 +2,7 @@
   "name": "daggerfall-js-app",
   "productName": "Daggerfall Forever",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Daggerfall Forever - the downloadable desktop shell. Loads the same dist/ the website deploys; adds ARENA2-from-disk and file-backed saves.",
   "author": "Alex 13 Uslavtsev",
   "homepage": "https://daggerfalljs.dev/",
@@ -60,9 +60,9 @@
       "category": "Game"
     },
     "win": {
-      "publisherName": "13",
       "legalTrademarks": "13",
       "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
       "target": [
         "nsis",
         "portable"
