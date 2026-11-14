@@ -106,7 +106,7 @@ import { ridingDragon, mountDragon, landDragon, setDragonRideLook } from './staf
 import { PROFESSIONS, rankOfXp, xpForRank } from '../net/professionLaw.js';
 import { giveCarried, hasBag } from './materialsBag.js';
 import { BAG_TEMPLATE } from '../net/bagLaw.js';
-import { depositGold, withdrawGold, forgiveLoans, isUnifiedBankActive } from './banking.js';
+import { depositGold, withdrawGold, forgiveLoans, isUnifiedBankActive, SHIP_TYPES } from './banking.js';
 import { getPref, setPref } from './uiPrefs.js';
 import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.js';
 import { REGION_NAMES } from '../formats/mapsTables.js';
@@ -2792,6 +2792,8 @@ const APO_SET_DEFAULTS = {
   hp: 500,
   renown: 25,
   stars: 50,
+  home: 1,
+  ship: 1,
 };
 
 function currentDiscoveredCountForDebug() {
@@ -2816,7 +2818,7 @@ function currentDiscoveredCountForDebug() {
 function applyApotheosisDebugSet(entity, metricRaw, valRaw) {
   const metric = String(metricRaw ?? '').toLowerCase();
   if (!(metric in APO_SET_DEFAULTS)) {
-    return { ok: false, error: 'Usage: apo set <kills|quests|nemesis|books|discover|maxhp|renown|stars> [value]' };
+    return { ok: false, error: 'Usage: apo set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship> [value]' };
   }
   const parsed = valRaw != null ? parseInt(valRaw, 10) : NaN;
   const val = Number.isFinite(parsed) ? Math.max(0, parsed) : APO_SET_DEFAULTS[metric];
@@ -2866,6 +2868,15 @@ function applyApotheosisDebugSet(entity, metricRaw, valRaw) {
       });
     }
     computeEntityMods(entity);
+  } else if (metric === 'home') {
+    if (val <= 0) {
+      resetOfflineHomes();
+      entity.houses = [];
+    } else if (allOfflineHomes().length === 0) {
+      inheritOfflineHome({ mapId: 910101, buildingKey: 1, region: 17 });
+    }
+  } else if (metric === 'ship') {
+    entity.ownedShip = val > 0 ? SHIP_TYPES.Small : SHIP_TYPES.None;
   }
   const fate = evaluateFateWeight(entity);
   return { ok: true, metric, val, fate };
@@ -3000,19 +3011,19 @@ async function handleApotheosisCommand(args = []) {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]';
 }
 
 registerCommand(
   'apotheosis',
   'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
+  'apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 registerCommand(
   'apo',
   'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apo [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
+  'apo [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 

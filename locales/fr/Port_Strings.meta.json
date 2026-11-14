@@ -5105,9 +5105,9 @@
   "by": "human"
  },
  "apotheosis.tr.tr02.desc": {
-  "en": "7984030a6ee8",
-  "tr": "6e244aabe8eb",
-  "by": "claude-in-session"
+  "en": "ce343189d87a",
+  "tr": "dd65240d5583",
+  "by": "human"
  },
  "apotheosis.tr.tr02.name": {
   "en": "e37a4f103bfa",
@@ -5135,8 +5135,8 @@
   "by": "human"
  },
  "apotheosis.tr.tr04.desc": {
-  "en": "fc14fcca0e93",
-  "tr": "264e12081135",
+  "en": "af52e4ebe7fc",
+  "tr": "c2fd0482a6d7",
   "by": "human"
  },
  "apotheosis.tr.tr04.name": {
@@ -5150,8 +5150,8 @@
   "by": "human"
  },
  "apotheosis.tr.tr05.desc": {
-  "en": "7bc02f66b48c",
-  "tr": "bab644a056b7",
+  "en": "8b466da0bc9e",
+  "tr": "5e061786c5df",
   "by": "human"
  },
  "apotheosis.tr.tr05.name": {
@@ -5160,18 +5160,13 @@
   "by": "claude-in-session"
  },
  "apotheosis.tr.tr05.prog": {
-  "en": "e4e7db926e19",
-  "tr": "5004902cf6b5",
+  "en": "e0a49017708a",
+  "tr": "468b8a09bc33",
   "by": "human"
  },
  "apotheosis.tr.tr06.desc": {
   "en": "5970e41c3bc5",
   "tr": "8a13c985537a",
-  "by": "human"
- },
- "apotheosis.tr.tr06.mantella": {
-  "en": "9d7acc79921f",
-  "tr": "77da34fc1f48",
   "by": "human"
  },
  "apotheosis.tr.tr06.name": {
@@ -5185,8 +5180,8 @@
   "by": "human"
  },
  "apotheosis.tr.tr07.desc": {
-  "en": "c9fe74d10e32",
-  "tr": "f982b11ae60d",
+  "en": "0f100258b985",
+  "tr": "c381b1d1c9b7",
   "by": "human"
  },
  "apotheosis.tr.tr07.name": {
@@ -5205,9 +5200,9 @@
   "by": "claude-in-session"
  },
  "apotheosis.tr.tr08.desc": {
-  "en": "c81fce4edb5f",
-  "tr": "c052af473c90",
-  "by": "claude-in-session"
+  "en": "b8b352a23aa7",
+  "tr": "673cd613e589",
+  "by": "human"
  },
  "apotheosis.tr.tr08.mortal": {
   "en": "9110542d9ea5",
@@ -5220,8 +5215,8 @@
   "by": "claude-in-session"
  },
  "apotheosis.tr.tr09.desc": {
-  "en": "b9f332af132c",
-  "tr": "f94999e0eec7",
+  "en": "3b5c87bdbfdb",
+  "tr": "a37c07abb4a3",
   "by": "human"
  },
  "apotheosis.tr.tr09.name": {
@@ -5235,8 +5230,8 @@
   "by": "human"
  },
  "apotheosis.tr.tr10.desc": {
-  "en": "b5068cda4b16",
-  "tr": "2bb13e3eb9e6",
+  "en": "4b143aff9303",
+  "tr": "a3074b905013",
   "by": "human"
  },
  "apotheosis.tr.tr10.name": {
@@ -5265,24 +5260,24 @@
   "by": "claude-in-session"
  },
  "apotheosis.tr.tr12.desc": {
-  "en": "bf06960bf941",
-  "tr": "4455e489e12c",
+  "en": "fbe4bbe17dd5",
+  "tr": "a1821088970e",
   "by": "human"
  },
  "apotheosis.tr.tr12.name": {
-  "en": "7e68202847bf",
-  "tr": "dd9ea63964f4",
-  "by": "claude-in-session"
+  "en": "b921b16cb38f",
+  "tr": "ce2876f835cf",
+  "by": "human"
  },
  "apotheosis.tr.tr12.prog": {
-  "en": "b5b9f583b978",
-  "tr": "82dd3515f364",
+  "en": "4d6655c679b9",
+  "tr": "4c2f739ae913",
   "by": "human"
  },
  "apotheosis.tr.tr13.desc": {
-  "en": "4bdec8b861d6",
-  "tr": "4b92e66d5281",
-  "by": "claude-in-session"
+  "en": "8bb61708897a",
+  "tr": "2ef9c467658b",
+  "by": "human"
  },
  "apotheosis.tr.tr13.name": {
   "en": "bda999e62da6",
@@ -5300,9 +5295,9 @@
   "by": "claude-in-session"
  },
  "apotheosis.tr.tr14.desc": {
-  "en": "9433f9db2ede",
-  "tr": "04f0b49b8f3e",
-  "by": "claude-in-session"
+  "en": "24827236979a",
+  "tr": "6209b645c571",
+  "by": "human"
  },
  "apotheosis.tr.tr14.name": {
   "en": "bb517611658c",
@@ -5315,8 +5310,8 @@
   "by": "claude-in-session"
  },
  "apotheosis.tr.tr15.desc": {
-  "en": "8fd28dec189a",
-  "tr": "5294e7661877",
+  "en": "7eea02caa6e2",
+  "tr": "455c44859f72",
   "by": "human"
  },
  "apotheosis.tr.tr15.name": {
@@ -5345,29 +5340,19 @@
   "by": "human"
  },
  "apotheosis.tr.tr17.desc": {
-  "en": "bc447e3c3e8b",
-  "tr": "65b7b9f289ae",
-  "by": "claude-in-session"
+  "en": "b78614bdad83",
+  "tr": "1c2ed00c94f7",
+  "by": "human"
  },
  "apotheosis.tr.tr17.name": {
   "en": "3df5cf57a027",
   "tr": "af2f4e750f70",
-  "by": "claude-in-session"
- },
- "apotheosis.tr.tr17.none": {
-  "en": "789dd599465a",
-  "tr": "96f97b98cf89",
-  "by": "claude-in-session"
- },
- "apotheosis.tr.tr17.owned": {
-  "en": "99aa08c27bdf",
-  "tr": "f1cd793f79a5",
-  "by": "claude-in-session"
+  "by": "human"
  },
  "apotheosis.tr.tr18.desc": {
-  "en": "6c0837a3c151",
-  "tr": "3f61bc5a45de",
-  "by": "claude-in-session"
+  "en": "56c1a9a48155",
+  "tr": "741eff562929",
+  "by": "human"
  },
  "apotheosis.tr.tr18.name": {
   "en": "96185b238838",
@@ -49862,6 +49847,56 @@
  "apotheosis.tr.tr19.prog": {
   "en": "c7840a53aa72",
   "tr": "5cf923840e1e",
+  "by": "human"
+ },
+ "apotheosis.tr.tr17.prog": {
+  "en": "12aebd3047bf",
+  "tr": "6f2f90610182",
+  "by": "human"
+ },
+ "apotheosis.tr.tr20.name": {
+  "en": "de73ad637356",
+  "tr": "f5e174cc5ccd",
+  "by": "human"
+ },
+ "apotheosis.tr.tr20.desc": {
+  "en": "e93b6c597309",
+  "tr": "55296a3e33cc",
+  "by": "human"
+ },
+ "apotheosis.tr.tr20.prog": {
+  "en": "eeef560e8a33",
+  "tr": "7c8facb95a0f",
+  "by": "human"
+ },
+ "apotheosis.tr.tr21.name": {
+  "en": "c03daa9760ae",
+  "tr": "5131932005bc",
+  "by": "human"
+ },
+ "apotheosis.tr.tr21.desc": {
+  "en": "bac8bad373d9",
+  "tr": "8e94a28c6b41",
+  "by": "human"
+ },
+ "apotheosis.tr.tr21.prog": {
+  "en": "1b93f4a3de0b",
+  "tr": "dfe56f2816af",
+  "by": "human"
+ },
+ "apotheosis.tr.tr22.name": {
+  "en": "679c7b1c917c",
+  "tr": "ace5ebd1093e",
+  "by": "human"
+ },
+ "apotheosis.tr.tr22.desc": {
+  "en": "3de1044a1f09",
+  "tr": "99b8e1c8b35e",
+  "by": "human"
+ },
+ "apotheosis.tr.tr22.prog": {
+  "en": "4b30b08d16d6",
+  "tr": "bc89f8c44b5b",
   "by": "human"
  }
 }

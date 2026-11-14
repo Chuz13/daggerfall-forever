@@ -172,7 +172,7 @@ test('Mantella fork gating, mutual exclusion, two-step DecisionBoxWindow, and st
   assert.equal(isMantellanCruxLocation(cruxLoc), true);
   assert.equal(isDirenniTowerLocation(cruxLoc), false);
 
-  // Fate Weight < 12 -> rejected
+  // Fate Weight < 8 -> rejected
   assert.equal(evaluateMantellaFork(hero).eligible, false);
   assert.equal(evaluateMantellaFork(hero).reason, 'fate_weight');
   let blockedMsg = '';
@@ -185,7 +185,7 @@ test('Mantella fork gating, mutual exclusion, two-step DecisionBoxWindow, and st
   assert.equal(rejected, false);
   assert.ok(blockedMsg.includes('Fate Weight'));
 
-  // With Fate Weight >= 12 -> opens two-step Yes -> OK modal -> usurps Mantella & starts Dragon Break storm
+  // With Fate Weight >= 8 -> opens two-step Yes -> OK modal -> usurps Mantella & starts Dragon Break storm
   setDebugFateWeight(hero, REQUIRED_FATE_WEIGHT);
   assert.equal(evaluateMantellaFork(hero).eligible, true);
   assert.equal(isApotheosisStormActive(hero), false);

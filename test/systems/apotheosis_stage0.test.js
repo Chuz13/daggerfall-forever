@@ -40,6 +40,7 @@ import { createVampirismCurse } from '../../src/systems/vampirism.js';
 import { createLycanthropyCurse } from '../../src/systems/lycanthropy.js';
 import { setFirmamentTree, _resetFirmamentLiveForTests } from '../../src/systems/firmamentLive.js';
 import { saveOfflineRecord as saveFirmRecord, _resetOfflineFirmamentForTests } from '../../src/systems/offlineFirmament.js';
+import { renownXpFor } from '../../src/net/renown.js';
 import { saveOfflineRecord as saveProfRecord, _resetOfflineProfessionsForTests } from '../../src/systems/offlineProfessions.js';
 import { discoverLocation, snapshotDiscovery, restoreDiscovery } from '../../src/systems/discovery.js';
 import { SHIP_TYPES } from '../../src/systems/banking.js';
@@ -147,9 +148,10 @@ test('Trigger #8 (Transcending Mortal Flesh): strictly unlocks ONLY for Lichdom,
   assert.equal(evaluateFateWeight(werewolf).triggers.find((t) => t.id === 'tr08_mortal_flesh').natural, true);
 });
 
-test('All remaining 18 Fate Weight triggers + boundary conditions + progression hooks work live', () => {
-  assert.equal(TOTAL_FATE_TRIGGERS, 19);
-  const e = makeFreshEntity('all_19');
+test('All remaining 21 Fate Weight triggers + boundary conditions + progression hooks work live', () => {
+  assert.equal(TOTAL_FATE_TRIGGERS, 22);
+  assert.equal(REQUIRED_FATE_WEIGHT, 8);
+  const e = makeFreshEntity('all_22');
   const findTr = (id) => evaluateFateWeight(e).triggers.find((tr) => tr.id === id);
 
   assert.equal(evaluateFateWeight(e).naturalCount, 0);
@@ -188,13 +190,23 @@ test('All remaining 18 Fate Weight triggers + boundary conditions + progression 
   e.skills[SKILLS.Mysticism] = 100;
   assert.equal(findTr('tr04_mystic_weave').natural, true);
 
-  // tr05: 50 Firmament stars or Renown >= 25
+  // tr20: Renown >= 25 (does NOT unlock tr05_firmament_child)
+  saveFirmRecord(e.characterId, { xp: renownXpFor(24), renown: 24, tree: '', said: 0 });
+  assert.equal(findTr('tr20_renowned_legend').natural, false);
+  saveFirmRecord(e.characterId, { xp: renownXpFor(25), renown: 25, tree: '', said: 0 });
+  assert.equal(findTr('tr20_renowned_legend').natural, true);
+  assert.equal(findTr('tr05_firmament_child').natural, false);
+
+  // tr05: 50 Firmament stars only
   setFirmamentTree({ start: 's0', keys: Array.from({ length: 49 }, (_, i) => `k${i}`) });
   assert.equal(findTr('tr05_firmament_child').natural, false);
   setFirmamentTree({ start: 's0', keys: Array.from({ length: 50 }, (_, i) => `k${i}`) });
   assert.equal(findTr('tr05_firmament_child').natural, true);
 
-  // tr06: 50 quests (failed quests ignored; Mantella also unlocks)
+  // tr06: 50 quests only (failed quests ignored; Mantella does not shortcut Fate Weight)
+  e.apotheosis = { mantellaCompleted: true };
+  assert.equal(findTr('tr06_hero_iliac').natural, false);
+  delete e.apotheosis;
   for (let i = 0; i < 49; i++) recordQuestCompleted(e, { questSuccess: true });
   recordQuestCompleted(e, { questSuccess: false });
   assert.equal(e.questsCompleted, 49);
@@ -232,13 +244,14 @@ test('All remaining 18 Fate Weight triggers + boundary conditions + progression 
   e.items.push(mintCanonicalArtifact(15)); // Lord's Mail
   assert.equal(findTr('tr11_relic_bearer').natural, true);
 
-  // tr12: Stealth >= 100 OR maxHealth >= 500
+  // tr12: Stealth >= 100 ONLY; tr21: maxHealth >= 500 ONLY
   e.skills[SKILLS.Stealth] = 99;
   e.maxHealth = 499;
   assert.equal(findTr('tr12_unbroken').natural, false);
+  assert.equal(findTr('tr21_titan_vitality').natural, false);
   e.maxHealth = 500;
-  assert.equal(findTr('tr12_unbroken').natural, true);
-  e.maxHealth = 50;
+  assert.equal(findTr('tr21_titan_vitality').natural, true);
+  assert.equal(findTr('tr12_unbroken').natural, false, 'Max HP no longer satisfies Walker in Shadows');
   e.skills[SKILLS.Stealth] = 100;
   assert.equal(findTr('tr12_unbroken').natural, true);
 
@@ -267,11 +280,12 @@ test('All remaining 18 Fate Weight triggers + boundary conditions + progression 
   e.goldPieces = 400000;
   assert.equal(findTr('tr16_magnate').natural, true);
 
-  // tr17: Freehold house, offline home, or vessel
+  // tr17: Freehold house / offline home ONLY; tr22: Sea vessel ONLY
   assert.equal(findTr('tr17_landed_sovereign').natural, false);
+  assert.equal(findTr('tr22_sea_captain').natural, false);
   e.ownedShip = SHIP_TYPES.Small;
-  assert.equal(findTr('tr17_landed_sovereign').natural, true);
-  e.ownedShip = SHIP_TYPES.None;
+  assert.equal(findTr('tr22_sea_captain').natural, true);
+  assert.equal(findTr('tr17_landed_sovereign').natural, false, 'Vessel no longer satisfies Landed Sovereign');
   inheritOfflineHome({ mapId: 123, buildingKey: 1, region: 17 });
   assert.equal(findTr('tr17_landed_sovereign').natural, true);
 
@@ -281,14 +295,14 @@ test('All remaining 18 Fate Weight triggers + boundary conditions + progression 
   e.savedFactionRep[40].rep = 50;
   assert.equal(findTr('tr18_living_legend').natural, true);
 
-  // Plus tr08 via Lichdom -> all 19/19 natural triggers fulfilled!
+  // Plus tr08 via Lichdom -> all 22/22 natural triggers fulfilled!
   applyLichdom(e, { nowMinutes: 50 });
   const fullEval = evaluateFateWeight(e);
-  assert.equal(fullEval.naturalCount, 19);
+  assert.equal(fullEval.naturalCount, 22);
   assert.equal(fullEval.count, TOTAL_FATE_TRIGGERS);
   assert.equal(fullEval.ready, true);
   assert.equal(fullEval.categories.length, 3);
-  assert.equal(fullEval.categories[0].triggers.length, 7);
+  assert.deepEqual(fullEval.categories.map((c) => c.triggers.length), [8, 7, 7]);
 });
 
 test('Retro-estimation on legacy saves: books in pack/wagon, Firmament XP -> kills & renown, Nemesis memory -> rivals', () => {
@@ -309,7 +323,8 @@ test('Retro-estimation on legacy saves: books in pack/wagon, Firmament XP -> kil
   const fw = evaluateFateWeight(legacy);
   const byId = new Map(fw.triggers.map((t) => [t.id, t]));
   assert.equal(byId.get('tr02_tower_scholar').natural, true, '25 books in pack + wagon fulfill Tower Scholar');
-  assert.equal(byId.get('tr05_firmament_child').natural, true, 'Renown 25 fulfills Child of the Firmament');
+  assert.equal(byId.get('tr05_firmament_child').natural, false, 'Renown alone does not fulfill Child of the Firmament');
+  assert.equal(byId.get('tr20_renowned_legend').natural, true, 'Renown 25 fulfills Herald of Renown');
   assert.equal(byId.get('tr07_harbinger_ash').natural, true, 'Firmament XP 175000 estimates >= 5000 kills');
   assert.equal(byId.get('tr09_scourge_rivals').natural, true, '10 resolved nemesis encounters fulfill Scourge of Rivals');
 });
@@ -354,11 +369,11 @@ test('Full Stage 0 loop: Fate + 13 unequipped artifacts -> questline placeholder
   e.items.push(protectedSword);
   equipTableOf(e)[EQUIP_SLOTS.RightHand] = protectedSword;
 
-  // Before Fate Weight >= 12 -> cannot ascend or pick portfolio
+  // Before Fate Weight >= 8 -> cannot ascend or pick portfolio
   assert.equal(canStartApotheosisViaArtifacts(e).eligible, false);
   assert.equal(selectApotheosisPortfolio(e, 'war').ok, false);
 
-  // Set debug Fate Weight to 12/18
+  // Set debug Fate Weight to 8/22
   const fwReady = setDebugFateWeight(e, REQUIRED_FATE_WEIGHT);
   assert.equal(fwReady.count, REQUIRED_FATE_WEIGHT);
   assert.equal(fwReady.ready, true);
@@ -450,6 +465,8 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     rawMaxHealth: playerEntity.rawMaxHealth,
     currentHealth: playerEntity.currentHealth,
     characterId: playerEntity.characterId,
+    ownedShip: playerEntity.ownedShip,
+    houses: playerEntity.houses ? [...playerEntity.houses] : undefined,
   };
   try {
     assert.ok(getConsoleCommand('apotheosis'));
@@ -457,11 +474,11 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     assert.ok(apo);
 
     assert.match(await executeConsoleCommand('apo', ['reset']), /reset/i);
-    assert.match(await executeConsoleCommand('apo', ['fate', 'ready']), /12\/19/);
-    assert.equal(playerEntity.apotheosis.debugFateCount, 12);
+    assert.match(await executeConsoleCommand('apo', ['fate', 'ready']), /8\/22/);
+    assert.equal(playerEntity.apotheosis.debugFateCount, 8);
 
-    assert.match(await executeConsoleCommand('apo', ['fate', 'full']), /19\/19/);
-    assert.equal(playerEntity.apotheosis.debugFateCount, 19);
+    assert.match(await executeConsoleCommand('apo', ['fate', 'full']), /22\/22/);
+    assert.equal(playerEntity.apotheosis.debugFateCount, 22);
 
     assert.match(await executeConsoleCommand('apo', ['reset']), /reset/i);
     assert.match(await executeConsoleCommand('apo', ['set', 'kills']), /Set kills=5000/);
@@ -472,6 +489,8 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     assert.match(await executeConsoleCommand('apo', ['set', 'maxhp']), /Set maxhp=500/);
     assert.match(await executeConsoleCommand('apo', ['set', 'renown']), /Set renown=25/);
     assert.match(await executeConsoleCommand('apo', ['set', 'stars']), /Set stars=50/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'home']), /Set home=1/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'ship']), /Set ship=1/);
     assert.match(await executeConsoleCommand('apo', ['set', 'unknown_metric']), /^Usage: apo set/);
 
     const fwById = new Map(evaluateFateWeight(playerEntity).triggers.map((tr) => [tr.id, tr.natural]));
@@ -480,8 +499,12 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     assert.equal(fwById.get('tr09_scourge_rivals'), true);
     assert.equal(fwById.get('tr02_tower_scholar'), true);
     assert.equal(fwById.get('tr15_cartographer'), true);
-    assert.equal(fwById.get('tr12_unbroken'), true);
+    assert.equal(fwById.get('tr21_titan_vitality'), true);
+    assert.equal(fwById.get('tr12_unbroken'), false);
     assert.equal(fwById.get('tr05_firmament_child'), true);
+    assert.equal(fwById.get('tr20_renowned_legend'), true);
+    assert.equal(fwById.get('tr17_landed_sovereign'), true);
+    assert.equal(fwById.get('tr22_sea_captain'), true);
 
     const artMsg = await executeConsoleCommand('apo', ['artifacts', '15']);
     assert.match(artMsg, /15/);
@@ -509,6 +532,10 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     else playerEntity.currentHealth = prev.currentHealth;
     if (prev.characterId === undefined) delete playerEntity.characterId;
     else playerEntity.characterId = prev.characterId;
+    if (prev.ownedShip === undefined) delete playerEntity.ownedShip;
+    else playerEntity.ownedShip = prev.ownedShip;
+    if (prev.houses === undefined) delete playerEntity.houses;
+    else playerEntity.houses = prev.houses;
   }
 });
 
@@ -535,7 +562,7 @@ test('Save/Restore round-trip (`snapshotPlayer` / `restorePlayer`) and Settings 
     towerSiegeCleared: true,
     questlineCompletedNotice: true,
     sacrificedArtifacts: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15],
-    debugFateCount: 12,
+    debugFateCount: 8,
     mantellaCompleted: false,
     ascendedAtMinutes: 7777,
   };
@@ -570,7 +597,7 @@ test('Save/Restore round-trip (`snapshotPlayer` / `restorePlayer`) and Settings 
   assert.deepEqual(ensureApotheosisState(legacyRestored), defaultApotheosisState());
 });
 
-test('Localization: all 26 locales have all 210 Apotheosis keys with valid CSV and matching ICU placeholders', () => {
+test('Localization: all 26 locales have all 217 Apotheosis keys with valid CSV and matching ICU placeholders', () => {
   const isApoKey = (k) => k.startsWith('apotheosis.')
     || k === 'pause.tab.apotheosis'
     || k === 'settings.sec.apotheosis'
@@ -591,9 +618,18 @@ test('Localization: all 26 locales have all 210 Apotheosis keys with valid CSV a
     return [...args].sort();
   };
 
+  const obsoleteKeys = [
+    'apotheosis.tr.tr06.mantella',
+    'apotheosis.tr.tr17.owned',
+    'apotheosis.tr.tr17.none',
+  ];
+
   const enRows = parseStringTableCsv(readFileSync(new URL('../../locales/en/Port_Strings.csv', import.meta.url), 'utf8'));
   const enApo = new Map(enRows.filter(([k]) => isApoKey(k)));
-  assert.equal(enApo.size, 210, 'expected 210 Apotheosis/Settings/Pause keys in English table');
+  assert.equal(enApo.size, 217, 'expected 217 Apotheosis/Settings/Pause keys in English table');
+  for (const oldKey of obsoleteKeys) {
+    assert.equal(enApo.has(oldKey), false, `en still has obsolete key ${oldKey}`);
+  }
 
   const expectedArgs = new Map();
   for (const [k, v] of enApo) {
@@ -607,6 +643,9 @@ test('Localization: all 26 locales have all 210 Apotheosis keys with valid CSV a
   for (const loc of realLocales) {
     const csv = readFileSync(new URL(`../../locales/${loc.code}/Port_Strings.csv`, import.meta.url), 'utf8');
     const locMap = new Map(parseStringTableCsv(csv));
+    for (const oldKey of obsoleteKeys) {
+      assert.equal(locMap.has(oldKey), false, `${loc.code} still has obsolete key ${oldKey}`);
+    }
     for (const [k, args] of expectedArgs) {
       assert.ok(locMap.has(k), `${loc.code}: missing key ${k}`);
       const val = locMap.get(k);

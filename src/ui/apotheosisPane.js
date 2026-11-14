@@ -33,6 +33,7 @@ export const APOTHEOSIS_STYLE_ID = 'df-apotheosis-css';
 const APOTHEOSIS_CSS = `
 .apo-pane { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .apo-pane > .px-journal { flex: 1; min-height: 0; }
+.apo-pane .px-qdetail { min-height: 0; overflow-y: auto; }
 .apo-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 2px solid rgba(190,165,98,0.45); background: rgba(12,15,22,0.65); margin-bottom: 14px; }
 .apo-hero-title { font-size: 20px; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .apo-badge { display: inline-block; padding: 4px 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid rgba(190,165,98,0.65); background: rgba(24,28,38,0.85); color: #efe3bc; }

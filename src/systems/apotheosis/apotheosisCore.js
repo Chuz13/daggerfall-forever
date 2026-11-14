@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // APOTHEOSIS: PATH OF CHIM (Stage 0 - Fate Weight, Artifact Sacrifice, Portfolios)
 //
-// Evaluates the 19 triggers of Fate Weight directly from live playerEntity state
+// Evaluates the 22 triggers of Fate Weight directly from live playerEntity state
 // and runtime singletons (no shadow state; save-free evaluation with gentle
 // retro-estimation for older saves), tracks the 4 missing progression counters
 // (totalKills, booksRead, nemesesDefeated, questsCompleted), validates the
@@ -82,9 +82,9 @@ export {
   APOTHEOSIS_FLASH_RGB,
 };
 
-export const REQUIRED_FATE_WEIGHT = 12;
+export const TOTAL_FATE_TRIGGERS = 22;
+export const REQUIRED_FATE_WEIGHT = Math.ceil(TOTAL_FATE_TRIGGERS / 3);
 export const REQUIRED_ARTIFACTS_COUNT = 13;
-export const TOTAL_FATE_TRIGGERS = 19;
 export const TOTAL_CANONICAL_ARTIFACTS = 23;
 export const NECRO_GRIMOIRE_BOOK_ID = 99001;
 
@@ -698,7 +698,7 @@ function effectiveNemesesDefeated(entity) {
   return Math.max(tracked, retro);
 }
 
-/** Evaluates all 19 Fate Weight triggers live against `entity` and active subsystems. */
+/** Evaluates all 22 Fate Weight triggers live against `entity` and active subsystems. */
 export function evaluateFateWeight(entity) {
   const state = ensureApotheosisState(entity);
   const firm = readFirmamentProgress(entity);
@@ -736,7 +736,7 @@ export function evaluateFateWeight(entity) {
   const topRep = maxFactionReputation(entity);
 
   const rawTriggers = [
-    // META (7)
+    // META (8)
     {
       id: 'tr01_awakened_mind',
       category: 'meta',
@@ -757,7 +757,7 @@ export function evaluateFateWeight(entity) {
       id: 'tr02_tower_scholar',
       category: 'meta',
       name: t('apotheosis.tr.tr02.name', 'Tower Scholar'),
-      desc: t('apotheosis.tr.tr02.desc', 'Read at least 25 distinct volumes of Tamrielic lore or hold them in your library.'),
+      desc: t('apotheosis.tr.tr02.desc', 'Read at least 25 distinct volumes of Tamrielic lore.'),
       progressText: t('apotheosis.tr.tr02.prog', '{cur}/25 volumes', { cur: booksCount }),
       natural: booksCount >= 25,
     },
@@ -773,7 +773,7 @@ export function evaluateFateWeight(entity) {
       id: 'tr04_mystic_weave',
       category: 'meta',
       name: t('apotheosis.tr.tr04.name', 'Weave of the Mystics'),
-      desc: t('apotheosis.tr.tr04.desc', 'Master any arcane school of magic to skill level 100.'),
+      desc: t('apotheosis.tr.tr04.desc', 'Master an arcane school of magic to skill level 100.'),
       progressText: t('apotheosis.tr.tr04.prog', 'Magic {cur}/100', { cur: Math.trunc(topMagic) }),
       natural: topMagic >= 100,
     },
@@ -781,27 +781,33 @@ export function evaluateFateWeight(entity) {
       id: 'tr05_firmament_child',
       category: 'meta',
       name: t('apotheosis.tr.tr05.name', 'Child of the Firmament'),
-      desc: t('apotheosis.tr.tr05.desc', 'Attune 50 stars in the Firmament or reach Renown 25.'),
-      progressText: t('apotheosis.tr.tr05.prog', 'Stars {stars}/50 · Renown {ren}/25', { stars: firm.stars, ren: firm.renown }),
-      natural: firm.stars >= 50 || firm.renown >= 25,
+      desc: t('apotheosis.tr.tr05.desc', 'Attune 50 stars in the Firmament.'),
+      progressText: t('apotheosis.tr.tr05.prog', 'Stars {stars}/50', { stars: firm.stars }),
+      natural: firm.stars >= 50,
+    },
+    {
+      id: 'tr20_renowned_legend',
+      category: 'meta',
+      name: t('apotheosis.tr.tr20.name', 'Herald of Renown'),
+      desc: t('apotheosis.tr.tr20.desc', 'Reach Renown level 25.'),
+      progressText: t('apotheosis.tr.tr20.prog', 'Renown {ren}/25', { ren: firm.renown }),
+      natural: firm.renown >= 25,
     },
     {
       id: 'tr06_hero_iliac',
       category: 'meta',
       name: t('apotheosis.tr.tr06.name', 'Shaper of History'),
       desc: t('apotheosis.tr.tr06.desc', 'Complete 50 quests across the Iliac Bay.'),
-      progressText: state.mantellaCompleted
-        ? t('apotheosis.tr.tr06.mantella', 'Imperial mission fulfilled')
-        : t('apotheosis.tr.tr06.prog', '{cur}/50 quests', { cur: quests }),
-      natural: quests >= 50 || state.mantellaCompleted,
+      progressText: t('apotheosis.tr.tr06.prog', '{cur}/50 quests', { cur: quests }),
+      natural: quests >= 50,
     },
 
-    // BLOOD & CRUCIBLE (6)
+    // BLOOD & CRUCIBLE (7)
     {
       id: 'tr07_harbinger_ash',
       category: 'blood',
       name: t('apotheosis.tr.tr07.name', 'Harbinger of Ash'),
-      desc: t('apotheosis.tr.tr07.desc', 'Slay 5000 enemies across dungeons, wilderness, and Oblivion gates.'),
+      desc: t('apotheosis.tr.tr07.desc', 'Slay 5000 enemies.'),
       progressText: t('apotheosis.tr.tr07.prog', '{cur}/5000 slain', { cur: kills }),
       natural: kills >= 5000,
     },
@@ -809,7 +815,7 @@ export function evaluateFateWeight(entity) {
       id: 'tr08_mortal_flesh',
       category: 'blood',
       name: t('apotheosis.tr.tr08.name', 'Transcending Mortal Flesh'),
-      desc: t('apotheosis.tr.tr08.desc', 'Embrace one of the three immortal curses: Lichdom, Vampirism, or Lycanthropy.'),
+      desc: t('apotheosis.tr.tr08.desc', 'Bear an immortal curse upon your vessel (Lichdom, Vampirism, or Lycanthropy).'),
       progressText: transcendent
         ? t('apotheosis.tr.tr08.active', 'Transformed')
         : t('apotheosis.tr.tr08.mortal', 'Mortal vessel'),
@@ -819,7 +825,7 @@ export function evaluateFateWeight(entity) {
       id: 'tr09_scourge_rivals',
       category: 'blood',
       name: t('apotheosis.tr.tr09.name', 'Scourge of Rivals'),
-      desc: t('apotheosis.tr.tr09.desc', 'Overcome or break 10 Nemesis hunters sent after your name.'),
+      desc: t('apotheosis.tr.tr09.desc', 'Defeat 10 Nemesis hunters sent after your name.'),
       progressText: t('apotheosis.tr.tr09.prog', '{cur}/10 rivals', { cur: nemeses }),
       natural: nemeses >= 10,
     },
@@ -827,7 +833,7 @@ export function evaluateFateWeight(entity) {
       id: 'tr10_peerless_warrior',
       category: 'blood',
       name: t('apotheosis.tr.tr10.name', 'Peerless Warrior'),
-      desc: t('apotheosis.tr.tr10.desc', 'Refine any weapon or combat art to skill level 100.'),
+      desc: t('apotheosis.tr.tr10.desc', 'Master a combat skill to level 100.'),
       progressText: t('apotheosis.tr.tr10.prog', 'Combat {cur}/100', { cur: Math.trunc(topMartial) }),
       natural: topMartial >= 100,
     },
@@ -842,18 +848,26 @@ export function evaluateFateWeight(entity) {
     {
       id: 'tr12_unbroken',
       category: 'blood',
-      name: t('apotheosis.tr.tr12.name', 'Shadow & Sinew'),
-      desc: t('apotheosis.tr.tr12.desc', 'Reach 100 in a stealth/evasion art or harden maximum Health to 500.'),
-      progressText: t('apotheosis.tr.tr12.prog', 'Stealth {sk}/100 · HP {hp}/500', { sk: Math.trunc(topShadow), hp: Math.trunc(maxHp) }),
-      natural: topShadow >= 100 || maxHp >= 500,
+      name: t('apotheosis.tr.tr12.name', 'Walker in Shadows'),
+      desc: t('apotheosis.tr.tr12.desc', 'Master a stealth skill to level 100.'),
+      progressText: t('apotheosis.tr.tr12.prog', 'Stealth {sk}/100', { sk: Math.trunc(topShadow) }),
+      natural: topShadow >= 100,
+    },
+    {
+      id: 'tr21_titan_vitality',
+      category: 'blood',
+      name: t('apotheosis.tr.tr21.name', 'Unbroken Vessel'),
+      desc: t('apotheosis.tr.tr21.desc', 'Harden maximum Health to 500.'),
+      progressText: t('apotheosis.tr.tr21.prog', 'HP {hp}/500', { hp: Math.trunc(maxHp) }),
+      natural: maxHp >= 500,
     },
 
-    // DOMINION & WORLD (6)
+    // DOMINION & WORLD (7)
     {
       id: 'tr13_guildmaster',
       category: 'power',
       name: t('apotheosis.tr.tr13.name', 'Pillar of the Guilds'),
-      desc: t('apotheosis.tr.tr13.desc', 'Ascend to the highest rank (Rank 9) in any knightly, arcane, or underworld guild.'),
+      desc: t('apotheosis.tr.tr13.desc', 'Ascend to the highest rank (Rank 9) in a guild.'),
       progressText: topGuild >= 0
         ? t('apotheosis.tr.tr13.prog', 'Top rank {cur}/9', { cur: topGuild })
         : t('apotheosis.tr.tr13.none', 'No guild rank'),
@@ -863,7 +877,7 @@ export function evaluateFateWeight(entity) {
       id: 'tr14_grand_artisan',
       category: 'power',
       name: t('apotheosis.tr.tr14.name', 'Grand Artisan'),
-      desc: t('apotheosis.tr.tr14.desc', 'Achieve Master rank (100) in any trade or crafting profession.'),
+      desc: t('apotheosis.tr.tr14.desc', 'Achieve Master rank (100) in a crafting profession.'),
       progressText: t('apotheosis.tr.tr14.prog', 'Rank {cur}/{max}', { cur: Math.trunc(topProf), max: PROF_RANK_MAX }),
       natural: topProf >= PROF_RANK_MAX,
     },
@@ -871,7 +885,7 @@ export function evaluateFateWeight(entity) {
       id: 'tr15_cartographer',
       category: 'power',
       name: t('apotheosis.tr.tr15.name', 'Cartographer of the Bay'),
-      desc: t('apotheosis.tr.tr15.desc', 'Chart at least 75 discovered locations, strongholds, or dungeon depths.'),
+      desc: t('apotheosis.tr.tr15.desc', 'Chart at least 75 discovered locations.'),
       progressText: t('apotheosis.tr.tr15.prog', '{cur}/75 charted', { cur: discovered }),
       natural: discovered >= 75,
     },
@@ -887,23 +901,29 @@ export function evaluateFateWeight(entity) {
       id: 'tr17_landed_sovereign',
       category: 'power',
       name: t('apotheosis.tr.tr17.name', 'Landed Sovereign'),
-      desc: t('apotheosis.tr.tr17.desc', 'Own a freehold residence or command your own sea vessel in the Iliac Bay.'),
-      progressText: (homes > 0 || hasShip)
-        ? t('apotheosis.tr.tr17.owned', 'Holdings {homes} · Vessel {ship}', { homes, ship: hasShip ? 1 : 0 })
-        : t('apotheosis.tr.tr17.none', 'No estate or vessel'),
-      natural: homes >= 1 || hasShip,
+      desc: t('apotheosis.tr.tr17.desc', 'Own a freehold residence in the Iliac Bay.'),
+      progressText: t('apotheosis.tr.tr17.prog', 'Holdings {homes}/1', { homes }),
+      natural: homes >= 1,
+    },
+    {
+      id: 'tr22_sea_captain',
+      category: 'power',
+      name: t('apotheosis.tr.tr22.name', 'Captain of the Bay'),
+      desc: t('apotheosis.tr.tr22.desc', 'Command your own sea vessel in the Iliac Bay.'),
+      progressText: t('apotheosis.tr.tr22.prog', 'Vessel {ship}/1', { ship: hasShip ? 1 : 0 }),
+      natural: hasShip,
     },
     {
       id: 'tr18_living_legend',
       category: 'power',
       name: t('apotheosis.tr.tr18.name', 'Living Legend of Tamriel'),
-      desc: t('apotheosis.tr.tr18.desc', 'Earn revered standing (+50 reputation) with at least one faction or court.'),
+      desc: t('apotheosis.tr.tr18.desc', 'Earn revered standing (+50 reputation) with a faction.'),
       progressText: t('apotheosis.tr.tr18.prog', 'Peak reputation {cur}/50', { cur: Math.trunc(topRep) }),
       natural: topRep >= 50,
     },
   ];
 
-  // Apply non-destructive debug boost if active (`apo fate ready` -> 12, `apo fate full` -> 18)
+  // Apply non-destructive debug boost if active (`apo fate ready` -> 8, `apo fate full` -> 22)
   const debugQuota = state.debugFateCount || 0;
   const naturalCount = rawTriggers.filter((tr) => tr.natural).length;
   let remainingDebugGrants = Math.max(0, debugQuota - naturalCount);
@@ -994,7 +1014,7 @@ export function isApotheosisStormActive(entity) {
 
 /**
  * Evaluates what happens when the player touches the Mantella (globalVar 36 / FinishedMantellanCrux).
- * Enforces mutual exclusion against the 13-Artifact path and checks Fate Weight >= 12/19.
+ * Enforces mutual exclusion against the 13-Artifact path and checks Fate Weight >= 8/22.
  */
 export function evaluateMantellaFork(entity) {
   const state = ensureApotheosisState(entity);
@@ -1250,7 +1270,7 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   };
 }
 
-/** Sets debug Fate Weight override (`12` ready or `19` full) cleanly on `entity.apotheosis`. */
+/** Sets debug Fate Weight override (`8` ready or `22` full) cleanly on `entity.apotheosis`. */
 export function setDebugFateWeight(entity, targetCount) {
   const state = ensureApotheosisState(entity);
   const clean = Math.max(0, Math.min(TOTAL_FATE_TRIGGERS, Math.trunc(Number(targetCount) || 0)));
