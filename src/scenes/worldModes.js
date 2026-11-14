@@ -10666,8 +10666,10 @@ export function createWorldModes(host) {
       }, cam.yaw, cam.pitch);
       if (mode === 'dungeon' && isApotheosisOrrery(dungeonLoc)) {
         const clamped = apotheosisOrreryArena().clamp(player.pos, 0.45);
-        player.pos[0] = clamped[0];
-        player.pos[2] = clamped[2];
+        if (clamped) {
+          player.pos[0] = clamped[0];
+          player.pos[2] = clamped[2];
+        }
       }
       // DW-D: OutdoorSwimMovementController runs wherever the motor swims (IsAnySwimming is LevitateMotor.IsSwimming
       // indoors) - the multiplier and the stroke in a dungeon's water; the floor clamp is the carved sea's alone

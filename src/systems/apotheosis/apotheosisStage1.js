@@ -33,6 +33,101 @@ export const DIRENNI_INTERIOR_SPAWN_INTERVAL_S = 26;
 export const DIRENNI_INTERIOR_MAX_ACTIVE = 6;
 export const APOTHEOSIS_ZERO_STONE_KEY = 'apotheosis:zerostone';
 export const APOTHEOSIS_ORRERY_EXIT_KEY = 'apotheosis:exit';
+export const APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC = 5;
+export const APOTHEOSIS_STORM_WEATHERS = Object.freeze([
+  'sunny',
+  'cloudy',
+  'overcast',
+  'fog',
+  'rain',
+  'thunder',
+  'snow',
+]);
+
+/**
+ * Picks a random weather word from `APOTHEOSIS_STORM_WEATHERS`, avoiding repeating `currentWeather`.
+ */
+export function pickNextApotheosisStormWeather(currentWeather = null, rng = Math.random) {
+  const choices = APOTHEOSIS_STORM_WEATHERS.filter((w) => w !== currentWeather);
+  const pool = choices.length ? choices : APOTHEOSIS_STORM_WEATHERS;
+  const r = typeof rng === 'function' ? rng() : Math.random();
+  const idx = Math.max(0, Math.min(pool.length - 1, Math.floor((Number.isFinite(r) ? r : 0) * pool.length)));
+  return pool[idx];
+}
+
+/**
+ * Finds an exterior spawn position around `anchorPos` using wall/roof/lodged geometry checks
+ * (matching the Living Tamriel safe spawner pipeline) so Siege waves never spawn inside tower geometry.
+ */
+export function findSafeSiegeSpawnPos(
+  anchorPos,
+  preferredDist = 12,
+  baseAngle = 0,
+  {
+    groundAt = null,
+    raycastHit = null,
+    lodgedIn = null,
+    freeLodgedFeet = null,
+  } = {},
+) {
+  const base = anchorPos ?? [0, 0, 0];
+  const minWallDist = 5.5;
+  const maxAttempts = 16;
+
+  for (let pass = 0; pass < 2; pass++) {
+    const targetDist = pass === 0 ? preferredDist : Math.max(5.5, preferredDist * 0.6);
+    for (let k = 0; k < maxAttempts; k++) {
+      const sign = k % 2 === 0 ? 1 : -1;
+      const step = Math.ceil(k / 2);
+      const ang = baseAngle + sign * ((step / maxAttempts) * Math.PI * 2);
+      const dx = Math.cos(ang);
+      const dz = Math.sin(ang);
+      let dist = targetDist;
+
+      if (typeof raycastHit === 'function') {
+        const wallHit = raycastHit([base[0], base[1] + 1.2, base[2]], [dx, 0, dz], dist + 1.5);
+        if (wallHit && Number.isFinite(wallHit.dist) && wallHit.back !== true && wallHit.dist < dist + 0.8) {
+          if (wallHit.dist >= minWallDist) {
+            dist = Math.max(4.0, wallHit.dist - 1.6);
+          } else {
+            continue;
+          }
+        }
+      }
+
+      const x = base[0] + dx * dist;
+      const z = base[2] + dz * dist;
+      const gy = groundAt?.(x, z);
+      const y = Number.isFinite(gy) ? gy : base[1];
+      const feet = [x, y, z];
+
+      if (typeof raycastHit === 'function') {
+        // Anti-roof probe from 18m above feet
+        const topHit = raycastHit([x, y + 18, z], [0, -1, 0], 28);
+        if (topHit && Number.isFinite(topHit.dist)) {
+          const surfaceY = y + 18 - topHit.dist;
+          if (surfaceY - y > 0.85) continue;
+        }
+        // Anti-ceiling/interior overhang probe
+        const skyHit = raycastHit([x, y + 1.8, z], [0, 1, 0], 3.0);
+        if (skyHit && Number.isFinite(skyHit.dist) && skyHit.back !== true) continue;
+      }
+
+      if (lodgedIn?.(feet)) {
+        freeLodgedFeet?.(feet);
+        if (lodgedIn?.(feet)) continue;
+      }
+
+      return feet;
+    }
+  }
+
+  // Fallback near base anchor
+  const fx = base[0] + Math.cos(baseAngle) * 4.5;
+  const fz = base[2] + Math.sin(baseAngle) * 4.5;
+  const fgy = groundAt?.(fx, fz);
+  return [fx, Number.isFinite(fgy) ? fgy : base[1], fz];
+}
 
 function readLocationIds(loc) {
   if (!loc) return { mapId: null, locId: null, name: '' };
@@ -215,6 +310,9 @@ export function createDirenniSiegeController({
   getPlayerPos,
   getPlayerMode,
   groundAt,
+  raycastHit = null,
+  lodgedIn = null,
+  freeLodgedFeet = null,
   spawnFoe,
   removeFoe,
   hurtPlayer,
@@ -268,11 +366,12 @@ export function createDirenniSiegeController({
   function spawnRingPos(idx, total, radius = 14) {
     const base = anchor ?? getPlayerPos?.() ?? [0, 0, 0];
     const ang = (idx / Math.max(1, total)) * Math.PI * 2 + wave * 0.7;
-    const x = base[0] + Math.cos(ang) * radius;
-    const z = base[2] + Math.sin(ang) * radius;
-    const gy = groundAt?.(x, z);
-    const y = Number.isFinite(gy) ? gy : base[1];
-    return [x, y, z];
+    return findSafeSiegeSpawnPos(base, radius, ang, {
+      groundAt,
+      raycastHit,
+      lodgedIn,
+      freeLodgedFeet,
+    });
   }
 
   async function spawnBoss(myEpoch) {

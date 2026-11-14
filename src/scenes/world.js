@@ -410,9 +410,27 @@ import { registerPlayerDeathSave, staffFrozen } from '../characters/playerEntity
 import { registerMadeLevelHere, madeRuleHere, madeSaysHere } from '../systems/madeLevel.js';   // EG-H2 (Elite-Gates.md section 24): THE MADE LEVEL'S RULES - every per-level door below asks the one law
 import { registerJumpForgiveness } from '../player/motor.js';   // EG-H2 (section 10.8): THE FORGIVENESS - the Spire's jump buffer and late press, the made level's law's
 import { isSdRealm, realmArena, SD_REALM_TEXT, SD_REALM_FOG, SD_REALM_FLOORS, SD_ARENA_FLOORS, arenaHolds } from '../world/superDungeon/sdRealm.js';   // SD5a: the Shattered Hour - its edge, its refusals
-import { isApotheosisStormActive, ensureApotheosisState, APOTHEOSIS_STAGES } from '../systems/apotheosis/apotheosisCore.js';
+import {
+  isApotheosisStormActive,
+  ensureApotheosisState,
+  APOTHEOSIS_STAGES,
+  APOTHEOSIS_QUEST_STEPS,
+  APOTHEOSIS_SOURCES,
+  REQUIRED_FATE_WEIGHT,
+  evaluateFateWeight,
+  setDebugFateWeight,
+  startApotheosisQuestline,
+  advanceApotheosisQuestStep,
+  resetApotheosisForDebug,
+} from '../systems/apotheosis/apotheosisCore.js';
 import { setApotheosisRebirthHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
-import { isDirenniTowerLocation, handleMantellaCruxTouch, createDirenniSiegeController } from '../systems/apotheosis/apotheosisStage1.js';
+import {
+  isDirenniTowerLocation,
+  handleMantellaCruxTouch,
+  createDirenniSiegeController,
+  APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC,
+  pickNextApotheosisStormWeather,
+} from '../systems/apotheosis/apotheosisStage1.js';
 import { SdSkyRenderer, SD_SKY_STEPS } from '../render/superDungeon/sdSky.js';   // SD5b: the Hour's sky
 import { SdArenaGlowRenderer, sdArenaGlowAt, sdHourClockOf } from '../render/superDungeon/sdArenaGlow.js';   // SD-LOOK S7: the arena's floor reads the clock, and the sky's word for the fight
 import { SdStompWallRenderer, sdStompWalls, sdStompWallRecords, SD_HOLD_WALL, sdHomeBeacon } from '../render/superDungeon/sdStompWall.js';   // SD-LOOK S7: the Stomp's wall, the hold's curtain
@@ -2724,6 +2742,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const weatherSeed = weatherRng(Number(params.get('wseed')) || 1);
   let weather = weatherOverride ?? currentWeather();
   let _apoStormWasActive = false;
+  let _apoStormWeatherTimer = 0;
   // EV4: the distance haze follows the live Land View Distance (the
   // scale is 1 at DFU's default 3, so the classic path is untouched);
   // the exp weather rows pass through scaleFogForDistance unchanged.
@@ -11702,7 +11721,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerEntity,
     getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
     getPlayerMode: () => modes?.mode ?? 'exterior',
-    groundAt: (x, z) => heightAt(x, z),
+    groundAt: (x, z) => collider?.heightAt?.(x, z) ?? heightAt(x, z),
+    raycastHit: (o, d, m) => collider?.raycastHit?.(o, d, m),
+    lodgedIn: (feet) => (collider ? lodgedIn(collider, feet) : false),
+    freeLodgedFeet: (feet, opts) => (collider ? freeLodgedFeet(collider, feet, opts) : false),
     spawnFoe: (mobileType, pos, opts) => exteriorFoes.spawnFoe(mobileType, pos, opts),
     removeFoe: (f) => exteriorFoes.removeFoe(f),
     hurtPlayer: (dmg) => {
@@ -29827,6 +29849,20 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT REALM2 M4: OFFLINE ONLY - REALM P0.1's law for ?shot's
   // __addGold. LypyL_GameConsole ships True, and the door's verbs
   // mint (Come Sail Away's giveboat and placeboat, a deed each).
+  const tele2locHelper = async (name) => {
+    const places = staffTpPlaces({
+      locationIndex,
+      stood: _arenaTemplates ? arenaPixels()?.stood : null,
+      registry: worldPlaces,
+    });
+    const hit = findPlace(places, name);
+    if (!hit) return `Location "${name}" not found.`;
+    const pick = { pixel: { x: hit.px, y: hit.py }, name: hit.name };
+    hudFade.smashHUDToBlack();
+    const ok = await teleportTo(pick, { zoneFree: true });
+    if (!ok) hudFade.clearFade();
+    return ok ? `Teleported to ${hit.name} (${hit.px}, ${hit.py})` : `Failed to teleport to ${hit.name}`;
+  };
   if (!params.has('online')) installConsoleProbe();
   setDebugSceneContext({
     advanceTime: (minutes) => {
@@ -30029,20 +30065,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       return count;
     },
-    tele2loc: async (name) => {
-      const places = staffTpPlaces({
-        locationIndex,
-        stood: _arenaTemplates ? arenaPixels()?.stood : null,
-        registry: worldPlaces,
-      });
-      const hit = findPlace(places, name);
-      if (!hit) return `Location "${name}" not found.`;
-      const pick = { pixel: { x: hit.px, y: hit.py }, name: hit.name };
-      hudFade.smashHUDToBlack();
-      const ok = await teleportTo(pick, { zoneFree: true });
-      if (!ok) hudFade.clearFade();
-      return ok ? `Teleported to ${hit.name} (${hit.px}, ${hit.py})` : `Failed to teleport to ${hit.name}`;
-    },
+    tele2loc: tele2locHelper,
     tele2pixel: async (px, py) => {
       const x = Number(px);
       const y = Number(py);
@@ -30232,30 +30255,56 @@ export async function bootWorld(canvas, renderer, params, status) {
       return spawned;
     },
     apotheosisMantellaFork: () => {
-      let activeWin = null;
       return handleMantellaCruxTouch({
         dfLocation: { mapTableData: { mapId: 1001 }, locationId: 50000 },
         playerEntity,
         presentWindow: (win) => {
-          activeWin = win;
-          if (modes?.dungeonCtx?.presentDecisionWindow) {
+          if (modes?.mode === 'dungeon' && modes?.dungeonCtx?.presentDecisionWindow) {
             modes.dungeonCtx.presentDecisionWindow(win);
           } else {
-            const hostEl = document.getElementById('hud-root') ?? document.body;
-            win.mount(hostEl);
+            townTalk.showOverlay(win);
           }
         },
         say: (msg) => townTalk.say(msg),
         onUsurpExit: () => {
-          activeWin?.unmount?.();
           direnniSiege?.onModeOrWorldChange?.();
           if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior?.();
         },
         onVanillaConfirm: () => {
-          activeWin?.unmount?.();
           townTalk.say(t('apotheosis.mantella.vanillaSay', 'Mantella released to the Totem bearer (vanilla ending path).'));
         },
       });
+    },
+    apotheosisEnterMantellaCrux: async () => {
+      const st = ensureApotheosisState(playerEntity);
+      if (st.stage !== APOTHEOSIS_STAGES.MORTAL || st.ascended || st.questlineStarted) {
+        resetApotheosisForDebug(playerEntity);
+      }
+      if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+      await tele2locHelper('Mantellan Crux');
+      const entered = await (modes?.startInDungeon?.() ?? false);
+      if (!entered) return 'Teleported to Mantellan Crux exterior, but failed to enter dungeon.';
+      const warped = modes?.dungeonCtx?.teleportToMantella?.() ?? false;
+      return warped
+        ? 'Entered Mantellan Crux and teleported to the Mantella.'
+        : 'Entered Mantellan Crux.';
+    },
+    apotheosisTeleportZeroStone: async () => {
+      const st = ensureApotheosisState(playerEntity);
+      if (st.stage === APOTHEOSIS_STAGES.MORTAL) {
+        if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+        startApotheosisQuestline(playerEntity, { source: st.source ?? APOTHEOSIS_SOURCES.MANTELLA });
+      }
+      advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR, { towerSiegeCleared: true, siegeWave: 13 });
+      if ((modes?.mode ?? 'exterior') !== 'dungeon' || !isDirenniTowerLocation(modes?.dungeonLocation)) {
+        await tele2locHelper('Direnni Tower');
+        const entered = await (modes?.startInDungeon?.() ?? false);
+        if (!entered) return 'Teleported to Direnni Tower exterior, but failed to enter dungeon interior.';
+      }
+      const warped = modes?.dungeonCtx?.teleportToZeroStone?.() ?? false;
+      return warped
+        ? 'Teleported inside Direnni Tower right before the Zero Stone.'
+        : 'Entered Direnni Tower (Zero Stone position unavailable).';
     },
     apotheosisStartSiege: (wave = 1) => {
       if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior?.();
@@ -33633,13 +33682,26 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // lands on the first frame back out. The ROLL is the entity tick's
     // day block, and runs wherever the player is. A pinned ?weather
     // never ticks.
+    let _apoStormWeatherFlipped = false;
     const frameWeatherDrain = () => {   // PERF-V8
     const apoStorm = isApotheosisStormActive(playerEntity);
     if (apoStorm) {
-      _apoStormWasActive = true;
-      if (weather !== 'thunder') applyWeather('thunder');
+      if (!_apoStormWasActive) {
+        _apoStormWasActive = true;
+        _apoStormWeatherTimer = APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC;
+        applyWeather(pickNextApotheosisStormWeather(weather));
+        _apoStormWeatherFlipped = true;
+      } else {
+        _apoStormWeatherTimer -= dt;
+        if (_apoStormWeatherTimer <= 0) {
+          _apoStormWeatherTimer = APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC;
+          applyWeather(pickNextApotheosisStormWeather(weather));
+          _apoStormWeatherFlipped = true;
+        }
+      }
     } else if (_apoStormWasActive) {
       _apoStormWasActive = false;
+      _apoStormWeatherTimer = 0;
       if (!weatherOverride) applyWeather(shownWeather());
     } else if (!weatherOverride) {
       const _pp = playerTravelPixel();
@@ -33652,6 +33714,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     };
     frameWeatherDrain();
+    const apoStormNow = isApotheosisStormActive(playerEntity);
     const frameSnowCover = () => {   // PERF-V8 (at the merge of main into SEA VENTURES: the frame back under three quarters of the ceiling)
     { const _sp = playerTravelPixel(); snowCover.tick({ px: _sp.x, py: _sp.y, dt, arriving: !playerSpawned }); renderer.setSnowFrame(snowCover.frame()); }   // PRECIP4: the snow the ground keeps, about the player - its window integrated, its lines eased, the standing pixels swept
     };
@@ -33669,12 +33732,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // row and the wind its front, and the ground takes the word whole.
     const jump = weatherJumpStamp() !== seenJump;
     seenJump = weatherJumpStamp();
-    if (jump) sky.weatherJump();
+    if (jump || _apoStormWeatherFlipped) sky.weatherJump();
     // WEATHER2b: a CROSSING - the player walked into a cell of the field, or it drifted over them: a short front
     const crossing = weatherCrossingStamp() !== seenCrossing || seaVentures.stormTurned();   // SEA-EVENTS: into the Aether Storm or out of it - a short front, as a cell's edge
     seenCrossing = weatherCrossingStamp();
     if (crossing && !jump) sky.weatherArrive();
-    const fx = weatherFront.tick({ dt, weather, arrival: enhancedFront ? sky.frontArrival() : 1, nowMinutes: playerTicker.classicMinutes, tsec: now / 1000, jump, peak: weatherOverride ? null : seaStormShown() ? 1 : currentWeatherIntensity() });   // WEATHER3b: the map's intensity at the player is the peak
+    const fx = weatherFront.tick({ dt, weather, arrival: (enhancedFront && !apoStormNow) ? sky.frontArrival() : 1, nowMinutes: playerTicker.classicMinutes, tsec: now / 1000, jump: jump || _apoStormWeatherFlipped, peak: apoStormNow ? 1 : weatherOverride ? null : seaStormShown() ? 1 : currentWeatherIntensity() });   // WEATHER3b: the map's intensity at the player is the peak
     if (fx.changed) wxFrom = wxNow;
     wxNow = enhancedFront ? blendTerms(wxFrom, fallTerms(weatherTerms(fx.snow), fx.intensity, weather, FALL_LIGHT), fx.t) : weatherTerms();   // RAIN-SPRINKLE: a sprinkle looks like one
     const wd = windDrive(sky, now / 1000, dt);   // WIND3: the frame's wind in every consumer's units, read once

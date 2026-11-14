@@ -59,6 +59,10 @@ import {
   describeShadowResistances,
   pickShadowMobileType,
   spawnShadowOfTheAgent,
+  APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC,
+  APOTHEOSIS_STORM_WEATHERS,
+  pickNextApotheosisStormWeather,
+  findSafeSiegeSpawnPos,
 } from '../../src/systems/apotheosis/apotheosisStage1.js';
 import { SKILLS } from '../../src/systems/skills.js';
 import { defineLiveMaxHealth, defineLiveMaxMagicka } from '../../src/systems/chargen.js';
@@ -85,7 +89,7 @@ import {
 } from '../../src/world/superDungeon/sdRealm.js';
 import { dungeonTierLabel } from '../../src/world/dungeon/dungeonLabel.js';
 import { wildGiantSize } from '../../src/systems/wild/wildZone.js';
-import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
+import { executeConsoleCommand, setDebugSceneContext } from '../../src/systems/consoleCommands.js';
 import { _resetTextManagerForTests } from '../../src/systems/textManager.js';
 import { _resetForTests as resetPrefs, setPref } from '../../src/systems/uiPrefs.js';
 import { snapshotDiscovery, restoreDiscovery } from '../../src/systems/discovery.js';
@@ -416,6 +420,7 @@ test('Cut Clockwork Orrery & Shadow of the Agent: mirrored gear/stats and anti-a
 
   const pts = apotheosisOrrerySpawnPoints();
   const arena = apotheosisOrreryArena();
+  assert.equal(arena.clamp(pts.player, 0.45), null, 'Orrery bounds return null when player is already inside disc');
   const clamped = arena.clamp([pts.center[0] + 200, pts.player[1], pts.center[2]]);
   const distFromCenter = Math.hypot(clamped[0] - pts.center[0], clamped[1] - pts.center[2]);
   assert.ok(distFromCenter <= pts.radius + 0.01, 'Orrery circular bounds clamp player cleanly inside disc');
@@ -602,10 +607,70 @@ test('Stage 1 console commands (`apo quest`, `apo mantella usurp`, `apo rebirth`
     const rbMsg = await executeConsoleCommand('apo', ['rebirth']);
     assert.match(rbMsg, /\+1 day/i);
     assert.ok(playerEntity.apotheosis.rebirthCount >= 1);
+
+    // Stage 1 bugfix commands: apo mantella after artifacts path, apo tp mantella, apo tp zerostone
+    let calls = [];
+    setDebugSceneContext({
+      apotheosisMantellaFork: () => { calls.push('fork'); return true; },
+      apotheosisEnterMantellaCrux: async () => { calls.push('enterCrux'); return 'Entered Mantellan Crux.'; },
+      apotheosisTeleportZeroStone: async () => { calls.push('tpZeroStone'); return 'At Zero Stone.'; },
+    });
+    await executeConsoleCommand('apo', ['reset']);
+    await executeConsoleCommand('apo', ['fate', 'ready']);
+    await executeConsoleCommand('apo', ['artifacts', '15']);
+    const scan = scanInventoryArtifactsForApotheosis(playerEntity);
+    const unequipped = scan.distinctUnequippedSubTypes
+      .slice(0, 13)
+      .map((sub) => scan.unequippedEntries.find((x) => x.subType === sub).item);
+    startApotheosisFromArtifacts(playerEntity, unequipped);
+    assert.equal(playerEntity.apotheosis.source, APOTHEOSIS_SOURCES.ARTIFACTS);
+
+    const forkMsg = await executeConsoleCommand('apo', ['mantella']);
+    assert.match(forkMsg, /Opened Mantellan Crux Apotheosis fork dialog/i);
+    assert.equal(playerEntity.apotheosis.stage, APOTHEOSIS_STAGES.MORTAL);
+
+    const cruxMsg = await executeConsoleCommand('apo', ['tp', 'mantella']);
+    assert.match(cruxMsg, /Entered Mantellan Crux/i);
+
+    const zeroMsg = await executeConsoleCommand('apo', ['tp', 'zerostone']);
+    assert.match(zeroMsg, /At Zero Stone/i);
+    assert.deepEqual(calls, ['fork', 'enterCrux', 'tpZeroStone']);
   } finally {
+    setDebugSceneContext({});
     if (prev.apotheosis === undefined) delete playerEntity.apotheosis;
     else playerEntity.apotheosis = prev.apotheosis;
     playerEntity.maxHealth = prev.maxHealth;
     playerEntity.health = prev.health;
   }
+});
+
+test('Stage 1 bugfixes: 5s random Dragon Break weather rotation and LT-safe Direnni Siege spawner', () => {
+  assert.equal(APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC, 5);
+  let cur = 'thunder';
+  for (let i = 0; i < 20; i++) {
+    const next = pickNextApotheosisStormWeather(cur, () => ((i * 0.37) % 1));
+    assert.ok(APOTHEOSIS_STORM_WEATHERS.includes(next));
+    assert.notEqual(next, cur, 'Dragon Break rotates to a different weather each 5s round');
+    cur = next;
+  }
+
+  // Simulate blocking roofs at +X and walls nearby at baseAngle=0; must rotate to clear terrain
+  const anchor = [100, 10, 100];
+  const pos = findSafeSiegeSpawnPos(anchor, 12, 0, {
+    groundAt: () => 10,
+    raycastHit: (origin, dir) => {
+      // Horizontal ray along +X hits tower wall very close (2m < 5.5m)
+      if (Math.abs(dir[1]) < 0.1 && dir[0] > 0.7) {
+        return { dist: 2.0, back: false };
+      }
+      // Roof over +Z
+      if (dir[1] < -0.5 && origin[2] > 105) {
+        return { dist: 4.0, back: false }; // surfaceY = 10 + 18 - 4 = 24 (> 10 + 0.85 -> roof!)
+      }
+      return null;
+    },
+    lodgedIn: (feet) => feet[0] > 102 && feet[2] > 102,
+    freeLodgedFeet: () => false,
+  });
+  assert.ok(pos[0] < 105 && pos[2] <= 105, 'Avoided spawning under a roof or into the close tower wall/lodged quadrant');
 });

@@ -611,7 +611,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (index === 36 && value && handleMantellaCruxTouch({
         dfLocation,
         playerEntity,
-        presentWindow: (w) => { activeOverlay = w; },
+        presentWindow: (w) => {
+          activeOverlay = w;
+          dungeonWindows.reconcile(activeOverlay);
+        },
         say: (l) => hudText.add(l),
         onUsurpExit: () => opts.onApotheosisMantellaUsurp?.(),
         onVanillaConfirm: () => { opts.questBridge?.machine?.globalVars?.set(index, value); },
@@ -1193,7 +1196,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _apoShadowSpawned = false;
   let _apoShadowFoe = null;
   let _apoShadowDefeated = false;
-  if (_direnniHard) {
+  if (isDirenniTowerLocation(dfLocation)) {
     const startRef = dungeon.startMarker
       ? [dungeon.startMarker.x, dungeon.startMarker.y, dungeon.startMarker.z]
       : [0, 0, 0];
@@ -7749,6 +7752,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (playerFeet) { lastPlayerFeet = [...playerFeet]; lastPlayerHeight = playerHeight; }
     if (sdEnd) sdEndFrame(playerFeet);   // SD4b: a Super dungeon's Rift and Return - stood, the Return's boss asked, the step
     if (!dungeonPaused()) {
+      if (!_direnniReinforcer && isDirenniHardModeActive(dfLocation, playerEntity)) {
+        _direnniReinforcer = createDirenniInteriorReinforcer({
+          isActive: () => isDirenniHardModeActive(dfLocation, playerEntity),
+          getPlayerPos: () => lastPlayerFeet,
+          getFoes: () => foes,
+          spawnLooseFoe,
+          say: (l) => hudText.add(l),
+        });
+      }
       _direnniReinforcer?.tick(dt);
       if (_apoOrrery) {
         if (!_apoShadowSpawned && foeDeps) {
@@ -9603,6 +9615,60 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     spawnLooseFoe,   // SD1: the same chain with no quest behaviour bound - the enchant ctx's spawner
     removeFoe: questPoolOps.removeFoe,
     zeroStonePos: () => (_zeroStonePos ? [..._zeroStonePos] : null),
+    teleportToZeroStone() {
+      if (!_zeroStonePos) return false;
+      const [zx, zy, zz] = _zeroStonePos;
+      const offsets = [[0, 1.6], [1.6, 0], [0, -1.6], [-1.6, 0], [0, 0]];
+      let landed = null;
+      for (const [ox, oz] of offsets) {
+        const candidate = floorLanding(collider, [zx + ox, zy + 1.08, zz + oz]);
+        if (candidate && Math.abs(candidate[1] - zy) <= 2.5) {
+          landed = candidate;
+          break;
+        }
+      }
+      const pos = landed ?? [zx, zy, zz];
+      actions.onTeleport?.({ pos, yawDeg: 0 });
+      lastPlayerFeet = [...pos];
+      return true;
+    },
+    teleportToMantella() {
+      const allObjs = [...actions.objects.values()];
+      const isMantellaGlobal = (o) => o?.actionFlag === ACTION_FLAGS.SetGlobalVar && o?.axisRaw === 36;
+      const chainsToMantella = (start) => {
+        const seen = new Set();
+        let cur = start;
+        for (let step = 0; cur && step < 12 && !seen.has(cur.key); step++) {
+          if (isMantellaGlobal(cur)) return true;
+          seen.add(cur.key);
+          cur = actions.nextOf(cur);
+        }
+        return false;
+      };
+      const candidates = allObjs.filter((o) => isMantellaGlobal(o) || chainsToMantella(o));
+      const target = candidates.find((o) => o?.aabb || o?.origin) ?? null;
+      if (!target) return false;
+      const pt = target.origin
+        ? [...target.origin]
+        : [
+            (target.aabb.min[0] + target.aabb.max[0]) * 0.5,
+            target.aabb.min[1],
+            (target.aabb.min[2] + target.aabb.max[2]) * 0.5,
+          ];
+      const offsets = [[0, 2.0], [2.0, 0], [0, -2.0], [-2.0, 0], [0, 0]];
+      let landed = null;
+      for (const [ox, oz] of offsets) {
+        const candidate = floorLanding(collider, [pt[0] + ox, pt[1] + 1.08, pt[2] + oz]);
+        if (candidate && Math.abs(candidate[1] - pt[1]) <= 3.5) {
+          landed = candidate;
+          break;
+        }
+      }
+      const pos = landed ?? pt;
+      actions.onTeleport?.({ pos, yawDeg: 0 });
+      lastPlayerFeet = [...pos];
+      return true;
+    },
     isShadowDefeated: () => _apoShadowDefeated,
     questSpawnSpots: () => dungeonQuestSpawnSpots(dungeon.blocks),   // FIELD BUGS 29h (BOUNTY-LAIR): where DFU stands a quest's foe here
     // LW6b (bible/06-Systems/Living-World.md "LW6b"): THE FALLEN IN THE DEEP - where the dungeon's own foes stand (its
@@ -10286,6 +10352,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
      *  a _TUTOR__ message that arrived while the automap or a rest
      *  window was up simply never appeared. */
     showOverlay(win) { return pushDungeonWindow(win); },
+    presentDecisionWindow(win) {
+      activeOverlay = win;
+      dungeonWindows.reconcile(activeOverlay);
+      return true;
+    },
     /** ENH-NOTICE3 (AUDIT F1): the host has adopted this context - its
      *  stack is the live top window from here on, and the door may
      *  offer it boxes. */
