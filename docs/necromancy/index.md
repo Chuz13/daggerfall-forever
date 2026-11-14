@@ -1,6 +1,6 @@
 # Necromancy & Lichdom
 
-Daggerfall Forever features a complete **Dark Arts & Necromancy** progression path *(Experimental, alpha)*—taking a character from a mortal researcher of forbidden texts to a **Necromancer**, an immortal **Lich**, and finally an **Ancient Lich (Archlich)**.
+Daggerfall Forever features a complete **Dark Arts & Necromancy** progression path *(Experimental, alpha)* - taking a character from a mortal researcher of forbidden texts to a **Necromancer**, an immortal **Lich**, and finally an **Ancient Lich (Archlich)**.
 
 ---
 
@@ -16,7 +16,7 @@ Daggerfall Forever features a complete **Dark Arts & Necromancy** progression pa
    * Unlocks **7 necromantic spell effects** in the Spell Maker.
 
 ### Stage 2: Necromancer → Lich
-You can ascend to Lichdom either by drinking the **Elixir of Unlife** or casting the **Lichdom** ritual spell (`50,255`).
+You can ascend to Lichdom by drinking the **Elixir of Unlife**.
 
 * **Brewing the Elixir of Unlife:** Requires `Wraith Essence` (`38`), `Ectoplasm` (`39`), `Lich Dust` (`45`), and `Daedra's Heart` (`53`). You can brew it at a Potion Maker or in the field by using `Lich Dust` while carrying all 4 reagents.
 * **Ascension Requirements:**
@@ -25,7 +25,7 @@ You can ascend to Lichdom either by drinking the **Elixir of Unlife** or casting
   * **Mysticism** `>= 100`
   * **Intelligence** `>= 100`
   * **Willpower** `>= 100`
-* **Failure Penalty:** Attempting the ritual or drinking the Elixir without meeting all requirements deals massive lethal damage (`max(99999, maxHealth * 20)`), killing a mortal caster instantly.
+* **Failure Penalty:** Drinking the Elixir without meeting all requirements deals massive lethal damage (`max(99999, maxHealth * 20)`), killing a mortal caster instantly.
 
 ### Stage 3: Lich → Archlich (Ancient Lich)
 * **Method:** Cast the **Arch-Lichdom** ritual spell (`52,255`, granted by the Grimoire).
@@ -50,18 +50,18 @@ You can ascend to Lichdom either by drinking the **Elixir of Unlife** or casting
 * **Mana Upkeep & Rebellion (Optional):** When `Minion Magicka Upkeep` is enabled, raised minions drain magicka every `5000 ms` (`4` magicka/round for a Flesh Colossus; paused while resting). If `Minion Rebellion` is enabled and magicka/fatigue hits `0`, excess minions (`usedSlots > floor(WIL / 15)`) may turn hostile.
 * **Necromantic Taint & Law:** Taint (`0–100`) applies disposition penalties (`PRISTINE` `0–25`: `0`, `TAINTED` `26–50`: `-10`, `DEFILER` `51–75`: `-25`, `ABOMINATION` `76–100`: `-50`) and decays `-1/day` for mortals. At `taint >= 40`, resting or fast-traveling can trigger **Arkay Witch-Hunter** ambushes. Visible minions in towns trigger `Criminal_Conspiracy` (`High_Treason` in Hammerfell) unless set to `Feign Death`.
 * **Undead Command Nexus & Hotkeys:**
-  * `Numpad 6` — Open **Undead Command Nexus** (shows Control Pool, Mana Upkeep, Active Minions, and Stance).
-  * `Numpad 7` — **Recall to Heel** (Shadow Tether teleport)
-  * `Numpad 8` — **Attack / Focus** (nearest hostile within `45m`)
-  * `Numpad 9` — **Feign Death / Ambush** (collapses minions to Neutral, hiding them from city law)
-  * `Numpad 1` — **Follow** | `Numpad 2` — **Guard** | `Numpad 3` — **Dismiss**
+  * `Numpad 6` - Open **Undead Command Nexus** (shows Control Pool, Mana Upkeep, Active Minions, and Stance).
+  * `Numpad 7` - **Recall to Heel** (Shadow Tether teleport)
+  * `Numpad 8` - **Attack / Focus** (nearest hostile within `45m`)
+  * `Numpad 9` - **Feign Death / Ambush** (collapses minions to Neutral, hiding them from city law)
+  * `Numpad 1` - **Follow** | `Numpad 2` - **Guard** | `Numpad 3` - **Dismiss**
 
 ### As a Lich
 * **Attributes & Skills:** `INT +25`, `WIL +25`, `PER -30` (suppressed to `0` while disguised); `Mysticism +30`, `Destruction +20`, `Alteration +20`.
 * **Vitals & Regen:** `+100` Max HP, `+250` Max Magicka, `+5` Magicka regen per magic round.
 * **Immunities & Mitigations:** Immune to Paralysis, Disease, Poison, Drowning, and normal weapons below **Silver** (`minMetalToHit: Silver`). Incoming arrow damage reduced by `50%`. Survival needs (thirst, sleep debt, exposure) cleared.
 * **Weaknesses & Law:** Vulnerable to holy ground (`holyDamage: true`). Taint locked at `100`. Walking undisguised in a settlement triggers `Treason` (`High_Treason` in Hammerfell).
-* **Immortality (Reconstitution):** Physical death is intercepted—your vitals restore to `100%`, curses/drains clear, `30` in-game days pass (`43,200` min), and you reconstitute at the nearest cemetery with zero gold/permadeath penalties.
+* **Immortality (Reconstitution):** Physical death is intercepted - your vitals restore to `100%`, curses/drains clear, `30` in-game days pass (`43,200` min), and you reconstitute at the nearest cemetery with zero gold/permadeath penalties.
 * **Innate Spells:** `Paralyzing Touch` and `Mortal Disguise`.
 
 ### As an Archlich (Ancient Lich)
@@ -83,7 +83,6 @@ You can ascend to Lichdom either by drinking the **Elixir of Unlife** or casting
 | **Control Undead** | Mysticism / Target at Range | Yes | Temporarily enslaves an enemy undead for `duration` rounds if spell magnitude meets its tier (`10` Skeleton up to `65` Ancient Lich). Does not use summon capacity. |
 | **Mortal Disguise** | Illusion / Caster Only | Yes (Lich-innate) | Suppresses Lich Personality penalty, zeroes trade taint penalty, and prevents settlement Lichdom law violations for `duration` rounds. |
 | **Suture Cadaver** | Mysticism / Caster Only | Yes | Consumes `3–5` corpses within `8m` (requires `6` control slots) to stitch a **Flesh Colossus** (`maxHealth = max(250, round(sum(corpse.maxHealth) * 0.8))`). |
-| **Lichdom** | Mysticism / Caster Only | No | Ritual spell (`250` base magicka at Mysticism 100) to ascend from Mortal to Lich. |
 | **Arch-Lichdom** | Mysticism / Caster Only | No | Ritual spell (`500` base magicka at Mysticism 200) to ascend from Lich to Ancient Lich. |
 | **Dark Flight** | Alteration / Caster Only | No | Grimoire-granted Levitate (`5 SP` minimum cost). |
 | **Paralyzing Touch** | Illusion / Touch | No | Lich-innate Paralyze on touch (`5 SP` minimum cost). |

@@ -2089,6 +2089,15 @@ export const FEATURES = Object.freeze([
     control: Object.freeze({ store: 'prefs', key: 'livingTravel', initial: 2, online: 'player', tiers: LIVING_TIERS }),
   }),
   Object.freeze({
+    id: 'living-wilderness',
+    group: 'world',
+    get title() { return t('features.livingWilderness.title', 'Wilderness encounters'); },
+    get note() { return t('features.livingWilderness.note', 'Controls how often Living Tamriel replaces or supplements exterior wilderness spawns with dynamic patrols, wildlife, and encounters.'); },
+    get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingWilderness', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
     id: 'living-camps',
     group: 'world',
     get title() { return t('features.livingCamps.title', 'Campsites & checkpoints'); },
@@ -2123,6 +2132,15 @@ export const FEATURES = Object.freeze([
     get effect() { return t('features.effect.worldLoads', 'Takes effect when the world next loads.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'livingDungeonMobTraits', initial: 2, online: 'player', tiers: LIVING_TIERS }),
+  }),
+  Object.freeze({
+    id: 'living-reputation-consequences',
+    group: 'world',
+    get title() { return t('features.livingReputationConsequences.title', 'Reputation consequences'); },
+    get note() { return t('features.livingReputationConsequences.note', 'Scales dynamic regional reputation reactions across prices, taverns, courts, temples, checkpoints, and nemesis pools.'); },
+    get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingReputationConsequences', initial: 3, online: 'player', tiers: LIVING_TIERS }),
   }),
   Object.freeze({
     id: 'lt-encounter-scale',

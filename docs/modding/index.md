@@ -9,10 +9,10 @@ Daggerfall Forever (DFF) includes a **native JavaScript & JSON modding system** 
 Native mods live in the `mods/` directory and are built from plain JSON files and standard ES JavaScript (`plugin.js`):
 
 * **Data-Driven JSON Overrides (`data` in `manifest.json`):**
-  * `combat` (`combat.json`) — Tune armor-class fatigue multipliers (`heavyArmorFatigueMultiplier`, `mediumArmorFatigueMultiplier`, `lightArmorFatigueMultiplier`).
-  * `potions` (`potions.json`) — Add or override alchemy potion recipes (ingredients, effect IDs, price, texture record, magnitude/chance settings).
-  * `materials` (`materials.json`) — Customize weapon/armor material scaling (`Iron` through `Daedric`: damage, swing speed, undead/werecreature multipliers, strength requirements).
-  * `quality` (`quality.json`) — Define craftsmanship quality tiers (e.g., `crude` to `masterwork`) with damage, armor, condition, price, and spawn weight modifiers.
+  * `combat` (`combat.json`) - Tune armor-class fatigue multipliers (`heavyArmorFatigueMultiplier`, `mediumArmorFatigueMultiplier`, `lightArmorFatigueMultiplier`).
+  * `potions` (`potions.json`) - Add or override alchemy potion recipes (ingredients, effect IDs, price, texture record, magnitude/chance settings).
+  * `materials` (`materials.json`) - Customize weapon/armor material scaling (`Iron` through `Daedric`: damage, swing speed, undead/werecreature multipliers, strength requirements).
+  * `quality` (`quality.json`) - Define craftsmanship quality tiers (e.g., `crude` to `masterwork`) with damage, armor, condition, price, and spawn weight modifiers.
 * **Scripted Plugins (`entry: "plugin.js"`):**
   * Subscribe to gameplay events (`worldTick`, `combatAttackResolved`, `combat:enemyKill`, `weaponWallClank`, `perk:unlocked`, etc.) via `api.events`.
   * Read and modify player vitals (health, magicka, fatigue) and check active effects via `api.player`.
@@ -30,7 +30,7 @@ Native mods live in the `mods/` directory and are built from plain JSON files an
 
 ## Can Native Mods Replace Textures and Sounds?
 
-**No — native JS/JSON mods (`mods/`) do not replace game texture assets or audio files.**
+**No - native JS/JSON mods (`mods/`) do not replace game texture assets or audio files.**
 
 * A `plugin.js` script can trigger existing built-in engine audio clips (such as the level-up fanfare when unlocking a perk), but it cannot bundle custom `.png` textures or `.wav` sound files.
 * **Texture, Sound, and Music Replacement** in DFF is handled by the separate **Replacement Packs** system:
@@ -41,5 +41,5 @@ Native mods live in the `mods/` directory and are built from plain JSON files an
 
 ## Next Steps
 
-* **[How to Start Modding](/modding/getting-started)** — Folder structure, `manifest.json`, load order, and Sandbox API reference.
-* **[Example Mods](/modding/examples)** — Detailed breakdown of all 8 bundled example mods in `mods/examples/`.
+* **[How to Start Modding](/modding/getting-started)** - Folder structure, `manifest.json`, load order, and Sandbox API reference.
+* **[Example Mods](/modding/examples)** - Detailed breakdown of all 8 bundled example mods in `mods/examples/`.

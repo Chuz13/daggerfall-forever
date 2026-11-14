@@ -30,10 +30,12 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
     'feat:living-road-adventurers',
     'feat:living-nemesis',
     'feat:living-travel',
+    'feat:living-wilderness',
     'feat:living-camps',
     'feat:living-naval',
     'feat:living-mob-traits',
     'feat:living-dungeon-mob-traits',
+    'feat:living-reputation-consequences',
     'feat:lt-encounter-scale',
     'feat:lt-urban-loot',
     'feat:lt-wilderness-loot',
@@ -50,7 +52,7 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
 
 test('LT-07: Living Tamriel feature rows have valid controls, 4-tier presence, and quest competition part', () => {
   const livingFeats = FEATURES.filter((f) => f.id.startsWith('living-') && f.id !== 'living-world');
-  assert.equal(livingFeats.length, 12, 'Expected 12 living feature declarations');
+  assert.equal(livingFeats.length, 14, 'Expected 14 living feature declarations');
 
   for (const feat of livingFeats) {
     assert.equal(feat.group, 'world');
@@ -101,6 +103,19 @@ test('LT-07: LivingTamrielConfig is synchronized with uiPrefs and settings mutat
   setPref('livingDungeonMobTraits', PRESENCE.OFF);
   assert.equal(LivingTamrielConfig.dungeonMobTraits, PRESENCE.OFF);
 
+  // Test wilderness & reputationConsequences synchronization
+  assert.equal(LivingTamrielConfig.wilderness, PRESENCE.MID);
+  setPref('livingWilderness', PRESENCE.HIGH);
+  assert.equal(LivingTamrielConfig.wilderness, PRESENCE.HIGH);
+  setPref('livingWilderness', PRESENCE.OFF);
+  assert.equal(LivingTamrielConfig.wilderness, PRESENCE.OFF);
+
+  assert.equal(LivingTamrielConfig.reputationConsequences, PRESENCE.HIGH);
+  setPref('livingReputationConsequences', PRESENCE.LIGHT);
+  assert.equal(LivingTamrielConfig.reputationConsequences, PRESENCE.LIGHT);
+  setPref('livingReputationConsequences', PRESENCE.OFF);
+  assert.equal(LivingTamrielConfig.reputationConsequences, PRESENCE.OFF);
+
   // Test Quest competition is permanently muted to false
   assert.equal(LivingTamrielConfig.allowQuestCompetition, false);
   LivingTamrielConfig.allowQuestCompetition = true;
@@ -137,6 +152,8 @@ test('LT-07: Localization keys for all living settings are registered in en and 
     'features.livingNemesis.note',
     'features.livingTravel.title',
     'features.livingTravel.note',
+    'features.livingWilderness.title',
+    'features.livingWilderness.note',
     'features.livingCamps.title',
     'features.livingCamps.note',
     'features.livingNaval.title',
@@ -145,6 +162,8 @@ test('LT-07: Localization keys for all living settings are registered in en and 
     'features.livingMobTraits.note',
     'features.livingDungeonMobTraits.title',
     'features.livingDungeonMobTraits.note',
+    'features.livingReputationConsequences.title',
+    'features.livingReputationConsequences.note',
     'features.livingAdventurerLoot.title',
     'features.livingAdventurerLoot.note',
     'features.livingAdventurerLoot.zero',

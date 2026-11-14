@@ -2775,12 +2775,16 @@ features.livingPolitical.note,"Drives regional state transitions between peace, 
 features.livingPolitical.title,"Regional politics & crises"
 features.livingQuarantine.note,"Bars city gates around the clock during severe outbreaks and establishes outside relief tents."
 features.livingQuarantine.title,"Plague quarantine & gate locks"
+features.livingReputationConsequences.note,"Schaalt dynamische regionale reputatiereacties voor prijzen, herbergen, rechtbanken, tempels, controleposten en nemesis-lijsten."
+features.livingReputationConsequences.title,"Reputatiegevolgen"
 features.livingRoadAdventurers.note,"Spawns non-hostile adventurers travelling highways, camping in the wilds, returning with dungeon spoils, or fighting monsters along the road."
 features.livingRoadAdventurers.title,"Wandering road adventurers"
 features.livingTravel.note,"Allows journeys and fast travel to be interrupted by roadside caravans, dilemmas, or hostile ambushes."
 features.livingTravel.title,"Travel interruptions"
 features.livingUrban.note,"Generates contained street clashes between the city watch and insurgents during regional war and strife."
 features.livingUrban.title,"Urban skirmishes"
+features.livingWilderness.note,"Bepaalt hoe vaak Living Tamriel buiten-spawns in de wildernis vervangt of aanvult met dynamische patrouilles, wilde dieren en ontmoetingen."
+features.livingWilderness.title,"Wildernis-ontmoetingen"
 features.lootRarity.effect,"Werkt bij de volgende buit; voorwerpen die je draagt, worden binnen enkele seconden bijgewerkt."
 features.lootRarity.note,"Wapens, pantser en sieraden kunnen vallen als Magisch, Zeldzaam of Legendarisch, met extra bonussen die je kunt lezen en vergelijken. De kansen hangen af van wat je doodde, waar, en je geluk. Zeldzame en Legendarische uitrusting is in het begin zeldzamer en wordt gewoner naarmate je groeit. Zeldzame en Legendarische voorwerpen vallen ongeïdentificeerd. Uit is de klassieke buit. Online dragen sommige wapens een zegel dat groeit met je Faam."
 features.lootRarity.title,"Zeldzaamheid van buit"
@@ -9719,21 +9723,21 @@ features.livingAdventurerLoot.supplies,"Supplies"
 features.livingAdventurerLoot.standard,"Standard"
 features.livingAdventurerLoot.full,"Full Gear"
 living.adventurer.assaultCrime,"Misdrijf gemeld: Mishandeling! Je hebt een sparrende tegenstander aangevallen die zich al had overgegeven!"
-rcfHouseRefusal,The local council refuses to sell property to an outcast of your reputation.
-rcfShipyardRefusal,The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'
-rcfTempleRefusal,The priests turn you away. 'The Divines grant no mercy to the profane!'
-rcfTavernRefusal,The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'
-rcfMagesGemsRefusal,The guild mystic refuses to trade high-tier soul vessels with an unproven outsider.
+rcfHouseRefusal,"The local council refuses to sell property to an outcast of your reputation."
+rcfShipyardRefusal,"The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'"
+rcfTempleRefusal,"The priests turn you away. 'The Divines grant no mercy to the profane!'"
+rcfTavernRefusal,"The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'"
+rcfMagesGemsRefusal,"The guild mystic refuses to trade high-tier soul vessels with an unproven outsider."
 rcfCheckpointDemand,"Guard Captain: 'Halt! By local decree, suspicious travelers must submit baggage for inspection.'"
 rcfCheckpointClean,"Guard: 'Baggage is clean. Move along, citizen.'"
 rcfCheckpointContraband,"Guard: 'Stolen goods found! By order of the court, these items are confiscated!'"
 rcfCheckpointSalute,"The guards present arms. 'Honor to you, noble traveler! The road is clear.'"
 rcfRumorKnightHero,"Travelers speak highly of %pcf, naming %pcf a noble champion of the realm."
 rcfRumorMerchantBane,"Merchants whisper bitter warnings against %pcf, blaming %pcf for losses on the roads."
-rcfRumorMagePraise,Mages across the province admire the arcane prowess demonstrated by %pcf.
+rcfRumorMagePraise,"Mages across the province admire the arcane prowess demonstrated by %pcf."
 rcfRumorHeretic,"Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines."
-rcfRumorUnderworldKingpin,Shadow brokers whisper that %pcf commands respect in every den of the province.
-rcfRumorMonsterHunt,The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.
+rcfRumorUnderworldKingpin,"Shadow brokers whisper that %pcf commands respect in every den of the province."
+rcfRumorMonsterHunt,"The Vigil warns of a blood-drinking monster roaming the wild known as %pcf."
 item.trait.vsUndead,"+{pct}% tegen ondoden"
 item.trait.vsWerecreatures,"+{pct}% tegen weerwezens"
 item.trait.damageBonus,"+{pct}% schade"

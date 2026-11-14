@@ -2775,12 +2775,16 @@ features.livingPolitical.note,"Drives regional state transitions between peace, 
 features.livingPolitical.title,"Regional politics & crises"
 features.livingQuarantine.note,"Bars city gates around the clock during severe outbreaks and establishes outside relief tents."
 features.livingQuarantine.title,"Plague quarantine & gate locks"
+features.livingReputationConsequences.note,"Menskalakan reaksi reputasi regional dinamis di seluruh harga, kedai, pengadilan, kuil, pos pemeriksaan, dan daftar nemesis."
+features.livingReputationConsequences.title,"Konsekuensi reputasi"
 features.livingRoadAdventurers.note,"Spawns non-hostile adventurers travelling highways, camping in the wilds, returning with dungeon spoils, or fighting monsters along the road."
 features.livingRoadAdventurers.title,"Wandering road adventurers"
 features.livingTravel.note,"Allows journeys and fast travel to be interrupted by roadside caravans, dilemmas, or hostile ambushes."
 features.livingTravel.title,"Travel interruptions"
 features.livingUrban.note,"Generates contained street clashes between the city watch and insurgents during regional war and strife."
 features.livingUrban.title,"Urban skirmishes"
+features.livingWilderness.note,"Mengatur seberapa sering Living Tamriel menggantikan atau melengkapi kemunculan luar ruangan di alam liar dengan patroli dinamis, satwa liar, dan pertemuan."
+features.livingWilderness.title,"Pertemuan di alam liar"
 features.lootRarity.effect,"Berlaku pada jarahan berikutnya; barang yang kamu pakai diperbarui dalam beberapa detik."
 features.lootRarity.note,"Senjata, zirah, dan perhiasan bisa jatuh sebagai Ajaib, Langka, atau Legendaris, dengan bonus tambahan yang bisa kamu baca dan bandingkan. Peluangnya bergantung pada apa yang kamu bunuh, di mana, dan keberuntunganmu. Perlengkapan Langka dan Legendaris lebih jarang di awal dan makin sering muncul seiring kamu berkembang. Barang Langka dan Legendaris jatuh tanpa teridentifikasi. Mati berarti jarahan klasik. Saat daring, sebagian senjata membawa sigil yang tumbuh bersama Kemasyhuranmu."
 features.lootRarity.title,"Kelangkaan jarahan"
@@ -9719,21 +9723,21 @@ features.livingAdventurerLoot.supplies,"Supplies"
 features.livingAdventurerLoot.standard,"Standard"
 features.livingAdventurerLoot.full,"Full Gear"
 living.adventurer.assaultCrime,"Kejahatan dilaporkan: Penyerangan! Anda menyerang lawan tanding yang telah menyerah!"
-rcfHouseRefusal,The local council refuses to sell property to an outcast of your reputation.
-rcfShipyardRefusal,The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'
-rcfTempleRefusal,The priests turn you away. 'The Divines grant no mercy to the profane!'
-rcfTavernRefusal,The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'
-rcfMagesGemsRefusal,The guild mystic refuses to trade high-tier soul vessels with an unproven outsider.
+rcfHouseRefusal,"The local council refuses to sell property to an outcast of your reputation."
+rcfShipyardRefusal,"The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'"
+rcfTempleRefusal,"The priests turn you away. 'The Divines grant no mercy to the profane!'"
+rcfTavernRefusal,"The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'"
+rcfMagesGemsRefusal,"The guild mystic refuses to trade high-tier soul vessels with an unproven outsider."
 rcfCheckpointDemand,"Guard Captain: 'Halt! By local decree, suspicious travelers must submit baggage for inspection.'"
 rcfCheckpointClean,"Guard: 'Baggage is clean. Move along, citizen.'"
 rcfCheckpointContraband,"Guard: 'Stolen goods found! By order of the court, these items are confiscated!'"
 rcfCheckpointSalute,"The guards present arms. 'Honor to you, noble traveler! The road is clear.'"
 rcfRumorKnightHero,"Travelers speak highly of %pcf, naming %pcf a noble champion of the realm."
 rcfRumorMerchantBane,"Merchants whisper bitter warnings against %pcf, blaming %pcf for losses on the roads."
-rcfRumorMagePraise,Mages across the province admire the arcane prowess demonstrated by %pcf.
+rcfRumorMagePraise,"Mages across the province admire the arcane prowess demonstrated by %pcf."
 rcfRumorHeretic,"Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines."
-rcfRumorUnderworldKingpin,Shadow brokers whisper that %pcf commands respect in every den of the province.
-rcfRumorMonsterHunt,The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.
+rcfRumorUnderworldKingpin,"Shadow brokers whisper that %pcf commands respect in every den of the province."
+rcfRumorMonsterHunt,"The Vigil warns of a blood-drinking monster roaming the wild known as %pcf."
 item.trait.vsUndead,"+{pct}% vs Mayat Hidup"
 item.trait.vsWerecreatures,"+{pct}% vs Manusia Serigala"
 item.trait.damageBonus,"+{pct}% Kerusakan"

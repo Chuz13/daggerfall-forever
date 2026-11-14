@@ -2775,12 +2775,16 @@ features.livingPolitical.note,"Drives regional state transitions between peace, 
 features.livingPolitical.title,"Regional politics & crises"
 features.livingQuarantine.note,"Bars city gates around the clock during severe outbreaks and establishes outside relief tents."
 features.livingQuarantine.title,"Plague quarantine & gate locks"
+features.livingReputationConsequences.note,"缩放价格、酒馆、法庭、神殿、关卡和宿敌池中的动态区域声望反应。"
+features.livingReputationConsequences.title,"声望后果"
 features.livingRoadAdventurers.note,"Spawns non-hostile adventurers travelling highways, camping in the wilds, returning with dungeon spoils, or fighting monsters along the road."
 features.livingRoadAdventurers.title,"Wandering road adventurers"
 features.livingTravel.note,"Allows journeys and fast travel to be interrupted by roadside caravans, dilemmas, or hostile ambushes."
 features.livingTravel.title,"Travel interruptions"
 features.livingUrban.note,"Generates contained street clashes between the city watch and insurgents during regional war and strife."
 features.livingUrban.title,"Urban skirmishes"
+features.livingWilderness.note,"控制 Living Tamriel 用动态巡逻、野生动物和遭遇事件替换或补充野外刷新的频率。"
+features.livingWilderness.title,"荒野遭遇"
 features.lootRarity.effect,"Takes effect on the next drop; items you wear update within a few seconds."
 features.lootRarity.note,"Weapons, armor and jewelry can drop as Magic, Rare or Legendary, with extra bonuses you can read and compare. The odds depend on what you killed, where, and your luck. Rare and Legendary gear is rarer early on and becomes more common as you grow. Rare and Legendary items drop unidentified. Off is the classic loot. Online, some weapons carry a sigil that grows with your Renown."
 features.lootRarity.title,"Loot rarity"
@@ -9719,21 +9723,21 @@ features.livingAdventurerLoot.supplies,"Supplies"
 features.livingAdventurerLoot.standard,"Standard"
 features.livingAdventurerLoot.full,"Full Gear"
 living.adventurer.assaultCrime,"罪行报告：袭击！你攻击了一位已投降的切磋对手！"
-rcfHouseRefusal,The local council refuses to sell property to an outcast of your reputation.
-rcfShipyardRefusal,The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'
-rcfTempleRefusal,The priests turn you away. 'The Divines grant no mercy to the profane!'
-rcfTavernRefusal,The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'
-rcfMagesGemsRefusal,The guild mystic refuses to trade high-tier soul vessels with an unproven outsider.
+rcfHouseRefusal,"The local council refuses to sell property to an outcast of your reputation."
+rcfShipyardRefusal,"The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'"
+rcfTempleRefusal,"The priests turn you away. 'The Divines grant no mercy to the profane!'"
+rcfTavernRefusal,"The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'"
+rcfMagesGemsRefusal,"The guild mystic refuses to trade high-tier soul vessels with an unproven outsider."
 rcfCheckpointDemand,"Guard Captain: 'Halt! By local decree, suspicious travelers must submit baggage for inspection.'"
 rcfCheckpointClean,"Guard: 'Baggage is clean. Move along, citizen.'"
 rcfCheckpointContraband,"Guard: 'Stolen goods found! By order of the court, these items are confiscated!'"
 rcfCheckpointSalute,"The guards present arms. 'Honor to you, noble traveler! The road is clear.'"
 rcfRumorKnightHero,"Travelers speak highly of %pcf, naming %pcf a noble champion of the realm."
 rcfRumorMerchantBane,"Merchants whisper bitter warnings against %pcf, blaming %pcf for losses on the roads."
-rcfRumorMagePraise,Mages across the province admire the arcane prowess demonstrated by %pcf.
+rcfRumorMagePraise,"Mages across the province admire the arcane prowess demonstrated by %pcf."
 rcfRumorHeretic,"Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines."
-rcfRumorUnderworldKingpin,Shadow brokers whisper that %pcf commands respect in every den of the province.
-rcfRumorMonsterHunt,The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.
+rcfRumorUnderworldKingpin,"Shadow brokers whisper that %pcf commands respect in every den of the province."
+rcfRumorMonsterHunt,"The Vigil warns of a blood-drinking monster roaming the wild known as %pcf."
 item.trait.vsUndead,"对不死生物+{pct}%"
 item.trait.vsWerecreatures,"对狼人生物+{pct}%"
 item.trait.damageBonus,"+{pct}% 伤害"

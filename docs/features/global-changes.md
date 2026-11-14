@@ -6,7 +6,7 @@ Beyond Living Tamriel and Necromancy, **Daggerfall Forever** introduces broad si
 
 ## Online Systems Brought Offline
 
-* **Offline Player Housing & Shipyards (`offlineHomes.js`, `banking.js`):** Buy and sell DFO-style houses directly at the front door across all towns and hamlets, complete with chest storage, decor/yard placement, exterior look painting, NPC suppression, and heir inheritance—all without touching classic DFU bank housing when enabled. Also supports offline ship ownership and RCF reputation price/refusal integration.
+* **Offline Player Housing & Shipyards (`offlineHomes.js`, `banking.js`):** Buy and sell DFO-style houses directly at the front door across all towns and hamlets, complete with chest storage, decor/yard placement, exterior look painting, NPC suppression, and heir inheritance - all without touching classic DFU bank housing when enabled. Also supports offline ship ownership and RCF reputation price/refusal integration.
 * **Offline Firmament & Renown (`offlineFirmament.js`):** Use the Firmament star constellation passive tree and Renown progression offline, saved in `modData.firmament`. Applies a `1.5x` proportional offline XP boost (`OFFLINE_RENOWN_BOOST`) to kills and quests to compensate for missing online group/raid bonuses, with full respec for `500` gold.
 * **Offline Professions & Gathering (`offlineProfessions.js`):** Enables mining, herbalism, logging, hunting, fishing, and crafting professions in single-player with local save persistence (`modData.professions`).
 * **Unified Empire Bank (`banking.js`):** Unifies bank accounts across all 71 regions into a single global Empire account, toggleable and synchronized mid-game.
@@ -20,7 +20,7 @@ Beyond Living Tamriel and Necromancy, **Daggerfall Forever** introduces broad si
 * **Granular Morrowind Visual Toggles (`features.js`):** Splits DFO's unified Morrowind rendering into independent controls for **Morrowind Player Body**, **Inventory Player Figure** (`Follow`, `Always 3D`, `Always Paperdoll`), **Morrowind Item Icons**, **Morrowind Foes** (`Off`, `Near`, `All`), and **Morrowind NPCs**, plus restored 1st-person weapon sprite rendering.
 * **Post-Chargen Reflexes (`enhancedMenu.js`):** Allows changing the **Reflexes** setting (`Very High` to `Very Low`) on an active character from the pause menu under `Combat › Enemies`.
 * **First-Person Travel by Default (`modSettings.js`):** Enables `FirstPersonTravel` and `FirstPersonTravelFollowsRoads` by default for immersive overworld journeys (toggleable in Travel Options).
-* **Dynasty Model Without Permadeath (`family.js`):** Adds the `Dynasty` model to Project Legacy with `tollShare = 0`—preserving family/retire mechanics without permadeath or lost years on death.
+* **Dynasty Model Without Permadeath (`family.js`):** Adds the `Dynasty` model to Project Legacy with `tollShare = 0` - preserving family/retire mechanics without permadeath or lost years on death.
 * **Character Creation Tooltips:** Adds hover tooltips for attributes, skills, and advantages/disadvantages showing exact difficulty point costs.
 
 ---

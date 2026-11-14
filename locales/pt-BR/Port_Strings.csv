@@ -2775,12 +2775,16 @@ features.livingPolitical.note,"Drives regional state transitions between peace, 
 features.livingPolitical.title,"Regional politics & crises"
 features.livingQuarantine.note,"Bars city gates around the clock during severe outbreaks and establishes outside relief tents."
 features.livingQuarantine.title,"Plague quarantine & gate locks"
+features.livingReputationConsequences.note,"Escala as reações regionais dinâmicas de reputação em preços, tavernas, tribunais, templos, postos de controle e listas de nêmesis."
+features.livingReputationConsequences.title,"Consequências de reputação"
 features.livingRoadAdventurers.note,"Spawns non-hostile adventurers travelling highways, camping in the wilds, returning with dungeon spoils, or fighting monsters along the road."
 features.livingRoadAdventurers.title,"Wandering road adventurers"
 features.livingTravel.note,"Allows journeys and fast travel to be interrupted by roadside caravans, dilemmas, or hostile ambushes."
 features.livingTravel.title,"Travel interruptions"
 features.livingUrban.note,"Generates contained street clashes between the city watch and insurgents during regional war and strife."
 features.livingUrban.title,"Urban skirmishes"
+features.livingWilderness.note,"Controla a frequência com que Living Tamriel substitui ou complementa aparições externas na natureza por patrulhas dinâmicas, fauna e encontros."
+features.livingWilderness.title,"Encontros na natureza"
 features.lootRarity.effect,"Tem efeito no próximo saque; os itens que você veste se atualizam em poucos segundos."
 features.lootRarity.note,"Armas, armaduras e joias podem cair como Mágicas, Raras ou Lendárias, com bônus extras que você pode ler e comparar. As chances dependem do que você matou, de onde e da sua sorte. Equipamentos Raros e Lendários são mais escassos no começo e ficam mais comuns conforme você cresce. Itens Raros e Lendários caem sem identificação. Desligado é o saque clássico. Online, algumas armas levam um sigilo que cresce com o seu Renome."
 features.lootRarity.title,"Raridade do saque"
@@ -9719,21 +9723,21 @@ features.livingAdventurerLoot.supplies,"Supplies"
 features.livingAdventurerLoot.standard,"Standard"
 features.livingAdventurerLoot.full,"Full Gear"
 living.adventurer.assaultCrime,"Crime relatado: Agressão! Você atacou um oponente de treino que já havia se rendido!"
-rcfHouseRefusal,The local council refuses to sell property to an outcast of your reputation.
-rcfShipyardRefusal,The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'
-rcfTempleRefusal,The priests turn you away. 'The Divines grant no mercy to the profane!'
-rcfTavernRefusal,The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'
-rcfMagesGemsRefusal,The guild mystic refuses to trade high-tier soul vessels with an unproven outsider.
+rcfHouseRefusal,"The local council refuses to sell property to an outcast of your reputation."
+rcfShipyardRefusal,"The shipmaster turns you away. 'We do not sell vessels to enemies of our trade.'"
+rcfTempleRefusal,"The priests turn you away. 'The Divines grant no mercy to the profane!'"
+rcfTavernRefusal,"The innkeeper frowns. 'We don't rent beds to scoundrels like you. Get out.'"
+rcfMagesGemsRefusal,"The guild mystic refuses to trade high-tier soul vessels with an unproven outsider."
 rcfCheckpointDemand,"Guard Captain: 'Halt! By local decree, suspicious travelers must submit baggage for inspection.'"
 rcfCheckpointClean,"Guard: 'Baggage is clean. Move along, citizen.'"
 rcfCheckpointContraband,"Guard: 'Stolen goods found! By order of the court, these items are confiscated!'"
 rcfCheckpointSalute,"The guards present arms. 'Honor to you, noble traveler! The road is clear.'"
 rcfRumorKnightHero,"Travelers speak highly of %pcf, naming %pcf a noble champion of the realm."
 rcfRumorMerchantBane,"Merchants whisper bitter warnings against %pcf, blaming %pcf for losses on the roads."
-rcfRumorMagePraise,Mages across the province admire the arcane prowess demonstrated by %pcf.
+rcfRumorMagePraise,"Mages across the province admire the arcane prowess demonstrated by %pcf."
 rcfRumorHeretic,"Preachers warn townspeople to shun the heretic %pcf, cursed by the Divines."
-rcfRumorUnderworldKingpin,Shadow brokers whisper that %pcf commands respect in every den of the province.
-rcfRumorMonsterHunt,The Vigil warns of a blood-drinking monster roaming the wild known as %pcf.
+rcfRumorUnderworldKingpin,"Shadow brokers whisper that %pcf commands respect in every den of the province."
+rcfRumorMonsterHunt,"The Vigil warns of a blood-drinking monster roaming the wild known as %pcf."
 item.trait.vsUndead,"+{pct}% contra mortos-vivos"
 item.trait.vsWerecreatures,"+{pct}% contra licantropos"
 item.trait.damageBonus,"+{pct}% de dano"

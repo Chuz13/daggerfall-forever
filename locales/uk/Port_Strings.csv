@@ -2775,12 +2775,16 @@ features.livingPolitical.note,"Drives regional state transitions between peace, 
 features.livingPolitical.title,"Regional politics & crises"
 features.livingQuarantine.note,"Bars city gates around the clock during severe outbreaks and establishes outside relief tents."
 features.livingQuarantine.title,"Plague quarantine & gate locks"
+features.livingReputationConsequences.note,"Масштабує динамічні регіональні реакції на репутацію в цінах, тавернах, судах, храмах, на заставах і в списках заклятих ворогів."
+features.livingReputationConsequences.title,"Наслідки репутації"
 features.livingRoadAdventurers.note,"Spawns non-hostile adventurers travelling highways, camping in the wilds, returning with dungeon spoils, or fighting monsters along the road."
 features.livingRoadAdventurers.title,"Wandering road adventurers"
 features.livingTravel.note,"Allows journeys and fast travel to be interrupted by roadside caravans, dilemmas, or hostile ambushes."
 features.livingTravel.title,"Travel interruptions"
 features.livingUrban.note,"Generates contained street clashes between the city watch and insurgents during regional war and strife."
 features.livingUrban.title,"Urban skirmishes"
+features.livingWilderness.note,"Визначає, як часто Living Tamriel замінює або доповнює появи в дикій місцевості динамічними патрулями, тваринами та сутичками."
+features.livingWilderness.title,"Події в дикій місцевості"
 features.lootRarity.effect,"Takes effect on the next drop; items you wear update within a few seconds."
 features.lootRarity.note,"Weapons, armor and jewelry can drop as Magic, Rare or Legendary, with extra bonuses you can read and compare. The odds depend on what you killed, where, and your luck. Rare and Legendary gear is rarer early on and becomes more common as you grow. Rare and Legendary items drop unidentified. Off is the classic loot. Online, some weapons carry a sigil that grows with your Renown."
 features.lootRarity.title,"Loot rarity"
@@ -9719,19 +9723,19 @@ features.livingAdventurerLoot.supplies,"Supplies"
 features.livingAdventurerLoot.standard,"Standard"
 features.livingAdventurerLoot.full,"Full Gear"
 living.adventurer.assaultCrime,"Повідомлено про злочин: Напад! Ви атакували суперника зі спарингу, який здався!"
-rcfHouseRefusal,Міська рада відмовляє вам у купівлі житла через вашу лиху славу.
-rcfShipyardRefusal,Шипмайстер проганяє вас: «Ми не продаємо кораблі ворогам нашої торгівлі».
-rcfTempleRefusal,Жерці проганяють вас: «Боги не дарують милості нечестивцям!»
-rcfTavernRefusal,Корчмар хмуриться: «Для таких негідників у нас кімнат немає. Забирайся».
-rcfMagesGemsRefusal,Містик відмовляється продавати посудини душ вищого кола чужинцям.
-rcfCheckpointDemand,Капітан варти: «Стій! Підозрілий вантаж підлягає обов'язковому огляду».
+rcfHouseRefusal,"Міська рада відмовляє вам у купівлі житла через вашу лиху славу."
+rcfShipyardRefusal,"Шипмайстер проганяє вас: «Ми не продаємо кораблі ворогам нашої торгівлі»."
+rcfTempleRefusal,"Жерці проганяють вас: «Боги не дарують милості нечестивцям!»"
+rcfTavernRefusal,"Корчмар хмуриться: «Для таких негідників у нас кімнат немає. Забирайся»."
+rcfMagesGemsRefusal,"Містик відмовляється продавати посудини душ вищого кола чужинцям."
+rcfCheckpointDemand,"Капітан варти: «Стій! Підозрілий вантаж підлягає обов'язковому огляду»."
 rcfCheckpointClean,"Вартовий: «Усе чисто. Проїжджайте, громадянине»."
-rcfCheckpointContraband,Вартовий: «Виявлено крадене! Ім'ям закону майно конфісковано!»
+rcfCheckpointContraband,"Вартовий: «Виявлено крадене! Ім'ям закону майно конфісковано!»"
 rcfCheckpointSalute,"Варта віддає честь: «Вітаємо вас, шляхетний мандрівнику! Дорога вільна»."
 rcfRumorKnightHero,"Мандрівники вихваляють %pcf, називаючи шляхетним захисником королівства."
 rcfRumorMerchantBane,"Торговці з гіркотою попереджають про %pcf, звинувачуючи у збитках на дорогах."
 rcfRumorMagePraise,"Маги провінції захоплюються таємною майстерністю, явленою %pcf."
-rcfRumorHeretic,Проповідники закликають триматися подалі від єретика %pcf.
+rcfRumorHeretic,"Проповідники закликають триматися подалі від єретика %pcf."
 rcfRumorUnderworldKingpin,"У злодійських кублах шепочуться, що %pcf користується загальною повагою."
 rcfRumorMonsterHunt,"Варта попереджає про бродяче в пустках чудовисько, відоме як %pcf."
 item.trait.vsUndead,"+{pct}% проти немертвих"

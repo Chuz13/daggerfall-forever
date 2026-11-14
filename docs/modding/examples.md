@@ -35,11 +35,11 @@ Daggerfall Forever ships with **8 example mods** in `mods/examples/`. They demon
 ## 5. `heroic-feats` (Condition-Checked Milestone Perks)
 * **Files:** `manifest.json`, `plugin.js`
 * **What it does:** Introduces 5 milestone feats that automatically activate once character requirements are met:
-  1. **Blade Mastery** — `+15%` damage and `+10%` crit chance with Long Blades (Requires Long Blade `>= 50`).
-  2. **Arcane Reservoir** — `+25` Max Magicka (Requires Mysticism `>= 50`).
-  3. **Shadow Step** — `40%` quieter stealth movement and `+25%` backstab damage (Requires Stealth `>= 50`).
-  4. **Iron Constitution** — `-30%` disease/poison susceptibility and `+15` Max HP (Requires Level `>= 5`).
-  5. **Treasure Hunter** — `+20%` gold in dungeon chests and corpses (Requires Mercantile `>= 40`).
+  1. **Blade Mastery** - `+15%` damage and `+10%` crit chance with Long Blades (Requires Long Blade `>= 50`).
+  2. **Arcane Reservoir** - `+25` Max Magicka (Requires Mysticism `>= 50`).
+  3. **Shadow Step** - `40%` quieter stealth movement and `+25%` backstab damage (Requires Stealth `>= 50`).
+  4. **Iron Constitution** - `-30%` disease/poison susceptibility and `+15` Max HP (Requires Level `>= 5`).
+  5. **Treasure Hunter** - `+20%` gold in dungeon chests and corpses (Requires Mercantile `>= 40`).
 * **How it works:** Each `api.perks.register` call includes a `check: (entity) => boolean` predicate evaluated against `entity.skills` / `entity.level`.
 
 ---
@@ -67,6 +67,6 @@ Daggerfall Forever ships with **8 example mods** in `mods/examples/`. They demon
 * **What it does:** Gives high-tier weapon materials distinct combat identities on top of stat rebalancing:
   * **Adamantium (`6`):** `20%` chance on hit to sunder enemy armor (`-25` condition or `+2` armor penalty).
   * **Ebony (`7`):** Siphons `10` fatigue from the target and restores `10` fatigue to the player.
-  * **Daedric (`9`):** Curses the wielder—missed swings drain `15` fatigue, and attacking below `25%` HP drains `5 HP`.
+  * **Daedric (`9`):** Curses the wielder - missed swings drain `15` fatigue, and attacking below `25%` HP drains `5 HP`.
   * **Wall Clank:** Notifies the player when a swing strikes a stone wall (`weaponWallClank`).
 * **How it works:** Combines `materials.json` data overrides with `combatAttackResolved` and `weaponWallClank` listeners in `plugin.js`.
