@@ -8,6 +8,7 @@ import {
   TOTAL_FATE_TRIGGERS,
   TOTAL_CANONICAL_ARTIFACTS,
   APOTHEOSIS_STAGES,
+  APOTHEOSIS_QUEST_STEPS,
   APOTHEOSIS_SOURCES,
   APOTHEOSIS_PORTFOLIOS,
   NECRO_GRIMOIRE_BOOK_ID,
@@ -26,6 +27,7 @@ import {
   canStartApotheosisViaArtifacts,
   startApotheosisFromMantella,
   startApotheosisFromArtifacts,
+  completeApotheosisQuestline,
   selectApotheosisPortfolio,
   setDebugFateWeight,
   resetApotheosisForDebug,
@@ -371,21 +373,29 @@ test('Full Stage 0 loop: Fate + 13 unequipped artifacts -> questline placeholder
   const withDupSub = [selected13[0], extraCopy, ...selected13.slice(2)];
   assert.equal(startApotheosisFromArtifacts(e, withDupSub).ok, false);
 
-  // Perform valid 13-artifact shatter
+  // Perform valid 13-artifact shatter -> starts Stage 1 questline
   const beforeCount = e.items.length;
   const ritual = startApotheosisFromArtifacts(e, selected13);
   assert.equal(ritual.ok, true);
-  assert.equal(ritual.stage, APOTHEOSIS_STAGES.AWAITING_PORTFOLIO);
+  assert.equal(ritual.stage, APOTHEOSIS_STAGES.QUESTLINE_ACTIVE);
   assert.equal(ritual.source, APOTHEOSIS_SOURCES.ARTIFACTS);
   assert.equal(ritual.sacrificedSubTypes.length, REQUIRED_ARTIFACTS_COUNT);
   assert.equal(e.apotheosis.questlineStarted, true);
-  assert.equal(e.apotheosis.questlineCompletedNotice, true);
+  assert.equal(e.apotheosis.questStep, APOTHEOSIS_QUEST_STEPS.DRAGON_BREAK);
+  assert.equal(e.apotheosis.questlineCompletedNotice, false);
   assert.equal(e.apotheosis.ascended, false, 'ascended flips true after choosing initial Portfolio');
   assert.equal(e.items.length, beforeCount - REQUIRED_ARTIFACTS_COUNT);
   assert.equal(e.items.includes(protectedSword), true, 'equipped artifact survived ritual');
   for (const destroyed of selected13) {
     assert.equal(e.items.includes(destroyed), false, 'sacrificed item removed from pack');
   }
+
+  // Cannot claim Portfolio before trial finishes -> complete questline first
+  assert.equal(selectApotheosisPortfolio(e, 'war').ok, false);
+  const doneQuest = completeApotheosisQuestline(e);
+  assert.equal(doneQuest.ok, true);
+  assert.equal(doneQuest.stage, APOTHEOSIS_STAGES.AWAITING_PORTFOLIO);
+  assert.equal(e.apotheosis.questlineCompletedNotice, true);
 
   // Mutual exclusion against Mantella while in/after Artifact Ascension
   assert.equal(startApotheosisFromMantella(e).ok, false);
@@ -399,7 +409,7 @@ test('Full Stage 0 loop: Fate + 13 unequipped artifacts -> questline placeholder
   assert.equal(e.apotheosis.portfolio, 'war');
   assert.equal(e.apotheosis.ascendedAtMinutes, 12345);
 
-  // Free Portfolio switch in Stage 0
+  // Free Portfolio switch
   const sw = selectApotheosisPortfolio(e, 'magic', { nowMinutes: 12500 });
   assert.equal(sw.ok, true);
   assert.equal(sw.switching, true);
@@ -410,16 +420,16 @@ test('Full Stage 0 loop: Fate + 13 unequipped artifacts -> questline placeholder
   assert.equal(canStartApotheosisViaArtifacts(e).eligible, false);
   assert.equal(APOTHEOSIS_PORTFOLIOS.length, 4);
 
-  // Reverse mutual exclusion: Mantella path locks out Artifact path
+  // Reverse mutual exclusion: Mantella path starts questline & locks out Artifact path
   resetApotheosisForDebug(e);
   const man = startApotheosisFromMantella(e);
   assert.equal(man.ok, true);
   assert.equal(man.source, APOTHEOSIS_SOURCES.MANTELLA);
-  assert.equal(man.stage, APOTHEOSIS_STAGES.AWAITING_PORTFOLIO);
+  assert.equal(man.stage, APOTHEOSIS_STAGES.QUESTLINE_ACTIVE);
   assert.equal(canStartApotheosisViaArtifacts(e).eligible, false);
 });
 
-test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifacts, status, and reset cleanly', () => {
+test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifacts, status, and reset cleanly', async () => {
   const prev = {
     items: [...(playerEntity.items ?? [])],
     apotheosis: playerEntity.apotheosis ? structuredClone(playerEntity.apotheosis) : undefined,
@@ -433,18 +443,18 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     const apo = getConsoleCommand('apo');
     assert.ok(apo);
 
-    assert.match(executeConsoleCommand('apo', ['reset']), /reset/i);
-    assert.match(executeConsoleCommand('apo', ['fate', 'ready']), /12\/18/);
+    assert.match(await executeConsoleCommand('apo', ['reset']), /reset/i);
+    assert.match(await executeConsoleCommand('apo', ['fate', 'ready']), /12\/18/);
     assert.equal(playerEntity.apotheosis.debugFateCount, 12);
 
-    assert.match(executeConsoleCommand('apo', ['fate', 'full']), /18\/18/);
+    assert.match(await executeConsoleCommand('apo', ['fate', 'full']), /18\/18/);
     assert.equal(playerEntity.apotheosis.debugFateCount, 18);
 
-    const artMsg = executeConsoleCommand('apo', ['artifacts', '15']);
+    const artMsg = await executeConsoleCommand('apo', ['artifacts', '15']);
     assert.match(artMsg, /15/);
     assert.ok(scanInventoryArtifactsForApotheosis(playerEntity).distinctUnequippedCount >= 15);
 
-    const statusMsg = executeConsoleCommand('apo', ['status']);
+    const statusMsg = await executeConsoleCommand('apo', ['status']);
     assert.match(statusMsg, /\[Apotheosis\] stage=/);
   } finally {
     playerEntity.items = prev.items;
@@ -479,6 +489,9 @@ test('Save/Restore round-trip (`snapshotPlayer` / `restorePlayer`) and Settings 
     source: APOTHEOSIS_SOURCES.ARTIFACTS,
     portfolio: 'shadows',
     questlineStarted: true,
+    questStep: APOTHEOSIS_QUEST_STEPS.COMPLETED,
+    siegeWave: 13,
+    towerSiegeCleared: true,
     questlineCompletedNotice: true,
     sacrificedArtifacts: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15],
     debugFateCount: 12,
@@ -539,7 +552,7 @@ test('Localization: all 26 locales have all 169 Apotheosis keys with valid CSV a
 
   const enRows = parseStringTableCsv(readFileSync(new URL('../../locales/en/Port_Strings.csv', import.meta.url), 'utf8'));
   const enApo = new Map(enRows.filter(([k]) => isApoKey(k)));
-  assert.equal(enApo.size, 169, 'expected 169 Apotheosis/Settings/Pause keys in English table');
+  assert.equal(enApo.size, 207, 'expected 207 Apotheosis/Settings/Pause keys in English table');
 
   const expectedArgs = new Map();
   for (const [k, v] of enApo) {

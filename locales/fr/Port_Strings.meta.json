@@ -49658,5 +49658,195 @@
   "en": "9af2be2c7e3f",
   "tr": "c7f62c2b8943",
   "by": "human"
+ },
+ "apotheosis.shadow.defeated": {
+  "en": "cf147155220d",
+  "tr": "655a38047be3",
+  "by": "human"
+ },
+ "apotheosis.zeroStone.title": {
+  "en": "eb928f01fd0f",
+  "tr": "14e1b986ad52",
+  "by": "human"
+ },
+ "apotheosis.orrery.exitTitle": {
+  "en": "9449112e87eb",
+  "tr": "068639e3bd00",
+  "by": "human"
+ },
+ "apotheosis.rebirth.message": {
+  "en": "85b8fbcfcede",
+  "tr": "193072a9659b",
+  "by": "human"
+ },
+ "apotheosis.mantella.vanillaSay": {
+  "en": "e75783624503",
+  "tr": "d725ea74ef5d",
+  "by": "human"
+ },
+ "apotheosis.portfolio.war.passives": {
+  "en": "63ecc4025660",
+  "tr": "92647e8c0dbd",
+  "by": "human"
+ },
+ "apotheosis.portfolio.magic.passives": {
+  "en": "796807f54ecd",
+  "tr": "3646f4893c9d",
+  "by": "human"
+ },
+ "apotheosis.portfolio.shadows.passives": {
+  "en": "aa7780a64924",
+  "tr": "f8ad1fb7ab8e",
+  "by": "human"
+ },
+ "apotheosis.portfolio.order.passives": {
+  "en": "ceb74a742915",
+  "tr": "bc59f9b9dca6",
+  "by": "human"
+ },
+ "apotheosis.lock.questlineActive": {
+  "en": "1fc09329ea96",
+  "tr": "a81e2e71d788",
+  "by": "human"
+ },
+ "apotheosis.mantella.blockedArtifacts": {
+  "en": "941a6d76575e",
+  "tr": "43c63a0147ed",
+  "by": "human"
+ },
+ "apotheosis.mantella.blockedAscended": {
+  "en": "c3fd37e94db7",
+  "tr": "489cc2074ea1",
+  "by": "human"
+ },
+ "apotheosis.mantella.blockedActive": {
+  "en": "a8e3b0958447",
+  "tr": "81554b7e0f11",
+  "by": "human"
+ },
+ "apotheosis.mantella.insufficientFate": {
+  "en": "5f93075f913a",
+  "tr": "6fce3675be25",
+  "by": "human"
+ },
+ "apotheosis.quest.startedNotice": {
+  "en": "f2dd3e9db2cd",
+  "tr": "debc0e051680",
+  "by": "human"
+ },
+ "apotheosis.err.trialIncomplete": {
+  "en": "1c44499b305f",
+  "tr": "e678c80e2a9f",
+  "by": "human"
+ },
+ "apotheosis.mantella.blockedFate": {
+  "en": "b11779240cca",
+  "tr": "efb454d330f5",
+  "by": "human"
+ },
+ "apotheosis.mantella.promptTitle": {
+  "en": "13b363374aa8",
+  "tr": "fb03de26f46d",
+  "by": "human"
+ },
+ "apotheosis.mantella.promptBody": {
+  "en": "ba7306c62d29",
+  "tr": "f5bc3c84c15f",
+  "by": "human"
+ },
+ "apotheosis.mantella.usurpedConsequence": {
+  "en": "cc030e02eb25",
+  "tr": "1ef25ad80355",
+  "by": "human"
+ },
+ "apotheosis.mantella.vanillaConsequence": {
+  "en": "0084489e7a39",
+  "tr": "5489b0775b98",
+  "by": "human"
+ },
+ "apotheosis.boss.aspectName": {
+  "en": "70fb4985dba1",
+  "tr": "f4ec87a2bd11",
+  "by": "human"
+ },
+ "apotheosis.siege.bossArrive": {
+  "en": "ebdc9eb40197",
+  "tr": "81ca80b8f2a5",
+  "by": "human"
+ },
+ "apotheosis.siege.waveStart": {
+  "en": "af56b2aa3e61",
+  "tr": "b43d07ab716d",
+  "by": "human"
+ },
+ "apotheosis.siege.cleared": {
+  "en": "02d92c1b39bf",
+  "tr": "a42067773378",
+  "by": "human"
+ },
+ "apotheosis.siege.bossPhase2": {
+  "en": "d9757f5afbd5",
+  "tr": "f39742f3bdf5",
+  "by": "human"
+ },
+ "apotheosis.siege.bossPhase3": {
+  "en": "4457c7de0f82",
+  "tr": "0fab673e65a3",
+  "by": "human"
+ },
+ "apotheosis.siege.abandoned": {
+  "en": "43a48fec795b",
+  "tr": "113a51a55786",
+  "by": "human"
+ },
+ "apotheosis.tower.hardModeEntered": {
+  "en": "936ff59fd55a",
+  "tr": "c0d7d968b46c",
+  "by": "human"
+ },
+ "apotheosis.shadow.name": {
+  "en": "8457762c1a80",
+  "tr": "c837ff265b91",
+  "by": "human"
+ },
+ "apotheosis.shadow.engaged": {
+  "en": "16d1e1163fbb",
+  "tr": "9d224bdaa89b",
+  "by": "human"
+ },
+ "apotheosis.stage.questline": {
+  "en": "fce7b09968ad",
+  "tr": "93ea3d4869da",
+  "by": "human"
+ },
+ "apotheosis.quest.stepTowerSiege": {
+  "en": "e04b3a284474",
+  "tr": "d6c35af0fa6e",
+  "by": "human"
+ },
+ "apotheosis.quest.stepTowerInterior": {
+  "en": "c12e9be3b187",
+  "tr": "7475f13e697d",
+  "by": "human"
+ },
+ "apotheosis.quest.stepShadowDuel": {
+  "en": "48b88a73b992",
+  "tr": "0ae79fb88a1e",
+  "by": "human"
+ },
+ "apotheosis.quest.stepDragonBreak": {
+  "en": "0ec008de7130",
+  "tr": "2a6440b51c64",
+  "by": "human"
+ },
+ "apotheosis.quest.boxTitle": {
+  "en": "b57f6a075d4f",
+  "tr": "eb909c019882",
+  "by": "human"
+ },
+ "apotheosis.overview.baseBoons": {
+  "en": "83db2ad209ab",
+  "tr": "035430dc0411",
+  "by": "human"
  }
 }

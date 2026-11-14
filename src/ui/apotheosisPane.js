@@ -15,6 +15,7 @@ import { getPref } from '../systems/uiPrefs.js';
 import { worldMinutes } from '../systems/worldTick.js';
 import {
   APOTHEOSIS_PORTFOLIOS,
+  APOTHEOSIS_QUEST_STEPS,
   APOTHEOSIS_STAGES,
   REQUIRED_ARTIFACTS_COUNT,
   canStartApotheosisViaArtifacts,
@@ -123,6 +124,9 @@ function stageBadgeText(state) {
   if (state.ascended || state.stage === APOTHEOSIS_STAGES.ASCENDED) {
     return t('apotheosis.stage.ascended', 'Ascended Divinity');
   }
+  if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE) {
+    return t('apotheosis.stage.questline', 'Walking the Path of CHIM');
+  }
   if (state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO) {
     return t('apotheosis.stage.awaiting', 'Awakened Vessel');
   }
@@ -131,6 +135,7 @@ function stageBadgeText(state) {
 
 function stageBadgeClass(state) {
   if (state.ascended || state.stage === APOTHEOSIS_STAGES.ASCENDED) return 'apo-badge ascended';
+  if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE) return 'apo-badge awaiting';
   if (state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO) return 'apo-badge awaiting';
   return 'apo-badge';
 }
@@ -268,6 +273,7 @@ function renderPortfolioCards(container, state, entity, repaint) {
     card.append(
       head,
       el('div', 'apo-card-prog', p.epithet()),
+      el('div', 'apo-card-desc', p.passivesSummary ? p.passivesSummary() : p.summary()),
       el('div', 'apo-card-desc', p.summary()),
     );
     const acts = el('div', 'apo-acts');
@@ -320,6 +326,24 @@ function renderOverview(detail, entity, trackerShown, repaint) {
     detail.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
   }
 
+  if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE) {
+    const stepText = state.questStep === APOTHEOSIS_QUEST_STEPS.TOWER_SIEGE
+      ? t('apotheosis.quest.stepTowerSiege', 'Repel the 13-wave Siege outside Direnni Tower and shatter the Aspect of the Tower (Current Wave: {wave}/13).', {
+        wave: Math.max(1, state.siegeWave || 1),
+      })
+      : state.questStep === APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR
+        ? t('apotheosis.quest.stepTowerInterior', 'Direnni Tower is unsealed and swarming with empowered guardians. Fight through the interior and touch the Zero Stone.')
+        : state.questStep === APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL
+          ? t('apotheosis.quest.stepShadowDuel', 'Defeat the Shadow of the Agent inside the Clockwork Orrery and step through the Ascension Conduit.')
+          : t('apotheosis.quest.stepDragonBreak', 'A Dragon Break storm rages across the Iliac Bay. Travel to Direnni Tower on the Isle of Balfiera and challenge its sealed gates.');
+    const qBox = el('div', 'apo-banner');
+    qBox.append(
+      el('div', 'apo-card-title', t('apotheosis.quest.boxTitle', 'Active Ascension Trial')),
+      el('div', 'apo-card-desc', stepText),
+    );
+    detail.append(qBox);
+  }
+
   if (state.questlineCompletedNotice && state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO) {
     detail.append(el('div', 'apo-banner',
       t('apotheosis.overview.questDoneBanner', 'The Apotheosis quests have started and concluded — you have become a God. Select your initial Divine Portfolio below:')));
@@ -331,7 +355,8 @@ function renderOverview(detail, entity, trackerShown, repaint) {
     const godBox = el('div', 'apo-box');
     godBox.append(
       el('h4', null, t('apotheosis.overview.divinityTitle', 'Divine Mantle')),
-      el('div', 'apo-card-desc', activeDef.summary()),
+      el('div', 'apo-card-desc', activeDef.passivesSummary ? activeDef.passivesSummary() : activeDef.summary()),
+      el('div', 'apo-meta-row', t('apotheosis.overview.baseBoons', 'Divine Vessel Boons: +500 Max Health · +500 Max Magicka · +500 Max Fatigue · Immortal Rebirth (+1 Day)')),
       el('div', 'apo-meta-row', t('apotheosis.overview.divinityMeta', 'Source: {source} · Sacrificed Artifacts: {count}', {
         source: state.source === 'mantella'
           ? t('apotheosis.source.mantella', 'Mantella')

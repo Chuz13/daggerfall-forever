@@ -67,15 +67,23 @@ import {
 } from './necromancy/necromanticSpells.js';
 import { NECRO_GRIMOIRE_TEMPLATE } from './necromancy/necroGrimoire.js';
 import {
+  APOTHEOSIS_QUEST_STEPS,
+  APOTHEOSIS_SOURCES,
+  APOTHEOSIS_STAGES,
   REQUIRED_ARTIFACTS_COUNT,
   REQUIRED_FATE_WEIGHT,
   TOTAL_FATE_TRIGGERS,
+  advanceApotheosisQuestStep,
+  completeApotheosisQuestline,
   ensureApotheosisState,
   evaluateFateWeight,
   grantArtifactPack,
+  isApotheosisStormActive,
   resetApotheosisForDebug,
   scanInventoryArtifactsForApotheosis,
   setDebugFateWeight,
+  startApotheosisFromMantella,
+  startApotheosisQuestline,
 } from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -2769,15 +2777,16 @@ registerCommand('finish_errand', 'Complete active revenant errand(s) immediately
 registerCommand('finisherrand', 'Complete active revenant errand(s) immediately: finisherrand [id|name]', 'finisherrand [id|name]', handleFinishErrandCommand);
 registerCommand('complete_errands', 'Complete active revenant errand(s) immediately: complete_errands', 'complete_errands', handleFinishErrandCommand);
 
-function handleApotheosisCommand(args = []) {
+async function handleApotheosisCommand(args = []) {
   if (!playerEntity) return 'Error: playerEntity is not initialized.';
+  const sceneCtx = getDebugSceneContext();
   const sub = String(args[0] ?? 'status').toLowerCase();
   if (sub === 'status') {
     const state = ensureApotheosisState(playerEntity);
     const fate = evaluateFateWeight(playerEntity);
     const art = scanInventoryArtifactsForApotheosis(playerEntity);
     const lines = [
-      `[Apotheosis] stage=${state.stage} ascended=${state.ascended} source=${state.source ?? 'none'} portfolio=${state.portfolio ?? 'none'}`,
+      `[Apotheosis] stage=${state.stage} questStep=${state.questStep} siegeWave=${state.siegeWave}/13 towerSiegeCleared=${state.towerSiegeCleared} storm=${isApotheosisStormActive(playerEntity)} ascended=${state.ascended} source=${state.source ?? 'none'} portfolio=${state.portfolio ?? 'none'}`,
       `Fate Weight: ${fate.count}/${fate.total} (required ${fate.required}, natural ${fate.naturalCount})`,
       `Artifacts: ${art.distinctUnequippedCount}/${REQUIRED_ARTIFACTS_COUNT} distinct unequipped in pack (equipped=${art.equippedCount})`,
     ];
@@ -2798,23 +2807,113 @@ function handleApotheosisCommand(args = []) {
     const fate = setDebugFateWeight(playerEntity, target);
     return `Debug Fate Weight override applied (${target}). Active Fate Weight: ${fate.count}/${fate.total} (natural=${fate.naturalCount}, ready=${fate.ready}).`;
   }
+  if (sub === 'mantella') {
+    const opt = String(args[1] ?? '').toLowerCase();
+    const fate = evaluateFateWeight(playerEntity);
+    if (!fate.ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+    if (opt === 'usurp') {
+      const res = startApotheosisFromMantella(playerEntity);
+      if (!res.ok) return res.error ?? 'Unable to usurp Mantella.';
+      return res.notice;
+    }
+    const opened = sceneCtx?.apotheosisMantellaFork?.();
+    if (opened) return 'Opened Mantellan Crux Apotheosis fork dialog.';
+    const res = startApotheosisFromMantella(playerEntity);
+    return res.ok ? res.notice : (res.error ?? 'Mantella fork unavailable here.');
+  }
+  if (sub === 'tp') {
+    const dest = String(args[1] ?? 'direnni').toLowerCase();
+    if (dest === 'direnni' || dest === 'tower') {
+      if (!sceneCtx?.tele2loc) return 'Scene teleport unavailable.';
+      return await sceneCtx.tele2loc('Direnni Tower');
+    }
+    if (dest === 'mantella' || dest === 'crux') {
+      if (!sceneCtx?.tele2loc) return 'Scene teleport unavailable.';
+      return await sceneCtx.tele2loc('Mantellan Crux');
+    }
+    if (dest === 'orrery' || dest === 'shadow') {
+      const st = ensureApotheosisState(playerEntity);
+      if (st.stage === APOTHEOSIS_STAGES.MORTAL) {
+        if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+        startApotheosisQuestline(playerEntity, { source: APOTHEOSIS_SOURCES.MANTELLA });
+      }
+      advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL, { towerSiegeCleared: true, siegeWave: 13 });
+      if (!sceneCtx?.apotheosisEnterOrrery) return 'Cut Clockwork Orrery transition unavailable.';
+      const ok = await sceneCtx.apotheosisEnterOrrery();
+      return ok ? 'Entered the Cut Clockwork Orrery (Shadow of the Agent arena).' : 'Failed to enter Cut Clockwork Orrery.';
+    }
+    return 'Usage: apo tp <direnni | mantella | orrery>';
+  }
+  if (sub === 'quest') {
+    const step = String(args[1] ?? 'start').toLowerCase();
+    const st = ensureApotheosisState(playerEntity);
+    if (step === 'start') {
+      if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+      const res = startApotheosisQuestline(playerEntity, { source: st.source ?? APOTHEOSIS_SOURCES.MANTELLA });
+      return res.ok ? res.notice : (res.error ?? 'Failed to start questline.');
+    }
+    if (step === 'siege' || step === 'wave13') {
+      if (st.stage === APOTHEOSIS_STAGES.MORTAL) {
+        if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+        startApotheosisQuestline(playerEntity, { source: APOTHEOSIS_SOURCES.MANTELLA });
+      }
+      const targetWave = step === 'wave13' ? 13 : 1;
+      st.towerSiegeCleared = false;
+      const started = sceneCtx?.apotheosisStartSiege?.(targetWave);
+      return started ? `Started Direnni siege at wave ${targetWave}/13.` : 'Failed to start siege (exterior scene unavailable).';
+    }
+    if (step === 'tower') {
+      if (st.stage === APOTHEOSIS_STAGES.MORTAL) {
+        if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+        startApotheosisQuestline(playerEntity, { source: APOTHEOSIS_SOURCES.MANTELLA });
+      }
+      advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR, { towerSiegeCleared: true, siegeWave: 13 });
+      return 'Siege marked cleared. Direnni Tower interior hard-mode armed (seek the Zero Stone inside Direnni Tower).';
+    }
+    if (step === 'shadow') {
+      if (st.stage === APOTHEOSIS_STAGES.MORTAL) {
+        if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+        startApotheosisQuestline(playerEntity, { source: APOTHEOSIS_SOURCES.MANTELLA });
+      }
+      advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL, { towerSiegeCleared: true, siegeWave: 13 });
+      const ok = await sceneCtx?.apotheosisEnterOrrery?.();
+      return ok ? 'Entered Cut Clockwork Orrery for Shadow of the Agent duel.' : 'Step set to shadow_duel.';
+    }
+    if (step === 'complete') {
+      if (st.stage === APOTHEOSIS_STAGES.MORTAL) {
+        if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
+        startApotheosisQuestline(playerEntity, { source: APOTHEOSIS_SOURCES.MANTELLA });
+      }
+      completeApotheosisQuestline(playerEntity);
+      return 'Apotheosis trial completed. Open Pause -> Apotheosis to claim your Divine Portfolio.';
+    }
+    return 'Usage: apo quest <start | siege | wave13 | tower | shadow | complete>';
+  }
+  if (sub === 'rebirth') {
+    const st = ensureApotheosisState(playerEntity);
+    if (!st.ascended && st.stage !== APOTHEOSIS_STAGES.ASCENDED) {
+      return 'Divine rebirth requires Ascended Godhood first (claim a Portfolio or run apo quest complete).';
+    }
+    forcePlayerDeath(playerEntity);
+    return 'Triggered Ascended God death -> +1 day golden-white rebirth on the spot (live foes despawned, full heal).';
+  }
   if (sub === 'reset') {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [count] | fate <ready|full> | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]';
 }
 
 registerCommand(
   'apotheosis',
-  'Inspect or test Apotheosis Stage 0: apotheosis [status | artifacts [count] | fate <ready|full> | reset]',
-  'apotheosis [status | artifacts [count] | fate <ready|full> | reset]',
+  'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | mantella | tp | quest | rebirth | reset]',
+  'apotheosis [status | artifacts [n] | fate <ready|full> | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 registerCommand(
   'apo',
-  'Alias for apotheosis: apo [status | artifacts [count] | fate <ready|full> | reset]',
-  'apo [status | artifacts [count] | fate <ready|full> | reset]',
+  'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | mantella | tp | quest | rebirth | reset]',
+  'apo [status | artifacts [n] | fate <ready|full> | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 

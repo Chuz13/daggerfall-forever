@@ -122,7 +122,12 @@ import { immersiveFootsteps } from '../systems/immersiveFootsteps.js';
 import { betterAmbience, classicFootstepAllowed } from '../systems/betterAmbience.js';   // BA1: Better Ambience - the shake, the dungeon's fog and light, the reverb, the indoor rain, its own stride   // IF1: Immersive Footsteps owns the stride and the three landing sounds once its clips are in (DisableVanillaFootsteps)
 import { applyFog, DUNGEON_FOG } from '../render/underwaterFog.js';
 import { gateArenaLocation, gateArenaBlocks, isGateArena, slabMatrix, courtLightsNear, withCourtLights, courtDoorAabb, planOfDay, COURT_FOG } from '../world/gate/gateArena.js';   // WB3b: the Burning Court - a level made in code on this host's dungeon arm
-import { isSdRealm, sdRealmLocation, sdRealmBlocks, buildRealmModel, realmColliderTris, realmLightsWith, realmLighting, SD_REALM_ARCHIVE, SD_REALM_FOG } from '../world/superDungeon/sdRealm.js';   // SD5a: the Shattered Hour, a made level as the court is
+import {
+  isSdRealm, sdRealmLocation, sdRealmBlocks, buildRealmModel, realmColliderTris, realmLightsWith, realmLighting, SD_REALM_ARCHIVE, SD_REALM_FOG,
+  isApotheosisOrrery, apotheosisOrreryLocation, apotheosisOrreryBlocks, buildApotheosisOrreryModel, apotheosisOrreryColliderTris, apotheosisOrreryLightsWith, apotheosisOrreryArena,
+} from '../world/superDungeon/sdRealm.js';   // SD5a: the Shattered Hour, a made level as the court is
+import { advanceApotheosisQuestStep, APOTHEOSIS_QUEST_STEPS } from '../systems/apotheosis/apotheosisCore.js';
+import { APOTHEOSIS_ZERO_STONE_KEY, APOTHEOSIS_ORRERY_EXIT_KEY } from '../systems/apotheosis/apotheosisStage1.js';
 import { realmArt } from '../world/superDungeon/sdRealmArt.js';   // SD5a: its art, made in code
 import { isEgHall, egHallLocation, egHallBlocks, egLightsWith, egHallLighting, egHallFog, egHallGrade } from '../world/eliteGates/egHall.js';   // EG-PLAY: an Elite Breach's circle, a made level as the Hour is
 import { egRoomKey } from '../net/eliteGates/egLaw.js';   // EG-PLAY: its room, its halls, its words
@@ -8095,7 +8100,7 @@ export function createWorldModes(host) {
    *  a choice (scenes/instanceDoor.js atDoor), awaited BEFORE the entry, which is handed the answer and never asks itself
    *  (every other way in takes the door's rule, entryFor); a Leave spends the press. A home or a house of mine keeps none. */
   const doorStands = (hit) => mode === 'exterior' && (!hit?.localDoor || doorTargets().some((e) => e.localDoor === hit.localDoor));   // the world did not move while the door asked (a teleport, a load)
-  const enterDungeonDoor = (hit, entries) => (host.instanceDoor ? host.instanceDoor.atDoor(host.instanceDoor.dungeonSite(hit?.dfLocation), (entry) => (doorStands(hit) ? tryEnterDungeon(hit, entries, { entry }) : true)) : tryEnterDungeon(hit, entries));
+  const enterDungeonDoor = (hit, entries) => (host.interceptDirenniDoor?.(hit) ? true : host.instanceDoor ? host.instanceDoor.atDoor(host.instanceDoor.dungeonSite(hit?.dfLocation), (entry) => (doorStands(hit) ? tryEnterDungeon(hit, entries, { entry }) : true)) : tryEnterDungeon(hit, entries));
   const enterBuildingDoor = (hit, entries) => {
     const bd = buildingDataForDoor?.(hit) ?? null, door = host.instanceDoor;
     return door ? door.atDoor(door.buildingSite(questSceneCtx?.()?.mapId ?? 0, bd, { layout: visitLayoutNow(), home: !!bd && (!!(host.onlineHomes && homeOf(bd)) || houseOwnedAt(bd, bd.buildingKey)) }), (entry) => (doorStands(hit) ? enterInteriorCore(hit, entries, null, entry) : true)) : enterInteriorCore(hit, entries);
@@ -9276,6 +9281,36 @@ export function createWorldModes(host) {
     const hit = { dfLocation, blocksFile: sdRealmBlocks(blocks), sdRealm: r.s, sdHollow: r.hollow ?? null, climateBase: site?.climateBase ?? 2, season: site?.season ?? 0, group: sdRoomKey(r.s, r.owner), door: null, dfBlock: null, recordIndex: -1 };
     return gatedTransition((live) => dungeonTransition(hit, [], true, live));
   }
+  /** APOTHEOSIS Stage 1: Cut Clockwork Circular Arena (Orrery disc only) for Shadow of the Agent duel. */
+  async function enterApotheosisOrrery(site = null) {
+    if (!(playerEntity.health > 0)) return false;
+    let savedFrom = null;
+    if (mode === 'dungeon') {
+      savedFrom = returnLanding() ?? dungeonReturn?.from ?? null;
+      modesApi.forceExitToExterior({ cacheScene: false });
+    } else if (mode === 'interior') {
+      modesApi.forceExitToExterior({ cacheScene: false });
+    }
+    const useSite = site ?? host.dungeonStartSite?.() ?? null;
+    const dfLocation = apotheosisOrreryLocation({
+      regionIndex: useSite?.regionIndex ?? -1,
+      regionName: useSite?.regionName ?? '',
+      climate: useSite?.climate ?? undefined,
+    });
+    const hit = {
+      dfLocation,
+      blocksFile: apotheosisOrreryBlocks(blocks),
+      apoOrrery: true,
+      climateBase: useSite?.climateBase ?? 2,
+      season: useSite?.season ?? 0,
+      group: 'apotheosis:orrery',
+      door: null,
+      dfBlock: null,
+      recordIndex: -1,
+      ...(savedFrom ? { egFrom: savedFrom } : {}),
+    };
+    return gatedTransition((live) => dungeonTransition(hit, [], true, live));
+  }
   /** EG-PLAY (bible/11-Multiplayer/Elite-Gates.md section 31, EG-PLAY): INTO AN ELITE BREACH'S CIRCLE (world/eliteGates/egHall.js) -
    *  the Hour's law: this host's dungeon arm with a level made in code, entered from the open world where the member
    *  answered the call (the world host steps the veil first - scenes/world.js egEnter). `r` is { b: the breach, seed: its
@@ -9499,6 +9534,25 @@ export function createWorldModes(host) {
     ctx.addActivationTargets(() => (host.spoilTargets?.() ?? NO_TARGETS));
     ctx.addActivationNamer((key) => ((typeof key === 'string' && key.startsWith('spoil')) ? host.spoilName?.(key) ?? null : null));
   }
+  let _apoOrreryMesh = null;
+  const APO_ORRERY_BUCKET = 'apo:orrery';
+  function standApotheosisOrrery(ctx) {
+    if (!_apoOrreryMesh && renderer?.createMesh) {
+      try {
+        for (const [rec, art] of realmArt()) {
+          renderer.uploadTexture?.(SD_REALM_ARCHIVE, rec, art.albedo);
+          renderer.uploadEmissionTexture?.(SD_REALM_ARCHIVE, rec, art.emission, { white: true });
+        }
+        _apoOrreryMesh = renderer.createMesh(buildApotheosisOrreryModel());
+      } catch (e) { console.warn('[apotheosis] Orrery arena mesh failed', e?.message ?? e); _apoOrreryMesh = null; }
+    }
+    if (_apoOrreryMesh) ctx.dynamicDraws.push({ gpu: _apoOrreryMesh, object: { matrix: identity() } });
+    const tris = apotheosisOrreryColliderTris();
+    const n = tris.length / 3;
+    const idx = n > 65535 ? new Uint32Array(n) : new Uint16Array(n);
+    for (let i = 0; i < n; i++) idx[i] = i;
+    ctx.collider.addMesh(APO_ORRERY_BUCKET, tris, idx, identity());
+  }
   /** EG-PLAY: AN ELITE BREACH'S CIRCLE on this screen - its mesh, its band's dress, its waystones, its portcullises, its
    *  occluders and THE SWAP (scenes/eliteGates/egCircleHost.js - HOST-SPLIT, EG-LOOK: moved out of this host, its seams read here). */
   /** The mode machine's live reads a made level's module takes (KETCH: one view for the Spire's circle and the ship - `place` the action teleport's stand, egPlace). */
@@ -9621,6 +9675,7 @@ export function createWorldModes(host) {
         { renderer, arch, getGpuMesh: dungeonHold.getGpuMesh, cpuModels, getTexture, uploadRecord: dungeonHold.uploadRecord, uploadRecordFrame: dungeonHold.uploadRecordFrame, palette, placeHold: dungeonHold },
         dfLocation, hit.blocksFile ?? blocks, dfLocation.climate.climateType, {   // WB3b: the court's blocks file answers its one made block
           openPotionMaker: () => modesApi.openPotionMaker(),
+          onApotheosisMantellaUsurp: () => { pendingDungeonExit = true; },
           standingLook,   // MWNPC8b: the dungeon's people read for their bodies as the building's are (dungeonContext.js drawPeople)
           placeRecord: () => (place?.instance ? { ins: instanceWord(place.instance) } : {}),   // INSTANCES (the audit): the save's word for the instance this build is (a load re-enters it)
           automapFromLoad: fromLoad,   // MAP-KEEP: a load enters the saved record on the LOAD arm - its colour tier kept, nothing stamped or pruned
@@ -9907,6 +9962,7 @@ export function createWorldModes(host) {
       dungeonCtx = ctx;
       if (hit.gateArena) gateStand.standCourt(ctx, hit.gateArena.day);   // WB3b: the court, before the start marker is read and before any namer - WB14b: its night's (scenes/gate/gateStand.js)
       if (hit.sdRealm != null) standSdRealm(ctx);   // SD5a: the Hour, before the start marker is read
+      if (hit.apoOrrery) standApotheosisOrrery(ctx);
       if (hit.egHall) standEgHall(ctx, hit.egHall);   // EG-PLAY: an Elite Breach's circle, the same
       if (hit.ketch) ketchDeck.stand(ctx);   // KETCH: a crew's ship, the same
       if (hit.arenaFloor) standArenaFloor(ctx);   // ARENA2: the floor's gates, before any namer
@@ -10257,6 +10313,15 @@ export function createWorldModes(host) {
     if (key.startsWith('sdrift:') || key.startsWith('sdreturn:') || key.startsWith('sdstone:') || key.startsWith('sdplaque:')) { dungeonCtx.sdPress?.(key); return true; }
     if (key.startsWith('kt:')) { host.ketch?.()?.press?.(key); return true; }   // KETCH: a crew's ship's - a cell, a socket, a resonator, the bosun's line, a way down, the chest
     if (key.startsWith('egstone:') || key.startsWith('egengine:')) { dungeonCtx.egPress?.(key); return true; }   // EG-FULL LAYER THREE: an Elite Breach's Orrery stone, a chamber's engine   // SD4b: a Super dungeon's Rift and Return (Super-Dungeons.md section 6) - the context's own
+    if (key === APOTHEOSIS_ZERO_STONE_KEY) {
+      advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL);
+      void enterApotheosisOrrery();
+      return true;
+    }
+    if (key === APOTHEOSIS_ORRERY_EXIT_KEY) {
+      pendingDungeonExit = true;
+      return true;
+    }
     if (key.startsWith('questflat:')) {
       // DQ1: buildingKey is 0 down here - StaticNPC reads it from the
       // runtime data and a dungeon has no building, the same reason
@@ -10599,6 +10664,11 @@ export function createWorldModes(host) {
         down: crouchHeld || held(keys, 'FloatDown'),
         crouch: crouchPress,
       }, cam.yaw, cam.pitch);
+      if (mode === 'dungeon' && isApotheosisOrrery(dungeonLoc)) {
+        const clamped = apotheosisOrreryArena().clamp(player.pos, 0.45);
+        player.pos[0] = clamped[0];
+        player.pos[2] = clamped[2];
+      }
       // DW-D: OutdoorSwimMovementController runs wherever the motor swims (IsAnySwimming is LevitateMotor.IsSwimming
       // indoors) - the multiplier and the stroke in a dungeon's water; the floor clamp is the carved sea's alone
       if (deepWatersOn()) {
@@ -10941,6 +11011,7 @@ export function createWorldModes(host) {
       renderer.setIndirectLight(NO_INDIRECT_POS, 0, NO_INDIRECT_COLOR);
       if (isGateArena(dungeonLoc)) { const _cl = courtLighting(deadlandsFlash(_deadS)); const _ct = dungeonTrilight(!!renderer.lightingLane, _cl.tri); renderer.setLighting(courtEquatorOf(_ct), 0, undefined, _ct); renderer.setMoonlight(_cl.key); }   // WB6a: the court is no dungeon - lit red from the sky, orange from the fire under it, and by the vortex's fire from behind the boss (the moon's term: the one directional light a dungeon frame leaves dark); the lane's dark rides the trilight as the fog's does   // WB6b: a strike in the sky flares over it, the moment the sky draws it
       if (isSdRealm(dungeonLoc)) { const _rl = realmLighting(); const _rt = dungeonTrilight(!!renderer.lightingLane, _rl.tri, _hourTri); renderer.setLighting(courtEquatorOf(_rt), 0, undefined, _rt); renderer.setMoonlight(_rl.key); }   // SD5a: the Hour's brass light and its clock-face's key, the court's way
+      if (isApotheosisOrrery(dungeonLoc)) { const _rl = realmLighting(); const _rt = dungeonTrilight(!!renderer.lightingLane, _rl.tri, _hourTri); renderer.setLighting(courtEquatorOf(_rt), 0, undefined, _rt); renderer.setMoonlight(_rl.key); }
       if (isEgHall(dungeonLoc)) { const _el = egHallLighting(dungeonLoc.egCircle); const _et = dungeonTrilight(!!renderer.lightingLane, _el.tri, _hourTri); renderer.setLighting(courtEquatorOf(_et), 0, undefined, _et); renderer.setMoonlight(_el.key); }   // EG-PLAY: the Spire's light, the Hour's way
       if (isArenaFloor(dungeonLoc)) renderer.setLighting(new Float32Array(ARENA_FLOOR_AMBIENT), 0);   // ARENA2: an open sky over the sand at the torches' hour - the stands seen across it, not a dungeon's dark
       // AUDIT 26 F001: a dungeon mesh is textured by SetDungeonTextures
@@ -10961,6 +11032,7 @@ export function createWorldModes(host) {
       { const _fog = dungeonFog(!!renderer.lightingLane, betterAmbience.dungeonFog() ?? DUNGEON_FOG); applyFog(renderer, dungeonCtx.underwaterFogSettings?.(cam.pos[1], player.pos, _fog) ?? _fog); }
       if (isArenaFloor(dungeonLoc)) applyFog(renderer, dungeonFog(!!renderer.lightingLane, ARENA_FLOOR_FOG));   // ARENA2: the night air over the colosseum, thin enough to see the far tiers
       if (isSdRealm(dungeonLoc)) { applyFog(renderer, dungeonFog(!!renderer.lightingLane, SD_REALM_FOG, _hourFog), _hourFogColor); renderer.setSceneGrade?.(SD_HOUR_GRADE); }   // SD5a: the Hour's brass haze over the dungeon's; SD-LOOK: and its grade - the eye held down, the void black   // AUDIT SD IV (R5): into kept ones, nothing made
+      if (isApotheosisOrrery(dungeonLoc)) { applyFog(renderer, dungeonFog(!!renderer.lightingLane, SD_REALM_FOG, _hourFog), _hourFogColor); renderer.setSceneGrade?.(SD_HOUR_GRADE); }
       if (isEgHall(dungeonLoc)) { applyFog(renderer, dungeonFog(!!renderer.lightingLane, egHallFog(dungeonLoc.egCircle), _hourFog), _hourFogColor); renderer.setSceneGrade?.(egHallGrade(dungeonLoc.egCircle)); egCircleFrame(mwv.eye); }   // EG-PLAY: the Spire's haze; EG-LOOK: its band's own haze and grade (world/eliteGates/egAtmos.js); its portcullises stood or sunk, its ruin and wreck placed about the eye (scenes/eliteGates/egCircleHost.js)
       if (isGateArena(dungeonLoc)) applyFog(renderer, dungeonFog(!!renderer.lightingLane, COURT_FOG));   // WB3b: the Deadlands' air in the court, over the dungeon's   // AUDIT-EL F6   // BA1: FoggyDungeons' linear fog is the base the water murk overrides
       // AUDIT DISC19: THE CANDLE BURNS WHITE UNDERGROUND TOO. One shared
@@ -10992,6 +11064,7 @@ export function createWorldModes(host) {
       // cap drops a far court's fire, never him
       if (isGateArena(dungeonLoc)) { const _court = withCourtLights(_dgLit, [...(host.gateCourtLights?.() ?? []), ...courtLightsNear(cam.pos, planOfDay(dungeonLoc.gate))]); renderer.setPointLights(_court.data, null, _court.colors); }
       if (isSdRealm(dungeonLoc)) { const _hour = realmLightsWith(_dgLit, host.sdRealmLights?.() ?? NO_LIGHTS, cam.pos, host.sdLampDim?.() ?? null); renderer.setPointLights(_hour.data, null, _hour.colors); }   // SD5a: the Hour's lamps, after the player's own lights, nearest first; SD9e: the spoils' light before them, as the court's; AUDIT SD II (L2 F9): into the realm's own arrays, made once; SD-LOOK S7: the arena's dimmed through the Reset
+      else if (isApotheosisOrrery(dungeonLoc)) { const _apoL = apotheosisOrreryLightsWith(_dgLit); renderer.setPointLights(_apoL.data, null, _apoL.colors); }
       if (isEgHall(dungeonLoc)) { const _sp = egLightsWith(_dgLit, host.egLights?.() ?? NO_LIGHTS, egCircle.lamps(), cam.pos); renderer.setPointLights(_sp.data, null, _sp.colors); }   // EG-PLAY: the Spire's lamps after the player's own lights, the fight's glows before them
       const _ktLook = isKetchShip(dungeonLoc) ? ketchDeck.frameLook(mwv.eye, _dgLit, skyMinutes() % 1440) : null;   // KETCH: the deck's hour (its light, its haze, its sun) or below decks' lamps; the ship's lamps and the fight's glows after my own lights
       renderer.everyLightCasts();   // LA-SHADOW3: the level is drawn whole below (no view cull) - every torch keeps a shadow map, none lights through the rock as the nearest eight change (DISC15's rooms)
@@ -11012,7 +11085,7 @@ export function createWorldModes(host) {
       drawCrownHall({ proj, view, eye: mwv.eye });   // CROWN-HALL: the throne room's board, chest and banners - opaque, before the flats
       drawArenaWall(); if (isArenaFloor(dungeonLoc) || isKetchShip(dungeonLoc)) host.drawSky?.(cam.yaw, cam.pitch + (host.climbFeel?.pitch?.() ?? 0), fieldOfView() + (host.climbFeel?.fovRad() ?? 0), largeHudWorldAspect(canvas.clientWidth, canvas.clientHeight), renderer.worldViewportPx ?? [0, 0, renderer.gl.drawingBufferWidth, renderer.gl.drawingBufferHeight]);   // ARENA5: the Hall of Champions' plaques - opaque, before the flats; HOTFIX 1003l (live: "the private sessions are missing the sky and the entrance is black"): the floor is drawn as a dungeon, cleared to black - the world's own sky over it now, after the opaque level (it shades only what nothing nearer claimed) and before the flats
       if (isGateArena(dungeonLoc)) host.drawGateBackdrop?.({ proj, view, eye: mwv.eye });   // WB6a: the Deadlands' sea and sky - after the court's solid geometry, so they burn only where they show (PERF2's law), before its flats, so a flat blended over the sky lands on it
-      if (isSdRealm(dungeonLoc)) host.drawSdSky?.({ proj, view, eye: mwv.eye });   // SD5b: the Hour's sky - after its islands, before its flats (PERF2's law)
+      if (isSdRealm(dungeonLoc) || isApotheosisOrrery(dungeonLoc)) host.drawSdSky?.({ proj, view, eye: mwv.eye });   // SD5b: the Hour's sky - after its islands, before its flats (PERF2's law)
       if (isEgHall(dungeonLoc)) host.drawEgSky?.({ proj, view, eye: mwv.eye });   // EG-PLAY; EG-G2: the Spire's own sky (render/eliteGates/egSkyPass.js - its band's void and the Spire's underside)
       dungeonCtx.flatAnims.tick(dt);   // FA1
       renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), player.pos));   // TACT4: a foe's wind-up on the ground
@@ -13200,7 +13273,7 @@ export function createWorldModes(host) {
     // ONLINE1: what the host needs to name the room - the mounted dungeon's
     // location, the interior's building; null in the exterior
     // ARENA4: the floor's instance standing a relay's bout is that bout's room (`arena:b<id>`)
-    roomIdentity: () => (mode === 'dungeon' ? (isGateArena(dungeonLoc) ? { kind: 'gate', day: dungeonLoc.gate } : isSdRealm(dungeonLoc) ? { kind: 'sd', s: dungeonLoc.sdRealm, o: dungeonLoc.sdOwner } : isEgHall(dungeonLoc) ? { kind: 'eg', b: dungeonLoc.egBreach } : isArenaFloor(dungeonLoc) && dungeonLoc.arenaBout ? { kind: 'arena', o: dungeonLoc.arenaBout } : isKetchShip(dungeonLoc) ? { kind: 'kt', key: dungeonLoc.ketch.key } : { kind: 'dungeon', mapId: dungeonLoc?.mapTableData?.mapId ?? null, regionIndex: dungeonLoc?.regionIndex ?? -1, name: dungeonLoc?.name ?? '', size: dungeonRoomSize(dungeonLoc), instance: placeInstance })   // WB3b: the court's room is its gate's own; SD-ONLINE: a dungeon's room is its layout's (the size it was BUILT at); HOLD-SHARED (2026-10-12): Privateer's Hold keys its shared room as every dungeon does (HOLD-SOLO's `solo` reverted)
+    roomIdentity: () => (mode === 'dungeon' ? (isGateArena(dungeonLoc) ? { kind: 'gate', day: dungeonLoc.gate } : isSdRealm(dungeonLoc) ? { kind: 'sd', s: dungeonLoc.sdRealm, o: dungeonLoc.sdOwner } : isApotheosisOrrery(dungeonLoc) ? { kind: 'apo_orrery' } : isEgHall(dungeonLoc) ? { kind: 'eg', b: dungeonLoc.egBreach } : isArenaFloor(dungeonLoc) && dungeonLoc.arenaBout ? { kind: 'arena', o: dungeonLoc.arenaBout } : isKetchShip(dungeonLoc) ? { kind: 'kt', key: dungeonLoc.ketch.key } : { kind: 'dungeon', mapId: dungeonLoc?.mapTableData?.mapId ?? null, regionIndex: dungeonLoc?.regionIndex ?? -1, name: dungeonLoc?.name ?? '', size: dungeonRoomSize(dungeonLoc), instance: placeInstance })   // WB3b: the court's room is its gate's own; SD-ONLINE: a dungeon's room is its layout's (the size it was BUILT at); HOLD-SHARED (2026-10-12): Privateer's Hold keys its shared room as every dungeon does (HOLD-SOLO's `solo` reverted)
       : mode === 'interior' ? { kind: 'interior', buildingKey: interiorBuilding?.buildingKey ?? 0, layout: _visitLayout, instance: placeInstance, ...(interiorCabin ? { boatUid: interiorCabin.uid } : {}), ...(_intShared?.owned ? { private: true, privateRoom: privateVisitRoom } : {}) } : null),   // personal interiors share presence in an owner-specific room, never world memory/loot
     get dungeonLocation() { return dungeonLoc; },   // B2: playerInside's dungeon arm
     /** X7: the Identify SPELL's window (Identify.cs:71-76 pushes the
@@ -13319,6 +13392,8 @@ export function createWorldModes(host) {
     enterGateArena,   // WB3b: the gate's door
     enterSdRealm,   // SD5a: the Shattered Hour's - the world host takes the player out of the Hollow first (scenes/world.js sdEnterRealm)
     stepThroughFire,   // SD5a: the veil the Rift's step is taken in, both ways (the world host's to call)
+    enterApotheosisOrrery,
+    isApotheosisOrrery: () => mode === 'dungeon' && isApotheosisOrrery(dungeonLoc),
     madeLevel: () => (mode === 'dungeon' ? madeLevelOf(dungeonLoc) : null),   // EG-H2 (Elite-Gates.md section 24): the made level under this player - 'court', 'hour', 'spire' or null (systems/madeLevel.js)
     sdRealmSlot: () => (mode === 'dungeon' && isSdRealm(dungeonLoc) ? dungeonLoc.sdRealm : null),   // SD5a: the Hour stands under this player
     egHallBreach: () => (mode === 'dungeon' && isEgHall(dungeonLoc) ? dungeonLoc.egBreach : null),   // EG-PLAY: the breach whose circle stands under this player

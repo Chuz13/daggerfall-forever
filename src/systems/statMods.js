@@ -196,9 +196,11 @@ export function killIfAnyLiveStatZero(entity, sinks, dt = 0) {
 // or drained strength moves the ceiling exactly as DFU's getter does.
 export const FATIGUE_MULTIPLIER = 64;
 
-/** DaggerfallEntity.MaxFatigue, verbatim (live stats). */
+/** DaggerfallEntity.MaxFatigue, verbatim (live stats) + Apotheosis ascended god gift (+500 * 64). */
 export function maxFatigue(entity) {
-  return (liveStat(entity, 'strength') + liveStat(entity, 'endurance')) * FATIGUE_MULTIPLIER;
+  const apo = entity?.apotheosis;
+  const godBonus = (apo && (apo.ascended === true || apo.stage === 'ascended')) ? 500 * FATIGUE_MULTIPLIER : 0;
+  return (liveStat(entity, 'strength') + liveStat(entity, 'endurance')) * FATIGUE_MULTIPLIER + godBonus;
 }
 /** DaggerfallEntity.SetFatigue's clamp, the one every fatigue write takes: [0, MaxFatigue]. AUDIT C&C N5: the hosts'
  *  drains clamped at nought alone, so a pool a lapsed boon or a Fortify's end had left over its new ceiling (8,320 in

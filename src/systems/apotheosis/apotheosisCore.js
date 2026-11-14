@@ -41,6 +41,47 @@ import { deedsOfHouses } from '../../net/homeLaw.js';
 import { SHIP_TYPES } from '../banking.js';
 import { getNemesisMemory } from '../living/nemesisHost.js';
 
+import { registerEntityFold, registerWeaponDamageMod, computeEntityMods } from '../entityMods.js';
+import {
+  isAscendedGod,
+  apotheosisHpOf,
+  apotheosisMpOf,
+  apotheosisFatigueOf,
+  computeApotheosisPortfolioMods,
+  apotheosisWeaponDamageMod,
+  computeShadowResistProfile,
+  isShadowResistedSkill,
+  mitigateShadowDamage,
+  setActiveApotheosisPlayer,
+  setApotheosisRebirthHook,
+  triggerApotheosisScreenFlash,
+  tickApotheosisScreenFlash,
+  getApotheosisFlashState,
+  reconstituteAscendedGod,
+  APOTHEOSIS_REBIRTH_MINUTES,
+  APOTHEOSIS_FLASH_RGB,
+} from './apotheosisLive.js';
+
+export {
+  isAscendedGod,
+  apotheosisHpOf,
+  apotheosisMpOf,
+  apotheosisFatigueOf,
+  computeApotheosisPortfolioMods,
+  apotheosisWeaponDamageMod,
+  computeShadowResistProfile,
+  isShadowResistedSkill,
+  mitigateShadowDamage,
+  setActiveApotheosisPlayer,
+  setApotheosisRebirthHook,
+  triggerApotheosisScreenFlash,
+  tickApotheosisScreenFlash,
+  getApotheosisFlashState,
+  reconstituteAscendedGod,
+  APOTHEOSIS_REBIRTH_MINUTES,
+  APOTHEOSIS_FLASH_RGB,
+};
+
 export const REQUIRED_FATE_WEIGHT = 12;
 export const REQUIRED_ARTIFACTS_COUNT = 13;
 export const TOTAL_FATE_TRIGGERS = 18;
@@ -49,8 +90,18 @@ export const NECRO_GRIMOIRE_BOOK_ID = 99001;
 
 export const APOTHEOSIS_STAGES = Object.freeze({
   MORTAL: 'mortal',
+  QUESTLINE_ACTIVE: 'questline_active',
   AWAITING_PORTFOLIO: 'awaiting_portfolio',
   ASCENDED: 'ascended',
+});
+
+export const APOTHEOSIS_QUEST_STEPS = Object.freeze({
+  NONE: 'none',
+  DRAGON_BREAK: 'dragon_break',
+  TOWER_SIEGE: 'tower_siege',
+  TOWER_INTERIOR: 'tower_interior',
+  SHADOW_DUEL: 'shadow_duel',
+  COMPLETED: 'completed',
 });
 
 export const APOTHEOSIS_SOURCES = Object.freeze({
@@ -64,24 +115,28 @@ export const APOTHEOSIS_PORTFOLIOS = Object.freeze([
     name: () => t('apotheosis.portfolio.war.name', 'Portfolio of War'),
     epithet: () => t('apotheosis.portfolio.war.epithet', 'Lord of Conflict & Conquest'),
     summary: () => t('apotheosis.portfolio.war.summary', 'Dominion of martial supremacy, unyielding vitality, and battlefield command. Combat avatars and divine warfare trials unlock in later stages.'),
+    passivesSummary: () => t('apotheosis.portfolio.war.passives', '+15 Strength & Endurance (cap raised) · +15% Weapon Damage · +15 Armor · -25% Fatigue Cost'),
   },
   {
     id: 'magic',
     name: () => t('apotheosis.portfolio.magic.name', 'Portfolio of Magic'),
     epithet: () => t('apotheosis.portfolio.magic.epithet', 'Architect of Aetherius'),
     summary: () => t('apotheosis.portfolio.magic.summary', 'Dominion of limitless magicka, planar weaving, and reality rewriting. Cosmic spellcraft and arcane decree mechanics unlock in later stages.'),
+    passivesSummary: () => t('apotheosis.portfolio.magic.passives', '+20 Intelligence & Willpower (cap raised) · +250 Magicka · +25 Magic Skills · +25% Magic Resistance'),
   },
   {
     id: 'shadows',
     name: () => t('apotheosis.portfolio.shadows.name', 'Portfolio of Shadows'),
     epithet: () => t('apotheosis.portfolio.shadows.epithet', 'Sovereign of Paths Unseen'),
     summary: () => t('apotheosis.portfolio.shadows.summary', 'Dominion of twilight guile, unseen strikes, and whispered pacts across Oblivion. Shadow step and covenant manipulation unlock in later stages.'),
+    passivesSummary: () => t('apotheosis.portfolio.shadows.passives', '+20 Agility & Speed (cap raised) · +25 Stealth, Backstab, Crit, Dodging, Pickpocket & Lockpicking · -50% Fall Damage'),
   },
   {
     id: 'order',
     name: () => t('apotheosis.portfolio.order.name', 'Portfolio of Order'),
     epithet: () => t('apotheosis.portfolio.order.epithet', 'Anchor of Mundus'),
     summary: () => t('apotheosis.portfolio.order.summary', 'Dominion of sovereign law, eternal wards, and stewardship of realms. Mortal followers, decrees, and shrines unlock in later stages.'),
+    passivesSummary: () => t('apotheosis.portfolio.order.passives', '+20 Personality & Luck (cap raised) · +25% Magic & Elemental Resistances · +25 Social Skills & Standing'),
   },
 ]);
 
@@ -143,12 +198,20 @@ export function defaultApotheosisState() {
     portfolio: null,
     questlineStarted: false,
     questlineCompletedNotice: false,
+    questStep: APOTHEOSIS_QUEST_STEPS.NONE,
+    stormActive: false,
+    towerSiegeWave: 0,
+    towerSiegeCleared: false,
+    shadowDefeated: false,
+    rebirthCount: 0,
     sacrificedArtifacts: [],
     debugFateCount: 0,
     mantellaCompleted: false,
     ascendedAtMinutes: null,
   };
 }
+
+const VALID_QUEST_STEPS = new Set(Object.values(APOTHEOSIS_QUEST_STEPS));
 
 /**
  * Ensures the Apotheosis state and the 4 progression hooks exist cleanly on `entity`.
@@ -193,6 +256,23 @@ export function ensureApotheosisState(entity) {
   const debugFateCount = Number.isFinite(Number(prev.debugFateCount))
     ? Math.max(0, Math.min(TOTAL_FATE_TRIGGERS, Math.trunc(Number(prev.debugFateCount))))
     : 0;
+  const legacyPostTrial = stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO || stage === APOTHEOSIS_STAGES.ASCENDED;
+  const questStep = typeof prev.questStep === 'string' && VALID_QUEST_STEPS.has(prev.questStep)
+    ? prev.questStep
+    : (legacyPostTrial ? APOTHEOSIS_QUEST_STEPS.COMPLETED : (stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE ? APOTHEOSIS_QUEST_STEPS.DRAGON_BREAK : APOTHEOSIS_QUEST_STEPS.NONE));
+  const shadowDefeated = prev.shadowDefeated != null ? !!prev.shadowDefeated : legacyPostTrial;
+  const towerSiegeCleared = prev.towerSiegeCleared != null
+    ? !!prev.towerSiegeCleared
+    : (legacyPostTrial || questStep === APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR || questStep === APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL);
+  const stormActive = stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE && !shadowDefeated
+    ? (prev.stormActive != null ? !!prev.stormActive : true)
+    : false;
+  const towerSiegeWave = Number.isFinite(Number(prev.towerSiegeWave))
+    ? Math.max(0, Math.min(13, Math.trunc(Number(prev.towerSiegeWave))))
+    : 0;
+  const rebirthCount = Number.isFinite(Number(prev.rebirthCount)) && Number(prev.rebirthCount) >= 0
+    ? Math.trunc(Number(prev.rebirthCount))
+    : 0;
 
   entity.apotheosis = {
     ascended: !!prev.ascended || (stage === APOTHEOSIS_STAGES.ASCENDED && !!portfolio),
@@ -201,6 +281,12 @@ export function ensureApotheosisState(entity) {
     portfolio,
     questlineStarted: !!prev.questlineStarted,
     questlineCompletedNotice: !!prev.questlineCompletedNotice,
+    questStep,
+    stormActive,
+    towerSiegeWave,
+    towerSiegeCleared,
+    shadowDefeated,
+    rebirthCount,
     sacrificedArtifacts,
     debugFateCount,
     mantellaCompleted: !!prev.mantellaCompleted,
@@ -863,6 +949,8 @@ export function canStartApotheosisViaArtifacts(entity) {
   let reason = null;
   if (state.ascended || state.stage === APOTHEOSIS_STAGES.ASCENDED) {
     reason = t('apotheosis.lock.alreadyAscended', 'You have already ascended to godhood.');
+  } else if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE) {
+    reason = t('apotheosis.lock.questlineActive', 'The trial of Ascension is already underway.');
   } else if (state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO) {
     reason = t('apotheosis.lock.awaitingPortfolio', 'Choose your Divine Portfolio to complete Ascension.');
   } else if (state.source === APOTHEOSIS_SOURCES.MANTELLA) {
@@ -885,9 +973,81 @@ export function canStartApotheosisViaArtifacts(entity) {
   };
 }
 
+/** Returns true while the global Dragon Break storm should rage outdoors across the world. */
+export function isApotheosisStormActive(entity) {
+  const state = entity?.apotheosis;
+  return Boolean(
+    state
+      && state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE
+      && !state.shadowDefeated
+      && state.stormActive !== false,
+  );
+}
+
 /**
- * Shared entry point for the Apotheosis Ascension questline (`artifacts` or future `mantella` route).
- * Stage 0 completes the placeholder trial immediately and advances to `awaiting_portfolio`.
+ * Evaluates what happens when the player touches the Mantella (globalVar 36 / FinishedMantellanCrux).
+ * Enforces mutual exclusion against the 13-Artifact path and checks Fate Weight >= 12/18.
+ */
+export function evaluateMantellaFork(entity) {
+  const state = ensureApotheosisState(entity);
+  const fate = evaluateFateWeight(entity);
+
+  if (state.source === APOTHEOSIS_SOURCES.ARTIFACTS && (state.ascended || state.questlineStarted || state.stage !== APOTHEOSIS_STAGES.MORTAL)) {
+    return {
+      eligible: false,
+      mode: 'blocked_exclusive',
+      reason: 'exclusive',
+      fate,
+      state,
+      message: t('apotheosis.mantella.blockedArtifacts', 'You already ignited the path of Ascension through 13 Daedric Artifacts. The Mantella slips beyond your grasp.'),
+    };
+  }
+  if (state.ascended || state.stage === APOTHEOSIS_STAGES.ASCENDED) {
+    return {
+      eligible: false,
+      mode: 'blocked_ascended',
+      reason: 'ascended',
+      fate,
+      state,
+      message: t('apotheosis.mantella.blockedAscended', 'You already walk Mundus as a god. The Mantella merely answers its sovereign.'),
+    };
+  }
+  if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE || state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO) {
+    return {
+      eligible: false,
+      mode: 'blocked_active',
+      reason: 'active',
+      fate,
+      state,
+      message: t('apotheosis.mantella.blockedActive', 'Your Ascension trial is already underway.'),
+    };
+  }
+  if (!fate.ready) {
+    return {
+      eligible: false,
+      mode: 'insufficient_fate',
+      reason: 'fate_weight',
+      fate,
+      state,
+      message: t('apotheosis.mantella.insufficientFate', 'Your Fate Weight ({cur}/{req}) cannot bear the Mantella\'s apotheosis. Mortality reclaims the Numidium\'s heart.', {
+        cur: fate.count,
+        req: fate.required,
+      }),
+    };
+  }
+  return {
+    eligible: true,
+    mode: 'choice',
+    reason: null,
+    fate,
+    state,
+    message: null,
+  };
+}
+
+/**
+ * Shared entry point for the Apotheosis Ascension questline (`artifacts` or `mantella` route).
+ * Stage 1 opens the Dragon Break storm worldwide and directs the player to Direnni Tower.
  */
 export function startApotheosisQuestline(entity, { source, sacrificedSubTypes = [] } = {}) {
   const state = ensureApotheosisState(entity);
@@ -903,19 +1063,76 @@ export function startApotheosisQuestline(entity, { source, sacrificedSubTypes = 
     state.sacrificedArtifacts = [...sacrificedSubTypes];
   }
   state.questlineStarted = true;
-  // Stage 0 placeholder: questline trial finishes cleanly and prompts Portfolio choice.
-  state.questlineCompletedNotice = true;
-  state.stage = APOTHEOSIS_STAGES.AWAITING_PORTFOLIO;
+  state.questlineCompletedNotice = false;
+  state.stage = APOTHEOSIS_STAGES.QUESTLINE_ACTIVE;
+  state.questStep = APOTHEOSIS_QUEST_STEPS.DRAGON_BREAK;
+  state.stormActive = true;
+  state.towerSiegeWave = 0;
+  state.towerSiegeCleared = false;
+  state.shadowDefeated = false;
+  computeEntityMods(entity);
   return {
     ok: true,
     stage: state.stage,
+    questStep: state.questStep,
     source: state.source,
-    notice: t('apotheosis.quest.completedNotice', 'The Apotheosis quests have begun and concluded. You stand upon the threshold of Divinity — choose your Divine Portfolio!'),
+    notice: t('apotheosis.quest.startedNotice', 'A Dragon Break tears open the skies of the Iliac Bay! Reach Direnni Tower amidst the tempest.'),
     state,
   };
 }
 
-/** Future Mantella ("claim the power for yourself") entrypoint, sharing the same questline seam. */
+/** Advances the active Apotheosis Stage 1 questline state machine cleanly. */
+export function advanceApotheosisQuestStep(entity, nextStep, { siegeWave = null } = {}) {
+  const state = ensureApotheosisState(entity);
+  if (!VALID_QUEST_STEPS.has(nextStep)) {
+    return { ok: false, error: 'Unknown quest step', state };
+  }
+  if (state.stage === APOTHEOSIS_STAGES.MORTAL && !state.questlineStarted) {
+    startApotheosisQuestline(entity, { source: state.source ?? APOTHEOSIS_SOURCES.ARTIFACTS });
+  }
+  state.questStep = nextStep;
+  if (siegeWave != null && Number.isFinite(Number(siegeWave))) {
+    state.towerSiegeWave = Math.max(0, Math.min(13, Math.trunc(Number(siegeWave))));
+  }
+  if (nextStep === APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR || nextStep === APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL) {
+    state.towerSiegeCleared = true;
+    state.towerSiegeWave = 13;
+  }
+  if (nextStep === APOTHEOSIS_QUEST_STEPS.COMPLETED) {
+    return completeApotheosisQuestline(entity);
+  }
+  if (state.stage !== APOTHEOSIS_STAGES.ASCENDED) {
+    state.stage = APOTHEOSIS_STAGES.QUESTLINE_ACTIVE;
+    state.stormActive = !state.shadowDefeated;
+  }
+  return { ok: true, questStep: state.questStep, stage: state.stage, state };
+}
+
+/** Marks the Shadow of the Agent defeated, dispels the global Dragon Break storm, and unlocks Portfolio selection. */
+export function completeApotheosisQuestline(entity) {
+  const state = ensureApotheosisState(entity);
+  state.questlineStarted = true;
+  state.questlineCompletedNotice = true;
+  state.towerSiegeCleared = true;
+  state.towerSiegeWave = 13;
+  state.shadowDefeated = true;
+  state.stormActive = false;
+  state.questStep = APOTHEOSIS_QUEST_STEPS.COMPLETED;
+  if (!state.ascended && state.stage !== APOTHEOSIS_STAGES.ASCENDED) {
+    state.stage = APOTHEOSIS_STAGES.AWAITING_PORTFOLIO;
+  }
+  computeEntityMods(entity);
+  return {
+    ok: true,
+    stage: state.stage,
+    questStep: state.questStep,
+    source: state.source,
+    notice: t('apotheosis.quest.completedNotice', 'The Shadow of the Agent is shattered and the storm subsides. You stand upon the threshold of Divinity — choose your Divine Portfolio!'),
+    state,
+  };
+}
+
+/** Mantella ("claim the power for yourself") entrypoint, sharing the same questline seam. */
 export function startApotheosisFromMantella(entity) {
   const state = ensureApotheosisState(entity);
   if (state.ascended || state.source === APOTHEOSIS_SOURCES.ARTIFACTS) {
@@ -1000,13 +1217,21 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   if (state.stage === APOTHEOSIS_STAGES.MORTAL && !state.ascended) {
     return { ok: false, error: t('apotheosis.err.notYetAscended', 'Begin the Ascension ritual before choosing a Portfolio.'), state };
   }
+  if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE && !state.ascended) {
+    return { ok: false, error: t('apotheosis.err.trialIncomplete', 'Complete the Ascension trial before choosing a Portfolio.'), state };
+  }
   const switching = state.ascended && state.portfolio && state.portfolio !== portfolioId;
   state.portfolio = portfolioId;
   state.ascended = true;
   state.stage = APOTHEOSIS_STAGES.ASCENDED;
+  state.questStep = APOTHEOSIS_QUEST_STEPS.COMPLETED;
+  state.shadowDefeated = true;
+  state.stormActive = false;
+  state.towerSiegeCleared = true;
   if (state.ascendedAtMinutes == null && nowMinutes != null && Number.isFinite(Number(nowMinutes))) {
     state.ascendedAtMinutes = Math.trunc(Number(nowMinutes));
   }
+  computeEntityMods(entity);
   const def = APOTHEOSIS_PORTFOLIOS.find((p) => p.id === portfolioId);
   return {
     ok: true,
@@ -1029,5 +1254,9 @@ export function setDebugFateWeight(entity, targetCount) {
 export function resetApotheosisForDebug(entity) {
   if (!entity || typeof entity !== 'object') return defaultApotheosisState();
   entity.apotheosis = defaultApotheosisState();
+  computeEntityMods(entity);
   return entity.apotheosis;
 }
+
+registerEntityFold('apotheosis', computeApotheosisPortfolioMods);
+registerWeaponDamageMod('apotheosis', apotheosisWeaponDamageMod);

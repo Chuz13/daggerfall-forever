@@ -89,7 +89,7 @@ export const WILD_GIANT_DAMAGE_MULT = 4;
  *  stands it on a watchman's health); FOE-BOUNDS reads it (net/foeBounds.js FOE_BOUND.zoneWatch). */
 export const ZONE_WATCH_SCALE = 10;
 /** A body's size over its sprite's: a giant of the zone's open country's four, anyone else's one. */
-export const wildGiantSize = (entity) => (entity?.wildGiant ? WILD_GIANT_SIZE : 1);
+export const wildGiantSize = (entity) => (Number.isFinite(entity?.sizeScale) && entity.sizeScale > 0 ? entity.sizeScale : entity?.wildGiant ? WILD_GIANT_SIZE : 1);
 /** GREATER-GIANT (2026-10-08, the owner: "Name the giant Greater Giant which spawns 10 normal gants when half health"): the
  *  zone's own giants are GREATER GIANTS - their name; at half their health, once a life, they call GREATER_GIANT_CALL
  *  giants of the ordinary kind (the zone's four times, never an elite or a champion) about them. */

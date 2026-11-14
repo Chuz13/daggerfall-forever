@@ -21,7 +21,7 @@ import { dungeonLocationFor, SMALLER_DUNGEON_THRESHOLD, MEDIUM_DUNGEON_THRESHOLD
 import { isArenaUndercroft } from '../arena/arenaCity.js';
 import { isGateArena } from '../gate/gateArena.js';
 import { isArenaFloor } from '../arena/arenaFloor.js';
-import { isSdRealm } from '../superDungeon/sdRealm.js'; // SD5a: the Shattered Hour, a made place
+import { isSdRealm, isApotheosisOrrery } from '../superDungeon/sdRealm.js'; // SD5a: the Shattered Hour, a made place
 import { isEgHall } from '../eliteGates/egHall.js'; // KETCH: an Elite Breach's hall, a made place
 import { isKetchShip } from '../ketch/ketchShip.js'; // KETCH: the Sky-Ketch, a made place
 import { dungeonTier, DUNGEON_TIER_TEXT, DUNGEON_SIZE_TEXT } from '../../systems/dungeon/dungeonTier.js';
@@ -57,7 +57,7 @@ const _labels = new WeakMap();
  *  or null for a place with no dungeon, or one the port made. */
 export function dungeonTierLabel(loc) {
   const tier = dungeonTier(loc);
-  if (!tier || madeDungeon(loc)) return null;
+  if (!tier || madeDungeon(loc) || isApotheosisOrrery(loc)) return null;
   const kept = _labels.get(loc);
   if (kept) return kept;
   const size = dungeonSizeOnline(loc);

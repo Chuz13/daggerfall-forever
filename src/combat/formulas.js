@@ -25,6 +25,7 @@ import { CLASSIC_TO_UNITY_RATIO } from '../player/motor.js';   // C15 knockback 
 import { rand } from '../formats/dfRandom.js';
 import { enchantChanceToHitMod, doItemEnchantmentPayloads, PAYLOAD, isEnchantedItem, entityImprovedAdrenalineRush } from '../systems/enchantments.js';   // E1: the enchantment channels + the Strikes payload; AUDIT 39: ImprovesTalents' adrenaline flag lives in the fold's bag   // the monster multi-attack reflex gate (F2)
 import { entityArmorMod, entityWeightMult, weaponDamageMods, weaponBlowMods } from '../systems/entityMods.js';   // RF1: one read per channel - DFU's enchantment channel and every enhancement fold, summed there
+import { mitigateShadowDamage } from '../systems/apotheosis/apotheosisLive.js';
 import { liveStat } from '../systems/statMods.js';   // S14: fortify-aware stat reads
 import { skillValue, SKILLS } from '../systems/skills.js';
 import { noteSkillChallenge } from '../systems/skillSoftcap.js';   // SOFTCAP1: the foe a blow was traded with, for the real-use law
@@ -942,7 +943,17 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   // and clear a dungeon without ever being seen, or be beaten to death
   // by a Nightblade you can never see. The TRUE powers are untouched,
   // which is what the normal/true split exists for.
-  if (damage > 0) breakNormalPowerConcealment(attacker);
+  if (damage > 0) {
+    breakNormalPowerConcealment(attacker);
+    if (target?.shadowBoss) {
+      const atkSkill = weapon ? (weaponSkillUsed(weapon.templateIndex) ?? SKILLS.HandToHand) : SKILLS.HandToHand;
+      const reduced = mitigateShadowDamage(damage, { target, skillId: atkSkill });
+      if (reduced < damage) {
+        notes.shadowResisted = true;
+        damage = reduced;
+      }
+    }
+  }
   // E1: the STRIKES enchantment payload, at the tail for the same
   // one-home reason as OnMonsterHit above. DFU runs it at the callers
   // with ASYMMETRIC gates: the player's strike runs it on any hit

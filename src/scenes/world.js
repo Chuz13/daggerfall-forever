@@ -410,6 +410,9 @@ import { registerPlayerDeathSave, staffFrozen } from '../characters/playerEntity
 import { registerMadeLevelHere, madeRuleHere, madeSaysHere } from '../systems/madeLevel.js';   // EG-H2 (Elite-Gates.md section 24): THE MADE LEVEL'S RULES - every per-level door below asks the one law
 import { registerJumpForgiveness } from '../player/motor.js';   // EG-H2 (section 10.8): THE FORGIVENESS - the Spire's jump buffer and late press, the made level's law's
 import { isSdRealm, realmArena, SD_REALM_TEXT, SD_REALM_FOG, SD_REALM_FLOORS, SD_ARENA_FLOORS, arenaHolds } from '../world/superDungeon/sdRealm.js';   // SD5a: the Shattered Hour - its edge, its refusals
+import { isApotheosisStormActive, ensureApotheosisState, APOTHEOSIS_STAGES } from '../systems/apotheosis/apotheosisCore.js';
+import { setApotheosisRebirthHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
+import { isDirenniTowerLocation, handleMantellaCruxTouch, createDirenniSiegeController } from '../systems/apotheosis/apotheosisStage1.js';
 import { SdSkyRenderer, SD_SKY_STEPS } from '../render/superDungeon/sdSky.js';   // SD5b: the Hour's sky
 import { SdArenaGlowRenderer, sdArenaGlowAt, sdHourClockOf } from '../render/superDungeon/sdArenaGlow.js';   // SD-LOOK S7: the arena's floor reads the clock, and the sky's word for the fight
 import { SdStompWallRenderer, sdStompWalls, sdStompWallRecords, SD_HOLD_WALL, sdHomeBeacon } from '../render/superDungeon/sdStompWall.js';   // SD-LOOK S7: the Stomp's wall, the hold's curtain
@@ -2720,6 +2723,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (weatherOverride) setWeather(weatherOverride);
   const weatherSeed = weatherRng(Number(params.get('wseed')) || 1);
   let weather = weatherOverride ?? currentWeather();
+  let _apoStormWasActive = false;
   // EV4: the distance haze follows the live Land View Distance (the
   // scale is 1 at DFU's default 3, so the classic path is untouched);
   // the exp weather rows pass through scaleFogForDistance unchanged.
@@ -6659,6 +6663,48 @@ export async function bootWorld(canvas, renderer, params, status) {
     }, 0);
 
     return cemetery;
+  });
+
+  let direnniSiege = null;
+  setApotheosisRebirthHook(() => {
+    endPlayerFights();
+    player.stopAutorun();
+    wagonRiders?.leave();
+    try {
+      setSyntheticTimeIncrease(true);
+      if (sharedClockOn()) {
+        advanceOwnMinutes(APOTHEOSIS_REBIRTH_MINUTES);
+      }
+      playerTicker.advance(APOTHEOSIS_REBIRTH_MINUTES);
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
+    } catch (e) {
+      console.error('[apotheosis] ticker advance error on divine rebirth:', e);
+    }
+    direnniSiege?.onModeOrWorldChange?.();
+    if (exteriorFoes?.foes) {
+      for (const f of [...exteriorFoes.foes]) {
+        if (f && !f.dead && !f._gone && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
+          exteriorFoes.removeFoe?.(f);
+        }
+      }
+    }
+    const iFoes = modes?.interiorFoes;
+    if (iFoes?.foes) {
+      for (const f of [...iFoes.foes]) {
+        if (f && !f.dead && !f._gone && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
+          iFoes.removeFoe?.(f);
+        }
+      }
+    }
+    const dCtx = modes?.dungeonCtx;
+    if (dCtx?.foes) {
+      for (const f of [...dCtx.foes]) {
+        if (f && !f.dead && !f._gone && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
+          dCtx.removeFoe?.(f);
+        }
+      }
+    }
+    townTalk.say(t('apotheosis.rebirth.message', 'A day passes in golden light. Your divine vessel manifests anew upon the cleansed ground.'));
   });
 
   // AUDIT 19 F4: the CUMULATIVE game-day count, for the music seed. The
@@ -11652,6 +11698,20 @@ export async function bootWorld(canvas, renderer, params, status) {
       },
     },
   });
+  direnniSiege = createDirenniSiegeController({
+    playerEntity,
+    getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
+    getPlayerMode: () => modes?.mode ?? 'exterior',
+    groundAt: (x, z) => heightAt(x, z),
+    spawnFoe: (mobileType, pos, opts) => exteriorFoes.spawnFoe(mobileType, pos, opts),
+    removeFoe: (f) => exteriorFoes.removeFoe(f),
+    hurtPlayer: (dmg) => {
+      hurtPlayer(playerEntity, dmg);
+      surfacePlayer();
+    },
+    flashDamage: (dmg) => hudFade.flashDamage?.(dmg),
+    say: (line) => townTalk.say(line),
+  });
   // AUDIT LANDFORMS II G1/G2: what rides a rebuilt pixel's ground, bound here, once the pools and the player stand -
   // BOOT-TDZ2: the boot's first build publishes before they are declared, and the network lands inside it on most
   // boots, so read from the publish they were a dead zone (the boot died on `droppedLoot`: AUDIT LANDFORMS II K1).
@@ -14752,6 +14812,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     wildTravelPaid(wildTrip);
     _teleporting = true;
     try {
+      direnniSiege?.onModeOrWorldChange?.();
       modes?.forceExitToExterior();
       // AUDIT 64 F19: TeleportAway names the reposition EXPLICITLY -
       // `TeleportToCoordinates((int)destinationPos.X, (int)destinationPos.Y,
@@ -15936,6 +15997,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (worldTimeScale() !== 1) resetTimeScale();
     crewAshore.clear();   // AUDIT CC-A8: the party out of every pool before the save lands - a dungeon's patches its foes by number, and a companion in the list took another's record
     clearSworn();   // REVENANT-COMPANION: the sworn too
+    direnniSiege?.onModeOrWorldChange?.();
     // AUDIT-MACL F2: THE LATCH GOES UP BEFORE THE FIRST AWAIT, and MAC-L4
     // is why it has to be said out loud. This guard and the latch below
     // it used to be separated by straight-line code alone - one
@@ -24158,7 +24220,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const deadlandsAirFrame = () => { if (modes?.gateArenaDay?.() != null) deadlandsAir.frame(deadlandsSeconds(), cam.pos, courtFireBeds); else deadlandsAir.stop(); };
   /** SD14b: THE HOUR'S AIR (scenes/superDungeon/sdAir.js) - its beds and its far events while I stand in the Shattered Hour, on the sky's
    *  clock; silent, nothing left looping, the frame I do not. */
-  const sdAirFrame = () => { if (modes?.sdRealmSlot?.() != null) sdAir.frame(deadlandsSeconds(), cam.pos); else sdAir.stop(); };
+  const sdAirFrame = () => { if (modes?.sdRealmSlot?.() != null || modes?.isApotheosisOrrery?.()) sdAir.frame(deadlandsSeconds(), cam.pos); else sdAir.stop(); };
   /** WB2: THE GATE THE WORLD STANDS (scenes/gate/gatePool.js) - online alone, as the omen is; stood each exterior frame from
    *  the omen's word, drawn in the world pass (the stone) and after the duel wall (the fire and the beacon). Its door
    *  answers "not yet" until the relay can hold a gate's arena (WB3). */
@@ -28843,6 +28905,20 @@ export async function bootWorld(canvas, renderer, params, status) {
       p?.paint(deadlandsSeconds(), courtFogNow(), sdSkyLookNow(), renderer.worldViewportPx ?? [0, 0, renderer.gl.drawingBufferWidth, renderer.gl.drawingBufferHeight]);   // SD-LOOK: the map's next quadrant, before the fetch
       if (p?.draw(proj, view, deadlandsSeconds(), courtFogNow(), skyGain(renderer._fogColor, SD_REALM_FOG.color), sdSkyClockNow())) renderer.markForeignPass();   // SD-LOOK S7: its face tells the fight
     },
+    interceptDirenniDoor: (hit) => {
+      if (!isDirenniTowerLocation(hit?.dfLocation)) return false;
+      const st = ensureApotheosisState(playerEntity);
+      if (st.stage !== APOTHEOSIS_STAGES.QUESTLINE_ACTIVE || st.towerSiegeCleared) return false;
+      const doorPos = hit?.door?.pos ?? (walkMode && playerSpawned ? player.pos : cam.pos);
+      direnniSiege?.start({ startWaveNum: 1, anchorPos: doorPos });
+      return true;
+    },
+    onApotheosisMantellaUsurp: () => {
+      direnniSiege?.onModeOrWorldChange?.();
+      if ((modes?.mode ?? 'exterior') !== 'exterior') {
+        modes?.forceExitToExterior?.();
+      }
+    },
     // SD-LOOK (Super-Dungeons-Look.md sections 1-2): THE RIFT'S WINDOW, ITS FLOOR LIGHT AND ITS HEART, THE RETURN'S WINDOW HOME -
     // after the flats, in the place's own air: the window reads the Hour's own painted sky (the very map, painted here a
     // quadrant a frame in the Hollow - in the Hour the sky's own paint keeps it), the Return's the world's hour
@@ -30155,6 +30231,37 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       return spawned;
     },
+    apotheosisMantellaFork: () => {
+      let activeWin = null;
+      return handleMantellaCruxTouch({
+        dfLocation: { mapTableData: { mapId: 1001 }, locationId: 50000 },
+        playerEntity,
+        presentWindow: (win) => {
+          activeWin = win;
+          if (modes?.dungeonCtx?.presentDecisionWindow) {
+            modes.dungeonCtx.presentDecisionWindow(win);
+          } else {
+            const hostEl = document.getElementById('hud-root') ?? document.body;
+            win.mount(hostEl);
+          }
+        },
+        say: (msg) => townTalk.say(msg),
+        onUsurpExit: () => {
+          activeWin?.unmount?.();
+          direnniSiege?.onModeOrWorldChange?.();
+          if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior?.();
+        },
+        onVanillaConfirm: () => {
+          activeWin?.unmount?.();
+          townTalk.say(t('apotheosis.mantella.vanillaSay', 'Mantella released to the Totem bearer (vanilla ending path).'));
+        },
+      });
+    },
+    apotheosisStartSiege: (wave = 1) => {
+      if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior?.();
+      return direnniSiege?.start({ startWaveNum: wave, anchorPos: walkMode && playerSpawned ? player.pos : cam.pos }) ?? false;
+    },
+    apotheosisEnterOrrery: async () => modes?.enterApotheosisOrrery?.() ?? false,
   });
   createWorldShotProbes({   // HOST-SPLIT: src/scenes/worldShotProbes.js
     arrows, cam, exteriorFoes, installTownProbes, magic, mapDict, maps, modes, openTeleportMap, player, playerTicker,
@@ -33527,7 +33634,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // day block, and runs wherever the player is. A pinned ?weather
     // never ticks.
     const frameWeatherDrain = () => {   // PERF-V8
-    if (!weatherOverride) {
+    const apoStorm = isApotheosisStormActive(playerEntity);
+    if (apoStorm) {
+      _apoStormWasActive = true;
+      if (weather !== 'thunder') applyWeather('thunder');
+    } else if (_apoStormWasActive) {
+      _apoStormWasActive = false;
+      if (!weatherOverride) applyWeather(shownWeather());
+    } else if (!weatherOverride) {
       const _pp = playerTravelPixel();
       const drained = tickWeather(Math.floor(playerTicker.classicMinutes), maps.getClimateIndex(_pp.x, _pp.y));
       // WEATHER2b: the field at the player, after the drain - a change on a live frame is a crossing
@@ -34253,6 +34367,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     yards?.drawDecals(renderer);   // HOME-YARD: the lot's marked edge while a piece is placed
     renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), walkMode && playerSpawned ? player.pos : cam.pos));   // TACT4: a foe's wind-up on the ground, under the bodies
     renderer.drawFoeTelegraphs?.(techniqueMarksNow());   // TECH1: and the player's own marks, after the foes' (bible/05-Combat/Weapon-Techniques.md)
+    if (direnniSiege?.active) renderer.drawFoeTelegraphs?.(direnniSiege.getTelegraphDrawables());
     bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.
     trees.frame(_pixelOrder, cam.pos, cullOn ? _planes : null);   // LPT1 / BANTHA1: the near 3D trees, both doors', for the flats' call below (AFTER the gibs' call above, which would spend them)
     renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], windClock, wd.gust] : null, floraSwayOn() && wd.on ? windfallLaw : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway); WINDFALL1: by the mod's law while it is on
@@ -34457,9 +34572,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!townTalk.overlayActive) runEncounterTick(_pf);
     wildFoesFrame(foeDt);   // WILD-ALERT: who in the wilderness has noticed a fast traveller - before the pools move
     const framePools = () => {   // PERF-V8
+    if ((modes?.mode ?? 'exterior') !== 'exterior' && direnniSiege?.active) direnniSiege.abandon();
     if ((modes?.mode ?? 'exterior') === 'exterior') {
       if (_deckBodies.size) navalCarry();   // DECK-WALK: the bodies on a ship's deck carried by her - after the ships moved, before the foes do
       exteriorFoes.update(foeDt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock (QUEST-POPUP-PAUSE: offline, a quest box does)
+      if (direnniSiege?.active) direnniSiege.tick(foeDt);
       if (_deckBodies.size) navalLeash();   // DECK-WALK: the bodies on a ship's deck kept on it - after they moved, before they are drawn
       // TACT3 (bible/12-Enhanced-AI/Tactics-Arc.md; Mac's call: the classic lane too): the watch and the street's foes keep
       // apart from each other as each pool keeps its own, and none of them holds a building's doorway

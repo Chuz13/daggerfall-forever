@@ -643,3 +643,143 @@ export const realmArena = (floors = SD_REALM_FLOORS) => ({ centre: [...SD_REALM_
  *  by death, or by the way home - never by the rim. */
 export const SD_ARENA_FLOORS = Object.freeze([Object.freeze({ kind: 'disc', ...SD_ARENA })]);
 export const arenaHolds = (joined, x, z) => !!joined && Number.isFinite(x) && Number.isFinite(z) && Math.hypot(x - SD_ARENA.x, z - SD_ARENA.z) <= SD_ARENA.r;
+
+// ── APOTHEOSIS STAGE 1: CUT CLOCKWORK CIRCULAR ARENA (Orrery Island Only) ──
+export const APOTHEOSIS_ORRERY_BLOCK = 'APOORRERY.RDB';
+export const APOTHEOSIS_ORRERY_BLOCK_INDEX = 900201;
+export const APOTHEOSIS_ORRERY_LOCATION_ID = 0x73640a90;
+export const APOTHEOSIS_ORRERY_FLOORS = Object.freeze([Object.freeze({ kind: 'disc', ...SD_ORRERY })]);
+
+export function apotheosisOrreryLocation({ regionIndex = -1, regionName = '', climate = { worldClimate: 231, climateType: 2 } } = {}) {
+  return {
+    name: 'The Orrery of CHIM',
+    regionIndex,
+    regionName,
+    locationIndex: -1,
+    hasDungeon: true,
+    climate: { worldClimate: climate.worldClimate, climateType: climate.climateType },
+    mapTableData: { mapId: 0, locationType: -1, dungeonType: 0, longitude: 0, latitude: 0 },
+    exterior: { exteriorData: { locationId: APOTHEOSIS_ORRERY_LOCATION_ID } },
+    dungeon: {
+      recordElement: { header: { locationId: APOTHEOSIS_ORRERY_LOCATION_ID, unknown: 0 } },
+      blocks: [{ x: 0, z: 0, blockName: APOTHEOSIS_ORRERY_BLOCK, isStartingBlock: true, blockIndex: 0, blockNumber: 0, blockNumberStartIndexBitfield: 0 }],
+    },
+    apotheosisOrrery: true,
+  };
+}
+
+export const isApotheosisOrrery = (loc) => Boolean(loc?.apotheosisOrrery) && loc?.dungeon?.recordElement?.header?.locationId === APOTHEOSIS_ORRERY_LOCATION_ID;
+
+export function apotheosisOrrerySpawnPoints() {
+  const arrivalZ = SD_ORRERY.z - Math.max(4, SD_ORRERY.r - 4.5);
+  const bossZ = SD_ORRERY.z + Math.max(4, SD_ORRERY.r * 0.25);
+  return {
+    player: realmToDungeon(SD_ORRERY.x, 0, arrivalZ),
+    boss: realmToDungeon(SD_ORRERY.x, 0, bossZ),
+    center: realmToDungeon(SD_ORRERY.x, 0, SD_ORRERY.z),
+    radius: SD_ORRERY.r,
+  };
+}
+
+export function apotheosisOrreryBlock() {
+  const [x, , z] = apotheosisOrrerySpawnPoints().player;
+  const marker = {
+    type: 0x03, position: 1, index: 0,
+    xPos: Math.round(x * UNITS_PER_M), yPos: 0, zPos: Math.round(z * UNITS_PER_M),
+    resources: { flatResource: { textureArchive: 199, textureRecord: 10, flags: 0, magnitude: 0, soundIndex: 0, factionOrMobileId: 0, nextObjectOffset: -1, action: 0, position: 0 } },
+  };
+  return { name: APOTHEOSIS_ORRERY_BLOCK, position: 0, rdbBlock: { modelReferenceList: [], objectRootList: [{ rdbObjects: [marker] }] } };
+}
+
+export function apotheosisOrreryBlocks(real) {
+  const block = apotheosisOrreryBlock();
+  return {
+    getBlockIndex: (name) => (name === APOTHEOSIS_ORRERY_BLOCK ? APOTHEOSIS_ORRERY_BLOCK_INDEX : real ? real.getBlockIndex(name) : -1),
+    getBlock: (i) => (i === APOTHEOSIS_ORRERY_BLOCK_INDEX ? block : real ? real.getBlock(i) : null),
+  };
+}
+
+export function apotheosisOrreryLampFeet() {
+  const out = [];
+  for (let i = 0; i < SD_LAMPS.orrery; i++) {
+    const a = Math.PI / 8 + (i / SD_LAMPS.orrery) * Math.PI * 2;
+    out.push([SD_ORRERY.x + Math.cos(a) * (SD_ORRERY.r - 1), 0, SD_ORRERY.z + Math.sin(a) * (SD_ORRERY.r - 1)]);
+  }
+  return out;
+}
+
+/** Builds ONLY the circular Orrery island + brass dial inlay + its 8 rim lamps (no puzzle, walk, threshold, or arena). */
+export function buildApotheosisOrreryModel() {
+  const f = faces();
+  const R = SD_ORRERY.r;
+  realmIsland(f, SD_ORRERY.x, SD_ORRERY.z, R, SD_REALM_DIAL_RECORD, {
+    uvOf: (x, z) => [0.5 + (x - SD_ORRERY.x) / (2 * R), 0.5 + (z - SD_ORRERY.z) / (2 * R)],
+  });
+  dialInlay(f);
+  for (const p of apotheosisOrreryLampFeet()) {
+    lampBoxQuads(p, SD_LAMP_POST_W, 0, SD_LAMP_H - SD_LAMP_HEAD).forEach((q, i) => f.quad(SD_REALM_BRASS_RECORD, q[0], q[1], q[2], q[3], ...(i < 4 ? LAMP_SIDE_UV : PILLAR_TOP_UV)));
+    lampBoxQuads(p, SD_LAMP_HEAD, SD_LAMP_H - SD_LAMP_HEAD, SD_LAMP_H + SD_LAMP_HEAD, true).forEach((q) => f.quad(SD_HALL_GLOW_RECORD.brass, q[0], q[1], q[2], q[3], ...PILLAR_TOP_UV));
+    lampBoxQuads(p, SD_LAMP_HEAD, SD_LAMP_H + SD_LAMP_HEAD, SD_LAMP_H + SD_LAMP_HEAD + 0.03).forEach((q) => f.quad(SD_REALM_BRASS_RECORD, q[0], q[1], q[2], q[3], ...PILLAR_TOP_UV));
+  }
+  return packRealmFaces(f);
+}
+
+export function apotheosisOrreryColliderTris() {
+  const out = [];
+  const { x: cx, z: cz, r } = SD_ORRERY;
+  for (let k = 0; k < SD_ISLAND_SIDES; k++) {
+    const a0 = (k / SD_ISLAND_SIDES) * Math.PI * 2, a1 = ((k + 1) / SD_ISLAND_SIDES) * Math.PI * 2;
+    out.push(...realmToDungeon(cx, 0, cz), ...realmToDungeon(cx + Math.cos(a1) * r, 0, cz + Math.sin(a1) * r), ...realmToDungeon(cx + Math.cos(a0) * r, 0, cz + Math.sin(a0) * r));
+  }
+  for (const p of apotheosisOrreryLampFeet()) {
+    for (const [a, b, c, d] of lampBoxQuads(p, SD_LAMP_POST_W, 0, SD_LAMP_H - SD_LAMP_HEAD)) {
+      out.push(...a, ...b, ...c, ...a, ...c, ...d);
+    }
+  }
+  return new Float32Array(out);
+}
+
+export function apotheosisOrreryLights() {
+  return apotheosisOrreryLampFeet().map((p) => {
+    const [x, y, z] = realmToDungeon(p[0], SD_LAMP_H, p[2]);
+    return { x, y, z, range: SD_LAMP_RANGE, color: [...SD_LAMP_COLOR] };
+  });
+}
+
+let _orreryLamps = null;
+const _orreryLit = { cap: 0, data: lightList(0), colors: new Float32Array(0), carried: new Uint8Array(0), views: new Map() };
+export function apotheosisOrreryLightsWith(lit, extra = []) {
+  const lamps = (_orreryLamps ??= apotheosisOrreryLights());
+  const n = lit.data.length / 4;
+  const m = n + extra.length + lamps.length;
+  const H = _orreryLit;
+  if (m > H.cap) {
+    H.cap = Math.max(m, H.cap * 2, 32);
+    H.data = lightList(H.cap); H.colors = new Float32Array(H.cap * 3); H.carried = new Uint8Array(H.cap);
+    H.views.clear();
+  }
+  copyLights(H.data, 0, lit.data, 0, n);
+  for (let j = 0; j < n * 3; j++) H.colors[j] = lit.colors[j];
+  const lc = lit.data.carried;
+  for (let j = 0; j < m; j++) H.carried[j] = j < n && lc ? lc[j] : 0;
+  for (let i = n; i < m; i++) {
+    const q = i - n;
+    const l = q < extra.length ? extra[q] : lamps[q - extra.length];
+    packLight(H.data, i, l);
+    H.colors[i * 3] = l.color[0]; H.colors[i * 3 + 1] = l.color[1]; H.colors[i * 3 + 2] = l.color[2];
+  }
+  let v = H.views.get(m);
+  if (!v) {
+    const data = lightListView(H.data, m), carried = H.carried.subarray(0, m);
+    data.carried = carried;
+    v = { data, colors: H.colors.subarray(0, m * 3), carried };
+    H.views.set(m, v);
+  }
+  return v;
+}
+
+export const apotheosisOrreryArena = () => ({
+  centre: [...SD_REALM_ORIGIN],
+  radius: SD_ORRERY.z + SD_ORRERY.r,
+  clamp: (pos, inset = 0) => realmClamp(pos, inset, APOTHEOSIS_ORRERY_FLOORS),
+});

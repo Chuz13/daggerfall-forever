@@ -24,6 +24,7 @@ import { pageHas } from '../systems/pageQuery.js';   // AUDIT ANTICHEAT A1: the 
 import { openGuardCeiling, closeGuardCeiling } from '../systems/powerCeiling.js';   // POWER-CEILING: the guards composed, held to one share kept
 import { isLich, isAnyLich } from '../systems/necromancy/lichdomStatus.js';
 import { reconstituteLich } from '../systems/necromancy/lichdomRitual.js';
+import { isAscendedGod, reconstituteAscendedGod, setActiveApotheosisPlayer } from '../systems/apotheosis/apotheosisLive.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 
 export const playerEntity = {
@@ -79,6 +80,8 @@ export const playerEntity = {
   reactionMods: new Array(SOCIAL_GROUP_COUNT).fill(0),
 
 };
+
+setActiveApotheosisPlayer(playerEntity);
 
 /** Debug/probe surface: one place writes window.__player (audit
  *  2026-07-06b collapsed seven scattered assignments).
@@ -375,6 +378,13 @@ function tellHurt(entity, dmg, before, after, saved = false) {
  */
 export function forcePlayerDeath(entity) {
   if (!((entity?.health ?? 0) > 0)) return false;
+  if (isAscendedGod(entity)) {
+    const re = reconstituteAscendedGod(entity);
+    if (re.reconstituted) {
+      surfacePlayer();
+      return false;
+    }
+  }
   if (FORK_FLAGS.ENABLE_NECROMANCY && isAnyLich(entity)) {
     const re = reconstituteLich(entity);
     if (re.reconstituted) {
@@ -476,6 +486,13 @@ export function hurtPlayer(entity, dmg, { bypassShield = false, spare = null } =
   // `instanceof DeathScreen` guard in its presenter, which made the guard
   // load-bearing and every future presenter's problem.
   if (wasAlive && entity.health === 0) {
+    if (isAscendedGod(entity)) {
+      const re = reconstituteAscendedGod(entity);
+      if (re.reconstituted) {
+        surfacePlayer();
+        return false;
+      }
+    }
     if (FORK_FLAGS.ENABLE_NECROMANCY && isAnyLich(entity)) {
       const re = reconstituteLich(entity);
       if (re.reconstituted) {

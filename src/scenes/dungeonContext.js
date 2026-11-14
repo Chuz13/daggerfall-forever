@@ -280,7 +280,20 @@ import { createSdHang } from './superDungeon/sdHang.js';   // SD-LOOK S11: what 
 import { createSdRemnant } from './superDungeon/sdRemnant.js';   // SD8c: the Brass Remnant in the Shattered Hour
 import { sdMarksOf } from '../net/superDungeon/sdMarks.js';   // SD18c: its Hollow's Ending - the light it burns with
 import { SD_NO_RIFT } from '../net/superDungeon/sdLaw.js';   // SD4b: the Rift's word when nobody can answer it
-import { isSdRealm, SD_REALM_TEXT, SD_WAY_BACK_Z, SD_WAY_BACK_SIZE, SD_THRESHOLD_RIM } from '../world/superDungeon/sdRealm.js';   // SD5a: the Shattered Hour - a made place, its refusals, its way back
+import { isSdRealm, isApotheosisOrrery, apotheosisOrrerySpawnPoints, SD_REALM_TEXT, SD_WAY_BACK_Z, SD_WAY_BACK_SIZE, SD_THRESHOLD_RIM } from '../world/superDungeon/sdRealm.js';   // SD5a: the Shattered Hour - a made place, its refusals, its way back
+import { completeApotheosisQuestline } from '../systems/apotheosis/apotheosisCore.js';
+import { triggerApotheosisScreenFlash } from '../systems/apotheosis/apotheosisLive.js';
+import {
+  isDirenniTowerLocation,
+  isDirenniHardModeActive,
+  applyDirenniForcedTraits,
+  handleMantellaCruxTouch,
+  pickZeroStoneSpot,
+  createDirenniInteriorReinforcer,
+  spawnShadowOfTheAgent,
+  APOTHEOSIS_ZERO_STONE_KEY,
+  APOTHEOSIS_ORRERY_EXIT_KEY,
+} from '../systems/apotheosis/apotheosisStage1.js';
 import { isEgHall } from '../world/eliteGates/egHall.js';
 import { isKetchShip } from '../world/ketch/ketchShip.js';   // KETCH: a crew's sky-ketch - a made place, its Sailwalk the Hour's course law
 import { KT_COURSE } from '../net/ketch/ketchDeck.js';   // KETCH: the Sailwalk's course, laid by the Hour's own Steps   // EG-PLAY: an Elite Breach's circle - a made place (EG-H2: its refusals the made level's law's)
@@ -354,7 +367,7 @@ const GATE_STRIKE_CAST = Object.freeze({ frost: SPELL_CAST_SOUND[1], poison: SPE
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons, lootRarityOn } from '../systems/loot/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2); BAL3: its switch, the place's threat's
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep, setBatchGlint, prefersReducedMotion } from '../systems/hitFlash.js';   // HITFLASH1; TELL2: a wind-up's glint
-import { localizedText, getLocalizedLocationName, getLocalizedRegionName } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the place names shown
+import { localizedText, getLocalizedLocationName, getLocalizedRegionName, t } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the place names shown
 import { createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 import { flatBodies } from '../world/propBodies.js';   // PROP-BODIES: the solid flats' bodies, beside their cover
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
@@ -594,7 +607,17 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // Map a GlobalVarLink task reads), so the sink is the bridge's
     // machine. No bridge (a headless boot) leaves the action inert
     // beyond its cascade.
-    setGlobalVar: (index, value) => { opts.questBridge?.machine?.globalVars?.set(index, value); },
+    setGlobalVar: (index, value) => {
+      if (index === 36 && value && handleMantellaCruxTouch({
+        dfLocation,
+        playerEntity,
+        presentWindow: (w) => { activeOverlay = w; },
+        say: (l) => hudText.add(l),
+        onUsurpExit: () => opts.onApotheosisMantellaUsurp?.(),
+        onVanillaConfirm: () => { opts.questBridge?.machine?.globalVars?.set(index, value); },
+      })) return;
+      opts.questBridge?.machine?.globalVars?.set(index, value);
+    },
     playerLevel: () => playerEntity.level,
     lockpickSkill: () => skillValue(playerEntity, SKILLS.Lockpicking),   // R1: GetLiveSkillValue at attempt time
     // ROAD-B B4: CastleDaggerfallMagicDoorsSpecialOpenHack's three
@@ -1073,6 +1096,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // elites among them, and its loot +50%. Read once here; every arm below asks it.
   const _superTier = dungeonTier(dfLocation) === 'super';
   const _sdRealm = isSdRealm(dfLocation);   // SD5a: the Shattered Hour, read once - every arm below asks the flag
+  const _apoOrrery = isApotheosisOrrery(dfLocation);   // APOTHEOSIS Stage 1: Cut Clockwork Circular Arena
+  const _direnniHard = isDirenniHardModeActive(dfLocation, playerEntity);   // APOTHEOSIS Stage 1: Direnni Tower hard mode
   const _egHall = isEgHall(dfLocation);   // EG-PLAY: an Elite Breach's circle, read once
   const _ketch = isKetchShip(dfLocation);   // KETCH: a crew's sky-ketch, read once
   const _made = madeLevelOf(dfLocation);   // EG-H2 (Elite-Gates.md section 24): the made level this is ('court', 'hour', 'spire' or null), read once - its rules are the law's (systems/madeLevel.js)
@@ -1085,7 +1110,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // casts the same rays over the same layout, so nothing rides the wire. Offline too (OPEN 8: a hearth; the rest stays
   // DFU's). Never in the Burning Court, nor on the Arena's sand (ARENA2: a made level, its rest refused - the merge of
   // main's #545, AUDIT REST II). Permanent - never cold, never picked up - and a 15 m ward (_spawnEncounter).
-  const firePlan = isGateArena(dfLocation) || isArenaFloor(dfLocation) || _ketch ? null : dungeonFirePlan({   // KETCH: and no hearth aboard - her rest is refused
+  const firePlan = isGateArena(dfLocation) || isArenaFloor(dfLocation) || _ketch || _apoOrrery ? null : dungeonFirePlan({   // KETCH: and no hearth aboard - her rest is refused
     blocks: dungeon.blocks,
     probe: colliderFireProbe(collider),   // the rays, the law's own (world/dungeon/dungeonFires.js) - the probe tool casts the same
     ...fireLayoutInputs(dungeon.blocks, dungeonHearths),   // AUDIT REST-PARTY C6: the law's doors and fires, read as tools/dungeonFireProbe.mjs reads them
@@ -1163,6 +1188,28 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const swapped = wildHallFoes(_layoutEnemies, dfLocation.wildRing, dfLocation.dungeon.recordElement.header.locationId >>> 0);
     for (let i = 0; i < swapped.length; i++) _layoutEnemies[i] = swapped[i];
   }
+  let _zeroStonePos = null;
+  let _direnniReinforcer = null;
+  let _apoShadowSpawned = false;
+  let _apoShadowFoe = null;
+  let _apoShadowDefeated = false;
+  if (_direnniHard) {
+    const startRef = dungeon.startMarker
+      ? [dungeon.startMarker.x, dungeon.startMarker.y, dungeon.startMarker.z]
+      : [0, 0, 0];
+    _zeroStonePos = pickZeroStoneSpot(startRef, _layoutEnemies, collider);
+    const { archive, record } = DUNGEON_FIRE_FLAT;
+    const tzs = await getTexture(archive);
+    const sz = tzs && record < tzs.recordCount ? billboardSize(tzs, record) : { w: 1, h: 1.5 };
+    const zkey = `${archive}_${record}`;
+    if (!flatGroups.has(zkey)) flatGroups.set(zkey, []);
+    flatGroups.get(zkey).push([_zeroStonePos[0], _zeroStonePos[1] + sz.h / 2, _zeroStonePos[2]]);
+    lights.push({ x: _zeroStonePos[0], y: _zeroStonePos[1] + 1.4, z: _zeroStonePos[2], range: FIRE_LIGHT_RANGE * 1.4 });
+  }
+  if (_apoOrrery) {
+    const sp = apotheosisOrrerySpawnPoints();
+    lights.push({ x: sp.center[0], y: sp.center[1] + 2.0, z: sp.center[2], range: 14 });
+  }
   // PROF2: A DUNGEON VEIN'S WALL (profIdentity / veinWall below; bible/06-Systems/Professions-Arc.md 23) - over the
   // layout's own markers, before an elite copy is added: every client of the dungeon casts the same rays.
   // MINE-PERKS (Professions-Arc 43, the players' "they like to spawn halfway in the wall so its hard to see"): the vein
@@ -1213,7 +1260,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const _dungeonRegion = dfLocation?.regionIndex ?? null;
   const _isProtectedDungeon = Boolean(dfLocation?.name && isMainStoryDungeon(dfLocation.name));
   const _livingCooldown = (_dungeonId && !_isProtectedDungeon) ? isDungeonInCooldown(_dungeonId, _dungeonRegion) : false;
-  const _rawEnemies = dfLocation?.elite || _superTier   // SD4a: a Super dungeon stands the Elite's three at every marker
+  const _rawEnemies = dfLocation?.elite || _superTier || _direnniHard   // SD4a: a Super dungeon stands the Elite's three at every marker
     ? expandEliteEnemies(_layoutEnemies, {
       copies: ELITE_FOE_MULTIPLIER,
       clearance: (from, dir, dist) => collider.raycast([from[0], from[1] + 0.9, from[2]], dir, dist),
@@ -1587,6 +1634,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
       recordEntityPlacement(entity, { pos, team: entity.team, allied: !!e.allied, eliteFoe: entity.eliteFoe, puppet });
+      if (_direnniHard && !e.allied && !puppet) applyDirenniForcedTraits(entity);
       if (!entity.eliteFoe && !e.allied && !bossTraitsOf(entity).length && !puppet && e.traits !== false && !e.eliteFoe) maybeApplyMobTraits(entity, { playerLevel: effectiveLevel(foeDeps.playerEntity), tier: LivingTamrielConfig.dungeonMobTraits, puppet: !!puppet, allied: !!e.allied, seed: e.mobSeed ?? (Number.isFinite(e.x) ? eliteHash('mob-trait', e.mobileType ?? 0, Math.round(e.x), Math.round(e.z)) : null) });
       if (e.revenant && !puppet) applyRevenant(entity, e.revenant, { turned: !!e.turned });   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot; RVN11c: a betrayer's turning is no return
       // S1/E4b/AUDIT 18/AUDIT 24/LR1: SetEnemyCareer's whole loot chain -
@@ -1682,6 +1730,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
       recordEntityPlacement(entity, { pos, team: entity.team, allied: !!e.allied, eliteFoe: entity.eliteFoe, puppet });
+      if (_direnniHard && !e.allied && !puppet) applyDirenniForcedTraits(entity);
       if (!entity.eliteFoe && !e.allied && !bossTraitsOf(entity).length && !puppet && e.traits !== false && !e.eliteFoe) maybeApplyMobTraits(entity, { playerLevel: effectiveLevel(foeDeps.playerEntity), tier: LivingTamrielConfig.dungeonMobTraits, puppet: !!puppet, allied: !!e.allied, seed: e.mobSeed ?? (Number.isFinite(e.x) ? eliteHash('mob-trait', e.mobileType ?? 0, Math.round(e.x), Math.round(e.z)) : null) });
       if (e.revenant && !puppet) applyRevenant(entity, e.revenant, { turned: !!e.turned });   // RVN7d (Feud-Arc.md 18.4): a revenant stood here - its name and rank, before its loot; RVN11c: a betrayer's turning is no return
       spawnEnemyLoot(entity, e.mobileType, basics, D.playerEntity, { ...eliteLootOpts(e), where: 'dungeon' });   // ELITE: +20% drops, +20% quality. RF2: SetEnemyCareer's whole loot chain, one seam (the table, the kit, the trio, the port's roll)
@@ -7699,6 +7748,23 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const _mobileBatches = [];   // C11: the frame's live sprite-mobile quads
     if (playerFeet) { lastPlayerFeet = [...playerFeet]; lastPlayerHeight = playerHeight; }
     if (sdEnd) sdEndFrame(playerFeet);   // SD4b: a Super dungeon's Rift and Return - stood, the Return's boss asked, the step
+    if (!dungeonPaused()) {
+      _direnniReinforcer?.tick(dt);
+      if (_apoOrrery) {
+        if (!_apoShadowSpawned && foeDeps) {
+          _apoShadowSpawned = true;
+          const sp = apotheosisOrrerySpawnPoints();
+          void spawnShadowOfTheAgent({ spawnLooseFoe, playerEntity, spawnPos: sp.boss, say: (l) => hudText.add(l) })
+            .then((f) => { _apoShadowFoe = f; });
+        }
+        if (_apoShadowFoe && !_apoShadowDefeated && (_apoShadowFoe.dead || (_apoShadowFoe.entity?.health ?? 0) <= 0)) {
+          _apoShadowDefeated = true;
+          completeApotheosisQuestline(playerEntity);
+          triggerApotheosisScreenFlash(0.85);
+          hudText.add(t('apotheosis.shadow.defeated', 'The Shadow of the Agent dissolves into golden light! Step into the Ascension Conduit or open the Apotheosis menu to claim your Divine Portfolio.'));
+        }
+      }
+    }
     if (_blockWaterOverride && playerFeet && blockAtXZ(playerFeet[0], playerFeet[2]) !== _blockWaterOverride.block) _blockWaterOverride = null;   // OH-D: a new block reads its own level   // ROAD-H H2: the enemy AoC blast reads the player's live capsule through castEnemySpell
     // ENHANCED AI 3b: ONE BAKE PER DUNGEON, off the frame, once the
     // player's feet are known - they are the anchor, the component the
@@ -9535,6 +9601,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     arenaPitAxis: _undercroftHall?.pitAxis ?? null,   // ...and its passage's way
     arenaHall: _undercroftHall?.hall ?? null,   // ARENA5: the Hall of Champions' place - its plaque wall hangs about it (scenes/worldModes.js standArenaWall)
     spawnLooseFoe,   // SD1: the same chain with no quest behaviour bound - the enchant ctx's spawner
+    removeFoe: questPoolOps.removeFoe,
+    zeroStonePos: () => (_zeroStonePos ? [..._zeroStonePos] : null),
+    isShadowDefeated: () => _apoShadowDefeated,
     questSpawnSpots: () => dungeonQuestSpawnSpots(dungeon.blocks),   // FIELD BUGS 29h (BOUNTY-LAIR): where DFU stands a quest's foe here
     // LW6b (bible/06-Systems/Living-World.md "LW6b"): THE FALLEN IN THE DEEP - where the dungeon's own foes stand (its
     // random enemy markers, each on the floor under it, in the layout's order: every reader the same), a fallen diver's
@@ -11119,6 +11188,46 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // DELVE II (DLV2): THE DUNGEON'S ENCOUNTERS - the site law on the built collider, the fire plan's doors and fires, the
   // dungeon's own pile roll; its targets and plaque through the api's own doors (scenes/delve/delveHost.js)
   const delve = createDelveHost({ api, deps, location: dfLocation, blocks: dungeon.blocks, hearths: dungeonHearths, fires: dungeonFires, player: () => playerEntity, rollPile: rollPileItems, online: onlineRoom });
+  if (_direnniHard) {
+    _direnniReinforcer = createDirenniInteriorReinforcer({
+      isActive: () => isDirenniHardModeActive(dfLocation, playerEntity),
+      getPlayerPos: () => lastPlayerFeet,
+      getFoes: () => foes,
+      spawnLooseFoe,
+      say: (l) => hudText.add(l),
+    });
+  }
+  if (isDirenniTowerLocation(dfLocation)) {
+    api.addActivationTargets(() => {
+      if (!_zeroStonePos || !isDirenniHardModeActive(dfLocation, playerEntity)) return [];
+      const [zx, zy, zz] = _zeroStonePos;
+      return [{
+        key: APOTHEOSIS_ZERO_STONE_KEY,
+        aabb: { min: [zx - 0.85, zy - 0.2, zz - 0.85], max: [zx + 0.85, zy + 2.2, zz + 0.85] },
+        distance: 3.5,
+        reach: 3.5,
+      }];
+    });
+    api.addActivationNamer((key) => (key === APOTHEOSIS_ZERO_STONE_KEY
+      ? { title: t('apotheosis.zeroStone.title', 'Zero Stone (Enter the Clockwork Sanctum)') }
+      : null));
+  }
+  if (_apoOrrery) {
+    const sp = apotheosisOrrerySpawnPoints();
+    api.addActivationTargets(() => {
+      if (!_apoShadowDefeated) return [];
+      const [cx, cy, cz] = sp.center;
+      return [{
+        key: APOTHEOSIS_ORRERY_EXIT_KEY,
+        aabb: { min: [cx - 1.5, cy - 0.2, cz - 1.5], max: [cx + 1.5, cy + 2.6, cz + 1.5] },
+        distance: 4.5,
+        reach: 4.5,
+      }];
+    });
+    api.addActivationNamer((key) => (key === APOTHEOSIS_ORRERY_EXIT_KEY
+      ? { title: t('apotheosis.orrery.exitTitle', 'Ascension Conduit (Return to the Iliac Bay)') }
+      : null));
+  }
   if (sdEnd && !_sdEndAsked) { _sdEndAsked = true; standSdEnd(); }
   return api;
 }

@@ -51,6 +51,8 @@ import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering 
 import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor, castControlUndead, castSutureCadaver } from './necromancy/necromanticSpells.js';
 import { performArchLichdomRitual, performLichdomRitual } from './necromancy/lichdomRitual.js';
 import { lichdomMagicRound } from './necromancy/lichdomStatus.js';
+import { mitigateShadowDamage } from './apotheosis/apotheosisLive.js';
+import { SKILLS } from './skills.js';
 import { corpsesNear } from './necromancy/corpseRegistry.js';
 import { regenShare } from './courtRules.js';   // WBX6 / EVENT-RULES: a made level holds regeneration
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
@@ -722,6 +724,9 @@ export const casterDamageScaled = (n, ent, target = null, school = null) => {
   if (v > 0) {
     const p = spellPowerMult(ent, target, school == null ? {} : { school });
     if (p !== 1) v = Math.max(1, Math.round(v * p));
+    if (target?.shadowBoss) {
+      v = mitigateShadowDamage(v, { target, schoolId: school ?? SKILLS.Destruction });
+    }
   }
   return v;
 };

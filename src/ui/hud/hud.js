@@ -28,6 +28,7 @@ import { noteHeldLooks } from '../../systems/appearances.js';   // APPEARANCES: 
 import { drawEventBoard } from '../eventBoard.js';   // EVENTS1: the shared events a player can still reach, and their news, on the same one call
 import { drawCrosshairAndModeIcon, crosshairCentreY } from './hudCrosshair.js';   // U38; AUDIT RETRO1 G5: the reticle's row, for the loot panel beside it
 import { playerDamageFlash } from '../damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage rides the one HUD call
+import { tickApotheosisScreenFlash, getApotheosisFlashState } from '../../systems/apotheosis/apotheosisLive.js';
 import { playerBloodScreen, SCREEN_SPATTER_MIN } from '../bloodScreen.js';   // BLOOD2e: blood on the lens rides the same call
 import { bloodScreenOn } from '../../combat/blood/bloodSwitch.js';   // BLOOD2e: its row
 import { bloodAtlas, prewarmBloodAtlas, BLOOD_ATLAS_ARCHIVE, BLOOD_ATLAS_RECORD } from '../../combat/blood/bloodArt.js';   // BLOOD2e: the lens wears the marks' own atlas
@@ -554,6 +555,13 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // host that never loaded the HUD art still takes damage.
   playerDamageFlash.tick(dt);
   playerDamageFlash.draw(renderer, canvas);
+  tickApotheosisScreenFlash(dt);
+  {
+    const apoFlash = getApotheosisFlashState();
+    if (apoFlash.alpha > 0) {
+      renderer.drawScreenQuad(null, { x: 0, y: 0, w: canvas.width, h: canvas.height }, undefined, apoFlash.rgba);
+    }
+  }
   // PX30: THE ENHANCED HUD RIDES THE ONE HOST-AGNOSTIC CALL, for the
   // reason the damage flash above rides it - drawHud is what all four
   // hosts already make, last and over the viewmodel, so no host can
