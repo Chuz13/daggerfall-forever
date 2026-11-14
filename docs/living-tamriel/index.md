@@ -10,7 +10,7 @@
 
 * **Vanilla `regionConditions` Bridge:** On daily ticks (`1440` in-game minutes/day), LT synchronizes with Daggerfall's 26 vanilla `REGION_FLAGS` (`0..25`), translating them into macro crises (`WAR`, `PLAGUE`, `FAMINE`, `CIVIL_STRIFE`) and phases (`START`, `MID`, `END`).
 * **Dynamic Regional Tension (`5–100`):** Tension is calculated live from regional faction stability, diplomatic ally/enemy pressure, and active crisis flags.
-* *(Note: The virtual adventurer pool defaults to the 62 Iliac Bay regions when initialized with `BAY_REGION_COUNT` and cycles across them during daily travel.)*
+* **Tamriel-Wide Adventurer Pool:** The virtual adventurer pool initializes across all **71 regions** (`TOTAL_REGION_COUNT` - 62 Iliac Bay regions + 9 outer provinces) and cycles across all of Tamriel during daily travel (existing 62-region saves upgrade automatically without resetting current adventurers).
 
 ---
 
