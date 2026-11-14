@@ -148,6 +148,7 @@ I plan to set up something very simple in Nov 2026.
 Oh folks, I'm a gamedev producer, I know roadmaps shift. So this is a living one, with preliminary and rough estimations on when I'll deliver things. Things **WILL** change. But the focus won't.
 
 * **Apotheosis** - ascend to godhood, establish your cult, do diplomacy and war with vanilla gods, influence the world on a grand scale. Feb 2027
+* **Coop and Local servers** - this feature is heavy, but I'm going to look into it. Raw ETA is April 2027 for the first release
 * **Then continuous polishing & new features** 
 
 ## Credits
