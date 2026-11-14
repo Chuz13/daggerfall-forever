@@ -46,6 +46,7 @@ import { getPref } from '../systems/uiPrefs.js';
 import { CORPSE_ACTIVATION_DISTANCE } from '../player/activate.js';
 import { PITCH_FLOOR } from '../player/lookFilter.js';
 import { canHarvestCorpseWithInventory, harvestAllFromCorpse, getCorpse } from '../systems/necromancy/corpseRegistry.js';
+import { hasReadGrimoire } from '../systems/necromancy/necroGrimoire.js';
 
 /** The Skinning Knife in the hand (FORAGE0 14.2): DFU's own Dagger. */
 export const KNIFE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 113, material: 0 });
@@ -224,7 +225,7 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
     /** A body is a node while the pack holds a Skinning Knife or blade for harvesting. */
     looseNodesOf: ({ entity }) => {
       const hasKnife = foragingToolIn(entity, SKINNING_KNIFE.templateIndex);
-      const hasBlade = canHarvestCorpseWithInventory(entity);
+      const hasBlade = hasReadGrimoire(entity) && canHarvestCorpseWithInventory(entity);
       if (hasKnife && hasBlade) return bodies();
       if (hasKnife) return bodies().filter((b) => b.hide);
       if (hasBlade) return bodies().filter((b) => b.key?.startsWith('necro_corpse:') || b.entity?._necroCorpseId);
@@ -270,7 +271,7 @@ export function huntKind({ book, bodies, openLoot = null, trophy = null }) {
     rows(b, ctx) {
       const entity = ctx?.entity;
       const hasKnife = foragingToolIn(entity, SKINNING_KNIFE.templateIndex);
-      const hasBlade = canHarvestCorpseWithInventory(entity);
+      const hasBlade = hasReadGrimoire(entity) && canHarvestCorpseWithInventory(entity);
 
       const rows = [];
 
