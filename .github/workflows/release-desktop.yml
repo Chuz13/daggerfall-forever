@@ -129,6 +129,8 @@ jobs:
             echo "::error::the update number must be <major>.<minor>.<patch>, digits only"
             exit 1
           fi
+          # Use the release tag version (e.g. 0.5.0) as the in-game UPDATE when cutting a tagged/named release.
+          if [ -n "$VERSION" ]; then UPDATE="$VERSION"; fi
           # DA13: the shell's id - its sources' git objects at this commit, so every runner reads the same one - which the
           # bundled game's index and the release's game manifest both name: a copy built for another fetches nothing
           SHELL_ID=$(node scripts/desktopRelease.mjs shell)
