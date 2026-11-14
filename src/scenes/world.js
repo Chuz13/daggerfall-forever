@@ -426,6 +426,7 @@ import {
 import { setApotheosisRebirthHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
 import {
   isDirenniTowerLocation,
+  isMantellanCruxLocation,
   handleMantellaCruxTouch,
   createDirenniSiegeController,
   APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC,
@@ -28936,10 +28937,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       return true;
     },
     onApotheosisMantellaUsurp: () => {
-      direnniSiege?.onModeOrWorldChange?.();
-      if ((modes?.mode ?? 'exterior') !== 'exterior') {
-        modes?.forceExitToExterior?.();
-      }
+      handleMantellaUsurpWorldTransition();
     },
     // SD-LOOK (Super-Dungeons-Look.md sections 1-2): THE RIFT'S WINDOW, ITS FLOOR LIGHT AND ITS HEART, THE RETURN'S WINDOW HOME -
     // after the flats, in the place's own air: the window reads the Hour's own painted sky (the very map, painted here a
@@ -29733,6 +29731,34 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
   });
   }
+  function handleMantellaUsurpWorldTransition() {
+    direnniSiege?.onModeOrWorldChange?.();
+    try {
+      const quests = [...(questBridge?.machine?.quests?.values?.() ?? [])];
+      for (const q of quests) {
+        if (q?.questName === 'S0000016' && !q.questComplete && !q.questTombstoned) {
+          q.questSuccess = true;
+          q.endQuest?.();
+          if (!q.questTombstoned) questBridge.machine.tombstoneQuest(q);
+        }
+      }
+    } catch {
+      // Headless or partially initialized quest machine
+    }
+    const px = playerTravelPixel?.();
+    const inCrux = isMantellanCruxLocation(modes?.dungeonLocation) || (px?.x === 1 && px?.y === 1);
+    if (inCrux && typeof tele2locHelper === 'function') {
+      Promise.resolve(tele2locHelper('Shedungent')).then((ok) => {
+        if (ok === false && (modes?.mode ?? 'exterior') !== 'exterior') {
+          modes?.forceExitToExterior?.();
+        }
+      }).catch(() => {
+        if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior?.();
+      });
+    } else if ((modes?.mode ?? 'exterior') !== 'exterior') {
+      modes?.forceExitToExterior?.();
+    }
+  }
   wireOwnerClock([exteriorFoes, cityGuards], modes, () => online?.status === 'open' && online.othersHere > 0);   // OWNER-CLOCK (scenes/ownerCatchUp.js): while anyone else is in my room (on the street the 16-pixel cell, wider than the 3 pixels my foes frames are fanned across) the street's foes take my clamped frame in FOE-CATCHUP's steps - my player's pace, never past it - and every step of mine is marked on the clock my foes frames carry; HOST-CLOCK: the watch with them (its brains already ran on the street's clock), the mode machine's frames the catch-up's, and a building's and a dungeon's foes through the same page's catch-up from their own hosts
   // AT2: AMBIENT TEXT CLAIMS ITS HOST. The mod is one GameObject made
   // at load and never destroyed (systems/ambientText.js), so the slot
@@ -30267,8 +30293,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         },
         say: (msg) => townTalk.say(msg),
         onUsurpExit: () => {
-          direnniSiege?.onModeOrWorldChange?.();
-          if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior?.();
+          handleMantellaUsurpWorldTransition();
         },
         onVanillaConfirm: () => {
           townTalk.say(t('apotheosis.mantella.vanillaSay', 'Mantella released to the Totem bearer (vanilla ending path).'));

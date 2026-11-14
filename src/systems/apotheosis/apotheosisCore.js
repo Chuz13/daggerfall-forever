@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // APOTHEOSIS: PATH OF CHIM (Stage 0 - Fate Weight, Artifact Sacrifice, Portfolios)
 //
-// Evaluates the 22 triggers of Fate Weight directly from live playerEntity state
+// Evaluates the 24 triggers of Fate Weight directly from live playerEntity state
 // and runtime singletons (no shadow state; save-free evaluation with gentle
 // retro-estimation for older saves), tracks the 4 missing progression counters
 // (totalKills, booksRead, nemesesDefeated, questsCompleted), validates the
@@ -23,7 +23,9 @@ import {
 } from '../loot/loot.js';
 import { ARTIFACT_RECORDS } from '../item/itemLaw.js';
 import { GROUP_TEMPLATE_INDICES } from '../item/itemTemplates.js';
-import { SKILLS, realSkillValue } from '../skills.js';
+import { SKILLS, SKILL_COUNT, realSkillValue } from '../skills.js';
+import { pathOf } from '../arcanePaths.js';
+import { martialPathOf } from '../martialPaths.js';
 import { liveStat, STAT_KEYS_ORDER } from '../statMods.js';
 import { isAnyLich } from '../necromancy/lichdomStatus.js';
 import { liveVampirism } from '../racialLive.js';
@@ -82,8 +84,8 @@ export {
   APOTHEOSIS_FLASH_RGB,
 };
 
-export const TOTAL_FATE_TRIGGERS = 22;
-export const REQUIRED_FATE_WEIGHT = Math.ceil(TOTAL_FATE_TRIGGERS / 3);
+export const TOTAL_FATE_TRIGGERS = 24;
+export const REQUIRED_FATE_WEIGHT = Math.ceil((TOTAL_FATE_TRIGGERS * 2) / 3);
 export const REQUIRED_ARTIFACTS_COUNT = 13;
 export const TOTAL_CANONICAL_ARTIFACTS = 23;
 export const NECRO_GRIMOIRE_BOOK_ID = 99001;
@@ -721,6 +723,9 @@ export function evaluateFateWeight(entity) {
     SKILLS.Backstabbing, SKILLS.Stealth, SKILLS.Pickpocket,
     SKILLS.Lockpicking, SKILLS.Dodging, SKILLS.CriticalStrike,
   ]);
+  const allSkillIds = Array.from({ length: SKILL_COUNT }, (_, id) => id);
+  const topAnySkill = highestSkillInList(entity, allSkillIds);
+  const activeSpec = pathOf(entity) ?? martialPathOf(entity) ?? null;
   const maxHp = Math.max(0, Number(entity?.maxHealth ?? entity?.rawMaxHealth ?? 0));
   const lich = isAnyLich(entity);
   const vampire = !!liveVampirism(entity);
@@ -794,15 +799,17 @@ export function evaluateFateWeight(entity) {
       natural: firm.renown >= 25,
     },
     {
-      id: 'tr06_hero_iliac',
+      id: 'tr24_specialization',
       category: 'meta',
-      name: t('apotheosis.tr.tr06.name', 'Shaper of History'),
-      desc: t('apotheosis.tr.tr06.desc', 'Complete 50 quests across the Iliac Bay.'),
-      progressText: t('apotheosis.tr.tr06.prog', '{cur}/50 quests', { cur: quests }),
-      natural: quests >= 50,
+      name: t('apotheosis.tr.tr24.name', 'Twin-Art Specialization'),
+      desc: t('apotheosis.tr.tr24.desc', 'Claim a dual-skill arcane or martial specialization path.'),
+      progressText: activeSpec
+        ? t('apotheosis.tr.tr24.active', 'Path: {name}', { name: activeSpec.name })
+        : t('apotheosis.tr.tr24.none', 'No specialization'),
+      natural: Boolean(activeSpec),
     },
 
-    // BLOOD & CRUCIBLE (7)
+    // BLOOD & CRUCIBLE (8)
     {
       id: 'tr07_harbinger_ash',
       category: 'blood',
@@ -861,8 +868,16 @@ export function evaluateFateWeight(entity) {
       progressText: t('apotheosis.tr.tr21.prog', 'HP {hp}/500', { hp: Math.trunc(maxHp) }),
       natural: maxHp >= 500,
     },
+    {
+      id: 'tr23_skill_200',
+      category: 'blood',
+      name: t('apotheosis.tr.tr23.name', 'Apex Mastery'),
+      desc: t('apotheosis.tr.tr23.desc', 'Push any skill to level 200 or above.'),
+      progressText: t('apotheosis.tr.tr23.prog', 'Peak skill {cur}/200', { cur: Math.trunc(topAnySkill) }),
+      natural: topAnySkill >= 200,
+    },
 
-    // DOMINION & WORLD (7)
+    // DOMINION & WORLD (8)
     {
       id: 'tr13_guildmaster',
       category: 'power',
@@ -884,7 +899,7 @@ export function evaluateFateWeight(entity) {
     {
       id: 'tr15_cartographer',
       category: 'power',
-      name: t('apotheosis.tr.tr15.name', 'Cartographer of the Bay'),
+      name: t('apotheosis.tr.tr15.name', 'Cartographer of Tamriel'),
       desc: t('apotheosis.tr.tr15.desc', 'Chart at least 75 discovered locations.'),
       progressText: t('apotheosis.tr.tr15.prog', '{cur}/75 charted', { cur: discovered }),
       natural: discovered >= 75,
@@ -901,15 +916,15 @@ export function evaluateFateWeight(entity) {
       id: 'tr17_landed_sovereign',
       category: 'power',
       name: t('apotheosis.tr.tr17.name', 'Landed Sovereign'),
-      desc: t('apotheosis.tr.tr17.desc', 'Own a freehold residence in the Iliac Bay.'),
+      desc: t('apotheosis.tr.tr17.desc', 'Own a freehold residence in Tamriel.'),
       progressText: t('apotheosis.tr.tr17.prog', 'Holdings {homes}/1', { homes }),
       natural: homes >= 1,
     },
     {
       id: 'tr22_sea_captain',
       category: 'power',
-      name: t('apotheosis.tr.tr22.name', 'Captain of the Bay'),
-      desc: t('apotheosis.tr.tr22.desc', 'Command your own sea vessel in the Iliac Bay.'),
+      name: t('apotheosis.tr.tr22.name', 'Captain of the Seas'),
+      desc: t('apotheosis.tr.tr22.desc', 'Command your own sea vessel.'),
       progressText: t('apotheosis.tr.tr22.prog', 'Vessel {ship}/1', { ship: hasShip ? 1 : 0 }),
       natural: hasShip,
     },
@@ -921,9 +936,17 @@ export function evaluateFateWeight(entity) {
       progressText: t('apotheosis.tr.tr18.prog', 'Peak reputation {cur}/50', { cur: Math.trunc(topRep) }),
       natural: topRep >= 50,
     },
+    {
+      id: 'tr06_hero_iliac',
+      category: 'power',
+      name: t('apotheosis.tr.tr06.name', 'Shaper of History'),
+      desc: t('apotheosis.tr.tr06.desc', 'Complete 50 quests across Tamriel.'),
+      progressText: t('apotheosis.tr.tr06.prog', '{cur}/50 quests', { cur: quests }),
+      natural: quests >= 50,
+    },
   ];
 
-  // Apply non-destructive debug boost if active (`apo fate ready` -> 8, `apo fate full` -> 22)
+  // Apply non-destructive debug boost if active (`apo fate ready` -> 16, `apo fate full` -> 24)
   const debugQuota = state.debugFateCount || 0;
   const naturalCount = rawTriggers.filter((tr) => tr.natural).length;
   let remainingDebugGrants = Math.max(0, debugQuota - naturalCount);
@@ -1014,7 +1037,7 @@ export function isApotheosisStormActive(entity) {
 
 /**
  * Evaluates what happens when the player touches the Mantella (globalVar 36 / FinishedMantellanCrux).
- * Enforces mutual exclusion against the 13-Artifact path and checks Fate Weight >= 8/22.
+ * Enforces mutual exclusion against the 13-Artifact path and checks Fate Weight >= 16/24.
  */
 export function evaluateMantellaFork(entity) {
   const state = ensureApotheosisState(entity);
@@ -1176,7 +1199,7 @@ export function startApotheosisFromMantella(entity) {
 
 /**
  * Consumes exactly 13 distinct unequipped artifacts from `entity.items`,
- * verifies all conditions (Fate Weight >= 12, unequipped, distinct subtypes),
+ * verifies all conditions (Fate Weight >= 16, unequipped, distinct subtypes),
  * removes those exact items, and starts the shared Apotheosis Questline.
  */
 export function startApotheosisFromArtifacts(entity, selectedItems) {
@@ -1270,7 +1293,7 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   };
 }
 
-/** Sets debug Fate Weight override (`8` ready or `22` full) cleanly on `entity.apotheosis`. */
+/** Sets debug Fate Weight override (`16` ready or `24` full) cleanly on `entity.apotheosis`. */
 export function setDebugFateWeight(entity, targetCount) {
   const state = ensureApotheosisState(entity);
   const clean = Math.max(0, Math.min(TOTAL_FATE_TRIGGERS, Math.trunc(Number(targetCount) || 0)));

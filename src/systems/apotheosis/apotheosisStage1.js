@@ -10,6 +10,7 @@ import { liveStat } from '../statMods.js';
 import {
   APOTHEOSIS_STAGES,
   APOTHEOSIS_QUEST_STEPS,
+  REQUIRED_FATE_WEIGHT,
   ensureApotheosisState,
   evaluateMantellaFork,
   startApotheosisFromMantella,
@@ -221,7 +222,7 @@ export function handleMantellaCruxTouch({
       say?.(t(
         'apotheosis.mantella.blockedFate',
         'Your Fate Weight ({cur}/{req}) is too slight to usurp the Mantella; it follows its mortal course.',
-        { cur: fork.fate?.count ?? 0, req: fork.fate?.required ?? 12 },
+        { cur: fork.fate?.count ?? 0, req: fork.fate?.required ?? REQUIRED_FATE_WEIGHT },
       ));
     } else if (fork.message) {
       say?.(fork.message);

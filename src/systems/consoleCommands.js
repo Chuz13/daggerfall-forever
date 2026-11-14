@@ -2794,6 +2794,8 @@ const APO_SET_DEFAULTS = {
   stars: 50,
   home: 1,
   ship: 1,
+  skill200: 200,
+  spec: 1,
 };
 
 function currentDiscoveredCountForDebug() {
@@ -2818,7 +2820,7 @@ function currentDiscoveredCountForDebug() {
 function applyApotheosisDebugSet(entity, metricRaw, valRaw) {
   const metric = String(metricRaw ?? '').toLowerCase();
   if (!(metric in APO_SET_DEFAULTS)) {
-    return { ok: false, error: 'Usage: apo set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship> [value]' };
+    return { ok: false, error: 'Usage: apo set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [value]' };
   }
   const parsed = valRaw != null ? parseInt(valRaw, 10) : NaN;
   const val = Number.isFinite(parsed) ? Math.max(0, parsed) : APO_SET_DEFAULTS[metric];
@@ -2877,6 +2879,12 @@ function applyApotheosisDebugSet(entity, metricRaw, valRaw) {
     }
   } else if (metric === 'ship') {
     entity.ownedShip = val > 0 ? SHIP_TYPES.Small : SHIP_TYPES.None;
+  } else if (metric === 'skill200') {
+    if (!entity.skills || typeof entity.skills !== 'object') entity.skills = {};
+    entity.skills[SKILLS.LongBlade] = val;
+  } else if (metric === 'spec') {
+    entity.arcanePath = val > 0 ? 'battlemage' : null;
+    if (val <= 0) entity.martialPath = null;
   }
   const fate = evaluateFateWeight(entity);
   return { ok: true, metric, val, fate };
@@ -3033,19 +3041,19 @@ async function handleApotheosisCommand(args = []) {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
 }
 
 registerCommand(
   'apotheosis',
   'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
+  'apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 registerCommand(
   'apo',
   'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apo [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
+  'apo [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 
