@@ -14,7 +14,7 @@
 //  - Full parity with level 45 and canonical skill/luck checks.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { BAY_REGION_COUNT, REGION_NAMES } from '../../formats/mapsTables.js';
+import { REGION_NAMES } from '../../formats/mapsTables.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getLivingDirectorState } from './livingDirector.js';
 import { getRegionState } from './regionState.js';
@@ -187,13 +187,12 @@ export function getAdventurerSimRegistry() {
 
 /**
  * Ensures the virtual adventurer pool is initialized for active regions.
- * Default region count is BAY_REGION_COUNT (62) for backward compatibility;
- * supports full Tamriel (TOTAL_REGION_COUNT = 71).
+ * Defaults to full Tamriel (TOTAL_REGION_COUNT = 71: 62 Iliac Bay + 9 provinces).
  *
  * @param {(() => number)|{ rng?: () => number, regionCount?: number }} [rngOrOptions]
  * @param {number} [regionCount]
  */
-export function ensureAdventurerPool(rngOrOptions = Math.random, regionCount = BAY_REGION_COUNT) {
+export function ensureAdventurerPool(rngOrOptions = Math.random, regionCount = TOTAL_REGION_COUNT) {
   let rng = Math.random;
   let count = regionCount;
 
@@ -557,8 +556,8 @@ export function tickAdventurerSimulation({
         events.push(`${adv.name} set out to delve ${desc.name}`);
       }
     } else {
-      // Travel to adjacent region
-      const neighborRegion = (adv.currentRegion + 1) % BAY_REGION_COUNT;
+      // Travel to adjacent region across all of Tamriel
+      const neighborRegion = (adv.currentRegion + 1) % TOTAL_REGION_COUNT;
       adv.status = ADVENTURER_STATUS.TRAVELING;
       adv.currentRegion = neighborRegion;
       adv.daysRemainingInAction = 1 + Math.floor(rng() * 2);

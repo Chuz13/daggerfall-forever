@@ -136,7 +136,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     tickAdventurerSimulation({ rng: () => 0.01 });
 
     const allAfterClear = ensureAdventurerPool();
-    assert.equal(allAfterClear.length, 13 * 62, `total pool size should stay at 806 without dead bloat (got ${allAfterClear.length})`);
+    assert.equal(allAfterClear.length, 13 * 71, `total pool size should stay at 923 without dead bloat (got ${allAfterClear.length})`);
     assert.equal(allAfterClear.filter((a) => a.status === 'DEAD').length, 0, 'previous-day DEAD records should be pruned');
     assert.equal(isDungeonInCooldown(9007, 0), true, 'numeric mapId 9007 should match dungeon cooldown slot 7 in region 0');
   });

@@ -23,13 +23,15 @@ import { SKILLS } from '../../src/systems/skills.js';
 import { restoreLivingSaveData } from '../../src/systems/living/livingDirector.js';
 import { LivingTamrielConfig, resetLivingConfig } from '../../src/systems/living/livingConfig.js';
 
-test('LT-04: Adventurer pool initializes across all 62 regions with zero bloat', () => {
+test('LT-04: Adventurer pool initializes across all 71 Tamriel regions with zero bloat', () => {
   restoreLivingSaveData(null);
   resetLivingConfig();
 
   const pool = ensureAdventurerPool();
-  // 13 per region * 62 regions = 806 adventurers
-  assert.equal(pool.length, 13 * 62);
+  // 13 per region * 71 regions = 923 adventurers
+  assert.equal(pool.length, 13 * 71);
+  assert.ok(pool.some((a) => a.currentRegion === 62), 'outer provinces (62+) are populated');
+  assert.ok(pool.some((a) => a.currentRegion === 70), 'Cyrodiil (70) is populated');
 
   const first = pool[0];
   assert.ok(first.name);
@@ -116,5 +118,31 @@ test('LT-04: Nemesis Hunter is dispatched on infamy and resolves through dialogu
     luckSaved.resolution === NEMESIS_RESOLUTION.LUCK_SAVED ||
     luckSaved.resolution === NEMESIS_RESOLUTION.DUEL
   );
+});
+
+test('LT-04: Legacy 62-region adventurer pool upgrades cleanly to 71 regions and travels across all 71', () => {
+  restoreLivingSaveData(null);
+  resetLivingConfig();
+
+  // Simulate legacy 62-region save
+  const legacyPool = ensureAdventurerPool(Math.random, 62);
+  assert.equal(legacyPool.length, 13 * 62);
+  const firstLegacyName = legacyPool[0].name;
+
+  // Upgrading to full Tamriel preserves existing 0..61 adventurers and fills 62..70
+  const upgraded = ensureAdventurerPool();
+  assert.equal(upgraded.length, 13 * 71);
+  assert.equal(upgraded[0].name, firstLegacyName);
+  assert.equal(upgraded.filter((a) => a.currentRegion === 70).length, 13);
+
+  // Verify travel wraps across 71 regions (61 -> 62 and 70 -> 0)
+  const reg61Adv = upgraded.find((a) => a.currentRegion === 61);
+  const reg70Adv = upgraded.find((a) => a.currentRegion === 70);
+  reg61Adv.status = ADVENTURER_STATUS.IDLE;
+  reg70Adv.status = ADVENTURER_STATUS.IDLE;
+  // rng = 0.90 >= 0.60 forces TRAVELING instead of DELVING
+  tickAdventurerSimulation({ rng: () => 0.90 });
+  assert.equal(reg61Adv.currentRegion, 62);
+  assert.equal(reg70Adv.currentRegion, 0);
 });
 
