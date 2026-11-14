@@ -59,6 +59,7 @@ import { ARENA_TEXT } from '../arena/arenaText.js'; // ARENA4b: the bank's lette
 import { RENT_VERB, rentRowLabel, rentTenantLabel } from '../homeRent.js'; // HOME-RENT: the door's rows for a room to rent
 import { BUILDING_TYPES, isResidence } from '../../world/buildingNames.js';
 import { DEED_SELL_MULT, CROSSED_DEED_LINES, deedStands } from '../banking.js'; // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: a deed names its building only where it stands
+import { isOfflineHousingActive } from '../uiPrefs.js';
 import { guildTagText, GUILD_MOVE_MAX } from '../../net/guild/guildLaw.js'; // GUILD1d: a hall's tag, as a name wears it; HALL-GOLD: a deposit's cap, said
 import { GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, guildHallPrice } from '../../net/hallLaw.js'; // GUILD1d: a guild's hall
 import { heraldryOf } from '../../net/heraldryLaw.js'; // GUILD1d: a hall's heraldry, off the town's answer
@@ -1144,7 +1145,10 @@ export async function buyOnlineHome(
   { mapId, buildingKey, region, price, afford, pay, refund = null, realm = null, ground = null },
 ) {
   // DECOR-ROOMY: `ground` [m2, town blocks], the price's own measure
-  if (!homePriceOk(price)) return { ok: false, error: 'bad-home' };
+  const priceValid = isOfflineHousingActive()
+    ? (Number.isSafeInteger(price) && price >= 1000 && price <= 1_000_000)
+    : homePriceOk(price);
+  if (!priceValid) return { ok: false, error: 'bad-home' };
   // AUDIT MERGE-PLUS A1: ONE CLAIM A HOUSE AT A TIME. The registry is written only when the claim answers, so until
   // then the door went on offering "Buy it" - a second press sent a second claim, the service answered it `repeat`
   // (the house was already this player's) and this paid again: 42,000 twice for one house. A buy already out for the

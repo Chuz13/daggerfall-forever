@@ -389,7 +389,7 @@ import { SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, SEAT_HALL_TEXT } from '../net/t
 import { crownRulerFactionId, crownRulerHere, crownHallPlan, CROWN_HALL_TEXT } from '../systems/crownHall.js';   // CROWN-HALL: the castle as the crown's holder's hall
 import { hallPlaquePlan, PLAQUE_MODEL, PLAQUE_BARE_MODEL } from '../world/arena/arenaPlaques.js';   // ARENA5: the Hall of Champions' plaque wall
 import { bannerKeyOf } from './hallBanners.js';   // CROWN-HALL: the throne room's cloth, keyed as the street's
-import { HOME_ENTRIES, homePriceOk, homeOnlinePrice, rentCost, rentDaysLeft } from '../net/homeLaw.js';   // HOME-PRICE: what a home costs online
+import { HOME_ENTRIES, homePriceOk, homeOnlinePrice, rentCost, rentDaysLeft, HOME_PRICE_STEP, HOME_PRICE_MIN, HOME_PRICE_MAX } from '../net/homeLaw.js';   // HOME-PRICE: what a home costs online
 import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 import { isOfflineHouseOwned } from '../systems/offlineHomes.js';
 import { homeListedPrice } from '../net/homeListingLaw.js';   // FOUNDATION F3: a row's price
@@ -7590,7 +7590,10 @@ export function createWorldModes(host) {
     if (!listed) return 0;
     if (!isOnlinePage()) {
       const repEval = evaluateHousePurchaseReputation(playerEntity);
-      if (repEval.discountMult !== 1.0) return Math.trunc(listed * repEval.discountMult);
+      if (repEval.discountMult !== 1.0) {
+        const discounted = Math.round((listed * repEval.discountMult) / HOME_PRICE_STEP) * HOME_PRICE_STEP;
+        return Math.max(HOME_PRICE_MIN, Math.min(HOME_PRICE_MAX, discounted));
+      }
     }
     return listed;
   }

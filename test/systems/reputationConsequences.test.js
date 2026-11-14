@@ -42,6 +42,8 @@ import { createFleetHost } from '../../src/scenes/fleetHost.js';
 import { titleDeed, _resetFleetForTests } from '../../src/systems/fleet.js';
 import { mintDeed } from '../../src/systems/comeSailAway/comeSailAwayItems.js';
 import { createOfflineHomes, _resetForTests as resetOfflineHomesForTests } from '../../src/systems/offlineHomes.js';
+import { buyOnlineHome } from '../../src/systems/online/onlineHomes.js';
+import { HOME_PRICE_STEP, HOME_PRICE_MIN, HOME_PRICE_MAX, homePriceOk } from '../../src/net/homeLaw.js';
 import { tradeCost } from '../../src/systems/tradeModes.js';
 import { markStolen } from '../../src/systems/stolenGoods.js';
 import {
@@ -447,13 +449,48 @@ test('RCF V2: Offline door housing enforces Nobility refusal and discount', asyn
     const evalNoble = evaluateHousePurchaseReputation(playerEntity);
     assert.equal(evalNoble.refused, false);
     assert.equal(evalNoble.discountMult, 0.85);
+
+    // 15,000 * 0.85 = 12,750 (unstepped). Quantized by HOME_PRICE_STEP (100) -> 12,800.
+    const rawDiscounted = Math.trunc(15000 * evalNoble.discountMult);
+    const steppedDiscounted = Math.round((15000 * evalNoble.discountMult) / HOME_PRICE_STEP) * HOME_PRICE_STEP;
+    assert.equal(steppedDiscounted, 12800);
+    assert.equal(homePriceOk(steppedDiscounted), true);
+
     const accepted = await homes.claim({
       mapId: 500,
       buildingKey: 12,
       region: 17,
-      price: Math.trunc(20000 * evalNoble.discountMult),
+      price: steppedDiscounted,
     });
     assert.equal(accepted.ok, true);
+
+    // buyOnlineHome must succeed in offline mode with stepped discounted price without 'bad-home' error
+    let paidGold = 0;
+    const onlineRes = await buyOnlineHome(homes, {
+      mapId: 500,
+      buildingKey: 15,
+      region: 17,
+      price: steppedDiscounted,
+      afford: () => true,
+      pay: (n) => { paidGold += n; },
+    });
+    assert.equal(onlineRes.ok, true);
+    assert.equal(paidGold, steppedDiscounted);
+    assert.ok(homes.homeAt(500, 15));
+
+    // Even if an unstepped price is passed offline, buyOnlineHome does not fail with 'bad-home'
+    let unsteppedPaid = 0;
+    const unsteppedRes = await buyOnlineHome(homes, {
+      mapId: 500,
+      buildingKey: 16,
+      region: 17,
+      price: rawDiscounted,
+      afford: () => true,
+      pay: (n) => { unsteppedPaid += n; },
+    });
+    assert.equal(unsteppedRes.ok, true);
+    assert.equal(unsteppedPaid, rawDiscounted);
+    assert.ok(homes.homeAt(500, 16));
   } finally {
     resetOfflineHomesForTests();
     playerEntity.sGroupReputations = origSGroup;
