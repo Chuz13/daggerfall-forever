@@ -61,6 +61,8 @@ const {
 // rebrand is a name, not a migration. The folder keeps the name it was
 // created with, whatever the product is called on the outside.
 if (process.env.DAGGER_USER_DATA) app.setPath('userData', process.env.DAGGER_USER_DATA);
+// Isolate unpackaged dev launches (`npm start`) from the installed build's Saves/Prefs/config.json.
+else if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'Daggerfall Forever Dev'));
 else app.setPath('userData', path.join(app.getPath('appData'), 'Daggerfall Forever'));
 
 // GPU-BACKEND (2026-10-26): Vulkan on Windows, the player's opt-in (`graphicsBackend`), held on the default while a
