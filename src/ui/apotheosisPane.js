@@ -18,6 +18,8 @@ import {
   APOTHEOSIS_QUEST_STEPS,
   APOTHEOSIS_STAGES,
   REQUIRED_ARTIFACTS_COUNT,
+  REQUIRED_FATE_WEIGHT,
+  TOTAL_FATE_TRIGGERS,
   canStartApotheosisViaArtifacts,
   ensureApotheosisState,
   evaluateFateWeight,
@@ -401,8 +403,9 @@ function renderOverview(detail, entity, trackerShown, repaint) {
   artBox.append(
     el('h4', null, t('apotheosis.overview.sacTitle', 'Direct Ascension via Daedric Artifacts')),
     el('div', 'apo-card-desc',
-      t('apotheosis.overview.sacDesc', 'An alternative to the Mantella: gather Fate Weight ({req}/18) and shatter {arts} distinct unequipped Daedric artifacts from your pack. Mutually exclusive with Mantella Godhood.', {
+      t('apotheosis.overview.sacDesc', 'Gather Fate Weight ({req}/{total}) and shatter {arts} distinct unequipped Daedric artifacts from your pack — or alternatively, seek out a source of great power. Perhaps it is somehow tied to the mission the Emperor gave you?', {
         req: fate.required,
+        total: fate.total,
         arts: REQUIRED_ARTIFACTS_COUNT,
       })),
     el('div', 'apo-meta-row',
@@ -474,7 +477,11 @@ function renderPortfolioPage(detail, entity, repaint) {
 
   if (state.stage === APOTHEOSIS_STAGES.MORTAL && !state.ascended) {
     detail.append(el('div', 'apo-box',
-      t('apotheosis.portfolio.lockedDesc', 'Reach Fate Weight 12/18 and shatter 13 distinct unequipped Daedric artifacts (or later complete the Mantella trial) to unlock your Divine Portfolio.')));
+      t('apotheosis.portfolio.lockedDesc', 'Reach Fate Weight {req}/{total} and shatter {arts} distinct unequipped Daedric artifacts from your pack — or alternatively, seek out a source of great power. Perhaps it is somehow tied to the mission the Emperor gave you?', {
+        req: REQUIRED_FATE_WEIGHT,
+        total: TOTAL_FATE_TRIGGERS,
+        arts: REQUIRED_ARTIFACTS_COUNT,
+      })));
   }
 
   renderPortfolioCards(detail, state, entity, repaint);

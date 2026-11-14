@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // APOTHEOSIS: PATH OF CHIM (Stage 0 - Fate Weight, Artifact Sacrifice, Portfolios)
 //
-// Evaluates the 18 triggers of Fate Weight directly from live playerEntity state
+// Evaluates the 19 triggers of Fate Weight directly from live playerEntity state
 // and runtime singletons (no shadow state; save-free evaluation with gentle
 // retro-estimation for older saves), tracks the 4 missing progression counters
 // (totalKills, booksRead, nemesesDefeated, questsCompleted), validates the
@@ -84,7 +84,7 @@ export {
 
 export const REQUIRED_FATE_WEIGHT = 12;
 export const REQUIRED_ARTIFACTS_COUNT = 13;
-export const TOTAL_FATE_TRIGGERS = 18;
+export const TOTAL_FATE_TRIGGERS = 19;
 export const TOTAL_CANONICAL_ARTIFACTS = 23;
 export const NECRO_GRIMOIRE_BOOK_ID = 99001;
 
@@ -546,13 +546,13 @@ function collectAllBookItemsCount(entity) {
   return seenIds.size;
 }
 
-function highestStat(entity) {
-  let maxVal = 0;
+function countStatsAtOrAbove(entity, minVal = 100) {
+  let count = 0;
   for (const key of STAT_KEYS_ORDER) {
     const val = Number(liveStat(entity, key) ?? entity?.stats?.[key] ?? 0);
-    if (val > maxVal) maxVal = val;
+    if (val >= minVal) count += 1;
   }
-  return maxVal;
+  return count;
 }
 
 function highestSkillInList(entity, skillIds) {
@@ -698,7 +698,7 @@ function effectiveNemesesDefeated(entity) {
   return Math.max(tracked, retro);
 }
 
-/** Evaluates all 18 Fate Weight triggers live against `entity` and active subsystems. */
+/** Evaluates all 19 Fate Weight triggers live against `entity` and active subsystems. */
 export function evaluateFateWeight(entity) {
   const state = ensureApotheosisState(entity);
   const firm = readFirmamentProgress(entity);
@@ -707,7 +707,7 @@ export function evaluateFateWeight(entity) {
   const nemeses = effectiveNemesesDefeated(entity);
   const quests = Math.max(0, Number(entity?.questsCompleted ?? 0));
   const level = Math.max(1, Number(entity?.level ?? 1));
-  const topStat = highestStat(entity);
+  const statsAt100 = countStatsAtOrAbove(entity, 100);
   const daedricSkill = Number(realSkillValue(entity, SKILLS.Daedric) ?? entity?.skills?.[SKILLS.Daedric] ?? 0);
   const topMagic = highestSkillInList(entity, [
     SKILLS.Destruction, SKILLS.Restoration, SKILLS.Illusion,
@@ -736,14 +736,22 @@ export function evaluateFateWeight(entity) {
   const topRep = maxFactionReputation(entity);
 
   const rawTriggers = [
-    // META (6)
+    // META (7)
     {
       id: 'tr01_awakened_mind',
       category: 'meta',
       name: t('apotheosis.tr.tr01.name', 'Awakened Mind'),
-      desc: t('apotheosis.tr.tr01.desc', 'Push any attribute to 100 or reach character level 25.'),
-      progressText: t('apotheosis.tr.tr01.prog', 'Attr {stat}/100 · Lv {lvl}/25', { stat: Math.trunc(topStat), lvl: level }),
-      natural: topStat >= 100 || level >= 25,
+      desc: t('apotheosis.tr.tr01.desc', 'Raise at least 3 attributes to 100 or above.'),
+      progressText: t('apotheosis.tr.tr01.prog', '{count}/3 attributes at 100', { count: statsAt100 }),
+      natural: statsAt100 >= 3,
+    },
+    {
+      id: 'tr19_mortal_apex',
+      category: 'meta',
+      name: t('apotheosis.tr.tr19.name', 'Pinnacle of Mortality'),
+      desc: t('apotheosis.tr.tr19.desc', 'Reach character level 30.'),
+      progressText: t('apotheosis.tr.tr19.prog', 'Level {lvl}/30', { lvl: level }),
+      natural: level >= 30,
     },
     {
       id: 'tr02_tower_scholar',
@@ -757,35 +765,35 @@ export function evaluateFateWeight(entity) {
       id: 'tr03_speaker_oblivion',
       category: 'meta',
       name: t('apotheosis.tr.tr03.name', 'Speaker in Oblivion'),
-      desc: t('apotheosis.tr.tr03.desc', 'Raise the Daedric language skill to 80 or above.'),
-      progressText: t('apotheosis.tr.tr03.prog', 'Daedric {cur}/80', { cur: Math.trunc(daedricSkill) }),
-      natural: daedricSkill >= 80,
+      desc: t('apotheosis.tr.tr03.desc', 'Raise the Daedric language skill to 100.'),
+      progressText: t('apotheosis.tr.tr03.prog', 'Daedric {cur}/100', { cur: Math.trunc(daedricSkill) }),
+      natural: daedricSkill >= 100,
     },
     {
       id: 'tr04_mystic_weave',
       category: 'meta',
       name: t('apotheosis.tr.tr04.name', 'Weave of the Mystics'),
-      desc: t('apotheosis.tr.tr04.desc', 'Master any arcane school of magic to skill level 95.'),
-      progressText: t('apotheosis.tr.tr04.prog', 'Magic {cur}/95', { cur: Math.trunc(topMagic) }),
-      natural: topMagic >= 95,
+      desc: t('apotheosis.tr.tr04.desc', 'Master any arcane school of magic to skill level 100.'),
+      progressText: t('apotheosis.tr.tr04.prog', 'Magic {cur}/100', { cur: Math.trunc(topMagic) }),
+      natural: topMagic >= 100,
     },
     {
       id: 'tr05_firmament_child',
       category: 'meta',
       name: t('apotheosis.tr.tr05.name', 'Child of the Firmament'),
-      desc: t('apotheosis.tr.tr05.desc', 'Attune 15 stars in the Firmament or reach Renown 15.'),
-      progressText: t('apotheosis.tr.tr05.prog', 'Stars {stars}/15 · Renown {ren}/15', { stars: firm.stars, ren: firm.renown }),
-      natural: firm.stars >= 15 || firm.renown >= 15,
+      desc: t('apotheosis.tr.tr05.desc', 'Attune 50 stars in the Firmament or reach Renown 25.'),
+      progressText: t('apotheosis.tr.tr05.prog', 'Stars {stars}/50 · Renown {ren}/25', { stars: firm.stars, ren: firm.renown }),
+      natural: firm.stars >= 50 || firm.renown >= 25,
     },
     {
       id: 'tr06_hero_iliac',
       category: 'meta',
       name: t('apotheosis.tr.tr06.name', 'Shaper of History'),
-      desc: t('apotheosis.tr.tr06.desc', 'Complete 20 quests across the Iliac Bay or resolve the Mantella.'),
+      desc: t('apotheosis.tr.tr06.desc', 'Complete 50 quests across the Iliac Bay.'),
       progressText: state.mantellaCompleted
-        ? t('apotheosis.tr.tr06.mantella', 'Mantella resolved')
-        : t('apotheosis.tr.tr06.prog', '{cur}/20 quests', { cur: quests }),
-      natural: quests >= 20 || state.mantellaCompleted,
+        ? t('apotheosis.tr.tr06.mantella', 'Imperial mission fulfilled')
+        : t('apotheosis.tr.tr06.prog', '{cur}/50 quests', { cur: quests }),
+      natural: quests >= 50 || state.mantellaCompleted,
     },
 
     // BLOOD & CRUCIBLE (6)
@@ -793,9 +801,9 @@ export function evaluateFateWeight(entity) {
       id: 'tr07_harbinger_ash',
       category: 'blood',
       name: t('apotheosis.tr.tr07.name', 'Harbinger of Ash'),
-      desc: t('apotheosis.tr.tr07.desc', 'Slay 500 enemies across dungeons, wilderness, and Oblivion gates.'),
-      progressText: t('apotheosis.tr.tr07.prog', '{cur}/500 slain', { cur: kills }),
-      natural: kills >= 500,
+      desc: t('apotheosis.tr.tr07.desc', 'Slay 5000 enemies across dungeons, wilderness, and Oblivion gates.'),
+      progressText: t('apotheosis.tr.tr07.prog', '{cur}/5000 slain', { cur: kills }),
+      natural: kills >= 5000,
     },
     {
       id: 'tr08_mortal_flesh',
@@ -811,17 +819,17 @@ export function evaluateFateWeight(entity) {
       id: 'tr09_scourge_rivals',
       category: 'blood',
       name: t('apotheosis.tr.tr09.name', 'Scourge of Rivals'),
-      desc: t('apotheosis.tr.tr09.desc', 'Overcome or break 3 Nemesis hunters sent after your name.'),
-      progressText: t('apotheosis.tr.tr09.prog', '{cur}/3 rivals', { cur: nemeses }),
-      natural: nemeses >= 3,
+      desc: t('apotheosis.tr.tr09.desc', 'Overcome or break 10 Nemesis hunters sent after your name.'),
+      progressText: t('apotheosis.tr.tr09.prog', '{cur}/10 rivals', { cur: nemeses }),
+      natural: nemeses >= 10,
     },
     {
       id: 'tr10_peerless_warrior',
       category: 'blood',
       name: t('apotheosis.tr.tr10.name', 'Peerless Warrior'),
-      desc: t('apotheosis.tr.tr10.desc', 'Refine any weapon or combat art to skill level 95.'),
-      progressText: t('apotheosis.tr.tr10.prog', 'Combat {cur}/95', { cur: Math.trunc(topMartial) }),
-      natural: topMartial >= 95,
+      desc: t('apotheosis.tr.tr10.desc', 'Refine any weapon or combat art to skill level 100.'),
+      progressText: t('apotheosis.tr.tr10.prog', 'Combat {cur}/100', { cur: Math.trunc(topMartial) }),
+      natural: topMartial >= 100,
     },
     {
       id: 'tr11_relic_bearer',
@@ -835,9 +843,9 @@ export function evaluateFateWeight(entity) {
       id: 'tr12_unbroken',
       category: 'blood',
       name: t('apotheosis.tr.tr12.name', 'Shadow & Sinew'),
-      desc: t('apotheosis.tr.tr12.desc', 'Reach 90 in a stealth/evasion art or harden maximum Health to 250.'),
-      progressText: t('apotheosis.tr.tr12.prog', 'Stealth {sk}/90 · HP {hp}/250', { sk: Math.trunc(topShadow), hp: Math.trunc(maxHp) }),
-      natural: topShadow >= 90 || maxHp >= 250,
+      desc: t('apotheosis.tr.tr12.desc', 'Reach 100 in a stealth/evasion art or harden maximum Health to 500.'),
+      progressText: t('apotheosis.tr.tr12.prog', 'Stealth {sk}/100 · HP {hp}/500', { sk: Math.trunc(topShadow), hp: Math.trunc(maxHp) }),
+      natural: topShadow >= 100 || maxHp >= 500,
     },
 
     // DOMINION & WORLD (6)
@@ -863,17 +871,17 @@ export function evaluateFateWeight(entity) {
       id: 'tr15_cartographer',
       category: 'power',
       name: t('apotheosis.tr.tr15.name', 'Cartographer of the Bay'),
-      desc: t('apotheosis.tr.tr15.desc', 'Chart at least 25 discovered locations, strongholds, or dungeon depths.'),
-      progressText: t('apotheosis.tr.tr15.prog', '{cur}/25 charted', { cur: discovered }),
-      natural: discovered >= 25,
+      desc: t('apotheosis.tr.tr15.desc', 'Chart at least 75 discovered locations, strongholds, or dungeon depths.'),
+      progressText: t('apotheosis.tr.tr15.prog', '{cur}/75 charted', { cur: discovered }),
+      natural: discovered >= 75,
     },
     {
       id: 'tr16_magnate',
       category: 'power',
       name: t('apotheosis.tr.tr16.name', 'Merchant Sovereign'),
-      desc: t('apotheosis.tr.tr16.desc', 'Amass 250,000 gold pieces across your purse and regional bank vaults.'),
-      progressText: t('apotheosis.tr.tr16.prog', '{cur}/250,000 gold', { cur: wealth }),
-      natural: wealth >= 250000,
+      desc: t('apotheosis.tr.tr16.desc', 'Amass 500,000 gold pieces across your purse and regional bank vaults.'),
+      progressText: t('apotheosis.tr.tr16.prog', '{cur}/500,000 gold', { cur: wealth }),
+      natural: wealth >= 500000,
     },
     {
       id: 'tr17_landed_sovereign',
@@ -986,7 +994,7 @@ export function isApotheosisStormActive(entity) {
 
 /**
  * Evaluates what happens when the player touches the Mantella (globalVar 36 / FinishedMantellanCrux).
- * Enforces mutual exclusion against the 13-Artifact path and checks Fate Weight >= 12/18.
+ * Enforces mutual exclusion against the 13-Artifact path and checks Fate Weight >= 12/19.
  */
 export function evaluateMantellaFork(entity) {
   const state = ensureApotheosisState(entity);
@@ -1242,7 +1250,7 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   };
 }
 
-/** Sets debug Fate Weight override (`12` ready or `18` full) cleanly on `entity.apotheosis`. */
+/** Sets debug Fate Weight override (`12` ready or `19` full) cleanly on `entity.apotheosis`. */
 export function setDebugFateWeight(entity, targetCount) {
   const state = ensureApotheosisState(entity);
   const clean = Math.max(0, Math.min(TOTAL_FATE_TRIGGERS, Math.trunc(Number(targetCount) || 0)));

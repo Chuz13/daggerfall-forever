@@ -93,7 +93,11 @@ import { MATERIAL_NAMES } from './mods/modDataSync.js';
 import { computeEntityMods } from './entityMods.js';
 import { SKILLS } from './skills.js';
 import { getActiveRecord as getActiveFirmRecord, saveOfflineRecord as saveFirmRecord, addOfflineRenownXp } from './offlineFirmament.js';
-import { renownForXp, renownProgress } from '../net/renown.js';
+import { renownForXp, renownXpFor, renownProgress } from '../net/renown.js';
+import { setFirmamentTree } from './firmamentLive.js';
+import { characterIdOf } from './characterId.js';
+import { discoverLocation, snapshotDiscovery } from './discovery.js';
+import { snapshotAutomap } from './automap/automap.js';
 import { starsFor, craftPointsFor } from '../net/firmament/firmamentLaw.js';
 import { allOfflineHomes, inheritOfflineHome, _resetForTests as resetOfflineHomes } from './offlineHomes.js';
 import { getActiveOfflineRecord as getActiveProfRecord, saveOfflineRecord as saveProfRecord, createNewRecord as createNewProfRecord } from './offlineProfessions.js';
@@ -2777,6 +2781,96 @@ registerCommand('finish_errand', 'Complete active revenant errand(s) immediately
 registerCommand('finisherrand', 'Complete active revenant errand(s) immediately: finisherrand [id|name]', 'finisherrand [id|name]', handleFinishErrandCommand);
 registerCommand('complete_errands', 'Complete active revenant errand(s) immediately: complete_errands', 'complete_errands', handleFinishErrandCommand);
 
+const APO_SET_DEFAULTS = {
+  kills: 5000,
+  quests: 50,
+  nemesis: 10,
+  nemeses: 10,
+  books: 25,
+  discover: 75,
+  maxhp: 500,
+  hp: 500,
+  renown: 25,
+  stars: 50,
+};
+
+function currentDiscoveredCountForDebug() {
+  let total = 0;
+  try {
+    const disc = snapshotDiscovery();
+    total += Object.keys(disc?.locations ?? {}).length;
+    let bldgCount = 0;
+    for (const town of Object.values(disc?.buildings ?? {})) {
+      bldgCount += Object.keys(town ?? {}).length;
+    }
+    total += Math.floor(bldgCount / 5);
+  } catch { /* ignore */ }
+  try {
+    const auto = snapshotAutomap();
+    if (Array.isArray(auto)) total += auto.length;
+    else if (auto && typeof auto === 'object') total += Object.keys(auto).length;
+  } catch { /* ignore */ }
+  return total;
+}
+
+function applyApotheosisDebugSet(entity, metricRaw, valRaw) {
+  const metric = String(metricRaw ?? '').toLowerCase();
+  if (!(metric in APO_SET_DEFAULTS)) {
+    return { ok: false, error: 'Usage: apo set <kills|quests|nemesis|books|discover|maxhp|renown|stars> [value]' };
+  }
+  const parsed = valRaw != null ? parseInt(valRaw, 10) : NaN;
+  const val = Number.isFinite(parsed) ? Math.max(0, parsed) : APO_SET_DEFAULTS[metric];
+  if (metric === 'kills') {
+    entity.totalKills = val;
+  } else if (metric === 'quests') {
+    entity.questsCompleted = val;
+  } else if (metric === 'nemesis' || metric === 'nemeses') {
+    entity.nemesesDefeated = val;
+  } else if (metric === 'books') {
+    const prev = Array.isArray(entity.booksRead) ? [...entity.booksRead] : [];
+    const next = prev.slice(0, val);
+    let idx = 1001;
+    while (next.length < val) {
+      if (idx === 10000) idx += 1;
+      if (!next.includes(idx)) next.push(idx);
+      idx += 1;
+    }
+    entity.booksRead = next;
+  } else if (metric === 'discover') {
+    let cur = currentDiscoveredCountForDebug();
+    let seed = 910000;
+    while (cur < val && seed < 920000) {
+      if (discoverLocation(seed++, { regionName: 'Iliac Bay', locationName: `Charted Site ${seed}` })) {
+        cur += 1;
+      }
+    }
+  } else if (metric === 'maxhp' || metric === 'hp') {
+    entity.maxHealth = val;
+    if ('rawMaxHealth' in entity) entity.rawMaxHealth = val;
+    entity.currentHealth = Math.max(Number(entity.currentHealth ?? 0), Number(entity.maxHealth ?? val));
+  } else if (metric === 'renown') {
+    const lvl = Math.max(1, val);
+    const charId = characterIdOf(entity);
+    const rec = getActiveFirmRecord(charId) ?? { xp: 0, renown: 1, tree: '', said: 1 };
+    rec.xp = renownXpFor(lvl);
+    rec.renown = renownForXp(rec.xp);
+    rec.said = rec.renown;
+    saveFirmRecord(charId, rec);
+    computeEntityMods(entity);
+  } else if (metric === 'stars') {
+    if (val <= 0) setFirmamentTree(null);
+    else {
+      setFirmamentTree({
+        start: 'apo_debug_start',
+        keys: Array.from({ length: val }, (_, i) => `apo_debug_star_${i + 1}`),
+      });
+    }
+    computeEntityMods(entity);
+  }
+  const fate = evaluateFateWeight(entity);
+  return { ok: true, metric, val, fate };
+}
+
 async function handleApotheosisCommand(args = []) {
   if (!playerEntity) return 'Error: playerEntity is not initialized.';
   const sceneCtx = getDebugSceneContext();
@@ -2897,23 +2991,28 @@ async function handleApotheosisCommand(args = []) {
     forcePlayerDeath(playerEntity);
     return 'Triggered Ascended God death -> +1 day golden-white rebirth on the spot (live foes despawned, full heal).';
   }
+  if (sub === 'set') {
+    const res = applyApotheosisDebugSet(playerEntity, args[1], args[2]);
+    if (!res.ok) return res.error;
+    return `Set ${res.metric}=${res.val}. Fate Weight: ${res.fate.count}/${res.fate.total} (natural=${res.fate.naturalCount}, ready=${res.fate.ready}).`;
+  }
   if (sub === 'reset') {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]';
 }
 
 registerCommand(
   'apotheosis',
-  'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | mantella | tp | quest | rebirth | reset]',
-  'apotheosis [status | artifacts [n] | fate <ready|full> | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
+  'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
+  'apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 registerCommand(
   'apo',
-  'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | mantella | tp | quest | rebirth | reset]',
-  'apo [status | artifacts [n] | fate <ready|full> | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
+  'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
+  'apo [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars> [v] | mantella [usurp] | tp <direnni|mantella|orrery> | quest <start|siege|wave13|tower|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 

@@ -147,21 +147,26 @@ test('Trigger #8 (Transcending Mortal Flesh): strictly unlocks ONLY for Lichdom,
   assert.equal(evaluateFateWeight(werewolf).triggers.find((t) => t.id === 'tr08_mortal_flesh').natural, true);
 });
 
-test('All remaining 17 Fate Weight triggers + boundary conditions + progression hooks work live', () => {
-  const e = makeFreshEntity('all_18');
+test('All remaining 18 Fate Weight triggers + boundary conditions + progression hooks work live', () => {
+  assert.equal(TOTAL_FATE_TRIGGERS, 19);
+  const e = makeFreshEntity('all_19');
   const findTr = (id) => evaluateFateWeight(e).triggers.find((tr) => tr.id === id);
 
   assert.equal(evaluateFateWeight(e).naturalCount, 0);
 
-  // tr01: attribute >= 100 or level >= 25
-  e.level = 24;
-  e.stats.intelligence = 99;
-  assert.equal(findTr('tr01_awakened_mind').natural, false);
-  e.level = 25;
-  assert.equal(findTr('tr01_awakened_mind').natural, true);
-  e.level = 1;
+  // tr01: >= 3 attributes at 100+
+  e.stats.intelligence = 100;
   e.stats.willpower = 100;
+  e.stats.strength = 99;
+  assert.equal(findTr('tr01_awakened_mind').natural, false);
+  e.stats.strength = 100;
   assert.equal(findTr('tr01_awakened_mind').natural, true);
+
+  // tr19: character level >= 30
+  e.level = 29;
+  assert.equal(findTr('tr19_mortal_apex').natural, false);
+  e.level = 30;
+  assert.equal(findTr('tr19_mortal_apex').natural, true);
 
   // tr02: 25 distinct books (10000 canonicalizes to 5 without duplicate count)
   recordBookRead(e, 10000);
@@ -171,51 +176,51 @@ test('All remaining 17 Fate Weight triggers + boundary conditions + progression 
   assert.equal(e.booksRead.length, 25);
   assert.equal(findTr('tr02_tower_scholar').natural, true);
 
-  // tr03: Daedric >= 80
-  e.skills[SKILLS.Daedric] = 79;
+  // tr03: Daedric >= 100
+  e.skills[SKILLS.Daedric] = 99;
   assert.equal(findTr('tr03_speaker_oblivion').natural, false);
-  e.skills[SKILLS.Daedric] = 80;
+  e.skills[SKILLS.Daedric] = 100;
   assert.equal(findTr('tr03_speaker_oblivion').natural, true);
 
-  // tr04: Any arcane school >= 95
-  e.skills[SKILLS.Mysticism] = 94;
+  // tr04: Any arcane school >= 100
+  e.skills[SKILLS.Mysticism] = 99;
   assert.equal(findTr('tr04_mystic_weave').natural, false);
-  e.skills[SKILLS.Mysticism] = 95;
+  e.skills[SKILLS.Mysticism] = 100;
   assert.equal(findTr('tr04_mystic_weave').natural, true);
 
-  // tr05: 15 Firmament stars or Renown >= 15
-  setFirmamentTree({ start: 's0', keys: Array.from({ length: 14 }, (_, i) => `k${i}`) });
+  // tr05: 50 Firmament stars or Renown >= 25
+  setFirmamentTree({ start: 's0', keys: Array.from({ length: 49 }, (_, i) => `k${i}`) });
   assert.equal(findTr('tr05_firmament_child').natural, false);
-  setFirmamentTree({ start: 's0', keys: Array.from({ length: 15 }, (_, i) => `k${i}`) });
+  setFirmamentTree({ start: 's0', keys: Array.from({ length: 50 }, (_, i) => `k${i}`) });
   assert.equal(findTr('tr05_firmament_child').natural, true);
 
-  // tr06: 20 quests (failed quests ignored; Mantella also unlocks)
-  for (let i = 0; i < 19; i++) recordQuestCompleted(e, { questSuccess: true });
+  // tr06: 50 quests (failed quests ignored; Mantella also unlocks)
+  for (let i = 0; i < 49; i++) recordQuestCompleted(e, { questSuccess: true });
   recordQuestCompleted(e, { questSuccess: false });
-  assert.equal(e.questsCompleted, 19);
+  assert.equal(e.questsCompleted, 49);
   assert.equal(findTr('tr06_hero_iliac').natural, false);
   recordQuestCompleted(e, { questSuccess: true });
   assert.equal(findTr('tr06_hero_iliac').natural, true);
 
-  // tr07: 500 kills via playerKillListener
+  // tr07: 5000 kills via playerKillListener
   reportPlayerKill(e, {});
   assert.equal(e.totalKills, 1);
-  e.totalKills = 499;
+  e.totalKills = 4999;
   assert.equal(findTr('tr07_harbinger_ash').natural, false);
   reportPlayerKill(e, {});
-  assert.equal(e.totalKills, 500);
+  assert.equal(e.totalKills, 5000);
   assert.equal(findTr('tr07_harbinger_ash').natural, true);
 
-  // tr09: 3 Nemeses defeated
-  recordNemesisDefeated(e, 2);
+  // tr09: 10 Nemeses defeated
+  recordNemesisDefeated(e, 9);
   assert.equal(findTr('tr09_scourge_rivals').natural, false);
   recordNemesisDefeated(e, 1);
   assert.equal(findTr('tr09_scourge_rivals').natural, true);
 
-  // tr10: Martial >= 95
-  e.skills[SKILLS.LongBlade] = 94;
+  // tr10: Martial >= 100
+  e.skills[SKILLS.LongBlade] = 99;
   assert.equal(findTr('tr10_peerless_warrior').natural, false);
-  e.skills[SKILLS.LongBlade] = 95;
+  e.skills[SKILLS.LongBlade] = 100;
   assert.equal(findTr('tr10_peerless_warrior').natural, true);
 
   // tr11: 3 distinct Daedric artifacts (duplicate subtype only counts once!)
@@ -227,11 +232,14 @@ test('All remaining 17 Fate Weight triggers + boundary conditions + progression 
   e.items.push(mintCanonicalArtifact(15)); // Lord's Mail
   assert.equal(findTr('tr11_relic_bearer').natural, true);
 
-  // tr12: Stealth >= 90 OR maxHealth >= 250
-  e.skills[SKILLS.Stealth] = 89;
-  e.maxHealth = 249;
+  // tr12: Stealth >= 100 OR maxHealth >= 500
+  e.skills[SKILLS.Stealth] = 99;
+  e.maxHealth = 499;
   assert.equal(findTr('tr12_unbroken').natural, false);
-  e.skills[SKILLS.Stealth] = 90;
+  e.maxHealth = 500;
+  assert.equal(findTr('tr12_unbroken').natural, true);
+  e.maxHealth = 50;
+  e.skills[SKILLS.Stealth] = 100;
   assert.equal(findTr('tr12_unbroken').natural, true);
 
   // tr13: Guild rank >= 9
@@ -246,17 +254,17 @@ test('All remaining 17 Fate Weight triggers + boundary conditions + progression 
   saveProfRecord(e.characterId, { tracks: { smithing: { rank: 100, xp: 0 } } });
   assert.equal(findTr('tr14_grand_artisan').natural, true);
 
-  // tr15: >= 25 discovered places
-  for (let i = 1; i <= 24; i++) discoverLocation(9000 + i, { name: `Loc${i}` });
+  // tr15: >= 75 discovered places
+  for (let i = 1; i <= 74; i++) discoverLocation(9000 + i, { name: `Loc${i}` });
   assert.equal(findTr('tr15_cartographer').natural, false);
-  discoverLocation(9025, { name: 'Loc25' });
+  discoverLocation(9075, { name: 'Loc75' });
   assert.equal(findTr('tr15_cartographer').natural, true);
 
-  // tr16: >= 250,000 total gold (purse + bankAccounts)
-  e.goldPieces = 149999;
+  // tr16: >= 500,000 total gold (purse + bankAccounts)
+  e.goldPieces = 399999;
   e.bankAccounts = [{ regionIndex: 0, accountGold: 100000 }];
   assert.equal(findTr('tr16_magnate').natural, false);
-  e.goldPieces = 150000;
+  e.goldPieces = 400000;
   assert.equal(findTr('tr16_magnate').natural, true);
 
   // tr17: Freehold house, offline home, or vessel
@@ -273,13 +281,14 @@ test('All remaining 17 Fate Weight triggers + boundary conditions + progression 
   e.savedFactionRep[40].rep = 50;
   assert.equal(findTr('tr18_living_legend').natural, true);
 
-  // Plus tr08 via Lichdom -> all 18/18 natural triggers fulfilled!
+  // Plus tr08 via Lichdom -> all 19/19 natural triggers fulfilled!
   applyLichdom(e, { nowMinutes: 50 });
   const fullEval = evaluateFateWeight(e);
-  assert.equal(fullEval.naturalCount, 18);
+  assert.equal(fullEval.naturalCount, 19);
   assert.equal(fullEval.count, TOTAL_FATE_TRIGGERS);
   assert.equal(fullEval.ready, true);
   assert.equal(fullEval.categories.length, 3);
+  assert.equal(fullEval.categories[0].triggers.length, 7);
 });
 
 test('Retro-estimation on legacy saves: books in pack/wagon, Firmament XP -> kills & renown, Nemesis memory -> rivals', () => {
@@ -289,20 +298,20 @@ test('Retro-estimation on legacy saves: books in pack/wagon, Firmament XP -> kil
   legacy.wagonItems = [];
   for (let i = 16; i <= 25; i++) legacy.wagonItems.push({ group: 'Books', message: i });
 
-  // Firmament XP high enough for >= 500 estimated kills and Renown 15 (renownXpFor(15) === 23350)
-  saveFirmRecord(legacy.characterId, { xp: 23350, renown: 15, tree: '', said: 1 });
+  // Firmament XP high enough for >= 5000 estimated kills (175000 / 35 = 5000) and Renown 25 (renownXpFor(25) === 159120)
+  saveFirmRecord(legacy.characterId, { xp: 175000, renown: 25, tree: '', said: 1 });
 
-  // Record 3 nemesis confrontations in persistent Nemesis memory
-  recordNemesisMemory({ id: 'n1', archetype: 'champion', factionName: 'A' }, { outcome: 'PLAYER_WON' });
-  recordNemesisMemory({ id: 'n2', archetype: 'assassin', factionName: 'B' }, { outcome: 'PACIFIED' });
-  recordNemesisMemory({ id: 'n3', archetype: 'warlock', factionName: 'C' }, { outcome: 'INTIMIDATED' });
+  // Record 10 nemesis confrontations in persistent Nemesis memory
+  for (let i = 1; i <= 10; i++) {
+    recordNemesisMemory({ id: `n${i}`, archetype: 'champion', factionName: `F${i}` }, { outcome: 'PLAYER_WON' });
+  }
 
   const fw = evaluateFateWeight(legacy);
   const byId = new Map(fw.triggers.map((t) => [t.id, t]));
   assert.equal(byId.get('tr02_tower_scholar').natural, true, '25 books in pack + wagon fulfill Tower Scholar');
-  assert.equal(byId.get('tr05_firmament_child').natural, true, 'Renown 15 fulfills Child of the Firmament');
-  assert.equal(byId.get('tr07_harbinger_ash').natural, true, 'Firmament XP 18000 estimates >= 500 kills');
-  assert.equal(byId.get('tr09_scourge_rivals').natural, true, '3 resolved nemesis encounters fulfill Scourge of Rivals');
+  assert.equal(byId.get('tr05_firmament_child').natural, true, 'Renown 25 fulfills Child of the Firmament');
+  assert.equal(byId.get('tr07_harbinger_ash').natural, true, 'Firmament XP 175000 estimates >= 5000 kills');
+  assert.equal(byId.get('tr09_scourge_rivals').natural, true, '10 resolved nemesis encounters fulfill Scourge of Rivals');
 });
 
 test('Canonical Daedric artifacts (all 23 indices 0..22): Chrysamere & Lords Mail, equipped protection, distinct subtype deduplication', () => {
@@ -429,7 +438,7 @@ test('Full Stage 0 loop: Fate + 13 unequipped artifacts -> questline placeholder
   assert.equal(canStartApotheosisViaArtifacts(e).eligible, false);
 });
 
-test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifacts, status, and reset cleanly', async () => {
+test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifacts, set metrics, status, and reset cleanly', async () => {
   const prev = {
     items: [...(playerEntity.items ?? [])],
     apotheosis: playerEntity.apotheosis ? structuredClone(playerEntity.apotheosis) : undefined,
@@ -437,6 +446,10 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     booksRead: playerEntity.booksRead ? [...playerEntity.booksRead] : undefined,
     nemesesDefeated: playerEntity.nemesesDefeated,
     questsCompleted: playerEntity.questsCompleted,
+    maxHealth: playerEntity.maxHealth,
+    rawMaxHealth: playerEntity.rawMaxHealth,
+    currentHealth: playerEntity.currentHealth,
+    characterId: playerEntity.characterId,
   };
   try {
     assert.ok(getConsoleCommand('apotheosis'));
@@ -444,11 +457,31 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     assert.ok(apo);
 
     assert.match(await executeConsoleCommand('apo', ['reset']), /reset/i);
-    assert.match(await executeConsoleCommand('apo', ['fate', 'ready']), /12\/18/);
+    assert.match(await executeConsoleCommand('apo', ['fate', 'ready']), /12\/19/);
     assert.equal(playerEntity.apotheosis.debugFateCount, 12);
 
-    assert.match(await executeConsoleCommand('apo', ['fate', 'full']), /18\/18/);
-    assert.equal(playerEntity.apotheosis.debugFateCount, 18);
+    assert.match(await executeConsoleCommand('apo', ['fate', 'full']), /19\/19/);
+    assert.equal(playerEntity.apotheosis.debugFateCount, 19);
+
+    assert.match(await executeConsoleCommand('apo', ['reset']), /reset/i);
+    assert.match(await executeConsoleCommand('apo', ['set', 'kills']), /Set kills=5000/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'quests']), /Set quests=50/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'nemesis']), /Set nemesis=10/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'books']), /Set books=25/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'discover']), /Set discover=75/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'maxhp']), /Set maxhp=500/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'renown']), /Set renown=25/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'stars']), /Set stars=50/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'unknown_metric']), /^Usage: apo set/);
+
+    const fwById = new Map(evaluateFateWeight(playerEntity).triggers.map((tr) => [tr.id, tr.natural]));
+    assert.equal(fwById.get('tr07_harbinger_ash'), true);
+    assert.equal(fwById.get('tr06_hero_iliac'), true);
+    assert.equal(fwById.get('tr09_scourge_rivals'), true);
+    assert.equal(fwById.get('tr02_tower_scholar'), true);
+    assert.equal(fwById.get('tr15_cartographer'), true);
+    assert.equal(fwById.get('tr12_unbroken'), true);
+    assert.equal(fwById.get('tr05_firmament_child'), true);
 
     const artMsg = await executeConsoleCommand('apo', ['artifacts', '15']);
     assert.match(artMsg, /15/);
@@ -468,6 +501,14 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     else playerEntity.nemesesDefeated = prev.nemesesDefeated;
     if (prev.questsCompleted === undefined) delete playerEntity.questsCompleted;
     else playerEntity.questsCompleted = prev.questsCompleted;
+    if (prev.maxHealth === undefined) delete playerEntity.maxHealth;
+    else playerEntity.maxHealth = prev.maxHealth;
+    if (prev.rawMaxHealth === undefined) delete playerEntity.rawMaxHealth;
+    else playerEntity.rawMaxHealth = prev.rawMaxHealth;
+    if (prev.currentHealth === undefined) delete playerEntity.currentHealth;
+    else playerEntity.currentHealth = prev.currentHealth;
+    if (prev.characterId === undefined) delete playerEntity.characterId;
+    else playerEntity.characterId = prev.characterId;
   }
 });
 
@@ -529,7 +570,7 @@ test('Save/Restore round-trip (`snapshotPlayer` / `restorePlayer`) and Settings 
   assert.deepEqual(ensureApotheosisState(legacyRestored), defaultApotheosisState());
 });
 
-test('Localization: all 26 locales have all 169 Apotheosis keys with valid CSV and matching ICU placeholders', () => {
+test('Localization: all 26 locales have all 210 Apotheosis keys with valid CSV and matching ICU placeholders', () => {
   const isApoKey = (k) => k.startsWith('apotheosis.')
     || k === 'pause.tab.apotheosis'
     || k === 'settings.sec.apotheosis'
@@ -552,7 +593,7 @@ test('Localization: all 26 locales have all 169 Apotheosis keys with valid CSV a
 
   const enRows = parseStringTableCsv(readFileSync(new URL('../../locales/en/Port_Strings.csv', import.meta.url), 'utf8'));
   const enApo = new Map(enRows.filter(([k]) => isApoKey(k)));
-  assert.equal(enApo.size, 207, 'expected 207 Apotheosis/Settings/Pause keys in English table');
+  assert.equal(enApo.size, 210, 'expected 210 Apotheosis/Settings/Pause keys in English table');
 
   const expectedArgs = new Map();
   for (const [k, v] of enApo) {
