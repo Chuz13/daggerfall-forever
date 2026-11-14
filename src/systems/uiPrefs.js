@@ -72,6 +72,8 @@ export const PREF_DEFAULTS = Object.freeze({
   offlineFirmament: true,
   // OFFLINE-PROFESSIONS: whether gathering nodes and crafting professions are active in offline single-player.
   offlineProfessions: true,
+  // APOTHEOSIS: whether the Fate Weight progress & trigger categories are shown in the Pause › Apotheosis tab.
+  apotheosisShowTracker: true,
   // UNIFIED-BANK: whether bank accounts are unified across all regions into a single global account.
   unifiedBank: true,
   // CITY-247: optional 24/7 city infrastructure keeping shops, guild halls, banks, and gates open day and night.

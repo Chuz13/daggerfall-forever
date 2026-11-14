@@ -103,6 +103,7 @@ import { entryTarget, targetWords, WHERE_TEXT } from '../quest/questLens.js';   
 import { questTracker, followOn, trackButton } from '../quest/questTracker.js';   // GUIDE4: the HUD's card - the Track toggle, and the quest the journal opens on
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
 import { drawTutorialsPane, releaseTutorialsPane } from '../tutorialsPane.js';   // TUT1: the Tutorials tab and section - every tutorial page, to read again
+import { drawApotheosisPane, releaseApotheosisPane } from '../apotheosisPane.js';   // APOTHEOSIS: Fate Weight, Artifact Sacrifice & Portfolios
 import { drawShotsPane, releaseShotsPane } from '../shotsPane.js';   // LOAD1: the Screenshots pane - the gallery the PrintScreen key keeps
 import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../../formats/morrowind/mwNpc.js';
@@ -3402,6 +3403,8 @@ function portRowsGame({ pause = false } = {}) {
       ['stat_scaled', t('menu.necro.capMode.statScaled', 'Stat-Scaled (INT/WIL/Myst)')],
       ['fixed', t('menu.necro.capMode.fixed', 'Fixed Limit (4 Minions)')],
     ]));
+  rows.push(prefRow('apotheosisShowTracker', t('menu.apotheosis.showTracker.name', 'Show Fate Weight Tracker'),
+    t('menu.apotheosis.showTracker.note', 'Displays the Fate Weight progress and category breakdown in the Apotheosis menu tab.')));
   return rows;
 }
 /** REFLEXES: in-game reflex re-selection for the active character. Reads and writes playerEntity.reflexes directly. */
@@ -5070,7 +5073,7 @@ let footObs = /** @type {ResizeObserver|null} */ (null);
 // GROWTH1 (2026-10-17, the owner: "give the firmament, level up page, and specializations its own tab within the pause
 // menu"): how a character grows - the Ascension, the specialisations' guide, the Firmament and the captain's stars, the
 // skies drawn in the tab (pauseGrowth, below; ui/growth/growthTab.js), after the Stats it grew out of.
-const PAUSE_TABS = Object.freeze([['quests', 'Quests'], ['stats', 'Stats'], ['growth', 'Growth'], ['holdings', 'Holdings'], ['family', 'Family'], ['tutorials', 'Tutorials'], ['system', 'System']]);
+const PAUSE_TABS = Object.freeze([['quests', 'Quests'], ['stats', 'Stats'], ['growth', 'Growth'], ['holdings', 'Holdings'], ['family', 'Family'], ['apotheosis', 'Apotheosis'], ['tutorials', 'Tutorials'], ['system', 'System']]);
 /** HOLDINGS: every tab a landing may name (mountEnhancedMenu's `at`). */
 export const PAUSE_TAB_IDS = Object.freeze(PAUSE_TABS.map(([id]) => id));
 /** LEGACY3: a tab drawn now - the Family tab while the game is played with Project Legacy (FAMILY-TAB: the mod on AND a
@@ -5084,6 +5087,7 @@ const PAUSE_TEXT = Object.freeze({
   growth: () => t('pause.tab.growth', 'Growth'),
   holdings: () => t('pause.tab.holdings', 'Holdings'),
   family: () => t('pause.tab.family', 'Family'),
+  apotheosis: () => t('pause.tab.apotheosis', 'Apotheosis'),
   tutorials: () => t('pause.tab.tutorials', 'Tutorials'),
   system: () => t('pause.tab.system', 'System'),
   character: () => t('pause.stats.character', 'Character'),
@@ -5113,7 +5117,7 @@ function pauseWindow() {
   win.append(tabs);
 
   const body = el('div', 'px-body');
-  ({ quests: pauseQuests, stats: pauseStats, growth: pauseGrowth, holdings: pauseHoldings, family: pauseFamily, tutorials: drawTutorialsPane, system: pauseSystem })[pauseTab](body);   // TUT1 - GROWTH1
+  ({ quests: pauseQuests, stats: pauseStats, growth: pauseGrowth, holdings: pauseHoldings, family: pauseFamily, apotheosis: drawApotheosisPane, tutorials: drawTutorialsPane, system: pauseSystem })[pauseTab](body);   // TUT1 - GROWTH1
   if (pauseTab === 'growth') win.classList.add('px-win-growth');   // GROWTH-BOOK: one size for every page of the tab (was GROWTH3's px-win-wide, a face up only)
   win.append(body);
   return win;
@@ -6865,6 +6869,7 @@ export function mountEnhancedMenu(host, {
       releaseShotsPane();   // LOAD1: the gallery's pictures and its listener
       stopPost();   // SERVER-POST: and the mailbox's ticks
       releaseTutorialsPane();   // TUT1: the next visit opens on the first page
+      releaseApotheosisPane();   // APOTHEOSIS: reset subtab/modal state on menu close
       stopSeason();   // SEASON-BOOK: and the season window's
       stopShop();   // SHOP: and the shop's
       releaseGrowthTab();   // GROWTH3: a face on the Growth stage goes with the window (full screen too)

@@ -2005,9 +2005,9 @@ ${badgeCss()}
 /* AUDIT LEGACY U5: five tabs (Project Legacy's Family) - the spacing a step tighter, so the five stand on one row in the
    window's 920 px; the narrower steps below are unchanged. GROWTH1: seven (Growth) - a step tighter again, and the
    pair of diamonds the lit tab's alone (a dark tab's took their room hidden), so the seven stand on one row */
-.px-tabs button { font: inherit; font-size: 20px; letter-spacing: 0.08em; text-indent: 0.08em;
+.px-tabs button { font: inherit; font-size: 18px; letter-spacing: 0.05em; text-indent: 0.05em;
   text-transform: uppercase; color: #d8cfae; background: none; border: 0; cursor: pointer;
-  min-height: 44px; padding: 6px 9px; display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 6px 7px; display: flex; align-items: center; gap: 6px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); transition: none; }
 .px-tabs button .px-c { font-size: 15px; color: rgb(243,239,44); visibility: hidden;
   text-shadow: 2px 2px 0 rgb(93,77,12); }

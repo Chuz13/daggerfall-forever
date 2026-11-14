@@ -11,6 +11,7 @@ import { enemyLootSpawned } from '../../characters/enemy/enemyEntity.js';
 import { ENEMY_BASICS } from '../../characters/enemy/enemyBasics.js';
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { playerEntity, surfacePlayer } from '../../characters/playerEntity.js';
+import { recordBookRead, NECRO_GRIMOIRE_BOOK_ID } from '../apotheosis/apotheosisCore.js';
 import {
   animateDeadSpell,
   corpseExplosionSpell,
@@ -98,6 +99,7 @@ export function readNecroGrimoire(entity = null) {
   const wasRead = !!(target.NecroGrimoireRead || target.necroGrimoireRead);
   target.NecroGrimoireRead = true;
   target.necroGrimoireRead = true;
+  recordBookRead(target, NECRO_GRIMOIRE_BOOK_ID);
 
   if (!Array.isArray(target.spells)) {
     target.spells = [];

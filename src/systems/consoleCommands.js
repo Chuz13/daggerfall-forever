@@ -66,6 +66,17 @@ import {
   castControlUndead,
 } from './necromancy/necromanticSpells.js';
 import { NECRO_GRIMOIRE_TEMPLATE } from './necromancy/necroGrimoire.js';
+import {
+  REQUIRED_ARTIFACTS_COUNT,
+  REQUIRED_FATE_WEIGHT,
+  TOTAL_FATE_TRIGGERS,
+  ensureApotheosisState,
+  evaluateFateWeight,
+  grantArtifactPack,
+  resetApotheosisForDebug,
+  scanInventoryArtifactsForApotheosis,
+  setDebugFateWeight,
+} from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
 import { weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';
@@ -2757,6 +2768,55 @@ registerCommand('retinue', 'List all sworn revenant companions in retinue', 'ret
 registerCommand('finish_errand', 'Complete active revenant errand(s) immediately: finish_errand [id|name]', 'finish_errand [id|name]', handleFinishErrandCommand);
 registerCommand('finisherrand', 'Complete active revenant errand(s) immediately: finisherrand [id|name]', 'finisherrand [id|name]', handleFinishErrandCommand);
 registerCommand('complete_errands', 'Complete active revenant errand(s) immediately: complete_errands', 'complete_errands', handleFinishErrandCommand);
+
+function handleApotheosisCommand(args = []) {
+  if (!playerEntity) return 'Error: playerEntity is not initialized.';
+  const sub = String(args[0] ?? 'status').toLowerCase();
+  if (sub === 'status') {
+    const state = ensureApotheosisState(playerEntity);
+    const fate = evaluateFateWeight(playerEntity);
+    const art = scanInventoryArtifactsForApotheosis(playerEntity);
+    const lines = [
+      `[Apotheosis] stage=${state.stage} ascended=${state.ascended} source=${state.source ?? 'none'} portfolio=${state.portfolio ?? 'none'}`,
+      `Fate Weight: ${fate.count}/${fate.total} (required ${fate.required}, natural ${fate.naturalCount})`,
+      `Artifacts: ${art.distinctUnequippedCount}/${REQUIRED_ARTIFACTS_COUNT} distinct unequipped in pack (equipped=${art.equippedCount})`,
+    ];
+    for (const tr of fate.triggers) {
+      const mark = tr.fulfilled ? (tr.debugGranted ? '[~]' : '[x]') : '[ ]';
+      lines.push(`  ${mark} ${tr.id}: ${tr.name} (${tr.progressText})`);
+    }
+    return lines.join('\n');
+  }
+  if (sub === 'artifacts' || sub === 'arts') {
+    const count = args[1] != null ? Math.max(1, Math.min(23, parseInt(args[1], 10) || 15)) : 15;
+    const res = grantArtifactPack(playerEntity, count);
+    return `Added ${res.added} distinct canonical artifact(s) to inventory. Unequipped distinct artifacts: ${res.totalDistinctUnequipped}/${REQUIRED_ARTIFACTS_COUNT}.`;
+  }
+  if (sub === 'fate') {
+    const mode = String(args[1] ?? 'ready').toLowerCase();
+    const target = mode === 'full' ? TOTAL_FATE_TRIGGERS : REQUIRED_FATE_WEIGHT;
+    const fate = setDebugFateWeight(playerEntity, target);
+    return `Debug Fate Weight override applied (${target}). Active Fate Weight: ${fate.count}/${fate.total} (natural=${fate.naturalCount}, ready=${fate.ready}).`;
+  }
+  if (sub === 'reset') {
+    resetApotheosisForDebug(playerEntity);
+    return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
+  }
+  return 'Usage: apotheosis [status | artifacts [count] | fate <ready|full> | reset]';
+}
+
+registerCommand(
+  'apotheosis',
+  'Inspect or test Apotheosis Stage 0: apotheosis [status | artifacts [count] | fate <ready|full> | reset]',
+  'apotheosis [status | artifacts [count] | fate <ready|full> | reset]',
+  handleApotheosisCommand,
+);
+registerCommand(
+  'apo',
+  'Alias for apotheosis: apo [status | artifacts [count] | fate <ready|full> | reset]',
+  'apo [status | artifacts [count] | fate <ready|full> | reset]',
+  handleApotheosisCommand,
+);
 
 /** ConsoleInputHistory (ConsoleInputHistory.cs), whole - the up/down
  *  walk with its go-to-entry bookkeeping, at ConsoleController's own

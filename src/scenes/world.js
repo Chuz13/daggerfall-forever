@@ -882,6 +882,7 @@ import { INSIGNIA, insigniaRefusal } from '../net/insignia.js';   // WB9g
 import { createFirmamentBook, setFirmamentBook } from '../net/firmament/firmamentBook.js';   // FIRM1: the Firmament - this device's tree and purses
 import { setFirmamentTree, setFirmamentOnline, setFirmamentOffline } from '../systems/firmamentLive.js';   // FIRM1: the tree in force, online alone
 import { isOfflineFirmamentActive, createOfflineFirmamentBook, initOfflineRenown, onOfflineFoeKilled, onOfflineQuestEnded } from '../systems/offlineFirmament.js';
+import { recordQuestCompleted } from '../systems/apotheosis/apotheosisCore.js';
 import { isOfflineProfessionsActive, createOfflineProfBook } from '../systems/offlineProfessions.js';
 import { starsFor } from '../net/firmament/firmamentLaw.js';   // FIRM1: the Stars a Renown level brings, said with it
 import { withoutFirmament } from '../systems/firmamentPowers.js';   // FIRM1: a strike or a spell at a player - a duel's, a siege's, the Wrothgarian zone's - is rolled with the sky off
@@ -19184,6 +19185,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       cardQuestEnded(q);   // CARDS9: and a guild's quest, now and then, one of its guild's cards
       naval?.raidEnded(q);   // NAV-D: a raid the sea fight started - won (its leader down) or run out - ends its boarding
       raidAshore.questEnded(q);   // RAID-ASHORE: a raid ended ashore - what its last ticks stood, withdrawn
+      if (q?.questSuccess) recordQuestCompleted(playerEntity, q);
     },
     // TK-i: the six rumor seams land in the mill (TalkManager's own
     // methods, 1:1)

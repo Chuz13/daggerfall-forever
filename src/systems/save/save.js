@@ -192,6 +192,8 @@ const ENTITY_FIELDS = [
   // LEGACY4: Project Legacy's blessings - an ancestor laid to rest, their best skill on the one who laid them
   // (systems/legacy/heirloom.js legacyFold). A save older than this field restores undefined: no blessing.
   'legacyBlessings',
+  // APOTHEOSIS: Fate Weight progression counters & Ascension/Portfolio state (systems/apotheosis/apotheosisCore.js)
+  'totalKills', 'booksRead', 'nemesesDefeated', 'questsCompleted', 'apotheosis',
   // APPEARANCES (bible/04-Characters/Wardrobe.md): every look the character has held (systems/appearances.js), keys of
   // net/appearanceLaw.js. A save older than this field restores undefined: none yet, and the first frame collects the pack.
   'appearances',
@@ -463,6 +465,11 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // the only record left is this - so a save between the turn and V2's
   // racial override would otherwise come back human, and catchable.
   snap.racialOverridePending = entity.racialOverridePending ? { ...entity.racialOverridePending } : null;
+  // APOTHEOSIS: clone booksRead array and apotheosis state so later mutations cannot alias snapshots.
+  snap.booksRead = Array.isArray(entity.booksRead) ? [...entity.booksRead] : [];
+  snap.apotheosis = entity.apotheosis && typeof entity.apotheosis === 'object'
+    ? { ...entity.apotheosis, sacrificedArtifacts: Array.isArray(entity.apotheosis.sacrificedArtifacts) ? [...entity.apotheosis.sacrificedArtifacts] : [] }
+    : null;
   // S1: a STOCK spell travels as its SPELLS.STD index (the compact
   // shape every pre-S1 save carries); a MADE spell has no file index,
   // so its whole record rides instead. The restore tells them apart
@@ -971,6 +978,14 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.previousVampireClan = snap.previousVampireClan ?? 0;
   entity.timeToBecomeVampireOrWerebeast = snap.timeToBecomeVampireOrWerebeast ?? 0;
   entity.racialOverridePending = snap.racialOverridePending ? { ...snap.racialOverridePending } : null;   // V1
+  // APOTHEOSIS: normalize legacy saves and clone restored containers.
+  entity.totalKills = Number.isFinite(Number(snap.totalKills)) && Number(snap.totalKills) >= 0 ? Math.trunc(Number(snap.totalKills)) : 0;
+  entity.booksRead = Array.isArray(snap.booksRead) ? [...snap.booksRead] : [];
+  entity.nemesesDefeated = Number.isFinite(Number(snap.nemesesDefeated)) && Number(snap.nemesesDefeated) >= 0 ? Math.trunc(Number(snap.nemesesDefeated)) : 0;
+  entity.questsCompleted = Number.isFinite(Number(snap.questsCompleted)) && Number(snap.questsCompleted) >= 0 ? Math.trunc(Number(snap.questsCompleted)) : 0;
+  entity.apotheosis = snap.apotheosis && typeof snap.apotheosis === 'object'
+    ? { ...snap.apotheosis, sacrificedArtifacts: Array.isArray(snap.apotheosis.sacrificedArtifacts) ? [...snap.apotheosis.sacrificedArtifacts] : [] }
+    : null;
   // E4: `entity.GoldPieces = data.playerEntity.goldPieces`
   // (SerializablePlayer.cs:302). The pre-E4 MIGRATION that goes with
   // it runs further down, below the two index-keyed relinks - see

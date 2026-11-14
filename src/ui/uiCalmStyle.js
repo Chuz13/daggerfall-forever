@@ -116,7 +116,7 @@ ${P} { --dim: #b9b2a1; }
    Russian and five more ran past the window's edges) */
 @media (min-width: 901px) {
   ${P} .px-win > .px-tabs { gap: 2px; }
-  ${P} .px-win > .px-tabs button { font-size: 17px; letter-spacing: 0.08em; text-indent: 0.08em; padding: 6px 12px; gap: 6px; }
+  ${P} .px-win > .px-tabs button { font-size: 16px; letter-spacing: 0.05em; text-indent: 0.05em; padding: 6px 8px; gap: 4px; }
 }
 /* THE TYPE FLOOR: no word a player must read under 12px - the settings screen's chips, segments, counts and tags, the
    Overhauls cards' labels, the shell's foot, the tutorials' "new" */

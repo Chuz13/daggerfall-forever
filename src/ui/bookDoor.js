@@ -45,6 +45,8 @@ import { getBookFileName } from '../systems/books.js';
 import { openPortBook } from '../systems/portBooks.js';   // WB12c: the port's own books, read before any file
 import { setBookAuthor } from '../systems/item/itemInfo.js';   // IM1: the %ba cache
 import { openLocalizedBookFile } from '../systems/localizedBook.js';   // L10N3f: LocalizedBook.OpenBookFile's first arm
+import { playerEntity } from '../characters/playerEntity.js';
+import { recordBookRead } from '../systems/apotheosis/apotheosisCore.js';
 
 /** Build the reader this skin wears over an opened BookFile - or
  *  (L10N3f) the language's LocalizedBook. */
@@ -75,6 +77,7 @@ export function makeOpenBookHook({ fetchBytes, showReader }) {
     const localized = name ? openLocalizedBookFile(name) : null;
     if (localized) {
       setBookAuthor(item?.message, localized.author);
+      recordBookRead(playerEntity, item?.message);
       showReader(createBookReaderWindow(localized));
       return;
     }
@@ -85,6 +88,7 @@ export function makeOpenBookHook({ fetchBytes, showReader }) {
       // IM1: the file's author line feeds the %ba cache - DFU reads it
       // at info time (BookAuthor :162-183); the port's read is here.
       setBookAuthor(item?.message, bookFile.author);
+      recordBookRead(playerEntity, item?.message);
       showReader(createBookReaderWindow(bookFile));
     } catch (e) {
       console.warn(`[book] ${name ?? item?.message} failed to open:`, e?.message ?? e);

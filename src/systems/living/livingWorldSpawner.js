@@ -92,6 +92,7 @@ import {
   NEMESIS_ARCHETYPES,
   NEMESIS_RESOLUTION,
 } from './nemesisHost.js';
+import { recordNemesisDefeated } from '../apotheosis/apotheosisCore.js';
 import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME } from './pleaHost.js';
 import {
   ensureAdventurerPool,
@@ -1872,6 +1873,7 @@ export function createLivingSceneHost(deps) {
                 res.resolution === NEMESIS_RESOLUTION.LUCK_SAVED
               ) {
                 setSiteHostile(s, false);
+                if (res.resolution === NEMESIS_RESOLUTION.PACIFIED && player) recordNemesisDefeated(player);
               } else {
                 setSiteHostile(s, true);
               }
@@ -1892,6 +1894,7 @@ export function createLivingSceneHost(deps) {
                 res.resolution === NEMESIS_RESOLUTION.LUCK_SAVED
               ) {
                 setSiteHostile(s, false);
+                if (res.resolution === NEMESIS_RESOLUTION.INTIMIDATED && player) recordNemesisDefeated(player);
               } else {
                 setSiteHostile(s, true);
               }
@@ -3364,6 +3367,7 @@ export function createLivingSceneHost(deps) {
             const player = deps.playerEntity();
             if (player) {
               player.goldPieces = Number(player.goldPieces ?? 0) + bounty;
+              recordNemesisDefeated(player);
             }
             clearNemesisGrudge();
             deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
