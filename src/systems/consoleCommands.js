@@ -88,6 +88,10 @@ import {
   registerAurbisRuntime,
   tickApotheosisMythicDecay,
   executeAurbisCommand,
+  summonApotheosisChampions,
+  getActiveApotheosisChampions,
+  clearApotheosisChampions,
+  tickApotheosisChampions,
 } from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -339,6 +343,52 @@ registerCommand(
     return 'No active enemy pool found in current scene.';
   }
 );
+
+function handlePacifyAllCommand() {
+  const ctx = getDebugSceneContext();
+  if (ctx?.pacifyAllFoes) {
+    const count = ctx.pacifyAllFoes();
+    return count > 0
+      ? `Pacified ${count} hostile entities.`
+      : 'Calm radiates across the scene (0 active hostiles).';
+  }
+  return 'Calm radiates across the realm (0 active hostiles).';
+}
+
+for (const cmdName of ['pacifyall', 'pacify_all', 'pacify']) {
+  registerCommand(
+    cmdName,
+    'Pacify all hostile enemies on the current map without harming or removing them',
+    cmdName,
+    handlePacifyAllCommand,
+  );
+}
+
+function handleSummonChampionCommand(count = 1) {
+  const res = summonApotheosisChampions(playerEntity, count, {
+    faithAtCast: playerEntity?._aurbisFaithAtCast ?? playerEntity?.apotheosis?.faith,
+    nowMinutes: worldMinutes(),
+  });
+  return res?.message || 'Summoned Divine Champion.';
+}
+
+for (const cmdName of ['summon_champion', 'champion', 'apotheosis_champion']) {
+  registerCommand(
+    cmdName,
+    'Summon a Faith-scaled Portfolio Divine Champion companion for 24h',
+    cmdName,
+    () => handleSummonChampionCommand(1),
+  );
+}
+
+for (const cmdName of ['summon_champions', 'champion_party', 'champions', 'summon_champion_party']) {
+  registerCommand(
+    cmdName,
+    'Summon a party of 4 Faith-scaled Portfolio Divine Champions for 24h',
+    cmdName,
+    () => handleSummonChampionCommand(4),
+  );
+}
 
 registerCommand(
   'addgold',
@@ -3098,17 +3148,38 @@ async function handleApotheosisCommand(args = []) {
     if (!res.ok) return res.error;
     return `Set ${res.metric}=${res.val}. Fate Weight: ${res.fate.count}/${res.fate.total} (natural=${res.fate.naturalCount}, ready=${res.fate.ready}).`;
   }
+  if (sub === 'champion' || sub === 'champions') {
+    const arg = String(args[1] ?? '').toLowerCase();
+    if (arg === 'clear' || arg === 'dismiss') {
+      clearApotheosisChampions();
+      return 'Dismissed all active Divine Champions.';
+    }
+    if (arg === 'status' || arg === 'list') {
+      const now = Math.floor(worldMinutes());
+      const active = getActiveApotheosisChampions();
+      if (!active.length) return 'No active Divine Champions.';
+      return active.map((c) => {
+        const rem = Math.max(0, Math.round((c.expiresAtMinutes ?? now) - now));
+        return `${c.title} (Rank ${c.romanRank}: HP x${c.healthMult}, DMG x${c.damageScale}, ${rem}m left)`;
+      }).join(' | ');
+    }
+    if (sub === 'champions' || arg === 'party' || arg === '4') {
+      return handleSummonChampionCommand(4);
+    }
+    return handleSummonChampionCommand(1);
+  }
   if (sub === 'reset') {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
 }
 
 registerAurbisRuntime({
   executeCommand: (cmd, args) => executeConsoleCommand(cmd, args),
   findItemTemplate,
   getSceneContext: () => getDebugSceneContext(),
+  getWorldMinutes: () => worldMinutes(),
 });
 
 registerCommand(

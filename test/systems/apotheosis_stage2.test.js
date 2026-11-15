@@ -14,16 +14,22 @@ import {
   APOTHEOSIS_INITIAL_FAITH,
   APOTHEOSIS_MYTHIC_DECAY_FLAT,
   APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+  APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES,
+  APOTHEOSIS_CHAMPION_DURATION_MINUTES,
   APOTHEOSIS_REBIRTH_FAITH_COST,
   AURBIS_COMMAND_CATALOG,
   AURBIS_PORTAL_FAITH_COST,
   REQUIRED_FATE_WEIGHT,
   completeApotheosisQuestline,
+  computeChampionFaithScaling,
+  clearApotheosisChampions,
   defaultApotheosisState,
   ensureApotheosisState,
   evaluateAurbisCommand,
   executeAurbisCommand,
+  getActiveApotheosisChampions,
   getFaithMax,
+  getPortfolioSwitchCooldownInfo,
   getSpawnCreatureFaithCost,
   handleApotheosisKillFaith,
   notifyApotheosisEvent,
@@ -39,6 +45,8 @@ import {
   setDebugFateWeight,
   spendApotheosisFaith,
   startApotheosisFromMantella,
+  summonApotheosisChampions,
+  tickApotheosisChampions,
   tickApotheosisMythicDecay,
   addApotheosisFaith,
 } from '../../src/systems/apotheosis/apotheosisCore.js';
@@ -153,22 +161,32 @@ test('Stage 2 Faith Reservoir: initial 500, dynamic getFaithMax via cultFaithBon
   assert.equal(god.apotheosis.faith, 1600);
   assert.equal(capped.added, 1100);
 
-  // Paid switch costs 250 Faith
+  // Immediate switch blocked by 30-day Portfolio cooldown
   god.apotheosis.faith = 300;
-  const sw1 = selectApotheosisPortfolio(god, 'magic');
+  const cdBefore = getPortfolioSwitchCooldownInfo(god, 2880 + 1440);
+  assert.equal(cdBefore.onCooldown, true);
+  assert.equal(cdBefore.remainingDays, 29);
+  const swCooldown = selectApotheosisPortfolio(god, 'magic', { nowMinutes: 2880 + 1440 });
+  assert.equal(swCooldown.ok, false);
+  assert.equal(swCooldown.cooldown, true);
+  assert.equal(god.apotheosis.portfolio, 'war');
+
+  // Paid switch costs 250 Faith once the 30-day cooldown elapses
+  const afterCooldown = 2880 + APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES;
+  const sw1 = selectApotheosisPortfolio(god, 'magic', { nowMinutes: afterCooldown });
   assert.equal(sw1.ok, true);
   assert.equal(sw1.switching, true);
   assert.equal(god.apotheosis.portfolio, 'magic');
   assert.equal(god.apotheosis.faith, 300 - APOTHEOSIS_PORTFOLIO_SWITCH_COST);
   assert.equal(god.apotheosis.faith, 50);
 
-  // Switching with < 250 Faith fails cleanly
-  const swFail = selectApotheosisPortfolio(god, 'order');
+  // Switching with < 250 Faith fails cleanly after cooldown
+  const swFail = selectApotheosisPortfolio(god, 'order', { nowMinutes: afterCooldown + APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES });
   assert.equal(swFail.ok, false);
   assert.equal(swFail.requiredFaith, APOTHEOSIS_PORTFOLIO_SWITCH_COST);
   assert.equal(god.apotheosis.portfolio, 'magic');
 
-  // `{ free: true }` bypasses fee when explicitly requested
+  // `{ free: true }` bypasses fee & cooldown when explicitly requested
   const swFree = selectApotheosisPortfolio(god, 'order', { free: true });
   assert.equal(swFree.ok, true);
   assert.equal(god.apotheosis.portfolio, 'order');
@@ -345,8 +363,8 @@ test('Stage 2 Portfolio Faith: War, Shadows, and Order hooks (Bounties, Temples,
 test('Stage 2 Scroll of Aurbis: strict blacklist, itemBaseValue pricing, crisis/portal/living, and witness reactions', async () => {
   const orderGod = makeGod('order', { faith: 600 });
 
-  // 1. Forbidden commands (stats, skills, firmament, perks, lichdom, tgm, etc.) MUST be refused except `heal`
-  for (const bad of ['tgm', 'tcl', 'set_skill 12 100', 'set_attr strength 200', 'firmament add', 'perk unlock foo', 'prof set blacksmith 100', 'necro', 'lich', 'ancient_lich', 'set_max_magicka 999', 'set_fatigue 999', 'apo faith 1000', 'heal; tgm', 'additem elixirunlife']) {
+  // 1. Forbidden commands (stats, skills, firmament, perks, tgm, `necro test`, etc.) MUST be refused except allowed miracles
+  for (const bad of ['tgm', 'tcl', 'set_skill 12 100', 'set_attr strength 200', 'firmament add', 'perk unlock foo', 'prof set blacksmith 100', 'necro test', 'set_max_magicka 999', 'set_fatigue 999', 'apo faith 1000', 'heal; tgm']) {
     const ev = evaluateAurbisCommand(bad, orderGod);
     assert.equal(ev.allowed, false, `Command "${bad}" must be forbidden in Scroll of Aurbis`);
   }
@@ -564,5 +582,119 @@ test('Stage 2 bugfixes: divine weather override resists weatherMap/weatherField 
     assert.equal(pLive.apotheosis.debugWitnessCount, null);
   } finally {
     resetWeatherSim();
+  }
+});
+
+test('Stage 2 Miracles: `pacifyall` (+Order Faith), Lichdom decrees in Scroll of Aurbis, and Faith-scaled 24h Divine Champions', async () => {
+  try {
+    clearApotheosisChampions();
+
+    // 1. Lichdom commands allowed & properly priced/aligned in Scroll of Aurbis (`necro test` still forbidden)
+    const magicGod = makeGod('magic', { faith: 800 });
+    const lichEv = evaluateAurbisCommand('lich', magicGod, { witnessCount: 1 });
+    assert.equal(lichEv.allowed, true);
+    assert.equal(lichEv.faithCost, 400);
+    assert.equal(lichEv.alignment, 'aligned');
+
+    const ancLichEv = evaluateAurbisCommand('ancient_lich', magicGod);
+    assert.equal(ancLichEv.allowed, true);
+    assert.equal(ancLichEv.faithCost, 600);
+
+    const spellsEv = evaluateAurbisCommand('necro_spells', magicGod);
+    assert.equal(spellsEv.allowed, true);
+    assert.equal(spellsEv.faithCost, 250);
+
+    const elixirEv = evaluateAurbisCommand('additem elixir_unlife 2', magicGod);
+    assert.equal(elixirEv.allowed, true);
+    assert.equal(elixirEv.faithCost, 500);
+
+    const orderEvLich = evaluateAurbisCommand('lich', makeGod('order', { faith: 800 }), { witnessCount: 1 });
+    assert.equal(orderEvLich.allowed, true);
+    assert.equal(orderEvLich.alignment, 'opposed');
+
+    // 2. `pacifyall` pacifies without removing hostiles & grants Order Faith bonus (+20 if hostiles pacified, +10 if 0)
+    const orderGod = makeGod('order', { faith: 500 });
+    const pacRes = await executeAurbisCommand('pacifyall', orderGod, {
+      witnessCount: 0,
+      nowMinutes: 4000,
+      executeCommandFn: () => 'Pacified 3 hostile entities.',
+    });
+    assert.equal(pacRes.ok, true);
+    assert.equal(pacRes.faithSpent, 80);
+    assert.equal(pacRes.orderBonus, 20);
+    // 500 - 80 + 20 = 440
+    assert.equal(orderGod.apotheosis.faith, 440);
+
+    const calmRes = await executeAurbisCommand('pacifyall', orderGod, {
+      witnessCount: 0,
+      nowMinutes: 4000,
+      executeCommandFn: () => 'Calm radiates across the scene (0 active hostiles).',
+    });
+    assert.equal(calmRes.ok, true);
+    assert.equal(calmRes.orderBonus, 10);
+    // 440 - 80 + 10 = 370
+    assert.equal(orderGod.apotheosis.faith, 370);
+
+    // War god casting pacifyall in front of witnesses gets -20 opposed penalty and 0 Order bonus
+    const warGod = makeGod('war', { faith: 500 });
+    const warPac = await executeAurbisCommand('pacifyall', warGod, {
+      witnessCount: 2,
+      nowMinutes: 4000,
+      executeCommandFn: () => 'Pacified 2 hostile entities.',
+    });
+    assert.equal(warPac.ok, true);
+    assert.equal(warPac.orderBonus, 0);
+    assert.equal(warPac.witnessDelta, -20);
+    assert.equal(warGod.apotheosis.faith, 500 - 80 - 20);
+
+    // 3. Faith scaling strictly from cast-time Faith (Ranks I-V) & thematic per Portfolio
+    const rank1 = computeChampionFaithScaling(0);
+    assert.equal(rank1.rank, 1);
+    assert.equal(rank1.romanRank, 'I');
+    assert.equal(rank1.healthMult, 2.5);
+    assert.equal(rank1.damageScale, 1.375);
+
+    const rank5 = computeChampionFaithScaling(900);
+    assert.equal(rank5.rank, 5);
+    assert.equal(rank5.romanRank, 'V');
+    assert.equal(rank5.healthMult, 4.5);
+    assert.equal(rank5.damageScale, 1.875);
+
+    // Cast `summon_champions` (450 Faith) with 850 Faith -> captures cast-time Faith 850 (Rank V), NOT post-spend 400!
+    let castTimeFaithSeen = null;
+    const mageChampGod = makeGod('magic', { faith: 850 });
+    const partyRes = await executeAurbisCommand('summon_champions', mageChampGod, {
+      witnessCount: 0,
+      nowMinutes: 5000,
+      executeCommandFn: (cmd) => {
+        castTimeFaithSeen = mageChampGod._aurbisFaithAtCast;
+        assert.equal(cmd, 'summon_champions');
+        return summonApotheosisChampions(mageChampGod, 4, {
+          faithAtCast: mageChampGod._aurbisFaithAtCast,
+          nowMinutes: 5000,
+        }).message;
+      },
+    });
+    assert.equal(partyRes.ok, true);
+    assert.equal(castTimeFaithSeen, 850);
+    assert.equal(mageChampGod._aurbisFaithAtCast, undefined);
+    assert.equal(mageChampGod.apotheosis.faith, 400);
+
+    const activeParty = getActiveApotheosisChampions();
+    assert.equal(activeParty.length, 4);
+    assert.ok(activeParty.every((c) => c.portfolio === 'magic' && c.rank === 5 && c.healthMult === 4.5 && c.damageScale === 1.875));
+
+    // Before 24h: no expiration
+    const preExp = tickApotheosisChampions(5000 + APOTHEOSIS_CHAMPION_DURATION_MINUTES - 1);
+    assert.equal(preExp.expiredCount, 0);
+    assert.equal(getActiveApotheosisChampions().length, 4);
+
+    // At 24h (`1440` minutes): Champions return through portal & fire localized notice
+    const exp = tickApotheosisChampions(5000 + APOTHEOSIS_CHAMPION_DURATION_MINUTES);
+    assert.equal(exp.expiredCount, 4);
+    assert.ok(exp.notice && exp.notice.length > 0);
+    assert.equal(getActiveApotheosisChampions().length, 0);
+  } finally {
+    clearApotheosisChampions();
   }
 });

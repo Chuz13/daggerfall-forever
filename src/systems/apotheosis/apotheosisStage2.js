@@ -25,11 +25,16 @@ import {
 import { REGION_FLAGS } from '../region/regionConditions.js';
 import { registerSpellLandedListener } from '../spell/spellPower.js';
 import {
+  APOTHEOSIS_CHAMPION_DURATION_MINUTES,
   APOTHEOSIS_FAITH_BASE_MAX,
   APOTHEOSIS_INITIAL_FAITH,
   APOTHEOSIS_MYTHIC_DECAY_FLAT,
   APOTHEOSIS_PORTFOLIO_SWITCH_COST,
   APOTHEOSIS_REBIRTH_FAITH_COST,
+  CHAMPION_HEALTH,
+  CHAMPION_DAMAGE,
+  SWORN_HEALTH_PER_RANK,
+  SWORN_DAMAGE_PER_RANK,
   getAurbisRuntime,
   getFaithMax,
   isAscendedGod,
@@ -171,24 +176,6 @@ export const FORBIDDEN_AURBIS_COMMANDS = new Set([
   'profession',
   'addmats',
   'addspell',
-  'necro',
-  'necro_lich',
-  'necro_ancient_lich',
-  'lich',
-  'ancient_lich',
-  'ancientlich',
-  'necro_spells',
-  'necrospells',
-  'necro_disguise',
-  'necro_menu',
-  'necro_lose_control',
-  'lose_control',
-  'release_control',
-  'give_elixir',
-  'giveelixir',
-  'give_elixir_reagents',
-  'give_reagents',
-  'givereagents',
   'add_revenant',
   'addrevenant',
   'cheat_companion',
@@ -333,8 +320,29 @@ export const AURBIS_COMMAND_CATALOG = Object.freeze([
   },
   {
     category: 'combat_spawn',
-    categoryLabel: () => t('apotheosis.aurbis.cat.combatSpawn', 'Creatures & Judgment'),
+    categoryLabel: () => t('apotheosis.aurbis.cat.combatSpawn', 'Creatures, Champions & Judgment'),
     commands: [
+      {
+        cmd: 'summon_champion',
+        aliases: ['champion', 'apotheosis_champion'],
+        syntax: 'summon_champion',
+        costHint: '150 Faith',
+        desc: () => t('apotheosis.aurbis.cmd.summonChampion', 'Summon a thematic Divine Champion companion for 24h (scaled by Faith; follows across locations).'),
+      },
+      {
+        cmd: 'summon_champions',
+        aliases: ['champion_party', 'champions', 'summon_champion_party'],
+        syntax: 'summon_champions',
+        costHint: '450 Faith',
+        desc: () => t('apotheosis.aurbis.cmd.summonChampions', 'Summon a party of 4 thematic Divine Champions for 24h (scaled by Faith; follows across locations).'),
+      },
+      {
+        cmd: 'pacifyall',
+        aliases: ['pacify_all', 'pacify'],
+        syntax: 'pacifyall',
+        costHint: '80 Faith (+Order)',
+        desc: () => t('apotheosis.aurbis.cmd.pacifyall', 'Calm all hostile enemies on the map without harming or removing them.'),
+      },
       {
         cmd: 'spawnfoe',
         aliases: ['spawn', 'necro_spawn', 'necro_corpse'],
@@ -348,6 +356,40 @@ export const AURBIS_COMMAND_CATALOG = Object.freeze([
         syntax: 'killall | kill [target]',
         costHint: '80-150 Faith',
         desc: () => t('apotheosis.aurbis.cmd.killall', 'Strike down hostile creatures with heavenly wrath.'),
+      },
+    ],
+  },
+  {
+    category: 'undeath_lich',
+    categoryLabel: () => t('apotheosis.aurbis.cat.lichdom', 'Lichdom & Necromancy'),
+    commands: [
+      {
+        cmd: 'lich',
+        aliases: ['necro_lich', 'necro lich'],
+        syntax: 'lich [on|off]',
+        costHint: '400 Faith (100 off)',
+        desc: () => t('apotheosis.aurbis.cmd.lich', 'Embrace or shed immortal Lichdom directly.'),
+      },
+      {
+        cmd: 'ancient_lich',
+        aliases: ['ancientlich', 'necro_ancient_lich', 'necro ancient_lich'],
+        syntax: 'ancient_lich [on|off]',
+        costHint: '600 Faith (100 off)',
+        desc: () => t('apotheosis.aurbis.cmd.ancientLich', 'Ascend into or shed Ancient Lichdom.'),
+      },
+      {
+        cmd: 'necro_spells',
+        aliases: ['necrospells'],
+        syntax: 'necro_spells',
+        costHint: '250 Faith',
+        desc: () => t('apotheosis.aurbis.cmd.necroSpells', 'Inscribe the full Necromancy & Lichdom spell suite into your spellbook.'),
+      },
+      {
+        cmd: 'necro',
+        aliases: ['necro_disguise', 'necro_spawn', 'necro_menu', 'give_elixir', 'give_reagents'],
+        syntax: 'necro <status|disguise [on|off]|spawn <type>|minions|elixir|menu>',
+        costHint: '0-250 Faith',
+        desc: () => t('apotheosis.aurbis.cmd.necro', 'Command undead minions, mortal disguise, Lich elixirs, and occult status.'),
       },
     ],
   },
@@ -493,12 +535,243 @@ export function spendApotheosisFaith(entity, amount, { reason = '' } = {}) {
   };
 }
 
+// ── DIVINE CHAMPIONS (PORTFOLIO-THEMATIC FAITH-SCALED COMPANIONS) ──────────────
+
+export const APOTHEOSIS_CHAMPION_TEMPLATES = Object.freeze({
+  war: Object.freeze([
+    Object.freeze({ roleId: 'war_1', title: 'Warlord of the Crimson Host', mobile: MOBILE_TYPES.Warrior, gender: 'male' }),
+    Object.freeze({ roleId: 'war_2', title: 'Vanguard Berserker', mobile: MOBILE_TYPES.Barbarian, gender: 'female' }),
+    Object.freeze({ roleId: 'war_3', title: 'Dreadnought War-Knight', mobile: MOBILE_TYPES.Knight, gender: 'male' }),
+    Object.freeze({ roleId: 'war_4', title: 'Blood-Sworn Marksman', mobile: MOBILE_TYPES.Archer, gender: 'female' }),
+  ]),
+  magic: Object.freeze([
+    Object.freeze({ roleId: 'magic_1', title: 'Archon of Aetherius', mobile: MOBILE_TYPES.Battlemage, gender: 'female' }),
+    Object.freeze({ roleId: 'magic_2', title: 'Magus of the Starlight Weave', mobile: MOBILE_TYPES.Mage, gender: 'male' }),
+    Object.freeze({ roleId: 'magic_3', title: 'Aetherial Sorcerer', mobile: MOBILE_TYPES.Sorcerer, gender: 'female' }),
+    Object.freeze({ roleId: 'magic_4', title: 'Planar Spellsword', mobile: MOBILE_TYPES.Spellsword, gender: 'male' }),
+  ]),
+  shadows: Object.freeze([
+    Object.freeze({ roleId: 'shadows_1', title: 'Sovereign Nightblade', mobile: MOBILE_TYPES.Nightblade, gender: 'female' }),
+    Object.freeze({ roleId: 'shadows_2', title: 'Silent Hand Assassin', mobile: MOBILE_TYPES.Assassin, gender: 'male' }),
+    Object.freeze({ roleId: 'shadows_3', title: 'Twilight Stalker', mobile: MOBILE_TYPES.Rogue, gender: 'female' }),
+    Object.freeze({ roleId: 'shadows_4', title: 'Veil-Piercer Ranger', mobile: MOBILE_TYPES.Ranger, gender: 'male' }),
+  ]),
+  order: Object.freeze([
+    Object.freeze({ roleId: 'order_1', title: 'Justiciar of the Eternal Law', mobile: MOBILE_TYPES.Knight, gender: 'male' }),
+    Object.freeze({ roleId: 'order_2', title: 'Templar of the Golden Ward', mobile: MOBILE_TYPES.Healer, gender: 'female' }),
+    Object.freeze({ roleId: 'order_3', title: 'Aegis Sentinel', mobile: MOBILE_TYPES.Monk, gender: 'male' }),
+    Object.freeze({ roleId: 'order_4', title: 'Inquisitor of Mundus', mobile: MOBILE_TYPES.Spellsword, gender: 'female' }),
+  ]),
+});
+
+const ROMAN_RANKS = ['I', 'II', 'III', 'IV', 'V'];
+
+/**
+ * Computes Champion power scaling directly from Faith at cast time, strictly
+ * reusing existing `CHAMPION_HEALTH`, `CHAMPION_DAMAGE`, `SWORN_HEALTH_PER_RANK`,
+ * and `SWORN_DAMAGE_PER_RANK` multipliers.
+ */
+export function computeChampionFaithScaling(faithAtCast = 0) {
+  const safeFaith = Math.max(0, Number(faithAtCast) || 0);
+  const rank = Math.max(1, Math.min(5, 1 + Math.floor(safeFaith / 200)));
+  const healthMult = Number((CHAMPION_HEALTH * (1 + SWORN_HEALTH_PER_RANK * rank)).toFixed(3));
+  const damageScale = Number((CHAMPION_DAMAGE * (1 + SWORN_DAMAGE_PER_RANK * rank)).toFixed(3));
+  return {
+    faithAtCast: safeFaith,
+    rank,
+    romanRank: ROMAN_RANKS[rank - 1] ?? String(rank),
+    healthMult,
+    damageScale,
+  };
+}
+
+/**
+ * Applies Faith-scaled Champion strength onto a spawned 3D entity, matching
+ * `revenantCompanions.js` (`applySwornStrength`) and `champions.js` (`applyChampion`).
+ */
+export function applyApotheosisChampionStrength(entity, champRecord, { fresh = true } = {}) {
+  if (!entity || !champRecord) return;
+  const hpMult = Number(champRecord.healthMult) > 0 ? Number(champRecord.healthMult) : 2.5;
+  const dmgMult = Number(champRecord.damageScale) > 0 ? Number(champRecord.damageScale) : 1.375;
+  if (fresh && !entity._apotheosisChampionScaled) {
+    entity._apotheosisChampionScaled = true;
+    entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 100) * hpMult));
+    entity.healthMult = (entity.healthMult ?? 1) * hpMult;
+    entity.health = entity.maxHealth;
+    if (entity.stats && (champRecord.rank || 0) > 1) {
+      entity.stats.speed = Math.min(100, (entity.stats.speed ?? 50) + (champRecord.rank || 1) * 5);
+    }
+  } else if (!Number.isFinite(entity._apotheosisChampionWhole)) {
+    entity.healthMult = (entity.healthMult ?? 1) * hpMult;
+  }
+  entity._apotheosisChampionWhole = hpMult;
+  entity.damageScale = dmgMult;
+  entity.team = 'PlayerAlly';
+  entity.mobileTeam = 'PlayerAlly';
+  entity.name = champRecord.title || champRecord.name;
+}
+
+/** @type {Array<object>} */
+const _activeChampions = [];
+let _championIdCounter = 1;
+let _championExpiredHook = null;
+
+/** Registers host notification callback invoked when summoned Champions expire after 24h. */
+export function setApotheosisChampionExpiredHook(fn) {
+  _championExpiredHook = typeof fn === 'function' ? fn : null;
+}
+
+/** Returns currently active summoned Divine Champions. */
+export function getActiveApotheosisChampions() {
+  return _activeChampions.filter((c) => !c.dead && !c.expired);
+}
+
+/** Clears all active summoned Divine Champions (used on reset/tests or dismiss). */
+export function clearApotheosisChampions() {
+  for (const c of _activeChampions) c.expired = true;
+  _activeChampions.length = 0;
+}
+
+/** Summons 1 (or 4 for a party) thematic Divine Champions scaled from Faith at cast time for 24h (1440m). */
+export function summonApotheosisChampions(playerEntity, count = 1, { faithAtCast = null, nowMinutes = null } = {}) {
+  const apo = normalizeStage2Fields(playerEntity);
+  const portfolio = APOTHEOSIS_CHAMPION_TEMPLATES[apo?.portfolio] ? apo.portfolio : 'war';
+  const templates = APOTHEOSIS_CHAMPION_TEMPLATES[portfolio];
+  const n = Math.max(1, Math.min(templates.length, Math.trunc(Number(count) || 1)));
+
+  const resolvedFaith = faithAtCast != null && Number.isFinite(Number(faithAtCast))
+    ? Number(faithAtCast)
+    : Number(apo?.faith ?? APOTHEOSIS_INITIAL_FAITH);
+  const resolvedNow = nowMinutes != null && Number.isFinite(Number(nowMinutes))
+    ? Math.trunc(Number(nowMinutes))
+    : (playerEntity?._lastWorldMinutes != null && Number.isFinite(Number(playerEntity._lastWorldMinutes))
+      ? Math.trunc(Number(playerEntity._lastWorldMinutes))
+      : Math.trunc(Number(getAurbisRuntime()?.getWorldMinutes?.() ?? 0) || 0));
+
+  const scaling = computeChampionFaithScaling(resolvedFaith);
+  const expiresAtMinutes = resolvedNow + APOTHEOSIS_CHAMPION_DURATION_MINUTES;
+
+  // Replace previous Champion summon batch cleanly so the party stays thematic to current Portfolio & Rank.
+  clearApotheosisChampions();
+
+  const summoned = [];
+  for (let i = 0; i < n; i++) {
+    const tpl = templates[i % templates.length];
+    const id = `apochamp_${Date.now().toString(36)}_${_championIdCounter++}`;
+    const rec = {
+      id,
+      key: `apochamp:${id}`,
+      boat: 'apochamp',
+      name: id,
+      roleId: tpl.roleId,
+      title: `${tpl.title} (Rank ${scaling.romanRank})`,
+      portfolio,
+      mobile: tpl.mobile,
+      gender: tpl.gender,
+      health: null,
+      maxHealth: null,
+      faithAtCast: scaling.faithAtCast,
+      rank: scaling.rank,
+      romanRank: scaling.romanRank,
+      healthMult: scaling.healthMult,
+      damageScale: scaling.damageScale,
+      summonedAtMinutes: resolvedNow,
+      expiresAtMinutes,
+      stance: 'follow',
+      dead: false,
+      expired: false,
+    };
+    _activeChampions.push(rec);
+    summoned.push(rec);
+  }
+
+  const summaryNames = summoned.map((c) => c.title).join(', ');
+  const message = n === 1
+    ? `Divine Champion ${summaryNames} steps forth from Aetherius for 24 hours (HP x${scaling.healthMult}, DMG x${scaling.damageScale}).`
+    : `Divine Champion Party (${n}) steps forth from Aetherius for 24 hours (Rank ${scaling.romanRank}: HP x${scaling.healthMult}, DMG x${scaling.damageScale}): ${summaryNames}.`;
+
+  return {
+    ok: true,
+    count: summoned.length,
+    portfolio,
+    scaling,
+    expiresAtMinutes,
+    champions: summoned,
+    message,
+  };
+}
+
+/** Checks 24h expiry on active Divine Champions and fires localized notification on departure. */
+export function tickApotheosisChampions(nowMinutes = 0, { onExpired = null } = {}) {
+  if (!Number.isFinite(Number(nowMinutes)) || _activeChampions.length === 0) {
+    return { expiredCount: 0, expired: [], notice: null };
+  }
+  const now = Math.trunc(Number(nowMinutes));
+  const expired = [];
+  for (let i = _activeChampions.length - 1; i >= 0; i--) {
+    const c = _activeChampions[i];
+    if (c.dead || c.expired || now >= c.expiresAtMinutes) {
+      const timedOut = !c.dead && now >= c.expiresAtMinutes;
+      c.expired = true;
+      _activeChampions.splice(i, 1);
+      if (timedOut) expired.push(c);
+    }
+  }
+  if (expired.length === 0) {
+    return { expiredCount: 0, expired: [], notice: null };
+  }
+  const notice = t(
+    'apotheosis.champion.expired',
+    "Your Divine Champion's 24-hour covenant has ended; they step back through the portal into Aetherius.",
+  );
+  try {
+    onExpired?.(notice, expired);
+  } catch { /* ignore */ }
+  try {
+    _championExpiredHook?.(notice, expired);
+  } catch { /* ignore */ }
+  return { expiredCount: expired.length, expired, notice };
+}
+
+/** `createCrewAshore` party adapter for summoned Divine Champions (portal arrival/exit & door persistence). */
+export const apotheosisChampionParty = {
+  get party() {
+    return _activeChampions.filter((c) => !c.dead && !c.expired);
+  },
+  wake(now) {
+    tickApotheosisChampions(now);
+  },
+  isAshore(_boat, name) {
+    return _activeChampions.some((c) => !c.dead && !c.expired && (c.name === name || c.id === name || c.key === `apochamp:${name}`));
+  },
+  knock(_boat, name) {
+    const c = _activeChampions.find((m) => m.name === name || m.id === name || m.key === `apochamp:${name}`);
+    if (c) {
+      c.dead = true;
+      c.expired = true;
+    }
+    return true;
+  },
+  hurt(_boat, name, hp, maxHp) {
+    const c = _activeChampions.find((m) => m.name === name || m.id === name || m.key === `apochamp:${name}`);
+    if (c) {
+      c.health = hp;
+      c.maxHealth = maxHp;
+      if (hp <= 0) {
+        c.dead = true;
+        c.expired = true;
+      }
+    }
+  },
+};
+
 /**
  * Applies flat daily Mythic Decay (-15 Faith per idle day) when an ascended god goes
  * a game day without earning Faith in their Portfolio, plus passive Order stewardship
  * if lawful in their current region (`bounty === 0 && legalRep >= 15`).
  */
 export function tickApotheosisMythicDecay(entity, nowMinutes = 0, { daysOverride = null } = {}) {
+  tickApotheosisChampions(nowMinutes);
   const apo = normalizeStage2Fields(entity);
   if (!apo || !isAscendedGod(entity)) {
     return { decayedDays: 0, faithLost: 0, orderBonus: 0, netDelta: 0, faithBefore: apo?.faith ?? 0, faithAfter: apo?.faith ?? 0 };
@@ -838,10 +1111,16 @@ function estimateAddItemPricing(args = []) {
   }
   const firstClean = String(args[0]).toLowerCase().replace(/[\s_-]/g, '');
   if (firstClean === 'elixirunlife' || firstClean === 'elixirofunlife' || firstClean === 'lichingredients' || firstClean === 'elixirreagents') {
+    const countArg = args[1] && /^\d+$/.test(String(args[1]))
+      ? Math.max(1, Math.min(20, parseInt(args[1], 10) || 1))
+      : 1;
     return {
-      ok: false,
-      forbidden: true,
-      error: t('apotheosis.aurbis.err.forbiddenLich', 'Ascended Lichdom rituals cannot be conjured through the Scroll of Aurbis.'),
+      ok: true,
+      faithCost: 250 * countArg,
+      itemName: String(args[0]),
+      unitGold: 2500,
+      totalGold: 2500 * countArg,
+      count: countArg,
     };
   }
 
@@ -932,22 +1211,64 @@ export function getSpawnCreatureFaithCost(mobileArg) {
   return 50;
 }
 
+function isLichMiracleCommand(cmd, sub = '') {
+  if (
+    cmd === 'lich' ||
+    cmd === 'ancient_lich' ||
+    cmd === 'ancientlich' ||
+    cmd === 'necro_lich' ||
+    cmd === 'necro_ancient_lich' ||
+    cmd === 'necro_spells' ||
+    cmd === 'necrospells' ||
+    cmd === 'necro_disguise' ||
+    cmd === 'necro_spawn' ||
+    cmd === 'give_elixir' ||
+    cmd === 'giveelixir' ||
+    cmd === 'give_elixir_reagents' ||
+    cmd === 'give_reagents' ||
+    cmd === 'givereagents'
+  ) {
+    return true;
+  }
+  if (cmd === 'necro') {
+    return !['status', 'menu', 'clear', 'dismiss', 'lose_control', 'release_control'].includes(sub);
+  }
+  if (cmd === 'additem' || cmd === 'item') {
+    const clean = String(sub || '').toLowerCase().replace(/[\s_-]/g, '');
+    return clean === 'elixirunlife' || clean === 'elixirofunlife' || clean === 'lichingredients' || clean === 'elixirreagents';
+  }
+  return false;
+}
+
 /**
  * Classifies whether a miracle is aligned (+bonus) or opposed (-penalty) to the god's Portfolio
  * when cast in view of witnesses (`witnessCount > 0`).
  */
 export function classifyMiraclePortfolioAlignment(portfolio, cmd, args = []) {
   if (!portfolio || !cmd) return 'neutral';
+  if (
+    cmd === 'summon_champion' ||
+    cmd === 'champion' ||
+    cmd === 'apotheosis_champion' ||
+    cmd === 'summon_champions' ||
+    cmd === 'champion_party' ||
+    cmd === 'champions' ||
+    cmd === 'summon_champion_party'
+  ) {
+    return 'aligned';
+  }
   const sub = String(args[0] ?? '').toLowerCase();
   const arg1 = String(args[1] ?? '').toLowerCase();
+  const isPacify = cmd === 'pacifyall' || cmd === 'pacify_all' || cmd === 'pacify';
+  const isLich = isLichMiracleCommand(cmd, sub);
 
   if (portfolio === 'order') {
-    if (cmd === 'heal' || cmd === 'player_heal' || cmd === 'legalrep') return 'aligned';
+    if (cmd === 'heal' || cmd === 'player_heal' || cmd === 'legalrep' || isPacify) return 'aligned';
     if (cmd === 'bounty' && sub === 'clear') return 'aligned';
     if (cmd === 'bounty' && sub === 'set') return 'opposed';
     if (cmd === 'crisis' && sub === 'stop') return 'aligned';
     if ((cmd === 'weather' || cmd === 'set_weather') && (sub === '0' || sub === '1' || sub === 'sunny' || sub === 'cloudy')) return 'aligned';
-    if (cmd === 'killall' || cmd === 'kill' || cmd === 'spawn' || cmd === 'spawnfoe' || cmd === 'necro_spawn') return 'opposed';
+    if (cmd === 'killall' || cmd === 'kill' || cmd === 'spawn' || cmd === 'spawnfoe' || isLich) return 'opposed';
     if (cmd === 'crisis' && sub === 'start') return 'opposed';
     return 'neutral';
   }
@@ -956,12 +1277,12 @@ export function classifyMiraclePortfolioAlignment(portfolio, cmd, args = []) {
     if (cmd === 'killall' || cmd === 'kill' || cmd === 'spawn' || cmd === 'spawnfoe' || cmd === 'encounter' || cmd === 'give_dragon' || cmd === 'givedragon' || cmd === 'dragon_mount' || cmd === 'dragon' || cmd === 'dragon_ride') return 'aligned';
     if (cmd === 'crisis' && sub === 'start' && arg1 === 'war') return 'aligned';
     if (cmd === 'crisis' && sub === 'stop' && (!arg1 || arg1 === 'war')) return 'opposed';
-    if (cmd === 'bounty' && sub === 'clear') return 'opposed';
+    if ((cmd === 'bounty' && sub === 'clear') || isPacify) return 'opposed';
     return 'neutral';
   }
 
   if (portfolio === 'magic') {
-    if (cmd === 'portal' || cmd === 'tele2loc' || cmd === 'teleport' || cmd === 'tp' || cmd === '/tp' || cmd === 'weather' || cmd === 'set_weather' || cmd === 'time' || cmd === 'set_time' || cmd === 'advance_time' || cmd === 'advancetime' || cmd === 'pass_time' || cmd === 'passtime' || cmd === 'advance_days' || cmd === 'advancedays' || cmd === 'pass_days' || cmd === 'map_revealall' || cmd === 'map_reveallocations' || cmd === 'map_reveallocation' || cmd === 'give_grimoire' || cmd === 'givegrimoire') {
+    if (cmd === 'portal' || cmd === 'tele2loc' || cmd === 'teleport' || cmd === 'tp' || cmd === '/tp' || cmd === 'weather' || cmd === 'set_weather' || cmd === 'time' || cmd === 'set_time' || cmd === 'advance_time' || cmd === 'advancetime' || cmd === 'pass_time' || cmd === 'passtime' || cmd === 'advance_days' || cmd === 'advancedays' || cmd === 'pass_days' || cmd === 'map_revealall' || cmd === 'map_reveallocations' || cmd === 'map_reveallocation' || cmd === 'give_grimoire' || cmd === 'givegrimoire' || isLich) {
       return 'aligned';
     }
     return 'neutral';
@@ -971,6 +1292,7 @@ export function classifyMiraclePortfolioAlignment(portfolio, cmd, args = []) {
     if ((cmd === 'weather' || cmd === 'set_weather') && (sub === '3' || sub === 'fog')) return 'aligned';
     if ((cmd === 'time' || cmd === 'set_time') && (parseInt(sub, 10) >= 20 || (parseInt(sub, 10) >= 0 && parseInt(sub, 10) <= 5))) return 'aligned';
     if (cmd === 'bounty' && sub === 'clear') return 'aligned';
+    if (isLich) return 'aligned';
     if (cmd === 'killall' || cmd === 'spawn' || cmd === 'spawnfoe' || (cmd === 'crisis' && sub === 'start') || cmd === 'give_dragon' || cmd === 'dragon' || cmd === 'dragon_ride') {
       return 'opposed';
     }
@@ -1080,12 +1402,30 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
       reason: t('apotheosis.aurbis.err.forbidden', '"{cmd}" alters mortal vessel laws or engine cheats and is forbidden in the Scroll of Aurbis.', { cmd }),
     };
   }
+  if (cmd === 'necro' && String(args[0] ?? '').toLowerCase() === 'test') {
+    return {
+      allowed: false,
+      forbidden: true,
+      cmd,
+      args,
+      faithCost: 0,
+      witnessDelta: 0,
+      alignment: 'neutral',
+      reason: t('apotheosis.aurbis.err.forbidden', '"{cmd}" alters mortal vessel laws or engine cheats and is forbidden in the Scroll of Aurbis.', { cmd: 'necro test' }),
+    };
+  }
 
   let faithCost = null;
   let errorReason = '';
 
   if (cmd === 'heal' || cmd === 'player_heal') {
     faithCost = 40;
+  } else if (cmd === 'pacifyall' || cmd === 'pacify_all' || cmd === 'pacify') {
+    faithCost = 80;
+  } else if (cmd === 'summon_champion' || cmd === 'champion' || cmd === 'apotheosis_champion') {
+    faithCost = 150;
+  } else if (cmd === 'summon_champions' || cmd === 'champion_party' || cmd === 'champions' || cmd === 'summon_champion_party') {
+    faithCost = 450;
   } else if (cmd === 'portal') {
     faithCost = AURBIS_PORTAL_FAITH_COST;
   } else if (cmd === 'additem' || cmd === 'item') {
@@ -1150,9 +1490,49 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
       faithCost = unitCost * count;
     }
   } else if (cmd === 'necro_spawn') {
-    faithCost = 60;
+    const kind = String(args[0] ?? '').toLowerCase();
+    if (kind === 'list' || kind === 'clear' || kind === 'dismiss') faithCost = 0;
+    else faithCost = (kind === 'lich' || kind === 'ancient_lich' || kind === 'ancientlich') ? 250 : 150;
   } else if (cmd === 'necro_corpse') {
-    faithCost = 30;
+    faithCost = 60;
+  } else if (cmd === 'lich' || cmd === 'necro_lich') {
+    const sub = String(args[0] ?? '').toLowerCase();
+    const off = sub === 'off' || sub === 'false' || sub === '0';
+    faithCost = off ? 100 : 400;
+  } else if (cmd === 'ancient_lich' || cmd === 'ancientlich' || cmd === 'necro_ancient_lich') {
+    const sub = String(args[0] ?? '').toLowerCase();
+    const off = sub === 'off' || sub === 'false' || sub === '0';
+    faithCost = off ? 100 : 600;
+  } else if (cmd === 'necro_spells' || cmd === 'necrospells') {
+    faithCost = 250;
+  } else if (cmd === 'necro_disguise') {
+    faithCost = 80;
+  } else if (cmd === 'necro_menu' || cmd === 'necro_lose_control' || cmd === 'lose_control' || cmd === 'release_control') {
+    faithCost = 0;
+  } else if (cmd === 'give_elixir' || cmd === 'giveelixir' || cmd === 'give_elixir_reagents' || cmd === 'give_reagents' || cmd === 'givereagents') {
+    faithCost = 250;
+  } else if (cmd === 'necro') {
+    const sub = String(args[0] ?? '').toLowerCase();
+    const arg1 = String(args[1] ?? '').toLowerCase();
+    if (!sub || sub === 'status' || sub === 'menu' || sub === 'lose_control' || sub === 'release_control') {
+      faithCost = 0;
+    } else if (sub === 'lich') {
+      const off = arg1 === 'off' || arg1 === 'false' || arg1 === '0';
+      faithCost = off ? 100 : 400;
+    } else if (sub === 'ancient_lich' || sub === 'ancientlich') {
+      const off = arg1 === 'off' || arg1 === 'false' || arg1 === '0';
+      faithCost = off ? 100 : 600;
+    } else if (sub === 'disguise') {
+      faithCost = 80;
+    } else if (sub === 'elixir') {
+      faithCost = 250;
+    } else if (sub === 'spawn' || sub === 'minions') {
+      if (!arg1 || arg1 === 'list' || arg1 === 'clear' || arg1 === 'dismiss') faithCost = 0;
+      else if (arg1 === 'lich' || arg1 === 'ancient_lich' || arg1 === 'ancientlich') faithCost = 250;
+      else faithCost = 150;
+    } else {
+      faithCost = 100;
+    }
   } else if (cmd === 'encounter') {
     faithCost = 75;
   } else if (cmd === 'killall') {
@@ -1385,6 +1765,7 @@ export async function executeAurbisCommand(rawLine, entity, {
 
   let output = '';
   try {
+    entity._aurbisFaithAtCast = faithBefore;
     const rawOut = await exec(evaluation.cmd, evaluation.args);
     output = rawOut == null ? '' : String(rawOut);
   } catch (err) {
@@ -1396,6 +1777,8 @@ export async function executeAurbisCommand(rawLine, entity, {
       newFaith: apo.faith,
       evaluation,
     };
+  } finally {
+    delete entity._aurbisFaithAtCast;
   }
 
   if (/^(?:unknown\b|usage:|error:|err:|failed\b|unable to\b|cannot\b|can't\b|invalid\b|not found\b|item not found\b|no active\b|no region\b|unavailable\b|no such\b)/i.test(output.trim())) {
@@ -1420,15 +1803,31 @@ export async function executeAurbisCommand(rawLine, entity, {
     witnessAlignment = wRes.alignment;
   }
 
+  let orderBonus = 0;
+  if (
+    (evaluation.cmd === 'pacifyall' || evaluation.cmd === 'pacify_all' || evaluation.cmd === 'pacify') &&
+    apo.portfolio === 'order'
+  ) {
+    const match = output.match(/(\d+)/);
+    const pacifiedCount = match ? parseInt(match[1], 10) : 0;
+    const bonusAmt = pacifiedCount > 0 ? 20 : 10;
+    const bonusRes = addApotheosisFaith(entity, bonusAmt, {
+      reason: 'order_pacify_miracle',
+      nowMinutes: effectiveNow,
+    });
+    orderBonus = bonusRes.added;
+  }
+
   return {
     ok: true,
     cmd: evaluation.cmd,
     args: evaluation.args,
-    output,
+    output: orderBonus > 0 ? `${output} (+${orderBonus} Order Faith)`.trim() : output,
     faithSpent: evaluation.faithCost,
     witnessCount: resolvedWitnesses,
     witnessDelta,
     witnessAlignment,
+    orderBonus,
     newFaith: apo.faith,
     faithMax: getFaithMax(apo),
     evaluation,

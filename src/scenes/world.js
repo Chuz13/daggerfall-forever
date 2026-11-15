@@ -423,6 +423,9 @@ import {
   advanceApotheosisQuestStep,
   resetApotheosisForDebug,
   setMantellanCruxPresenceChecker,
+  apotheosisChampionParty,
+  applyApotheosisChampionStrength,
+  setApotheosisChampionExpiredHook,
 } from '../systems/apotheosis/apotheosisCore.js';
 import { setApotheosisRebirthHook, setApotheosisRebirthFailedHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
 import {
@@ -7617,7 +7620,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     visit: { may: (t) => caravanVisitMay(t), enter: (t) => caravanVisitEnter(t) },   // WAGONS2-VISIT: another's caravan, open to me
     horses: () => horseCountOf(playerEntity.items ?? []),   // WAGONS3: my parked pair keeps its second horse while I own two
     playerCapsule: () => (walkMode && playerSpawned ? { feet: player.pos, height: player.height, radius: CAPSULE_RADIUS } : null),   // WAGONS3: my parked wagon's box never stands round me
-    bodyCapsules: () => [...crewAshore.capsules(), ...revenantAshore.capsules()],   // FIELD BUGS 2026-10-18 WAGON-ALIGHT: nor round my companions (both layers stand below; the pool steps only once frames run)
+    bodyCapsules: () => [...crewAshore.capsules(), ...revenantAshore.capsules(), ...championAshore.capsules()],   // FIELD BUGS 2026-10-18 WAGON-ALIGHT: nor round my companions (both layers stand below; the pool steps only once frames run)
     renderShift: () => { if (!walkMode || !playerSpawned) return null; const f = player.feetAt(); return [f[0] - player.pos[0], 0, f[2] - player.pos[2]]; },   // WAGONS3: my driven wagon drawn where I am drawn
     peerAnchor: (id) => { const sh = _peerMapPoses.get(id); return sh && (sh.rd | 0) === 2 ? onlineToScene(sh) : null; },   // AUDIT HCC O5: the change key in the wire frame (campToWire is the pose's law, declared with the stream below; read only once frames run); WAGON-HITCH: where another player's cart rider stands as drawn this frame (`rd` 2, the cart - the pose peerRiders stands them on, boat-adjusted; the online frame fills the map before the pool steps), so their trailing wagon hangs from the rider seen here rather than easing apart from it
   });
@@ -10634,6 +10637,112 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
   });
 
+  setApotheosisChampionExpiredHook((msg) => {
+    if (msg) townTalk?.say?.(msg);
+  });
+
+  const isHostileToChampions = (f, selfRec) =>
+    !!f &&
+    !f.dead &&
+    f !== selfRec &&
+    !f._pacifiedByOrder &&
+    !f.allied &&
+    f.companion == null &&
+    !f.puppet &&
+    f.livingRole !== 'apotheosis_champion' &&
+    f.livingRole !== 'undead_minion' &&
+    (f.entity?.health ?? 1) > 0 &&
+    f.entity?.team !== 'PlayerAlly' &&
+    f.entity?.mobileTeam !== 'PlayerAlly' &&
+    f.entity?.team !== 'Neutral' &&
+    f.entity?.mobileTeam !== 'Neutral' &&
+    f.ai?.isHostile !== false;
+
+  const championAshore = createCrewAshore({
+    party: () => (playerSpawned ? apotheosisChampionParty : null),
+    place: () => companionPlace({ crew: false }),
+    leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),
+    now: () => Math.floor(playerTicker.ownMinutes),
+    onKnocked: (c) => {
+      c.dead = true;
+      townTalk?.say?.(`${c.title ?? 'Your Divine Champion'} falls and returns to Aetherius.`);
+    },
+    onStood: (c, rec) => {
+      rec.livingRole = 'apotheosis_champion';
+      rec.shipmate = true;
+      rec.apotheosisChampion = c.id;
+      applyApotheosisChampionStrength(rec.entity, c, { fresh: !(c.maxHealth > 0) });
+      if (rec.ai) {
+        rec.ai.isHostile = false;
+        rec.ai.target = null;
+        rec.ai.secondaryTarget = null;
+        rec.ai.giveUpTimer = 0;
+      }
+    },
+    follow: (c, rec, i, defFollow) => {
+      const hasTgt = isHostileToChampions(rec.ai?.target, rec);
+      return hasTgt ? null : defFollow;
+    },
+    onFrame: (c, rec) => {
+      if (rec.entity) {
+        rec.entity.team = 'PlayerAlly';
+        rec.entity.mobileTeam = 'PlayerAlly';
+      }
+      if (!rec.ai) return;
+      rec.ai.canAct = true;
+      if (!isHostileToChampions(rec.ai.target, rec)) {
+        rec.ai.target = null;
+        rec.ai.secondaryTarget = null;
+      }
+      if (!rec.ai.target) {
+        const pFeet = walkMode && playerSpawned ? player.pos : cam.pos;
+        const activePoolFoes =
+          (modes?.mode === 'dungeon'
+            ? modes?.dungeonCtx?.foes
+            : modes?.mode === 'interior'
+              ? modes?.interiorFoes?.foes
+              : exteriorFoes?.foes) ?? exteriorFoes?.foes ?? [];
+        let nearest = null;
+        let nearestDist = 35;
+        for (const f of activePoolFoes) {
+          if (!isHostileToChampions(f, rec)) continue;
+          const ff = f.ai?.feet ?? f.pos;
+          if (!ff) continue;
+          const dist = Math.hypot(ff[0] - pFeet[0], ff[2] - pFeet[2]);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearest = f;
+          }
+        }
+        if (nearest) {
+          const nf = nearest.ai?.feet ?? nearest.pos;
+          if (typeof rec.ai.makeEnemyHostileToAttacker === 'function') {
+            rec.ai.makeEnemyHostileToAttacker(nearest, nf, 9999);
+          }
+          rec.ai.target = nearest;
+          rec.ai.secondaryTarget = nearest;
+          rec.ai.targetSenses = nearest;
+          rec.ai._armedTargeting = true;
+          rec.ai.inSight = true;
+          rec.ai.detected = true;
+          rec.ai.giveUpTimer = 9999;
+          rec.ai.follow = null;
+          rec.ai.isHostile = false;
+          rec.ai.moving = true;
+          if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();
+        } else {
+          rec.ai.follow = { feet: () => (walkMode && playerSpawned ? player.pos : cam.pos), stop: 2.0 };
+          rec.ai.isHostile = false;
+        }
+      } else {
+        rec.ai._armedTargeting = true;
+        rec.ai.follow = null;
+        rec.ai.isHostile = false;
+        rec.ai.moving = true;
+      }
+    },
+  });
+
   const _undeadMinionFoes = new Set();
 
   function turnMinionHostile(rec, minionRecord = null) {
@@ -11286,14 +11395,25 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT WK-U5: none while I sail - the party is lifted aboard (it stood its cards over the ship's plate on a phone)
     const party = navalOn() && !csaRuntime?.isSailing?.() ? naval?.companions?.party ?? [] : [];
     const sworn = swornCards?.() ?? [];   // REVENANT-COMPANION: the sworn's cards after the crew's
-    if (!party.length) return sworn;
+    const champs = championCards?.() ?? [];
+    if (!party.length) return [...sworn, ...champs];
     const bodies = new Map(crewAshore.bodies().map((r) => [r.companion, r]));
     return [...party.map((c) => {
       const key = `${c.boat}:${c.name}`, rec = bodies.get(key);
       const e = rec && !rec.dead ? rec.entity : null;
       const hm = e?.maxHealth ?? c.maxHealth ?? 100, h = e ? e.health : c.health ?? hm;
       return { key, name: c.name, role: c.role, h, hm, fx: e ? composePartyFx(e) : [] };
-    }), ...sworn];
+    }), ...sworn, ...champs];
+  }
+  function championCards() {
+    if (csaRuntime?.isSailing?.()) return [];
+    const bodies = new Map(championAshore.bodies().map((r) => [r.companion, r]));
+    return (apotheosisChampionParty.party ?? []).map((c) => {
+      const key = c.key ?? `apochamp:${c.id}`, rec = bodies.get(key);
+      const body = rec && !rec.dead ? rec.entity : null;
+      const hm = body?.maxHealth ?? c.maxHealth ?? 100, h = body ? body.health : c.health ?? hm;
+      return { key, name: c.title, role: `Divine Champion · Rank ${c.romanRank}`, h, hm, fx: body ? composePartyFx(body) : [] };
+    });
   }
   /** REVENANT-COMPANION: the sworn walking with me, as the party panel's cards - its name, "Sworn" and who it is, its
    *  health off its body where one stands, else as its record carries it; none while I sail. */
@@ -11352,6 +11472,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     while (_revenantBetrayals.length) turnSworn(_revenantBetrayals.shift());   // RVN11c: before the layer's frame - its body lifted, no portal
     try { revenantAshore.frame(); } catch (e) { console.warn('[companions] the sworn', e?.message ?? e); }
     try { undeadAshore.frame(); } catch (e) { console.warn('[undead] minions', e?.message ?? e); }
+    try { championAshore.frame(); } catch (e) { console.warn('[champions] divine', e?.message ?? e); }
     while (_revenantDepartures.length) {   // COMPANION-ROSTER: its parting words, as it goes
       const d = _revenantDepartures.shift();
       const body = d.items ? `It hands you back its pack (${d.items === 1 ? 'one item' : `${d.items} items`}).` : null;
@@ -12456,7 +12577,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     lairHere: createLairDoor({ maps, blocks, arch, locations: locationIndex, dungeons: _bountyDungeonPixels, regions: _dungeonRegionPixels, here: playerTravelPixel, pastBay: provinceQuestPlaces }),   // LAIR-WORLD: and the lairs past the Bay
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below) - SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: () => peersNear(),   // SPELLFX1: every player's body, where a peer's drawn missile stops (declared below this engine's build)
-    companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies()],   // COMPANION-KIT: my companions here - my healing and buffs reach them (REVENANT-COMPANION: the sworn too)
+    companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies(), ...championAshore.bodies()],   // COMPANION-KIT: my companions here - my healing and buffs reach them (REVENANT-COMPANION: the sworn too)
     // DUEL1: my duel opponent's body, for my harmful spells alone, while we fight - and the door the blow leaves by
     duelMark: () => { if (!duelMgr.fighting) return siegeSpellMarks(); const b = duelBody(duelMgr.opponent); return b ? { ...b, name: peerName(b.id) ?? 'your opponent' } : null; },   // AUDIT-SEATS G5: outside a duel, a siege's foes (WILD1: and past them the open zone's fair players)
     castAtDuel: (id, sp) => duelSpellOut(id, sp),
@@ -29085,7 +29206,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     linkItem: (item) => linkItemInChat(item), canPostItem: () => canPostItemInChat(),   // CHAT-POST: the building's and the dungeon's packs link too
     partyNear: () => partyOnMaps(), professionMarks: (feet) => professionMarks(feet),   // DISC23-A: the party's bodies, for the dungeon's and the building's plans (AUDIT pre-merge I-E: those drawn here); NODE-MARKS: the dungeon's veins (and a body the knife may skin) on its compass, at its own feet
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the dungeon's own cast engine gives to the same mates - SPELL-GIFT: and strangers, by the spell
-    companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies()],   // COMPANION-KIT: my companions underground, for the dungeon's own cast engine (REVENANT-COMPANION: the sworn too)
+    companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies(), ...championAshore.bodies()],   // COMPANION-KIT: my companions underground, for the dungeon's own cast engine (REVENANT-COMPANION: the sworn too)
     openCompanionPack: (rec) => openCompanionPack(rec),   // COMPANION-KIT: a companion activated indoors or underground - his pack
     openRevenantFate: (rec) => openRevenantFate(rec),   // REVENANT-FATE: a beaten revenant indoors or underground - its choice
     shakeCamera: (k) => betterAmbience.weaponKick(k),   // REVENANT-FATE: an execution's blow, felt
@@ -30140,6 +30261,60 @@ export async function bootWorld(canvas, renderer, params, status) {
           }
         }
       }
+      return count;
+    },
+    pacifyAllFoes: () => {
+      let count = 0;
+      const pacifyList = (list, requireHostileFlag = false) => {
+        if (!list) return;
+        for (const f of list) {
+          if (
+            !f || f.dead || f.companion || f.allied ||
+            f.livingRole === 'apotheosis_champion' || f.livingRole === 'undead_minion' ||
+            f.entity?.team === 'PlayerAlly' || f.entity?.mobileTeam === 'PlayerAlly'
+          ) continue;
+          const isHostile = !!f.ai?.isHostile || (
+            !requireHostileFlag &&
+            f.entity?.team !== 'Neutral' &&
+            f.entity?.mobileTeam !== 'Neutral' &&
+            !f._pacifiedByOrder
+          );
+          if (!isHostile) continue;
+          f._pacifiedByOrder = true;
+          if (f.entity) {
+            f.entity.team = 'Neutral';
+            f.entity.mobileTeam = 'Neutral';
+          }
+          if (f.ai) {
+            f.ai.isHostile = false;
+            f.ai.target = null;
+            f.ai.secondaryTarget = null;
+            f.ai.targetSenses = null;
+            f.ai._armedTargeting = false;
+            f.ai.inSight = false;
+            f.ai.detected = false;
+            f.ai.hasEncounteredPlayer = false;
+            f.ai.giveUpTimer = 0;
+            f.ai.attackCooldown = 2.0;
+            f.ai.moving = false;
+            f.ai.path = null;
+          }
+          count++;
+        }
+      };
+      pacifyList(exteriorFoes?.foes, false);
+      pacifyList(cityGuards?.guards, true);
+      pacifyList(modes?.dungeonCtx?.foes, false);
+      pacifyList(modes?.interiorFoes?.foes, false);
+      for (const body of [...crewAshore.bodies(), ...revenantAshore.bodies(), ...undeadAshore.bodies(), ...championAshore.bodies()]) {
+        if (body?.ai) {
+          body.ai.target = null;
+          body.ai.secondaryTarget = null;
+          body.ai.targetSenses = null;
+          body.ai._armedTargeting = false;
+        }
+      }
+      setEnemyAlert(playerEntity, false, Math.floor(playerTicker.ownMinutes));
       return count;
     },
     tele2loc: tele2locHelper,

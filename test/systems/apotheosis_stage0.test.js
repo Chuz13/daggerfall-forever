@@ -449,8 +449,8 @@ test('Full Stage 0 loop: Fate + 13 unequipped artifacts -> questline placeholder
   assert.equal(e.apotheosis.portfolio, 'war');
   assert.equal(e.apotheosis.ascendedAtMinutes, 12345);
 
-  // Free Portfolio switch
-  const sw = selectApotheosisPortfolio(e, 'magic', { nowMinutes: 12500 });
+  // Free Portfolio switch after 30-day cooldown
+  const sw = selectApotheosisPortfolio(e, 'magic', { nowMinutes: 12345 + 30 * 1440 });
   assert.equal(sw.ok, true);
   assert.equal(sw.switching, true);
   assert.equal(e.apotheosis.portfolio, 'magic');
@@ -655,7 +655,7 @@ test('Localization: all 26 locales have all 224 Apotheosis keys with valid CSV a
 
   const enRows = parseStringTableCsv(readFileSync(new URL('../../locales/en/Port_Strings.csv', import.meta.url), 'utf8'));
   const enApo = new Map(enRows.filter(([k]) => isApoKey(k)));
-  assert.equal(enApo.size, 224, 'expected 224 Apotheosis/Settings/Pause keys in English table');
+  assert.equal(enApo.size, 226, 'expected 226 Apotheosis/Settings/Pause keys in English table');
   for (const oldKey of obsoleteKeys) {
     assert.equal(enApo.has(oldKey), false, `en still has obsolete key ${oldKey}`);
   }

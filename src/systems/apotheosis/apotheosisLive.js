@@ -21,7 +21,14 @@ export const APOTHEOSIS_FAITH_BASE_MAX = 1000;
 export const APOTHEOSIS_INITIAL_FAITH = 500;
 export const APOTHEOSIS_REBIRTH_FAITH_COST = 150;
 export const APOTHEOSIS_PORTFOLIO_SWITCH_COST = 250;
+export const APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_DAYS = 30;
+export const APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES = APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_DAYS * 1440;
+export const APOTHEOSIS_CHAMPION_DURATION_MINUTES = 1440;
 export const APOTHEOSIS_MYTHIC_DECAY_FLAT = 15;
+export const CHAMPION_HEALTH = 2;
+export const CHAMPION_DAMAGE = 1.25;
+export const SWORN_HEALTH_PER_RANK = 0.25;
+export const SWORN_DAMAGE_PER_RANK = 0.1;
 
 export const APOTHEOSIS_FLASH_HOLD_S = 0.45;
 export const APOTHEOSIS_FLASH_FADE_S = 1.6;
@@ -71,6 +78,7 @@ const _aurbisRuntime = {
   executeCommand: null,
   findItemTemplate: null,
   getSceneContext: null,
+  getWorldMinutes: null,
 };
 
 const _screenFlash = {
@@ -126,6 +134,7 @@ export function registerAurbisRuntime(patch = {}) {
   if (typeof patch.executeCommand === 'function') _aurbisRuntime.executeCommand = patch.executeCommand;
   if (typeof patch.findItemTemplate === 'function') _aurbisRuntime.findItemTemplate = patch.findItemTemplate;
   if (typeof patch.getSceneContext === 'function') _aurbisRuntime.getSceneContext = patch.getSceneContext;
+  if (typeof patch.getWorldMinutes === 'function') _aurbisRuntime.getWorldMinutes = patch.getWorldMinutes;
 }
 
 /** Returns the current Scroll of Aurbis runtime bridges. */

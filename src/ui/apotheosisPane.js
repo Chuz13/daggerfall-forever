@@ -31,6 +31,7 @@ import {
   executeAurbisCommand,
   getAurbisRuntime,
   getFaithMax,
+  getPortfolioSwitchCooldownInfo,
   getSpawnCreatureFaithCost,
   scanInventoryArtifactsForApotheosis,
   selectApotheosisPortfolio,
@@ -349,6 +350,9 @@ function renderFaithBox(container, state, entity) {
 function renderPortfolioCards(container, state, entity, repaint) {
   const grid = el('div', 'apo-grid');
   const canChoose = state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO || state.stage === APOTHEOSIS_STAGES.ASCENDED || state.ascended;
+  let nowMin = null;
+  try { nowMin = worldMinutes(); } catch { nowMin = null; }
+  const switchCd = getPortfolioSwitchCooldownInfo(entity, nowMin);
 
   for (const p of APOTHEOSIS_PORTFOLIOS) {
     const isCurrent = state.portfolio === p.id;
@@ -366,18 +370,21 @@ function renderPortfolioCards(container, state, entity, repaint) {
     );
     const acts = el('div', 'apo-acts');
     const needsSwitchFee = Boolean(state.ascended && state.portfolio && !isCurrent);
+    const onCooldown = needsSwitchFee && switchCd.onCooldown;
     const lacksSwitchFaith = needsSwitchFee && (state.faith || 0) < APOTHEOSIS_PORTFOLIO_SWITCH_COST;
     const label = isCurrent
       ? t('apotheosis.portfolio.btnCurrent', 'Active Portfolio')
-      : state.ascended
-        ? t('apotheosis.portfolio.btnSwitchCost', 'Switch Portfolio ({cost} Faith)', { cost: APOTHEOSIS_PORTFOLIO_SWITCH_COST })
-        : t('apotheosis.portfolio.btnChoose', 'Claim Portfolio');
-    const btn = el('button', `apo-btn${isCurrent ? '' : ' primary'}`, label);
-    btn.disabled = !canChoose || isCurrent || lacksSwitchFaith;
+      : onCooldown
+        ? t('apotheosis.portfolio.btnCooldown', 'Cooldown ({days}d left)', { days: switchCd.remainingDays })
+        : state.ascended
+          ? t('apotheosis.portfolio.btnSwitchCost', 'Switch Portfolio ({cost} Faith)', { cost: APOTHEOSIS_PORTFOLIO_SWITCH_COST })
+          : t('apotheosis.portfolio.btnChoose', 'Claim Portfolio');
+    const btn = el('button', `apo-btn${isCurrent || onCooldown ? '' : ' primary'}`, label);
+    btn.disabled = !canChoose || isCurrent || onCooldown || lacksSwitchFaith;
     btn.onclick = () => {
-      let nowMin = null;
-      try { nowMin = worldMinutes(); } catch { nowMin = null; }
-      const res = selectApotheosisPortfolio(entity, p.id, { nowMinutes: nowMin });
+      let clickNowMin = null;
+      try { clickNowMin = worldMinutes(); } catch { clickNowMin = null; }
+      const res = selectApotheosisPortfolio(entity, p.id, { nowMinutes: clickNowMin });
       if (res.ok) {
         const msg = res.switching
           ? t('apotheosis.portfolio.switchedMsg', 'Divine Portfolio attuned to: {name}.', { name: res.portfolioName })
@@ -562,12 +569,21 @@ function renderPortfolioPage(detail, entity, repaint) {
   const state = ensureApotheosisState(entity);
   const hero = el('div', 'apo-hero');
   const left = el('div');
+  let nowMin = null;
+  try { nowMin = worldMinutes(); } catch { nowMin = null; }
+  const switchCd = getPortfolioSwitchCooldownInfo(entity, nowMin);
   left.append(
     el('div', 'apo-hero-title', t('apotheosis.portfolio.pageTitle', 'Divine Portfolio')),
     el('div', 'apo-meta-row',
       t('apotheosis.portfolio.pageSubStage2', 'Choose the domain that defines your godhood. Switching Portfolios after Ascension costs {cost} Faith.', {
         cost: APOTHEOSIS_PORTFOLIO_SWITCH_COST,
       })),
+    ...(state.ascended && state.portfolio && switchCd.onCooldown
+      ? [el('div', 'apo-meta-row',
+        t('apotheosis.err.switch_cooldown', 'Portfolio realignment is on cooldown ({days} days remaining).', {
+          days: switchCd.remainingDays,
+        }))]
+      : []),
   );
   hero.append(left, el('span', stageBadgeClass(state), stageBadgeText(state)));
   detail.append(hero);
@@ -610,13 +626,16 @@ async function runAurbisLine(cmdLine, entity, repaint) {
   const witnessNote = res.witnessDelta
     ? ` | Witnesses: ${res.witnessDelta > 0 ? `+${res.witnessDelta}` : res.witnessDelta} Faith`
     : '';
+  const orderNote = res.orderBonus
+    ? ` | Order: +${res.orderBonus} Faith`
+    : '';
   const summary = res.deferred
     ? res.output
-    : `-${res.faithSpent} Faith${witnessNote} (Faith ${res.newFaith}/${res.faithMax})${res.output ? `\n${res.output}` : ''}`;
+    : `-${res.faithSpent} Faith${witnessNote}${orderNote} (Faith ${res.newFaith}/${res.faithMax})${res.output ? `\n${res.output}` : ''}`;
   setFeedback(res.deferred ? res.output : t('apotheosis.aurbis.invoked', 'Decree enacted: {cmd} (-{cost} Faith{wNote}).', {
     cmd: clean,
     cost: res.faithSpent,
-    wNote: witnessNote,
+    wNote: `${witnessNote}${orderNote}`,
   }), false);
   aurbisLog = [`> ${clean}\n${summary}`, ...aurbisLog].slice(0, 12);
   repaint();
@@ -647,15 +666,18 @@ function renderAurbisPage(detail, entity, repaint) {
 
   renderFaithBox(detail, state, entity);
 
-  // 1. Ten Quick Miracles
+  // Quick Miracles
   const quickBox = el('div', 'apo-box');
-  quickBox.append(el('h4', null, t('apotheosis.aurbis.quickTitle', 'Quick Miracles (10)')));
+  quickBox.append(el('h4', null, t('apotheosis.aurbis.quickTitle', 'Quick Miracles (13)')));
   const quickGrid = el('div', 'apo-aurbis-grid');
 
   const fixedMiracles = [
     { label: t('apotheosis.aurbis.q.portal', 'Divine Portal'), desc: t('apotheosis.aurbis.q.portalDesc', 'Open Portal Stone map'), cmd: 'portal' },
     { label: t('apotheosis.aurbis.q.heal', 'Divine Restoration'), desc: t('apotheosis.aurbis.q.healDesc', 'Restore Health, Magicka & Fatigue'), cmd: 'heal' },
+    { label: t('apotheosis.aurbis.q.pacifyall', 'Pacify All Foes (+Order)'), desc: t('apotheosis.aurbis.q.pacifyallDesc', 'Calm all hostiles on the map (+Order Faith)'), cmd: 'pacifyall' },
     { label: t('apotheosis.aurbis.q.killall', 'Smite Hostiles'), desc: t('apotheosis.aurbis.q.killallDesc', 'Strike down nearby foes'), cmd: 'killall' },
+    { label: t('apotheosis.aurbis.q.champion', 'Summon Champion (24h)'), desc: t('apotheosis.aurbis.q.championDesc', 'Summon 1 Faith-scaled Portfolio Champion'), cmd: 'summon_champion' },
+    { label: t('apotheosis.aurbis.q.champions', 'Champion Party x4 (24h)'), desc: t('apotheosis.aurbis.q.championsDesc', 'Summon 4 Faith-scaled Portfolio Champions'), cmd: 'summon_champions' },
     { label: t('apotheosis.aurbis.q.sun', 'Clear Skies'), desc: t('apotheosis.aurbis.q.sunDesc', 'Part stormclouds across the land'), cmd: 'weather 0' },
     { label: t('apotheosis.aurbis.q.storm', 'Call Storm'), desc: t('apotheosis.aurbis.q.stormDesc', 'Summon thunder & tempest'), cmd: 'weather 5' },
     { label: t('apotheosis.aurbis.q.time', 'Turn Day (+12h)'), desc: t('apotheosis.aurbis.q.timeDesc', 'Advance Tamrielic clock by 12h'), cmd: 'advance_time 12' },

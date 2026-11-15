@@ -67,6 +67,9 @@ import {
   APOTHEOSIS_INITIAL_FAITH,
   APOTHEOSIS_REBIRTH_FAITH_COST,
   APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+  APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_DAYS,
+  APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES,
+  APOTHEOSIS_CHAMPION_DURATION_MINUTES,
   APOTHEOSIS_MYTHIC_DECAY_FLAT,
   getActiveApotheosisPlayer,
   getFaithMax,
@@ -95,6 +98,15 @@ import {
   parseAurbisCommandLine,
   evaluateAurbisCommand,
   executeAurbisCommand,
+  APOTHEOSIS_CHAMPION_TEMPLATES,
+  computeChampionFaithScaling,
+  applyApotheosisChampionStrength,
+  summonApotheosisChampions,
+  getActiveApotheosisChampions,
+  clearApotheosisChampions,
+  setApotheosisChampionExpiredHook,
+  tickApotheosisChampions,
+  apotheosisChampionParty,
 } from './apotheosisStage2.js';
 
 export {
@@ -119,6 +131,9 @@ export {
   APOTHEOSIS_INITIAL_FAITH,
   APOTHEOSIS_REBIRTH_FAITH_COST,
   APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+  APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_DAYS,
+  APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES,
+  APOTHEOSIS_CHAMPION_DURATION_MINUTES,
   APOTHEOSIS_MYTHIC_DECAY_FLAT,
   getActiveApotheosisPlayer,
   getFaithMax,
@@ -145,6 +160,15 @@ export {
   parseAurbisCommandLine,
   evaluateAurbisCommand,
   executeAurbisCommand,
+  APOTHEOSIS_CHAMPION_TEMPLATES,
+  computeChampionFaithScaling,
+  applyApotheosisChampionStrength,
+  summonApotheosisChampions,
+  getActiveApotheosisChampions,
+  clearApotheosisChampions,
+  setApotheosisChampionExpiredHook,
+  tickApotheosisChampions,
+  apotheosisChampionParty,
 };
 
 export const TOTAL_FATE_TRIGGERS = 24;
@@ -284,6 +308,7 @@ export function defaultApotheosisState() {
     donationFaithDay: null,
     donationFaithEarned: 0,
     debugWitnessCount: null,
+    lastPortfolioSwitchMinutes: null,
   };
 }
 
@@ -404,6 +429,9 @@ export function ensureApotheosisState(entity) {
       : 0,
     debugWitnessCount: prev.debugWitnessCount != null && Number.isFinite(Number(prev.debugWitnessCount)) && Number(prev.debugWitnessCount) >= 0
       ? Math.trunc(Number(prev.debugWitnessCount))
+      : null,
+    lastPortfolioSwitchMinutes: prev.lastPortfolioSwitchMinutes != null && Number.isFinite(Number(prev.lastPortfolioSwitchMinutes))
+      ? Math.trunc(Number(prev.lastPortfolioSwitchMinutes))
       : null,
   };
   return entity.apotheosis;
@@ -1397,10 +1425,66 @@ export function startApotheosisFromArtifacts(entity, selectedItems) {
   };
 }
 
+function resolveApotheosisNowMinutes(entity, nowMinutes = null) {
+  if (nowMinutes != null && Number.isFinite(Number(nowMinutes))) {
+    return Math.trunc(Number(nowMinutes));
+  }
+  if (entity?._lastWorldMinutes != null && Number.isFinite(Number(entity._lastWorldMinutes))) {
+    return Math.trunc(Number(entity._lastWorldMinutes));
+  }
+  try {
+    const rtMin = getAurbisRuntime()?.getWorldMinutes?.();
+    if (rtMin != null && Number.isFinite(Number(rtMin))) {
+      return Math.trunc(Number(rtMin));
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/** Returns remaining 1-month (30-day) cooldown info for switching Divine Portfolio. */
+export function getPortfolioSwitchCooldownInfo(entity, nowMinutes = null) {
+  const rawLast = entity?.apotheosis?.lastPortfolioSwitchMinutes;
+  const lastSwitchMinutes = rawLast != null && Number.isFinite(Number(rawLast))
+    ? Math.trunc(Number(rawLast))
+    : null;
+  const resolvedMinutes = resolveApotheosisNowMinutes(entity, nowMinutes);
+  if (lastSwitchMinutes == null || resolvedMinutes == null) {
+    return {
+      onCooldown: false,
+      remainingMinutes: 0,
+      remainingDays: 0,
+      remainingHours: 0,
+      lastSwitchMinutes,
+    };
+  }
+  const elapsed = resolvedMinutes - lastSwitchMinutes;
+  if (elapsed < 0 || elapsed >= APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES) {
+    return {
+      onCooldown: false,
+      remainingMinutes: 0,
+      remainingDays: 0,
+      remainingHours: 0,
+      lastSwitchMinutes,
+    };
+  }
+  const remainingMinutes = APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES - elapsed;
+  const remainingDays = Math.max(1, Math.ceil(remainingMinutes / 1440));
+  const remainingHours = Math.max(1, Math.ceil(remainingMinutes / 60));
+  return {
+    onCooldown: true,
+    remainingMinutes,
+    remainingDays,
+    remainingHours,
+    lastSwitchMinutes,
+  };
+}
+
 /**
  * Selects or switches the player's Divine Portfolio.
  * First Ascension is free and grants APOTHEOSIS_INITIAL_FAITH (500).
- * Switching Portfolios while already Ascended costs 250 Faith (unless `{ free: true }`).
+ * Switching Portfolios while already Ascended costs 250 Faith and incurs a 30-day cooldown (unless `{ free: true }`).
  */
 export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = null, free = false } = {}) {
   const state = ensureApotheosisState(entity);
@@ -1413,8 +1497,25 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE && !state.ascended) {
     return { ok: false, error: t('apotheosis.err.trialIncomplete', 'Complete the Ascension trial before choosing a Portfolio.'), state };
   }
+  const resolvedMinutes = resolveApotheosisNowMinutes(entity, nowMinutes);
   const switching = Boolean(state.ascended && state.portfolio && state.portfolio !== portfolioId);
   if (switching && !free) {
+    const cd = getPortfolioSwitchCooldownInfo(entity, resolvedMinutes);
+    if (cd.onCooldown) {
+      return {
+        ok: false,
+        cooldown: true,
+        remainingMinutes: cd.remainingMinutes,
+        remainingDays: cd.remainingDays,
+        remainingHours: cd.remainingHours,
+        error: t(
+          'apotheosis.err.switch_cooldown',
+          'Portfolio realignment is on cooldown ({days}d remaining; 30-day cooldown between switches).',
+          { days: cd.remainingDays },
+        ),
+        state,
+      };
+    }
     if ((state.faith || 0) < APOTHEOSIS_PORTFOLIO_SWITCH_COST) {
       return {
         ok: false,
@@ -1438,8 +1539,11 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   state.shadowDefeated = true;
   state.stormActive = false;
   state.towerSiegeCleared = true;
-  if (state.ascendedAtMinutes == null && nowMinutes != null && Number.isFinite(Number(nowMinutes))) {
-    state.ascendedAtMinutes = Math.trunc(Number(nowMinutes));
+  if (state.ascendedAtMinutes == null && resolvedMinutes != null) {
+    state.ascendedAtMinutes = resolvedMinutes;
+  }
+  if (!free && resolvedMinutes != null) {
+    state.lastPortfolioSwitchMinutes = resolvedMinutes;
   }
   computeEntityMods(entity);
   const def = APOTHEOSIS_PORTFOLIOS.find((p) => p.id === portfolioId);
