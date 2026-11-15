@@ -87,6 +87,7 @@ import { preloadLargeFont, questJournalLargeFont } from '../quest/questJournal.j
 import { enterSpellNameLabel } from '../spellbookWindow.js';
 import { audio } from '../../systems/audio.js';
 import { SOUND } from '../../systems/soundClips.js';
+import { notifyApotheosisEvent } from '../../systems/apotheosis/apotheosisLive.js';
 import {
   SPELL_MAKER_EFFECTS,
   spellMakerGroups,
@@ -812,6 +813,11 @@ export class SpellMakerWindow {
       icon: this.icon,
     });
     purchaseSpell(this.entity, spell, this.totalGoldCost);
+    notifyApotheosisEvent('magicCraft', {
+      entity: this.entity,
+      craftKind: 'spellcraft',
+      goldSpent: this.totalGoldCost,
+    });
     audio.playOneShot(SOUND.ParchmentScratching, 1); // inscribeGrimoire (:136)
     // "Notify player and exit when this messagebox is dismissed"
     // (:790-795) - SpellHasBeenInscribed_OnClose is SetDefaults plus

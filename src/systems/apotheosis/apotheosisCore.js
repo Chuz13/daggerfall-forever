@@ -63,7 +63,39 @@ import {
   reconstituteAscendedGod,
   APOTHEOSIS_REBIRTH_MINUTES,
   APOTHEOSIS_FLASH_RGB,
+  APOTHEOSIS_FAITH_BASE_MAX,
+  APOTHEOSIS_INITIAL_FAITH,
+  APOTHEOSIS_REBIRTH_FAITH_COST,
+  APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+  APOTHEOSIS_MYTHIC_DECAY_FLAT,
+  getActiveApotheosisPlayer,
+  getFaithMax,
+  setApotheosisRebirthFailedHook,
+  registerApotheosisEventHandler,
+  notifyApotheosisEvent,
+  registerAurbisRuntime,
+  getAurbisRuntime,
 } from './apotheosisLive.js';
+import {
+  AURBIS_PORTAL_FAITH_COST,
+  FORBIDDEN_AURBIS_COMMANDS,
+  AURBIS_COMMAND_CATALOG,
+  addApotheosisFaith,
+  spendApotheosisFaith,
+  tickApotheosisMythicDecay,
+  handleApotheosisKillFaith,
+  recordApotheosisMagicCraft,
+  recordApotheosisShadowAct,
+  handleApotheosisBountyPaid,
+  handleApotheosisTempleDonation,
+  handleApotheosisQuestFaith,
+  classifyMiraclePortfolioAlignment,
+  evaluateMiracleWitnessReaction,
+  getSpawnCreatureFaithCost,
+  parseAurbisCommandLine,
+  evaluateAurbisCommand,
+  executeAurbisCommand,
+} from './apotheosisStage2.js';
 
 export {
   isAscendedGod,
@@ -83,6 +115,36 @@ export {
   reconstituteAscendedGod,
   APOTHEOSIS_REBIRTH_MINUTES,
   APOTHEOSIS_FLASH_RGB,
+  APOTHEOSIS_FAITH_BASE_MAX,
+  APOTHEOSIS_INITIAL_FAITH,
+  APOTHEOSIS_REBIRTH_FAITH_COST,
+  APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+  APOTHEOSIS_MYTHIC_DECAY_FLAT,
+  getActiveApotheosisPlayer,
+  getFaithMax,
+  setApotheosisRebirthFailedHook,
+  registerApotheosisEventHandler,
+  notifyApotheosisEvent,
+  registerAurbisRuntime,
+  getAurbisRuntime,
+  AURBIS_PORTAL_FAITH_COST,
+  FORBIDDEN_AURBIS_COMMANDS,
+  AURBIS_COMMAND_CATALOG,
+  addApotheosisFaith,
+  spendApotheosisFaith,
+  tickApotheosisMythicDecay,
+  handleApotheosisKillFaith,
+  recordApotheosisMagicCraft,
+  recordApotheosisShadowAct,
+  handleApotheosisBountyPaid,
+  handleApotheosisTempleDonation,
+  handleApotheosisQuestFaith,
+  classifyMiraclePortfolioAlignment,
+  evaluateMiracleWitnessReaction,
+  getSpawnCreatureFaithCost,
+  parseAurbisCommandLine,
+  evaluateAurbisCommand,
+  executeAurbisCommand,
 };
 
 export const TOTAL_FATE_TRIGGERS = 24;
@@ -213,6 +275,15 @@ export function defaultApotheosisState() {
     stormStartMinutes: null,
     mantellaVanillaChosen: false,
     ascendedAtMinutes: null,
+    faith: 0,
+    cultFaithBonus: 0,
+    lastFaithGainDay: null,
+    lastFaithDecayDay: null,
+    witnessMiracleDay: null,
+    witnessMiracleCount: 0,
+    donationFaithDay: null,
+    donationFaithEarned: 0,
+    debugWitnessCount: null,
   };
 }
 
@@ -279,8 +350,17 @@ export function ensureApotheosisState(entity) {
     ? Math.trunc(Number(prev.rebirthCount))
     : 0;
 
+  const ascended = !!prev.ascended || (stage === APOTHEOSIS_STAGES.ASCENDED && !!portfolio);
+  const cultFaithBonus = Number.isFinite(Number(prev.cultFaithBonus)) && Number(prev.cultFaithBonus) > 0
+    ? Math.trunc(Number(prev.cultFaithBonus))
+    : 0;
+  const maxFaith = APOTHEOSIS_FAITH_BASE_MAX + cultFaithBonus;
+  const faith = prev.faith != null && Number.isFinite(Number(prev.faith))
+    ? Math.max(0, Math.min(maxFaith, Math.trunc(Number(prev.faith))))
+    : (ascended ? APOTHEOSIS_INITIAL_FAITH : 0);
+
   entity.apotheosis = {
-    ascended: !!prev.ascended || (stage === APOTHEOSIS_STAGES.ASCENDED && !!portfolio),
+    ascended,
     stage,
     source,
     portfolio,
@@ -301,6 +381,29 @@ export function ensureApotheosisState(entity) {
     mantellaVanillaChosen: !!prev.mantellaVanillaChosen,
     ascendedAtMinutes: prev.ascendedAtMinutes != null && Number.isFinite(Number(prev.ascendedAtMinutes))
       ? Math.trunc(Number(prev.ascendedAtMinutes))
+      : null,
+    faith,
+    cultFaithBonus,
+    lastFaithGainDay: prev.lastFaithGainDay != null && Number.isFinite(Number(prev.lastFaithGainDay))
+      ? Math.trunc(Number(prev.lastFaithGainDay))
+      : null,
+    lastFaithDecayDay: prev.lastFaithDecayDay != null && Number.isFinite(Number(prev.lastFaithDecayDay))
+      ? Math.trunc(Number(prev.lastFaithDecayDay))
+      : null,
+    witnessMiracleDay: prev.witnessMiracleDay != null && Number.isFinite(Number(prev.witnessMiracleDay))
+      ? Math.trunc(Number(prev.witnessMiracleDay))
+      : null,
+    witnessMiracleCount: Number.isFinite(Number(prev.witnessMiracleCount)) && Number(prev.witnessMiracleCount) >= 0
+      ? Math.trunc(Number(prev.witnessMiracleCount))
+      : 0,
+    donationFaithDay: prev.donationFaithDay != null && Number.isFinite(Number(prev.donationFaithDay))
+      ? Math.trunc(Number(prev.donationFaithDay))
+      : null,
+    donationFaithEarned: Number.isFinite(Number(prev.donationFaithEarned)) && Number(prev.donationFaithEarned) >= 0
+      ? Math.trunc(Number(prev.donationFaithEarned))
+      : 0,
+    debugWitnessCount: prev.debugWitnessCount != null && Number.isFinite(Number(prev.debugWitnessCount)) && Number(prev.debugWitnessCount) >= 0
+      ? Math.trunc(Number(prev.debugWitnessCount))
       : null,
   };
   return entity.apotheosis;
@@ -342,12 +445,30 @@ export function recordQuestCompleted(entity, quest = null) {
   if (quest && quest.questSuccess !== true) return entity.questsCompleted ?? 0;
   ensureApotheosisState(entity);
   entity.questsCompleted += 1;
+  handleApotheosisQuestFaith(entity, quest);
   return entity.questsCompleted;
 }
 
 // Register global player kill hook once on module load.
-registerPlayerKillListener('apotheosis_kills', (entity) => {
-  recordApotheosisKill(entity, 1);
+registerPlayerKillListener('apotheosis_kills', (entityOrFoe, info) => {
+  const activePlayer = getActiveApotheosisPlayer();
+  const isDirectPlayerArg = Boolean(
+    entityOrFoe && (
+      entityOrFoe === activePlayer ||
+      entityOrFoe.isPlayer ||
+      entityOrFoe.characterId ||
+      !activePlayer
+    ),
+  );
+  const player = isDirectPlayerArg ? entityOrFoe : activePlayer;
+  const foe = isDirectPlayerArg ? (info?.foe ?? null) : entityOrFoe;
+  if (!player || typeof player !== 'object') return;
+  try {
+    recordApotheosisKill(player, 1);
+    handleApotheosisKillFaith(player, foe, info || {});
+  } catch (e) {
+    console.warn('[apotheosis] kill listener failed:', e);
+  }
 });
 
 /**
@@ -1277,9 +1398,11 @@ export function startApotheosisFromArtifacts(entity, selectedItems) {
 }
 
 /**
- * Selects or switches the player's Divine Portfolio (Stage 0: free switching once Ascended or awaiting choice).
+ * Selects or switches the player's Divine Portfolio.
+ * First Ascension is free and grants APOTHEOSIS_INITIAL_FAITH (500).
+ * Switching Portfolios while already Ascended costs 250 Faith (unless `{ free: true }`).
  */
-export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = null } = {}) {
+export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = null, free = false } = {}) {
   const state = ensureApotheosisState(entity);
   if (!PORTFOLIO_IDS.has(portfolioId)) {
     return { ok: false, error: t('apotheosis.err.unknownPortfolio', 'Unknown Divine Portfolio.'), state };
@@ -1290,7 +1413,24 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE && !state.ascended) {
     return { ok: false, error: t('apotheosis.err.trialIncomplete', 'Complete the Ascension trial before choosing a Portfolio.'), state };
   }
-  const switching = state.ascended && state.portfolio && state.portfolio !== portfolioId;
+  const switching = Boolean(state.ascended && state.portfolio && state.portfolio !== portfolioId);
+  if (switching && !free) {
+    if ((state.faith || 0) < APOTHEOSIS_PORTFOLIO_SWITCH_COST) {
+      return {
+        ok: false,
+        error: t('apotheosis.err.switch_faith', 'Not enough Faith to switch Portfolio (requires 250 Faith).'),
+        requiredFaith: APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+        faith: state.faith || 0,
+        state,
+      };
+    }
+    state.faith = Math.max(0, (state.faith || 0) - APOTHEOSIS_PORTFOLIO_SWITCH_COST);
+  }
+  if (!switching && (!state.ascended || !state.portfolio)) {
+    if ((state.faith || 0) <= 0) {
+      state.faith = Math.min(getFaithMax(state), APOTHEOSIS_INITIAL_FAITH);
+    }
+  }
   state.portfolio = portfolioId;
   state.ascended = true;
   state.stage = APOTHEOSIS_STAGES.ASCENDED;
@@ -1308,6 +1448,8 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
     switching,
     portfolio: portfolioId,
     portfolioName: def ? def.name() : portfolioId,
+    faith: state.faith,
+    faithMax: getFaithMax(state),
     state,
   };
 }

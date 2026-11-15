@@ -424,7 +424,7 @@ import {
   resetApotheosisForDebug,
   setMantellanCruxPresenceChecker,
 } from '../systems/apotheosis/apotheosisCore.js';
-import { setApotheosisRebirthHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
+import { setApotheosisRebirthHook, setApotheosisRebirthFailedHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
 import {
   isDirenniTowerLocation,
   isMantellanCruxLocation,
@@ -6690,6 +6690,9 @@ export async function bootWorld(canvas, renderer, params, status) {
 
   let direnniSiege = null;
   setMantellanCruxPresenceChecker(() => (modes?.mode ?? 'exterior') === 'dungeon' && isMantellanCruxLocation(modes?.dungeonLocation));
+  setApotheosisRebirthFailedHook((_entity, { faith, required }) => {
+    townTalk.say(`Your Divine Spark flickers — Faith (${faith}/${required}) is too weak to reconstitute your immortal form!`, 6.5);
+  });
   setApotheosisRebirthHook(() => {
     endPlayerFights();
     player.stopAutorun();
@@ -16650,7 +16653,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     win?.activateTeleportationTravel();
     return win;
   }
-  const { openPortalStone, portalArrive, portalHoldNow, openToSpot } = createPortalStoneHost({   // HOST-SPLIT: src/scenes/portalStoneHost.js
+  const { openPortalStone, openDivinePortal, portalArrive, portalHoldNow, openToSpot } = createPortalStoneHost({   // HOST-SPLIT: src/scenes/portalStoneHost.js
     _mode, buildTravelMapWindow, cam, cityGuards, collider, csaBoatUnderMe, duelEnemyNear, exteriorFoes,
     hccRuntimeOn, navalHostileNear, player, playerTravelPixel, portalGates, teleportTo, townTalk, walkMode,
     worldMoveBusy,
@@ -30435,6 +30438,35 @@ export async function bootWorld(canvas, renderer, params, status) {
       return direnniSiege?.start({ startWaveNum: wave, anchorPos: walkMode && playerSpawned ? player.pos : cam.pos }) ?? false;
     },
     apotheosisEnterOrrery: async () => modes?.enterApotheosisOrrery?.() ?? false,
+    apotheosisOpenPortal: (opts) => openDivinePortal(opts),
+    getNearbyWitnessCount: () => {
+      const origin = walkMode && playerSpawned ? player.pos : cam.pos;
+      if (!origin) return 0;
+      const maxDistSq = 25 * 25;
+      let count = 0;
+      try {
+        for (const p of _talkPersons()) {
+          const pos = p?.pos;
+          if (!pos) continue;
+          const dx = pos[0] - origin[0];
+          const dz = pos[2] - origin[2];
+          if (dx * dx + dz * dz <= maxDistSq) count++;
+        }
+      } catch {
+        /* ignore witness person enumeration error */
+      }
+      if (Array.isArray(cityGuards?.guards)) {
+        for (const g of cityGuards.guards) {
+          if (!g || g.dead || g.hostile) continue;
+          const pos = g.ai?.feet ?? g.pos;
+          if (!pos) continue;
+          const dx = pos[0] - origin[0];
+          const dz = pos[2] - origin[2];
+          if (dx * dx + dz * dz <= maxDistSq) count++;
+        }
+      }
+      return count;
+    },
   });
   createWorldShotProbes({   // HOST-SPLIT: src/scenes/worldShotProbes.js
     arrows, cam, exteriorFoes, installTownProbes, magic, mapDict, maps, modes, openTeleportMap, player, playerTicker,

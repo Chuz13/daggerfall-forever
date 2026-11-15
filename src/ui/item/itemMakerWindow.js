@@ -78,6 +78,7 @@ import {
 } from './itemScroller.js';
 import { audio } from '../../systems/audio.js';
 import { SOUND } from '../../systems/soundClips.js';
+import { notifyApotheosisEvent, getActiveApotheosisPlayer } from '../../systems/apotheosis/apotheosisLive.js';
 import {
   enchantDecision,
   applyEnchantments,
@@ -539,6 +540,11 @@ export class ItemMakerWindow {
     // the item comes OFF the paperdoll (DaggerfallUnityItem.cs:1338).
     applyEnchantments(this.selected, [...this.powers, ...this.sideEffects], {
       owner: this.hooks.player ?? this.hooks.entity,
+    });
+    notifyApotheosisEvent('magicCraft', {
+      entity: this.hooks.player ?? this.hooks.entity ?? getActiveApotheosisPlayer(),
+      craftKind: 'enchant',
+      goldSpent: d.goldCost,
     });
     // RenameItem (:761). L10N3e: the label still showing the item's own
     // name leaves its canonical name in place - only a name the player

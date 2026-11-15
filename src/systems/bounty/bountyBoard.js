@@ -22,6 +22,7 @@ import { BOUNTY_POSE_MAX, worldPixelOk } from '../../net/wire.js';   // LAIR-WOR
 import { t } from '../textManager.js';   // QUARRY-WORLD: the beasts' words in the player's language
 import { scaledReward, isLivingBountyScalingActive, CONTRACT_KIND, getRegionFortCrisis } from '../living/bountySync.js';
 import { pickFortPresetName } from '../../world/bountyFortPresets.js';
+import { notifyApotheosisEvent, getActiveApotheosisPlayer } from '../apotheosis/apotheosisLive.js';
 export { MINUTES_PER_DAY, BOUNTY_POSE_MAX };
 
 /** The per-mod save slot's vendor name (systems/modSaveData.js). */
@@ -697,13 +698,23 @@ export function dropBounty(ledger, id) {
 }
 
 /** A bounty paid: out of the held list, its slot into the paid list. Answers the row, or null. */
-export function payBounty(ledger, id, nowMinutes = null) {
+export function payBounty(ledger, id, nowMinutes = null, opts = {}) {
   const i = ledger.held.findIndex((h) => h.id === id);
   if (i < 0) return null;
   const [row] = ledger.held.splice(i, 1);
   const k = parseBountyId(row.id)?.slotKey;
   if (k && !ledger.paid.includes(k)) ledger.paid.push(k);
   if (k && Number.isSafeInteger(nowMinutes)) (ledger.paidAt ??= {})[k] = nowMinutes;   // AUDIT 28 B1: WHEN - the pose's `t`
+  if (opts?.tier != null && !row.tier) row.tier = opts.tier;
+  else if (!row.tier) {
+    const parsed = parseBountyId(row.id);
+    if (parsed?.level) row.tier = bountyTierIndex(parsed.level) + 1;
+  }
+  notifyApotheosisEvent('bountyPaid', {
+    entity: opts?.entity ?? getActiveApotheosisPlayer(),
+    bounty: row,
+    nowMinutes,
+  });
   return row;
 }
 

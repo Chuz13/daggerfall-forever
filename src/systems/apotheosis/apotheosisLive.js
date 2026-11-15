@@ -17,6 +17,12 @@ export const APOTHEOSIS_BASE_FATIGUE_POINTS = 500;
 export const APOTHEOSIS_REBIRTH_MINUTES = 1440; // 1 full in-game day
 export const SHADOW_DAMAGE_RESIST_MULT = 0.3;   // 70% mitigation on resisted skills/schools
 
+export const APOTHEOSIS_FAITH_BASE_MAX = 1000;
+export const APOTHEOSIS_INITIAL_FAITH = 500;
+export const APOTHEOSIS_REBIRTH_FAITH_COST = 150;
+export const APOTHEOSIS_PORTFOLIO_SWITCH_COST = 250;
+export const APOTHEOSIS_MYTHIC_DECAY_FLAT = 15;
+
 export const APOTHEOSIS_FLASH_HOLD_S = 0.45;
 export const APOTHEOSIS_FLASH_FADE_S = 1.6;
 export const APOTHEOSIS_FLASH_RGB = Object.freeze([1.0, 0.94, 0.72]);
@@ -58,6 +64,14 @@ const NEGATIVE_REBIRTH_EFFECT_KINDS = new Set([
 
 let _activePlayerRef = null;
 let _rebirthHook = null;
+let _rebirthFailedHook = null;
+
+const _eventHandlers = new Map();
+const _aurbisRuntime = {
+  executeCommand: null,
+  findItemTemplate: null,
+  getSceneContext: null,
+};
 
 const _screenFlash = {
   active: false,
@@ -68,6 +82,55 @@ const _screenFlash = {
 /** Registers the runtime player entity reference for zero-arg weaponDamageMods lookups. */
 export function setActiveApotheosisPlayer(entity) {
   _activePlayerRef = entity ?? null;
+}
+
+/** Returns the currently active player entity registered with Apotheosis. */
+export function getActiveApotheosisPlayer() {
+  return _activePlayerRef;
+}
+
+/**
+ * Returns the dynamic maximum Faith capacity for a god.
+ * Starts at APOTHEOSIS_FAITH_BASE_MAX (1000) in Stage 2 and scales via `cultFaithBonus` in Stage 3.
+ */
+export function getFaithMax(entityOrState) {
+  const st = entityOrState?.apotheosis && typeof entityOrState.apotheosis === 'object'
+    ? entityOrState.apotheosis
+    : entityOrState;
+  const cultBonus = Number(st?.cultFaithBonus);
+  const safeBonus = Number.isFinite(cultBonus) && cultBonus > 0 ? Math.trunc(cultBonus) : 0;
+  return APOTHEOSIS_FAITH_BASE_MAX + safeBonus;
+}
+
+/** Registers a cycle-free leaf event handler for Apotheosis Stage 2 subsystems. */
+export function registerApotheosisEventHandler(eventName, fn) {
+  if (!eventName) return;
+  if (typeof fn === 'function') _eventHandlers.set(String(eventName), fn);
+  else _eventHandlers.delete(String(eventName));
+}
+
+/** Emits a leaf-safe runtime event to Stage 2 handlers if registered. */
+export function notifyApotheosisEvent(eventName, payload = {}) {
+  const fn = _eventHandlers.get(String(eventName));
+  if (typeof fn !== 'function') return null;
+  try {
+    return fn(payload);
+  } catch {
+    return null;
+  }
+}
+
+/** Registers runtime bridges from consoleCommands/scenes without introducing ESM import cycles. */
+export function registerAurbisRuntime(patch = {}) {
+  if (!patch || typeof patch !== 'object') return;
+  if (typeof patch.executeCommand === 'function') _aurbisRuntime.executeCommand = patch.executeCommand;
+  if (typeof patch.findItemTemplate === 'function') _aurbisRuntime.findItemTemplate = patch.findItemTemplate;
+  if (typeof patch.getSceneContext === 'function') _aurbisRuntime.getSceneContext = patch.getSceneContext;
+}
+
+/** Returns the current Scroll of Aurbis runtime bridges. */
+export function getAurbisRuntime() {
+  return _aurbisRuntime;
 }
 
 /** Returns true if entity has completed Apotheosis and ascended as a god. */
@@ -233,6 +296,11 @@ export function setApotheosisRebirthHook(fn) {
   _rebirthHook = typeof fn === 'function' ? fn : null;
 }
 
+/** Registers a callback invoked when divine rebirth is skipped due to insufficient Faith. */
+export function setApotheosisRebirthFailedHook(fn) {
+  _rebirthFailedHook = typeof fn === 'function' ? fn : null;
+}
+
 /** Triggers the golden-white full-screen flash overlay on divine rebirth. */
 export function triggerApotheosisScreenFlash() {
   _screenFlash.active = true;
@@ -282,6 +350,37 @@ export function reconstituteAscendedGod(entity, options = {}) {
     return { reconstituted: false, reason: 'Not an ascended god' };
   }
 
+  if (!entity.apotheosis || typeof entity.apotheosis !== 'object') {
+    entity.apotheosis = { ascended: true, stage: 'ascended', rebirthCount: 0, faith: APOTHEOSIS_INITIAL_FAITH };
+  }
+  if (entity.apotheosis.faith == null || !Number.isFinite(Number(entity.apotheosis.faith))) {
+    entity.apotheosis.faith = APOTHEOSIS_INITIAL_FAITH;
+  }
+
+  const free = options?.free === true;
+  const curFaith = Math.max(0, Math.trunc(Number(entity.apotheosis.faith) || 0));
+  if (!free && curFaith < APOTHEOSIS_REBIRTH_FAITH_COST) {
+    try {
+      _rebirthFailedHook?.(entity, {
+        faith: curFaith,
+        required: APOTHEOSIS_REBIRTH_FAITH_COST,
+        ...options,
+      });
+    } catch {
+      /* rebirth notification failure never blocks fallback death flow */
+    }
+    return {
+      reconstituted: false,
+      insufficientFaith: true,
+      faith: curFaith,
+      required: APOTHEOSIS_REBIRTH_FAITH_COST,
+      reason: 'Insufficient Faith for Divine Rebirth',
+    };
+  }
+
+  const faithSpent = free ? 0 : APOTHEOSIS_REBIRTH_FAITH_COST;
+  entity.apotheosis.faith = Math.max(0, curFaith - faithSpent);
+
   const maxHp = Math.max(1, Number(entity.maxHealth ?? 100));
   entity.health = maxHp;
   if (typeof entity.currentHealth === 'number') entity.currentHealth = maxHp;
@@ -299,9 +398,6 @@ export function reconstituteAscendedGod(entity, options = {}) {
     }
   }
 
-  if (!entity.apotheosis || typeof entity.apotheosis !== 'object') {
-    entity.apotheosis = { ascended: true, stage: 'ascended', rebirthCount: 0 };
-  }
   entity.apotheosis.rebirthCount = (entity.apotheosis.rebirthCount ?? 0) + 1;
 
   triggerApotheosisScreenFlash();
@@ -321,6 +417,8 @@ export function reconstituteAscendedGod(entity, options = {}) {
     minutesAdvanced: APOTHEOSIS_REBIRTH_MINUTES,
     daysAdvanced: 1,
     rebirthCount: entity.apotheosis.rebirthCount,
+    faithSpent,
+    faithRemaining: entity.apotheosis.faith,
     hostResult,
   };
 }

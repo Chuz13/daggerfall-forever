@@ -61,53 +61,70 @@ export function createPortalStoneHost(host) {
     if (portalGates.mine()) return PORTAL_TEXT.standing;
     return null;
   };
-  /** PORTAL1: A PORTAL STONE USED - asked at the door (portalDoorRefusal), then the travel map in teleport mode - the
-   *  Mages Guild's, with no Travel Options fee: the stone is the fare - and a place picked there spends ONE stone
-   *  (standPortal). A map closed without a pick spends nothing. Answers false when refused (the hotbar's refusal), the
-   *  refusal said. */
-  function openPortalStone(item, list) {
+  function openTravelMapPortal(onPick) {
     const refuse = (line) => { townTalk.say(line); return false; };
     if (lockRefused()) return false;
     const why = portalDoorRefusal();
     if (why) return refuse(why);
     if (host.veilRefused()) return false;   // AUDIT CAPTAIN'S SEA P6: past the Veil its map's every place is across it
     if (!travelMapDoorReady()) return refuse(PORTAL_TEXT.noMap);
-    // the list it came from, read again at the pick - a load in between stands a new pack (AUDIT PRE-MERGE 0928 S2's
-    // law); a companion's or a sworn revenant's own storage is its own list (AUDIT PORTAL1 I2)
-    const live = list === playerEntity.wagonItems ? () => playerEntity.wagonItems
-      : list === playerEntity.items || !Array.isArray(list) ? () => playerEntity.items : () => list;
     const win = buildTravelMapWindow({
       travelOptions: () => null,   // the stone is the fare - never Travel Options' teleport fee
       portalLandPastBay: true,   // PORTAL-ANYWHERE (the owner: "Anywhere on land"): the stone's map picks any land past the Bay - the guild's keeps TESA13's cities
-      onTeleport: (pick) => { standPortal(pick, item, live); },
+      onTeleport: onPick,
     });
     if (!win) return refuse(PORTAL_TEXT.noMap);
     win.activateTeleportationTravel();
     townTalk.showOverlay(win);
     return true;
   }
+  /** PORTAL1: A PORTAL STONE USED - asked at the door (portalDoorRefusal), then the travel map in teleport mode - the
+   *  Mages Guild's, with no Travel Options fee: the stone is the fare - and a place picked there spends ONE stone
+   *  (standPortal). A map closed without a pick spends nothing. Answers false when refused (the hotbar's refusal), the
+   *  refusal said. */
+  function openPortalStone(item, list) {
+    // the list it came from, read again at the pick - a load in between stands a new pack (AUDIT PRE-MERGE 0928 S2's
+    // law); a companion's or a sworn revenant's own storage is its own list (AUDIT PORTAL1 I2)
+    const live = list === playerEntity.wagonItems ? () => playerEntity.wagonItems
+      : list === playerEntity.items || !Array.isArray(list) ? () => playerEntity.items : () => list;
+    return openTravelMapPortal((pick) => { standPortal(pick, item, live); });
+  }
+  /** APOTHEOSIS STAGE 2: Opens the Portal Stone map without requiring a stone item in pack; invokes `onPickSpend` (Faith) only upon pick. */
+  function openDivinePortal({ onPickSpend = null } = {}) {
+    return openTravelMapPortal((pick) => { standPortal(pick, null, null, onPickSpend); });
+  }
   /** The pick: the door asked again (the world moved on while the map stood - a foe came, a duel was called, death),
    *  the place found (portalStonePlace: short of a wall, on the ground, off an event's gate's ground), ONE stone spent, the portal torn open, and - online
    *  - the next foes frame owed full, so the cell hears of it at once. The classic teleport box smashed the screen to
    *  black for an arrival that is not coming yet, so a black screen lifts; the held map smashes nothing, and nothing is
    *  faded there (AUDIT PORTAL1 U4: every pick on it flashed the screen black). */
-  function standPortal(pick, item, live) {
+  function standPortal(pick, item, live, onPickSpend = null) {
     if (hudFade.backgroundColor[3] > 0 && !hudFade.fadeInProgress) hudFade.fadeHUDFromBlack();
-    if (!pick?.pixel || lockRefused()) return;
+    if (!pick?.pixel || lockRefused()) return false;
     const why = portalDoorRefusal();
-    if (why) { townTalk.say(why); return; }
-    if (teleportRefused(pick.pixel)) return;   // AUDIT CAPTAIN'S SEA P6 - AUDIT TESA II Z5: never into the open zone (the guild's teleport's and Recall's law) - PORTAL-BAY: the teleport's whole gate, before a stone is spent
+    if (why) { townTalk.say(why); return false; }
+    if (teleportRefused(pick.pixel)) return false;   // AUDIT CAPTAIN'S SEA P6 - AUDIT TESA II Z5: never into the open zone (the guild's teleport's and Recall's law) - PORTAL-BAY: the teleport's whole gate, before a stone is spent
     const feet = walkMode && host.playerSpawned ? player.feetAt() : cam.pos;
     const place = portalStonePlace(feet, cam.yaw, {   // RPT1026-EVENTS GATE-WAY: refused before an event's gate (systems/eventGround.js), nothing spent
       ground: (o, d, m) => collider.surfaceHit(o, d, m)?.dist,   // the ground there - a mesh or the terrain, whichever is nearer (CAMP-GROUND's probe)
       wall: (o, d, m) => collider.raycastHit(o, d, m)?.dist,   // a wall, a fence, a house in the way
     });
-    if (place.refused) { townTalk.say(PORTAL_TEXT[place.refused]); return; }
-    if (!spendPortalStone(item, live())) { townTalk.say(PORTAL_TEXT.gone); return; }
+    if (place.refused) { townTalk.say(PORTAL_TEXT[place.refused]); return false; }
+    if (typeof onPickSpend === 'function') {
+      const spendRes = onPickSpend(pick);
+      if (spendRes === false || spendRes?.ok === false) {
+        if (spendRes?.error) townTalk.say(spendRes.error);
+        return false;
+      }
+    } else if (!spendPortalStone(item, live())) {
+      townTalk.say(PORTAL_TEXT.gone);
+      return false;
+    }
     portalGates.open(place.at, { pixel: { x: pick.pixel.x, y: pick.pixel.y }, name: pick.name, ...(pick.at ? { at: pick.at, yaw: pick.yaw, mapId: pick.mapId } : {}) });   // PORTAL-BOOK: and a kept house's door
     host._foesFullAt = -Infinity;
     surfacePlayer();
     townTalk.say(PORTAL_TEXT.opened(pick.name));
+    return true;
   }
   /** THE ARRIVAL: the screen black at once, the teleport a microtask on - OFF THE FRAME's draw (AUDIT PORTAL1 U6: the
    *  step is found inside the frame, and the teleport's synchronous half tore down batches the same frame then drew;
@@ -146,5 +163,5 @@ export function createPortalStoneHost(host) {
     standPortal({ pixel: { x: spot.d[0], y: spot.d[1] }, name: spot.t, mapId: spot.m, at: spot.a, yaw: spot.w }, stone, () => playerEntity.items ?? []);
     return true;
   }
-  return { openPortalStone, portalArrive, portalHoldNow, lockRefused, openToSpot };
+  return { openPortalStone, openDivinePortal, portalArrive, portalHoldNow, lockRefused, openToSpot };
 }

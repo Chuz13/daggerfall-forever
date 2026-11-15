@@ -10,19 +10,28 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { playerEntity } from '../characters/playerEntity.js';
+import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { t } from '../systems/textManager.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { worldMinutes } from '../systems/worldTick.js';
 import {
   APOTHEOSIS_PORTFOLIOS,
+  APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+  APOTHEOSIS_MYTHIC_DECAY_FLAT,
   APOTHEOSIS_QUEST_STEPS,
   APOTHEOSIS_STAGES,
+  AURBIS_COMMAND_CATALOG,
   REQUIRED_ARTIFACTS_COUNT,
   REQUIRED_FATE_WEIGHT,
   TOTAL_FATE_TRIGGERS,
   canStartApotheosisViaArtifacts,
   ensureApotheosisState,
+  evaluateAurbisCommand,
   evaluateFateWeight,
+  executeAurbisCommand,
+  getAurbisRuntime,
+  getFaithMax,
+  getSpawnCreatureFaithCost,
   scanInventoryArtifactsForApotheosis,
   selectApotheosisPortfolio,
   startApotheosisFromArtifacts,
@@ -75,6 +84,25 @@ const APOTHEOSIS_CSS = `
 .apo-art-name { font-size: 14px; font-weight: bold; }
 .apo-art-meta { font-size: 12px; color: #b9b09a; }
 .apo-picker-foot { padding: 12px 18px; border-top: 1px solid rgba(125,116,96,0.45); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.apo-bar-fill.faith { background: linear-gradient(90deg, #3c7ea8, #7cd4ff); }
+.apo-aurbis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.apo-aurbis-miracle { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 9px 11px; border: 1px solid rgba(190,165,98,0.5); background: rgba(16,20,29,0.85); color: #efe3bc; cursor: pointer; font: inherit; }
+.apo-aurbis-miracle:hover:not(:disabled) { border-color: #7cd4ff; background: rgba(20,34,48,0.88); }
+.apo-aurbis-miracle:disabled { opacity: 0.45; cursor: not-allowed; }
+.apo-aurbis-card { padding: 9px 11px; border: 1px solid rgba(190,165,98,0.5); background: rgba(16,20,29,0.85); display: flex; flex-direction: column; gap: 6px; }
+.apo-aurbis-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.apo-input { flex: 1; min-width: 220px; font: inherit; font-size: 14px; padding: 8px 10px; color: #f6eec6; background: rgba(6,8,14,0.9); border: 1px solid rgba(190,165,98,0.65); outline: none; }
+.apo-input:focus { border-color: #7cd4ff; }
+.apo-select { width: 100%; font: inherit; font-size: 13px; padding: 6px 8px; color: #f6eec6; background: rgba(6,8,14,0.92); border: 1px solid rgba(190,165,98,0.6); }
+.apo-aurbis-preview { font-size: 13px; margin-top: 8px; color: #b9eaff; }
+.apo-aurbis-preview.err { color: #ff9c9c; }
+.apo-aurbis-preview.aligned { color: #9cf29e; }
+.apo-aurbis-preview.opposed { color: #ffbe80; }
+.apo-aurbis-log { max-height: 150px; overflow-y: auto; padding: 8px 10px; background: rgba(5,7,11,0.85); border: 1px solid rgba(125,116,96,0.45); font-family: monospace; font-size: 12px; color: #dfd4b0; white-space: pre-wrap; display: flex; flex-direction: column; gap: 6px; }
+.apo-aurbis-ref { max-height: 250px; overflow-y: auto; margin-top: 10px; padding: 10px; background: rgba(8,10,16,0.9); border: 1px solid rgba(125,116,96,0.55); display: flex; flex-direction: column; gap: 10px; }
+.apo-ref-cat { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: rgb(243,239,44); margin-bottom: 4px; }
+.apo-ref-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 1px solid rgba(125,116,96,0.3); background: rgba(16,20,28,0.65); cursor: pointer; text-align: left; font: inherit; color: #efe3bc; width: 100%; }
+.apo-ref-row:hover { border-color: #7cd4ff; background: rgba(18,32,44,0.8); }
 `;
 
 const el = (tag, cls, txt) => {
@@ -97,10 +125,20 @@ let pickerOpen = false;
 let selectedItems = [];
 let statusMessage = null;
 let statusIsError = false;
+let aurbisInputText = '';
+let aurbisSelectedMob = 'Rat';
+let aurbisShowCatalog = false;
+let aurbisHistory = [];
+let aurbisHistoryIdx = -1;
+let aurbisLog = [];
 
-/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`) before opening the pane. */
+const SPAWNABLE_MOBILES = Object.entries(MOBILE_TYPES)
+  .filter(([name, id]) => name !== 'None' && name !== 'Horse_Invalid' && id < 65535)
+  .sort((a, b) => a[1] - b[1]);
+
+/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`, `aurbis`) before opening the pane. */
 export function selectApotheosisSection(sec) {
-  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio']);
+  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio', 'aurbis']);
   if (valid.has(sec)) {
     activeSec = sec;
   }
@@ -113,6 +151,9 @@ export function releaseApotheosisPane() {
   selectedItems = [];
   statusMessage = null;
   statusIsError = false;
+  aurbisInputText = '';
+  aurbisShowCatalog = false;
+  aurbisHistoryIdx = -1;
 }
 
 function setFeedback(msg, isError = false) {
@@ -128,6 +169,7 @@ function currentSections(trackerShown) {
     secs.push(['power', t('apotheosis.sec.power', 'Dominion & World')]);
   }
   secs.push(['portfolio', t('apotheosis.sec.portfolio', 'Divine Portfolio')]);
+  secs.push(['aurbis', t('apotheosis.nav.aurbis', 'Scroll of Aurbis')]);
   return secs;
 }
 
@@ -269,6 +311,41 @@ function renderPickerModal(root, repaint, entity) {
   root.append(backdrop);
 }
 
+function liveWitnessCount(entity, state) {
+  if (state.debugWitnessCount != null) return state.debugWitnessCount;
+  try {
+    return Math.max(0, Math.trunc(Number(getAurbisRuntime().getSceneContext?.()?.getNearbyWitnessCount?.() ?? 0)));
+  } catch {
+    return 0;
+  }
+}
+
+function renderFaithBox(container, state, entity) {
+  const faith = Math.max(0, Math.trunc(Number(state?.faith) || 0));
+  const faithMax = getFaithMax(state);
+  const pct = faithMax > 0 ? Math.min(100, Math.round((faith / faithMax) * 100)) : 0;
+  const box = el('div', 'apo-box');
+  box.append(el('h4', null, t('apotheosis.faith.title', 'Divine Faith Reservoir')));
+  const barWrap = el('div', 'apo-bar-wrap');
+  const fill = el('div', 'apo-bar-fill faith');
+  fill.style.width = `${pct}%`;
+  barWrap.append(fill);
+  box.append(barWrap);
+  const cultNote = (state.cultFaithBonus || 0) > 0
+    ? t('apotheosis.faith.cultBonus', ' (Base 1000 + {bonus} Cult)', { bonus: state.cultFaithBonus })
+    : '';
+  box.append(
+    el('div', 'apo-meta-row',
+      t('apotheosis.faith.meter', 'Faith: {cur} / {max}{cultNote} · Mythic Decay: -{decay}/idle day · Rebirth Cost: 150', {
+        cur: faith,
+        max: faithMax,
+        cultNote,
+        decay: APOTHEOSIS_MYTHIC_DECAY_FLAT,
+      })),
+  );
+  container.append(box);
+}
+
 function renderPortfolioCards(container, state, entity, repaint) {
   const grid = el('div', 'apo-grid');
   const canChoose = state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO || state.stage === APOTHEOSIS_STAGES.ASCENDED || state.ascended;
@@ -288,13 +365,15 @@ function renderPortfolioCards(container, state, entity, repaint) {
       el('div', 'apo-card-desc', p.summary()),
     );
     const acts = el('div', 'apo-acts');
+    const needsSwitchFee = Boolean(state.ascended && state.portfolio && !isCurrent);
+    const lacksSwitchFaith = needsSwitchFee && (state.faith || 0) < APOTHEOSIS_PORTFOLIO_SWITCH_COST;
     const label = isCurrent
       ? t('apotheosis.portfolio.btnCurrent', 'Active Portfolio')
       : state.ascended
-        ? t('apotheosis.portfolio.btnSwitch', 'Switch Portfolio (Free)')
+        ? t('apotheosis.portfolio.btnSwitchCost', 'Switch Portfolio ({cost} Faith)', { cost: APOTHEOSIS_PORTFOLIO_SWITCH_COST })
         : t('apotheosis.portfolio.btnChoose', 'Claim Portfolio');
     const btn = el('button', `apo-btn${isCurrent ? '' : ' primary'}`, label);
-    btn.disabled = !canChoose || isCurrent;
+    btn.disabled = !canChoose || isCurrent || lacksSwitchFaith;
     btn.onclick = () => {
       let nowMin = null;
       try { nowMin = worldMinutes(); } catch { nowMin = null; }
@@ -363,6 +442,7 @@ function renderOverview(detail, entity, trackerShown, repaint) {
   }
 
   if (state.ascended && activeDef) {
+    renderFaithBox(detail, state, entity);
     const godBox = el('div', 'apo-box');
     godBox.append(
       el('h4', null, t('apotheosis.overview.divinityTitle', 'Divine Mantle')),
@@ -376,12 +456,18 @@ function renderOverview(detail, entity, trackerShown, repaint) {
       })),
     );
     const acts = el('div', 'apo-acts');
-    const manageBtn = el('button', 'apo-btn primary', t('apotheosis.overview.changePortfolioBtn', 'Change Portfolio (Free)'));
+    const manageBtn = el('button', 'apo-btn primary',
+      t('apotheosis.overview.changePortfolioCostBtn', 'Change Portfolio ({cost} Faith)', { cost: APOTHEOSIS_PORTFOLIO_SWITCH_COST }));
     manageBtn.onclick = () => {
       activeSec = 'portfolio';
       repaint();
     };
-    acts.append(manageBtn);
+    const aurbisBtn = el('button', 'apo-btn', t('apotheosis.overview.openAurbisBtn', 'Open Scroll of Aurbis'));
+    aurbisBtn.onclick = () => {
+      activeSec = 'aurbis';
+      repaint();
+    };
+    acts.append(manageBtn, aurbisBtn);
     godBox.append(acts);
     detail.append(godBox);
   }
@@ -479,13 +565,19 @@ function renderPortfolioPage(detail, entity, repaint) {
   left.append(
     el('div', 'apo-hero-title', t('apotheosis.portfolio.pageTitle', 'Divine Portfolio')),
     el('div', 'apo-meta-row',
-      t('apotheosis.portfolio.pageSub', 'Choose the domain that defines your godhood. In Stage 0, switching Portfolios is free once ascended.')),
+      t('apotheosis.portfolio.pageSubStage2', 'Choose the domain that defines your godhood. Switching Portfolios after Ascension costs {cost} Faith.', {
+        cost: APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+      })),
   );
   hero.append(left, el('span', stageBadgeClass(state), stageBadgeText(state)));
   detail.append(hero);
 
   if (statusMessage) {
     detail.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
+  }
+
+  if (state.ascended) {
+    renderFaithBox(detail, state, entity);
   }
 
   if (state.stage === APOTHEOSIS_STAGES.MORTAL && !state.ascended) {
@@ -498,6 +590,248 @@ function renderPortfolioPage(detail, entity, repaint) {
   }
 
   renderPortfolioCards(detail, state, entity, repaint);
+}
+
+async function runAurbisLine(cmdLine, entity, repaint) {
+  const clean = String(cmdLine ?? '').trim();
+  if (!clean) return;
+  let nowMin = 0;
+  try { nowMin = worldMinutes() || 0; } catch { nowMin = 0; }
+  const res = await executeAurbisCommand(clean, entity, { nowMinutes: nowMin });
+  if (!res.ok) {
+    const errText = res.error ?? 'Miracle refused.';
+    setFeedback(errText, true);
+    aurbisLog = [`> ${clean}\nERR: ${errText}`, ...aurbisLog].slice(0, 12);
+    repaint();
+    return;
+  }
+  if (aurbisHistory[0] !== clean) aurbisHistory = [clean, ...aurbisHistory].slice(0, 20);
+  aurbisHistoryIdx = -1;
+  const witnessNote = res.witnessDelta
+    ? ` | Witnesses: ${res.witnessDelta > 0 ? `+${res.witnessDelta}` : res.witnessDelta} Faith`
+    : '';
+  const summary = res.deferred
+    ? res.output
+    : `-${res.faithSpent} Faith${witnessNote} (Faith ${res.newFaith}/${res.faithMax})${res.output ? `\n${res.output}` : ''}`;
+  setFeedback(res.deferred ? res.output : t('apotheosis.aurbis.invoked', 'Decree enacted: {cmd} (-{cost} Faith{wNote}).', {
+    cmd: clean,
+    cost: res.faithSpent,
+    wNote: witnessNote,
+  }), false);
+  aurbisLog = [`> ${clean}\n${summary}`, ...aurbisLog].slice(0, 12);
+  repaint();
+}
+
+function renderAurbisPage(detail, entity, repaint) {
+  const state = ensureApotheosisState(entity);
+  const witnesses = liveWitnessCount(entity, state);
+  const hero = el('div', 'apo-hero');
+  const left = el('div');
+  left.append(
+    el('div', 'apo-hero-title', t('apotheosis.aurbis.title', 'Scroll of Aurbis')),
+    el('div', 'apo-meta-row',
+      t('apotheosis.aurbis.subtitle', 'Inscribe Reality-shaping decrees fueled by Faith. Witnesses nearby: {w} (Aligned +15 / Opposed -20).', { w: witnesses })),
+  );
+  hero.append(left, el('span', stageBadgeClass(state), stageBadgeText(state)));
+  detail.append(hero);
+
+  if (statusMessage) {
+    detail.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
+  }
+
+  if (!state.ascended && state.stage !== APOTHEOSIS_STAGES.ASCENDED) {
+    detail.append(el('div', 'apo-box',
+      t('apotheosis.aurbis.locked', 'Ascend to Godhood and claim a Divine Portfolio to unlock the Scroll of Aurbis and weave Reality with Faith.')));
+    return;
+  }
+
+  renderFaithBox(detail, state, entity);
+
+  // 1. Ten Quick Miracles
+  const quickBox = el('div', 'apo-box');
+  quickBox.append(el('h4', null, t('apotheosis.aurbis.quickTitle', 'Quick Miracles (10)')));
+  const quickGrid = el('div', 'apo-aurbis-grid');
+
+  const fixedMiracles = [
+    { label: t('apotheosis.aurbis.q.portal', 'Divine Portal'), desc: t('apotheosis.aurbis.q.portalDesc', 'Open Portal Stone map'), cmd: 'portal' },
+    { label: t('apotheosis.aurbis.q.heal', 'Divine Restoration'), desc: t('apotheosis.aurbis.q.healDesc', 'Restore Health, Magicka & Fatigue'), cmd: 'heal' },
+    { label: t('apotheosis.aurbis.q.killall', 'Smite Hostiles'), desc: t('apotheosis.aurbis.q.killallDesc', 'Strike down nearby foes'), cmd: 'killall' },
+    { label: t('apotheosis.aurbis.q.sun', 'Clear Skies'), desc: t('apotheosis.aurbis.q.sunDesc', 'Part stormclouds across the land'), cmd: 'weather 0' },
+    { label: t('apotheosis.aurbis.q.storm', 'Call Storm'), desc: t('apotheosis.aurbis.q.stormDesc', 'Summon thunder & tempest'), cmd: 'weather 5' },
+    { label: t('apotheosis.aurbis.q.time', 'Turn Day (+12h)'), desc: t('apotheosis.aurbis.q.timeDesc', 'Advance Tamrielic clock by 12h'), cmd: 'advance_time 12' },
+    { label: t('apotheosis.aurbis.q.gold', 'Manifest Gold (+1000)'), desc: t('apotheosis.aurbis.q.goldDesc', 'Conjure coin into your purse'), cmd: 'addgold 1000' },
+    { label: t('apotheosis.aurbis.q.absolve', 'Absolve Bounty'), desc: t('apotheosis.aurbis.q.absolveDesc', 'Clear bounty in current region'), cmd: 'bounty clear' },
+    { label: t('apotheosis.aurbis.q.crisisTp', 'Step to Crisis'), desc: t('apotheosis.aurbis.q.crisisTpDesc', 'Teleport to an active regional crisis'), cmd: 'crisis tp' },
+  ];
+
+  for (const m of fixedMiracles) {
+    const ev = evaluateAurbisCommand(m.cmd, entity, { witnessCount: witnesses });
+    const cost = ev.allowed ? ev.faithCost : 0;
+    const alignTag = ev.alignment === 'aligned' ? ' (+15)' : ev.alignment === 'opposed' ? ' (-20)' : '';
+    const btn = el('button', 'apo-aurbis-miracle');
+    btn.disabled = !ev.allowed || (state.faith || 0) < cost;
+    btn.append(
+      el('div', 'apo-card-title', m.label),
+      el('div', 'apo-card-desc', m.desc),
+      el('div', 'apo-card-prog', `${cost} Faith${alignTag}`),
+    );
+    btn.onclick = () => runAurbisLine(m.cmd, entity, repaint);
+    quickGrid.append(btn);
+  }
+
+  // 10th Quick Miracle: Summon Creature (`spawnfoe`) with MOBILE_TYPES selector
+  const spawnCard = el('div', 'apo-aurbis-card');
+  spawnCard.append(el('div', 'apo-card-title', t('apotheosis.aurbis.q.spawn', 'Summon Creature')));
+  const mobSelect = el('select', 'apo-select');
+  for (const [mobName, mobId] of SPAWNABLE_MOBILES) {
+    const opt = el('option');
+    opt.value = mobName;
+    opt.textContent = `${mobName} (#${mobId} · ${getSpawnCreatureFaithCost(mobName)} Faith)`;
+    if (mobName === aurbisSelectedMob) opt.selected = true;
+    mobSelect.append(opt);
+  }
+  const spawnBtn = el('button', 'apo-btn primary');
+  const syncSpawnBtn = () => {
+    const cost = getSpawnCreatureFaithCost(aurbisSelectedMob);
+    spawnBtn.textContent = t('apotheosis.aurbis.q.spawnBtn', 'Summon ({cost} Faith)', { cost });
+    spawnBtn.disabled = (state.faith || 0) < cost;
+  };
+  syncSpawnBtn();
+  mobSelect.onchange = () => {
+    aurbisSelectedMob = mobSelect.value;
+    syncSpawnBtn();
+  };
+  spawnBtn.onclick = () => runAurbisLine(`spawnfoe ${aurbisSelectedMob}`, entity, repaint);
+  spawnCard.append(mobSelect, spawnBtn);
+  quickGrid.append(spawnCard);
+
+  quickBox.append(quickGrid);
+  detail.append(quickBox);
+
+  // 2. Manual Decree Input + Live Cost Preview + Allowed Command List Toggle
+  const cmdBox = el('div', 'apo-box');
+  cmdBox.append(el('h4', null, t('apotheosis.aurbis.manualTitle', 'Inscribe Aurbis Decree')));
+  const form = el('div', 'apo-aurbis-form');
+  const input = el('input', 'apo-input');
+  input.type = 'text';
+  input.value = aurbisInputText;
+  input.placeholder = t('apotheosis.aurbis.placeholder', 'e.g. additem daedric_claymore, weather storm, crisis start war, living adv tick 3');
+  const invokeBtn = el('button', 'apo-btn primary', t('apotheosis.aurbis.invokeBtn', 'Invoke'));
+  const catalogBtn = el('button', 'apo-btn',
+    aurbisShowCatalog
+      ? t('apotheosis.aurbis.hideCatalog', 'Hide Allowed Commands')
+      : t('apotheosis.aurbis.showCatalog', 'Allowed Commands List'));
+  form.append(input, invokeBtn, catalogBtn);
+
+  const previewEl = el('div', 'apo-aurbis-preview');
+  const updatePreview = (text) => {
+    const trimmed = String(text ?? '').trim();
+    if (!trimmed) {
+      previewEl.className = 'apo-aurbis-preview';
+      previewEl.textContent = t('apotheosis.aurbis.previewIdle', 'Type any allowed Tamrielic command to inspect its Faith cost and witness reaction.');
+      invokeBtn.disabled = true;
+      return;
+    }
+    const ev = evaluateAurbisCommand(trimmed, entity, { witnessCount: witnesses });
+    if (!ev.allowed) {
+      previewEl.className = 'apo-aurbis-preview err';
+      previewEl.textContent = ev.reason;
+      invokeBtn.disabled = true;
+      return;
+    }
+    const lacks = (state.faith || 0) < ev.faithCost;
+    const alignStr = ev.witnessDelta > 0
+      ? ` · Witnesses aligned (+${ev.witnessDelta} Faith)`
+      : ev.witnessDelta < 0
+        ? ` · Witnesses opposed (${ev.witnessDelta} Faith)`
+        : '';
+    previewEl.className = lacks
+      ? 'apo-aurbis-preview err'
+      : `apo-aurbis-preview${ev.alignment !== 'neutral' ? ` ${ev.alignment}` : ''}`;
+    previewEl.textContent = lacks
+      ? t('apotheosis.aurbis.previewLacks', 'Cost: {cost} Faith (Need more Faith — you have {cur}){align}', {
+        cost: ev.faithCost, cur: state.faith || 0, align: alignStr,
+      })
+      : t('apotheosis.aurbis.previewOk', 'Allowed · Cost: {cost} Faith{align}', {
+        cost: ev.faithCost, align: alignStr,
+      });
+    invokeBtn.disabled = lacks;
+  };
+  updatePreview(aurbisInputText);
+
+  input.oninput = () => {
+    aurbisInputText = input.value;
+    updatePreview(aurbisInputText);
+  };
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter' && !invokeBtn.disabled) {
+      e.preventDefault();
+      const line = input.value;
+      aurbisInputText = '';
+      runAurbisLine(line, entity, repaint);
+    } else if (e.key === 'ArrowUp' && aurbisHistory.length > 0) {
+      e.preventDefault();
+      aurbisHistoryIdx = Math.min(aurbisHistory.length - 1, aurbisHistoryIdx + 1);
+      input.value = aurbisHistory[aurbisHistoryIdx] ?? '';
+      aurbisInputText = input.value;
+      updatePreview(aurbisInputText);
+    } else if (e.key === 'ArrowDown' && aurbisHistoryIdx >= 0) {
+      e.preventDefault();
+      aurbisHistoryIdx = Math.max(-1, aurbisHistoryIdx - 1);
+      input.value = aurbisHistoryIdx >= 0 ? (aurbisHistory[aurbisHistoryIdx] ?? '') : '';
+      aurbisInputText = input.value;
+      updatePreview(aurbisInputText);
+    }
+  };
+  invokeBtn.onclick = () => {
+    const line = input.value;
+    aurbisInputText = '';
+    runAurbisLine(line, entity, repaint);
+  };
+  catalogBtn.onclick = () => {
+    aurbisShowCatalog = !aurbisShowCatalog;
+    repaint();
+  };
+
+  cmdBox.append(form, previewEl);
+
+  if (aurbisShowCatalog) {
+    const refBox = el('div', 'apo-aurbis-ref');
+    for (const cat of AURBIS_COMMAND_CATALOG) {
+      const catEl = el('div');
+      catEl.append(el('div', 'apo-ref-cat', cat.categoryLabel()));
+      for (const entry of cat.commands) {
+        const row = el('button', 'apo-ref-row');
+        row.append(
+          el('span', 'apo-card-title', entry.syntax),
+          el('span', 'apo-pill', entry.costHint),
+          el('div', 'apo-card-desc', `${entry.desc()}${entry.aliases?.length ? ` (Aliases: ${entry.aliases.join(', ')})` : ''}`),
+        );
+        row.onclick = () => {
+          aurbisInputText = entry.cmd;
+          input.value = entry.cmd;
+          updatePreview(aurbisInputText);
+          input.focus();
+        };
+        catEl.append(row);
+      }
+      refBox.append(catEl);
+    }
+    cmdBox.append(refBox);
+  }
+
+  detail.append(cmdBox);
+
+  if (aurbisLog.length > 0) {
+    const logBox = el('div', 'apo-box');
+    logBox.append(el('h4', null, t('apotheosis.aurbis.logTitle', 'Chronicle of Decrees')));
+    const logScroll = el('div', 'apo-aurbis-log');
+    for (const entry of aurbisLog) {
+      logScroll.append(el('div', null, entry));
+    }
+    logBox.append(logScroll);
+    detail.append(logBox);
+  }
 }
 
 function paint(root) {
@@ -527,6 +861,8 @@ function paint(root) {
     renderOverview(detail, entity, trackerShown, repaint);
   } else if (activeSec === 'portfolio') {
     renderPortfolioPage(detail, entity, repaint);
+  } else if (activeSec === 'aurbis') {
+    renderAurbisPage(detail, entity, repaint);
   } else {
     const fate = evaluateFateWeight(entity);
     const cat = fate.categories.find((c) => c.id === activeSec);

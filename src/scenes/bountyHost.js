@@ -371,7 +371,7 @@ export function createBountyHost(deps) {
   // ── paying ────────────────────────────────────────────────────────
   function pay(id, { byMate = null } = {}) {
     const posting = postingOf(id);
-    const row = payBounty(ledger, id, deps.now());
+    const row = payBounty(ledger, id, deps.now(), { entity: deps.entity(), tier: posting?.tier });
     if (!row || !posting) return false;
     paidIds.set(posting.slotKey, id);
     packs.delete(id);

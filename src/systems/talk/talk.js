@@ -34,6 +34,7 @@ import { skillValue, tallySkill, SKILLS } from '../skills.js';
 import { addGoldPieces } from '../inventory.js'; // E4: the pinched purse lands in the counter
 import { longitudeLatitudeToMapPixel } from '../../formats/mapsFile.js'; // wave 26: the compass law
 import { REGION_NAMES } from '../../formats/mapsTables.js'; // BAY-LEFT-B: the compass law's regions are the world's
+import { notifyApotheosisEvent } from '../apotheosis/apotheosisLive.js';
 
 // PlayerActivate constants. AUDIT 24 (wave 23): these were a SECOND
 // declaration of PlayerActivate.cs:76-88, written out as bare
@@ -350,6 +351,7 @@ export function pickpocket(
     target ? (target.level ?? 0) : null,
   );
   if (dice100(chance, rolls())) {
+    notifyApotheosisEvent('shadowAct', { entity: player, actKind: 'pickpocket' });
     if (!dice100(33, rolls())) {
       // Dice100.FailedRoll(33)
       const gold = Math.floor(rolls() * 6) + 1; // Random.Range(0,6) + 1

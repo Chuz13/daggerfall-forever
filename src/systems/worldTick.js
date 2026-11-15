@@ -46,6 +46,7 @@ import { checkMinionRebellion, tickControlledUndeadRound } from './necromancy/mi
 import { tickTaintDaily } from './necromancy/necroTaint.js';
 import { NecroConfig } from './necromancy/necroConfig.js';
 import { lichdomMagicRound } from './necromancy/lichdomStatus.js';
+import { notifyApotheosisEvent } from './apotheosis/apotheosisLive.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 
 let _necroRestManaLocked = false;
@@ -591,6 +592,9 @@ export function runDayChange({ entity, lastMinutes, nowMinutes, rolls = Math.ran
     onLivingWorldTick(nowMinutes);
   }
   if (!ownHalf) return { daysPast, loanReminders: [], loanDefaults: [] };   // LIVED1: the world's half alone
+
+  // Apotheosis Stage 2: flat daily Mythic Decay (-15 Faith on idle days) & Order lawful bonus
+  notifyApotheosisEvent('mythicDecayTick', { entity, nowMinutes });
 
   // :449 - the landlord's sweep. `entity.sceneCache` may not exist yet
   // (a host that never entered a building), and removeExpiredRooms

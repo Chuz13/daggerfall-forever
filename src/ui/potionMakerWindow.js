@@ -60,6 +60,7 @@ import {
   gatherRecipe,
 } from '../systems/potions.js';
 import { localizedText } from '../systems/textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
+import { notifyApotheosisEvent, getActiveApotheosisPlayer } from '../systems/apotheosis/apotheosisLive.js';
 
 /** MASK00I0 is a full-screen background (:75-76), so the rects are
  *  screen-absolute rather than panel-relative. */
@@ -300,6 +301,10 @@ export class PotionMakerWindow {
       this.box = this._failedBox();
     } else {
       this.hooks.addPotion?.(result.recipe, result.key);
+      notifyApotheosisEvent('magicCraft', {
+        entity: this.hooks?.player ?? this.hooks?.entity ?? getActiveApotheosisPlayer(),
+        craftKind: 'alchemy',
+      });
       // F177: MixCauldron never touches the name label (:311-360) -
       // only AddRecipeToCauldron writes it (:307); the old mix-time
       // write inverted DFU's label.

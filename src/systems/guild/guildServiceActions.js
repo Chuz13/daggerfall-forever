@@ -33,6 +33,7 @@ import { trainingPrice, trainingMax, trainingSkills, reducedCureCost } from './g
 import { getHolidayId, FREE_CURE_HOLIDAYS, HALF_PRICE_CURE_HOLIDAY } from '../holidays.js';
 import { firstName } from '../talk/talkSession.js'; // MH1: %pcf's own reader
 import { expandMacroValues } from '../quest/questMacros.js'; // MH1: the ONE macro walk
+import { notifyApotheosisEvent } from '../apotheosis/apotheosisLive.js';
 import { getTempleServiceAccessibility } from '../living/reputationConsequences.js';
 
 /** MacroHelper's four (Utility/MacroHelper.cs :50, :105, :107, :153),
@@ -243,6 +244,7 @@ export function donate(entity, store, divineFactionId, amount, rolls = Math.rand
   const chance = Math.trunc((2 * amount) / Math.max(rep, 1)) + 1;
   const raised = Math.floor(rolls() * 100) < chance;
   if (raised) changeReputation(store, divineFactionId, 1, false);
+  notifyApotheosisEvent('templeDonation', { entity, divineFactionId, amount });
   return { kind: 'thanks', textId: DONATION_THANKS_ID, amount, chance, raised };
 }
 

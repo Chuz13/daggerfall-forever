@@ -542,7 +542,7 @@ test('Ascended God Base Boons (+500 HP/MP/Fatigue), real Portfolio Passives, and
   assert.equal(weaponDamageMods({}, 100), 115);
 
   // Switch to Magic -> +20 INT/WIL, +250 extra MP, +25 magic skills, +25% magic resist
-  selectApotheosisPortfolio(god, 'magic', { nowMinutes: 50010 });
+  selectApotheosisPortfolio(god, 'magic', { nowMinutes: 50010, free: true });
   computeEntityMods(god);
   defineLiveMaxMagicka(god);
   assert.equal(entityStatMod(god, 'intelligence'), 20);
@@ -551,14 +551,14 @@ test('Ascended God Base Boons (+500 HP/MP/Fatigue), real Portfolio Passives, and
   assert.ok(god.maxMagicka > baseMaxMp + 500);
 
   // Switch to Shadows -> +20 AGI/SPD, +25 stealth/backstab/crit/dodging
-  selectApotheosisPortfolio(god, 'shadows', { nowMinutes: 50020 });
+  selectApotheosisPortfolio(god, 'shadows', { nowMinutes: 50020, free: true });
   const shMods = computeApotheosisPortfolioMods(god);
   assert.equal(shMods.stats.agility, 20);
   assert.equal(shMods.skills[SKILLS.Backstabbing], 25);
   assert.equal(shMods.fallLess, 0.5);
 
   // Switch to Order -> +20 PER/LUC, +25% elemental/magic resist, +25 standing
-  selectApotheosisPortfolio(god, 'order', { nowMinutes: 50030 });
+  selectApotheosisPortfolio(god, 'order', { nowMinutes: 50030, free: true });
   computeEntityMods(god);
   assert.equal(entityStatMod(god, 'personality'), 20);
   assert.equal(entityResistMod(god, ['fire']), 25);

@@ -84,6 +84,10 @@ import {
   setDebugFateWeight,
   startApotheosisFromMantella,
   startApotheosisQuestline,
+  getFaithMax,
+  registerAurbisRuntime,
+  tickApotheosisMythicDecay,
+  executeAurbisCommand,
 } from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -2898,8 +2902,11 @@ async function handleApotheosisCommand(args = []) {
     const state = ensureApotheosisState(playerEntity);
     const fate = evaluateFateWeight(playerEntity);
     const art = scanInventoryArtifactsForApotheosis(playerEntity);
+    const faithMax = getFaithMax(playerEntity);
+    const witnessVal = state.debugWitnessCount ?? sceneCtx?.getNearbyWitnessCount?.() ?? 0;
     const lines = [
-      `[Apotheosis] stage=${state.stage} questStep=${state.questStep} siegeWave=${state.siegeWave}/13 towerSiegeCleared=${state.towerSiegeCleared} storm=${isApotheosisStormActive(playerEntity)} ascended=${state.ascended} source=${state.source ?? 'none'} portfolio=${state.portfolio ?? 'none'}`,
+      `[Apotheosis] stage=${state.stage} questStep=${state.questStep} siegeWave=${state.towerSiegeWave ?? state.siegeWave ?? 0}/13 towerSiegeCleared=${state.towerSiegeCleared} storm=${isApotheosisStormActive(playerEntity)} ascended=${state.ascended} source=${state.source ?? 'none'} portfolio=${state.portfolio ?? 'none'}`,
+      `Faith: ${state.faith ?? 0}/${faithMax} (cultBonus=${state.cultFaithBonus || 0}, lastDecayDay=${state.lastFaithDecayDay ?? 'none'}, witnesses=${witnessVal}${state.debugWitnessCount != null ? ' [debug]' : ''})`,
       `Fate Weight: ${fate.count}/${fate.total} (required ${fate.required}, natural ${fate.naturalCount})`,
       `Artifacts: ${art.distinctUnequippedCount}/${REQUIRED_ARTIFACTS_COUNT} distinct unequipped in pack (equipped=${art.equippedCount})`,
     ];
@@ -2908,6 +2915,60 @@ async function handleApotheosisCommand(args = []) {
       lines.push(`  ${mark} ${tr.id}: ${tr.name} (${tr.progressText})`);
     }
     return lines.join('\n');
+  }
+  if (sub === 'faith') {
+    const st = ensureApotheosisState(playerEntity);
+    const faithMax = getFaithMax(playerEntity);
+    const arg = args[1];
+    if (arg == null || String(arg).toLowerCase() === 'get') {
+      return `Faith: ${st.faith ?? 0}/${faithMax} (cultBonus=${st.cultFaithBonus || 0})`;
+    }
+    if (String(arg).toLowerCase() === 'max') {
+      st.faith = faithMax;
+      return `Set Faith to maximum: ${st.faith}/${faithMax}.`;
+    }
+    const val = parseInt(arg, 10);
+    if (!Number.isFinite(val)) return 'Usage: apo faith [amount | max]';
+    st.faith = Math.max(0, Math.min(faithMax, val));
+    return `Set Faith to ${st.faith}/${faithMax}.`;
+  }
+  if (sub === 'decay') {
+    const st = ensureApotheosisState(playerEntity);
+    if (!st.ascended && st.stage !== APOTHEOSIS_STAGES.ASCENDED) {
+      return 'Mythic Decay applies once Ascended to Godhood.';
+    }
+    const days = Math.max(1, Math.min(365, parseInt(args[1] ?? '1', 10) || 1));
+    let nowMin = 0;
+    try { nowMin = worldMinutes() || 0; } catch { nowMin = 0; }
+    const res = tickApotheosisMythicDecay(playerEntity, nowMin, { daysOverride: days });
+    return `[Apotheosis] Mythic Decay (${days} day(s)): decayedDays=${res.decayedDays}, faithLost=${res.faithLost}, orderBonus=${res.orderBonus}, faith=${res.faithBefore}->${res.faithAfter}/${getFaithMax(playerEntity)}.`;
+  }
+  if (sub === 'witness') {
+    const st = ensureApotheosisState(playerEntity);
+    const raw = args[1];
+    if (raw == null) {
+      return `Witness override: ${st.debugWitnessCount ?? 'none (live scene count)'}.`;
+    }
+    const clean = String(raw).toLowerCase();
+    if (clean === 'clear' || clean === 'auto' || clean === 'live' || clean === 'off' || clean === 'none') {
+      st.debugWitnessCount = null;
+      return 'Cleared debug witness override (using live scene witness count).';
+    }
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 0) return 'Usage: apo witness [count | clear]';
+    st.debugWitnessCount = Math.min(999, n);
+    return `Set debug witness override to ${st.debugWitnessCount}.`;
+  }
+  if (sub === 'aurbis') {
+    const line = args.slice(1).join(' ').trim();
+    if (!line) return 'Usage: apo aurbis <command...>';
+    const res = await executeAurbisCommand(line, playerEntity);
+    if (!res.ok) return `[Scroll of Aurbis] ${res.error}`;
+    const witnessNote = res.witnessDelta
+      ? `, witness ${res.witnessDelta > 0 ? '+' : ''}${res.witnessDelta}`
+      : '';
+    const head = `[Scroll of Aurbis] (-${res.faithSpent} Faith${witnessNote}; Faith=${res.newFaith}/${res.faithMax})`;
+    return res.output ? `${head}\n${res.output}` : head;
   }
   if (sub === 'artifacts' || sub === 'arts') {
     const count = args[1] != null ? Math.max(1, Math.min(23, parseInt(args[1], 10) || 15)) : 15;
@@ -3041,19 +3102,37 @@ async function handleApotheosisCommand(args = []) {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
 }
+
+registerAurbisRuntime({
+  executeCommand: (cmd, args) => executeConsoleCommand(cmd, args),
+  findItemTemplate,
+  getSceneContext: () => getDebugSceneContext(),
+});
+
+registerCommand(
+  'portal',
+  'Open the Portal Stone map (Divine Portal without spending a stone): portal',
+  'portal',
+  () => {
+    const sceneCtx = getDebugSceneContext();
+    if (!sceneCtx?.apotheosisOpenPortal) return 'Portal map unavailable in this scene.';
+    const ok = sceneCtx.apotheosisOpenPortal();
+    return ok ? 'Opened Portal Stone travel map.' : 'Unable to open Portal Stone here.';
+  },
+);
 
 registerCommand(
   'apotheosis',
-  'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
+  'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
+  'apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 registerCommand(
   'apo',
-  'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apo [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
+  'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
+  'apo [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 

@@ -30,6 +30,11 @@ import {
   sensesBinding,
   autoOpens,
 } from './lockpickLaw.js';
+import { notifyApotheosisEvent, getActiveApotheosisPlayer } from '../apotheosis/apotheosisLive.js';
+
+const emitLockOpenShadowAct = () => {
+  notifyApotheosisEvent('shadowAct', { entity: getActiveApotheosisPlayer(), actKind: 'lockpick' });
+};
 
 /** A pin's phases: at rest, lifted (rising, hanging at the shear line, falling), bouncing free, set. */
 export const PIN = Object.freeze({
@@ -238,6 +243,7 @@ export function createLockpickAct({ lock, chance, seed, band = 1, skill = 0, ext
       if (st.next >= n) {
         st.open = true;
         st.done = true;
+        emitLockOpenShadowAct();
         return answer('open', i);
       }
       return answer('set', i);
@@ -254,6 +260,7 @@ export function createLockpickAct({ lock, chance, seed, band = 1, skill = 0, ext
         st.next = n;
         st.open = true;
         st.done = true;
+        emitLockOpenShadowAct();
         return answer('open', -1);
       }
       st.broken++;
