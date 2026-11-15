@@ -404,15 +404,21 @@ function normalizeStage2Fields(entity) {
   } else {
     apo.lastFaithDecayDay = null;
   }
-  apo.witnessMiracleDay = Number.isFinite(Number(apo.witnessMiracleDay)) ? Math.trunc(Number(apo.witnessMiracleDay)) : null;
+  apo.witnessMiracleDay = apo.witnessMiracleDay != null && Number.isFinite(Number(apo.witnessMiracleDay))
+    ? Math.trunc(Number(apo.witnessMiracleDay))
+    : null;
   apo.witnessMiracleCount = Number.isFinite(Number(apo.witnessMiracleCount)) && Number(apo.witnessMiracleCount) >= 0
     ? Math.trunc(Number(apo.witnessMiracleCount))
     : 0;
-  apo.donationFaithDay = Number.isFinite(Number(apo.donationFaithDay)) ? Math.trunc(Number(apo.donationFaithDay)) : null;
+  apo.donationFaithDay = apo.donationFaithDay != null && Number.isFinite(Number(apo.donationFaithDay))
+    ? Math.trunc(Number(apo.donationFaithDay))
+    : null;
   apo.donationFaithEarned = Number.isFinite(Number(apo.donationFaithEarned)) && Number(apo.donationFaithEarned) >= 0
     ? Math.trunc(Number(apo.donationFaithEarned))
     : 0;
-  apo.debugWitnessCount = Number.isFinite(Number(apo.debugWitnessCount)) && Number(apo.debugWitnessCount) >= 0
+  apo.debugWitnessCount = apo.debugWitnessCount != null
+    && Number.isFinite(Number(apo.debugWitnessCount))
+    && Number(apo.debugWitnessCount) >= 0
     ? Math.trunc(Number(apo.debugWitnessCount))
     : null;
   return apo;

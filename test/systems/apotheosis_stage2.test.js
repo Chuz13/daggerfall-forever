@@ -550,6 +550,18 @@ test('Stage 2 bugfixes: divine weather override resists weatherMap/weatherField 
       assert.equal(denied.allowed, false, `Expected ${badApo} to be denied`);
       assert.equal(denied.forbidden, true, `Expected ${badApo} to be forbidden`);
     }
+
+    // `debugWitnessCount` must stay `null` (not coerced to 0) so live `getNearbyWitnessCount` is queried
+    const pLive = makeGod('order', { faith: 500 });
+    assert.equal(pLive.apotheosis.debugWitnessCount, null);
+    setDebugSceneContext({ getNearbyWitnessCount: () => 4 });
+    const liveRes = await executeAurbisCommand('heal', pLive, {
+      executeCommandFn: () => 'Healed.',
+    });
+    assert.equal(liveRes.ok, true);
+    assert.equal(liveRes.witnessCount, 4);
+    assert.equal(liveRes.witnessDelta, 15);
+    assert.equal(pLive.apotheosis.debugWitnessCount, null);
   } finally {
     resetWeatherSim();
   }
