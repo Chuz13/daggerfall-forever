@@ -78,8 +78,6 @@ Gamedev is my profession, hobby, and passion.
 
 My main background is Game Design and Producing. I took a leadership track and now am working for one of Ukrainian gamedev companies.
 
-*In relation to this project I'm in no way, shape or form affiliated with GSC Game World.*
-
 My favorite games are DFU, Neverwinter Nights by BioWare (R.I.P. my dear), and Tales of Maj'Eyal.
 
 I have a cat named Raccoon:
