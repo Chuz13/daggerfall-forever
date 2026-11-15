@@ -855,7 +855,7 @@ import { music } from '../systems/music.js';
 import { AmbientEffects, EXTERIOR_AMBIENT_WAITS, presetForExterior } from '../systems/ambientEffects.js';
 import { createWetness } from '../systems/weather/wetness.js';   // the wet ground
 import { createWeatherFront, blendTerms, soundWeather, fallTerms, phaseTerms } from '../systems/weather/weatherFront.js';   // WX2: the front reaches the ground; RAIN-SPRINKLE: the look of what falls; AUDIT PRECIP FALL-3: the deck's light and the fall's fog
-import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, parkourDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost, liveCastEngine, realmSaveSink, setRealmSaveSink, setBeforeTitleExit } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
+import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, parkourDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, holdFrame, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost, liveCastEngine, realmSaveSink, setRealmSaveSink, setBeforeTitleExit } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
 import { dispelNearby, liveBundles, attemptSoulTrap, SOUL_TRAP_TEXT } from '../systems/mysticism.js';   // X9: the destroy law (destroyed, not killed); WBX7: the kill's soul trap roll, for the court's boss
 import { climbRigInput } from '../player/climb/climbPose.js';   // CLIMB6: the body's limbs on the climb
@@ -19214,8 +19214,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // (PlaySound.cs:112) - ONE source for every PlaySound action in every
   // running quest, which is what makes the busy-skip a shared gate
   // rather than a per-action one.
-  // CRUX1: the quest videos' one chain - see the playVideo hook below
-  const _questVideos = makeVideoQueue(async (name) => {
+  // CRUX1: the quest videos' one chain - see the playVideo hook below.
+  // Hold the host frame synchronously per queued video (matching infection videos in shared.js)
+  // so world/dungeon/exterior loops, HUD, and LT overlays stay paused across the entire chain.
+  const _questVideoQueue = makeVideoQueue(async (name) => {
     try {
       const { playVideo } = await import('../ui/videoPlayer.js');
       const played = await playVideo(renderer.canvas, renderer, await getBytes(name), { endOnAnyKey: false });
@@ -19224,6 +19226,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       console.warn(`[quest] ${name} unavailable - skipping the video:`, e?.message ?? e);
     }
   });
+  const _questVideos = (name) => {
+    const releaseFrame = holdFrame();
+    return _questVideoQueue(name).finally(releaseFrame);
+  };
   const questAudioSource = new QuestAudioSource(audio);
   // RAID-ASHORE (scenes/raidAshore.js): a voyage's raid thrown back where I stand - its crew and last raiders withdrawn
   // from the street's pool and, below deck, the room's (Warm Ashes' Leave Ship asks it; the quest's end sweeps again)
