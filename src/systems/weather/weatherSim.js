@@ -66,6 +66,7 @@ export { WEATHER_ENUM, WEATHER_TABLE, weatherTableFor, rollWeather } from './wea
 // for a respawn), so every client rolls the same six values for the same date without a frame to carry them. The
 // enhanced lane's hourly evolution (CLK2, below) was already seeded by the hour and the zone, so it agrees for free.
 let _sharedWeather = false;
+let _divineWeather = null;   // Temporary pinned weather from console / Apotheosis Scroll of Aurbis
 export function setSharedWeather(on) { _sharedWeather = !!on; }
 export const sharedWeatherOn = () => _sharedWeather;
 const SHARED_WEATHER_SEED = 0x57454154;   // 'WEAT'
@@ -156,6 +157,7 @@ export const currentFieldCell = () => _fieldInside;
  * Answers true when the worn word changed. Nothing off the lane.
  */
 export function sampleWeatherField(nowMinutes, climateIndex, at, climateAt, how = 'live') {
+  if (isDivineWeatherActive(nowMinutes)) return false;
   if (!weatherFieldOn() || !at || !climateAt) return false;
   if (weatherMapOn()) return sampleWeatherMap(nowMinutes, climateIndex, at, climateAt, how);   // WEATHER3b: the map supersedes the field on its own lane
   if (!_climateWeathersValid && !_climateWeathersRolled) return false;   // no words yet: the drain rolls them first
@@ -228,8 +230,9 @@ export const currentCloudBase = () => (weatherMapOn() ? 'sunny' : null);
 /** WEATHER3b: the intensity of the worn word at the player, 0..1 (the
  *  system's envelope, falling from its centre out) - the WX2 front's peak
  *  on the map's lane; null off it (the front rolls its own). */
-export const currentWeatherIntensity = () => (weatherMapOn() ? _mapIntensity : null);
+export const currentWeatherIntensity = () => (_divineWeather ? null : (weatherMapOn() ? _mapIntensity : null));
 function sampleWeatherMap(nowMinutes, climateIndex, at, climateAt, how) {
+  if (isDivineWeatherActive(nowMinutes)) return false;
   const minute = Math.floor(nowMinutes);
   // ASHFALL1's audit (lane A): and when the land past the Bay moved (its zones' stamp: the trace landing, a fit) - the map
   // drew its births again (weatherMap.js memoised), and a minute's found systems kept the old land's weather over it
@@ -464,6 +467,45 @@ export function setWeather(type) {
   return true;
 }
 
+function isDivineWeatherActive(nowMinutes) {
+  if (!_divineWeather) return false;
+  if (nowMinutes != null && Number.isFinite(Number(nowMinutes))) {
+    const min = Math.floor(Number(nowMinutes));
+    if (_divineWeather.expiresAtMinutes == null && _divineWeather.durationMinutes != null) {
+      _divineWeather.expiresAtMinutes = min + _divineWeather.durationMinutes;
+    }
+    if (_divineWeather.expiresAtMinutes != null && min >= _divineWeather.expiresAtMinutes) {
+      _divineWeather = null;
+      return false;
+    }
+  }
+  _current = _divineWeather.type;
+  _raw = _divineWeather.type;
+  _snowShare = _divineWeather.type === WEATHER_ENUM.snow ? 1 : 0;
+  return true;
+}
+
+/** Pins a chosen weather for `durationMinutes` (default 180 = 3h) so weatherMap/weatherField do not overwrite it on the next frame. */
+export function setDivineWeatherOverride(type, durationMinutes = 180) {
+  if (type == null) {
+    _divineWeather = null;
+    return true;
+  }
+  const w = typeof type === 'string' ? WEATHER_ENUM[type] : type;
+  if (w == null) return false;
+  const dur = Number.isFinite(Number(durationMinutes)) && Number(durationMinutes) > 0
+    ? Math.trunc(Number(durationMinutes))
+    : null;
+  _divineWeather = { type: w, durationMinutes: dur, expiresAtMinutes: null };
+  setWeather(w);
+  _jumps++;
+  return true;
+}
+
+export function clearDivineWeatherOverride() {
+  _divineWeather = null;
+}
+
 /** The six zones' climates, in the slots' order (WeatherManager.cs:421-426). */
 export const ZONE_CLIMATES = Object.freeze([CLIMATES.Desert, CLIMATES.Mountain, CLIMATES.Rainforest, CLIMATES.Swamp, CLIMATES.Subtropical, CLIMATES.Woodlands]);
 
@@ -595,6 +637,7 @@ export function rollClimateWeathersForDay(nowMinutes, rolls = Math.random) {
  *  a restore stamps it rolled instead (startedFromLoadedSaveGame,
  *  WeatherManager.cs:524-543) so the loaded sky survives. */
 export function tickWeather(nowMinutes, climateIndex, rolls = Math.random) {
+  if (isDivineWeatherActive(nowMinutes)) return false;
   if (!_climateWeathersRolled) {
     setClimateWeathers(seasonValue(dateFromClassicMinutes(skyMinuteOfEvent(nowMinutes))), rollsFor(nowMinutes, rolls));   // WORLD5: the day's own roll online; TIME1: the sky's season
     _climateWeathersRolled = true;
@@ -749,6 +792,7 @@ export function evolveClimateWeathers(nowMinutes) {
 /** Test seam: back to the fresh-boot state. */
 export function resetWeatherSim() {
   _sharedWeather = false;   // WORLD5
+  _divineWeather = null;
   _climateWeathers = new Uint8Array(6);
   _current = WEATHER_ENUM.sunny;
   _raw = WEATHER_ENUM.sunny;   // WEATHER2a

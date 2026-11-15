@@ -47,7 +47,7 @@ import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { worldMinutes, setWorldMinutes, advanceOwnMinutes } from './worldTick.js';
 import { setSyntheticTimeIncrease } from './effectBroker.js';
 import { dateFromClassicMinutes, dateTimeString, dayOfMonth, monthName, seasonName } from './gameDate.js';
-import { setWeather, currentWeather } from './weather/weatherSim.js';
+import { setWeather, setDivineWeatherOverride, currentWeather } from './weather/weatherSim.js';
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
 import { defineLiveMaxMagicka } from './chargen.js';
@@ -707,7 +707,7 @@ function handleWeatherCommand(args = []) {
   if (target == null) {
     return `Unknown weather "${args[0]}". Valid types: sunny(0), cloudy(1), overcast(2), fog(3), rain(4), thunder(5), snow(6).`;
   }
-  setWeather(target);
+  setDivineWeatherOverride(target, 180);
   return `Weather set to ${WEATHER_NAMES[target]}.`;
 }
 registerCommand('set_weather', 'Set current weather: set_weather <type|0..6>', 'set_weather <type|0..6>', handleWeatherCommand);

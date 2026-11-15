@@ -1358,6 +1358,16 @@ export async function executeAurbisCommand(rawLine, entity, {
     };
   }
 
+  if (/^(?:unknown\b|usage:|error:|err:|failed\b|unable to\b|cannot\b|can't\b|invalid\b|not found\b|item not found\b|no active\b|no region\b|unavailable\b|no such\b)/i.test(output.trim())) {
+    apo.faith = faithBefore;
+    return {
+      ok: false,
+      error: output.trim() || 'Miracle could not be enacted.',
+      newFaith: apo.faith,
+      evaluation,
+    };
+  }
+
   let witnessDelta = 0;
   let witnessAlignment = 'neutral';
   if (evaluation.faithCost > 0 && resolvedWitnesses > 0) {

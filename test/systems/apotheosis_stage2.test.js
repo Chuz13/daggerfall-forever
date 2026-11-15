@@ -1,5 +1,13 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  currentWeather,
+  resetWeatherSim,
+  sampleWeatherField,
+  setDivineWeatherOverride,
+  setWeatherFieldLaw,
+  setWeatherMapLaw,
+} from '../../src/systems/weather/weatherSim.js';
 
 import {
   APOTHEOSIS_FAITH_BASE_MAX,
@@ -477,5 +485,35 @@ test('Stage 2 Console Commands & UI Section: `apo faith`, `apo decay`, `apo witn
     if (prevApo === undefined) delete playerEntity.apotheosis;
     else playerEntity.apotheosis = prevApo;
     spendApotheosisFaith(playerEntity, 0);
+  }
+});
+
+test('Stage 2 bugfixes: divine weather override resists weatherMap/weatherField and Aurbis refunds Faith on command error string', async () => {
+  try {
+    resetWeatherSim();
+    setWeatherFieldLaw(true);
+    setWeatherMapLaw(true);
+    setDivineWeatherOverride(5, 180);
+    assert.equal(currentWeather(), 'thunder');
+    // Live frame sample at t=1000 must NOT overwrite pinned thunder
+    const changedBeforeExpiry = sampleWeatherField(1000, 223, [0, 0, 0], () => 223, 'live');
+    assert.equal(changedBeforeExpiry, false);
+    assert.equal(currentWeather(), 'thunder');
+    // Still pinned 179 minutes later
+    sampleWeatherField(1179, 223, [0, 0, 0], () => 223, 'live');
+    assert.equal(currentWeather(), 'thunder');
+    // Expires at +180 minutes (1180)
+    sampleWeatherField(1180, 223, [0, 0, 0], () => 223, 'live');
+
+    const p = makeGod('order', { faith: 500 });
+    const errRes = await executeAurbisCommand('spawnfoe Rat', p, {
+      witnessCount: 2,
+      executeCommandFn: () => 'Failed to spawn creature in this scene.',
+    });
+    assert.equal(errRes.ok, false);
+    assert.match(errRes.error, /Failed to spawn/i);
+    assert.equal(p.apotheosis.faith, 500);
+  } finally {
+    resetWeatherSim();
   }
 });

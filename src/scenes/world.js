@@ -30446,7 +30446,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       let count = 0;
       try {
         for (const p of _talkPersons()) {
-          const pos = p?.pos;
+          if (!p || p.dead) continue;
+          const pos = p.pos;
           if (!pos) continue;
           const dx = pos[0] - origin[0];
           const dz = pos[2] - origin[2];
