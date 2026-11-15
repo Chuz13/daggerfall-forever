@@ -76,7 +76,7 @@ I also was one of the leaders of a CIS-based project called FOnline — a Fallou
 
 Gamedev is my profession, hobby, and passion.
 
-My main background is Game Design and Producing. I took a leadership track and now am working for GSC Game World (S.T.A.L.K.E.R. 2).
+My main background is Game Design and Producing. I took a leadership track and now am working for one of Ukrainian gamedev companies.
 
 *In relation to this project I'm in no way, shape or form affiliated with GSC Game World.*
 
