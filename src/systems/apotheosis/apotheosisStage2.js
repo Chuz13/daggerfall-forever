@@ -196,8 +196,6 @@ export const FORBIDDEN_AURBIS_COMMANDS = new Set([
   'finish_errand',
   'finisherrand',
   'complete_errands',
-  'apotheosis',
-  'apo',
   'rcf',
   'dynasty',
   'housing',
@@ -750,7 +748,18 @@ export function parseAurbisCommandLine(rawLine) {
   const trimmed = String(rawLine ?? '').trim();
   if (!trimmed) return { empty: true, chained: false, cmd: '', args: [] };
   if (trimmed.includes(';')) return { empty: false, chained: true, cmd: '', args: [] };
-  const parts = trimmed.split(/\s+/);
+  let parts = trimmed.split(/\s+/);
+  // Strip optional console wrapper `apo aurbis ...` / `apotheosis aurbis ...` (and leading `/`)
+  for (let i = 0; i < 4 && parts.length > 0; i++) {
+    const headRaw = parts[0] || '';
+    const head = headRaw.startsWith('/') && headRaw !== '/tp' ? headRaw.slice(1).toLowerCase() : headRaw.toLowerCase();
+    if ((head === 'apo' || head === 'apotheosis') && String(parts[1] ?? '').toLowerCase() === 'aurbis') {
+      parts = parts.slice(2);
+      continue;
+    }
+    break;
+  }
+  if (!parts.length) return { empty: true, chained: false, cmd: '', args: [] };
   const rawCmd = parts[0] || '';
   const cmd = rawCmd.startsWith('/') && rawCmd !== '/tp' ? rawCmd.slice(1).toLowerCase() : rawCmd.toLowerCase();
   return {
@@ -1028,6 +1037,31 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
   }
 
   const { cmd, args } = parsed;
+  if (cmd === 'apo' || cmd === 'apotheosis') {
+    const sub = String(args[0] ?? '').toLowerCase();
+    if (sub === 'status' && args.length <= 1) {
+      return {
+        allowed: true,
+        forbidden: false,
+        cmd,
+        args,
+        faithCost: 0,
+        witnessDelta: 0,
+        alignment: 'neutral',
+        reason: '',
+      };
+    }
+    return {
+      allowed: false,
+      forbidden: true,
+      cmd,
+      args,
+      faithCost: 0,
+      witnessDelta: 0,
+      alignment: 'neutral',
+      reason: t('apotheosis.aurbis.err.forbidden', '"{cmd}" alters mortal vessel laws or engine cheats and is forbidden in the Scroll of Aurbis.', { cmd: `${cmd}${sub ? ` ${sub}` : ''}` }),
+    };
+  }
   if (FORBIDDEN_AURBIS_COMMANDS.has(cmd)) {
     return {
       allowed: false,

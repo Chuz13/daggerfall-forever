@@ -513,6 +513,43 @@ test('Stage 2 bugfixes: divine weather override resists weatherMap/weatherField 
     assert.equal(errRes.ok, false);
     assert.match(errRes.error, /Failed to spawn/i);
     assert.equal(p.apotheosis.faith, 500);
+
+    // `apo aurbis ...` wrapper unwrapping + `apo status` allowed vs cheat `apo` forbidden
+    const unwrappedCrisisTp = evaluateAurbisCommand('apo aurbis crisis tp', p);
+    assert.equal(unwrappedCrisisTp.allowed, true);
+    assert.equal(unwrappedCrisisTp.cmd, 'crisis');
+    assert.deepEqual(unwrappedCrisisTp.args, ['tp']);
+    assert.equal(unwrappedCrisisTp.faithCost, 180);
+
+    const unwrappedCrisisStatus = evaluateAurbisCommand('apo aurbis crisis status', p);
+    assert.equal(unwrappedCrisisStatus.allowed, true);
+    assert.equal(unwrappedCrisisStatus.faithCost, 0);
+
+    const unwrappedCrisisStart = evaluateAurbisCommand('apo aurbis crisis start war', p);
+    assert.equal(unwrappedCrisisStart.allowed, true);
+    assert.equal(unwrappedCrisisStart.faithCost, 500);
+
+    const unwrappedCrisisStop = evaluateAurbisCommand('apo aurbis crisis stop', p);
+    assert.equal(unwrappedCrisisStop.allowed, true);
+    assert.equal(unwrappedCrisisStop.faithCost, 450);
+
+    const unwrappedItem = evaluateAurbisCommand('apo aurbis additem daedric_claymore', p);
+    assert.equal(unwrappedItem.allowed, true);
+    assert.equal(unwrappedItem.cmd, 'additem');
+
+    const unwrappedLiving = evaluateAurbisCommand('apo aurbis living adv list', p);
+    assert.equal(unwrappedLiving.allowed, true);
+    assert.equal(unwrappedLiving.faithCost, 0);
+
+    const apoStatusOk = evaluateAurbisCommand('apo status', p);
+    assert.equal(apoStatusOk.allowed, true);
+    assert.equal(apoStatusOk.faithCost, 0);
+
+    for (const badApo of ['apo faith 999', 'apo fate full', 'apo artifacts 13', 'apo aurbis tgm']) {
+      const denied = evaluateAurbisCommand(badApo, p);
+      assert.equal(denied.allowed, false, `Expected ${badApo} to be denied`);
+      assert.equal(denied.forbidden, true, `Expected ${badApo} to be forbidden`);
+    }
   } finally {
     resetWeatherSim();
   }

@@ -30450,26 +30450,63 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!origin) return 0;
       const maxDistSq = 25 * 25;
       let count = 0;
-      try {
-        for (const p of _talkPersons()) {
-          if (!p || p.dead) continue;
-          const pos = p.pos;
+      const modeNowStr = modes?.mode ?? 'exterior';
+      if (modeNowStr === 'interior') {
+        const people = modes?.interiorCtx?.people ?? [];
+        for (const pn of people) {
+          if (!pn || pn.active === false || pn.dead) continue;
+          if (!Number.isFinite(pn.x) || !Number.isFinite(pn.z)) continue;
+          const dx = pn.x - origin[0];
+          const dz = pn.z - origin[2];
+          if (dx * dx + dz * dz <= maxDistSq) count++;
+        }
+        const questFeet = modes?.interiorQuestFeet?.() ?? [];
+        for (const pos of questFeet) {
           if (!pos) continue;
           const dx = pos[0] - origin[0];
           const dz = pos[2] - origin[2];
           if (dx * dx + dz * dz <= maxDistSq) count++;
         }
-      } catch {
-        /* ignore witness person enumeration error */
+        return count;
       }
-      if (Array.isArray(cityGuards?.guards)) {
-        for (const g of cityGuards.guards) {
-          if (!g || g.dead || g.hostile) continue;
-          const pos = g.ai?.feet ?? g.pos;
-          if (!pos) continue;
-          const dx = pos[0] - origin[0];
-          const dz = pos[2] - origin[2];
-          if (dx * dx + dz * dz <= maxDistSq) count++;
+      if (modeNowStr === 'exterior') {
+        try {
+          for (const p of _talkPersons()) {
+            if (!p || p.dead || p.person?.dead) continue;
+            const pos = p.pos;
+            if (!pos) continue;
+            const dx = pos[0] - origin[0];
+            const dz = pos[2] - origin[2];
+            if (dx * dx + dz * dz <= maxDistSq) count++;
+          }
+        } catch {
+          /* ignore witness person enumeration error */
+        }
+        try {
+          for (const entry of built.values()) {
+            if (!entry?.npcs?.length) continue;
+            const tr = state.pixelTranslation(entry.px, entry.py);
+            for (const pn of entry.npcs) {
+              if (!pn || !pn.active || pn.dead) continue;
+              const wx = pn.x + tr[0];
+              const wz = pn.z + tr[2];
+              const dx = wx - origin[0];
+              const dz = wz - origin[2];
+              if (dx * dx + dz * dz <= maxDistSq) count++;
+            }
+          }
+        } catch {
+          /* ignore static npc enumeration error */
+        }
+        if (Array.isArray(cityGuards?.guards)) {
+          for (const g of cityGuards.guards) {
+            if (!g || g.dead || g.hostile) continue;
+            const pos = g.ai?.feet ?? g.pos;
+            if (!pos) continue;
+            const dx = pos[0] - origin[0];
+            const dz = pos[2] - origin[2];
+            if (dx * dx + dz * dz <= maxDistSq) count++;
+          }
         }
       }
       return count;
