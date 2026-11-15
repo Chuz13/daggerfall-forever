@@ -2343,6 +2343,7 @@ export class QuestMachine {
     const next = own.next.filter((n) => n !== name && needs(n));
     if (next.length ? next.some((n) => began(n)) : own.sets.some((id) => this.globalVars.get(id))) return 'carried';
     if (own.replays.some((id) => this.globalVars.get(id))) return 'carried';
+    if (name === 'S0000016' && this.globalVars.get(36)) return 'carried';
     return null;
   }
 

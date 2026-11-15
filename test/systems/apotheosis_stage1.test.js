@@ -14,6 +14,8 @@ import {
   completeApotheosisQuestline,
   startApotheosisFromMantella,
   startApotheosisFromArtifacts,
+  canStartApotheosisViaArtifacts,
+  setMantellanCruxPresenceChecker,
   selectApotheosisPortfolio,
   setDebugFateWeight,
   resetApotheosisForDebug,
@@ -104,6 +106,9 @@ import { executeConsoleCommand, setDebugSceneContext } from '../../src/systems/c
 import { _resetTextManagerForTests } from '../../src/systems/textManager.js';
 import { _resetForTests as resetPrefs, setPref } from '../../src/systems/uiPrefs.js';
 import { snapshotDiscovery, restoreDiscovery } from '../../src/systems/discovery.js';
+import { createQuestBridge } from '../../src/scenes/quest/questBridge.js';
+import { QUESTLINES_PREF } from '../../src/systems/questlines/qlLaw.js';
+import { questSource, loadTables as loadPackTables } from '../qlSources.mjs';
 
 function makeActor(id = 'hero_st1') {
   const e = {
@@ -859,4 +864,150 @@ test('Stage 1 temporal storm sky override, Siege team cohesion, Mantella negativ
     selectApotheosisSection('portfolio');
     releaseApotheosisPane();
   });
+});
+
+test('Stage 1 story-flow: S0000016 usurpation records outcome "usurped" and sets GlobalVar 36 so storyAgainRefusal is "carried"', () => {
+  loadPackTables();
+  setPref(QUESTLINES_PREF, true);
+  let now = 1000;
+  const hero = makeActor('usurp_s16_hero');
+  const bridge = createQuestBridge({
+    data: {
+      readListTable: () => null,
+      getQuestSourceLines: (n) => questSource(n, true),
+    },
+    classicSeconds: () => now,
+    nowSeconds: () => now,
+    worldSeconds: () => now,
+    playerEntity: { ...hero, career: { weaponArmorShieldsBitfield: 0, forbiddenMaterialsFlags: 0 }, skills: new Array(35).fill(30) },
+    getReputation: () => 0,
+    carriesQuestItem: () => false,
+  });
+
+  bridge.machine.globalVars.set(6, 1); // UnderkingGotTotem
+  const s16 = bridge.machine.startQuestByName('S0000016', 0);
+  assert.ok(s16, 'S0000016 starts with Totem GlobalVar seeded');
+  for (const task of s16.tasks.values()) {
+    for (const a of task.actions ?? []) {
+      if (a?.typeName === 'TeleportPc') {
+        a.setComplete?.();
+        a.resumePending = false;
+      }
+    }
+  }
+  s16.update();
+  assert.ok(s16.getLogMessages().length > 0, 'S0000016 logs step 0 on start');
+
+  if (s16.ql && typeof s16.ql === 'object') {
+    if (Array.isArray(s16.ql.done) && !s16.ql.done.includes('mantella')) {
+      s16.ql.done.push('mantella');
+    }
+    s16.ql.outcome = 'usurped';
+  }
+  s16.questSuccess = true;
+  s16.endQuest();
+  if (!s16.questTombstoned) bridge.machine.tombstoneQuest(s16);
+  bridge.machine.globalVars.set(36, 1);
+
+  assert.equal(s16.ql?.outcome, 'usurped');
+  assert.notEqual(s16.ql?.outcome, 'failed');
+  const endedRow = bridge.questLog().ended.find((r) => r.questName === 'S0000016');
+  assert.equal(endedRow?.ql?.outcome?.id, 'usurped');
+  assert.equal(endedRow?.ql?.outcome?.failure, false);
+  assert.equal(bridge.machine.storyAgainRefusal('S0000016'), 'carried');
+});
+
+test('Stage 1 story-flow: handleMantellaCruxTouch invokes onVanillaConfirm for all ineligible states and blocks 13-artifact ritual inside Crux', () => {
+  const cruxLoc = { mapTableData: { mapId: MANTELLAN_CRUX_MAP_ID }, name: 'Mantellan Crux' };
+
+  // Low Fate Weight calls onVanillaConfirm while keeping mantellaVanillaChosen reversible (false)
+  const lowHero = makeActor('flow_low_fate');
+  let lowCalls = 0;
+  handleMantellaCruxTouch({
+    dfLocation: cruxLoc,
+    playerEntity: lowHero,
+    presentWindow: () => assert.fail('low Fate Weight must not open choice window'),
+    say: () => {},
+    onVanillaConfirm: () => { lowCalls++; },
+  });
+  assert.equal(lowCalls, 1);
+  assert.equal(lowHero.apotheosis.mantellaVanillaChosen, false);
+
+  // Active Trial of Ascension calls onVanillaConfirm and marks mantellaVanillaChosen = true
+  const activeHero = makeActor('flow_active');
+  setDebugFateWeight(activeHero, REQUIRED_FATE_WEIGHT);
+  startApotheosisQuestline(activeHero, { source: APOTHEOSIS_SOURCES.MANTELLA });
+  let activeCalls = 0;
+  handleMantellaCruxTouch({
+    dfLocation: cruxLoc,
+    playerEntity: activeHero,
+    presentWindow: () => assert.fail('active trial must not open choice window'),
+    say: () => {},
+    onVanillaConfirm: () => { activeCalls++; },
+  });
+  assert.equal(activeCalls, 1);
+  assert.equal(activeHero.apotheosis.mantellaVanillaChosen, true);
+
+  // Already Ascended calls onVanillaConfirm and marks mantellaVanillaChosen = true
+  const godHero = makeActor('flow_ascended');
+  setDebugFateWeight(godHero, REQUIRED_FATE_WEIGHT);
+  startApotheosisQuestline(godHero, { source: APOTHEOSIS_SOURCES.MANTELLA });
+  completeApotheosisQuestline(godHero);
+  selectApotheosisPortfolio(godHero, 'scholar');
+  let godCalls = 0;
+  handleMantellaCruxTouch({
+    dfLocation: cruxLoc,
+    playerEntity: godHero,
+    presentWindow: () => assert.fail('ascended hero must not open choice window'),
+    say: () => {},
+    onVanillaConfirm: () => { godCalls++; },
+  });
+  assert.equal(godCalls, 1);
+  assert.equal(godHero.apotheosis.mantellaVanillaChosen, true);
+
+  // Exclusive 13-Artifact route marks mantellaVanillaChosen = true and invokes onVanillaConfirm
+  const artHero = makeActor('flow_exclusive');
+  setDebugFateWeight(artHero, REQUIRED_FATE_WEIGHT);
+  grantArtifactPack(artHero, 14);
+  const scan = scanInventoryArtifactsForApotheosis(artHero);
+  const picked = scan.distinctUnequippedSubTypes
+    .slice(0, 13)
+    .map((sub) => scan.unequippedEntries.find((x) => x.subType === sub).item);
+  startApotheosisFromArtifacts(artHero, picked);
+  let artCalls = 0;
+  handleMantellaCruxTouch({
+    dfLocation: cruxLoc,
+    playerEntity: artHero,
+    presentWindow: () => assert.fail('exclusive route must not open choice window'),
+    say: () => {},
+    onVanillaConfirm: () => { artCalls++; },
+  });
+  assert.equal(artCalls, 1);
+  assert.equal(artHero.apotheosis.mantellaVanillaChosen, true);
+
+  // 13-Artifact ritual guard rejects inside Mantellan Crux (flag and presence predicate)
+  const cruxRitualHero = makeActor('flow_crux_guard');
+  setDebugFateWeight(cruxRitualHero, REQUIRED_FATE_WEIGHT);
+  grantArtifactPack(cruxRitualHero, 14);
+  assert.equal(canStartApotheosisViaArtifacts(cruxRitualHero).eligible, true);
+
+  cruxRitualHero._inMantellanCrux = true;
+  const blockedByFlag = canStartApotheosisViaArtifacts(cruxRitualHero);
+  assert.equal(blockedByFlag.eligible, false);
+  assert.match(blockedByFlag.reason ?? '', /Mantellan Crux/);
+
+  resetApotheosisForDebug(cruxRitualHero);
+  assert.equal(cruxRitualHero._inMantellanCrux, false);
+  setDebugFateWeight(cruxRitualHero, REQUIRED_FATE_WEIGHT);
+  assert.equal(canStartApotheosisViaArtifacts(cruxRitualHero).eligible, true);
+
+  try {
+    setMantellanCruxPresenceChecker((e) => e === cruxRitualHero);
+    const blockedByChecker = canStartApotheosisViaArtifacts(cruxRitualHero);
+    assert.equal(blockedByChecker.eligible, false);
+    assert.match(blockedByChecker.reason ?? '', /Mantellan Crux/);
+  } finally {
+    setMantellanCruxPresenceChecker(null);
+  }
+  assert.equal(canStartApotheosisViaArtifacts(cruxRitualHero).eligible, true);
 });

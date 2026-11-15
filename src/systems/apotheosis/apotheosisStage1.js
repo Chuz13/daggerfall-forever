@@ -231,22 +231,26 @@ export function handleMantellaCruxTouch({
   const fork = evaluateMantellaFork(playerEntity);
 
   if (!fork.eligible) {
+    if (fork.reason !== 'fate_weight') {
+      // Exclusive, active, or already-ascended runs cannot revisit Mantella usurpation.
+      // Low Fate Weight stays reversible so unit/re-entry flows can still test reaching 16 later.
+      ensureApotheosisState(playerEntity).mantellaVanillaChosen = true;
+    }
     if (fork.reason === 'exclusive') {
       say?.(t(
         'apotheosis.mantella.blockedArtifacts',
         'You already ignited the path of Ascension through 13 Daedric Artifacts. The Mantella slips beyond your grasp.',
       ));
-      onVanillaConfirm?.();
     } else if (fork.reason === 'fate_weight') {
       say?.(t(
         'apotheosis.mantella.blockedFate',
         'Your Fate Weight ({cur}/{req}) is too slight to usurp the Mantella; it follows its mortal course.',
         { cur: fork.fate?.count ?? 0, req: fork.fate?.required ?? REQUIRED_FATE_WEIGHT },
       ));
-      onVanillaConfirm?.();
     } else if (fork.message) {
       say?.(fork.message);
     }
+    onVanillaConfirm?.();
     return false;
   }
 

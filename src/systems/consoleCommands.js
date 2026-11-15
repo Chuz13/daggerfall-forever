@@ -2946,7 +2946,7 @@ async function handleApotheosisCommand(args = []) {
     }
     if (dest === 'mantella' || dest === 'crux') {
       if (sceneCtx?.apotheosisEnterMantellaCrux) {
-        return await sceneCtx.apotheosisEnterMantellaCrux();
+        return await sceneCtx.apotheosisEnterMantellaCrux(args[2]);
       }
       if (!sceneCtx?.tele2loc) return 'Scene teleport unavailable.';
       return await sceneCtx.tele2loc('Mantellan Crux');
@@ -3041,19 +3041,19 @@ async function handleApotheosisCommand(args = []) {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
 }
 
 registerCommand(
   'apotheosis',
   'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
+  'apotheosis [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 registerCommand(
   'apo',
   'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apo [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
+  'apo [status | artifacts [n] | fate <ready|full> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 

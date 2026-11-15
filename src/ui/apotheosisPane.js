@@ -427,6 +427,10 @@ function renderOverview(detail, entity, trackerShown, repaint) {
   if (reason) {
     artBox.append(el('div', 'apo-meta-row', reason));
   }
+  if (state.mantellaVanillaChosen && !state.ascended && state.stage === APOTHEOSIS_STAGES.MORTAL) {
+    artBox.append(el('div', 'apo-meta-row',
+      t('apotheosis.overview.mantellaMortalChosen', 'The Mantella was yielded to its mortal fate; Ascension now rests solely upon shattering 13 Daedric Artifacts.')));
+  }
   const acts = el('div', 'apo-acts');
   const startBtn = el('button', `apo-btn${eligible ? ' primary' : ''}`,
     t('apotheosis.overview.shatterBtn', 'Select & Shatter 13 Artifacts'));

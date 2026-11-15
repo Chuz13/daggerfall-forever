@@ -422,6 +422,7 @@ import {
   startApotheosisQuestline,
   advanceApotheosisQuestStep,
   resetApotheosisForDebug,
+  setMantellanCruxPresenceChecker,
 } from '../systems/apotheosis/apotheosisCore.js';
 import { setApotheosisRebirthHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
 import {
@@ -6688,6 +6689,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
 
   let direnniSiege = null;
+  setMantellanCruxPresenceChecker(() => (modes?.mode ?? 'exterior') === 'dungeon' && isMantellanCruxLocation(modes?.dungeonLocation));
   setApotheosisRebirthHook(() => {
     endPlayerFights();
     player.stopAutorun();
@@ -29749,11 +29751,18 @@ export async function bootWorld(canvas, renderer, params, status) {
       const quests = [...(questBridge?.machine?.quests?.values?.() ?? [])];
       for (const q of quests) {
         if (q?.questName === 'S0000016' && !q.questComplete && !q.questTombstoned) {
+          if (q.ql && typeof q.ql === 'object') {
+            if (Array.isArray(q.ql.done) && !q.ql.done.includes('mantella')) {
+              q.ql.done.push('mantella');
+            }
+            q.ql.outcome = 'usurped';
+          }
           q.questSuccess = true;
           q.endQuest?.();
           if (!q.questTombstoned) questBridge.machine.tombstoneQuest(q);
         }
       }
+      questBridge?.machine?.globalVars?.set?.(36, 1);
     } catch {
       // Headless or partially initialized quest machine
     }
@@ -30329,15 +30338,77 @@ export async function bootWorld(canvas, renderer, params, status) {
           handleMantellaUsurpWorldTransition();
         },
         onVanillaConfirm: () => {
-          handleMantellaVanillaWorldTransition();
+          try {
+            questBridge?.machine?.globalVars?.set?.(36, 1);
+          } catch {
+            // Headless or partially initialized quest machine
+          }
+          const quests = [...(questBridge?.machine?.quests?.values?.() ?? [])];
+          const hasS16 = quests.some((q) => q?.questName === 'S0000016' && !q.questComplete && !q.questTombstoned);
+          if (!hasS16) handleMantellaVanillaWorldTransition();
         },
       });
     },
-    apotheosisEnterMantellaCrux: async () => {
-      await tele2locHelper('Mantellan Crux');
-      const entered = await (modes?.startInDungeon?.() ?? false);
-      if (!entered) return 'Teleported to Mantellan Crux exterior, but failed to enter dungeon.';
+    apotheosisEnterMantellaCrux: async (holderArg = 'underking') => {
+      if ((modes?.mode ?? 'exterior') !== 'dungeon' || !isMantellanCruxLocation(modes?.dungeonLocation)) {
+        await tele2locHelper('Mantellan Crux');
+        const entered = await (modes?.startInDungeon?.() ?? false);
+        if (!entered) return 'Teleported to Mantellan Crux exterior, but failed to enter dungeon.';
+      }
+      const holderKey = String(holderArg ?? 'underking').trim().toLowerCase() || 'underking';
+      const TOTEM_HOLDER_VARS = {
+        gothryd: 1,
+        daggerfall: 1,
+        worms: 2,
+        mannimarco: 2,
+        gortwog: 3,
+        orsinium: 3,
+        akorithi: 4,
+        sentinel: 4,
+        underking: 6,
+        zurin: 6,
+        eadwyre: 7,
+        wayrest: 7,
+        brisienna: 8,
+        emperor: 8,
+      };
+      let seededHolder = null;
+      if (holderKey !== 'raw' && holderKey !== 'none' && questBridge?.machine) {
+        const machine = questBridge.machine;
+        const resolvedKey = holderKey in TOTEM_HOLDER_VARS ? holderKey : 'underking';
+        const totemVarId = TOTEM_HOLDER_VARS[resolvedKey];
+        for (const id of [1, 2, 3, 4, 6, 7, 8, 11, 12, 13, 14, 16, 17, 18, 36]) {
+          machine.globalVars?.set?.(id, 0);
+        }
+        machine.globalVars?.set?.(totemVarId, 1);
+        ensureApotheosisState(playerEntity).mantellaVanillaChosen = false;
+        for (const q of [...(machine.quests?.values?.() ?? [])]) {
+          if (q?.questName === 'S0000016') {
+            machine.removeQuest?.(q);
+          }
+        }
+        machine.storyEnded?.delete?.('S0000016');
+        const s16 = machine.startQuestByName?.('S0000016');
+        if (s16) {
+          for (const task of s16.tasks?.values?.() ?? []) {
+            for (const a of task?.actions ?? []) {
+              if (a?.typeName === 'TeleportPc') {
+                if (a.targetPlace) s16.hooks?.createSiteLink?.(s16, a.targetPlace);
+                a.setComplete?.();
+                a.resumePending = false;
+              }
+            }
+          }
+          s16.update?.();
+          seededHolder = `${resolvedKey} (GlobalVar ${totemVarId})`;
+        }
+      }
       const warped = modes?.dungeonCtx?.teleportToMantella?.() ?? false;
+      if (seededHolder) {
+        return warped
+          ? `Entered Mantellan Crux at the Mantella with active quest S0000016 (Totem holder: ${seededHolder}).`
+          : `Entered Mantellan Crux with active quest S0000016 (Totem holder: ${seededHolder}).`;
+      }
       return warped
         ? 'Entered Mantellan Crux and teleported to the Mantella.'
         : 'Entered Mantellan Crux.';

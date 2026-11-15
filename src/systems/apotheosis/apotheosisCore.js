@@ -998,6 +998,13 @@ export function evaluateFateWeight(entity) {
   };
 }
 
+let _isInsideMantellanCrux = null;
+
+/** Registers a host predicate returning whether the player is currently inside the Mantellan Crux. */
+export function setMantellanCruxPresenceChecker(fn) {
+  _isInsideMantellanCrux = typeof fn === 'function' ? fn : null;
+}
+
 /** Checks whether the player can initiate Ascension via the 13-artifact sacrifice route. */
 export function canStartApotheosisViaArtifacts(entity) {
   const state = ensureApotheosisState(entity);
@@ -1013,6 +1020,8 @@ export function canStartApotheosisViaArtifacts(entity) {
     reason = t('apotheosis.lock.awaitingPortfolio', 'Choose your Divine Portfolio to complete Ascension.');
   } else if (state.source === APOTHEOSIS_SOURCES.MANTELLA) {
     reason = t('apotheosis.lock.mantellaChosen', 'Ascension was already claimed through the Mantella.');
+  } else if (Boolean(entity?._inMantellanCrux) || Boolean(_isInsideMantellanCrux?.(entity))) {
+    reason = t('apotheosis.lock.inMantellanCrux', 'Cannot shatter 13 Daedric Artifacts inside the Mantellan Crux — decide the Mantella\'s fate first.');
   } else if (!fate.ready) {
     reason = t('apotheosis.lock.fateShort', 'Insufficient Fate Weight ({cur}/{req}).', { cur: fate.count, req: fate.required });
   } else if (artifacts.distinctUnequippedCount < REQUIRED_ARTIFACTS_COUNT) {
@@ -1315,6 +1324,7 @@ export function setDebugFateWeight(entity, targetCount) {
 export function resetApotheosisForDebug(entity) {
   setSkyMinutesOverride(null);
   if (!entity || typeof entity !== 'object') return defaultApotheosisState();
+  entity._inMantellanCrux = false;
   entity.apotheosis = defaultApotheosisState();
   computeEntityMods(entity);
   return entity.apotheosis;
