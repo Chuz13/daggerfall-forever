@@ -645,12 +645,15 @@ test('EM4: a quest-marked residence gets a RING, named or not', () => {
     discovered: () => [],
   });
   assert.deepEqual(hidden.quests(), []);
-  // and the ring is inked in the pen the world map rings a choice in
+  // and the ring is haloed and inked in the quest pen
   const ctx = recordingCtx();
   s.paintOverlay(ctx, { view: VIEW, ...PAPER, pulse: 1 });
-  const ring = ctx.calls.find((c) => c.fn === 'arc');
-  assert.ok(ring);
-  assert.equal(ring.strokeStyle, TOWN_PEN.quest);
+  const arcs = ctx.calls.filter((c) => c.fn === 'arc');
+  const haloRing = arcs.find((c) => c.strokeStyle === TOWN_PEN.halo);
+  const ring = arcs.find((c) => c.strokeStyle === TOWN_PEN.quest);
+  assert.ok(haloRing && ring);
+  assert.ok(ctx.calls.indexOf(haloRing) < ctx.calls.indexOf(ring), 'halo before quest ring');
+  assert.equal(ring.lineWidth, 3.5);
   assert.equal(ring.args[2], QUEST_R + 2, 'and it breathes');
 });
 

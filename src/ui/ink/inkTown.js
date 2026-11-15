@@ -106,7 +106,7 @@ export const TOWN_PEN = Object.freeze({
   wall: PEN.line, // the outline of the built-up pixels
   wash: PEN.wash, // MAP-FIELD's own shade, still the fallback ground
   name: PEN.name, // a discovered building's name, quarter unknown
-  quest: PEN.select, // a residence a quest has marked
+  quest: PEN.quest, // a residence a quest has marked
   lead: PEN.soft, // EM8: a displaced plate's line back to its building
   caret: PEN.player,
   halo: PEN.halo,
@@ -138,7 +138,7 @@ export const TOWN_WALL_PEN_MIN = 0.8;
 /** The caret has ONE HOME in ui/ink/inkMap.js - re-exported here. */
 export { CARET_R } from './inkMap.js';
 /** A quest mark's ring. */
-export const QUEST_R = 7;
+export const QUEST_R = 9;
 /** EM8: the tick that says WHICH building a plate names, in paper px,
  *  and how far a plate must have been pushed before the tick alone
  *  stops being enough and a leader line is drawn to it. The threshold
@@ -400,14 +400,19 @@ export function paintTownOverlay(ctx, view, opts) {
   ctx.lineJoin = 'round';
   const pulse = opts.pulse ?? 0;
 
-  // a residence a quest has marked: a ring that breathes, in the pen
-  // the world map rings a chosen place in
+  // a residence a quest has marked: a thick vivid ring with a parchment halo so it stands out over walls and washes
   for (const q of opts.quests ?? []) {
     const [x, y] = toPaper(view, q.x, q.y);
-    ctx.strokeStyle = TOWN_PEN.quest;
-    ctx.lineWidth = 1.8;
+    const r = QUEST_R + pulse * 2;
+    ctx.strokeStyle = TOWN_PEN.halo;
+    ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.arc(x, y, QUEST_R + pulse * 2, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = TOWN_PEN.quest;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.stroke();
   }
 
