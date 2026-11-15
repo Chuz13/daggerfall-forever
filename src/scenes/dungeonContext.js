@@ -272,7 +272,7 @@ import { elitesAllowed, pickDungeonElites, promoteEliteFoe, grantEliteLoot, elit
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { superFoeLevel, scaleSuperFoe, SUPER_ELITE_FOES, SUPER_LOOT_OPTS, SUPER_LOOT_DROP_MULT, SUPER_LOOT_QUALITY_MULT, sdEndMarks, sdRiftPlace, sdReturnPlace, sdLandingPlace } from '../world/superDungeon/sdDungeon.js';   // SD4a: a Super dungeon's difficulty; SD4b: its end's place
 import { reachableEndOf, LAIR_WALK_WAIT_MS } from '../world/dungeon/dungeonEnd.js';   // SD4b: RVN7d's lair law, lifted - the lair's stand and a Super dungeon's end read one law
-import { createSdEnd, SD_HOME_TEXT, sdProbeOf } from './superDungeon/sdEnd.js';   // SD4b: a Super dungeon's Rift and Return; SD10: the Hour's way home
+import { createSdEnd, SD_HOME_TEXT, SD_HOME_SCALE, sdProbeOf } from './superDungeon/sdEnd.js';   // SD4b: a Super dungeon's Rift and Return; SD10: the Hour's way home
 import { createSdThrough } from './superDungeon/sdThrough.js';   // SD-THROUGH: the Way Through, beside me once the Rift is stepped through
 import { createSdHall } from './superDungeon/sdHall.js';   // SD6c: the Orrery's hall in the Shattered Hour
 import { createSdSteps } from './superDungeon/sdSteps.js';   // SD7b: the Unmoored Steps in the Shattered Hour
@@ -608,17 +608,30 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // machine. No bridge (a headless boot) leaves the action inert
     // beyond its cascade.
     setGlobalVar: (index, value) => {
-      if (index === 36 && value && handleMantellaCruxTouch({
-        dfLocation,
-        playerEntity,
-        presentWindow: (w) => {
-          activeOverlay = w;
-          dungeonWindows.reconcile(activeOverlay);
-        },
-        say: (l) => hudText.add(l),
-        onUsurpExit: () => opts.onApotheosisMantellaUsurp?.(),
-        onVanillaConfirm: () => { opts.questBridge?.machine?.globalVars?.set(index, value); },
-      })) return;
+      if (index === 36 && value) {
+        const completeVanillaMantellaTouch = () => {
+          opts.questBridge?.machine?.globalVars?.set(index, value);
+          const quests = [...(opts.questBridge?.machine?.quests?.values?.() ?? [])];
+          const hasS16 = quests.some((q) => q?.questName === 'S0000016' && !q.questComplete && !q.questTombstoned);
+          if (!hasS16) opts.onApotheosisMantellaVanilla?.();
+        };
+        let handledVanillaConfirm = false;
+        const modalShown = handleMantellaCruxTouch({
+          dfLocation,
+          playerEntity,
+          presentWindow: (w) => {
+            activeOverlay = w;
+            dungeonWindows.reconcile(activeOverlay);
+          },
+          say: (l) => hudText.add(l),
+          onUsurpExit: () => opts.onApotheosisMantellaUsurp?.(),
+          onVanillaConfirm: () => {
+            handledVanillaConfirm = true;
+            completeVanillaMantellaTouch();
+          },
+        });
+        if (modalShown || handledVanillaConfirm) return;
+      }
       opts.questBridge?.machine?.globalVars?.set(index, value);
     },
     playerLevel: () => playerEntity.level,
@@ -1100,6 +1113,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const _superTier = dungeonTier(dfLocation) === 'super';
   const _sdRealm = isSdRealm(dfLocation);   // SD5a: the Shattered Hour, read once - every arm below asks the flag
   const _apoOrrery = isApotheosisOrrery(dfLocation);   // APOTHEOSIS Stage 1: Cut Clockwork Circular Arena
+  const _isDirenniZeroStone = isDirenniTowerLocation(dfLocation);
   const _direnniHard = isDirenniHardModeActive(dfLocation, playerEntity);   // APOTHEOSIS Stage 1: Direnni Tower hard mode
   const _egHall = isEgHall(dfLocation);   // EG-PLAY: an Elite Breach's circle, read once
   const _ketch = isKetchShip(dfLocation);   // KETCH: a crew's sky-ketch, read once
@@ -1196,18 +1210,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _apoShadowSpawned = false;
   let _apoShadowFoe = null;
   let _apoShadowDefeated = false;
-  if (isDirenniTowerLocation(dfLocation)) {
+  if (_isDirenniZeroStone) {
     const startRef = dungeon.startMarker
       ? [dungeon.startMarker.x, dungeon.startMarker.y, dungeon.startMarker.z]
       : [0, 0, 0];
     _zeroStonePos = pickZeroStoneSpot(startRef, _layoutEnemies, collider);
-    const { archive, record } = DUNGEON_FIRE_FLAT;
-    const tzs = await getTexture(archive);
-    const sz = tzs && record < tzs.recordCount ? billboardSize(tzs, record) : { w: 1, h: 1.5 };
-    const zkey = `${archive}_${record}`;
-    if (!flatGroups.has(zkey)) flatGroups.set(zkey, []);
-    flatGroups.get(zkey).push([_zeroStonePos[0], _zeroStonePos[1] + sz.h / 2, _zeroStonePos[2]]);
-    lights.push({ x: _zeroStonePos[0], y: _zeroStonePos[1] + 1.4, z: _zeroStonePos[2], range: FIRE_LIGHT_RANGE * 1.4 });
   }
   if (_apoOrrery) {
     const sp = apotheosisOrrerySpawnPoints();
@@ -2176,7 +2183,26 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const sdRiftLookNow = () => (opts.superRiftLook ? opts.superRiftLook(dfLocation?.sdSlot) : sdEndWord()?.look) ?? null;
   const sdSayHere = (t) => { if (!opts.sdSay?.(t)) setMidScreenText(t); };
   const sdEnd = _superTier ? createSdEnd({ renderer, audio, onRift: () => sdRiftStep(), onReturn: () => sdReturnStep(), riftCount: () => sdEndWord()?.count ?? null, look: sdRiftLookNow, clock: sdEndClock })   // AUDIT SD II (L6 F5): its plaque counts its Hour; SD-LOOK: and its state is its look
-    : _sdRealm ? createSdEnd({ renderer, audio, riftTo: SD_REALM_TEXT.wayBack, onRift: () => opts.sdWayBack?.(), onReturn: () => opts.sdWayHome?.(), retTitle: SD_HOME_TEXT.title, retTo: SD_HOME_TEXT.to, clock: sdEndClock }) : null;   // SD5a: the Shattered Hour's way back - the same Rift, at its Threshold's back; SD10: and its way home, the Return's light where the Remnant fell
+    : _sdRealm ? createSdEnd({ renderer, audio, riftTo: SD_REALM_TEXT.wayBack, onRift: () => opts.sdWayBack?.(), onReturn: () => opts.sdWayHome?.(), retTitle: SD_HOME_TEXT.title, retTo: SD_HOME_TEXT.to, clock: sdEndClock })   // SD5a: the Shattered Hour's way back - the same Rift, at its Threshold's back; SD10: and its way home, the Return's light where the Remnant fell
+    : _isDirenniZeroStone ? createSdEnd({
+      renderer,
+      audio,
+      riftKey: APOTHEOSIS_ZERO_STONE_KEY,
+      riftTitle: () => t('apotheosis.zeroStone.title', 'Zero Stone (Enter the Clockwork Sanctum)'),
+      riftTo: '',
+      walkIn: false,
+      onRift: () => { opts.onApotheosisZeroStoneTouch?.(); },
+      clock: sdEndClock,
+    })
+    : _apoOrrery ? createSdEnd({
+      renderer,
+      audio,
+      retTitle: t('apotheosis.orrery.exitTitle', 'Ascension Conduit (Return to the Iliac Bay)'),
+      retTo: '',
+      onReturn: () => { opts.onApotheosisOrreryReturn?.(); },
+      clock: sdEndClock,
+    })
+    : null;
   // SD-THROUGH (Super-Dungeons.md section 6): THE WAY THROUGH (scenes/superDungeon/sdThrough.js) - once the Rift has been stepped
   // through, a second Rift beside me, the Rift's own step, word and look
   const sdThrough = _superTier ? createSdThrough({ renderer, audio, word: () => sdEndWord(), look: sdRiftLookNow, clock: sdEndClock, onStep: () => sdRiftStep(), say: sdSayHere, probe: { ...sdProbeOf(collider), water: waterSurfaceYAt }, riftOf: () => sdEnd.rift, dynamicDraws }) : null;   // AUDIT SD-THROUGH (B2): and the block's water, for a dry foot
@@ -2276,6 +2302,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  beside it - every ray this dungeon's own collider. */
   function standSdEnd() {
     if (!sdEnd || !collider) return;
+    if (_apoOrrery) return;
+    if (_isDirenniZeroStone) {
+      if (!_zeroStonePos || !isDirenniHardModeActive(dfLocation, playerEntity)) return;
+      const probe = sdProbeOf(collider);
+      const rift = sdRiftPlace([_zeroStonePos[0], _zeroStonePos[1], _zeroStonePos[2]], probe);
+      if (rift?.at) _zeroStonePos = [rift.at[0], rift.at[1], rift.at[2]];
+      sdEnd.stand({ rift, retAt: null, dynamicDraws, probe });
+      return;
+    }
     if (_sdRealm) { sdEnd.stand({ rift: { at: realmToDungeon(0, 0, SD_WAY_BACK_Z), size: SD_WAY_BACK_SIZE }, retAt: null, dynamicDraws, hollow: true, probe: SD_THRESHOLD_RIM }); return; }   // AUDIT SD V (R2): its floor light's edge the Threshold's rim, never the void past it   // SD5a: the way back, at the Threshold's back - SD-LOOK S6: the Hollow behind it
     const end = dungeonEnd();   // SD-REACH, AUDIT SD IV (F38): an interior block's marker, out of the water where any is - the lair's end too (LAIR-REACH)
     if (!end) return;
@@ -2308,7 +2343,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function sdEndFrame(playerFeet) {
     if (playerFeet && !_sdEndAsked) { _sdEndAsked = true; standSdEnd(); }
     const t = performance.now();
-    if (_sdRealm) { const home = opts.sdHomeAt?.() ?? null; if (home && !sdEnd.hasRet) sdEnd.standReturn(home, opts.sdHomeAge?.() ?? Infinity, { dynamicDraws }); else if (!home && sdEnd.hasRet) sdEnd.returnOut(); }   // AUDIT SD V (P1): asked as a yes or no - `ret` hands a copy
+    if (_isDirenniZeroStone) {
+      const wantZeroStone = !!_zeroStonePos && isDirenniHardModeActive(dfLocation, playerEntity);
+      if (wantZeroStone && !sdEnd.rift) standSdEnd();
+      else if (!wantZeroStone && sdEnd.rift) sdEnd.clear();
+    } else if (_apoOrrery) {
+      if (_apoShadowDefeated && !sdEnd.hasRet) {
+        const sp = apotheosisOrrerySpawnPoints();
+        sdEnd.standReturn([sp.center[0], sp.center[1], sp.center[2]], 0, { dynamicDraws, scale: SD_HOME_SCALE });
+      }
+    } else if (_sdRealm) { const home = opts.sdHomeAt?.() ?? null; if (home && !sdEnd.hasRet) sdEnd.standReturn(home, opts.sdHomeAge?.() ?? Infinity, { dynamicDraws }); else if (!home && sdEnd.hasRet) sdEnd.returnOut(); }   // AUDIT SD V (P1): asked as a yes or no - `ret` hands a copy
     else if (sdEnd.hasRet && t >= _sdEndCheckAt) { _sdEndCheckAt = t + 1000; const w = sdEndWord(); if (w && !w.returns) sdEnd.returnOut(); }
     if (playerFeet) { _sdEye[0] = playerFeet[0]; _sdEye[1] = playerFeet[1] + 1.6; _sdEye[2] = playerFeet[2]; }   // SD-LOOK: the eye the reveal asks from
     sdEnd.frame(playerFeet ?? null, playerFeet ? _sdEye : null);
@@ -11268,9 +11312,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       say: (l) => hudText.add(l),
     });
   }
-  if (isDirenniTowerLocation(dfLocation)) {
+  if (_isDirenniZeroStone) {
     api.addActivationTargets(() => {
-      if (!_zeroStonePos || !isDirenniHardModeActive(dfLocation, playerEntity)) return [];
+      if (!_zeroStonePos || !isDirenniHardModeActive(dfLocation, playerEntity) || sdEnd?.rift) return [];
       const [zx, zy, zz] = _zeroStonePos;
       return [{
         key: APOTHEOSIS_ZERO_STONE_KEY,
@@ -11286,7 +11330,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   if (_apoOrrery) {
     const sp = apotheosisOrrerySpawnPoints();
     api.addActivationTargets(() => {
-      if (!_apoShadowDefeated) return [];
+      if (!_apoShadowDefeated || sdEnd?.hasRet) return [];
       const [cx, cy, cz] = sp.center;
       return [{
         key: APOTHEOSIS_ORRERY_EXIT_KEY,

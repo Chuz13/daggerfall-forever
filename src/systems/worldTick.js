@@ -1249,6 +1249,19 @@ let _sharedLastTick = null;
 // source) has its sky read the event clock, the one rate WORLD5 had; offline the sky is the one clock.
 let _skySource = null;
 let _skyWall = null;
+let _skyMinutesOverride = null;
+
+/** Temporary visual/calendar override for Apotheosis Dragon Break temporal storm. */
+export function setSkyMinutesOverride(minutesOrNull) {
+  _skyMinutesOverride = (Number.isFinite(minutesOrNull) && minutesOrNull > 0)
+    ? Math.floor(minutesOrNull)
+    : null;
+}
+
+/** Active Dragon Break sky-clock override in classic minutes, or `null` when normal time runs. */
+export function getSkyMinutesOverride() {
+  return _skyMinutesOverride;
+}
 // AUDIT LIVED1 I (K1): THE WORLD'S ARMS WALK EACH WORLD MINUTE ONCE. The reading re-anchors DOWN when the source steps
 // back (C2 below) or a correction lowers it (alignEntityClocks), and the world's arms - the seven-day power walk and the
 // thirty-eight-day conditions walk, neither of them idempotent - then walked the minutes between again. The per-minute
@@ -1514,7 +1527,10 @@ export const worldMinutes = () => (_sharedClock ? _sharedClock() : _worldMinutes
  *  (net/skyLaw.js skyClassicMinutes through the relay's offset), or the event clock where none was installed; offline
  *  the one clock. Read for "now": a reading that is saved, sent or compared later is worldMinutes()'s or ownMinutes()'s
  *  (bible/06-Systems/Online-Time-Arc.md section 5). */
-export const skyMinutes = () => (_sharedClock ? (_skySource ? _skySource() : _sharedClock()) : _worldMinutes);
+export const skyMinutes = () => {
+  if (_skyMinutesOverride !== null) return _skyMinutesOverride;
+  return _sharedClock ? (_skySource ? _skySource() : _sharedClock()) : _worldMinutes;
+};
 
 /** Set the clock - a load restores it, a rest or a court sentence jumps it. WORLD5: refused under the shared clock. */
 export function setWorldMinutes(v) {

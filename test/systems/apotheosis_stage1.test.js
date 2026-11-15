@@ -61,9 +61,20 @@ import {
   spawnShadowOfTheAgent,
   APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC,
   APOTHEOSIS_STORM_WEATHERS,
+  APOTHEOSIS_STORM_TIME_SPAN_MINUTES,
   pickNextApotheosisStormWeather,
+  pickNextApotheosisStormMinutes,
   findSafeSiegeSpawnPos,
 } from '../../src/systems/apotheosis/apotheosisStage1.js';
+import {
+  skyMinutes,
+  worldMinutes,
+  setWorldMinutes,
+  setSkyMinutesOverride,
+  getSkyMinutesOverride,
+} from '../../src/systems/worldTick.js';
+import { getTargets, PLAYER_TARGET } from '../../src/characters/enemy/enemyTargets.js';
+import { selectApotheosisSection, releaseApotheosisPane } from '../../src/ui/apotheosisPane.js';
 import { SKILLS } from '../../src/systems/skills.js';
 import { defineLiveMaxHealth, defineLiveMaxMagicka } from '../../src/systems/chargen.js';
 import { maxFatigue, FATIGUE_MULTIPLIER } from '../../src/systems/statMods.js';
@@ -673,4 +684,179 @@ test('Stage 1 bugfixes: 5s random Dragon Break weather rotation and LT-safe Dire
     freeLodgedFeet: () => false,
   });
   assert.ok(pos[0] < 105 && pos[2] <= 105, 'Avoided spawning under a roof or into the close tower wall/lodged quadrant');
+});
+
+test('Stage 1 temporal storm sky override, Siege team cohesion, Mantella negative/No exits, and portfolio preselect', async () => {
+  const prevWorldMin = worldMinutes();
+  const prevSkyOverride = getSkyMinutesOverride();
+  try {
+    // 1. Temporal Dragon Break storm time-of-day / calendar override (+-1 year) leaves worldMinutes untouched
+    assert.equal(APOTHEOSIS_STORM_TIME_SPAN_MINUTES, 360 * 1440);
+    setWorldMinutes(5_000_000);
+    setSkyMinutesOverride(null);
+    assert.equal(skyMinutes(), 5_000_000);
+
+    const low = pickNextApotheosisStormMinutes(5_000_000, () => 0);
+    const mid = pickNextApotheosisStormMinutes(5_000_000, () => 0.25);
+    const high = pickNextApotheosisStormMinutes(5_000_000, () => 0.999999);
+    assert.equal(low, 5_000_000 - APOTHEOSIS_STORM_TIME_SPAN_MINUTES);
+    assert.ok(mid < 5_000_000);
+    assert.ok(high > 5_000_000 && high <= 5_000_000 + APOTHEOSIS_STORM_TIME_SPAN_MINUTES);
+    assert.ok(pickNextApotheosisStormMinutes(100, () => 0) >= 0, 'clamps at 0 classic minutes');
+
+    setSkyMinutesOverride(5_300_000);
+    assert.equal(getSkyMinutesOverride(), 5_300_000);
+    assert.equal(skyMinutes(), 5_300_000);
+    assert.equal(worldMinutes(), 5_000_000, 'simulation worldMinutes stays monotonic during temporal storm');
+
+    const stormHero = makeActor('storm_hero');
+    setDebugFateWeight(stormHero, REQUIRED_FATE_WEIGHT);
+    startApotheosisFromMantella(stormHero);
+    stormHero.apotheosis.stormStartMinutes = 5_000_000;
+    completeApotheosisQuestline(stormHero);
+    assert.equal(stormHero.apotheosis.stormStartMinutes, null);
+    assert.equal(getSkyMinutesOverride(), null);
+    assert.equal(skyMinutes(), 5_000_000);
+
+    setSkyMinutesOverride(5_150_000);
+    stormHero.apotheosis.stormStartMinutes = 5_000_000;
+    resetApotheosisForDebug(stormHero);
+    assert.equal(stormHero.apotheosis.stormStartMinutes, null);
+    assert.equal(getSkyMinutesOverride(), null);
+  } finally {
+    setSkyMinutesOverride(prevSkyOverride);
+    setWorldMinutes(prevWorldMin);
+  }
+
+  // 2. Direnni Siege mixed mobs share Daedra team & direnni_siege camp with suppressInfighting (no infighting)
+  const siegeHero = makeActor('siege_coop');
+  setDebugFateWeight(siegeHero, REQUIRED_FATE_WEIGHT);
+  startApotheosisFromMantella(siegeHero);
+  const siegeFoes = [];
+  const siege = createDirenniSiegeController({
+    playerEntity: siegeHero,
+    getPlayerPos: () => [0, 10, 0],
+    getPlayerMode: () => 'exterior',
+    groundAt: () => 10,
+    spawnFoe: async (mobileType, pos) => {
+      const f = {
+        mobileType,
+        dead: false,
+        hitFlash: 0,
+        ai: {
+          feet: [...(pos ?? [0, 10, 0])],
+          isHostile: true,
+          height: 1.8,
+          centreOffset: 0.9,
+          wouldBeSpawned: true,
+          target: null,
+        },
+        entity: {
+          name: `Siege_${mobileType}`,
+          health: 200,
+          maxHealth: 200,
+          damageScale: 1,
+          items: [],
+          activeEffects: [],
+        },
+      };
+      siegeFoes.push(f);
+      return f;
+    },
+    removeFoe: () => {},
+    hurtPlayer: () => {},
+  });
+  // Start at wave 13 so Aspect boss + mixed Daedra/Imps spawn, then damage boss to spawn phase adds too
+  assert.equal(siege.start({ startWaveNum: DIRENNI_SIEGE_TOTAL_WAVES, anchorPos: [0, 10, 0] }), true);
+  await new Promise((r) => setTimeout(r, 0));
+  const boss = siegeFoes.find((f) => f.entity.apotheosisAspectBoss);
+  assert.ok(boss, 'Wave 13 spawned Aspect boss');
+  boss.entity.health = boss.entity.maxHealth * 0.5;
+  siege.tick(0.1);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok(siegeFoes.length >= 4, 'Spawned boss, wave foes, and phase adds');
+
+  for (const f of siegeFoes) {
+    assert.equal(f.campId, 'direnni_siege');
+    assert.equal(f.entity.team, 'Daedra');
+    assert.equal(f.entity.mobileTeam, 'Daedra');
+    assert.equal(f.entity.campId, 'direnni_siege');
+    assert.equal(f.entity.suppressInfighting, true);
+  }
+  const f0 = siegeFoes[0];
+  const f1 = siegeFoes.find((f) => f.mobileType !== f0.mobileType) ?? siegeFoes[1];
+  assert.equal(getTargets(f0, [f0, f1, PLAYER_TARGET], [0, 10, 12], { infighting: true }).target, PLAYER_TARGET);
+  assert.equal(getTargets(f0, [f0, f1], [0, 10, 12], { infighting: true, noTargetMode: true }).target, null, 'Siege Daedra never infight');
+  assert.notEqual(getTargets(f0, [f0, f1], [0, 10, 12], { infighting: true }).target, f1, 'Siege Daedra never pick another siege foe over player');
+  siege.onModeOrWorldChange();
+
+  // 3. Mantella <16 Fate Weight, exclusive Artifacts, and "No" choice call onVanillaConfirm cleanly
+  const cruxLoc = { mapTableData: { mapId: MANTELLAN_CRUX_MAP_ID }, name: 'Mantellan Crux' };
+  const negHero = makeActor('neg_mantella');
+  let vanillaCalls = 0;
+  const negWindows = [];
+  const negOpened = handleMantellaCruxTouch({
+    dfLocation: cruxLoc,
+    playerEntity: negHero,
+    presentWindow: (w) => negWindows.push(w),
+    say: () => {},
+    onVanillaConfirm: () => { vanillaCalls++; },
+  });
+  assert.equal(negOpened, false);
+  assert.equal(negWindows.length, 0);
+  assert.equal(vanillaCalls, 1, '<16 Fate Weight invokes onVanillaConfirm');
+  assert.equal(negHero.apotheosis.mantellaVanillaChosen, false, 'Fate Weight rejection stays reversible');
+
+  // After earning >=16 Fate Weight, choosing "No" marks mantellaVanillaChosen so re-touch exits directly
+  setDebugFateWeight(negHero, REQUIRED_FATE_WEIGHT);
+  const forkOpened = handleMantellaCruxTouch({
+    dfLocation: cruxLoc,
+    playerEntity: negHero,
+    presentWindow: (w) => negWindows.push(w),
+    say: () => {},
+    onVanillaConfirm: () => { vanillaCalls++; },
+  });
+  assert.equal(forkOpened, true);
+  assert.equal(negWindows.length, 1);
+  negWindows[0].answer(false);
+  assert.equal(negHero.apotheosis.mantellaVanillaChosen, true);
+  assert.equal(negWindows.length, 2);
+  negWindows[1].answer(true);
+  assert.equal(vanillaCalls, 2);
+
+  const reTouchOpened = handleMantellaCruxTouch({
+    dfLocation: cruxLoc,
+    playerEntity: negHero,
+    presentWindow: (w) => negWindows.push(w),
+    say: () => {},
+    onVanillaConfirm: () => { vanillaCalls++; },
+  });
+  assert.equal(reTouchOpened, false);
+  assert.equal(negWindows.length, 2, 'does not reopen modal after No choice');
+  assert.equal(vanillaCalls, 3);
+
+  const artHero = makeActor('art_mantella');
+  setDebugFateWeight(artHero, REQUIRED_FATE_WEIGHT);
+  grantArtifactPack(artHero, 15);
+  const scan = scanInventoryArtifactsForApotheosis(artHero);
+  const picked = scan.distinctUnequippedSubTypes
+    .slice(0, 13)
+    .map((sub) => scan.unequippedEntries.find((x) => x.subType === sub).item);
+  startApotheosisFromArtifacts(artHero, picked);
+  let artVanillaCalls = 0;
+  const artOpened = handleMantellaCruxTouch({
+    dfLocation: cruxLoc,
+    playerEntity: artHero,
+    presentWindow: () => assert.fail('exclusive should not open modal'),
+    say: () => {},
+    onVanillaConfirm: () => { artVanillaCalls++; },
+  });
+  assert.equal(artOpened, false);
+  assert.equal(artVanillaCalls, 1, 'exclusive Artifact path triggers vanilla Mantella exit callback');
+
+  // 4. Portfolio section pre-selection helper works headlessly
+  assert.doesNotThrow(() => {
+    selectApotheosisSection('portfolio');
+    releaseApotheosisPane();
+  });
 });

@@ -11,6 +11,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { t } from '../textManager.js';
+import { setSkyMinutesOverride } from '../worldTick.js';
 import { EQUIP_SLOTS, equipTableOf } from '../equip.js';
 import {
   ARTIFACT_SUB_TYPE_NAMES,
@@ -209,6 +210,8 @@ export function defaultApotheosisState() {
     sacrificedArtifacts: [],
     debugFateCount: 0,
     mantellaCompleted: false,
+    stormStartMinutes: null,
+    mantellaVanillaChosen: false,
     ascendedAtMinutes: null,
   };
 }
@@ -292,6 +295,10 @@ export function ensureApotheosisState(entity) {
     sacrificedArtifacts,
     debugFateCount,
     mantellaCompleted: !!prev.mantellaCompleted,
+    stormStartMinutes: prev.stormStartMinutes != null && Number.isFinite(Number(prev.stormStartMinutes))
+      ? Math.trunc(Number(prev.stormStartMinutes))
+      : null,
+    mantellaVanillaChosen: !!prev.mantellaVanillaChosen,
     ascendedAtMinutes: prev.ascendedAtMinutes != null && Number.isFinite(Number(prev.ascendedAtMinutes))
       ? Math.trunc(Number(prev.ascendedAtMinutes))
       : null,
@@ -1118,6 +1125,7 @@ export function startApotheosisQuestline(entity, { source, sacrificedSubTypes = 
   state.stage = APOTHEOSIS_STAGES.QUESTLINE_ACTIVE;
   state.questStep = APOTHEOSIS_QUEST_STEPS.DRAGON_BREAK;
   state.stormActive = true;
+  state.stormStartMinutes = null;
   state.towerSiegeWave = 0;
   state.towerSiegeCleared = false;
   state.shadowDefeated = false;
@@ -1168,6 +1176,8 @@ export function completeApotheosisQuestline(entity) {
   state.towerSiegeWave = 13;
   state.shadowDefeated = true;
   state.stormActive = false;
+  state.stormStartMinutes = null;
+  setSkyMinutesOverride(null);
   state.questStep = APOTHEOSIS_QUEST_STEPS.COMPLETED;
   if (!state.ascended && state.stage !== APOTHEOSIS_STAGES.ASCENDED) {
     state.stage = APOTHEOSIS_STAGES.AWAITING_PORTFOLIO;
@@ -1303,6 +1313,7 @@ export function setDebugFateWeight(entity, targetCount) {
 
 /** Resets Apotheosis progression back to mortal state (for debug/testing). */
 export function resetApotheosisForDebug(entity) {
+  setSkyMinutesOverride(null);
   if (!entity || typeof entity !== 'object') return defaultApotheosisState();
   entity.apotheosis = defaultApotheosisState();
   computeEntityMods(entity);

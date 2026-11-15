@@ -54,6 +54,7 @@ import { statusInfoRows, healthStatusRows } from '../systems/healthStatus.js';
 import { survivalStatusRows } from '../systems/survival/status.js';
 import { survivalRules } from '../systems/survival/switch.js';   // AUDIT C&C S11: the page reads the live tier
 import { statusReadoutHint, holdStatusReadout, forgetStatusReadout, closeStatusReadout } from '../systems/statusReadout.js';
+import { getSkyMinutesOverride } from '../systems/worldTick.js';
 
 /** DisplayStatusInfo's box, minus the pause and minus the chain. */
 export class StatusReadout extends ActionTextBox {
@@ -97,7 +98,11 @@ export function statusReadoutRows({ lines, macroContext = null, entity, survival
     ...macroContext,
     hooks: {
       ...macroContext.hooks,
-      skySeconds: () => (typeof macroContext.hooks?.nowSeconds === 'function' ? macroContext.hooks.nowSeconds() : macroContext.hooks?.skySeconds?.()),
+      skySeconds: () => (
+        getSkyMinutesOverride() !== null && typeof macroContext.hooks?.skySeconds === 'function'
+          ? macroContext.hooks.skySeconds()
+          : (typeof macroContext.hooks?.nowSeconds === 'function' ? macroContext.hooks.nowSeconds() : macroContext.hooks?.skySeconds?.())
+      ),
     },
   } : null;
   const rows = [

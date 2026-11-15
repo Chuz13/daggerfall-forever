@@ -635,11 +635,11 @@ export function createSdEnd({
       if (key === riftKey && rift) {
         const n = riftCount(),
           to = typeof riftTo === 'function' ? riftTo() : riftTo;
-        return { title: typeof riftTitle === 'function' ? riftTitle() : riftTitle, subs: n ? [to, n] : [to] };
+        return { title: typeof riftTitle === 'function' ? riftTitle() : riftTitle, subs: [to, n].filter(Boolean) };
       } // AUDIT SD II (L6 F5): and how long its Hour stands
       if (key === SD_RETURN_KEY && ret) {
         ret.hoverAt = now();
-        return { title: retTitle, subs: [retTo] };
+        return { title: retTitle, subs: [retTo].filter(Boolean) };
       } // SD10: the Hour's way home says its own; SD-LOOK S6: its hand-plate lights
       return null;
     },

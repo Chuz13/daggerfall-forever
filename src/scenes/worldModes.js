@@ -9679,6 +9679,17 @@ export function createWorldModes(host) {
             if (host.onApotheosisMantellaUsurp) host.onApotheosisMantellaUsurp();
             else pendingDungeonExit = true;
           },
+          onApotheosisMantellaVanilla: () => {
+            if (host.onApotheosisMantellaVanilla) host.onApotheosisMantellaVanilla();
+            else pendingDungeonExit = true;
+          },
+          onApotheosisZeroStoneTouch: () => {
+            advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL);
+            void enterApotheosisOrrery();
+          },
+          onApotheosisOrreryReturn: () => {
+            pendingDungeonExit = true;
+          },
           standingLook,   // MWNPC8b: the dungeon's people read for their bodies as the building's are (dungeonContext.js drawPeople)
           placeRecord: () => (place?.instance ? { ins: instanceWord(place.instance) } : {}),   // INSTANCES (the audit): the save's word for the instance this build is (a load re-enters it)
           automapFromLoad: fromLoad,   // MAP-KEEP: a load enters the saved record on the LOAD arm - its colour tier kept, nothing stamped or pruned
@@ -10317,8 +10328,10 @@ export function createWorldModes(host) {
     if (key.startsWith('kt:')) { host.ketch?.()?.press?.(key); return true; }   // KETCH: a crew's ship's - a cell, a socket, a resonator, the bosun's line, a way down, the chest
     if (key.startsWith('egstone:') || key.startsWith('egengine:')) { dungeonCtx.egPress?.(key); return true; }   // EG-FULL LAYER THREE: an Elite Breach's Orrery stone, a chamber's engine   // SD4b: a Super dungeon's Rift and Return (Super-Dungeons.md section 6) - the context's own
     if (key === APOTHEOSIS_ZERO_STONE_KEY) {
-      advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL);
-      void enterApotheosisOrrery();
+      if (!dungeonCtx.sdPress?.(key)) {
+        advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL);
+        void enterApotheosisOrrery();
+      }
       return true;
     }
     if (key === APOTHEOSIS_ORRERY_EXIT_KEY) {
@@ -10390,6 +10403,7 @@ export function createWorldModes(host) {
    *  out of the Burning Court, before its gate (the host's gateLanding - world/gate/gateArena.js gateLandingFor). */
   const returnLanding = () => (dungeonReturn.gate ? host.gateLanding?.(dungeonReturn.gate) ?? null : dungeonReturn.arena ? host.arenaLanding?.() ?? dungeonReturn.arenaFrom ?? null : dungeonEntranceLanding(dungeonReturn.sdHollow ? host.sdHollowDoors?.(dungeonReturn.sdHollow) ?? [] : dungeonReturn.candidates.map((e) => e.door)) ?? dungeonReturn.from ?? null);   // ARENA2: out of the floor, before the Herald (AUDIT PRE-MERGE 1003b C7: or back where it was entered)
   function exitDungeonNow() {
+    const wasApotheosisOrrery = isApotheosisOrrery(dungeonLoc);
     unleveledLootPreTransition();   // UL1: OnPreTransition (TransitionDungeonExterior) - and NO OnTransitionExterior here, bug for bug
     // PositionPlayerToDungeonExit, but for its height (TALL-DOOR, player/enterExit.js dungeonExitFeet); the camera faces the normal.
     const landing = returnLanding();   // WB3b: before the gate, out of the court
@@ -10439,6 +10453,7 @@ export function createWorldModes(host) {
     cam.pos = player.eyeAt();   // EV1: the interpolated render eye
     console.log('exterior: returned at dungeon entrance');
     host.onTransitionDungeonExterior?.();   // OH-D: RaiseOnTransitionDungeonExteriorEvent, the transition's last
+    if (wasApotheosisOrrery) host.onApotheosisOrreryExit?.();
     return true;
   }
 

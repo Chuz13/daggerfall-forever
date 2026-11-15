@@ -35,6 +35,7 @@ export const DIRENNI_INTERIOR_MAX_ACTIVE = 6;
 export const APOTHEOSIS_ZERO_STONE_KEY = 'apotheosis:zerostone';
 export const APOTHEOSIS_ORRERY_EXIT_KEY = 'apotheosis:exit';
 export const APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC = 5;
+export const APOTHEOSIS_STORM_TIME_SPAN_MINUTES = 360 * 1440; // ±1 year around storm start
 export const APOTHEOSIS_STORM_WEATHERS = Object.freeze([
   'sunny',
   'cloudy',
@@ -54,6 +55,18 @@ export function pickNextApotheosisStormWeather(currentWeather = null, rng = Math
   const r = typeof rng === 'function' ? rng() : Math.random();
   const idx = Math.max(0, Math.min(pool.length - 1, Math.floor((Number.isFinite(r) ? r : 0) * pool.length)));
   return pool[idx];
+}
+
+/**
+ * Picks a randomized classic calendar minute within ±1 year (`±360 days`) of `baseMinutes`
+ * so the Dragon Break temporal storm shifts time-of-day, date, and season each round.
+ */
+export function pickNextApotheosisStormMinutes(baseMinutes, rng = Math.random) {
+  const base = Number.isFinite(baseMinutes) && baseMinutes > 0 ? Math.floor(baseMinutes) : 500000;
+  const raw = typeof rng === 'function' ? rng() : Math.random();
+  const r = Number.isFinite(raw) ? Math.max(0, Math.min(0.999999999, raw)) : 0.5;
+  const offset = Math.round(((r * 2) - 1) * APOTHEOSIS_STORM_TIME_SPAN_MINUTES);
+  return Math.max(1440, base + offset);
 }
 
 /**
@@ -210,6 +223,11 @@ export function handleMantellaCruxTouch({
   onVanillaConfirm,
 } = {}) {
   if (!isMantellanCruxLocation(dfLocation) || !playerEntity) return false;
+  const state = ensureApotheosisState(playerEntity);
+  if (state.mantellaVanillaChosen) {
+    onVanillaConfirm?.();
+    return false;
+  }
   const fork = evaluateMantellaFork(playerEntity);
 
   if (!fork.eligible) {
@@ -218,12 +236,14 @@ export function handleMantellaCruxTouch({
         'apotheosis.mantella.blockedArtifacts',
         'You already ignited the path of Ascension through 13 Daedric Artifacts. The Mantella slips beyond your grasp.',
       ));
+      onVanillaConfirm?.();
     } else if (fork.reason === 'fate_weight') {
       say?.(t(
         'apotheosis.mantella.blockedFate',
         'Your Fate Weight ({cur}/{req}) is too slight to usurp the Mantella; it follows its mortal course.',
         { cur: fork.fate?.count ?? 0, req: fork.fate?.required ?? REQUIRED_FATE_WEIGHT },
       ));
+      onVanillaConfirm?.();
     } else if (fork.message) {
       say?.(fork.message);
     }
@@ -258,6 +278,7 @@ export function handleMantellaCruxTouch({
       presentWindow(confirmWin);
     },
     onNo: () => {
+      ensureApotheosisState(playerEntity).mantellaVanillaChosen = true;
       const vanillaWin = new DecisionBoxWindow({
         ok: true,
         rows: [
@@ -266,7 +287,10 @@ export function handleMantellaCruxTouch({
             'You return the Mantella to its rightful fate and let Numidium walk.',
           ),
         ],
-        onYes: () => { onVanillaConfirm?.(); },
+        onYes: () => {
+          ensureApotheosisState(playerEntity).mantellaVanillaChosen = true;
+          onVanillaConfirm?.();
+        },
       });
       presentWindow(vanillaWin);
     },
@@ -375,6 +399,18 @@ export function createDirenniSiegeController({
     });
   }
 
+  function configureSiegeFoeAlignment(f) {
+    if (!f) return f;
+    f.campId = 'direnni_siege';
+    if (f.entity) {
+      f.entity.team = 'Daedra';
+      f.entity.mobileTeam = 'Daedra';
+      f.entity.campId = 'direnni_siege';
+      f.entity.suppressInfighting = true;
+    }
+    return f;
+  }
+
   async function spawnBoss(myEpoch) {
     const pos = spawnRingPos(0, 1, 16);
     spawningCount++;
@@ -390,6 +426,7 @@ export function createDirenniSiegeController({
         if (f) removeFoe?.(f);
         return;
       }
+      configureSiegeFoeAlignment(f);
       const lvl = effectiveLevel(playerEntity);
       f.entity.name = t('apotheosis.boss.aspectName', 'Aspect of the Tower');
       f.entity.apotheosisAspectBoss = true;
@@ -437,6 +474,7 @@ export function createDirenniSiegeController({
           if (f) removeFoe?.(f);
           continue;
         }
+        configureSiegeFoeAlignment(f);
         currentWaveFoes.push(f);
         allSpawnedFoes.push(f);
       } finally {
@@ -510,6 +548,7 @@ export function createDirenniSiegeController({
           if (f) removeFoe?.(f);
           return;
         }
+        configureSiegeFoeAlignment(f);
         currentWaveFoes.push(f);
         allSpawnedFoes.push(f);
       });

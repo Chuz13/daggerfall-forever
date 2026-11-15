@@ -98,6 +98,14 @@ let selectedItems = [];
 let statusMessage = null;
 let statusIsError = false;
 
+/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`) before opening the pane. */
+export function selectApotheosisSection(sec) {
+  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio']);
+  if (valid.has(sec)) {
+    activeSec = sec;
+  }
+}
+
 /** Releases Apotheosis UI state when the Pause menu closes or unmounts. */
 export function releaseApotheosisPane() {
   activeSec = 'overview';

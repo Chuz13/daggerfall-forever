@@ -174,7 +174,7 @@ import { ChoiceWindow } from '../ui/talkWindow.js';   // TP-slice: the anchor/te
 import { preloadSpellbookArt } from '../ui/spellbookWindow.js';   // U42: the classic art window (retires M2's keyed stand-in)
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
-import { worldMinutes, skyMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes, raisedMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
+import { worldMinutes, skyMinutes, setSkyMinutesOverride, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes, raisedMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { evaluateTravelInterruption, canEvadeAmbushWithStealth, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
 import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
@@ -431,6 +431,7 @@ import {
   createDirenniSiegeController,
   APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC,
   pickNextApotheosisStormWeather,
+  pickNextApotheosisStormMinutes,
 } from '../systems/apotheosis/apotheosisStage1.js';
 import { SdSkyRenderer, SD_SKY_STEPS } from '../render/superDungeon/sdSky.js';   // SD5b: the Hour's sky
 import { SdArenaGlowRenderer, sdArenaGlowAt, sdHourClockOf } from '../render/superDungeon/sdArenaGlow.js';   // SD-LOOK S7: the arena's floor reads the clock, and the sky's word for the fight
@@ -1191,6 +1192,7 @@ import { buttonText } from '../systems/controlsConfig.js';   // AUDIT DEEP T1-12
 import { hudShortcutKey, retroToggleKey, hudRenderEnabled } from '../ui/hud/hudShortcuts.js';   // AUDIT 64 F36/F37: DaggerfallHUD.Update's LargeHUDToggle / HUDToggle arms
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';   // I3/I4; U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
+import { selectApotheosisSection } from '../ui/apotheosisPane.js';
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // WM2d: the mills are an enhanced-only addition
 import { beginLoading, syncLoading, setLoadingPlace, setLoadingAside, loadingPlaceOf, bootLine, BOOT_HOLD_MAX_MS } from '../ui/loadingScreen.js';   // LOAD1: the loading screen - the boot's, and every world move's
 import { syncInteriorLoad } from '../ui/interiorLoadMark.js';   // a building's load: the ring over the hotbar, and this screen aside
@@ -6349,7 +6351,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _seasonHoldKey = null;
   function tickSeason() {
     if (_seasonStraightening) return;   // the FRAME's poll only (see above)
-    if (refreshSeason() && !snowCover.on) _reskin.markAll();   // PRECIP4: never on the snow lane, whose pixels turn by the snow (scenes/snowCoverHost.js sweep); the CLASSIC flip re-skins every pixel: the ground atlas, the tiles and the climate swaps all turn (ROAD A1)
+    if (refreshSeason() && !snowCover.on && !isApotheosisStormActive(playerEntity)) _reskin.markAll();   // PRECIP4: never on the snow lane, whose pixels turn by the snow (scenes/snowCoverHost.js sweep); the CLASSIC flip re-skins every pixel: the ground atlas, the tiles and the climate swaps all turn (ROAD A1)
     // A pixel whose textures are still crossing must PUBLISH before its
     // key can be torn down - the same hazard pump re-checks for after
     // its await (buildPixel publishes only at its very end, so a
@@ -28939,6 +28941,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     onApotheosisMantellaUsurp: () => {
       handleMantellaUsurpWorldTransition();
     },
+    onApotheosisMantellaVanilla: () => {
+      handleMantellaVanillaWorldTransition();
+    },
+    onApotheosisOrreryExit: () => {
+      const st = ensureApotheosisState(playerEntity);
+      if (st.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO && !st.ascended) {
+        selectApotheosisSection('portfolio');
+        hudCtx?.togglePause?.({ at: 'apotheosis' });
+      }
+    },
     // SD-LOOK (Super-Dungeons-Look.md sections 1-2): THE RIFT'S WINDOW, ITS FLOOR LIGHT AND ITS HEART, THE RETURN'S WINDOW HOME -
     // after the flats, in the place's own air: the window reads the Hour's own painted sky (the very map, painted here a
     // quadrant a frame in the Hollow - in the Hour the sky's own paint keeps it), the Return's the world's hour
@@ -29759,6 +29771,27 @@ export async function bootWorld(canvas, renderer, params, status) {
       modes?.forceExitToExterior?.();
     }
   }
+
+  function handleMantellaVanillaWorldTransition() {
+    direnniSiege?.onModeOrWorldChange?.();
+    const msg = t('apotheosis.mantella.vanillaSay', 'Mantella released to the Totem bearer (vanilla ending path).');
+    townTalk.say(msg);
+    const px = playerTravelPixel();
+    const inCrux = isMantellanCruxLocation(modes?.dungeonLocation) || (px?.x === 1 && px?.y === 1);
+    if (inCrux && typeof tele2locHelper === 'function') {
+      Promise.resolve(tele2locHelper('Shedungent')).then((ok) => {
+        if (ok === false && (modes?.mode ?? 'exterior') !== 'exterior') {
+          modes?.forceExitToExterior?.();
+        }
+        townTalk.say(msg);
+      }).catch(() => {
+        if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior?.();
+        townTalk.say(msg);
+      });
+    } else if ((modes?.mode ?? 'exterior') !== 'exterior') {
+      modes?.forceExitToExterior?.();
+    }
+  }
   wireOwnerClock([exteriorFoes, cityGuards], modes, () => online?.status === 'open' && online.othersHere > 0);   // OWNER-CLOCK (scenes/ownerCatchUp.js): while anyone else is in my room (on the street the 16-pixel cell, wider than the 3 pixels my foes frames are fanned across) the street's foes take my clamped frame in FOE-CATCHUP's steps - my player's pace, never past it - and every step of mine is marked on the clock my foes frames carry; HOST-CLOCK: the watch with them (its brains already ran on the street's clock), the mode machine's frames the catch-up's, and a building's and a dungeon's foes through the same page's catch-up from their own hosts
   // AT2: AMBIENT TEXT CLAIMS ITS HOST. The mod is one GameObject made
   // at load and never destroyed (systems/ambientText.js), so the slot
@@ -30296,16 +30329,11 @@ export async function bootWorld(canvas, renderer, params, status) {
           handleMantellaUsurpWorldTransition();
         },
         onVanillaConfirm: () => {
-          townTalk.say(t('apotheosis.mantella.vanillaSay', 'Mantella released to the Totem bearer (vanilla ending path).'));
+          handleMantellaVanillaWorldTransition();
         },
       });
     },
     apotheosisEnterMantellaCrux: async () => {
-      const st = ensureApotheosisState(playerEntity);
-      if (st.stage !== APOTHEOSIS_STAGES.MORTAL || st.ascended || st.questlineStarted) {
-        resetApotheosisForDebug(playerEntity);
-      }
-      if (!evaluateFateWeight(playerEntity).ready) setDebugFateWeight(playerEntity, REQUIRED_FATE_WEIGHT);
       await tele2locHelper('Mantellan Crux');
       const entered = await (modes?.startInDungeon?.() ?? false);
       if (!entered) return 'Teleported to Mantellan Crux exterior, but failed to enter dungeon.';
@@ -33711,22 +33739,36 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const frameWeatherDrain = () => {   // PERF-V8
     const apoStorm = isApotheosisStormActive(playerEntity);
     if (apoStorm) {
+      const apoState = ensureApotheosisState(playerEntity);
+      if (!Number.isFinite(apoState.stormStartMinutes)) {
+        apoState.stormStartMinutes = Math.trunc(worldMinutes());
+      }
+      const applyStormPulse = () => {
+        applyWeather(pickNextApotheosisStormWeather(weather));
+        const nextSkyMin = pickNextApotheosisStormMinutes(apoState.stormStartMinutes);
+        setSkyMinutesOverride(nextSkyMin);
+        refreshSeason(nextSkyMin);
+        _apoStormWeatherFlipped = true;
+      };
       if (!_apoStormWasActive) {
         _apoStormWasActive = true;
         _apoStormWeatherTimer = APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC;
-        applyWeather(pickNextApotheosisStormWeather(weather));
-        _apoStormWeatherFlipped = true;
+        applyStormPulse();
       } else {
         _apoStormWeatherTimer -= dt;
         if (_apoStormWeatherTimer <= 0) {
           _apoStormWeatherTimer = APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC;
-          applyWeather(pickNextApotheosisStormWeather(weather));
-          _apoStormWeatherFlipped = true;
+          applyStormPulse();
         }
       }
     } else if (_apoStormWasActive) {
       _apoStormWasActive = false;
       _apoStormWeatherTimer = 0;
+      setSkyMinutesOverride(null);
+      const apoState = playerEntity?.apotheosis;
+      if (apoState && apoState.stormStartMinutes != null) apoState.stormStartMinutes = null;
+      refreshSeason();
+      if (!snowCover.on) _reskin.markAll();
       if (!weatherOverride) applyWeather(shownWeather());
     } else if (!weatherOverride) {
       const _pp = playerTravelPixel();
