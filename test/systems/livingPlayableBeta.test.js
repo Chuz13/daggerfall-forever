@@ -1209,4 +1209,233 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     const crisisRes = await crisisCmd.callback(['status', '17']);
     assert.ok(crisisRes.includes('Tension:'), `crisis status includes tension: ${crisisRes}`);
   });
+
+  it('Step 4: solid mesh colliders are registered for LT, hideout, and survival camp tents even under async mesh loading', async () => {
+    const { createHideouts } = await import('../../src/scenes/hideouts.js');
+    const { createCamps } = await import('../../src/scenes/camps.js');
+    const { createSurvivalItem } = await import('../../src/systems/survival/items.js');
+    const { TEMPLATE } = await import('../../src/systems/survival/food.js');
+    const { setWorldMinutes } = await import('../../src/systems/worldTick.js');
+    const { TENT_MODEL } = await import('../../src/systems/survival/camp.js');
+
+    const triPositions = new Float32Array([-1, 0, -1, 1, 0, -1, 0, 2, 1]);
+    const triIndices = new Uint32Array([0, 1, 2]);
+    const makeColliderStub = () => {
+      const buckets = new Map();
+      const removed = [];
+      return {
+        buckets,
+        removed,
+        addMesh(key, positions, indices, mat) {
+          buckets.set(key, { positions, indices, mat: mat ? Array.from(mat) : null });
+        },
+        removeBucket(key) {
+          removed.push(key);
+          buckets.delete(key);
+        },
+        surfaceHit(origin, dir, max) {
+          const dist = dir[1] < 0 && max >= origin[1] ? origin[1] : Infinity;
+          return { dist };
+        },
+        raycast(origin, dir, max) {
+          return dir[1] < 0 && max >= origin[1] ? origin[1] : Infinity;
+        },
+      };
+    };
+
+    // 1. Living Tamriel spawner: cold async getGpuMesh populates cpuModels AFTER standBlueprint returns
+    const ltCpuModels = new Map();
+    const ltCollider = makeColliderStub();
+    let resolveTentGpu;
+    const ltHost = createLivingSceneHost({
+      playerEntity: () => ({ level: 5, items: [] }),
+      regionIndex: () => 17,
+      clock: () => 600,
+      spawn: (_t, feet, o) => ({ entity: {}, ai: { feet: [...feet] }, livingRole: o.role, dead: false }),
+      remove: (rec) => { rec.dead = true; },
+      inPool: (rec) => !rec.dead,
+      say: () => {},
+      openChoice: () => {},
+      playSound: () => {},
+      meshes: {
+        cpuModels: ltCpuModels,
+        getGpuMesh: (modelId) => new Promise((res) => {
+          resolveTentGpu = () => {
+            ltCpuModels.set(modelId, { positions: triPositions, indices: triIndices });
+            res({ gpu: true, modelId });
+          };
+        }),
+      },
+      collider: ltCollider,
+    });
+
+    const meetingBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.ADVENTURER_MEETING,
+      centerX: 10,
+      centerZ: 20,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: { level: 5 },
+      nowMinutes: 600,
+      rng: () => 0.5,
+    });
+    const stoodMeeting = ltHost.standBlueprint(meetingBp);
+    assert.ok(stoodMeeting);
+    assert.equal(ltCollider.buckets.size, 0, 'Collider not registered yet before async getGpuMesh resolves');
+    resolveTentGpu();
+    await new Promise((r) => setImmediate(r));
+    assert.equal(ltCollider.buckets.size, 1, 'Tent collider registered automatically once async getGpuMesh finishes');
+    const ltKey = `${stoodMeeting.campId}_mesh_0`;
+    assert.ok(ltCollider.buckets.has(ltKey));
+
+    // Simulate LRU eviction of global cpuModels: offsetAll still rebuilds using locally cached cpu geometry
+    ltCpuModels.clear();
+    const beforeX = ltCollider.buckets.get(ltKey).mat[12];
+    ltHost.offsetAll([12, 0, -8]);
+    assert.ok(ltCollider.removed.includes(ltKey));
+    assert.ok(Math.abs(ltCollider.buckets.get(ltKey).mat[12] - (beforeX + 12)) < 1e-4, 'offsetAll shifts collider even after cpuModels LRU eviction');
+    ltHost.clear();
+    assert.equal(ltCollider.buckets.size, 0, 'clear removes LT site collider buckets');
+
+    // Also verify PAVILION (41607) in QUARANTINE_TENT gets registered after async resolve
+    const qCpuModels = new Map();
+    const qCollider = makeColliderStub();
+    const qPending = [];
+    const qHost = createLivingSceneHost({
+      playerEntity: () => ({ level: 5, items: [] }),
+      regionIndex: () => 17,
+      clock: () => 600,
+      spawn: (_t, feet, o) => ({ entity: {}, ai: { feet: [...feet] }, livingRole: o.role, dead: false }),
+      remove: (rec) => { rec.dead = true; },
+      inPool: (rec) => !rec.dead,
+      say: () => {},
+      openChoice: () => {},
+      playSound: () => {},
+      meshes: {
+        cpuModels: qCpuModels,
+        getGpuMesh: (modelId) => new Promise((res) => {
+          qPending.push(() => {
+            qCpuModels.set(modelId, { positions: triPositions, indices: triIndices });
+            res({ gpu: true, modelId });
+          });
+        }),
+      },
+      collider: qCollider,
+    });
+    const qBp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.QUARANTINE_TENT,
+      centerX: 0,
+      centerZ: 0,
+      heightAt: () => 0,
+      regionIndex: 17,
+      playerEntity: { level: 5 },
+      nowMinutes: 600,
+      rng: () => 0.5,
+    });
+    const stoodQ = qHost.standBlueprint(qBp);
+    for (const fn of qPending) fn();
+    await new Promise((r) => setImmediate(r));
+    assert.equal(qCollider.buckets.size, stoodQ.blueprint.meshes.length, 'Quarantine pavilion and prop colliders registered asynchronously');
+    qHost.clear();
+
+    // 2. Hideouts: tent colliders registered on async load, moved on offsetAll, removed on clear
+    const hCpuModels = new Map();
+    const hCollider = makeColliderStub();
+    let resolveHideoutTent;
+    const hideout = { key: 'O17.99', a: 1, b: 2, x: 0, z: 0 };
+    const band = {
+      key: 'O17.99~0',
+      name: 'The Test Raiders',
+      gen: 0,
+      heir: 0,
+      people: [
+        { id: 'r1', cls: MOBILE_TYPES.Rogue, level: 2, sex: 0, name: 'Raider 1' },
+        { id: 'r2', cls: MOBILE_TYPES.Rogue, level: 2, sex: 0, name: 'Raider 2' },
+      ],
+    };
+    const hideoutHost = createHideouts({
+      hideoutsNear: () => [hideout],
+      bandAt: () => band,
+      clock: () => 600,
+      here: () => ({ x: 50, z: 0 }),
+      ready: () => true,
+      owner: () => true,
+      sceneOf: (nx, nz) => [nx / 128, 0, nz / 128],
+      spawn: () => Promise.resolve({ dead: false, entity: {} }),
+      remove: () => {},
+      inPool: () => true,
+      relations: () => ({ turns: () => ({ looted: new Set(), heard: new Set(), routed: new Set() }), turn: () => {}, note: () => {} }),
+      say: () => {},
+      chest: function* () { return { items: [], robbed: [] }; },
+      dropPile: () => ({ items: [] }),
+      removePile: () => {},
+      collider: hCollider,
+      meshes: {
+        cpuModels: hCpuModels,
+        getGpuMesh: (id) => new Promise((res) => {
+          resolveHideoutTent = () => {
+            hCpuModels.set(id, { positions: triPositions, indices: triIndices });
+            res({ gpu: true });
+          };
+        }),
+      },
+      getTexture: () => Promise.resolve({ getFrameCount: () => 1, getSize: () => ({ width: 8, height: 16 }) }),
+      uploadRecordFrame: () => {},
+    });
+    hideoutHost.frame(1.01);
+    assert.equal(hideoutHost.shown()?.tents, 2);
+    assert.equal(hCollider.buckets.size, 0);
+    resolveHideoutTent();
+    await new Promise((r) => setImmediate(r));
+    assert.equal(hCollider.buckets.size, 2, 'All hideout tents receive colliders after async mesh load');
+    const hBeforeX = hCollider.buckets.get('hideout_O17.99_tent_0').mat[12];
+    hideoutHost.offsetAll([25, 0, 0]);
+    assert.ok(Math.abs(hCollider.buckets.get('hideout_O17.99_tent_0').mat[12] - (hBeforeX + 25)) < 1e-4, 'hideout offsetAll moves tent colliders');
+    hideoutHost.clear();
+    assert.equal(hCollider.buckets.size, 0, 'hideout clear removes tent colliders');
+
+    // 3. Survival Camps: tent collider registered on async mesh load, shifted on offsetAll, removed on pack/destroyAll
+    setWorldMinutes(1000);
+    try {
+      const cCpuModels = new Map();
+      const cCollider = makeColliderStub();
+      let resolveCampTent;
+      const entity = { items: [createSurvivalItem(TEMPLATE.CampingEquipment)] };
+      const camps = createCamps({
+        renderer: { createBillboardBatch: () => ({ centers: [], frame: null }), destroyBillboardBatch: () => {}, drawMesh: () => {} },
+        getTexture: async () => ({ getFrameCount: () => 1, getSize: () => ({ width: 40, height: 40 }) }),
+        uploadRecordFrame: () => {},
+        meshes: {
+          cpuModels: cCpuModels,
+          getGpuMesh: (id) => new Promise((res) => {
+            resolveCampTent = () => {
+              cCpuModels.set(id, { positions: triPositions, indices: triIndices });
+              res({ gpu: true });
+            };
+          }),
+        },
+        entity,
+        camera: () => ({ feet: [0, 1, 0], yaw: 0 }),
+        collider: () => cCollider,
+        place: () => ({}),
+        pixelKeyAt: () => 'px:0',
+        say: () => {},
+        selfId: () => null,
+      });
+
+      assert.equal(camps.placeItem(entity.items[0], entity.items), true);
+      assert.equal(cCollider.buckets.size, 0);
+      resolveCampTent();
+      await new Promise((r) => setImmediate(r));
+      assert.equal(cCollider.buckets.size, 1, `Tent model ${TENT_MODEL} registers collider once loaded`);
+      const campKey = `camp:${camps.camps[0].rec.id}`;
+      const cBeforeZ = cCollider.buckets.get(campKey).mat[14];
+      camps.offsetAll([0, 0, -15]);
+      assert.ok(Math.abs(cCollider.buckets.get(campKey).mat[14] - (cBeforeZ - 15)) < 1e-4, 'camps.offsetAll moves tent collider');
+      camps.destroyAll();
+      assert.equal(cCollider.buckets.size, 0, 'camps.destroyAll removes tent collider');
+    } finally {
+      setWorldMinutes(0);
+    }
+  });
 });

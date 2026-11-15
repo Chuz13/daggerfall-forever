@@ -3858,7 +3858,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     dropPile: (items, feet) => droppedLoot.seedPile(items, feet, { archive: TREASURE_PILE_ARCHIVE, record: 0 }, null, null, { unsaved: true, owner: 'lw-hideout' }),
     removePile: (pile) => droppedLoot.removePile(pile),
     engaged: (f) => !!f.ai?.detected && f.ai.targetIsLocalPlayer !== false,   // AUDIT LW-II-2 C14: on me - the pool's cull's own spare
-    renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
+    renderer, meshes: { getGpuMesh, cpuModels }, collider, getTexture, uploadRecordFrame,
   }));
   let _livingSceneHost = null;
   const _livingCompanionFace = {

@@ -120,12 +120,40 @@ export function createCamps({
       for (const c of camps) if (!c.batch) mountFire(c);
     }).catch((e) => console.warn('[camps] the fire would not load', e));
   }
+  const getTentCpu = () => meshes?.cpuModels?.get?.(TENT_MODEL) ?? _tent?.cpu ?? null;
+  const tentBucketKey = (c) => `camp:${c.rec.id}`;
+  function removeTentCollider(c) {
+    if (!c || c.rec?.kind !== CAMP_KIND.Tent) return;
+    const col = collider?.();
+    if (col?.removeBucket) {
+      try { col.removeBucket(tentBucketKey(c)); } catch (_e) {}
+    }
+  }
+  function syncTentCollider(c) {
+    if (!c || c.rec?.kind !== CAMP_KIND.Tent) return;
+    const col = collider?.();
+    if (!col?.addMesh) return;
+    const bKey = tentBucketKey(c);
+    if (c.hidden) {
+      try { col.removeBucket?.(bKey); } catch (_e) {}
+      return;
+    }
+    const cpu = getTentCpu();
+    if (!cpu?.positions || !cpu.indices) return;
+    try {
+      col.removeBucket?.(bKey);
+      col.addMesh(bKey, cpu.positions, cpu.indices, tentMatrix(c));
+    } catch (_e) {}
+  }
   function ensureTent() {
     if (_tent || _tentLoading || !meshes?.getGpuMesh) return;
     _tentLoading = Promise.resolve(meshes.getGpuMesh(TENT_MODEL)).then((gpu) => {
-      const cpu = meshes.cpuModels?.get?.(TENT_MODEL);
-      _tent = { gpu: gpu ?? null, box: cpu?.positions ? localAabb(cpu.positions) : null };
-    }).catch((e) => console.warn('[camps] the tent would not load', e));
+      const cpu = meshes.cpuModels?.get?.(TENT_MODEL) ?? null;
+      _tent = { gpu: gpu ?? null, cpu, box: cpu?.positions ? localAabb(cpu.positions) : null };
+      for (const c of camps) if (c.rec.kind === CAMP_KIND.Tent) syncTentCollider(c);
+    }).catch((e) => console.warn('[camps] the tent would not load', e)).finally(() => {
+      _tentLoading = null;
+    });
   }
   function mountFire(c) {
     if (c.batch || !_fire || !renderer?.createBillboardBatch) return;
@@ -147,11 +175,15 @@ export function createCamps({
     const c = { rec, batch: null, anim: null, pixelKey: rec.deck ? null : pixelKeyAt?.(rec.pos) ?? null, owner, hidden: !!rec.deck, deckM: null, goneFor: 0 };
     camps.push(c);
     ensureFire(); mountFire(c);
-    if (rec.kind === CAMP_KIND.Tent) ensureTent();
+    if (rec.kind === CAMP_KIND.Tent) {
+      ensureTent();
+      syncTentCollider(c);
+    }
     return c;
   }
   function drop(c) {
     unmount(c);
+    removeTentCollider(c);
     const i = camps.indexOf(c);
     if (i >= 0) camps.splice(i, 1);
   }
@@ -246,7 +278,10 @@ export function createCamps({
       if (d) r.camp.deck = d;
     }
     const c = stand(r.camp);
-    if (r.camp.deck && on?.m) { c.hidden = false; c.deckM = on.m; }
+    if (r.camp.deck && on?.m) {
+      c.hidden = false; c.deckM = on.m;
+      if (c.rec.kind === CAMP_KIND.Tent) syncTentCollider(c);
+    }
     if (struck) say(struck);
     onChanged?.();
     return true;
@@ -296,9 +331,11 @@ export function createCamps({
         c.rec.yaw = wrapAngle(deckYaw(at.m) + d.yaw);
         c.hidden = false; c.goneFor = 0;
         if (c.batch) c.batch.origin = [c.rec.pos[0], c.rec.pos[1], c.rec.pos[2]];
+        if (c.rec.kind === CAMP_KIND.Tent) syncTentCollider(c);
         continue;
       }
       c.hidden = true; c.deckM = null;
+      if (c.rec.kind === CAMP_KIND.Tent) syncTentCollider(c);
       if (!at.gone || !mine(c)) { c.goneFor = 0; continue; }
       c.goneFor += Math.max(0, dt);
       if (c.goneFor < DECK_GONE_S) continue;
@@ -421,7 +458,7 @@ export function createCamps({
     return near.slice(0, CAMP_LIGHTS_MAX).map((c) => adoptLight({ x: c.rec.pos[0], y: c.rec.pos[1] + FIRE_LIGHT_UP, z: c.rec.pos[2], range: FIRE_LIGHT_RANGE }, c.rec));   // LIGHT-ID: the camp's fire, frame to frame
   }
   /** A tent's matrix. DECK-CAMP: on a deck, laid in her frame - she rolls and pitches it with her. */
-  const tentMatrix = (c) => {
+  function tentMatrix(c) {
     const rec = c.rec, d = rec.deck;
     if (d && c.deckM) {
       // her node's rotation alone (its columns unit - a hull's model scale is hers, never the tent's), at the tent's
@@ -437,7 +474,7 @@ export function createCamps({
     }
     const p = tentPos(rec);
     return trs(p[0], p[1], p[2], 0, rec.yaw * 180 / Math.PI, 0);
-  };
+  }
   /** The tents, in the host's world pass. PERF-WAGON: `cull` the host's view test over each tent's box where it
    *  stands - the model's own, its target's (decorRoom.js drawSeen: drawn, cast alone or neither); none, or no box,
    *  every tent drawn as before. Answers how many were drawn on screen. */
@@ -693,14 +730,14 @@ export function createCamps({
 
   /** DestroyLightSources' twin: every transition and every load. */
   function destroyAll() {
-    for (const c of camps) unmount(c);
+    for (const c of camps) { unmount(c); removeTentCollider(c); }
     camps.length = 0;
     _bedroll = null;   // REST6: a spot, not a camp - the scene's teardown takes it up
     _owners.clear();
   }
   /** The streaming host's sweep: a camp on an evicted pixel goes with it - it comes back from the scene cache. */
   function collectPixel(key) {
-    for (let i = camps.length - 1; i >= 0; i--) if (camps[i].pixelKey === key) { unmount(camps[i]); camps.splice(i, 1); }
+    for (let i = camps.length - 1; i >= 0; i--) if (camps[i].pixelKey === key) { unmount(camps[i]); removeTentCollider(camps[i]); camps.splice(i, 1); }
   }
   /** A floating-origin recenter moves the pool. */
   function offsetAll(offset) {
@@ -708,7 +745,10 @@ export function createCamps({
     for (const c of camps) {
       c.rec.pos[0] += dx; c.rec.pos[1] += dy; c.rec.pos[2] += dz;
       if (c.rec.deck) { if (c.batch) c.batch.origin = [c.rec.pos[0], c.rec.pos[1], c.rec.pos[2]]; }   // DECK-CAMP: moved, never rebuilt (ride poses it off her next)
-      else if (c.batch) remount(c);
+      else {
+        if (c.batch) remount(c);
+        if (c.rec.kind === CAMP_KIND.Tent) syncTentCollider(c);
+      }
     }
     if (_bedroll) { _bedroll.pos[0] += dx; _bedroll.pos[1] += dy; _bedroll.pos[2] += dz; }   // AUDIT REST F10: the laid spot rides the origin too
   }
@@ -724,6 +764,7 @@ export function createCamps({
       if (!d) continue;
       c.rec.pos[1] += d;
       if (c.batch) remount(c);
+      if (c.rec.kind === CAMP_KIND.Tent) syncTentCollider(c);
     }
     if (_bedroll && inBox(_bedroll.pos)) _bedroll.pos[1] += dy(_bedroll.pos[0], _bedroll.pos[2]);
   }
@@ -796,7 +837,14 @@ export function createCamps({
     for (const c of camps.filter((x) => x.owner === owner)) {
       const r = fresh.find((x) => x.id === c.rec.id);
       if (!r || r.kind !== c.rec.kind || moved(r, c.rec)) drop(c);
-      else { c.rec.litUntil = r.litUntil; c.rec.wear = r.wear; if (!c.rec.deck) c.rec.yaw = r.yaw; fresh.splice(fresh.indexOf(r), 1); }
+      else {
+        c.rec.litUntil = r.litUntil; c.rec.wear = r.wear;
+        if (!c.rec.deck && c.rec.yaw !== r.yaw) {
+          c.rec.yaw = r.yaw;
+          if (c.rec.kind === CAMP_KIND.Tent) syncTentCollider(c);
+        }
+        fresh.splice(fresh.indexOf(r), 1);
+      }
     }
     for (const r of fresh) stand(r, { owner });
     _owners.set(owner, { at: nowMs });

@@ -170,7 +170,7 @@ export function* bandChest(band, t, deps) {
  *   remove: (rec: any) => void, inPool: (rec: any) => boolean, relations: () => any, say: (text: string) => void,
  *   chest: (band: any, t: number) => Iterator<void, { items: any[], robbed: any[] }>, dropPile: (items: any[], feet: number[]) => any,
  *   removePile: (pile: any) => void, engaged?: (rec: any) => boolean, now?: () => number, renderer?: any, meshes?: any,
- *   getTexture?: (archive: number) => any, uploadRecordFrame?: (archive: number, record: number, frame: number) => void,
+ *   collider?: any, getTexture?: (archive: number) => any, uploadRecordFrame?: (archive: number, record: number, frame: number) => void,
  *   routed?: (h: any) => void,
  * }} deps - `chest` the band's chest worked a step a `next()` (`bandChest`); `engaged(rec)` whether one of its people
  *   draws on this player (AUDIT LW-II-2 C14); `now` real ms (the chest's slice); BAY-LEFT-SEA: `routed(h)` its hideout
@@ -191,14 +191,45 @@ export function createHideouts(deps) {
   const downs = /** @type {Map<string, Set<string>>} */ (new Map());
   let downsRel = /** @type {any} */ (null);
 
+  const getTentCpu = () => deps.meshes?.cpuModels?.get?.(TENT_MODEL) ?? tent?.cpu ?? null;
+
+  function removeTentColliders(s) {
+    if (!s?.tents || !deps.collider?.removeBucket) return;
+    for (let i = 0; i < s.tents.length; i++) {
+      try {
+        deps.collider.removeBucket(`hideout_${s.h?.key ?? 'camp'}_tent_${i}`);
+      } catch (_e) {}
+    }
+  }
+
+  function syncTentColliders(s) {
+    if (!s?.tents || !deps.collider?.addMesh) return;
+    const cpu = getTentCpu();
+    if (!cpu?.positions || !cpu.indices) return;
+    for (let i = 0; i < s.tents.length; i++) {
+      const tt = s.tents[i];
+      const bKey = `hideout_${s.h?.key ?? 'camp'}_tent_${i}`;
+      try {
+        deps.collider.removeBucket?.(bKey);
+        const m = trs(tt.feet[0], tt.feet[1], tt.feet[2], 0, (tt.yaw * 180) / Math.PI, 0);
+        deps.collider.addMesh(bKey, cpu.positions, cpu.indices, m);
+      } catch (_e) {}
+    }
+  }
+
   function ensureArt() {
     if (!tent && !tentLoading && deps.meshes?.getGpuMesh) {
       tentLoading = true;
       Promise.resolve(deps.meshes.getGpuMesh(TENT_MODEL))
         .then((gpu) => {
-          tent = gpu ? { gpu } : null;
+          const cpu = deps.meshes?.cpuModels?.get?.(TENT_MODEL) ?? null;
+          tent = gpu ? { gpu, cpu } : null;
+          if (stood) syncTentColliders(stood);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          tentLoading = false;
+        });
     }
     if (!fire && !fireLoading && deps.getTexture) {
       fireLoading = true;
@@ -262,6 +293,7 @@ export function createHideouts(deps) {
       wave: 0,
       allDown: false,
     };
+    syncTentColliders(stood);
     if (band) {
       if (owned) standPeople(stood, t);
       // AUDIT LW-II-2 C5: its chest worked from the next frame (`workChest`) and its pile laid when done - read here, the
@@ -374,6 +406,7 @@ export function createHideouts(deps) {
     const s = stood;
     if (!s) return;
     stood = null;
+    removeTentColliders(s);
     takeOutPeople(s);
     if (s.pile) {
       lootedYet(s); // a hand in it this very frame - the character's who stood it, never a loaded one's (C11c)
@@ -537,6 +570,7 @@ export function createHideouts(deps) {
         p[2] += offset[2];
       };
       for (const tt of s.tents) move(tt.feet);
+      syncTentColliders(s);
       move(s.centre);
       if (s.batch) {
         const frame = s.batch.frame;

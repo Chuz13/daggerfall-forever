@@ -1459,12 +1459,43 @@ export function createLivingSceneHost(deps) {
     }
   }
 
+  function getCpuModel(modelId) {
+    return deps.meshes?.cpuModels?.get?.(modelId) ?? gpuModels.get(modelId)?.cpu ?? null;
+  }
+
+  function syncSiteColliders(site) {
+    if (!site?.blueprint?.meshes || !deps.collider?.addMesh) return;
+    for (let i = 0; i < site.blueprint.meshes.length; i++) {
+      const m = site.blueprint.meshes[i];
+      const cpu = getCpuModel(m.modelId);
+      if (cpu?.positions && cpu.indices) {
+        const bKey = `${site.campId}_mesh_${i}`;
+        try {
+          deps.collider.removeBucket?.(bKey);
+          const mat = trs(m.feet[0], m.feet[1], m.feet[2], 0, m.yawDeg, 0);
+          deps.collider.addMesh(bKey, cpu.positions, cpu.indices, mat);
+        } catch (_e) {}
+      }
+    }
+  }
+
   function ensureModel(modelId) {
-    if (gpuModels.has(modelId) || loadingModels.has(modelId) || !deps.meshes?.getGpuMesh) return;
+    if (gpuModels.has(modelId)) {
+      const entry = gpuModels.get(modelId);
+      if (entry && !entry.cpu) {
+        entry.cpu = deps.meshes?.cpuModels?.get?.(modelId) ?? null;
+      }
+      return;
+    }
+    if (loadingModels.has(modelId) || !deps.meshes?.getGpuMesh) return;
     loadingModels.add(modelId);
     Promise.resolve(deps.meshes.getGpuMesh(modelId))
       .then((gpu) => {
-        if (gpu) gpuModels.set(modelId, { gpu });
+        const cpu = deps.meshes?.cpuModels?.get?.(modelId) ?? null;
+        if (gpu) {
+          gpuModels.set(modelId, { gpu, cpu });
+          if (stood) syncSiteColliders(stood);
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -2823,18 +2854,7 @@ export function createLivingSceneHost(deps) {
     const siteCampId = `lt_${blueprint.kind}_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
     site.campId = siteCampId;
 
-    if (deps.collider?.addMesh && blueprint.meshes) {
-      for (let i = 0; i < blueprint.meshes.length; i++) {
-        const m = blueprint.meshes[i];
-        const cpu = deps.meshes?.cpuModels?.get?.(m.modelId);
-        if (cpu?.positions && cpu.indices) {
-          try {
-            const mat = trs(m.feet[0], m.feet[1], m.feet[2], 0, m.yawDeg, 0);
-            deps.collider.addMesh(`${siteCampId}_mesh_${i}`, cpu.positions, cpu.indices, mat);
-          } catch (_e) {}
-        }
-      }
-    }
+    syncSiteColliders(site);
 
     if (blueprint.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON && deps.spawnNavalSquadron) {
       site.navalSquadron = deps.spawnNavalSquadron(blueprint.meta?.squadron);
@@ -3531,20 +3551,7 @@ export function createLivingSceneHost(deps) {
       move(stood.blueprint.center);
       for (const m of stood.blueprint.meshes) move(m.feet);
       for (const fl of stood.blueprint.flats) move(fl.feet);
-      if (deps.collider?.addMesh && stood.blueprint?.meshes) {
-        for (let i = 0; i < stood.blueprint.meshes.length; i++) {
-          const m = stood.blueprint.meshes[i];
-          const bKey = `${stood.campId}_mesh_${i}`;
-          try {
-            deps.collider.removeBucket?.(bKey);
-            const cpu = deps.meshes?.cpuModels?.get?.(m.modelId);
-            if (cpu?.positions && cpu.indices) {
-              const mat = trs(m.feet[0], m.feet[1], m.feet[2], 0, m.yawDeg, 0);
-              deps.collider.addMesh(bKey, cpu.positions, cpu.indices, mat);
-            }
-          } catch (_e) {}
-        }
-      }
+      syncSiteColliders(stood);
       if (stood.batches.length && deps.renderer?.destroyBillboardBatch) {
         for (const b of stood.batches) {
           try {
