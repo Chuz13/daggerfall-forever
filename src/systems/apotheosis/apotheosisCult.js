@@ -43,6 +43,9 @@ export const CULT_FOUND_FAITH_COST = 350;
 export const CULT_CONSECRATE_FORCE_FAITH_COST = 200;
 export const CULT_CONSECRATE_PEACEFUL_FAITH_COST = 450;
 export const CULT_BRANCH_SWITCH_COST = 180;
+export const CULT_BRANCH_COOLDOWN_DAYS = 7;
+export const CULT_BRANCH_COOLDOWN_MINUTES = CULT_BRANCH_COOLDOWN_DAYS * 1440;
+export const CULT_TELEPORT_SANCTUARY_FAITH_COST = 75;
 export const REGIONAL_EDICT_COST = 200;
 export const REGIONAL_EDICT_DURATION_DAYS = 30;
 export const REGIONAL_EDICT_DURATION_MINUTES = REGIONAL_EDICT_DURATION_DAYS * 1440;
@@ -74,6 +77,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     fallbackName: 'Initiate Shrine',
     upgradeCost: 0,
     faithPerDay: 12,
+    maxFaithBonus: 100,
     infPerDay: 0.4,
     guardCount: 2,
   }),
@@ -83,6 +87,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     fallbackName: 'Sacred Precinct',
     upgradeCost: 220,
     faithPerDay: 22,
+    maxFaithBonus: 250,
     infPerDay: 0.8,
     guardCount: 3,
   }),
@@ -92,6 +97,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     fallbackName: 'Grand Sanctum',
     upgradeCost: 420,
     faithPerDay: 36,
+    maxFaithBonus: 500,
     infPerDay: 1.4,
     guardCount: 4,
   }),
@@ -107,6 +113,7 @@ export const CULT_BRANCHES = Object.freeze({
     infMult: 1.5,
     extraGuards: 0,
     bonusFaithPerDay: 0,
+    maxFaithBonus: 0,
   }),
   militant: Object.freeze({
     id: 'militant',
@@ -117,16 +124,18 @@ export const CULT_BRANCHES = Object.freeze({
     infMult: 1.0,
     extraGuards: 2,
     bonusFaithPerDay: 0,
+    maxFaithBonus: 0,
   }),
   oracle: Object.freeze({
     id: 'oracle',
     nameKey: 'apotheosis.cult.branch.oracle',
     fallbackName: 'Oracle Reliquary',
     descKey: 'apotheosis.cult.branch.oracleDesc',
-    fallbackDesc: '+12 bonus daily Faith offerings from devout pilgrims.',
+    fallbackDesc: '+12 bonus daily Faith offerings and +150 Max Faith capacity from devout pilgrims.',
     infMult: 1.0,
     extraGuards: 0,
     bonusFaithPerDay: 12,
+    maxFaithBonus: 150,
   }),
 });
 
@@ -263,6 +272,23 @@ export function pickDaedricPatronForCity(mapId = 0, regionIndex = 0) {
   return DAEDRA_IDS[h % DAEDRA_IDS.length];
 }
 
+/** Recomputes `entity.apotheosis.cultFaithBonus` from all owned Temples and Underground Sanctuaries. */
+export function recomputeCultFaithBonus(entity) {
+  if (!entity?.apotheosis || typeof entity.apotheosis !== 'object') return 0;
+  const sites = entity.apotheosis.cult?.sites;
+  let total = 0;
+  if (sites && typeof sites === 'object') {
+    for (const s of Object.values(sites)) {
+      if (!s || s.ownerId !== 'player') continue;
+      const tierSpec = CULT_UPGRADE_TIERS[Math.max(1, Math.min(3, Math.trunc(Number(s.tier) || 1)))] ?? CULT_UPGRADE_TIERS[1];
+      const branchSpec = s.branch ? CULT_BRANCHES[s.branch] : null;
+      total += (tierSpec.maxFaithBonus ?? 0) + (branchSpec?.maxFaithBonus ?? 0);
+    }
+  }
+  entity.apotheosis.cultFaithBonus = total;
+  return total;
+}
+
 /** Ensures `entity.apotheosis.cult` structure exists and returns it. */
 export function ensureCultState(entity) {
   if (!entity || typeof entity !== 'object') return null;
@@ -280,6 +306,12 @@ export function ensureCultState(entity) {
     if (!existing.sites || typeof existing.sites !== 'object') existing.sites = {};
     if (!existing.edicts || typeof existing.edicts !== 'object') existing.edicts = {};
     if (!existing.sanctuaryKeys || typeof existing.sanctuaryKeys !== 'object') existing.sanctuaryKeys = {};
+  }
+  const hasOwned = Object.values(entity.apotheosis.cult.sites).some((s) => s?.ownerId === 'player');
+  if (hasOwned) {
+    recomputeCultFaithBonus(entity);
+  } else if (entity.apotheosis.cultFaithBonus == null) {
+    entity.apotheosis.cultFaithBonus = 0;
   }
   return entity.apotheosis.cult;
 }
@@ -344,6 +376,13 @@ export function ensureCityCultSites(entity, {
           interiorPool: null,
           consecratedAtMinutes: null,
         };
+      } else if (locationName && locationName !== regName) {
+        const cur = cult.sites[sk];
+        if (!cur.locationName || cur.locationName === regName) {
+          cur.locationName = locationName;
+          const patron = getPantheonDeity(cur.defaultPatronId ?? cur.ownerId);
+          cur.name = tpl?.name || `${locationName} — ${patron?.name ?? cur.defaultPatronId}`;
+        }
       }
     }
   }
@@ -378,6 +417,13 @@ export function ensureCityCultSites(entity, {
         interiorPool: arch.poolId ?? SANCTUARY_INTERIOR_POOLS[0],
         consecratedAtMinutes: null,
       };
+    } else if (locationName && locationName !== regName) {
+      const cur = cult.sites[dk];
+      if (!cur.locationName || cur.locationName === regName) {
+        cur.locationName = locationName;
+        const prince = getPantheonDeity(cur.defaultPatronId ?? cur.ownerId);
+        cur.name = `${locationName}: ${prince?.name ?? cur.defaultPatronId}`;
+      }
     }
   }
 
@@ -666,6 +712,7 @@ export function consecrateSiteByForce(entity, siteKey, { nowMinutes = 0, force =
     changeDeityRelation(entity, oldOwnerId, -35, { nowMinutes, category: 'my_cult' });
   }
   registerCultSiteAsOfflineHome(site);
+  recomputeCultFaithBonus(entity);
 
   const regName = getLocalizedRegionName(site.regionIndex, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   appendPantheonChronicle(entity, {
@@ -740,6 +787,7 @@ export function dedicateSitePeacefully(entity, siteKey, { nowMinutes = 0, force 
     }
   }
   registerCultSiteAsOfflineHome(site);
+  recomputeCultFaithBonus(entity);
 
   const regName = getLocalizedRegionName(site.regionIndex, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   appendPantheonChronicle(entity, {
@@ -766,6 +814,7 @@ export function foundPlayerUndergroundSanctuary(entity, {
   mapId = 0,
   regionIndex = 0,
   locationName = '',
+  branch = null,
   nowMinutes = 0,
   force = false,
 } = {}) {
@@ -793,6 +842,9 @@ export function foundPlayerUndergroundSanctuary(entity, {
     if (!spend.ok) return { ok: false, reason: spend.reason };
   }
 
+  const initialBranch = branch && CULT_BRANCHES[String(branch).toLowerCase()]
+    ? String(branch).toLowerCase()
+    : null;
   const regName = getLocalizedRegionName(reg, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   const locLabel = locationName || regName;
   const arch = pickSanctuaryArchitecture(pk);
@@ -814,7 +866,8 @@ export function foundPlayerUndergroundSanctuary(entity, {
     alarmTriggered: false,
     guardiansCleared: true,
     tier: 1,
-    branch: null,
+    branch: initialBranch,
+    branchCooldownUntilMinutes: null,
     hatchModelId: arch.hatchModelId ?? SANCTUARY_HATCH_MODELS[0],
     interiorPool: arch.poolId ?? SANCTUARY_INTERIOR_POOLS[2],
     consecratedAtMinutes: nowMinutes,
@@ -822,6 +875,7 @@ export function foundPlayerUndergroundSanctuary(entity, {
   cult.sites[pk] = site;
   shiftRegionInfluence(entity, reg, 'player', 15);
   registerCultSiteAsOfflineHome(site);
+  recomputeCultFaithBonus(entity);
 
   appendPantheonChronicle(entity, {
     day: dayFromMinutes(nowMinutes),
@@ -854,6 +908,7 @@ export function upgradeCultSite(entity, siteKey, { nowMinutes = 0, force = false
     if (!spend.ok) return { ok: false, reason: spend.reason };
   }
   site.tier = nextSpec.tier;
+  recomputeCultFaithBonus(entity);
   appendPantheonChronicle(entity, {
     day: dayFromMinutes(nowMinutes),
     minutes: nowMinutes,
@@ -867,8 +922,20 @@ export function upgradeCultSite(entity, siteKey, { nowMinutes = 0, force = false
   return { ok: true, tier: site.tier, faithSpent: cost, site };
 }
 
+/** Returns specialization switch cooldown info for an owned site. */
+export function getCultBranchCooldownInfo(site, nowMinutes = 0) {
+  const curMin = Math.max(0, Number(nowMinutes) || 0);
+  const until = site?.branchCooldownUntilMinutes != null ? Number(site.branchCooldownUntilMinutes) : null;
+  if (until == null || !Number.isFinite(until) || curMin >= until) {
+    return { onCooldown: false, remainingMinutes: 0, remainingDays: 0 };
+  }
+  const remainingMinutes = Math.max(0, Math.ceil(until - curMin));
+  const remainingDays = Math.max(1, Math.ceil(remainingMinutes / 1440));
+  return { onCooldown: true, remainingMinutes, remainingDays };
+}
+
 /** Assigns or switches a player-owned site's specialization branch (`missionary` | `militant` | `oracle`). */
-export function selectCultSiteBranch(entity, siteKey, branchId, { force = false } = {}) {
+export function selectCultSiteBranch(entity, siteKey, branchId, { nowMinutes = 0, force = false } = {}) {
   const site = getCultSite(entity, siteKey);
   if (!site || site.ownerId !== 'player') {
     return { ok: false, reason: t('apotheosis.cult.err.notOwned', 'You can only specialize Cult sanctuaries you own.') };
@@ -881,13 +948,49 @@ export function selectCultSiteBranch(entity, siteKey, branchId, { force = false 
   if (site.branch === bid) {
     return { ok: false, reason: t('apotheosis.cult.err.sameBranch', 'This sanctuary already follows that branch.') };
   }
-  const cost = force || !site.branch ? (force ? 0 : 120) : CULT_BRANCH_SWITCH_COST;
+  const isSwitch = Boolean(site.branch);
+  if (!force && isSwitch) {
+    const cd = getCultBranchCooldownInfo(site, nowMinutes);
+    if (cd.onCooldown) {
+      return {
+        ok: false,
+        reason: t('apotheosis.cult.err.branchCooldown', 'Specialization switch is on cooldown ({days}d remaining).', {
+          days: cd.remainingDays,
+        }),
+      };
+    }
+  }
+  const cost = force || !isSwitch ? 0 : CULT_BRANCH_SWITCH_COST;
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `branch:${site.siteKey}:${bid}` });
     if (!spend.ok) return { ok: false, reason: spend.reason };
   }
   site.branch = bid;
-  return { ok: true, branch: bid, faithSpent: cost, site };
+  if (isSwitch && !force) {
+    site.branchCooldownUntilMinutes = Math.max(0, Number(nowMinutes) || 0) + CULT_BRANCH_COOLDOWN_MINUTES;
+  }
+  recomputeCultFaithBonus(entity);
+  return { ok: true, branch: bid, faithSpent: cost, switched: isSwitch, site };
+}
+
+/** Spends Faith when remotely teleporting into a Cult Sanctuary from UI (free when standing at the street hatch). */
+export function teleportToCultSanctuary(entity, siteKey, { isNearHatch = false, force = false } = {}) {
+  if (!entity || (!force && !isAscendedGod(entity))) {
+    return { ok: false, reason: t('apotheosis.cult.err.notAscended', 'Ascend to Godhood first.') };
+  }
+  const site = getCultSite(entity, siteKey);
+  if (!site) {
+    return { ok: false, reason: t('apotheosis.cult.err.unknownSite', 'Sanctuary site not found.') };
+  }
+  if (site.ownerId !== 'player' && !site.unlocked) {
+    return { ok: false, reason: t('apotheosis.cult.err.lockedRemote', 'Unlock or consecrate this sanctuary first.') };
+  }
+  const cost = force || isNearHatch ? 0 : CULT_TELEPORT_SANCTUARY_FAITH_COST;
+  if (cost > 0) {
+    const spend = spendApotheosisFaith(entity, cost, { reason: `tp_sanctuary:${site.siteKey}` });
+    if (!spend.ok) return { ok: false, reason: spend.reason };
+  }
+  return { ok: true, faithSpent: cost, site };
 }
 
 /** Returns whether player is eligible to proclaim a Regional Edict in `regionIndex` (`>=25%` influence or >=1 owned site). */

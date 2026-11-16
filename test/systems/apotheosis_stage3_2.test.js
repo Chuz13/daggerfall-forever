@@ -3,6 +3,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  CULT_BRANCH_COOLDOWN_DAYS,
+  CULT_BRANCH_COOLDOWN_MINUTES,
+  CULT_TELEPORT_SANCTUARY_FAITH_COST,
+  recomputeCultFaithBonus,
+  getCultBranchCooldownInfo,
+  teleportToCultSanctuary,
+  getFaithMax,
   ensureApotheosisState,
   selectApotheosisPortfolio,
   computeChampionFaithScaling,
@@ -359,7 +366,121 @@ test('Console Commands: apo cult subcommands & 16-deity apo pantheon tick output
 
     const tOut = await executeConsoleCommand('apo', ['pantheon', 'tick', '3']);
     assert.match(tOut, /\d+ deity move\(s\) across 16 AI deities/);
+
+    const tpCultOut = await executeConsoleCommand('apo', ['cult', 'tp', 'daedra']);
+    assert.match(tpCultOut, /unavailable|Teleported|not found/i);
+
+    const tpOut = await executeConsoleCommand('apo', ['tp', 'temple']);
+    assert.match(tpOut, /unavailable|Teleported|not found/i);
   } finally {
     playerEntity.apotheosis = prev;
   }
+});
+
+test('UX & Bugfixes: Max Faith Scaling, Branch Cooldown, Remote Sanctuary TP Cost, Chesterwark Rename & Door Centre', () => {
+  resetOfflineHomes();
+  const god = makeAscendedGod('order', { region: 17, faith: 1000 });
+  god.apotheosis.cultFaithBonus = 0;
+  recomputeCultFaithBonus(god);
+  const baseMax = getFaithMax(god.apotheosis);
+
+  // Founding with pre-selected specialization branch grants +100 Max Faith immediately
+  const fRes = foundPlayerUndergroundSanctuary(god, {
+    mapId: 777,
+    regionIndex: 17,
+    locationName: 'Chesterwark',
+    branch: 'militant',
+    nowMinutes: 5000,
+  });
+  assert.equal(fRes.ok, true);
+  assert.equal(fRes.site.branch, 'militant');
+  assert.equal(god.apotheosis.cultFaithBonus, 100);
+  assert.equal(getFaithMax(god.apotheosis), baseMax + 100);
+
+  // Upgrading Tier 2 (+250) -> Tier 3 (+500) scales Max Faith Reservoir
+  god.apotheosis.faith = 2000;
+  assert.equal(upgradeCultSite(god, fRes.site.siteKey, { nowMinutes: 5000 }).tier, 2);
+  assert.equal(god.apotheosis.cultFaithBonus, 250);
+  assert.equal(upgradeCultSite(god, fRes.site.siteKey, { nowMinutes: 5000 }).tier, 3);
+  assert.equal(god.apotheosis.cultFaithBonus, 500);
+
+  // Switching specialization from Militant -> Oracle costs 180 Faith, triggers 7-day cooldown, adds +150 Max Faith
+  const faithBeforeSwitch = god.apotheosis.faith;
+  const swOk = selectCultSiteBranch(god, fRes.site.siteKey, 'oracle', { nowMinutes: 5000 });
+  assert.equal(swOk.ok, true);
+  assert.equal(faithBeforeSwitch - god.apotheosis.faith, 180);
+  assert.equal(god.apotheosis.cultFaithBonus, 650);
+  assert.equal(getFaithMax(god.apotheosis), baseMax + 650);
+
+  const cdActive = getCultBranchCooldownInfo(fRes.site, 6440); // 1 day later
+  assert.equal(cdActive.onCooldown, true);
+  assert.equal(cdActive.remainingDays, CULT_BRANCH_COOLDOWN_DAYS - 1);
+  const swBlocked = selectCultSiteBranch(god, fRes.site.siteKey, 'missionary', { nowMinutes: 6440 });
+  assert.equal(swBlocked.ok, false);
+
+  const swAfterCd = selectCultSiteBranch(god, fRes.site.siteKey, 'missionary', {
+    nowMinutes: 5000 + CULT_BRANCH_COOLDOWN_MINUTES + 1,
+  });
+  assert.equal(swAfterCd.ok, true);
+  assert.equal(god.apotheosis.cultFaithBonus, 500);
+
+  // Founding WITHOUT initial branch allows free first pick even with low Faith
+  const god2 = makeAscendedGod('magic', { region: 17, faith: 400 });
+  god2.apotheosis.cultFaithBonus = 0;
+  const fFree = foundPlayerUndergroundSanctuary(god2, {
+    mapId: 778,
+    regionIndex: 17,
+    locationName: 'Anticlere',
+    nowMinutes: 5000,
+  });
+  assert.equal(fFree.ok, true);
+  assert.equal(fFree.site.branch, null);
+  god2.apotheosis.faith = 10;
+  const freePick = selectCultSiteBranch(god2, fFree.site.siteKey, 'oracle', { nowMinutes: 5000 });
+  assert.equal(freePick.ok, true);
+  assert.equal(god2.apotheosis.faith, 10, 'Initial specialization pick costs 0 Faith');
+  assert.equal(god2.apotheosis.cultFaithBonus, 250, 'Tier 1 (100) + Oracle (150)');
+
+  // Teleport to Sanctuary: blocked while locked, 75 Faith remotely, 0 Faith at hatch
+  ensureCityCultSites(god, { mapId: 888, regionIndex: 17, locationName: '' });
+  const dk = daedraHatchSiteKey(888);
+  assert.equal(god.apotheosis.cult.sites[dk].locationName, 'Daggerfall');
+  // Calling again with resolved town name repairs stale region-named entry
+  ensureCityCultSites(god, { mapId: 888, regionIndex: 17, locationName: 'Chesterwark' });
+  assert.equal(god.apotheosis.cult.sites[dk].locationName, 'Chesterwark');
+  assert.match(god.apotheosis.cult.sites[dk].name, /^Chesterwark:/);
+
+  const tpLocked = teleportToCultSanctuary(god, dk, { isNearHatch: false });
+  assert.equal(tpLocked.ok, false);
+
+  assert.equal(attemptUnlockSanctuaryHatch(god, dk, 'bash').ok, true);
+  god.apotheosis.faith = 200;
+  const tpRemote = teleportToCultSanctuary(god, dk, { isNearHatch: false });
+  assert.equal(tpRemote.ok, true);
+  assert.equal(tpRemote.faithSpent, CULT_TELEPORT_SANCTUARY_FAITH_COST);
+  assert.equal(god.apotheosis.faith, 200 - CULT_TELEPORT_SANCTUARY_FAITH_COST);
+
+  const tpHatch = teleportToCultSanctuary(god, dk, { isNearHatch: true });
+  assert.equal(tpHatch.ok, true);
+  assert.equal(tpHatch.faithSpent, 0);
+
+  // Sanctuary interior synthetic door must include door.centre for doorWorldPosition
+  const entry = createSanctuaryInteriorEntry(god.apotheosis.cult.sites[dk], { hatchWorldPos: [0, 0, 0], hatchYaw: 0 });
+  assert.deepEqual(entry.hit.door.centre, { x: 0, y: 0, z: 0 });
+
+  // Consecrated Temple plaque names the player & portfolio
+  ensureCityCultSites(god, {
+    mapId: 910,
+    regionIndex: 17,
+    locationName: 'Chesterwark',
+    temples: [{ buildingKey: 5, factionId: 33, name: 'Temple of Mara' }],
+  });
+  const tk = templeSiteKey(910, 5);
+  clearSiteGuardians(god, tk);
+  god.apotheosis.faith = 500;
+  changeDeityRelation(god, god.apotheosis.cult.sites[tk].ownerId, -150, { propagate: false });
+  assert.equal(consecrateSiteByForce(god, tk, { nowMinutes: 5000 }).ok, true);
+  const subTitle = getTempleCultDoorSubtitle(god, { buildingType: BUILDING_TYPES.Temple, buildingKey: 5, factionId: 33, townMapId: 910 }, 910);
+  assert.match(subTitle, /Agent/);
+  assert.match(subTitle, /Tier 1/);
 });

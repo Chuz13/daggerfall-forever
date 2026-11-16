@@ -570,7 +570,8 @@ export class SpellMakerWindow {
     }
     const { gold, sp } = spellMakerCost(this._spell(), this.entity);
     // CHAP3c (Chapters-Arc 5.2): online, the hall's chapter's band laid over DFU's gold cost - DFU's own at 1 or none
-    this.totalGoldCost = chapterPriced(gold, this.priceFactor?.() ?? 1); // AUDIT CHAP3 R12: the law's one rounding
+    const f = this.priceFactor?.() ?? 1;
+    this.totalGoldCost = f === 0 ? 0 : chapterPriced(gold, f); // AUDIT CHAP3 R12: the law's one rounding
     this.totalSpellPointCost = sp;
   }
 

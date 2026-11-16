@@ -43,23 +43,25 @@ export const cursedKnown = (items) =>
 /** Why a piece's curse may not be lifted now, or null: 'off', 'not' (no curse), 'unknown' (not yet identified), 'damned'
  *  (TRUE-CURSE: no temple lifts it - said once it is known, never before), 'worn' (its drawback is on the wearer - off
  *  first, as the Reforge asks), 'gold'. `player` is the payer. */
-export function liftRefusal(item, player) {
+export function liftRefusal(item, player, { free = false } = {}) {
+  const isFree = free || !!player?._freeCultTempleLift;
   if (!lootRarityOn()) return 'off';
   if (!isCursed(item)) return 'not';
   if (!itemIsIdentified(item)) return 'unknown';
   if (isDamned(item)) return 'damned';
   if (isEquipped(item)) return 'worn';
-  if (totalGoldAmount(player) < /** @type {number} */ (liftPrice(item))) return 'gold';
+  if (!isFree && totalGoldAmount(player) < /** @type {number} */ (liftPrice(item))) return 'gold';
   return null;
 }
 /** THE LIFTING, MADE: paid, the drawback out of the piece's enchantments and its mark gone - the line it came with and
  *  its price kept (a drawback is worth nothing). Answers `{ ok: true, price }` or `{ ok: false, reason }` with nothing
  *  taken ('gone' for a piece not in the payer's pack). */
-export function liftCurse(item, player) {
+export function liftCurse(item, player, { free = false } = {}) {
   if (!player || !Array.isArray(player.items) || !player.items.includes(item)) return { ok: false, reason: 'gone' };
-  const why = liftRefusal(item, player);
+  const isFree = free || !!player?._freeCultTempleLift;
+  const why = liftRefusal(item, player, { free: isFree });
   if (why) return { ok: false, reason: why };
-  const price = /** @type {number} */ (liftPrice(item));
+  const price = isFree ? 0 : /** @type {number} */ (liftPrice(item));
   const c = item.cursed;
   const list = Array.isArray(item.enchantments) ? item.enchantments : [];
   let at = -1;
@@ -71,6 +73,6 @@ export function liftCurse(item, player) {
     if (!makerLaid(list[i]) && list[i]?.type === c.type && list[i]?.param === c.param) at = i;
   item.enchantments = list.filter((_, i) => i !== at);
   delete item.cursed;
-  deductGold(player, price);
+  if (price > 0) deductGold(player, price);
   return { ok: true, price };
 }

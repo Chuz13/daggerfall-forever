@@ -400,7 +400,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     const baseKey = base && (p.objectType === PROP_MODEL_TYPE || (p.objectType === 0 && isRoomFurnishing(p.modelIdNum)))
       && p.modelIdNum !== LADDER_MODEL_ID && p.modelIdNum !== MACHINERY_MODEL_ID
       ? decorBaseModelKey(pi, p.modelIdNum) : null;   // BASE-HIDE: a piece its owner may take out
-    drawList.push({ mesh: gpu, matrix, key, aabb });
+    drawList.push({ mesh: gpu, matrix, key, aabb, modelIdNum: p.modelIdNum });
     // PERF6: the entry stays in drawList for the automap; the main view draws the merge
     if (!baseKey && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
     automapEntries.push({

@@ -546,7 +546,8 @@ export class SpellbookWindow {
       this.deps.skills?.() ?? {}, false);
     // CHAP3c (Chapters-Arc 5.2): online, the hall's chapter's band laid over DFU's price (`priceFactor`, the host's) -
     // DFU's own where it answers 1 or nothing
-    return chapterPriced(price, this.deps.priceFactor?.() ?? 1);   // AUDIT CHAP3 R12: the law's one rounding
+    const pf = this.deps.priceFactor?.() ?? 1;
+    return pf === 0 ? 0 : chapterPriced(price, pf);   // AUDIT CHAP3 R12: the law's one rounding
   }
 
   /** SetEffectLabels (:624-649): the group and subgroup names of the
@@ -754,7 +755,8 @@ export class SpellbookWindow {
     // it for the trade records).
     // AUDIT CHAP5 D6: against the cost the hall's chapter lists (its band laid over DFU's, as the price is) - the
     // bargaining's own line; a Thriving hall's price against DFU's list said the player had haggled it down
-    this._tradeOffset = cureOfferMessageOffset(chapterPriced(this.presentedCost, this.deps.priceFactor?.() ?? 1), price);
+    const pf = this.deps.priceFactor?.() ?? 1;
+    this._tradeOffset = cureOfferMessageOffset(pf === 0 ? 0 : chapterPriced(this.presentedCost, pf), price);
     this.top = 'trade';
   }
 

@@ -3456,7 +3456,7 @@ export function createWorldModes(host) {
     // port's picker simply does not select it, so a too-far click
     // falls through to whatever is behind it and says nothing.
     targets.push(...questFlatTargets(questFlats));
-    targets.push(...interiorCultAltarTargets(interiorCtx, playerEntity, interiorBuilding, homeTownOf(interiorBuilding)));
+    targets.push(...interiorCultAltarTargets(interiorCtx, playerEntity, interiorBuilding, homeTownOf(interiorBuilding), renderer));
     _intList = targets;
     _intMark = _mark;
     return targets;
@@ -3844,7 +3844,7 @@ export function createWorldModes(host) {
    *  QUESTOR-SAID: and the guild's quest door's silent close, C#'s
    *  CloseWindow with nothing pushed - a dispatch of nothing. */
   const DOOR_REFUSED = Object.freeze({ refusedByDoor: true });
-  function openTradeWindow(shelf, b, mode, { guildFactionId = null, reducedRepairCost: repairDiscount = null, identifySpell = null } = {}, road = null) {
+  function openTradeWindow(shelf, b, mode, { guildFactionId = null, reducedRepairCost: repairDiscount = null, identifySpell = null, freeTrade = false } = {}, road = null) {
     // AUDIT 63 F11: CalculateTradePrice's player reads are BOTH live on
     // BOTH branches - FormulaHelper.cs:1993 (selling) and :1999 (buying)
     // take `player.Stats.LivePersonality` (DaggerfallStats.cs:55 ->
@@ -3921,7 +3921,7 @@ export function createWorldModes(host) {
       // paid from that letter - the gate and the payment disagreeing,
       // exactly what AUDIT 26 F103-F105/F178 fixed at the bank, court
       // and tavern doors (the note at bankPurse spells it out).
-      gold: () => totalGoldAmount(playerEntity),
+      gold: () => (freeTrade ? Number.MAX_SAFE_INTEGER : totalGoldAmount(playerEntity)),
       rows: (id, pick) => townTalk?.lines?.(id, pick) ?? [],
       cityName: () => townTalk?.cityName?.() ?? (interiorBuilding?.name ?? ''),
       weight: () => ({
@@ -3931,7 +3931,7 @@ export function createWorldModes(host) {
         carriedWeightKg: carriedWeight(playerEntity),
         maxEncumbranceKg: entityMaxEncumbrance(playerEntity),   // DaggerfallTradeWindow.cs:1039 reads PlayerEntity.MaxEncumbrance
       }),
-      commit: (m, staged, price, proceeds) => commitTrade(shelf, m, staged, price, proceeds, identifySpell, { holidayId: getHolidayId(Math.floor(skyMinutes()), b.regionIndex ?? 0), guildFactionId }),   // AUDIT TOWN-ECON 2 PRICE-1: the purchase's own asks
+      commit: (m, staged, price, proceeds) => commitTrade(shelf, m, staged, freeTrade ? 0 : price, proceeds, identifySpell, { holidayId: getHolidayId(Math.floor(skyMinutes()), b.regionIndex ?? 0), guildFactionId, freeTrade }),   // AUDIT TOWN-ECON 2 PRICE-1: the purchase's own asks
       // AUDIT 63 F48: DoSteal's five effects (DaggerfallTradeWindow.cs
       // :913-928). The same four sinks the private-property theft
       // above already uses, in DoSteal's own - inverted - order, which
@@ -3977,9 +3977,10 @@ export function createWorldModes(host) {
    *  One Mercantile tally per CONCLUDED DEAL, not per item - DFU
    *  raises OnTrade once and tallies once, however many goods moved. */
   function commitTrade(shelf, mode, staged, price, proceeds, identifySpell = null, asked = {}) {
+    const paidPrice = asked?.freeTrade ? 0 : price;
     if (mode === 'Buy') {
-      deductGold(playerEntity, price);
-      markCounterBought(staged, { price, ...asked });   // AUDIT LW-II-2 S1: online, a counter's piece is never a patron's (before a stack's merge takes it); LAW-3: and what it cost
+      if (paidPrice > 0) deductGold(playerEntity, paidPrice);
+      markCounterBought(staged, { price: paidPrice, ...asked });   // AUDIT LW-II-2 S1: online, a counter's piece is never a patron's (before a stack's merge takes it); LAW-3: and what it cost
       for (const it of staged) {
         const i = shelf.items.indexOf(it);
         if (i >= 0) shelf.items.splice(i, 1);
@@ -4022,7 +4023,7 @@ export function createWorldModes(host) {
         setJunk(it, false);   // AUDIT LOOT II C5: the junk mark is the seller's word for what goes - gone, it is the merchant's, unmarked if bought back
       }
     } else if (mode === 'Repair') {
-      deductGold(playerEntity, price);
+      if (paidPrice > 0) deductGold(playerEntity, paidPrice);
       const now = Math.floor(ownMinutes());
       const bk = interiorBuilding?.buildingKey ?? 0;
       // D7 - ConfirmTrade's Repair arm, whole (:1057-1074). `staged` is
@@ -4083,7 +4084,7 @@ export function createWorldModes(host) {
         surfacePlayer();
         return;
       } else {
-        deductGold(playerEntity, price);
+        if (paidPrice > 0) deductGold(playerEntity, paidPrice);
         for (const it of staged) it.isIdentified = true;
       }
       // The confirm only calls IdentifyItem over the staged lot
@@ -6030,7 +6031,8 @@ export function createWorldModes(host) {
     // CHAP6d (Chapters-Arc 7): online, a hall whose chapter's halls a Crackdown shut serves nothing this Season. AUDIT CHAP5
     // D2: what it sells alone (its services, its quests, the Reforge's and the temple's rows) - DFU's popup stands, and
     // with it OnPush's rank review, a temple's free healing, the Mages' free recharge, Talk and the join
-    const shutBox = () => (chapterHallShut(host.chapterHere?.(guild.factionId) ?? null) ? { rows: [CHAPTER_HALL_SHUT_LINE] } : null);
+    const ownTemple = !!(interiorBuilding && interiorBuilding.buildingType === BUILDING_TYPES.Temple && isPlayerCultSiteOwned(playerEntity, homeTownOf(interiorBuilding), interiorBuilding.buildingKey));
+    const shutBox = () => (ownTemple ? null : (chapterHallShut(host.chapterHere?.(guild.factionId) ?? null) ? { rows: [CHAPTER_HALL_SHUT_LINE] } : null));
     const shutAtOpen = !!shutBox();   // AUDIT CHAP5 C1: asked as the popup opens - a patron's hall has the guild book look before a price reads it; WAY-BACK: and the way back's words read it (AUDIT WAY-BACK L1-3)
     if (!guildServiceArtLoaded() || !_shopFont) return;   // no art, no window (the U8 idiom)
     const memberships = activeMemberships(playerEntity);   // V2e: the vampire-aware book
@@ -6087,13 +6089,13 @@ export function createWorldModes(host) {
     const wayBack = () => wayBackLines(guild, playerEntity, memberships, store, { paced: !!host.rollPace?.(guild.factionId), online: sharedClockOn(), shut: shutAtOpen });   // WAY-BACK: the Roll's pace while it holds
     let win = null;
     win = new GuildServiceWindow({
-      member: () => !showsJoinButton(memberships, route.guildGroup),
+      member: () => ownTemple || !showsJoinButton(memberships, route.guildGroup),
       service: () => service,
       rows,
       // OnPush (:158-205) runs once, on construction.
       steps: () => onPushEffects(playerEntity, guild, memberships, store, ownDate(), {
-        freeHealing: freeHealing(guild, membershipOf(seated(), guild)),
-        freeMagickaRecharge: freeMagickaRecharge(guild, membershipOf(seated(), guild), playerEntity),
+        freeHealing: ownTemple || freeHealing(guild, membershipOf(seated(), guild)),
+        freeMagickaRecharge: ownTemple || freeMagickaRecharge(guild, membershipOf(seated(), guild), playerEntity),
         revealLocation,   // G8: the TG/DB map reveals - MACRO-4: through the popup's own wrapper, which keeps the name for %dng
         // F114: OwnsHouse per CURRENT region (DaggerfallBankManager.cs:136).
         ownsHouse: () => ownsHouse(playerEntity.houses ?? [], interiorBuilding?.regionIndex ?? 0),
@@ -6132,16 +6134,16 @@ export function createWorldModes(host) {
       onService: () => {
         const shut = shutBox();   // AUDIT CHAP5 D2
         if (shut) return shut;
-        if (service === 'BuySoulgems' && !isSoulGemPurchaseAllowed(playerEntity, 0).allowed) {
+        if (!ownTemple && service === 'BuySoulgems' && !isSoulGemPurchaseAllowed(playerEntity, 0).allowed) {
           return { rows: [{ text: t('rcfMagesGemsRefusal', "The guild magistrate shakes his head. 'Soul gems are restricted to trusted allies of the Guild.'"), center: true }] };
         }
-        if ((guild?.divine || route?.guildGroup === GUILD_GROUPS.HolyOrder) && service !== 'Donate') {
+        if (!ownTemple && (guild?.divine || route?.guildGroup === GUILD_GROUPS.HolyOrder) && service !== 'Donate') {
           const templeAccess = getTempleServiceAccessibility(playerEntity, guild?.factionId);
           if (!templeAccess.accessible) {
             return { rows: [{ text: t(templeAccess.reasonKey || 'rcfTempleRefusal', "The priests turn you away. 'The Divines grant no mercy to the profane!'"), center: true }] };
           }
         }
-        const access = serviceAccess(guild, membershipOf(seated(), guild), service, { rankCeiling: host.rollPace?.(guild.factionId)?.book ?? null });   // CHAP4b: a seat's rank here; SEAT-WORDS: a seat's service says so (AUDIT GUILD-WORDS II F-3: ROLL-PACE's door)
+        const access = ownTemple ? { allowed: true } : serviceAccess(guild, membershipOf(seated(), guild), service, { rankCeiling: host.rollPace?.(guild.factionId)?.book ?? null });   // CHAP4b: a seat's rank here; SEAT-WORDS: a seat's service says so (AUDIT GUILD-WORDS II F-3: ROLL-PACE's door)
         if (!access.allowed) {
           return { rows: access.textId ? rows(access.textId) : [access.text] };
         }
@@ -6149,7 +6151,7 @@ export function createWorldModes(host) {
         // the twenty, so guildServiceFlow.SERVICE_DESTINATION maps
         // every arm and there is no null left to name.
         const flow = openServiceFlow(serviceDestination(service), {
-          guild, memberships: seated(), store, rows, route,   // CHAP4b: the service at a seat's rank here
+          guild, memberships: seated(), store, rows, route, ownTemple,   // CHAP4b: the service at a seat's rank here
           // G6: the greeting's dismissal IS the service - the same
           // talk door the popup's own Talk button opens, with
           // isSpyMaster TRUE (:713), which is the one thing that
@@ -6181,7 +6183,7 @@ export function createWorldModes(host) {
       lift: route.guildGroup === GUILD_GROUPS.HolyOrder && service === 'CureDisease' && lootRarityOn() ? () => shutBox() ?? (openLift() ? { dispatched: true } : null) : null,
       // HEAL-CURSE (the owner: "Add a button to the temple services under heal disease named heal curse"): the Cure
       // Disease priest's second row - the curse's offer as a Yes/No box, its rite paid and done on the Yes
-      healCurse: service === 'CureDisease' ? () => shutBox() ?? healCurseBox() : null,
+      healCurse: service === 'CureDisease' ? () => shutBox() ?? healCurseBox(ownTemple) : null,
     });  win = enhancedWindow(win, 'guild');   // PORT4: the enhanced skin's face; the classic window unchanged
     mountServiceWindow(win);
   }
@@ -6206,10 +6208,11 @@ export function createWorldModes(host) {
   /** LOOT16: THE TEMPLE'S LIFTING - the Reforge's window on its one page over the player's own pack, the law's
    *  (systems/loot/lootCurse.js liftCurse), paid from the player's purse. Answers the window, or null with no page. */
   function openLift() {
+    const free = !!(interiorBuilding && interiorBuilding.buildingType === BUILDING_TYPES.Temple && isPlayerCultSiteOwned(playerEntity, homeTownOf(interiorBuilding), interiorBuilding.buildingKey));
     const o = createReforgeOverlay({
-      items: () => playerEntity.items ?? [], payer: () => playerEntity, gold: () => totalGoldAmount(playerEntity),
+      items: () => playerEntity.items ?? [], payer: () => playerEntity, gold: () => (free ? Number.MAX_SAFE_INTEGER : totalGoldAmount(playerEntity)),
       reforge: () => ({ ok: false, reason: 'not' }), salvage: () => ({ ok: false, reason: 'not' }),   // the temple's page has neither
-      lift: (item) => { const done = liftCurse(item, playerEntity); if (done.ok) { audio.playOneShot(SOUND.GoldPieces, 1); surfacePlayer(); } return done; },
+      lift: (item) => { playerEntity._freeCultTempleLift = free; try { const done = liftCurse(item, playerEntity); if (done.ok) { audio.playOneShot(SOUND.GoldPieces, 1); surfacePlayer(); } return done; } finally { delete playerEntity._freeCultTempleLift; } },
       pages: ['lift'], page: 'lift',
       wearer: playerEntity, nameOf: (item) => itemLongName(item),
     });
@@ -6259,9 +6262,9 @@ export function createWorldModes(host) {
   // the WITCH NPC's own factionID (:186), the one summoner whose id is
   // not the hall it stands in.
   /** HEAL-CURSE: the temple's offer to lift a curse, at this temple's price (systems/healCurse.js) - a box for the popup. */
-  function healCurseBox() {
+  function healCurseBox(free = false) {
     const b = interiorBuilding;
-    const deps = { priceAdjustment: regionPriceAdjustment(playerEntity, b?.regionIndex ?? 0), quality: b?.quality ?? 10 };
+    const deps = { priceAdjustment: regionPriceAdjustment(playerEntity, b?.regionIndex ?? 0), quality: b?.quality ?? 10, free };
     const offer = healCurseOffer(playerEntity, deps);
     const box = (lines, extra = {}) => ({ rows: (Array.isArray(lines) ? lines : [lines]).map((text) => ({ text, center: true })), ...extra });
     if (offer.kind !== 'offer') return box(healCurseText.none);
@@ -6277,7 +6280,7 @@ export function createWorldModes(host) {
       },
     });
   }
-  function openServiceFlow(destination, { guild, memberships, store, rows, route, talkAsSpymaster = null, summonerFactionId = null }) {
+  function openServiceFlow(destination, { guild, memberships, store, rows, route, talkAsSpymaster = null, summonerFactionId = null, ownTemple = false }) {
     if (!destination) return null;
     const membership = guild ? membershipOf(memberships, guild) : null;
     // AUDIT CHAP4 E2: what DFU GIVES at a rank and the character KEEPS - a knightly order's armour and its house - is the
@@ -6317,9 +6320,7 @@ export function createWorldModes(host) {
     // what the window's Buy-side plumbing expects to find and never
     // reads in this mode.
     if (destination === 'guildServiceIdentify' && tradeDoorReady()) {
-      // G4: ...and the guild's OWN faction id, which is what a guild
-      // store has to price with.
-      flow = openTradeWindow({ items: [] }, b ?? {}, 'Identify', { guildFactionId: guild?.factionId ?? null });
+      flow = openTradeWindow({ items: [] }, b ?? {}, 'Identify', { guildFactionId: guild?.factionId ?? null, freeTrade: ownTemple });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
     // X6: BUY SOULGEMS. DFU's own service window is the trade window in
@@ -6351,36 +6352,21 @@ export function createWorldModes(host) {
       // close hook, so nothing more is needed here. (openMerchantSell
       // assigns hooks.onClose for this and it is inert; see the note
       // there.) closeSelf is the keyed-flow idiom and does not apply.
-      flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
+      flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null, freeTrade: ownTemple });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
-    // G4: the remaining trade-mode services. U40 built every mode and
-    // X6 proved the shelf pattern; these were destination strings and
-    // nothing else. All of them - and X6's and X7's arms above - pass
-    // the guild's OWN faction id, which is what makes the holiday
-    // clause reachable at all.
     if (destination === 'guildServiceSellMagicItems' && tradeDoorReady()) {
-      // SellMagic works off the PLAYER'S PACK - there is no shelf to
-      // stock, which is why DFU passes the trade window a mode and a
-      // guild and nothing else (:409-411). X7 took the Identify arm
-      // above on the same shape.)
       flow = openTradeWindow({ items: [] }, b ?? {}, 'SellMagic', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
     if (destination === 'guildServiceBuyPotions' && tradeDoorReady()) {
       const shelf = guildShelf('BuyPotions', () => stockGuildPotions({ quality: shelfQuality(), gameMinutes: Math.floor(worldMinutes()) }));   // GUILD-SHELF: the day's, as the soul gems'; CHAP3c: the band's
-      flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
+      flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null, freeTrade: ownTemple });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
     if (destination === 'guildServiceBuyMagicItems' && tradeDoorReady()) {
-      // The soul-gem arm rides ALONG when this guild also sells them
-      // (:248) - one shelf, two services' stock - and it walks the
-      // day's sequence AFTER the magic items, so these gems are not
-      // the ones the Buy Soulgems shelf shows.
-      // AUDIT GUILD-SHELF A10: the day's shelf FOR WHAT IT WAS MINTED FROM - the soul gems the rank opens, the level and
-      // the body the items are rolled for: a rank-3 member promoted at noon saw no gems until the next day
       const sellsSoulGems = canAccessService(guild, membership, 'BuySoulgems');
-      const gemTier = !isSoulGemPurchaseAllowed(playerEntity, 0).allowed ? 0 : isSoulGemPurchaseAllowed(playerEntity, 250).allowed ? 2 : 1;
+      const gemTier = !ownTemple && !isSoulGemPurchaseAllowed(playerEntity, 0).allowed ? 0 : (ownTemple || isSoulGemPurchaseAllowed(playerEntity, 250).allowed) ? 2 : 1;
       const playerLevel = playerEntity.level ?? 1, gender = playerEntity.gender ?? 0;
       const shelf = guildShelf(`BuyMagicItems|${sellsSoulGems ? 1 : 0}|${gemTier}|${playerLevel}|${gender}`, () => stockGuildMagicItems({   // GUILD-SHELF: the day's, as the soul gems'
         quality: shelfQuality(),   // CHAP3c: the chapter's band on the shelf
@@ -6392,7 +6378,7 @@ export function createWorldModes(host) {
         gender,
         soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0,
       }));
-      flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
+      flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null, freeTrade: ownTemple });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
     // G5: TELEPORT. DFU arms the travel map and pushes it
@@ -6659,12 +6645,7 @@ export function createWorldModes(host) {
       return mountServiceWindow(win);
     }
     if (destination === 'guildServiceRepair') {
-      // ROAD-F GS1: openRepairService HANDS BACK the window it mounted.
-      // It used to re-read `interiorOverlay`, which above ground is a
-      // slot nothing was ever written into - so the popup read a null,
-      // answered "That service is not available yet." and printed it
-      // over the repair list it had just opened in the street's slot.
-      return openRepairService({ reducedRepairCost: (price) => reducedRepairCost(guild, membership, price) });
+      return openRepairService({ reducedRepairCost: (price) => (ownTemple ? 0 : reducedRepairCost(guild, membership, price)) });
     }
     // S1: the spell maker. DFU pushes its own singleton window from
     // the service popup (DaggerfallGuildServicePopupWindow:389-395);
@@ -6731,7 +6712,7 @@ export function createWorldModes(host) {
         castCost: (sp) => calculateCastCost(sp, playerEntity).sp,
         offered: () => [...sbi.values(), ...(isOnlinePage() ? [resurrectionSpell(), sharedCartographySpell()] : []), ...signatureOffers(playerEntity)],   // RESURRECT1: online, the ready-made Resurrection is on the shelf; PARTY-MAP: and Shared Cartography beside it; SCHOOLS3: and my awake path's signature spell, to me alone
         buildingQuality: () => b?.quality ?? 0,
-        priceFactor: () => bookFactor,   // CHAP3c: the hall's chapter's band on a spell's price
+        priceFactor: () => (ownTemple ? 0 : bookFactor),   // CHAP3c: the hall's chapter's band on a spell's price
         shopName: () => b?.name ?? '',
         skills: () => ({
           mercantile: skillValue(playerEntity, SKILLS.Mercantile),
@@ -6767,7 +6748,7 @@ export function createWorldModes(host) {
       makerWin = new SpellMakerWindow({
         entity: playerEntity,
         rows,
-        priceFactor: () => makerFactor,   // CHAP3c: the hall's chapter's band on a spell's making
+        priceFactor: () => (ownTemple ? 0 : makerFactor),   // CHAP3c: the hall's chapter's band on a spell's making
         onClose: () => closeSpellWindow(makerWin),
       });  makerWin = enhancedWindow(makerWin, 'spellMaker');   // PORT4: the enhanced skin's face; the classic window unchanged
       mountServiceWindow(makerWin);
@@ -6781,7 +6762,7 @@ export function createWorldModes(host) {
       const refined = rrRefinedTrainingOn();
       flow = (refined ? buildRefinedTrainingFlow : buildTrainingFlow)(playerEntity, guild, membership, {
         rows, now, onClose: () => closeSelf(),
-        priceFactor: chapterFactor('training'),   // CHAP3c: the hall's chapter's band on the training's price; CHAP6d: and its Season's
+        priceFactor: ownTemple ? 0 : chapterFactor('training'),   // CHAP3c: the hall's chapter's band on the training's price; CHAP6d: and its Season's
         variablePrice: rrSetting('RefinedTraining.variableTrainingPrice') === true, intensive: rrSetting('RefinedTraining.intensiveTraining') === true,
         // TrainSkillIntense (GuildServiceTrainingRR.cs:130-134): four days off the clock and four permanent points, before the fifth session
         applyIntensive: (skill, days, points) => {
@@ -6793,7 +6774,7 @@ export function createWorldModes(host) {
         // The clock advance and the fatigue drain are the HOST's -
         // trainSkill hands them back rather than reaching for a ticker.
         applyTraining: (result, price) => {
-          deductGold(playerEntity, price);
+          if (!ownTemple) deductGold(playerEntity, price);
           tallySkill(playerEntity, result.skill, result.tally);
           playerEntity.fatigue = Math.max(0, (playerEntity.fatigue ?? 0) - result.fatigueLoss);
           interiorTicker.advance(result.advanceMinutes);
@@ -6816,17 +6797,11 @@ export function createWorldModes(host) {
       });
     } else if (destination === 'guildServiceCureDisease') {
       flow = buildCureDiseaseFlow(playerEntity, guild, membership, {
-        // AUDIT LIVED1 C (R4/P4): the cure's one clock read is the HOLIDAY (GetHolidayId - the free and the half-price
-        // cure days), and holidays are the WORLD's calendar - on the character's clock a player rested onto South Winds
-        // Prayer for a free cure while the temple charged on the world's announced one
-        rows, now: () => skyMinutes(), onClose: () => closeSelf(), godName,   // TIME1: the cure days are the sky's calendar
-        // MAC-BUG2: the cure offer speaks a TRADE record, and those
-        // quote the SHOP and the TOWN back at the player - see the
-        // `identity` note in ui/guildServiceWindows.js.
+        rows, now: () => skyMinutes(), onClose: () => closeSelf(), godName,
         shopName: b?.name ?? null, cityName: townTalk?.cityName?.() ?? null,
         quality: b?.quality ?? 0, regionIndex: b?.regionIndex ?? 0,
-        // F113: CalculateCost applies the regional adjustment itself.
         priceAdjustment: regionPriceAdjustment(playerEntity, b?.regionIndex ?? 0),
+        freeCultTemple: ownTemple,
       });
     } else if (destination === 'questOffer' && questBridge && store) {
       // Q4-v: the guild Quests service - the Q4-ii offer flow through
@@ -14452,7 +14427,11 @@ export function createWorldModes(host) {
     },
     enterSailingCabin,
     enterCaravanRoom,   // WAGONS1
-    enterCultSanctuary: (site, opts = {}) => { const e = createSanctuaryInteriorEntry(site, { mapId: site?.mapId, regionIndex: site?.regionIndex, hatchWorldPos: opts.worldPos ?? [...player.pos], hatchYaw: opts.yaw ?? cam.yaw }); return e ? enterInteriorCore(e.hit, e.entries, { building: e.building }) : false; },
+    enterCultSanctuary: async (site, opts = {}) => {
+      if (mode === 'interior') exitInteriorNow();
+      const e = createSanctuaryInteriorEntry(site, { mapId: site?.mapId, regionIndex: site?.regionIndex, hatchWorldPos: opts.worldPos ?? [...player.pos], hatchYaw: opts.yaw ?? cam.yaw });
+      return e ? enterInteriorCore(e.hit, e.entries, { building: e.building }) : false;
+    },
     tryEnter,
     exteriorActivationDistance,   // AUDIT 63 F33 (review): the rival distance the living-foe arm must beat
     exteriorActivationHit,   // FB1012d ALLY-YIELDS: ...and its pick, reach and all, for the race's `next`

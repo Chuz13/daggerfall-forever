@@ -206,7 +206,7 @@ export function trainingOffer(entity, guild, membership, nowClassicMinutes, pric
 /** CHAP3c (Chapters-Arc 5.2): a price with the hall's chapter's factor laid over it (npcChapterLaw.js chapterPriced's
  *  law, here so DFU's service law reads no network module) - DFU's own at 1. */
 const factored = (/** @type {number} */ price, /** @type {number} */ f) =>
-  f === 1 || !(price > 0) ? price : Math.max(1, Math.round(price * f));
+  f === 0 ? 0 : (f === 1 || !(price > 0) ? price : Math.max(1, Math.round(price * f)));
 
 /** ConfirmTraining's Yes branch (:73-90): the gold check happens
  *  BEFORE the skill picker opens, so a player who cannot pay never
@@ -281,9 +281,9 @@ export function cureDiseaseOffer(
   entity,
   guild,
   membership,
-  { quality = 0, regionIndex = 0, nowClassicMinutes = 0, priceAdjustment = 1000, online = undefined } = {},
+  { quality = 0, regionIndex = 0, nowClassicMinutes = 0, priceAdjustment = 1000, online = undefined, freeCultTemple = false } = {},
 ) {
-  const access = getTempleServiceAccessibility(entity, guild?.factionId);
+  const access = freeCultTemple ? { accessible: true, priceMult: 1.0, reasonKey: null } : getTempleServiceAccessibility(entity, guild?.factionId);
   if (!access.accessible) {
     return { kind: 'refused', reason: access.reasonKey || 'rcfTempleRefusal' };
   }
@@ -292,7 +292,7 @@ export function cureDiseaseOffer(
   if (becomingVampireOrWerebeast(entity)) numberOfDiseases++;
   const holidayId = getHolidayId(nowClassicMinutes, regionIndex);
 
-  if (numberOfDiseases > 0 && FREE_CURE_HOLIDAYS.includes(holidayId)) {
+  if (numberOfDiseases > 0 && (freeCultTemple || FREE_CURE_HOLIDAYS.includes(holidayId))) {
     return { kind: 'freeHoliday', holidayId, diseases: numberOfDiseases };
   }
   if (numberOfDiseases === 0) return { kind: 'noDisease', textId: NO_DISEASE_ID };

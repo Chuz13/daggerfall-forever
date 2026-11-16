@@ -42,6 +42,7 @@ import {
   declareHolyWar,
   enforceRegionPeace,
   ensureApotheosisState,
+  ensureCultState,
   ensurePantheonState,
   evaluateAurbisCommand,
   evaluateFateWeight,
@@ -78,7 +79,15 @@ const APOTHEOSIS_CSS = `
 .apo-pane { flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .apo-pane > .px-journal { flex: 1; height: 100%; min-height: 0; overflow: hidden; }
 .apo-pane .px-qrail { min-height: 0; overflow-y: auto; }
+.apo-main-col { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.apo-sticky-head { flex-shrink: 0; padding: 0 8px 8px 0; border-bottom: 1px solid rgba(190,165,98,0.35); margin-bottom: 10px; }
+.apo-sticky-head .apo-box { margin-bottom: 8px; padding: 9px 12px; }
+.apo-sticky-head .apo-notice { margin-bottom: 0; }
 .apo-pane .px-qdetail { flex: 1 1 0; min-height: 0; overflow-y: auto; padding-right: 8px; }
+.apo-btn.danger { border-color: rgba(226,100,100,0.75); color: #ffbaba; background: rgba(48,16,18,0.88); }
+.apo-btn.danger:hover:not(:disabled):not(.is-disabled) { border-color: #ff7a7a; color: #ffe5e5; background: rgba(74,20,22,0.92); }
+.apo-btn.is-disabled { opacity: 0.45; cursor: not-allowed; border-color: rgba(125,116,96,0.4); color: #9c9482; background: rgba(20,23,30,0.75); text-shadow: none; }
+.apo-btn.is-disabled:hover { border-color: rgba(125,116,96,0.45); color: #9c9482; background: rgba(20,23,30,0.75); }
 .apo-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 2px solid rgba(190,165,98,0.45); background: rgba(12,15,22,0.65); margin-bottom: 14px; }
 .apo-hero-title { font-size: 20px; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .apo-badge { display: inline-block; padding: 4px 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid rgba(190,165,98,0.65); background: rgba(24,28,38,0.85); color: #efe3bc; }
@@ -195,11 +204,12 @@ const SPAWNABLE_MOBILES = Object.entries(MOBILE_TYPES)
   .filter(([name, id]) => name !== 'None' && name !== 'Horse_Invalid' && id < 65535)
   .sort((a, b) => a[1] - b[1]);
 
-/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`, `aurbis`, `pantheon`, `cult`) before opening the pane. */
+/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`, `aurbis`, `pantheon_deities`, `pantheon_regions`, `pantheon_chronicle`, `cult`, `edicts`) before opening the pane. */
 export function selectApotheosisSection(sec) {
-  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio', 'aurbis', 'pantheon', 'cult']);
-  if (valid.has(sec)) {
-    activeSec = sec;
+  const mapped = sec === 'pantheon' ? 'pantheon_deities' : sec;
+  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio', 'aurbis', 'pantheon_deities', 'pantheon_regions', 'pantheon_chronicle', 'cult', 'edicts']);
+  if (valid.has(mapped)) {
+    activeSec = mapped;
   }
 }
 
@@ -233,8 +243,11 @@ function currentSections(trackerShown) {
   }
   secs.push(['portfolio', t('apotheosis.sec.portfolio', 'Divine Portfolio')]);
   secs.push(['aurbis', t('apotheosis.nav.aurbis', 'Scroll of Aurbis')]);
-  secs.push(['pantheon', t('apotheosis.sec.pantheon', 'Pantheon & Diplomacy')]);
-  secs.push(['cult', t('apotheosis.sec.cult', 'Cult & Edicts')]);
+  secs.push(['pantheon_deities', t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy (16)')]);
+  secs.push(['pantheon_regions', t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics (71)')]);
+  secs.push(['pantheon_chronicle', t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle')]);
+  secs.push(['cult', t('apotheosis.cult.subTabSites', 'Temples & Underground Sanctuaries')]);
+  secs.push(['edicts', t('apotheosis.cult.subTabEdicts', 'Regional Edicts (71 Regions)')]);
   return secs;
 }
 
@@ -483,10 +496,6 @@ function renderOverview(detail, entity, trackerShown, repaint) {
   hero.append(heroLeft, el('span', stageBadgeClass(state), stageBadgeText(state)));
   detail.append(hero);
 
-  if (statusMessage) {
-    detail.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
-  }
-
   if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE) {
     const stepText = state.questStep === APOTHEOSIS_QUEST_STEPS.TOWER_SIEGE
       ? t('apotheosis.quest.stepTowerSiege', 'Repel the 13-wave Siege outside Direnni Tower and shatter the Aspect of the Tower (Current Wave: {wave}/13).', {
@@ -513,7 +522,6 @@ function renderOverview(detail, entity, trackerShown, repaint) {
   }
 
   if (state.ascended && activeDef) {
-    renderFaithBox(detail, state, entity);
     const godBox = el('div', 'apo-box');
     godBox.append(
       el('h4', null, t('apotheosis.overview.divinityTitle', 'Divine Mantle')),
@@ -652,14 +660,6 @@ function renderPortfolioPage(detail, entity, repaint) {
   hero.append(left, el('span', stageBadgeClass(state), stageBadgeText(state)));
   detail.append(hero);
 
-  if (statusMessage) {
-    detail.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
-  }
-
-  if (state.ascended) {
-    renderFaithBox(detail, state, entity);
-  }
-
   if (state.stage === APOTHEOSIS_STAGES.MORTAL && !state.ascended) {
     detail.append(el('div', 'apo-box',
       t('apotheosis.portfolio.lockedDesc', 'Reach Fate Weight {req}/{total} and shatter {arts} distinct unequipped Daedric artifacts from your pack — or alternatively, seek out a source of great power. Perhaps it is somehow tied to the mission the Emperor gave you?', {
@@ -720,17 +720,11 @@ function renderAurbisPage(detail, entity, repaint) {
   hero.append(left, el('span', stageBadgeClass(state), stageBadgeText(state)));
   detail.append(hero);
 
-  if (statusMessage) {
-    detail.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
-  }
-
   if (!state.ascended && state.stage !== APOTHEOSIS_STAGES.ASCENDED) {
     detail.append(el('div', 'apo-box',
       t('apotheosis.aurbis.locked', 'Ascend to Godhood and claim a Divine Portfolio to unlock the Scroll of Aurbis and weave Reality with Faith.')));
     return;
   }
-
-  renderFaithBox(detail, state, entity);
 
   // Quick Miracles
   const quickBox = el('div', 'apo-box');
@@ -1333,21 +1327,23 @@ function renderPantheonChronicleView(detail, entity) {
   detail.append(box);
 }
 
-function renderPantheonPage(detail, entity, repaint) {
+function renderPantheonSection(detail, entity, repaint, tabId) {
   const state = ensureApotheosisState(entity);
+  const headingMap = {
+    pantheon_deities: t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy (16)'),
+    pantheon_regions: t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics (71)'),
+    pantheon_chronicle: t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle'),
+  };
   const hero = el('div', 'apo-hero');
   const left = el('div');
   left.append(
-    el('div', 'apo-hero-title', t('apotheosis.pantheon.heading', 'Pantheon & 4X Dominion')),
+    el('div', 'apo-hero-title', headingMap[tabId] ?? t('apotheosis.pantheon.heading', 'Pantheon & 4X Dominion')),
     el('div', 'apo-meta-row',
       t('apotheosis.pantheon.sub', 'Manage relations with 8 Aedra & 8 Daedra, track influence across 71 Tamriel regions, and issue Geopolitical decrees.')),
   );
   hero.append(left, el('span', stageBadgeClass(state), stageBadgeText(state)));
   detail.append(hero);
 
-  if (statusMessage) {
-    detail.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
-  }
   if (!state.ascended && state.stage !== APOTHEOSIS_STAGES.ASCENDED) {
     detail.append(el('div', 'apo-box',
       t('apotheosis.pantheon.locked', 'Ascend to Godhood and claim a Divine Portfolio to enter the Pantheon of Aurbis.')));
@@ -1357,23 +1353,10 @@ function renderPantheonPage(detail, entity, repaint) {
   let nowMin = 0;
   try { nowMin = worldMinutes() || 0; } catch { nowMin = 0; }
   const pantheon = ensurePantheonState(entity, { nowMinutes: nowMin });
-  renderFaithBox(detail, state, entity);
 
-  const tabs = el('div', 'apo-subtabs');
-  for (const [tid, label] of [
-    ['deities', t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy (16)')],
-    ['regions', t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics (71)')],
-    ['chronicle', t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle')],
-  ]) {
-    const b = el('button', `apo-btn${pantheonSubTab === tid ? ' primary' : ''}`, label);
-    b.onclick = () => { pantheonSubTab = tid; repaint({ resetDetailScroll: true }); };
-    tabs.append(b);
-  }
-  detail.append(tabs);
-
-  if (pantheonSubTab === 'regions') {
+  if (tabId === 'pantheon_regions') {
     renderPantheonRegionsView(detail, entity, nowMin, repaint);
-  } else if (pantheonSubTab === 'chronicle') {
+  } else if (tabId === 'pantheon_chronicle') {
     renderPantheonChronicleView(detail, entity);
   } else {
     renderPantheonDeitiesView(detail, entity, pantheon, nowMin, repaint);
@@ -1412,24 +1395,40 @@ function paint(root, { resetDetailScroll = false } = {}) {
     }
     wrap.append(rail);
 
+    const mainCol = el('div', 'apo-main-col');
+    const st = ensureApotheosisState(entity);
+    const hasStickyFaith = Boolean(st?.ascended || st?.stage === APOTHEOSIS_STAGES.ASCENDED);
+    if (hasStickyFaith) ensureCultState(entity);
+    if (hasStickyFaith || statusMessage) {
+      const stickyHead = el('div', 'apo-sticky-head');
+      if (hasStickyFaith) renderFaithBox(stickyHead, st, entity);
+      if (statusMessage) stickyHead.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
+      mainCol.append(stickyHead);
+    }
+
     const detail = el('div', 'px-qdetail px-sys');
-    detail.setAttribute?.('data-scroll-key', `${activeSec}:${activeSec === 'pantheon' ? pantheonSubTab : (activeSec === 'cult' ? getCultScrollKey() : '')}`);
+    detail.setAttribute?.('data-scroll-key', `${activeSec}:${activeSec === 'cult' ? getCultScrollKey() : ''}`);
     if (activeSec === 'overview') {
       renderOverview(detail, entity, trackerShown, repaint);
     } else if (activeSec === 'portfolio') {
       renderPortfolioPage(detail, entity, repaint);
     } else if (activeSec === 'aurbis') {
       renderAurbisPage(detail, entity, repaint);
-    } else if (activeSec === 'pantheon') {
-      renderPantheonPage(detail, entity, repaint);
-    } else if (activeSec === 'cult') {
-      renderCultPage(detail, entity, repaint, { renderFaithBox, setFeedback, statusMessage, statusIsError });
+    } else if (activeSec === 'pantheon_deities' || activeSec === 'pantheon_regions' || activeSec === 'pantheon_chronicle') {
+      renderPantheonSection(detail, entity, repaint, activeSec);
+    } else if (activeSec === 'cult' || activeSec === 'edicts') {
+      renderCultPage(detail, entity, repaint, {
+        mode: activeSec === 'edicts' ? 'edicts' : 'sanctuaries',
+        rootModalParent: root,
+        setFeedback,
+      });
     } else {
       const fate = evaluateFateWeight(entity);
       const cat = fate.categories.find((c) => c.id === activeSec);
       if (cat) renderCategory(detail, cat);
     }
-    wrap.append(detail);
+    mainCol.append(detail);
+    wrap.append(mainCol);
     root.append(wrap);
 
     if (pickerOpen) {

@@ -8,10 +8,12 @@ import { t } from '../systems/textManager.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
 import { DOOR_TYPE } from '../world/meshReader.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
-import { RAY_DISTANCE, STATIC_NPC_ACTIVATION_DISTANCE } from '../player/activate.js';
+import { RAY_DISTANCE, STATIC_NPC_ACTIVATION_DISTANCE, DOOR_ACTIVATION_DISTANCE } from '../player/activate.js';
+import { doorWorldPosition, doorWorldNormal } from '../player/enterExit.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { exteriorOpenSpellFor, consumeDoorSpell } from './shared.js';
 import { playerEntity } from '../characters/playerEntity.js';
+import { APOTHEOSIS_PORTFOLIOS } from '../systems/apotheosis/apotheosisCore.js';
 import { getPantheonDeity, ensurePantheonState } from '../systems/apotheosis/apotheosisStage3.js';
 import {
   CULT_BRANCHES,
@@ -104,6 +106,47 @@ function pickGuardianMobType(site, idx = 0) {
   return idx % 2 === 0 ? MOBILE_TYPES.Battlemage : MOBILE_TYPES.Knight;
 }
 
+function playerPortfolioLabel(entity) {
+  const pid = entity?.apotheosis?.portfolio;
+  const spec = pid ? APOTHEOSIS_PORTFOLIOS.find((p) => p.id === pid) : null;
+  if (spec?.name) return spec.name();
+  return t('apotheosis.cult.defaultDomain', 'Divinity');
+}
+
+function buildFallbackAltarCpu() {
+  // Stepped ritual altar pedestal (~1.3m wide x 1.1m tall x 0.9m deep) rendered when ARCH3D 41020 is absent
+  const w = 0.65;
+  const h = 1.05;
+  const d = 0.45;
+  const positions = new Float32Array([
+    -w, 0, -d, w, 0, -d, w, h, -d, -w, h, -d,
+    -w, 0, d, w, 0, d, w, h, d, -w, h, d,
+  ]);
+  const normals = new Float32Array([
+    0, 0.5, -0.86, 0, 0.5, -0.86, 0, 0.86, -0.5, 0, 0.86, -0.5,
+    0, 0.5, 0.86, 0, 0.5, 0.86, 0, 0.86, 0.5, 0, 0.86, 0.5,
+  ]);
+  const uvs = new Float32Array([
+    0, 0, 1, 0, 1, 1, 0, 1,
+    0, 0, 1, 0, 1, 1, 0, 1,
+  ]);
+  const indices = new Uint16Array([
+    0, 1, 2, 0, 2, 3,
+    4, 6, 5, 4, 7, 6,
+    3, 2, 6, 3, 6, 7,
+    0, 3, 7, 0, 7, 4,
+    1, 5, 6, 1, 6, 2,
+    0, 4, 5, 0, 5, 1,
+  ]);
+  return {
+    positions,
+    normals,
+    uvs,
+    indices,
+    subMeshes: [{ start: 0, count: indices.length, textureArchive: 163, textureRecord: 0 }],
+  };
+}
+
 /** Formats the exterior door subtitle on `BUILDING_TYPES.Temple` and auto-seeds town cult sites. */
 export function getTempleCultDoorSubtitle(entity, bd, mapId, factionDict = null) {
   if (!entity || !bd || bd.buildingType !== BUILDING_TYPES.Temple) return null;
@@ -127,7 +170,13 @@ export function getTempleCultDoorSubtitle(entity, bd, mapId, factionDict = null)
 
   if (site.ownerId === 'player') {
     const tierSpec = CULT_UPGRADE_TIERS[site.tier || 1] ?? CULT_UPGRADE_TIERS[1];
-    return t('apotheosis.cult.doorPlayerTemple', 'Your Cult Sanctum (Tier {tier})', { tier: tierSpec.tier });
+    const ownerName = entity.name || t('apotheosis.cult.defaultAscendedName', 'Ascended');
+    const domain = playerPortfolioLabel(entity);
+    return t('apotheosis.cult.doorPlayerTempleNamed', 'Cult of {player} ({portfolio} • Tier {tier})', {
+      player: ownerName,
+      portfolio: domain,
+      tier: tierSpec.tier,
+    });
   }
   const patron = getPantheonDeity(site.ownerId);
   return t('apotheosis.cult.doorPatronTemple', 'Patron: {god}', { god: patron?.name ?? resolveTemplePatronGodId(bd.factionId ?? 0) });
@@ -154,7 +203,9 @@ export function createSanctuaryInteriorEntry(site, {
     doorType: DOOR_TYPE.BUILDING,
     blockIndex: -1,
     recordIndex: 0,
+    doorIndex: 0,
     buildingKey: site.buildingKey,
+    centre: { x: 0, y: 0, z: 0 },
     position: { x: 0, y: 0, z: 0 },
     normal: { x: 0, y: 0, z: 1 },
     size: { x: 2, y: 2.5, z: 1 },
@@ -431,7 +482,20 @@ export function openCultAltarModal(entity, site, { showOverlay, say = () => {}, 
  * Gatekeepers, ray targets, hover tooltips, and Sanctuary entry.
  */
 export function createApotheosisCultHost(deps = {}) {
-  const { built, renderer, pipeline, state, townTalk, modes, groundAt, worldMinutes } = deps;
+  const {
+    built,
+    renderer,
+    pipeline,
+    state,
+    townTalk,
+    modes,
+    groundAt,
+    worldMinutes,
+    placeFeet,
+    playerPos,
+    buildingDoors,
+    currentLoc,
+  } = deps;
   const _hatches = new Map(); // siteKey -> { site, worldPos, yaw, matrix, aabb, keeperPos, keeperAabb, remap }
   const _meshCache = new Map();
   let _fallbackGpu = null;
@@ -521,7 +585,7 @@ export function createApotheosisCultHost(deps = {}) {
         key: `cultHatch:${siteKey}`,
         aabb: h.aabb,
         distance: RAY_DISTANCE,
-        reach: STATIC_NPC_ACTIVATION_DISTANCE,
+        reach: DOOR_ACTIVATION_DISTANCE,
       });
       if (h.site.ownerId !== 'player' && !h.site.isPlayerFounded) {
         out.push({
@@ -541,8 +605,10 @@ export function createApotheosisCultHost(deps = {}) {
       const site = getCultSite(playerEntity, key.slice('cultHatch:'.length));
       if (!site) return null;
       const patron = getPantheonDeity(site.ownerId);
+      const ownerName = playerEntity.name || t('apotheosis.cult.defaultAscendedName', 'Ascended');
+      const domain = playerPortfolioLabel(playerEntity);
       const title = site.ownerId === 'player'
-        ? t('apotheosis.cult.hatchPlayerTitle', 'Cult Undercroft Hatch')
+        ? t('apotheosis.cult.hatchPlayerTitleNamed', 'Undercroft of {player} ({portfolio})', { player: ownerName, portfolio: domain })
         : t('apotheosis.cult.hatchTitle', 'Subterranean Hatch ({god})', { god: patron?.name ?? site.ownerId });
       const lockStr = site.unlocked
         ? t('apotheosis.cult.openBadge', 'Open')
@@ -608,29 +674,161 @@ export function createApotheosisCultHost(deps = {}) {
     return _hatches.get(siteKey) ?? null;
   }
 
-  return { frame, draw, targets, hoverName, activate, locateSite };
+  function isNearSiteHatch(siteKey, maxDist = 4.5) {
+    if ((modes?.()?.mode ?? 'exterior') !== 'exterior') return false;
+    const h = _hatches.get(siteKey);
+    const p = typeof playerPos === 'function' ? playerPos() : null;
+    if (!h?.worldPos || !Array.isArray(p)) return false;
+    return Math.hypot(p[0] - h.worldPos[0], p[2] - h.worldPos[2]) <= maxDist;
+  }
+
+  function teleportNearCultTarget(targetKind = 'daedra') {
+    const k = String(targetKind ?? 'daedra').toLowerCase().trim();
+    if (typeof placeFeet !== 'function') {
+      return { ok: false, message: 'Teleport runtime is not ready here.' };
+    }
+    if ((modes?.()?.mode ?? 'exterior') !== 'exterior') {
+      return { ok: false, message: 'Exit the interior to the street before teleporting within the settlement.' };
+    }
+    const pixels = built?.();
+    if (!pixels || !pixels.size) {
+      return { ok: false, message: 'No built town blocks are loaded here.' };
+    }
+    const loc = typeof currentLoc === 'function' ? currentLoc() : null;
+    const curMapId = Number(loc?.mapTableData?.mapId ?? 0) >>> 0;
+    let activePixel = null;
+    for (const p of pixels.values()) {
+      if (!p?.homeTown) continue;
+      if (curMapId && (Number(p.homeTown) >>> 0) === curMapId) {
+        activePixel = p;
+        break;
+      }
+      if (!activePixel) activePixel = p;
+    }
+    if (!activePixel) {
+      return { ok: false, message: 'You are not currently inside a settlement.' };
+    }
+    const townLabel = activePixel.homeName || loc?.name || `Town #${activePixel.homeTown}`;
+
+    if (k === 'temple' || k === 'aedra') {
+      const frames = activePixel.homeFrames;
+      let templeBk = null;
+      let templeFr = null;
+      if (frames?.size) {
+        for (const [bk, fr] of frames) {
+          if (fr?.type === BUILDING_TYPES.Temple) {
+            templeBk = bk;
+            templeFr = fr;
+            break;
+          }
+        }
+      }
+      if (!templeFr) {
+        return { ok: false, message: `No Aedra Temple exists in ${townLabel}.` };
+      }
+      const doors = typeof buildingDoors === 'function' ? buildingDoors() : [];
+      const doorRec = (Array.isArray(doors) ? doors : []).find(
+        (d) => d.pixelKey === activePixel.key && (d.buildingKey === templeBk || d.door?.buildingKey === templeBk),
+      );
+      if (doorRec?.door) {
+        const dp = doorWorldPosition(doorRec.door);
+        const dn = doorWorldNormal(doorRec.door);
+        const wx = dp[0] + dn[0] * 2.2;
+        const wz = dp[2] + dn[2] * 2.2;
+        const wy = typeof groundAt === 'function' ? groundAt(wx, wz) : dp[1];
+        const lookYaw = Math.atan2(-dn[0], -dn[2]);
+        placeFeet([wx, (Number.isFinite(wy) ? wy : dp[1]) + 0.15, wz], lookYaw);
+        return { ok: true, message: `Teleported to Temple entrance in ${townLabel}.` };
+      }
+      const b = templeFr.box;
+      if (Array.isArray(b) && b.length >= 6) {
+        const tVec = [0, 0, 0];
+        const pxT = state?.pixelTranslation?.(activePixel.px, activePixel.py, tVec) ?? [0, 0, 0];
+        const wx = pxT[0] + (b[0] + b[3]) * 0.5;
+        const wz = pxT[2] + b[5] + 2.5;
+        const wy = typeof groundAt === 'function' ? groundAt(wx, wz) : pxT[1];
+        placeFeet([wx, (Number.isFinite(wy) ? wy : 0) + 0.15, wz], Math.PI);
+        return { ok: true, message: `Teleported beside Temple in ${townLabel}.` };
+      }
+      return { ok: false, message: `Could not resolve Temple coordinates in ${townLabel}.` };
+    }
+
+    const wantPlayer = k === 'player' || k === 'own' || k === 'undercroft';
+    let chosenHatch = null;
+    for (const h of _hatches.values()) {
+      if ((Number(h.site?.mapId) >>> 0) !== (Number(activePixel.homeTown) >>> 0)) continue;
+      if (wantPlayer ? h.site.isPlayerFounded : !h.site.isPlayerFounded) {
+        chosenHatch = h;
+        break;
+      }
+    }
+    if (!chosenHatch) {
+      return {
+        ok: false,
+        message: wantPlayer
+          ? `No Player Undercroft hatch exists in ${townLabel}. Found one in Cult & Sanctuaries first.`
+          : `No Daedric subterranean hatch found in ${townLabel}.`,
+      };
+    }
+    const [hx, hy, hz] = chosenHatch.worldPos;
+    const wx = hx - 1.8;
+    const wz = hz;
+    const wy = typeof groundAt === 'function' ? groundAt(wx, wz) : hy;
+    const lookYaw = Math.atan2(hx - wx, hz - wz);
+    placeFeet([wx, (Number.isFinite(wy) ? wy : hy) + 0.15, wz], lookYaw);
+    return { ok: true, message: `Teleported to ${chosenHatch.site.name} hatch in ${townLabel}.` };
+  }
+
+  return { frame, draw, targets, hoverName, activate, locateSite, isNearSiteHatch, teleportNearCultTarget };
 }
 
+let _fallbackAltarGpu = null;
+const ALTAR_MODEL_CANDIDATES = new Set([41020, 41016, 41017]);
+
 /** Collects an interactive Altar ray target (`cultAltar:<siteKey>`) inside Temples & Underground Sanctuaries. */
-export function interiorCultAltarTargets(ctx, entity, building, mapId) {
+export function interiorCultAltarTargets(ctx, entity, building, mapId, renderer = null) {
   if (!ctx || !entity || !building) return [];
   const mid = (Number(mapId ?? building.townMapId ?? 0) >>> 0);
   const bk = Math.trunc(Number(building.buildingKey) || 0);
   const site = building.cultSiteKey ? getCultSite(entity, building.cultSiteKey) : getCultSiteByBuilding(entity, mid, bk);
   if (!site) return [];
-  const center = ctx.landing ?? [0, 0, 0];
-  // Check interior staticList for a shrine/pedestal model (41020) or fall back near enter/landing back wall
-  let altarPt = null;
+
   for (const s of ctx.drawList ?? []) {
-    if (Number(s?.modelIdNum) === 41020 && s?.matrix) {
-      altarPt = [s.matrix[12], s.matrix[13], s.matrix[14]];
-      break;
+    if (ALTAR_MODEL_CANDIDATES.has(Number(s?.modelIdNum)) && s?.aabb) {
+      return [{
+        key: `cultAltar:${site.siteKey}`,
+        aabb: {
+          min: [s.aabb.min[0] - 0.3, s.aabb.min[1] - 0.2, s.aabb.min[2] - 0.3],
+          max: [s.aabb.max[0] + 0.3, s.aabb.max[1] + 0.4, s.aabb.max[2] + 0.3],
+        },
+        distance: RAY_DISTANCE,
+        reach: STATIC_NPC_ACTIVATION_DISTANCE,
+      }];
     }
   }
-  const p = altarPt ?? [center[0], center[1], center[2] + 3.0];
+
+  // Fallback when room lacks an explicit 41020 pedestal draw: mount a real visible 3D Altar pedestal
+  const center = ctx.landing ?? [0, 0, 0];
+  const altarPos = [center[0], center[1], center[2] + 2.2];
+  if (!ctx._cultAltarMounted && renderer?.createMesh) {
+    ctx._cultAltarMounted = true;
+    try {
+      if (!_fallbackAltarGpu) _fallbackAltarGpu = renderer.createMesh(buildFallbackAltarCpu());
+      if (_fallbackAltarGpu) {
+        const cpu = buildFallbackAltarCpu();
+        const mat = yRotationMatrix(altarPos, 0);
+        const aabb = {
+          min: [altarPos[0] - 0.7, altarPos[1], altarPos[2] - 0.5],
+          max: [altarPos[0] + 0.7, altarPos[1] + 1.15, altarPos[2] + 0.5],
+        };
+        ctx.drawList?.push({ mesh: _fallbackAltarGpu, matrix: mat, key: `cultAltarMesh:${site.siteKey}`, aabb, modelIdNum: 41020, _batched: false });
+        ctx.collider?.addMesh?.('interior', cpu.positions, cpu.indices, mat);
+      }
+    } catch { /* headless or mock renderer */ }
+  }
   return [{
     key: `cultAltar:${site.siteKey}`,
-    aabb: { min: [p[0] - 1.1, p[1] - 0.5, p[2] - 1.1], max: [p[0] + 1.1, p[1] + 2.0, p[2] + 1.1] },
+    aabb: { min: [altarPos[0] - 0.85, altarPos[1] - 0.2, altarPos[2] - 0.65], max: [altarPos[0] + 0.85, altarPos[1] + 1.4, altarPos[2] + 0.65] },
     distance: RAY_DISTANCE,
     reach: STATIC_NPC_ACTIVATION_DISTANCE,
   }];
@@ -642,8 +840,14 @@ export function interiorCultAltarHoverName(entity, key) {
   const site = getCultSite(entity, key.slice('cultAltar:'.length));
   if (!site) return null;
   const patron = getPantheonDeity(site.ownerId);
+  const ownerName = entity?.name || t('apotheosis.cult.defaultAscendedName', 'Ascended');
+  const domain = playerPortfolioLabel(entity);
   const title = site.ownerId === 'player'
-    ? t('apotheosis.cult.altarOwnedTitle', 'Your Cult Altar — Tier {tier}', { tier: site.tier || 1 })
+    ? t('apotheosis.cult.altarOwnedTitleNamed', 'Altar of {player} ({portfolio} • Tier {tier})', {
+        player: ownerName,
+        portfolio: domain,
+        tier: site.tier || 1,
+      })
     : t('apotheosis.cult.altarPatronTitle', 'Altar of {god}', { god: patron?.name ?? site.ownerId });
   return { title, subs: [t('apotheosis.cult.altarClickHint', 'Consecrate / Manage Cult Sanctum')] };
 }

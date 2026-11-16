@@ -39,7 +39,8 @@ export const bearsCurse = (entity) => {
 };
 
 /** The rite's price at this temple: the base through the region's adjustment (per thousand) and the hall's quality. */
-export function healCursePrice({ priceAdjustment = 1000, quality = 10 } = {}) {
+export function healCursePrice({ priceAdjustment = 1000, quality = 10, free = false } = {}) {
+  if (free) return 0;
   const q = Math.max(0, Math.min(20, quality | 0));
   return Math.max(1, Math.round(HEAL_CURSE_BASE * (priceAdjustment / 1000) * (1.1 - q * 0.01)));
 }
@@ -70,7 +71,7 @@ export function healCursePaid(entity, deps = {}) {
   const offer = healCurseOffer(entity, deps);
   if (offer.kind !== 'offer') return { kind: 'none' };
   if (totalGoldAmount(entity) < offer.cost) return { kind: 'notEnoughGold', cost: offer.cost };
-  deductGold(entity, offer.cost);
+  if (offer.cost > 0) deductGold(entity, offer.cost);
   return { kind: 'lifted', cost: offer.cost, went: healCurseLift(entity, deps) };
 }
 

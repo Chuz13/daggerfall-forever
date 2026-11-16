@@ -28896,7 +28896,26 @@ export async function bootWorld(canvas, renderer, params, status) {
   // underfoot's Hearth Offerings stood at their doors, taken from and filled; the Wyrd Sisters' window; the finds' doors.
   // The dressing and the Sisters themselves are the build's (scenes/pixelBuild.js, world/witchesDecor.js)
   witches = FORK_FLAGS.ENABLE_SEASONAL_EVENTS ? createWitchesHost({ built, renderer, pipeline, onlineHomes, townTalk, state, player, saveSoon, chatNotice, mode: _mode, get online() { return online; } }) : null;
-  const cultHost = createApotheosisCultHost({ built: () => built, renderer, pipeline, state, townTalk, modes: () => modes, groundAt: surfaceAt, worldMinutes: minuteNow });
+  const cultHost = createApotheosisCultHost({
+    built: () => built,
+    renderer,
+    pipeline,
+    state,
+    townTalk,
+    modes: () => modes,
+    groundAt: surfaceAt,
+    worldMinutes: minuteNow,
+    placeFeet: (feet, yaw) => {
+      player.spawn(feet[0], feet[1], feet[2]);
+      playerSpawned = true;
+      if (Number.isFinite(yaw)) cam.yaw = yaw;
+      cam.pitch = 0;
+      cam.pos = player.eyeAt();
+    },
+    playerPos: () => (walkMode ? player.pos : cam.pos),
+    buildingDoors: () => buildingDoors,
+    currentLoc: () => _questLoc(),
+  });
   const _activeHomeDecor = homeDecor || {
     list: (...a) => isOfflineHousingActive() ? _offlineDecor.list(...a) : Promise.resolve({ ok: false }),
     rev: (...a) => isOfflineHousingActive() ? _offlineDecor.rev(...a) : Promise.resolve({ ok: false }),
@@ -30329,7 +30348,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       return count;
     },
     tele2loc: tele2locHelper,
-    enterCultSanctuary: (site, opts) => modes?.enterCultSanctuary?.(site, opts),
+    enterCultSanctuary: (site, opts) => {
+      const h = cultHost?.locateSite(site?.siteKey);
+      return modes?.enterCultSanctuary?.(site, h ? { worldPos: h.worldPos, yaw: h.yaw, ...opts } : opts);
+    },
+    isNearCultHatch: (siteKey) => cultHost?.isNearSiteHatch?.(siteKey) ?? false,
+    teleportCultTarget: (kind) => cultHost?.teleportNearCultTarget?.(kind) ?? { ok: false, message: 'Cult runtime unavailable.' },
     getCultCity: () => ({ mapId: _questLoc()?.mapTableData?.mapId ?? 0, regionIndex: _questRegionIndex(), locationName: _questLoc()?.name ?? '' }),
     tele2pixel: async (px, py) => {
       const x = Number(px);

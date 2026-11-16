@@ -3112,7 +3112,12 @@ async function handleApotheosisCommand(args = []) {
       const ok = await sceneCtx.apotheosisEnterOrrery();
       return ok ? 'Entered the Cut Clockwork Orrery (Shadow of the Agent arena).' : 'Failed to enter Cut Clockwork Orrery.';
     }
-    return 'Usage: apo tp <direnni | zerostone | mantella | orrery>';
+    if (dest === 'daedra' || dest === 'hatch' || dest === 'player' || dest === 'temple' || dest === 'undercroft') {
+      if (!sceneCtx?.teleportCultTarget) return 'Cult local teleport unavailable (load a settlement first).';
+      const res = await sceneCtx.teleportCultTarget(dest);
+      return res?.message ?? (res?.ok ? `Teleported near ${dest}.` : `Target "${dest}" not found in this settlement.`);
+    }
+    return 'Usage: apo tp <direnni | zerostone | mantella | orrery | daedra | player | temple>';
   }
   if (sub === 'quest') {
     const step = String(args[1] ?? 'start').toLowerCase();
@@ -3390,6 +3395,15 @@ async function handleApotheosisCommand(args = []) {
       if (res.cleared) return `Cleared Regional Edict in region #${targetReg}.`;
       return `Proclaimed ${res.edict.edictId} edict in region #${targetReg} (${res.edict.daysRemaining}d remaining).`;
     }
+    if (act === 'tp') {
+      const target = String(args[2] ?? 'daedra').toLowerCase();
+      if (!['daedra', 'hatch', 'player', 'temple', 'undercroft'].includes(target)) {
+        return 'Usage: apo cult tp <daedra|hatch|player|temple>';
+      }
+      if (!sceneCtx?.teleportCultTarget) return 'Cult local teleport unavailable (load a settlement first).';
+      const res = await sceneCtx.teleportCultTarget(target);
+      return res?.message ?? (res?.ok ? `Teleported near ${target}.` : `Target "${target}" not found in this settlement.`);
+    }
     if (act === 'list') {
       const fReg = args[2] != null && /^\d+$/.test(args[2]) ? parseInt(args[2], 10) : null;
       const sites = getAllCultSites(playerEntity, { regionIndex: fReg });
@@ -3398,13 +3412,13 @@ async function handleApotheosisCommand(args = []) {
     }
     const owned = getAllCultSites(playerEntity, { ownedOnly: true });
     const ed = getActiveRegionalEdict(playerEntity, reg);
-    return `Cult Sanctums owned=${owned.length}, Passive Faith=+${getCultPassiveFaithPerDay(playerEntity)}/day, City=#${cityMapId} (${cityName}, reg=${reg}), Active Edict=${ed ? `${ed.edictId} (${ed.daysRemaining}d)` : 'none'}\nUsage: apo cult <status|list|found|unlock|key|clear|consecrate|upgrade|branch|edict>`;
+    return `Cult Sanctums owned=${owned.length}, Passive Faith=+${getCultPassiveFaithPerDay(playerEntity)}/day, City=#${cityMapId} (${cityName}, reg=${reg}), Active Edict=${ed ? `${ed.edictId} (${ed.daysRemaining}d)` : 'none'}\nUsage: apo cult <status|list|tp|found|unlock|key|clear|consecrate|upgrade|branch|edict>`;
   }
   if (sub === 'reset') {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | cult <status|list|found|unlock|key|clear|consecrate|upgrade|branch|edict> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | cult <status|list|tp|found|unlock|key|clear|consecrate|upgrade|branch|edict> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
 }
 
 registerAurbisRuntime({

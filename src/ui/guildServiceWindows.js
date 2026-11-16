@@ -489,9 +489,9 @@ export function buildCureDiseaseFlow(entity, guild, membership, deps) {
   // cureDiseaseOffer reads TimeToBecomeVampireOrWerebeast off the
   // entity, exactly as DaggerfallGuildServiceCureDisease.cs:58 reads
   // it off playerEntity. One less thing for a host to remember.
-  const { rows, onClose, quality = 0, regionIndex = 0, now, godName = '', priceAdjustment = 1000, shopName = null, cityName = null } = deps;
+  const { rows, onClose, quality = 0, regionIndex = 0, now, godName = '', priceAdjustment = 1000, shopName = null, cityName = null, freeCultTemple = false } = deps;
   const offer = cureDiseaseOffer(entity, guild, membership, {
-    quality, regionIndex, nowClassicMinutes: now(), priceAdjustment,
+    quality, regionIndex, nowClassicMinutes: now(), priceAdjustment, freeCultTemple,
   });
   const ctxFor = (amount) => ({ amount, gold: goldAmount(entity), god: getDivineLocalized(godName), playerName: entity.name ?? '', ...identity(entity, { shopName, cityName }) });
 
