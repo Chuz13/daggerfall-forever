@@ -1,0 +1,164 @@
+# Manual macOS build & attach workflow.
+#
+# Runs only via workflow_dispatch so macOS runner queues never block
+# Windows/Linux releases in release-desktop.yml. Checks out the exact
+# commit of an existing release tag (default: current `latest` release),
+# builds the macOS .dmg + latest-mac.yml + blockmap, and uploads them
+# into that existing GitHub Release without touching Win/Linux assets.
+name: release-mac
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag (e.g. app-v0.5.3). Leave empty to target current latest release.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-mac-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.target.outputs.tag }}
+      version: ${{ steps.target.outputs.version }}
+    env:
+      RELEASE_REPO: ${{ vars.RELEASE_REPO || github.repository }}
+      GH_TOKEN: ${{ (vars.RELEASE_REPO == '' || vars.RELEASE_REPO == github.repository) && github.token || secrets.RELEASE_TOKEN }}
+    steps:
+      - name: Resolve target release tag
+        id: target
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          [[ "$RELEASE_REPO" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || { echo "::error::vars.RELEASE_REPO must be owner/name"; exit 1; }
+          [ -n "$GH_TOKEN" ] || { echo "::error::releases live in $RELEASE_REPO, and secrets.RELEASE_TOKEN is not set"; exit 1; }
+
+          TAG="$INPUT_TAG"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh api "repos/$RELEASE_REPO/releases/latest" --jq .tag_name)
+          fi
+
+          if ! [[ "$TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release tag must be app-v<major>.<minor>.<patch>, digits only (got '$TAG')"
+            exit 1
+          fi
+
+          # Ensure the target release already exists before spending macOS runner minutes.
+          gh release view "$TAG" --repo "$RELEASE_REPO" --json tagName,isDraft --jq '.tagName' > /dev/null
+
+          VERSION="${TAG#app-v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Target release: $TAG ($RELEASE_REPO)"
+
+  build_and_upload:
+    needs: resolve
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_REPO: ${{ vars.RELEASE_REPO || github.repository }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout target tag snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compute tag metadata (update & shell id)
+        id: meta
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          UPDATE=$(node scripts/updateNumber.mjs)
+          if [ -n "$UPDATE" ] && ! [[ "$UPDATE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::the update number must be <major>.<minor>.<patch>, digits only"
+            exit 1
+          fi
+          if [ -n "$VERSION" ]; then UPDATE="$VERSION"; fi
+
+          SHELL_ID=$(node scripts/desktopRelease.mjs shell)
+          if ! [[ "$SHELL_ID" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::the shell id must be 64 hex digits"
+            exit 1
+          fi
+
+          echo "update=$UPDATE" >> "$GITHUB_OUTPUT"
+          echo "shell=$SHELL_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Install site dependencies
+        run: npm ci
+
+      - name: Build the site
+        env:
+          DFO_UPDATE: ${{ steps.meta.outputs.update }}
+        run: npm run build
+
+      - name: Install shell dependencies
+        run: npm ci
+        working-directory: app
+
+      - name: Stamp the version
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        working-directory: app
+
+      - name: Index the bundled game
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          DFO_SHELL: ${{ steps.meta.outputs.shell }}
+        run: node scripts/desktopRelease.mjs seed dist app/game-seed.json
+
+      - name: Stage the shell's files inside app/
+        run: node scripts/desktopRelease.mjs stage
+
+      - name: Build macOS installer
+        run: npx electron-builder --publish never
+        working-directory: app
+
+      - name: Collect macOS release files
+        shell: bash
+        run: |
+          mkdir -p mac-upload
+          cp app/release/*.dmg mac-upload/
+          cp app/release/latest-mac.yml mac-upload/
+          if compgen -G "app/release/*.dmg.blockmap" > /dev/null; then
+            cp app/release/*.dmg.blockmap mac-upload/
+          fi
+          node scripts/desktopRelease.mjs alias mac-upload
+          ls -la mac-upload
+
+      - name: Keep backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos-${{ needs.resolve.outputs.tag }}
+          path: mac-upload/*
+          retention-days: 7
+
+      - name: Attach macOS assets to existing release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ (vars.RELEASE_REPO == '' || vars.RELEASE_REPO == github.repository) && github.token || secrets.RELEASE_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          gh release upload "$TAG" mac-upload/* --repo "$RELEASE_REPO" --clobber
+          echo "Uploaded macOS assets to $RELEASE_REPO release $TAG"
