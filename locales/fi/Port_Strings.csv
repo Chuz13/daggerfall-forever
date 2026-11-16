@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Jumalallista Portaalia ei voitu avata juuri
 apotheosis.aurbis.portalOpened,"Aurbisin Portit revitään auki (-{cost} Uskoa)."
 apotheosis.aurbis.portalMapOpened,"Jumalallisen Portaalin kartta avattu ({cost} Uskoa määränpään valinnassa)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Järjestyksen Uskoa)"
+apotheosis.geo.statusWar,"Nykyinen tila: {a} ja {b} ovat SODASSA"
+apotheosis.geo.statusPeace,"Nykyinen tila: {a} ja {b} ovat RAUHASSA"
+apotheosis.geo.errRegions,"Valitse kaksi eri Tamrielin aluetta."
+apotheosis.geo.errAlreadyWar,"{a} ja {b} ovat jo sodassa."
+apotheosis.geo.errAlreadyPeace,"{a} ja {b} ovat jo rauhassa."

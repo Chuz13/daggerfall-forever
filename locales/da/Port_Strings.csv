@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Den Guddommelige Portal kunne ikke åbnes l
 apotheosis.aurbis.portalOpened,"Aurbis' Porte rives op (-{cost} Tro)."
 apotheosis.aurbis.portalMapOpened,"Åbnede kort over Guddommelig Portal ({cost} Tro ved valg af destination)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Ordens Tro)"
+apotheosis.geo.statusWar,"Aktuel status: {a} og {b} er I KRIG"
+apotheosis.geo.statusPeace,"Aktuel status: {a} og {b} har FRED"
+apotheosis.geo.errRegions,"Vælg to forskellige regioner i Tamriel."
+apotheosis.geo.errAlreadyWar,"{a} og {b} er allerede i krig."
+apotheosis.geo.errAlreadyPeace,"{a} og {b} har allerede fred."

@@ -1987,6 +1987,13 @@ ${badgeCss()}
 .px-win { position: relative; width: min(920px, 94vw); height: min(620px, 74dvh);
   display: flex; flex-direction: column;
   background: rgba(10,12,17,0.72); border: 2px solid #7d7460; }   /* PX4: slight transparency, per the reference */
+@media (min-width: 481px) {
+  /* APOTHEOSIS 3.1+: enlarge the main Pause/Escape window safely clear of the top corner badges and bottom clock. */
+  .px-over > .px-stage:not(.px-acctstage):not(.px-timersstage) > .px-win {
+    width: min(1340px, 94vw);
+    height: min(840px, calc(100dvh - 116px));
+  }
+}
 /* Each gem CENTERS on its corner: the core is 2px with 4px shadow
    arms, so a translate by half its own size puts the diamond's heart
    exactly on the frame's corner point. SCOPED under .px-win because

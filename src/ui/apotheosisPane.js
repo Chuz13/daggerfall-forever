@@ -16,6 +16,7 @@ import { REGION_FLAGS, conditionFlag } from '../systems/region/regionConditions.
 import { t, getLocalizedRegionName } from '../systems/textManager.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { worldMinutes } from '../systems/worldTick.js';
+import { repaintKeepingScroll } from './domRepaint.js';
 import {
   APOTHEOSIS_PORTFOLIOS,
   APOTHEOSIS_PORTFOLIO_SWITCH_COST,
@@ -35,6 +36,7 @@ import {
   REQUIRED_FATE_WEIGHT,
   TAMRIEL_REGION_COUNT,
   TOTAL_FATE_TRIGGERS,
+  areRegionsAtWar,
   canStartApotheosisViaArtifacts,
   computeDivineTruceCost,
   declareHolyWar,
@@ -67,9 +69,11 @@ import {
 export const APOTHEOSIS_STYLE_ID = 'df-apotheosis-css';
 
 const APOTHEOSIS_CSS = `
-.apo-pane { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.apo-pane > .px-journal { flex: 1; min-height: 0; }
-.apo-pane .px-qdetail { min-height: 0; overflow-y: auto; }
+.px-body:has(> .apo-pane) { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.apo-pane { flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.apo-pane > .px-journal { flex: 1; height: 100%; min-height: 0; overflow: hidden; }
+.apo-pane .px-qrail { min-height: 0; overflow-y: auto; }
+.apo-pane .px-qdetail { flex: 1 1 0; min-height: 0; overflow-y: auto; padding-right: 8px; }
 .apo-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 2px solid rgba(190,165,98,0.45); background: rgba(12,15,22,0.65); margin-bottom: 14px; }
 .apo-hero-title { font-size: 20px; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .apo-badge { display: inline-block; padding: 4px 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid rgba(190,165,98,0.65); background: rgba(24,28,38,0.85); color: #efe3bc; }
@@ -99,7 +103,7 @@ const APOTHEOSIS_CSS = `
 .apo-card-desc { font-size: 13px; line-height: 1.4; color: #c7bfa7; }
 .apo-card-prog { font-size: 12px; color: #dfd4b0; margin-top: auto; }
 .apo-picker-backdrop { position: fixed; inset: 0; z-index: 95; background: rgba(5,7,11,0.82); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.apo-picker-modal { width: min(820px, 95vw); max-height: 84vh; display: flex; flex-direction: column; border: 2px solid rgba(190,165,98,0.8); background: #12151e; box-shadow: 0 18px 46px rgba(0,0,0,0.88); }
+.apo-picker-modal { width: min(1060px, 95vw); max-height: 88vh; display: flex; flex-direction: column; border: 2px solid rgba(190,165,98,0.8); background: #12151e; box-shadow: 0 18px 46px rgba(0,0,0,0.88); }
 .apo-picker-head { padding: 14px 18px; border-bottom: 1px solid rgba(125,116,96,0.45); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .apo-picker-title { font-size: 18px; color: rgb(243,239,44); text-transform: uppercase; letter-spacing: 0.05em; }
 .apo-picker-sub { padding: 10px 18px 0; font-size: 13px; color: #c7bfa7; }
@@ -125,15 +129,15 @@ const APOTHEOSIS_CSS = `
 .apo-aurbis-preview.err { color: #ff9c9c; }
 .apo-aurbis-preview.aligned { color: #9cf29e; }
 .apo-aurbis-preview.opposed { color: #ffbe80; }
-.apo-aurbis-log { max-height: 150px; overflow-y: auto; padding: 8px 10px; background: rgba(5,7,11,0.85); border: 1px solid rgba(125,116,96,0.45); font-family: monospace; font-size: 12px; color: #dfd4b0; white-space: pre-wrap; display: flex; flex-direction: column; gap: 6px; }
-.apo-aurbis-ref { max-height: 250px; overflow-y: auto; margin-top: 10px; padding: 10px; background: rgba(8,10,16,0.9); border: 1px solid rgba(125,116,96,0.55); display: flex; flex-direction: column; gap: 10px; }
+.apo-aurbis-log { max-height: 260px; overflow-y: auto; padding: 8px 10px; background: rgba(5,7,11,0.85); border: 1px solid rgba(125,116,96,0.45); font-family: monospace; font-size: 12px; color: #dfd4b0; white-space: pre-wrap; display: flex; flex-direction: column; gap: 6px; }
+.apo-aurbis-ref { max-height: 360px; overflow-y: auto; margin-top: 10px; padding: 10px; background: rgba(8,10,16,0.9); border: 1px solid rgba(125,116,96,0.55); display: flex; flex-direction: column; gap: 10px; }
 .apo-ref-cat { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: rgb(243,239,44); margin-bottom: 4px; }
 .apo-ref-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 1px solid rgba(125,116,96,0.3); background: rgba(16,20,28,0.65); cursor: pointer; text-align: left; font: inherit; color: #efe3bc; width: 100%; }
 .apo-ref-row:hover { border-color: #7cd4ff; background: rgba(18,32,44,0.8); }
 .apo-subtabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .apo-rel-bar { height: 8px; background: rgba(0,0,0,0.65); border: 1px solid rgba(125,116,96,0.45); overflow: hidden; margin: 4px 0; position: relative; }
 .apo-rel-fill { height: 100%; transition: width 0.2s ease; }
-.apo-lens-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 7px; max-height: 360px; overflow-y: auto; padding-right: 4px; }
+.apo-lens-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 7px; max-height: 460px; overflow-y: auto; padding-right: 4px; }
 .apo-lens-cell { text-align: left; font: inherit; padding: 7px 9px; border: 1px solid rgba(125,116,96,0.45); background: rgba(14,18,26,0.85); color: #efe3bc; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
 .apo-lens-cell:hover { border-color: #7cd4ff; }
 .apo-lens-cell.sel { border-color: rgb(243,239,44); background: rgba(44,38,14,0.8); }
@@ -1116,10 +1120,32 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
   }
   const warBtn = el('button', 'apo-btn', t('apotheosis.geo.btnWar', 'Ignite War ({cost})', { cost: GEOPOLITICS_WAR_COST }));
   const peaceBtn = el('button', 'apo-btn', t('apotheosis.geo.btnPeace', 'Enforce Peace ({cost})', { cost: GEOPOLITICS_PEACE_COST }));
+  const geoStatusRow = el('div', 'apo-row-inline');
+  geoStatusRow.style.marginTop = '8px';
+  const statusBadge = el('span', 'apo-pill');
+  geoStatusRow.append(statusBadge);
+  const regName = (idx) => getLocalizedRegionName(idx, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   const syncGeo = () => {
+    for (const opt of selA.options) opt.disabled = Number(opt.value) === pantheonGeoB;
+    for (const opt of selB.options) opt.disabled = Number(opt.value) === pantheonGeoA;
     const same = pantheonGeoA === pantheonGeoB;
-    warBtn.disabled = same || (state.faith || 0) < GEOPOLITICS_WAR_COST;
-    peaceBtn.disabled = same || (state.faith || 0) < GEOPOLITICS_PEACE_COST;
+    const atWar = !same && areRegionsAtWar(entity, pantheonGeoA, pantheonGeoB);
+    warBtn.disabled = same || atWar || (state.faith || 0) < GEOPOLITICS_WAR_COST;
+    peaceBtn.disabled = same || !atWar || (state.faith || 0) < GEOPOLITICS_PEACE_COST;
+    if (same) {
+      statusBadge.className = 'apo-pill warn';
+      statusBadge.textContent = t('apotheosis.geo.errRegions', 'Select two distinct Tamriel regions.');
+    } else if (atWar) {
+      statusBadge.className = 'apo-pill bad';
+      statusBadge.textContent = t('apotheosis.geo.statusWar', 'Current Status: {a} and {b} are AT WAR', {
+        a: regName(pantheonGeoA), b: regName(pantheonGeoB),
+      });
+    } else {
+      statusBadge.className = 'apo-pill ok';
+      statusBadge.textContent = t('apotheosis.geo.statusPeace', 'Current Status: {a} and {b} are AT PEACE', {
+        a: regName(pantheonGeoA), b: regName(pantheonGeoB),
+      });
+    }
   };
   syncGeo();
   selA.onchange = () => { pantheonGeoA = parseInt(selA.value, 10); syncGeo(); };
@@ -1135,7 +1161,7 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
     repaint();
   };
   geoRow.append(selA, el('span', 'apo-pill', t('apotheosis.pantheon.vs', 'vs')), selB, warBtn, peaceBtn);
-  geoBox.append(geoRow);
+  geoBox.append(geoRow, geoStatusRow);
   detail.append(geoBox);
 
   // 2. 71-Region Tamriel Divine Lens
@@ -1262,7 +1288,7 @@ function renderPantheonChronicleView(detail, entity) {
   searchIn.value = pantheonLogSearch;
 
   const listEl = el('div', 'apo-aurbis-log');
-  listEl.style.maxHeight = '360px';
+  listEl.style.maxHeight = '520px';
 
   const paintRows = () => {
     listEl.replaceChildren();
@@ -1333,7 +1359,7 @@ function renderPantheonPage(detail, entity, repaint) {
     ['chronicle', t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle')],
   ]) {
     const b = el('button', `apo-btn${pantheonSubTab === tid ? ' primary' : ''}`, label);
-    b.onclick = () => { pantheonSubTab = tid; repaint(); };
+    b.onclick = () => { pantheonSubTab = tid; repaint({ resetDetailScroll: true }); };
     tabs.append(b);
   }
   detail.append(tabs);
@@ -1347,48 +1373,74 @@ function renderPantheonPage(detail, entity, repaint) {
   }
 }
 
-function paint(root) {
+function paint(root, { resetDetailScroll = false } = {}) {
   const entity = playerEntity;
   const trackerShown = !!getPref('apotheosisShowTracker');
   const secs = currentSections(trackerShown);
   if (!secs.some(([id]) => id === activeSec)) activeSec = 'overview';
 
-  root.replaceChildren();
-  const wrap = el('div', 'px-journal');
-  const rail = el('div', 'px-qrail');
+  const bodyEl = root.parentElement;
+  const bodyScrollTop = bodyEl?.scrollTop ?? 0;
+  const railScrollTop = root.querySelector?.('.px-qrail')?.scrollTop ?? 0;
+  const detailScrollTop = resetDetailScroll ? 0 : (root.querySelector?.('.px-qdetail')?.scrollTop ?? 0);
+  const lensScrollTop = resetDetailScroll ? 0 : (root.querySelector?.('.apo-lens-grid')?.scrollTop ?? 0);
+  const logScrollTop = resetDetailScroll ? 0 : (root.querySelector?.('.apo-aurbis-log')?.scrollTop ?? 0);
+  const refScrollTop = resetDetailScroll ? 0 : (root.querySelector?.('.apo-aurbis-ref')?.scrollTop ?? 0);
+  const pickerScrollTop = root.querySelector?.('.apo-picker-scroll')?.scrollTop ?? 0;
 
-  const repaint = () => paint(root);
-  for (const [id, label] of secs) {
-    const b = el('button', `px-qrow${id === activeSec ? ' on' : ''}`);
-    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
-    b.onclick = () => {
-      activeSec = id;
-      repaint();
-    };
-    rail.append(b);
-  }
-  wrap.append(rail);
+  repaintKeepingScroll(root, () => {
+    root.replaceChildren();
+    const wrap = el('div', 'px-journal');
+    const rail = el('div', 'px-qrail');
 
-  const detail = el('div', 'px-qdetail px-sys');
-  if (activeSec === 'overview') {
-    renderOverview(detail, entity, trackerShown, repaint);
-  } else if (activeSec === 'portfolio') {
-    renderPortfolioPage(detail, entity, repaint);
-  } else if (activeSec === 'aurbis') {
-    renderAurbisPage(detail, entity, repaint);
-  } else if (activeSec === 'pantheon') {
-    renderPantheonPage(detail, entity, repaint);
-  } else {
-    const fate = evaluateFateWeight(entity);
-    const cat = fate.categories.find((c) => c.id === activeSec);
-    if (cat) renderCategory(detail, cat);
-  }
-  wrap.append(detail);
-  root.append(wrap);
+    const repaint = (opts = {}) => paint(root, opts);
+    for (const [id, label] of secs) {
+      const b = el('button', `px-qrow${id === activeSec ? ' on' : ''}`);
+      b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
+      b.onclick = () => {
+        activeSec = id;
+        repaint({ resetDetailScroll: true });
+      };
+      rail.append(b);
+    }
+    wrap.append(rail);
 
-  if (pickerOpen) {
-    renderPickerModal(root, repaint, entity);
-  }
+    const detail = el('div', 'px-qdetail px-sys');
+    detail.setAttribute?.('data-scroll-key', `${activeSec}:${activeSec === 'pantheon' ? pantheonSubTab : ''}`);
+    if (activeSec === 'overview') {
+      renderOverview(detail, entity, trackerShown, repaint);
+    } else if (activeSec === 'portfolio') {
+      renderPortfolioPage(detail, entity, repaint);
+    } else if (activeSec === 'aurbis') {
+      renderAurbisPage(detail, entity, repaint);
+    } else if (activeSec === 'pantheon') {
+      renderPantheonPage(detail, entity, repaint);
+    } else {
+      const fate = evaluateFateWeight(entity);
+      const cat = fate.categories.find((c) => c.id === activeSec);
+      if (cat) renderCategory(detail, cat);
+    }
+    wrap.append(detail);
+    root.append(wrap);
+
+    if (pickerOpen) {
+      renderPickerModal(root, repaint, entity);
+    }
+  }, { focus: true });
+
+  const newRail = root.querySelector?.('.px-qrail');
+  const newDetail = root.querySelector?.('.px-qdetail');
+  const newLens = root.querySelector?.('.apo-lens-grid');
+  const newLog = root.querySelector?.('.apo-aurbis-log');
+  const newRef = root.querySelector?.('.apo-aurbis-ref');
+  const newPicker = root.querySelector?.('.apo-picker-scroll');
+  if (newRail && railScrollTop) newRail.scrollTop = railScrollTop;
+  if (newDetail && !resetDetailScroll && detailScrollTop) newDetail.scrollTop = detailScrollTop;
+  if (newLens && !resetDetailScroll && lensScrollTop) newLens.scrollTop = lensScrollTop;
+  if (newLog && !resetDetailScroll && logScrollTop) newLog.scrollTop = logScrollTop;
+  if (newRef && !resetDetailScroll && refScrollTop) newRef.scrollTop = refScrollTop;
+  if (newPicker && pickerScrollTop) newPicker.scrollTop = pickerScrollTop;
+  if (bodyEl && !resetDetailScroll && bodyScrollTop) bodyEl.scrollTop = bodyScrollTop;
 }
 
 /** Draws the Apotheosis Pause tab body. */

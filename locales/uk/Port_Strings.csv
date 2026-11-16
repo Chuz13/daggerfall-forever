@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Не вдалося відкрити Бож
 apotheosis.aurbis.portalOpened,"Брама Аурбісу розкрилася (-{cost} Віри)."
 apotheosis.aurbis.portalMapOpened,"Відкрито мапу Божественного порталу ({cost} Віри при виборі мети)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Віри Порядку)"
+apotheosis.geo.statusWar,"Поточний статус: {a} та {b} У СТАНІ ВІЙНИ"
+apotheosis.geo.statusPeace,"Поточний статус: {a} та {b} У МИРІ"
+apotheosis.geo.errRegions,"Оберіть два різні регіони Тамріеля."
+apotheosis.geo.errAlreadyWar,"{a} та {b} уже перебувають у стані війни."
+apotheosis.geo.errAlreadyPeace,"{a} та {b} уже перебувають у мирі."

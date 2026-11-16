@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Das Göttliche Portal konnte derzeit nicht 
 apotheosis.aurbis.portalOpened,"Tore von Aurbis aufgerissen (-{cost} Glaube)."
 apotheosis.aurbis.portalMapOpened,"Karte des Göttlichen Portals geöffnet ({cost} Glaube bei Zielwahl)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Ordnungsglaube)"
+apotheosis.geo.statusWar,"Aktueller Status: {a} und {b} befinden sich IM KRIEG"
+apotheosis.geo.statusPeace,"Aktueller Status: {a} und {b} befinden sich IM FRIEDEN"
+apotheosis.geo.errRegions,"Wählen Sie zwei unterschiedliche Regionen Tamriels."
+apotheosis.geo.errAlreadyWar,"{a} und {b} befinden sich bereits im Krieg."
+apotheosis.geo.errAlreadyPeace,"{a} und {b} befinden sich bereits im Frieden."

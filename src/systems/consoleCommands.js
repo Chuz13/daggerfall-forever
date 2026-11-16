@@ -3210,28 +3210,28 @@ async function handleApotheosisCommand(args = []) {
       return `${d.name}: relation ${res.relation} (${res.status})${res.brokeGrace ? ' [GRACE BROKEN]' : ''}.`;
     }
     if (act === 'offer') {
-      const res = sendDivineOffering(playerEntity, args[2], { nowMinutes: nowMin });
-      return res.ok ? `Sent offering to ${res.deityId}: relation=${res.relation}, faith=${res.faith}` : res.error;
+      const res = sendDivineOffering(playerEntity, args[2], { nowMinutes: nowMin, force: true });
+      return res.ok ? `Sent debug offering to ${res.deityId} (free): relation=${res.relation}, faith=${res.faith}` : res.error;
     }
     if (act === 'pact') {
-      const res = proposeDivinePact(playerEntity, args[2], { nowMinutes: nowMin });
-      return res.ok ? `Signed pact with ${res.deityId}: relation=${res.relation}, faith=${res.faith}` : res.error;
+      const res = proposeDivinePact(playerEntity, args[2], { nowMinutes: nowMin, force: true });
+      return res.ok ? `Signed debug pact with ${res.deityId} (free): relation=${res.relation}, faith=${res.faith}` : res.error;
     }
     if (act === 'ally') {
-      const res = forgeDivineAlliance(playerEntity, args[2], { nowMinutes: nowMin });
-      return res.ok ? `Forged alliance with ${res.deityId}: relation=${res.relation}, faith=${res.faith}` : res.error;
+      const res = forgeDivineAlliance(playerEntity, args[2], { nowMinutes: nowMin, force: true });
+      return res.ok ? `Forged debug alliance with ${res.deityId} (free): relation=${res.relation}, faith=${res.faith}` : res.error;
     }
     if (act === 'war') {
-      const res = declareHolyWar(playerEntity, args[2], { nowMinutes: nowMin });
-      return res.ok ? `Holy War declared on ${res.deityId}: relation=${res.relation}, faith=${res.faith}` : res.error;
+      const res = declareHolyWar(playerEntity, args[2], { nowMinutes: nowMin, force: true });
+      return res.ok ? `Debug Holy War declared on ${res.deityId} (free): relation=${res.relation}, faith=${res.faith}` : res.error;
     }
     if (act === 'truce') {
-      const res = offerDivineTruce(playerEntity, args[2], { nowMinutes: nowMin });
-      return res.ok ? `30-day Truce with ${res.deityId} (-${res.faithSpent} Faith): relation=${res.relation}` : res.error;
+      const res = offerDivineTruce(playerEntity, args[2], { nowMinutes: nowMin, force: true });
+      return res.ok ? `Debug 30-day Truce with ${res.deityId} (free): relation=${res.relation}, faith=${res.faith}` : res.error;
     }
     if (act === 'discord') {
-      const res = sowDivineDiscord(playerEntity, args[2], args[3], { nowMinutes: nowMin });
-      return res.ok ? `Sowed discord between ${res.pair[0]} & ${res.pair[1]} (mutual=${res.interRelation}, faith=${res.faith})` : res.error;
+      const res = sowDivineDiscord(playerEntity, args[2], args[3], { nowMinutes: nowMin, force: true });
+      return res.ok ? `Sowed debug discord between ${res.pair[0]} & ${res.pair[1]} (free, mutual=${res.interRelation}, faith=${res.faith})` : res.error;
     }
     const single = act !== 'status' ? getPantheonDeity(act) : null;
     if (single) {
@@ -3268,12 +3268,12 @@ async function handleApotheosisCommand(args = []) {
     const rA = parseInt(args[2] ?? '', 10);
     const rB = parseInt(args[3] ?? '', 10);
     if (mode === 'war') {
-      const res = igniteRegionWar(playerEntity, rA, rB, { nowMinutes: nowMin });
-      return res.ok ? `Divine War ignited between regions ${rA} and ${rB} (-${res.faithSpent} Faith).` : res.error;
+      const res = igniteRegionWar(playerEntity, rA, rB, { nowMinutes: nowMin, force: true });
+      return res.ok ? `Debug Divine War ignited between regions ${rA} and ${rB} (free).` : res.error;
     }
     if (mode === 'peace') {
-      const res = enforceRegionPeace(playerEntity, rA, rB, { nowMinutes: nowMin });
-      return res.ok ? `Divine Peace enforced between regions ${rA} and ${rB} (-${res.faithSpent} Faith).` : res.error;
+      const res = enforceRegionPeace(playerEntity, rA, rB, { nowMinutes: nowMin, force: true });
+      return res.ok ? `Debug Divine Peace enforced between regions ${rA} and ${rB} (free).` : res.error;
     }
     return 'Usage: apo geopolitics <war|peace> <regionA> <regionB>';
   }

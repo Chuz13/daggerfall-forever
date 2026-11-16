@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Η Θεϊκή Πύλη δεν μπόρεσ�
 apotheosis.aurbis.portalOpened,"Οι Πύλες του Aurbis ανοίγουν (-{cost} Πίστη)."
 apotheosis.aurbis.portalMapOpened,"Άνοιξε ο χάρτης Θεϊκής Πύλης ({cost} Πίστη κατά την επιλογή προορισμού)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Πίστη Τάξης)"
+apotheosis.geo.statusWar,"Τρέχουσα κατάσταση: {a} και {b} βρίσκονται ΣΕ ΠΟΛΕΜΟ"
+apotheosis.geo.statusPeace,"Τρέχουσα κατάσταση: {a} και {b} βρίσκονται ΣΕ ΕΙΡΗΝΗ"
+apotheosis.geo.errRegions,"Επιλέξτε δύο διαφορετικές περιοχές του Ταμριέλ."
+apotheosis.geo.errAlreadyWar,"{a} και {b} βρίσκονται ήδη σε πόλεμο."
+apotheosis.geo.errAlreadyPeace,"{a} και {b} βρίσκονται ήδη σε ειρήνη."

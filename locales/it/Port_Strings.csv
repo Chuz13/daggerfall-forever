@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Impossibile aprire il Portale Divino in que
 apotheosis.aurbis.portalOpened,"Le Porte di Aurbis si squarciano (-{cost} Fede)."
 apotheosis.aurbis.portalMapOpened,"Mappa del Portale Divino aperta ({cost} Fede alla scelta della destinazione)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Fede d'Ordine)"
+apotheosis.geo.statusWar,"Stato attuale: {a} e {b} sono IN GUERRA"
+apotheosis.geo.statusPeace,"Stato attuale: {a} e {b} sono IN PACE"
+apotheosis.geo.errRegions,"Seleziona due regioni distinte di Tamriel."
+apotheosis.geo.errAlreadyWar,"{a} e {b} sono già in guerra."
+apotheosis.geo.errAlreadyPeace,"{a} e {b} sono già in pace."

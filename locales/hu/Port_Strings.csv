@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Az Isteni Portált most nem sikerült megny
 apotheosis.aurbis.portalOpened,"Aurbis Kapui feltárulnak (-{cost} Hit)."
 apotheosis.aurbis.portalMapOpened,"Isteni Portál térképe megnyitva ({cost} Hit a cél kiválasztásakor)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Rend Hite)"
+apotheosis.geo.statusWar,"Jelenlegi állapot: {a} és {b} HÁBORÚBAN áll"
+apotheosis.geo.statusPeace,"Jelenlegi állapot: {a} és {b} BÉKÉBEN áll"
+apotheosis.geo.errRegions,"Válassz két különböző tamrieli régiót."
+apotheosis.geo.errAlreadyWar,"{a} és {b} már háborúban állnak."
+apotheosis.geo.errAlreadyPeace,"{a} és {b} már békében állnak."

@@ -72,6 +72,7 @@ import {
   sowDivineDiscord,
   declareHolyWar,
   offerDivineTruce,
+  areRegionsAtWar,
   igniteRegionWar,
   enforceRegionPeace,
   queryPantheonChronicle,
@@ -898,18 +899,30 @@ test('Stage 3.1 Pantheon 4X: settings multipliers, Champion/Boss instakill immun
     assert.ok(truceOk.truceUntilMinutes > 60000);
 
     // Geopolitics War & Peace between two targeted regions (#17 Daggerfall & #23 Wayrest)
+    assert.equal(areRegionsAtWar(pGod, 17, 23), false);
+    const earlyPeace = enforceRegionPeace(pGod, 17, 23, { nowMinutes: 60000 });
+    assert.equal(earlyPeace.ok, false, 'Cannot enforce peace when selected regions are not at war');
+
     const geoWar = igniteRegionWar(pGod, 17, 23, { nowMinutes: 60000 });
     assert.equal(geoWar.ok, true);
+    assert.equal(areRegionsAtWar(pGod, 17, 23), true);
     assert.equal(conditionFlag(pGod.regionConditions, 17, REGION_FLAGS.WarOngoing), true);
     assert.equal(conditionFlag(pGod.regionConditions, 23, REGION_FLAGS.WarOngoing), true);
+    const dupWar = igniteRegionWar(pGod, 17, 23, { nowMinutes: 60000 });
+    assert.equal(dupWar.ok, false, 'Cannot ignite war when selected regions are already at war');
 
     const geoPeace = enforceRegionPeace(pGod, 17, 23, { nowMinutes: 60000 });
     assert.equal(geoPeace.ok, true);
+    assert.equal(areRegionsAtWar(pGod, 17, 23), false);
     assert.equal(conditionFlag(pGod.regionConditions, 17, REGION_FLAGS.WarOngoing), false);
     assert.equal(conditionFlag(pGod.regionConditions, 23, REGION_FLAGS.WarWon), true);
 
     const regLogs = queryPantheonChronicle(pGod, { filter: 'regions', search: 'Wayrest' });
     assert.ok(regLogs.length >= 2, 'Chronicle text search & category filter find Geopolitical decrees');
+    const clashLogs = queryPantheonChronicle(pGod, { filter: 'diplomacy' }).filter((r) => /clash/i.test(r.text));
+    if (clashLogs.length > 0) {
+      assert.match(clashLogs[0].text, /\+\d+(\.\d+)?%.*-\d+/, 'Chronicle clash logs include influence % and standing numbers');
+    }
 
     // Expandable registry sanity: registering custom Prince works cleanly
     const extra = registerPantheonDeity({ id: 'malacath', name: 'Malacath', kind: 'daedra', baseUpstart: -10 });
@@ -918,15 +931,33 @@ test('Stage 3.1 Pantheon 4X: settings multipliers, Champion/Boss instakill immun
     const summary = getGlobalInfluenceSummary(pGod);
     assert.equal(summary.regionCount, 71);
 
-    // Console integration smoke check
+    // Console integration smoke check: debug commands MUST bypass requirements & cost 0 Faith
     await executeConsoleCommand('apo', ['reset']);
     await executeConsoleCommand('apo', ['quest', 'complete']);
-    await executeConsoleCommand('apo', ['faith', '1000']);
+    await executeConsoleCommand('apo', ['faith', '0']);
     selectApotheosisPortfolio(playerEntity, 'order', { nowMinutes: 70000 });
+    playerEntity.apotheosis.faith = 42;
+    const faithBeforeCmds = playerEntity.apotheosis.faith;
+
     const cmdPan = await executeConsoleCommand('apo', ['pantheon', 'tick', '2']);
     assert.match(String(cmdPan), /Pantheon simulated 2 day/);
+    const cmdOffer = await executeConsoleCommand('apo', ['pantheon', 'offer', 'stendarr']);
+    assert.match(String(cmdOffer), /Sent debug offering/);
+    const cmdPact = await executeConsoleCommand('apo', ['pantheon', 'pact', 'stendarr']);
+    assert.match(String(cmdPact), /Signed debug pact/);
+    const cmdAlly = await executeConsoleCommand('apo', ['pantheon', 'ally', 'stendarr']);
+    assert.match(String(cmdAlly), /Forged debug alliance/);
+    const cmdDisc = await executeConsoleCommand('apo', ['pantheon', 'discord', 'mehrunes_dagon', 'boethiah']);
+    assert.match(String(cmdDisc), /Sowed debug discord/);
+    const cmdWar = await executeConsoleCommand('apo', ['pantheon', 'war', 'mehrunes_dagon']);
+    assert.match(String(cmdWar), /Debug Holy War/);
+    const cmdTruce = await executeConsoleCommand('apo', ['pantheon', 'truce', 'mehrunes_dagon']);
+    assert.match(String(cmdTruce), /Debug 30-day Truce/);
     const cmdGeo = await executeConsoleCommand('apo', ['geopolitics', 'war', '17', '23']);
-    assert.match(String(cmdGeo), /Divine War ignited/);
+    assert.match(String(cmdGeo), /Debug Divine War ignited/);
+    const cmdGeoPeace = await executeConsoleCommand('apo', ['geopolitics', 'peace', '17', '23']);
+    assert.match(String(cmdGeoPeace), /Debug Divine Peace enforced/);
+    assert.equal(playerEntity.apotheosis.faith, faithBeforeCmds, 'Debug console pantheon/geopolitics commands spend 0 Faith and bypass requirements');
     const cmdInf = await executeConsoleCommand('apo', ['influence', '17']);
     assert.match(String(cmdInf), /#17/);
   } finally {

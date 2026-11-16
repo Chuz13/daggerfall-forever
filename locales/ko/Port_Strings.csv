@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"지금은 신성한 차원문을 열 수 �
 apotheosis.aurbis.portalOpened,"아우르비스의 문이 열렸습니다 (-{cost} 신앙)."
 apotheosis.aurbis.portalMapOpened,"신성한 차원문 지도를 열었습니다 (목적지 선택 시 {cost} 신앙)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} 질서의 신앙)"
+apotheosis.geo.statusWar,"현재 상태: {a}와(과) {b}은(는) 전쟁 중입니다"
+apotheosis.geo.statusPeace,"현재 상태: {a}와(과) {b}은(는) 평화 상태입니다"
+apotheosis.geo.errRegions,"서로 다른 두 탐리엘 지역을 선택하세요."
+apotheosis.geo.errAlreadyWar,"{a}와(과) {b}은(는) 이미 전쟁 중입니다."
+apotheosis.geo.errAlreadyPeace,"{a}와(과) {b}은(는) 이미 평화 상태입니다."

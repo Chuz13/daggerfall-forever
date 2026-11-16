@@ -78,6 +78,8 @@ function findPath(host, { path, at }) {
  */
 export function repaintKeepingScroll(host, rebuild, { focus = false } = {}) {
   const kept = focus ? focusOf(host) : null;
+  const hostTop = host?.scrollTop ?? 0;
+  const hostLeft = host?.scrollLeft ?? 0;
   const saved = [];
   if (host) {
     for (const el of host.querySelectorAll('*')) {
@@ -88,7 +90,10 @@ export function repaintKeepingScroll(host, rebuild, { focus = false } = {}) {
   }
   rebuild();
   if (kept) giveFocus(host, kept);
-  if (!saved.length || !host) return;
+  if (!host) return;
+  if (hostTop) host.scrollTop = hostTop;
+  if (hostLeft) host.scrollLeft = hostLeft;
+  if (!saved.length) return;
   for (const [path, top, left] of saved) {
     const el = findPath(host, path); // AUDIT FB1018f L2-4: the one element that can be it, never the whole tree mapped
     if (!el) continue; // the tree changed shape - the new element starts fresh

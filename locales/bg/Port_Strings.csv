@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Божественият портал не 
 apotheosis.aurbis.portalOpened,"Портите на Аурбис се разтварят (-{cost} Вяра)."
 apotheosis.aurbis.portalMapOpened,"Отворена е картата на Божествения портал ({cost} Вяра при избор на цел)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Вяра на Реда)"
+apotheosis.geo.statusWar,"Текущ статус: {a} и {b} са ВЪВ ВОЙНА"
+apotheosis.geo.statusPeace,"Текущ статус: {a} и {b} са В МИР"
+apotheosis.geo.errRegions,"Изберете два различни региона на Тамриел."
+apotheosis.geo.errAlreadyWar,"{a} и {b} вече са във война."
+apotheosis.geo.errAlreadyPeace,"{a} и {b} вече са в мир."

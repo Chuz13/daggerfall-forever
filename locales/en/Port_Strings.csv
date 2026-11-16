@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"The Divine Portal could not be opened right
 apotheosis.aurbis.portalOpened,"Gates of Aurbis torn open (-{cost} Faith)."
 apotheosis.aurbis.portalMapOpened,"Opened Divine Portal map ({cost} Faith upon destination selection)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Order Faith)"
+apotheosis.geo.statusWar,"Current Status: {a} and {b} are AT WAR"
+apotheosis.geo.statusPeace,"Current Status: {a} and {b} are AT PEACE"
+apotheosis.geo.errRegions,"Select two distinct Tamriel regions."
+apotheosis.geo.errAlreadyWar,"{a} and {b} are already at war."
+apotheosis.geo.errAlreadyPeace,"{a} and {b} are already at peace."

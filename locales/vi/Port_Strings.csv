@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Không thể mở Cổng Thần Thánh ngay
 apotheosis.aurbis.portalOpened,"Cánh Cổng Aurbis đã mở toang (-{cost} Đức Tin)."
 apotheosis.aurbis.portalMapOpened,"Đã mở bản đồ Cổng Thần Thánh (tốn {cost} Đức Tin khi chọn điểm đến)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Đức Tin Trật Tự)"
+apotheosis.geo.statusWar,"Trạng thái hiện tại: {a} và {b} đang CÓ CHIẾN TRANH"
+apotheosis.geo.statusPeace,"Trạng thái hiện tại: {a} và {b} đang HÒA BÌNH"
+apotheosis.geo.errRegions,"Hãy chọn hai vùng Tamriel khác nhau."
+apotheosis.geo.errAlreadyWar,"{a} và {b} đã có chiến tranh."
+apotheosis.geo.errAlreadyPeace,"{a} và {b} đã hòa bình."

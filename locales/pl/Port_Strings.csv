@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Nie udało się teraz otworzyć Boskiego Po
 apotheosis.aurbis.portalOpened,"Bramy Aurbis rozwierają się (-{cost} Wiary)."
 apotheosis.aurbis.portalMapOpened,"Otwarto mapę Boskiego Portalu ({cost} Wiary przy wyborze celu)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Wiary Porządku)"
+apotheosis.geo.statusWar,"Obecny status: {a} i {b} prowadzą WOJNĘ"
+apotheosis.geo.statusPeace,"Obecny status: {a} i {b} żyją W POKOJU"
+apotheosis.geo.errRegions,"Wybierz dwa różne regiony Tamriel."
+apotheosis.geo.errAlreadyWar,"{a} i {b} już ze sobą walczą."
+apotheosis.geo.errAlreadyPeace,"{a} i {b} już żyją w pokoju."

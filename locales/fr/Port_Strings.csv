@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Le Portail Divin n'a pas pu être ouvert po
 apotheosis.aurbis.portalOpened,"Les Portes d'Aurbis s'ouvrent (-{cost} Foi)."
 apotheosis.aurbis.portalMapOpened,"Carte du Portail Divin ouverte ({cost} Foi lors du choix de destination)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Foi d'Ordre)"
+apotheosis.geo.statusWar,"Statut actuel : {a} et {b} sont EN GUERRE"
+apotheosis.geo.statusPeace,"Statut actuel : {a} et {b} sont EN PAIX"
+apotheosis.geo.errRegions,"Sélectionnez deux régions distinctes de Tamriel."
+apotheosis.geo.errAlreadyWar,"{a} et {b} sont déjà en guerre."
+apotheosis.geo.errAlreadyPeace,"{a} et {b} sont déjà en paix."

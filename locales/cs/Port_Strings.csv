@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Božský portál se nyní nepodařilo otev�
 apotheosis.aurbis.portalOpened,"Brány Aurbisu se otevírají (-{cost} Víry)."
 apotheosis.aurbis.portalMapOpened,"Otevřena mapa Božského portálu ({cost} Víry při výběru cíle)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Víry Řádu)"
+apotheosis.geo.statusWar,"Aktuální stav: {a} a {b} jsou VE VÁLCE"
+apotheosis.geo.statusPeace,"Aktuální stav: {a} a {b} jsou V MÍRU"
+apotheosis.geo.errRegions,"Vyberte dva různé regiony Tamrielu."
+apotheosis.geo.errAlreadyWar,"{a} a {b} jsou již ve válce."
+apotheosis.geo.errAlreadyPeace,"{a} a {b} jsou již v míru."

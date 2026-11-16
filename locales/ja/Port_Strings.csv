@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"現在、神聖なるポータルを開け�
 apotheosis.aurbis.portalOpened,"オービスの門が開かれた (-{cost} 信仰)。"
 apotheosis.aurbis.portalMapOpened,"神聖なるポータル地図を開きました (移動先選択時に {cost} 信仰)。"
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} 秩序の信仰)"
+apotheosis.geo.statusWar,"現在の状態：{a} と {b} は戦争中"
+apotheosis.geo.statusPeace,"現在の状態：{a} と {b} は平和状態"
+apotheosis.geo.errRegions,"異なる2つのタムリエルの地域を選択してください。"
+apotheosis.geo.errAlreadyWar,"{a} と {b} はすでに戦争中です。"
+apotheosis.geo.errAlreadyPeace,"{a} と {b} はすでに平和状態です。"

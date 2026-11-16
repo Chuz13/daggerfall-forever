@@ -591,6 +591,7 @@ export function ensurePantheonState(entity, { nowMinutes = null } = {}) {
     apo.pantheon = {
       deities: {},
       interGodRelations: {},
+      regionWars: {},
       regionInfluence: buildInitialRegions(entity),
       chronicle: [],
       lastPantheonTickDay: dayFromMinutes(refMin),
@@ -603,6 +604,7 @@ export function ensurePantheonState(entity, { nowMinutes = null } = {}) {
   const p = apo.pantheon;
   if (!p.deities || typeof p.deities !== 'object') p.deities = {};
   if (!p.interGodRelations || typeof p.interGodRelations !== 'object') p.interGodRelations = {};
+  if (!p.regionWars || typeof p.regionWars !== 'object') p.regionWars = {};
   if (!Array.isArray(p.regionInfluence) || p.regionInfluence.length !== TAMRIEL_REGION_COUNT) {
     p.regionInfluence = buildInitialRegions(entity);
   }
@@ -1074,8 +1076,10 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
         const foeId = d.enemies[Math.floor(rng() * d.enemies.length) % d.enemies.length];
         const foeDef = getPantheonDeity(foeId);
         const k = pairKey(d.id, foeId);
-        p.interGodRelations[k] = clamp((p.interGodRelations[k] ?? -50) - 5, -100, 100);
-        shiftRegionInfluence(entity, regIdx, d.id, 1.5);
+        const clashDrop = 5;
+        const clashGain = 1.5;
+        p.interGodRelations[k] = clamp((p.interGodRelations[k] ?? -50) - clashDrop, -100, 100);
+        shiftRegionInfluence(entity, regIdx, d.id, clashGain);
         if (foeDef) {
           pushChronicle(p, {
             day: simDay,
@@ -1085,8 +1089,8 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
             regionIndex: regIdx,
             text: t(
               'apotheosis.pantheon.aiClash',
-              '{name} and {foe} clash in {region} over mortal devotion.',
-              { name: d.name, foe: foeDef.name, region: regName },
+              '{name} and {foe} clash in {region} over mortal devotion (+{pct}% {name} influence, -{drop} mutual standing -> {rel}).',
+              { name: d.name, foe: foeDef.name, region: regName, pct: clashGain, drop: clashDrop, rel: p.interGodRelations[k] },
             ),
           });
         }
@@ -1133,7 +1137,7 @@ export function computeDivineTruceCost(entity, godId) {
 }
 
 /** Sends a respectful Divine Offering (`100 Faith`) -> `+15` relation (once every 7 days per deity). */
-export function sendDivineOffering(entity, godId, { nowMinutes = null } = {}) {
+export function sendDivineOffering(entity, godId, { nowMinutes = null, force = false } = {}) {
   const deity = getPantheonDeity(godId);
   if (!deity) return { ok: false, error: t('apotheosis.pantheon.errUnknown', 'Unknown deity.') };
   const p = ensurePantheonState(entity, { nowMinutes });
@@ -1141,86 +1145,131 @@ export function sendDivineOffering(entity, godId, { nowMinutes = null } = {}) {
   if (!entry) return { ok: false, error: 'Pantheon unavailable.' };
   const refMin = nowMinutes ?? entity.apotheosis?.ascendedAtMinutes ?? 0;
   const curDay = dayFromMinutes(refMin);
-  if (entry.lastOfferingDay != null && curDay - entry.lastOfferingDay < 7) {
+  if (!force && entry.lastOfferingDay != null && curDay - entry.lastOfferingDay < 7) {
     return {
       ok: false,
       error: t('apotheosis.pantheon.errOfferingCd', 'You already sent an offering to {name} within the last 7 days.', { name: deity.name }),
     };
   }
-  const spend = spendApotheosisFaith(entity, PANTHEON_OFFERING_COST, { reason: `pantheon_offer_${deity.id}` });
+  const cost = force ? 0 : PANTHEON_OFFERING_COST;
+  const spend = cost > 0
+    ? spendApotheosisFaith(entity, cost, { reason: `pantheon_offer_${deity.id}` })
+    : { ok: true, spent: 0, faith: entity.apotheosis?.faith ?? 0 };
   if (!spend.ok) return spend;
   entry.lastOfferingDay = curDay;
   const rel = changeDeityRelation(entity, deity.id, 15, {
     nowMinutes: refMin,
     category: 'diplomacy',
-    reason: t('apotheosis.pantheon.logOffer', 'Sent a Divine Offering to {name} (+15 relation).', { name: deity.name }),
   });
-  return { ok: true, deityId: deity.id, faithSpent: PANTHEON_OFFERING_COST, faith: spend.faith, relation: rel.relation, status: rel.status };
+  pushChronicle(p, {
+    day: curDay,
+    minutes: refMin,
+    category: 'diplomacy',
+    godId: deity.id,
+    text: t('apotheosis.pantheon.logOffer', 'Sent a Divine Offering to {name} (+15 relation -> {rel}, -{cost} Faith).', {
+      name: deity.name, rel: rel.relation, cost,
+    }),
+  });
+  return { ok: true, deityId: deity.id, faithSpent: cost, faith: spend.faith, relation: rel.relation, status: rel.status };
 }
 
 /** Proposes a Non-Aggression Pact (`150 Faith`, requires `relation >= 10`). */
-export function proposeDivinePact(entity, godId, { nowMinutes = null } = {}) {
+export function proposeDivinePact(entity, godId, { nowMinutes = null, force = false } = {}) {
   const deity = getPantheonDeity(godId);
   if (!deity) return { ok: false, error: t('apotheosis.pantheon.errUnknown', 'Unknown deity.') };
   const p = ensurePantheonState(entity, { nowMinutes });
   const entry = p?.deities?.[deity.id];
   if (!entry) return { ok: false, error: 'Pantheon unavailable.' };
-  if (entry.relation < 10) {
+  if (!force && entry.relation < 10) {
     return {
       ok: false,
       error: t('apotheosis.pantheon.errPactRep', '{name} requires at least +10 relation for a Non-Aggression Pact.', { name: deity.name }),
     };
   }
-  const spend = spendApotheosisFaith(entity, PANTHEON_PACT_COST, { reason: `pantheon_pact_${deity.id}` });
+  const cost = force ? 0 : PANTHEON_PACT_COST;
+  const spend = cost > 0
+    ? spendApotheosisFaith(entity, cost, { reason: `pantheon_pact_${deity.id}` })
+    : { ok: true, spent: 0, faith: entity.apotheosis?.faith ?? 0 };
   if (!spend.ok) return spend;
   const refMin = nowMinutes ?? entity.apotheosis?.ascendedAtMinutes ?? 0;
+  if (force && entry.relation < 10) {
+    entry.personalHistory = clamp((entry.personalHistory || 0) + (10 - entry.relation), -140, 140);
+    entry.relation = clamp(entry.personalHistory + (deity.portfolioAffinity[entity.apotheosis?.portfolio] ?? 0), -100, 100);
+  }
   entry.pact = true;
   entry.manualWar = false;
   entry.graceUntilMinutes = null;
-  changeDeityRelation(entity, deity.id, 10, {
+  const rel = changeDeityRelation(entity, deity.id, 10, {
     nowMinutes: refMin,
     category: 'diplomacy',
-    reason: t('apotheosis.pantheon.logPact', 'Signed a Non-Aggression Pact with {name}.', { name: deity.name }),
   });
-  return { ok: true, deityId: deity.id, faithSpent: PANTHEON_PACT_COST, faith: spend.faith, relation: entry.relation, status: entry.status };
+  pushChronicle(p, {
+    day: dayFromMinutes(refMin),
+    minutes: refMin,
+    category: 'diplomacy',
+    godId: deity.id,
+    text: t('apotheosis.pantheon.logPact', 'Signed a Non-Aggression Pact with {name} (+10 relation -> {rel}, -{cost} Faith).', {
+      name: deity.name, rel: rel.relation, cost,
+    }),
+  });
+  return { ok: true, deityId: deity.id, faithSpent: cost, faith: spend.faith, relation: entry.relation, status: entry.status };
 }
 
 /** Forges a full Divine Alliance (`300 Faith`, requires `relation >= 50`). */
-export function forgeDivineAlliance(entity, godId, { nowMinutes = null } = {}) {
+export function forgeDivineAlliance(entity, godId, { nowMinutes = null, force = false } = {}) {
   const deity = getPantheonDeity(godId);
   if (!deity) return { ok: false, error: t('apotheosis.pantheon.errUnknown', 'Unknown deity.') };
   const p = ensurePantheonState(entity, { nowMinutes });
   const entry = p?.deities?.[deity.id];
   if (!entry) return { ok: false, error: 'Pantheon unavailable.' };
-  if (entry.relation < 50) {
+  if (!force && entry.relation < 50) {
     return {
       ok: false,
       error: t('apotheosis.pantheon.errAllyRep', '{name} requires at least +50 relation for a Divine Alliance.', { name: deity.name }),
     };
   }
-  const spend = spendApotheosisFaith(entity, PANTHEON_ALLIANCE_COST, { reason: `pantheon_ally_${deity.id}` });
+  const cost = force ? 0 : PANTHEON_ALLIANCE_COST;
+  const spend = cost > 0
+    ? spendApotheosisFaith(entity, cost, { reason: `pantheon_ally_${deity.id}` })
+    : { ok: true, spent: 0, faith: entity.apotheosis?.faith ?? 0 };
   if (!spend.ok) return spend;
   const refMin = nowMinutes ?? entity.apotheosis?.ascendedAtMinutes ?? 0;
+  if (force && entry.relation < 50) {
+    entry.personalHistory = clamp((entry.personalHistory || 0) + (50 - entry.relation), -140, 140);
+    entry.relation = clamp(entry.personalHistory + (deity.portfolioAffinity[entity.apotheosis?.portfolio] ?? 0), -100, 100);
+  }
   entry.pact = true;
   entry.allied = true;
   entry.manualWar = false;
-  changeDeityRelation(entity, deity.id, 15, {
+  entry.graceUntilMinutes = null;
+  const rel = changeDeityRelation(entity, deity.id, 15, {
     nowMinutes: refMin,
     category: 'diplomacy',
-    reason: t('apotheosis.pantheon.logAlly', 'Forged a Divine Alliance with {name}!', { name: deity.name }),
   });
-  return { ok: true, deityId: deity.id, faithSpent: PANTHEON_ALLIANCE_COST, faith: spend.faith, relation: entry.relation, status: entry.status };
+  pushChronicle(p, {
+    day: dayFromMinutes(refMin),
+    minutes: refMin,
+    category: 'diplomacy',
+    godId: deity.id,
+    text: t('apotheosis.pantheon.logAlly', 'Forged a Divine Alliance with {name} (+15 relation -> {rel}, -{cost} Faith)!', {
+      name: deity.name, rel: rel.relation, cost,
+    }),
+  });
+  return { ok: true, deityId: deity.id, faithSpent: cost, faith: spend.faith, relation: entry.relation, status: entry.status };
 }
 
 /** Sows Discord between two deities (`200 Faith`), dropping their mutual standing so they spend AI turns fighting each other. */
-export function sowDivineDiscord(entity, godIdA, godIdB, { nowMinutes = null } = {}) {
+export function sowDivineDiscord(entity, godIdA, godIdB, { nowMinutes = null, force = false } = {}) {
   const defA = getPantheonDeity(godIdA);
   const defB = getPantheonDeity(godIdB);
   if (!defA || !defB || defA.id === defB.id) {
     return { ok: false, error: t('apotheosis.pantheon.errDiscordPair', 'Select two distinct deities to sow discord between.') };
   }
   const p = ensurePantheonState(entity, { nowMinutes });
-  const spend = spendApotheosisFaith(entity, PANTHEON_DISCORD_COST, { reason: `pantheon_discord_${defA.id}_${defB.id}` });
+  const cost = force ? 0 : PANTHEON_DISCORD_COST;
+  const spend = cost > 0
+    ? spendApotheosisFaith(entity, cost, { reason: `pantheon_discord_${defA.id}_${defB.id}` })
+    : { ok: true, spent: 0, faith: entity.apotheosis?.faith ?? 0 };
   if (!spend.ok) return spend;
   const refMin = nowMinutes ?? entity.apotheosis?.ascendedAtMinutes ?? 0;
   const k = pairKey(defA.id, defB.id);
@@ -1232,27 +1281,30 @@ export function sowDivineDiscord(entity, godIdA, godIdB, { nowMinutes = null } =
     godId: defA.id,
     text: t(
       'apotheosis.pantheon.logDiscord',
-      'Whispered lies between {a} and {b} (mutual standing {val}).',
-      { a: defA.name, b: defB.name, val: p.interGodRelations[k] },
+      'Whispered lies between {a} and {b} (-50 mutual standing -> {val}, -{cost} Faith).',
+      { a: defA.name, b: defB.name, val: p.interGodRelations[k], cost },
     ),
   });
   return {
     ok: true,
     pair: [defA.id, defB.id],
     interRelation: p.interGodRelations[k],
-    faithSpent: PANTHEON_DISCORD_COST,
+    faithSpent: cost,
     faith: spend.faith,
   };
 }
 
 /** Declares Holy War (`100 Faith`), dropping standing by -40 (propagated) and unlocking forceful claims. */
-export function declareHolyWar(entity, godId, { nowMinutes = null } = {}) {
+export function declareHolyWar(entity, godId, { nowMinutes = null, force = false } = {}) {
   const deity = getPantheonDeity(godId);
   if (!deity) return { ok: false, error: t('apotheosis.pantheon.errUnknown', 'Unknown deity.') };
   const p = ensurePantheonState(entity, { nowMinutes });
   const entry = p?.deities?.[deity.id];
   if (!entry) return { ok: false, error: 'Pantheon unavailable.' };
-  const spend = spendApotheosisFaith(entity, PANTHEON_WAR_COST, { reason: `pantheon_war_${deity.id}` });
+  const cost = force ? 0 : PANTHEON_WAR_COST;
+  const spend = cost > 0
+    ? spendApotheosisFaith(entity, cost, { reason: `pantheon_war_${deity.id}` })
+    : { ok: true, spent: 0, faith: entity.apotheosis?.faith ?? 0 };
   if (!spend.ok) return spend;
   const refMin = nowMinutes ?? entity.apotheosis?.ascendedAtMinutes ?? 0;
   entry.pact = false;
@@ -1260,28 +1312,36 @@ export function declareHolyWar(entity, godId, { nowMinutes = null } = {}) {
   entry.truceUntilMinutes = null;
   entry.manualWar = true;
   entry.graceUntilMinutes = null;
-  changeDeityRelation(entity, deity.id, -40, {
+  const rel = changeDeityRelation(entity, deity.id, -40, {
     nowMinutes: refMin,
     category: 'against_me',
-    reason: t('apotheosis.pantheon.logWar', 'Declared Holy War upon {name}!', { name: deity.name }),
   });
   entry.status = 'war';
-  return { ok: true, deityId: deity.id, faithSpent: PANTHEON_WAR_COST, faith: spend.faith, relation: entry.relation, status: entry.status };
+  pushChronicle(p, {
+    day: dayFromMinutes(refMin),
+    minutes: refMin,
+    category: 'against_me',
+    godId: deity.id,
+    text: t('apotheosis.pantheon.logWar', 'Declared Holy War upon {name} ({delta} relation -> {rel}, -{cost} Faith)!', {
+      name: deity.name, delta: rel.deltaApplied, rel: entry.relation, cost,
+    }),
+  });
+  return { ok: true, deityId: deity.id, faithSpent: cost, faith: spend.faith, relation: entry.relation, status: entry.status };
 }
 
 /** Offers a 30-day Divine Truce (cost calculated dynamically via `computeDivineTruceCost`, or free after defeating 3 Champions). */
-export function offerDivineTruce(entity, godId, { nowMinutes = null, byForce = false } = {}) {
+export function offerDivineTruce(entity, godId, { nowMinutes = null, byForce = false, force = false } = {}) {
   const deity = getPantheonDeity(godId);
   if (!deity) return { ok: false, error: t('apotheosis.pantheon.errUnknown', 'Unknown deity.') };
   const p = ensurePantheonState(entity, { nowMinutes });
   const entry = p?.deities?.[deity.id];
   if (!entry) return { ok: false, error: 'Pantheon unavailable.' };
 
-  const freeByVictory = byForce || (entry.championsDefeated ?? 0) >= 3;
+  const freeByVictory = byForce || force || (entry.championsDefeated ?? 0) >= 3;
   const cost = freeByVictory ? 0 : computeDivineTruceCost(entity, deity.id);
   const spend = cost > 0
     ? spendApotheosisFaith(entity, cost, { reason: `pantheon_truce_${deity.id}` })
-    : { ok: true, spent: 0, faith: entity.apotheosis.faith };
+    : { ok: true, spent: 0, faith: entity.apotheosis?.faith ?? 0 };
   if (!spend.ok) return spend;
 
   const refMin = nowMinutes ?? entity.apotheosis?.ascendedAtMinutes ?? 0;
@@ -1300,8 +1360,8 @@ export function offerDivineTruce(entity, godId, { nowMinutes = null, byForce = f
     category: 'diplomacy',
     godId: deity.id,
     text: freeByVictory
-      ? t('apotheosis.pantheon.logTruceForce', 'Forced a 30-day Divine Truce upon {name} through martial supremacy!', { name: deity.name })
-      : t('apotheosis.pantheon.logTrucePaid', 'Sealed a 30-day Divine Truce with {name} (-{cost} Faith).', { name: deity.name, cost }),
+      ? t('apotheosis.pantheon.logTruceForce', 'Forced a 30-day Divine Truce upon {name} (relation -> {rel})!', { name: deity.name, rel: entry.relation })
+      : t('apotheosis.pantheon.logTrucePaid', 'Sealed a 30-day Divine Truce with {name} (relation -> {rel}, -{cost} Faith).', { name: deity.name, rel: entry.relation, cost }),
   });
 
   return {
@@ -1329,11 +1389,31 @@ function findProvinceFactionId(dict, regionIndex) {
   return -1;
 }
 
+/** Returns whether two distinct Tamriel regions are currently locked in war. */
+export function areRegionsAtWar(entity, regionA, regionB) {
+  const rA = Math.trunc(Number(regionA));
+  const rB = Math.trunc(Number(regionB));
+  if (
+    !Number.isInteger(rA) || !Number.isInteger(rB) ||
+    rA < 0 || rA >= TAMRIEL_REGION_COUNT || rB < 0 || rB >= TAMRIEL_REGION_COUNT || rA === rB
+  ) {
+    return false;
+  }
+  const p = entity?.apotheosis?.pantheon;
+  const k = pairKey(String(rA), String(rB));
+  if (p?.regionWars && k in p.regionWars) return Boolean(p.regionWars[k]);
+  const aWar = conditionFlag(entity?.regionConditions, rA, REGION_FLAGS.WarOngoing)
+    || conditionFlag(entity?.regionConditions, rA, REGION_FLAGS.WarBeginning);
+  const bWar = conditionFlag(entity?.regionConditions, rB, REGION_FLAGS.WarOngoing)
+    || conditionFlag(entity?.regionConditions, rB, REGION_FLAGS.WarBeginning);
+  return Boolean(aWar && bWar);
+}
+
 /**
- * Targeted geopolitical decree: ignites war between `regionA` and `regionB` (`350 Faith`),
+ * Targeted geopolitical decree: ignites war between `regionA` and `regionB` (`250 Faith`),
  * setting `WarOngoing` in both regions and wiring faction hostility when `factionRep.dict` exists.
  */
-export function igniteRegionWar(entity, regionA, regionB, { nowMinutes = null } = {}) {
+export function igniteRegionWar(entity, regionA, regionB, { nowMinutes = null, force = false } = {}) {
   const rA = Math.trunc(Number(regionA));
   const rB = Math.trunc(Number(regionB));
   if (
@@ -1342,10 +1422,19 @@ export function igniteRegionWar(entity, regionA, regionB, { nowMinutes = null } 
   ) {
     return { ok: false, error: t('apotheosis.geo.errRegions', 'Select two distinct Tamriel regions.') };
   }
-  const spend = spendApotheosisFaith(entity, GEOPOLITICS_WAR_COST, { reason: `geo_war_${rA}_${rB}` });
+  const nameA = getLocalizedRegionName(rA, (i) => REGION_NAMES[i] ?? `Region ${i}`);
+  const nameB = getLocalizedRegionName(rB, (i) => REGION_NAMES[i] ?? `Region ${i}`);
+  if (!force && areRegionsAtWar(entity, rA, rB)) {
+    return { ok: false, error: t('apotheosis.geo.errAlreadyWar', '{a} and {b} are already at war.', { a: nameA, b: nameB }) };
+  }
+  const cost = force ? 0 : GEOPOLITICS_WAR_COST;
+  const spend = cost > 0
+    ? spendApotheosisFaith(entity, cost, { reason: `geo_war_${rA}_${rB}` })
+    : { ok: true, spent: 0, faith: entity.apotheosis?.faith ?? 0 };
   if (!spend.ok) return spend;
 
   const p = ensurePantheonState(entity, { nowMinutes });
+  if (p) p.regionWars[pairKey(String(rA), String(rB))] = true;
   if (!Array.isArray(entity.regionConditions)) entity.regionConditions = createRegionConditions(TAMRIEL_REGION_COUNT);
   turnOnConditionFlag(entity.regionConditions, rA, REGION_FLAGS.WarOngoing);
   turnOnConditionFlag(entity.regionConditions, rB, REGION_FLAGS.WarOngoing);
@@ -1366,8 +1455,6 @@ export function igniteRegionWar(entity, regionA, regionB, { nowMinutes = null } 
   }
 
   const refMin = nowMinutes ?? entity.apotheosis?.ascendedAtMinutes ?? 0;
-  const nameA = getLocalizedRegionName(rA, (i) => REGION_NAMES[i] ?? `Region ${i}`);
-  const nameB = getLocalizedRegionName(rB, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   pushChronicle(p, {
     day: dayFromMinutes(refMin),
     minutes: refMin,
@@ -1376,18 +1463,18 @@ export function igniteRegionWar(entity, regionA, regionB, { nowMinutes = null } 
     text: t(
       'apotheosis.geo.logWar',
       'Ignited Divine War between {a} and {b} (-{cost} Faith).',
-      { a: nameA, b: nameB, cost: GEOPOLITICS_WAR_COST },
+      { a: nameA, b: nameB, cost },
     ),
   });
 
-  return { ok: true, action: 'war', regions: [rA, rB], faithSpent: GEOPOLITICS_WAR_COST, faith: spend.faith };
+  return { ok: true, action: 'war', regions: [rA, rB], faithSpent: cost, faith: spend.faith };
 }
 
 /**
  * Targeted geopolitical decree: enforces peace between `regionA` and `regionB` (`300 Faith`),
  * ending active war flags and faction hostility while boosting Order deities & player cult.
  */
-export function enforceRegionPeace(entity, regionA, regionB, { nowMinutes = null } = {}) {
+export function enforceRegionPeace(entity, regionA, regionB, { nowMinutes = null, force = false } = {}) {
   const rA = Math.trunc(Number(regionA));
   const rB = Math.trunc(Number(regionB));
   if (
@@ -1396,10 +1483,19 @@ export function enforceRegionPeace(entity, regionA, regionB, { nowMinutes = null
   ) {
     return { ok: false, error: t('apotheosis.geo.errRegions', 'Select two distinct Tamriel regions.') };
   }
-  const spend = spendApotheosisFaith(entity, GEOPOLITICS_PEACE_COST, { reason: `geo_peace_${rA}_${rB}` });
+  const nameA = getLocalizedRegionName(rA, (i) => REGION_NAMES[i] ?? `Region ${i}`);
+  const nameB = getLocalizedRegionName(rB, (i) => REGION_NAMES[i] ?? `Region ${i}`);
+  if (!force && !areRegionsAtWar(entity, rA, rB)) {
+    return { ok: false, error: t('apotheosis.geo.errAlreadyPeace', '{a} and {b} are already at peace.', { a: nameA, b: nameB }) };
+  }
+  const cost = force ? 0 : GEOPOLITICS_PEACE_COST;
+  const spend = cost > 0
+    ? spendApotheosisFaith(entity, cost, { reason: `geo_peace_${rA}_${rB}` })
+    : { ok: true, spent: 0, faith: entity.apotheosis?.faith ?? 0 };
   if (!spend.ok) return spend;
 
   const p = ensurePantheonState(entity, { nowMinutes });
+  if (p) p.regionWars[pairKey(String(rA), String(rB))] = false;
   if (!Array.isArray(entity.regionConditions)) entity.regionConditions = createRegionConditions(TAMRIEL_REGION_COUNT);
   for (const reg of [rA, rB]) {
     turnOffConditionFlag(entity.regionConditions, reg, REGION_FLAGS.WarBeginning);
@@ -1423,8 +1519,6 @@ export function enforceRegionPeace(entity, regionA, regionB, { nowMinutes = null
   }
 
   const refMin = nowMinutes ?? entity.apotheosis?.ascendedAtMinutes ?? 0;
-  const nameA = getLocalizedRegionName(rA, (i) => REGION_NAMES[i] ?? `Region ${i}`);
-  const nameB = getLocalizedRegionName(rB, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   pushChronicle(p, {
     day: dayFromMinutes(refMin),
     minutes: refMin,
@@ -1433,11 +1527,11 @@ export function enforceRegionPeace(entity, regionA, regionB, { nowMinutes = null
     text: t(
       'apotheosis.geo.logPeace',
       'Enforced Divine Peace between {a} and {b} (-{cost} Faith).',
-      { a: nameA, b: nameB, cost: GEOPOLITICS_PEACE_COST },
+      { a: nameA, b: nameB, cost },
     ),
   });
 
-  return { ok: true, action: 'peace', regions: [rA, rB], faithSpent: GEOPOLITICS_PEACE_COST, faith: spend.faith };
+  return { ok: true, action: 'peace', regions: [rA, rB], faithSpent: cost, faith: spend.faith };
 }
 
 /** Filters & searches the Pantheon Chronicle (`filter`: 'all'|'my_cult'|'against_me'|'diplomacy'|'regions'). */

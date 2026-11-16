@@ -10102,3 +10102,8 @@ apotheosis.aurbis.err.portalRefused,"Het Goddelijke Portaal kon nu niet worden g
 apotheosis.aurbis.portalOpened,"Poorten van Aurbis opengescheurd (-{cost} Geloof)."
 apotheosis.aurbis.portalMapOpened,"Kaart van Goddelijk Portaal geopend ({cost} Geloof bij bestemmingskeuze)."
 apotheosis.aurbis.orderBonusSuffix," (+{bonus} Orde-Geloof)"
+apotheosis.geo.statusWar,"Huidige status: {a} en {b} zijn IN OORLOG"
+apotheosis.geo.statusPeace,"Huidige status: {a} en {b} zijn IN VREDE"
+apotheosis.geo.errRegions,"Selecteer twee verschillende regio's van Tamriel."
+apotheosis.geo.errAlreadyWar,"{a} en {b} zijn al in oorlog."
+apotheosis.geo.errAlreadyPeace,"{a} en {b} zijn al in vrede."
