@@ -674,7 +674,7 @@ function renderAurbisPage(detail, entity, repaint) {
   const fixedMiracles = [
     { label: t('apotheosis.aurbis.q.portal', 'Divine Portal'), desc: t('apotheosis.aurbis.q.portalDesc', 'Open Portal Stone map'), cmd: 'portal' },
     { label: t('apotheosis.aurbis.q.heal', 'Divine Restoration'), desc: t('apotheosis.aurbis.q.healDesc', 'Restore Health, Magicka & Fatigue'), cmd: 'heal' },
-    { label: t('apotheosis.aurbis.q.pacifyall', 'Pacify All Foes (+Order)'), desc: t('apotheosis.aurbis.q.pacifyallDesc', 'Calm all hostiles on the map (+Order Faith)'), cmd: 'pacifyall' },
+    { label: t('apotheosis.aurbis.q.pacifyall', 'Pacify All Foes'), desc: t('apotheosis.aurbis.q.pacifyallDesc', 'Calm all hostiles on the map (+Order Faith)'), cmd: 'pacifyall' },
     { label: t('apotheosis.aurbis.q.killall', 'Smite Hostiles'), desc: t('apotheosis.aurbis.q.killallDesc', 'Strike down nearby foes'), cmd: 'killall' },
     { label: t('apotheosis.aurbis.q.champion', 'Summon Champion (24h)'), desc: t('apotheosis.aurbis.q.championDesc', 'Summon 1 Faith-scaled Portfolio Champion'), cmd: 'summon_champion' },
     { label: t('apotheosis.aurbis.q.champions', 'Champion Party x4 (24h)'), desc: t('apotheosis.aurbis.q.championsDesc', 'Summon 4 Faith-scaled Portfolio Champions'), cmd: 'summon_champions' },
