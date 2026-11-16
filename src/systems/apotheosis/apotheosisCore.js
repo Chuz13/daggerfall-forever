@@ -1510,7 +1510,7 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
         remainingHours: cd.remainingHours,
         error: t(
           'apotheosis.err.switch_cooldown',
-          'Portfolio realignment is on cooldown ({days}d remaining; 30-day cooldown between switches).',
+          'Portfolio realignment is on cooldown ({days} days remaining).',
           { days: cd.remainingDays },
         ),
         state,

@@ -5166,7 +5166,7 @@
  },
  "apotheosis.tr.tr06.desc": {
   "en": "5970e41c3bc5",
-  "tr": "3bb75d288b69",
+  "tr": "07334197979a",
   "by": "human"
  },
  "apotheosis.tr.tr06.name": {
@@ -5316,8 +5316,8 @@
  },
  "apotheosis.tr.tr15.name": {
   "en": "7c5e38001a84",
-  "tr": "c937bdeb8faf",
-  "by": "claude-in-session"
+  "tr": "c2e961371f07",
+  "by": "human"
  },
  "apotheosis.tr.tr15.prog": {
   "en": "a994e4939918",
@@ -5341,7 +5341,7 @@
  },
  "apotheosis.tr.tr17.desc": {
   "en": "b78614bdad83",
-  "tr": "8f9045efd959",
+  "tr": "5b5a5feb744a",
   "by": "human"
  },
  "apotheosis.tr.tr17.name": {
@@ -49886,17 +49886,622 @@
  },
  "apotheosis.tr.tr22.name": {
   "en": "679c7b1c917c",
-  "tr": "2639ba02772f",
+  "tr": "badc42ce70fb",
   "by": "human"
  },
  "apotheosis.tr.tr22.desc": {
   "en": "3de1044a1f09",
-  "tr": "244d2f05ae14",
+  "tr": "d5c46f32ea3d",
   "by": "human"
  },
  "apotheosis.tr.tr22.prog": {
   "en": "4b30b08d16d6",
   "tr": "3ee0d9686fad",
   "by": "human"
+ },
+ "apotheosis.tr.tr23.name": {
+  "en": "5a529079b165",
+  "tr": "1db7e3c510a0",
+  "by": "human"
+ },
+ "apotheosis.tr.tr23.desc": {
+  "en": "7d7efc37c694",
+  "tr": "b1785103692d",
+  "by": "human"
+ },
+ "apotheosis.tr.tr23.prog": {
+  "en": "71ca7d21853a",
+  "tr": "2922da5cd732",
+  "by": "human"
+ },
+ "apotheosis.tr.tr24.name": {
+  "en": "fa700c92a9ac",
+  "tr": "995bdbfebe46",
+  "by": "human"
+ },
+ "apotheosis.tr.tr24.desc": {
+  "en": "d6df2f251118",
+  "tr": "ccce6eb94eb5",
+  "by": "human"
+ },
+ "apotheosis.tr.tr24.active": {
+  "en": "5797214bd6de",
+  "tr": "9faa87e06dd3",
+  "by": "human"
+ },
+ "apotheosis.tr.tr24.none": {
+  "en": "615549f71eaf",
+  "tr": "fbe4ba48af2d",
+  "by": "human"
+ },
+ "apotheosis.champion.expired": {
+  "en": "8c419e7a2d3b",
+  "tr": "8e7dabd739e9",
+  "by": "human"
+ },
+ "apotheosis.err.switch_cooldown": {
+  "en": "357cbaa5d947",
+  "tr": "de7d50155603",
+  "by": "human"
+ },
+ "apotheosis.nav.aurbis": {
+  "en": "4ec521c17f1f",
+  "tr": "d94f3eae11b3",
+  "by": "claude-in-session"
+ },
+ "apotheosis.faith.title": {
+  "en": "ea757eb7ae8a",
+  "tr": "782cf9a59afd",
+  "by": "claude-in-session"
+ },
+ "apotheosis.faith.cultBonus": {
+  "en": "dcfeba035325",
+  "tr": "5e24767fb201",
+  "by": "claude-in-session"
+ },
+ "apotheosis.faith.meter": {
+  "en": "ae6fda3894db",
+  "tr": "23e328896af7",
+  "by": "claude-in-session"
+ },
+ "apotheosis.portfolio.btnCooldown": {
+  "en": "b750efc9d69a",
+  "tr": "416cf9492372",
+  "by": "claude-in-session"
+ },
+ "apotheosis.portfolio.btnSwitchCost": {
+  "en": "983f8517ae3d",
+  "tr": "32f294753d9a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.overview.changePortfolioCostBtn": {
+  "en": "eb4d3bbdc34a",
+  "tr": "32f294753d9a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.overview.openAurbisBtn": {
+  "en": "61262a8f2174",
+  "tr": "bcf4ebd8b97a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.overview.mantellaMortalChosen": {
+  "en": "628e50d9d443",
+  "tr": "e20bca1edd1e",
+  "by": "claude-in-session"
+ },
+ "apotheosis.portfolio.pageSubStage2": {
+  "en": "ea61b779bdfc",
+  "tr": "50578932d161",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.refused": {
+  "en": "4780a754b6cf",
+  "tr": "21071ff2bac0",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.witnessNote": {
+  "en": "386c57863982",
+  "tr": "b5ef564c3e2c",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.orderNote": {
+  "en": "e0c417f865fe",
+  "tr": "aa6d03eb0213",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.invoked": {
+  "en": "47fe8866e0c0",
+  "tr": "4aa1bd61b9fe",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.title": {
+  "en": "4ec521c17f1f",
+  "tr": "d94f3eae11b3",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.subtitle": {
+  "en": "38a31c9f4984",
+  "tr": "d561894b78c1",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.locked": {
+  "en": "363aa0f2faa0",
+  "tr": "a5fbddaefe7e",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.quickTitle": {
+  "en": "34ea7c80eb39",
+  "tr": "b4ec75ec92a5",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.portal": {
+  "en": "856ca7620d09",
+  "tr": "286e5f379e4f",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.portalDesc": {
+  "en": "108964ca0e78",
+  "tr": "23d939be7c93",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.heal": {
+  "en": "50c55b1891d9",
+  "tr": "8cafa41bfc2c",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.healDesc": {
+  "en": "721401a6e10b",
+  "tr": "e7997eefe151",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.pacifyall": {
+  "en": "3a7c9b8e6d01",
+  "tr": "84020a4ec91a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.pacifyallDesc": {
+  "en": "079a1ed072ec",
+  "tr": "5b07ecc1e82a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.killall": {
+  "en": "bb04b57be796",
+  "tr": "b0d4557bc4af",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.killallDesc": {
+  "en": "89f6aa651845",
+  "tr": "f48ebb9a6eb5",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.champion": {
+  "en": "537453fa0dd7",
+  "tr": "28d66a6c2792",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.championDesc": {
+  "en": "ed1a9dd3c2a2",
+  "tr": "3bc5c7f7aed2",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.champions": {
+  "en": "91f06c89636b",
+  "tr": "1970c167e7d5",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.championsDesc": {
+  "en": "b186e73e683e",
+  "tr": "97189c4fbbb6",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.sun": {
+  "en": "f5ac6cae05d9",
+  "tr": "8af7afe760cd",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.sunDesc": {
+  "en": "b7301bc3d8a6",
+  "tr": "2d29e839fb3f",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.storm": {
+  "en": "5ee05f11d8e9",
+  "tr": "521d62245e23",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.stormDesc": {
+  "en": "fffd0dd3b35e",
+  "tr": "2f8a545f17f3",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.time": {
+  "en": "cf7a3d3f9ce3",
+  "tr": "3e10623b41a5",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.timeDesc": {
+  "en": "68070c20bd13",
+  "tr": "2476a2bbe31b",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.gold": {
+  "en": "fc6417bff797",
+  "tr": "39c06e1958c4",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.goldDesc": {
+  "en": "c9a7b0dac0f4",
+  "tr": "ffef429b7339",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.absolve": {
+  "en": "3bd2c7c17c40",
+  "tr": "caecd275275c",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.absolveDesc": {
+  "en": "16b923059fcb",
+  "tr": "2ecb85b6c8f5",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.crisisTp": {
+  "en": "d14729ae14c5",
+  "tr": "3236cc6922ce",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.crisisTpDesc": {
+  "en": "6df84dcd462d",
+  "tr": "4d2db768d6f6",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cardCost": {
+  "en": "3544fa1e596f",
+  "tr": "80e40290b3c3",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.spawn": {
+  "en": "eec8ca39d06b",
+  "tr": "b3ded8a83419",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.q.spawnBtn": {
+  "en": "b379ee652c70",
+  "tr": "896e384f6d11",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.manualTitle": {
+  "en": "264967913d53",
+  "tr": "fc1d24046b7e",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.placeholder": {
+  "en": "f7e8928b4e73",
+  "tr": "285262457ed5",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.invokeBtn": {
+  "en": "c65605adf527",
+  "tr": "43001100423d",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.hideCatalog": {
+  "en": "72ab2ec1fb11",
+  "tr": "c4280ebdbd42",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.showCatalog": {
+  "en": "c15a832c249d",
+  "tr": "856c8dba37f2",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.previewIdle": {
+  "en": "93a624f68eca",
+  "tr": "e187e003b924",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.witnessAligned": {
+  "en": "c541eae7fa91",
+  "tr": "6094641c3903",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.witnessOpposed": {
+  "en": "e2d2aa0d95b2",
+  "tr": "4b013b77c036",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.previewLacks": {
+  "en": "007624d3bd3a",
+  "tr": "c45bc34db7e0",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.previewOk": {
+  "en": "8600b7aac667",
+  "tr": "f26e717b6a0d",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.aliases": {
+  "en": "6d22292a8174",
+  "tr": "b8e7cdff4972",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.logTitle": {
+  "en": "dd88a4c9678a",
+  "tr": "c98bb7b436d3",
+  "by": "claude-in-session"
+ },
+ "apotheosis.lock.inMantellanCrux": {
+  "en": "5d3ef98edbb8",
+  "tr": "0d600d0be0bb",
+  "by": "claude-in-session"
+ },
+ "apotheosis.err.switch_faith": {
+  "en": "57370a7a2a1d",
+  "tr": "0ef54721e47a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cat.vitals": {
+  "en": "41590e8e283f",
+  "tr": "10ae1c253e68",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.heal": {
+  "en": "017e1516f4da",
+  "tr": "ed53d45fe517",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cat.portalMap": {
+  "en": "904500e7fc71",
+  "tr": "455f8b248300",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.portal": {
+  "en": "b6296bfcf5e5",
+  "tr": "27f0da91f248",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.tele2loc": {
+  "en": "6367e0861477",
+  "tr": "fe2420e40663",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.mapReveal": {
+  "en": "22d48e1f0b6d",
+  "tr": "a4c33400a794",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cat.itemsGold": {
+  "en": "3a4fcdfc5f57",
+  "tr": "e2f05a5f67ac",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.additem": {
+  "en": "ff542ff16d98",
+  "tr": "68b1abacb3ce",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.addgold": {
+  "en": "add32a10cf23",
+  "tr": "460abf678e42",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.presets": {
+  "en": "e465645fa179",
+  "tr": "7ba80762494c",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cat.worldWeather": {
+  "en": "5be2ef9875bf",
+  "tr": "55a7148137fa",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.weather": {
+  "en": "391458ea9dd0",
+  "tr": "1abfd9fc59a8",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.time": {
+  "en": "bf548a0ab073",
+  "tr": "c69d8b01966d",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cat.crisisSim": {
+  "en": "9834336d8eb6",
+  "tr": "31f9eca11d2e",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.crisis": {
+  "en": "5989b767705e",
+  "tr": "a340a8d8ea59",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.living": {
+  "en": "304d31154555",
+  "tr": "1f9a27c62a5a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.encounter": {
+  "en": "d344832ff01c",
+  "tr": "c621fda071b3",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cat.combatSpawn": {
+  "en": "4799795cf84e",
+  "tr": "b86c9f87b531",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.summonChampion": {
+  "en": "2f05b3b8962c",
+  "tr": "a9c18a705d52",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.summonChampions": {
+  "en": "439b5272eab1",
+  "tr": "4c8e822b1804",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.pacifyall": {
+  "en": "38d88a455472",
+  "tr": "acf37084046e",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.spawnfoe": {
+  "en": "6fc6c9548009",
+  "tr": "829b51b1ae50",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.killall": {
+  "en": "988a8a47093d",
+  "tr": "33b33fdd9d4d",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cat.lichdom": {
+  "en": "6414647d619d",
+  "tr": "89889d34b376",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.lich": {
+  "en": "f54fc89b0632",
+  "tr": "66c0de425fac",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.ancientLich": {
+  "en": "604c0249922e",
+  "tr": "b60e6b261550",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.necroSpells": {
+  "en": "782cab4732ae",
+  "tr": "afe5f493899a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.necro": {
+  "en": "4d6d2680c69a",
+  "tr": "71e6209b60e1",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cat.lawInfo": {
+  "en": "de24977151ba",
+  "tr": "7e19d0c7f554",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.bounty": {
+  "en": "58d4591a2276",
+  "tr": "cfaa9799e490",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.legalrep": {
+  "en": "b6817f3cab4c",
+  "tr": "90b35cf49138",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.cmd.info": {
+  "en": "85b6e1d4ddf4",
+  "tr": "4e6cf27696af",
+  "by": "claude-in-session"
+ },
+ "apotheosis.err.notAscendedFaith": {
+  "en": "b91f51f4bffa",
+  "tr": "9556850a500b",
+  "by": "claude-in-session"
+ },
+ "apotheosis.err.insufficientFaith": {
+  "en": "6350a9a11f5d",
+  "tr": "c8eac8f0ea12",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.additemUsage": {
+  "en": "e45fe4bdd7c4",
+  "tr": "e008c9e4789a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.itemNotFound": {
+  "en": "a3798cd1f004",
+  "tr": "fd4613b9ec41",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.chained": {
+  "en": "6d5915895203",
+  "tr": "baf88e168a10",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.forbidden": {
+  "en": "1990a31b7bfa",
+  "tr": "e6acdb0063c3",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.goldAmount": {
+  "en": "f96ff34697f3",
+  "tr": "550a7ee512c9",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.weatherUsage": {
+  "en": "9a38a06ee996",
+  "tr": "cae9c326fcbb",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.spawnUsage": {
+  "en": "23898307a8ce",
+  "tr": "6e7b29a9a395",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.crisisTarget": {
+  "en": "bc6b54eb3375",
+  "tr": "ece2d41db8f1",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.crisisUsage": {
+  "en": "36fd54ef7ff1",
+  "tr": "264e14bc2ec1",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.livingUsage": {
+  "en": "f4d774b017fb",
+  "tr": "c194fe092c78",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.bountyUsage": {
+  "en": "66393421fd98",
+  "tr": "01cd3f36fb22",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.legalrepUsage": {
+  "en": "6f4b7721ba51",
+  "tr": "15481239a328",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.unknown": {
+  "en": "3a6fcf0e8a9a",
+  "tr": "2fc3afbf94f1",
+  "by": "claude-in-session"
+ },
+ "apotheosis.err.notAscendedAurbis": {
+  "en": "ad7faa7f6811",
+  "tr": "fca345909b8a",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.portalUnavailable": {
+  "en": "da8aee7db54e",
+  "tr": "fbbe40958b1e",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.err.portalRefused": {
+  "en": "bcd98ce41b22",
+  "tr": "8781ec6fe421",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.portalOpened": {
+  "en": "8b823a75b096",
+  "tr": "4f22c5b08e77",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.portalMapOpened": {
+  "en": "1fa270bc66ab",
+  "tr": "ef82672e243b",
+  "by": "claude-in-session"
+ },
+ "apotheosis.aurbis.orderBonusSuffix": {
+  "en": "6929fff49f47",
+  "tr": "8c45e8bfa947",
+  "by": "claude-in-session"
  }
 }

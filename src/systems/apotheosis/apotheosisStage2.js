@@ -1670,7 +1670,7 @@ export async function executeAurbisCommand(rawLine, entity, {
 } = {}) {
   const apo = normalizeStage2Fields(entity);
   if (!isAscendedGod(entity)) {
-    return { ok: false, error: t('apotheosis.err.notAscendedFaith', 'Ascend to Godhood before wielding the Scroll of Aurbis.') };
+    return { ok: false, error: t('apotheosis.err.notAscendedAurbis', 'Ascend to Godhood before wielding the Scroll of Aurbis.') };
   }
 
   const runtime = getAurbisRuntime();
@@ -1822,7 +1822,7 @@ export async function executeAurbisCommand(rawLine, entity, {
     ok: true,
     cmd: evaluation.cmd,
     args: evaluation.args,
-    output: orderBonus > 0 ? `${output} (+${orderBonus} Order Faith)`.trim() : output,
+    output: orderBonus > 0 ? `${output}${t('apotheosis.aurbis.orderBonusSuffix', ' (+{bonus} Order Faith)', { bonus: orderBonus })}`.trim() : output,
     faithSpent: evaluation.faithCost,
     witnessCount: resolvedWitnesses,
     witnessDelta,

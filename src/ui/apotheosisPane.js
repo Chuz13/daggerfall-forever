@@ -615,7 +615,7 @@ async function runAurbisLine(cmdLine, entity, repaint) {
   try { nowMin = worldMinutes() || 0; } catch { nowMin = 0; }
   const res = await executeAurbisCommand(clean, entity, { nowMinutes: nowMin });
   if (!res.ok) {
-    const errText = res.error ?? 'Miracle refused.';
+    const errText = res.error ?? t('apotheosis.aurbis.err.refused', 'Miracle refused.');
     setFeedback(errText, true);
     aurbisLog = [`> ${clean}\nERR: ${errText}`, ...aurbisLog].slice(0, 12);
     repaint();
@@ -624,10 +624,12 @@ async function runAurbisLine(cmdLine, entity, repaint) {
   if (aurbisHistory[0] !== clean) aurbisHistory = [clean, ...aurbisHistory].slice(0, 20);
   aurbisHistoryIdx = -1;
   const witnessNote = res.witnessDelta
-    ? ` | Witnesses: ${res.witnessDelta > 0 ? `+${res.witnessDelta}` : res.witnessDelta} Faith`
+    ? t('apotheosis.aurbis.witnessNote', ' | Witnesses: {delta} Faith', {
+      delta: res.witnessDelta > 0 ? `+${res.witnessDelta}` : res.witnessDelta,
+    })
     : '';
   const orderNote = res.orderBonus
-    ? ` | Order: +${res.orderBonus} Faith`
+    ? t('apotheosis.aurbis.orderNote', ' | Order: +{bonus} Faith', { bonus: res.orderBonus })
     : '';
   const summary = res.deferred
     ? res.output
@@ -695,7 +697,7 @@ function renderAurbisPage(detail, entity, repaint) {
     btn.append(
       el('div', 'apo-card-title', m.label),
       el('div', 'apo-card-desc', m.desc),
-      el('div', 'apo-card-prog', `${cost} Faith${alignTag}`),
+      el('div', 'apo-card-prog', t('apotheosis.aurbis.cardCost', '{cost} Faith{align}', { cost, align: alignTag })),
     );
     btn.onclick = () => runAurbisLine(m.cmd, entity, repaint);
     quickGrid.append(btn);
@@ -763,9 +765,9 @@ function renderAurbisPage(detail, entity, repaint) {
     }
     const lacks = (state.faith || 0) < ev.faithCost;
     const alignStr = ev.witnessDelta > 0
-      ? ` · Witnesses aligned (+${ev.witnessDelta} Faith)`
+      ? t('apotheosis.aurbis.witnessAligned', ' · Witnesses aligned (+{delta} Faith)', { delta: ev.witnessDelta })
       : ev.witnessDelta < 0
-        ? ` · Witnesses opposed (${ev.witnessDelta} Faith)`
+        ? t('apotheosis.aurbis.witnessOpposed', ' · Witnesses opposed ({delta} Faith)', { delta: ev.witnessDelta })
         : '';
     previewEl.className = lacks
       ? 'apo-aurbis-preview err'
@@ -827,7 +829,7 @@ function renderAurbisPage(detail, entity, repaint) {
         row.append(
           el('span', 'apo-card-title', entry.syntax),
           el('span', 'apo-pill', entry.costHint),
-          el('div', 'apo-card-desc', `${entry.desc()}${entry.aliases?.length ? ` (Aliases: ${entry.aliases.join(', ')})` : ''}`),
+          el('div', 'apo-card-desc', `${entry.desc()}${entry.aliases?.length ? t('apotheosis.aurbis.aliases', ' (Aliases: {list})', { list: entry.aliases.join(', ') }) : ''}`),
         );
         row.onclick = () => {
           aurbisInputText = entry.cmd;
