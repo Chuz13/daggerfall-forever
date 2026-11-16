@@ -1038,9 +1038,7 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
       const entry = p.deities[d.id];
       if (!entry) continue;
       entry.status = computeStatusFromEntry(entry, entry.relation, simMin);
-      // Normal/Relentless Pantheon activity: every one of the 16 AI deities acts daily;
-      // Passive halves daily cadence so passive worlds aren't overwhelmed.
-      const chance = actMult < 1 ? 0.5 : 1.0;
+      const chance = clamp(0.35 * actMult, 0.05, 0.95);
       if (rng() >= chance) continue;
 
       aiMoves++;
