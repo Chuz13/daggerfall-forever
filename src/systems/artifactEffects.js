@@ -201,6 +201,11 @@ const HANDLERS = new Map([
         // free whole blow every failed save, its number the stand-in's whole on top of the swing's
         if (!target || !item || target.spareGear) return null;
         if (savingThrow(ELEMENTS.Magic, EFFECT_FLAGS.Magic, target, 0, rolls) !== 0) {
+          if (target.noInstakill || target.divineChampion) {
+            const maxHp = target.maxHealth || target.health || 100;
+            const capped = Math.max(1, Math.min(target.health ?? 0, Math.round(maxHp * 0.1)));
+            return { strikesModulateDamage: capped, durabilityLoss: capped };
+          }
           const healthRemoved = target.health ?? 0;
           markWholeBlow(target); // AUDIT PSCALE1 DOORS-1: the whole health, whole - the foe's door takes it undivided, and so does its owner's
           return { strikesModulateDamage: healthRemoved, durabilityLoss: healthRemoved };
@@ -323,7 +328,7 @@ const HANDLERS = new Map([
     ARTIFACTS.Wabbajack,
     {
       strikes({ target, ctx, rolls = Math.random }) {
-        if (!target || target.isPlayer) return null;
+        if (!target || target.isPlayer || target.noInstakill || target.divineChampion) return null;
         if (target.wabbajackActive) return null;
         let newType;
         do {

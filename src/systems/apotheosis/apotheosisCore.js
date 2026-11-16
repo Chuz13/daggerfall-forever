@@ -107,7 +107,50 @@ import {
   setApotheosisChampionExpiredHook,
   tickApotheosisChampions,
   apotheosisChampionParty,
+  getApotheosisWorldHostilityMultiplier,
+  getApotheosisFaithGainMultiplier,
+  getApotheosisFaithDecayMultiplier,
+  getApotheosisPantheonActivityMultiplier,
 } from './apotheosisStage2.js';
+import {
+  TAMRIEL_REGION_COUNT,
+  APOTHEOSIS_GRACE_PERIOD_DAYS,
+  APOTHEOSIS_GRACE_PERIOD_MINUTES,
+  APOTHEOSIS_TRUCE_DAYS,
+  APOTHEOSIS_TRUCE_MINUTES,
+  PANTHEON_OFFERING_COST,
+  PANTHEON_PACT_COST,
+  PANTHEON_ALLIANCE_COST,
+  PANTHEON_DISCORD_COST,
+  PANTHEON_WAR_COST,
+  GEOPOLITICS_WAR_COST,
+  GEOPOLITICS_PEACE_COST,
+  PANTHEON_DEITIES,
+  registerPantheonDeity,
+  getPantheonDeities,
+  getPantheonDeity,
+  resolveRegionPatronDeityId,
+  ensurePantheonState,
+  applyPantheonPortfolioSwitch,
+  getDeityGraceInfo,
+  changeDeityRelation,
+  getRegionInfluence,
+  shiftRegionInfluence,
+  setRegionInfluenceShare,
+  getGlobalInfluenceSummary,
+  applyRegionConditionInfluenceShifts,
+  tickPantheonDay,
+  computeDivineTruceCost,
+  sendDivineOffering,
+  proposeDivinePact,
+  forgeDivineAlliance,
+  sowDivineDiscord,
+  declareHolyWar,
+  offerDivineTruce,
+  igniteRegionWar,
+  enforceRegionPeace,
+  queryPantheonChronicle,
+} from './apotheosisStage3.js';
 
 export {
   isAscendedGod,
@@ -169,6 +212,47 @@ export {
   setApotheosisChampionExpiredHook,
   tickApotheosisChampions,
   apotheosisChampionParty,
+  getApotheosisWorldHostilityMultiplier,
+  getApotheosisFaithGainMultiplier,
+  getApotheosisFaithDecayMultiplier,
+  getApotheosisPantheonActivityMultiplier,
+  TAMRIEL_REGION_COUNT,
+  APOTHEOSIS_GRACE_PERIOD_DAYS,
+  APOTHEOSIS_GRACE_PERIOD_MINUTES,
+  APOTHEOSIS_TRUCE_DAYS,
+  APOTHEOSIS_TRUCE_MINUTES,
+  PANTHEON_OFFERING_COST,
+  PANTHEON_PACT_COST,
+  PANTHEON_ALLIANCE_COST,
+  PANTHEON_DISCORD_COST,
+  PANTHEON_WAR_COST,
+  GEOPOLITICS_WAR_COST,
+  GEOPOLITICS_PEACE_COST,
+  PANTHEON_DEITIES,
+  registerPantheonDeity,
+  getPantheonDeities,
+  getPantheonDeity,
+  resolveRegionPatronDeityId,
+  ensurePantheonState,
+  applyPantheonPortfolioSwitch,
+  getDeityGraceInfo,
+  changeDeityRelation,
+  getRegionInfluence,
+  shiftRegionInfluence,
+  setRegionInfluenceShare,
+  getGlobalInfluenceSummary,
+  applyRegionConditionInfluenceShifts,
+  tickPantheonDay,
+  computeDivineTruceCost,
+  sendDivineOffering,
+  proposeDivinePact,
+  forgeDivineAlliance,
+  sowDivineDiscord,
+  declareHolyWar,
+  offerDivineTruce,
+  igniteRegionWar,
+  enforceRegionPeace,
+  queryPantheonChronicle,
 };
 
 export const TOTAL_FATE_TRIGGERS = 24;
@@ -309,6 +393,7 @@ export function defaultApotheosisState() {
     donationFaithEarned: 0,
     debugWitnessCount: null,
     lastPortfolioSwitchMinutes: null,
+    pantheon: null,
   };
 }
 
@@ -433,6 +518,7 @@ export function ensureApotheosisState(entity) {
     lastPortfolioSwitchMinutes: prev.lastPortfolioSwitchMinutes != null && Number.isFinite(Number(prev.lastPortfolioSwitchMinutes))
       ? Math.trunc(Number(prev.lastPortfolioSwitchMinutes))
       : null,
+    pantheon: prev.pantheon && typeof prev.pantheon === 'object' ? prev.pantheon : null,
   };
   return entity.apotheosis;
 }
@@ -1532,6 +1618,7 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
       state.faith = Math.min(getFaithMax(state), APOTHEOSIS_INITIAL_FAITH);
     }
   }
+  const prevPortfolio = state.portfolio;
   state.portfolio = portfolioId;
   state.ascended = true;
   state.stage = APOTHEOSIS_STAGES.ASCENDED;
@@ -1544,6 +1631,10 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   }
   if (!free && resolvedMinutes != null) {
     state.lastPortfolioSwitchMinutes = resolvedMinutes;
+  }
+  ensurePantheonState(entity, { nowMinutes: resolvedMinutes });
+  if (switching) {
+    applyPantheonPortfolioSwitch(entity, prevPortfolio, portfolioId, { free, nowMinutes: resolvedMinutes });
   }
   computeEntityMods(entity);
   const def = APOTHEOSIS_PORTFOLIOS.find((p) => p.id === portfolioId);

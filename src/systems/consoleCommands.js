@@ -92,6 +92,25 @@ import {
   getActiveApotheosisChampions,
   clearApotheosisChampions,
   tickApotheosisChampions,
+  PANTHEON_DEITIES,
+  ensurePantheonState,
+  getPantheonDeity,
+  getDeityGraceInfo,
+  changeDeityRelation,
+  getRegionInfluence,
+  setRegionInfluenceShare,
+  getGlobalInfluenceSummary,
+  tickPantheonDay,
+  computeDivineTruceCost,
+  sendDivineOffering,
+  proposeDivinePact,
+  forgeDivineAlliance,
+  sowDivineDiscord,
+  declareHolyWar,
+  offerDivineTruce,
+  igniteRegionWar,
+  enforceRegionPeace,
+  queryPantheonChronicle,
 } from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -3168,11 +3187,101 @@ async function handleApotheosisCommand(args = []) {
     }
     return handleSummonChampionCommand(1);
   }
+  if (sub === 'pantheon') {
+    const nowMin = Math.floor(worldMinutes());
+    const act = String(args[1] ?? 'status').toLowerCase();
+    const p = ensurePantheonState(playerEntity, { nowMinutes: nowMin });
+    if (!p) return 'Ascend and choose a Portfolio first.';
+    if (act === 'tick') {
+      const days = Math.max(1, Math.min(30, parseInt(args[2] ?? '1', 10) || 1));
+      const res = tickPantheonDay(playerEntity, nowMin, { daysOverride: days });
+      return `Pantheon simulated ${res.daysProcessed} day(s), ${res.aiMoves} deity move(s).`;
+    }
+    if (act === 'log') {
+      const filterArg = String(args[2] ?? 'all').toLowerCase();
+      const rows = queryPantheonChronicle(playerEntity, { filter: filterArg, search: args.slice(3).join(' ') }).slice(0, 12);
+      return rows.length ? rows.map((r) => `[Day ${r.day}] ${r.text}`).join('\n') : 'Chronicle is empty.';
+    }
+    if (act === 'rep') {
+      const d = getPantheonDeity(args[2]);
+      const delta = parseInt(args[3] ?? '0', 10);
+      if (!d || Number.isNaN(delta)) return 'Usage: apo pantheon rep <godId> <delta>';
+      const res = changeDeityRelation(playerEntity, d.id, delta, { nowMinutes: nowMin });
+      return `${d.name}: relation ${res.relation} (${res.status})${res.brokeGrace ? ' [GRACE BROKEN]' : ''}.`;
+    }
+    if (act === 'offer') {
+      const res = sendDivineOffering(playerEntity, args[2], { nowMinutes: nowMin });
+      return res.ok ? `Sent offering to ${res.deityId}: relation=${res.relation}, faith=${res.faith}` : res.error;
+    }
+    if (act === 'pact') {
+      const res = proposeDivinePact(playerEntity, args[2], { nowMinutes: nowMin });
+      return res.ok ? `Signed pact with ${res.deityId}: relation=${res.relation}, faith=${res.faith}` : res.error;
+    }
+    if (act === 'ally') {
+      const res = forgeDivineAlliance(playerEntity, args[2], { nowMinutes: nowMin });
+      return res.ok ? `Forged alliance with ${res.deityId}: relation=${res.relation}, faith=${res.faith}` : res.error;
+    }
+    if (act === 'war') {
+      const res = declareHolyWar(playerEntity, args[2], { nowMinutes: nowMin });
+      return res.ok ? `Holy War declared on ${res.deityId}: relation=${res.relation}, faith=${res.faith}` : res.error;
+    }
+    if (act === 'truce') {
+      const res = offerDivineTruce(playerEntity, args[2], { nowMinutes: nowMin });
+      return res.ok ? `30-day Truce with ${res.deityId} (-${res.faithSpent} Faith): relation=${res.relation}` : res.error;
+    }
+    if (act === 'discord') {
+      const res = sowDivineDiscord(playerEntity, args[2], args[3], { nowMinutes: nowMin });
+      return res.ok ? `Sowed discord between ${res.pair[0]} & ${res.pair[1]} (mutual=${res.interRelation}, faith=${res.faith})` : res.error;
+    }
+    const single = act !== 'status' ? getPantheonDeity(act) : null;
+    if (single) {
+      const e = p.deities[single.id];
+      const gr = getDeityGraceInfo(playerEntity, single.id, nowMin);
+      const truceCost = computeDivineTruceCost(playerEntity, single.id);
+      return `${single.name} (${single.kind}): rel=${e.relation}, status=${e.status}${gr.active ? ` [Grace ${gr.remainingDays}d]` : ''}, truceCost=${truceCost} Faith`;
+    }
+    const gSum = getGlobalInfluenceSummary(playerEntity);
+    const lines = PANTHEON_DEITIES.map((d) => {
+      const e = p.deities[d.id];
+      const gr = getDeityGraceInfo(playerEntity, d.id, nowMin);
+      return `${d.id}: rel=${e.relation} (${e.status}${gr.active ? `, grace ${gr.remainingDays}d` : ''}) avg=${gSum.avgShares[d.id] ?? 0}%`;
+    });
+    return `Player global cult avg=${gSum.avgShares.player ?? 0}% (dom=${gSum.dominatedCounts.player ?? 0}/71 regions)\n${lines.join('\n')}`;
+  }
+  if (sub === 'influence') {
+    const act = String(args[1] ?? '').toLowerCase();
+    if (act === 'set') {
+      const regIdx = parseInt(args[2] ?? '17', 10);
+      const holder = String(args[3] ?? 'player').toLowerCase();
+      const share = parseFloat(args[4] ?? '0');
+      const res = setRegionInfluenceShare(playerEntity, regIdx, holder, share);
+      return res ? `${res.regionName} (#${res.regionIndex}): leader=${res.leaderId} (${res.leaderShare}%), player=${res.playerShare}%` : 'Failed to update influence.';
+    }
+    const regIdx = args[1] != null ? parseInt(args[1], 10) : (sceneCtx?.getRegionIndex?.() ?? 17);
+    const info = getRegionInfluence(playerEntity, regIdx);
+    const breakdown = info.sorted.map(([k, v]) => `${k}:${v}%`).join(', ');
+    return `${info.regionName} (#${info.regionIndex}${info.isProvince ? ' Province' : ''}): ${breakdown}`;
+  }
+  if (sub === 'geopolitics') {
+    const nowMin = Math.floor(worldMinutes());
+    const mode = String(args[1] ?? '').toLowerCase();
+    const rA = parseInt(args[2] ?? '', 10);
+    const rB = parseInt(args[3] ?? '', 10);
+    if (mode === 'war') {
+      const res = igniteRegionWar(playerEntity, rA, rB, { nowMinutes: nowMin });
+      return res.ok ? `Divine War ignited between regions ${rA} and ${rB} (-${res.faithSpent} Faith).` : res.error;
+    }
+    if (mode === 'peace') {
+      const res = enforceRegionPeace(playerEntity, rA, rB, { nowMinutes: nowMin });
+      return res.ok ? `Divine Peace enforced between regions ${rA} and ${rB} (-${res.faithSpent} Faith).` : res.error;
+    }
+    return 'Usage: apo geopolitics <war|peace> <regionA> <regionB>';
+  }
   if (sub === 'reset') {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
 }
 
 registerAurbisRuntime({

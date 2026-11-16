@@ -495,6 +495,10 @@ export const CATEGORIES = Object.freeze([
     ]),
     sec('apotheosis', () => t('settings.sec.apotheosis', 'Apotheosis: Path of CHIM'), [
       'port:apotheosisShowTracker',
+      'port:apotheosisWorldHostility',
+      'port:apotheosisFaithGainMult',
+      'port:apotheosisFaithDecayMult',
+      'port:apotheosisPantheonActivity',
     ]),
   ]),
 ]);

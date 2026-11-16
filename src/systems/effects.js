@@ -1155,6 +1155,12 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         continue;
       }
       const left = target?.health ?? 0;
+      if (target?.noInstakill || target?.divineChampion) {
+        const maxHp = target?.maxHealth || left || 100;
+        const capped = Math.max(1, Math.min(left, Math.round(maxHp * 0.1)));
+        if (capped > 0 && sinks.hurt) { out.damage += capped; sinks.hurt(capped, { whole: false }); }
+        continue;
+      }
       out.disintegrated = (out.disintegrated ?? 0) + 1;
       if (left > 0 && sinks.hurt) { out.damage += left; sinks.hurt(left, { whole: true }); }   // AUDIT PSCALE1 DOORS-1: a Disintegrate is a kill - no fighters' toughness divides it
       continue;

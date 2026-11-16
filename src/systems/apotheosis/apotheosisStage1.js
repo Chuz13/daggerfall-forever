@@ -434,6 +434,8 @@ export function createDirenniSiegeController({
       const lvl = effectiveLevel(playerEntity);
       f.entity.name = t('apotheosis.boss.aspectName', 'Aspect of the Tower');
       f.entity.apotheosisAspectBoss = true;
+      f.entity.divineChampion = true;
+      f.entity.noInstakill = true;
       f.entity.sizeScale = 3;
       f.entity.maxHealth = Math.max(1200, (lvl + 12) * 95);
       f.entity.health = f.entity.maxHealth;
@@ -779,6 +781,8 @@ export function configureShadowEntity(shadowEntity, playerEntity) {
   if (!shadowEntity || !playerEntity) return shadowEntity;
   shadowEntity.name = t('apotheosis.shadow.name', 'Shadow of the Agent');
   shadowEntity.shadowBoss = true;
+  shadowEntity.divineChampion = true;
+  shadowEntity.noInstakill = true;
   shadowEntity.noLootDrop = true;
   shadowEntity.items = [];
   shadowEntity.level = Math.max(15, effectiveLevel(playerEntity));

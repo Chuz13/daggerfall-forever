@@ -468,7 +468,13 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // APOTHEOSIS: clone booksRead array and apotheosis state so later mutations cannot alias snapshots.
   snap.booksRead = Array.isArray(entity.booksRead) ? [...entity.booksRead] : [];
   snap.apotheosis = entity.apotheosis && typeof entity.apotheosis === 'object'
-    ? { ...entity.apotheosis, sacrificedArtifacts: Array.isArray(entity.apotheosis.sacrificedArtifacts) ? [...entity.apotheosis.sacrificedArtifacts] : [] }
+    ? {
+      ...entity.apotheosis,
+      sacrificedArtifacts: Array.isArray(entity.apotheosis.sacrificedArtifacts) ? [...entity.apotheosis.sacrificedArtifacts] : [],
+      ...(entity.apotheosis.pantheon !== undefined
+        ? { pantheon: entity.apotheosis.pantheon && typeof entity.apotheosis.pantheon === 'object' ? structuredClone(entity.apotheosis.pantheon) : null }
+        : {}),
+    }
     : null;
   // S1: a STOCK spell travels as its SPELLS.STD index (the compact
   // shape every pre-S1 save carries); a MADE spell has no file index,
@@ -984,7 +990,13 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.nemesesDefeated = Number.isFinite(Number(snap.nemesesDefeated)) && Number(snap.nemesesDefeated) >= 0 ? Math.trunc(Number(snap.nemesesDefeated)) : 0;
   entity.questsCompleted = Number.isFinite(Number(snap.questsCompleted)) && Number(snap.questsCompleted) >= 0 ? Math.trunc(Number(snap.questsCompleted)) : 0;
   entity.apotheosis = snap.apotheosis && typeof snap.apotheosis === 'object'
-    ? { ...snap.apotheosis, sacrificedArtifacts: Array.isArray(snap.apotheosis.sacrificedArtifacts) ? [...snap.apotheosis.sacrificedArtifacts] : [] }
+    ? {
+      ...snap.apotheosis,
+      sacrificedArtifacts: Array.isArray(snap.apotheosis.sacrificedArtifacts) ? [...snap.apotheosis.sacrificedArtifacts] : [],
+      ...(snap.apotheosis.pantheon !== undefined
+        ? { pantheon: snap.apotheosis.pantheon && typeof snap.apotheosis.pantheon === 'object' ? structuredClone(snap.apotheosis.pantheon) : null }
+        : {}),
+    }
     : null;
   // E4: `entity.GoldPieces = data.playerEntity.goldPieces`
   // (SerializablePlayer.cs:302). The pre-E4 MIGRATION that goes with

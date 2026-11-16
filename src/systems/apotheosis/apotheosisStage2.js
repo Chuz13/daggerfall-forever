@@ -14,6 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { t } from '../textManager.js';
+import { getPref } from '../uiPrefs.js';
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import {
   GROUP_TEMPLATE_INDICES,
@@ -478,6 +479,22 @@ function dayIndexFromMinutes(nowMinutes) {
   return Number.isFinite(mins) && mins >= 0 ? Math.floor(mins / MINUTES_PER_DAY) : 0;
 }
 
+/** Stage 3 difficulty & economy tuning multipliers read cleanly from `uiPrefs`. */
+export function getApotheosisWorldHostilityMultiplier() {
+  return ({ calm: 0.5, normal: 1, aggressive: 1.5, relentless: 2.5 }[getPref('apotheosisWorldHostility')] ?? 1);
+}
+export function getApotheosisFaithGainMultiplier() {
+  const v = Number(getPref('apotheosisFaithGainMult'));
+  return Number.isFinite(v) && v > 0 ? v : 1;
+}
+export function getApotheosisFaithDecayMultiplier() {
+  const v = Number(getPref('apotheosisFaithDecayMult'));
+  return Number.isFinite(v) && v >= 0 ? v : 1;
+}
+export function getApotheosisPantheonActivityMultiplier() {
+  return ({ passive: 0.25, normal: 1, dynamic: 1.5, chaotic: 2.5 }[getPref('apotheosisPantheonActivity')] ?? 1);
+}
+
 /**
  * Adds Faith to an ascended god, clamped to `[0, getFaithMax(entity)]`.
  * Optionally stamps `lastFaithGainDay` so Mythic Decay pauses for active days.
@@ -487,13 +504,16 @@ export function addApotheosisFaith(entity, amount, {
   markDailyGain = true,
   nowMinutes = null,
   force = false,
+  raw = false,
 } = {}) {
   const apo = normalizeStage2Fields(entity);
   if (!apo || (!force && !isAscendedGod(entity))) {
     return { added: 0, faith: apo?.faith ?? 0, faithMax: getFaithMax(apo), reason };
   }
   const maxFaith = getFaithMax(apo);
-  const delta = Math.max(0, Math.trunc(Number(amount) || 0));
+  const rawDelta = Math.max(0, Math.trunc(Number(amount) || 0));
+  const gainMult = raw ? 1 : getApotheosisFaithGainMultiplier();
+  const delta = rawDelta > 0 ? Math.max(1, Math.round(rawDelta * gainMult)) : 0;
   const before = apo.faith;
   apo.faith = Math.min(maxFaith, before + delta);
   if (markDailyGain && delta > 0 && nowMinutes != null && Number.isFinite(Number(nowMinutes))) {
@@ -606,6 +626,8 @@ export function applyApotheosisChampionStrength(entity, champRecord, { fresh = t
   }
   entity._apotheosisChampionWhole = hpMult;
   entity.damageScale = dmgMult;
+  entity.divineChampion = true;
+  entity.noInstakill = true;
   entity.team = 'PlayerAlly';
   entity.mobileTeam = 'PlayerAlly';
   entity.name = champRecord.title || champRecord.name;
@@ -765,6 +787,13 @@ export const apotheosisChampionParty = {
   },
 };
 
+let _pantheonTickHook = null;
+
+/** Registers Stage 3 daily Pantheon simulation callback (avoids circular import with apotheosisStage3). */
+export function setPantheonTickHook(fn) {
+  _pantheonTickHook = typeof fn === 'function' ? fn : null;
+}
+
 /**
  * Applies flat daily Mythic Decay (-15 Faith per idle day) when an ascended god goes
  * a game day without earning Faith in their Portfolio, plus passive Order stewardship
@@ -805,11 +834,13 @@ export function tickApotheosisMythicDecay(entity, nowMinutes = 0, { daysOverride
   let faithLost = 0;
   let orderBonus = 0;
   const maxFaith = getFaithMax(apo);
+  const decayMult = getApotheosisFaithDecayMultiplier();
+  const flatDecay = Math.max(0, Math.round(APOTHEOSIS_MYTHIC_DECAY_FLAT * decayMult));
 
   for (let d = startDay; d <= endDay; d++) {
-    if (apo.lastFaithGainDay == null || apo.lastFaithGainDay < d) {
+    if (flatDecay > 0 && (apo.lastFaithGainDay == null || apo.lastFaithGainDay < d)) {
       decayedDays++;
-      const loss = Math.min(apo.faith, APOTHEOSIS_MYTHIC_DECAY_FLAT);
+      const loss = Math.min(apo.faith, flatDecay);
       apo.faith -= loss;
       faithLost += loss;
     }
@@ -824,6 +855,15 @@ export function tickApotheosisMythicDecay(entity, nowMinutes = 0, { daysOverride
     apo.lastFaithDecayDay = currentDay;
   }
 
+  let pantheon = null;
+  if (_pantheonTickHook) {
+    try {
+      pantheon = _pantheonTickHook(entity, nowMinutes, { daysOverride });
+    } catch (e) {
+      console.warn('[apotheosis] pantheon tick failed:', e);
+    }
+  }
+
   return {
     decayedDays,
     faithLost,
@@ -831,6 +871,7 @@ export function tickApotheosisMythicDecay(entity, nowMinutes = 0, { daysOverride
     netDelta: apo.faith - faithBefore,
     faithBefore,
     faithAfter: apo.faith,
+    pantheon,
   };
 }
 

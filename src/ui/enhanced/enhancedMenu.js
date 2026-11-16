@@ -3405,6 +3405,42 @@ function portRowsGame({ pause = false } = {}) {
     ]));
   rows.push(prefRow('apotheosisShowTracker', t('menu.apotheosis.showTracker.name', 'Show Fate Weight Tracker'),
     t('menu.apotheosis.showTracker.note', 'Displays the Fate Weight progress and category breakdown in the Apotheosis menu tab.')));
+  rows.push(necroChoice('apotheosisWorldHostility', t('menu.apotheosis.hostility.name', 'World & Pantheon Hostility'),
+    t('menu.apotheosis.hostility.note', 'Controls how aggressively rival Temples, Daedric Princes, and hostile Champions react to your divinity.'),
+    [
+      ['calm', t('menu.apotheosis.hostility.calm', 'Calm (0.5x)')],
+      ['normal', t('menu.apotheosis.hostility.normal', 'Normal (1.0x)')],
+      ['aggressive', t('menu.apotheosis.hostility.aggressive', 'Aggressive (1.5x)')],
+      ['relentless', t('menu.apotheosis.hostility.relentless', 'Relentless (2.5x)')],
+    ]));
+  rows.push(necroChoice('apotheosisFaithGainMult', t('menu.apotheosis.faithGain.name', 'Faith Gain Multiplier'),
+    t('menu.apotheosis.faithGain.note', 'Scales all Faith earned from Portfolio deeds, witnesses, and sanctuaries.'),
+    [
+      ['0.25', '0.25x'],
+      ['0.5', '0.5x'],
+      ['1', '1.0x'],
+      ['1.5', '1.5x'],
+      ['2', '2.0x'],
+      ['3', '3.0x'],
+    ]));
+  rows.push(necroChoice('apotheosisFaithDecayMult', t('menu.apotheosis.faithDecay.name', 'Mythic Decay Multiplier'),
+    t('menu.apotheosis.faithDecay.note', 'Scales daily passive Faith loss on idle days (set to Off to disable Mythic Decay).'),
+    [
+      ['0', t('menu.apotheosis.faithDecay.off', 'Off (0x)')],
+      ['0.5', '0.5x'],
+      ['1', '1.0x'],
+      ['1.5', '1.5x'],
+      ['2', '2.0x'],
+      ['3', '3.0x'],
+    ]));
+  rows.push(necroChoice('apotheosisPantheonActivity', t('menu.apotheosis.pantheonAct.name', 'Pantheon AI Activity'),
+    t('menu.apotheosis.pantheonAct.note', 'Probability that each rival Aedra or Daedric Prince takes a global strategic turn each day.'),
+    [
+      ['passive', t('menu.apotheosis.pantheonAct.passive', 'Passive (25%)')],
+      ['normal', t('menu.apotheosis.pantheonAct.normal', 'Normal (100%)')],
+      ['dynamic', t('menu.apotheosis.pantheonAct.dynamic', 'Dynamic (150%)')],
+      ['chaotic', t('menu.apotheosis.pantheonAct.chaotic', 'Chaotic (250%)')],
+    ]));
   return rows;
 }
 /** REFLEXES: in-game reflex re-selection for the active character. Reads and writes playerEntity.reflexes directly. */

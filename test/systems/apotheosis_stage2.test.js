@@ -49,9 +49,39 @@ import {
   tickApotheosisChampions,
   tickApotheosisMythicDecay,
   addApotheosisFaith,
+  getApotheosisWorldHostilityMultiplier,
+  getApotheosisFaithGainMultiplier,
+  getApotheosisFaithDecayMultiplier,
+  getApotheosisPantheonActivityMultiplier,
+  TAMRIEL_REGION_COUNT,
+  PANTHEON_DEITIES,
+  registerPantheonDeity,
+  getPantheonDeity,
+  ensurePantheonState,
+  getDeityGraceInfo,
+  changeDeityRelation,
+  getRegionInfluence,
+  shiftRegionInfluence,
+  getGlobalInfluenceSummary,
+  applyRegionConditionInfluenceShifts,
+  tickPantheonDay,
+  computeDivineTruceCost,
+  sendDivineOffering,
+  proposeDivinePact,
+  forgeDivineAlliance,
+  sowDivineDiscord,
+  declareHolyWar,
+  offerDivineTruce,
+  igniteRegionWar,
+  enforceRegionPeace,
+  queryPantheonChronicle,
 } from '../../src/systems/apotheosis/apotheosisCore.js';
 import { ORDER_DAILY_LAW_FAITH_BONUS } from '../../src/systems/apotheosis/apotheosisStage2.js';
 import { SKILLS } from '../../src/systems/skills.js';
+import { PREF_DEFAULTS, getPref, setPref, _resetForTests as resetUiPrefs } from '../../src/systems/uiPrefs.js';
+import { ARTIFACTS, SPECIAL_ARTIFACT_HANDLERS } from '../../src/systems/artifactEffects.js';
+import { applySpell } from '../../src/systems/effects.js';
+import { REGION_FLAGS, createRegionConditions, turnOnConditionFlag, conditionFlag } from '../../src/systems/region/regionConditions.js';
 import { defineLiveMaxHealth, defineLiveMaxMagicka } from '../../src/systems/chargen.js';
 import { forcePlayerDeath, hurtPlayer, playerEntity, setDeathPresenter } from '../../src/characters/playerEntity.js';
 import { MOBILE_TYPES } from '../../src/characters/mobile/mobileTypes.js';
@@ -696,5 +726,211 @@ test('Stage 2 Miracles: `pacifyall` (+Order Faith), Lichdom decrees in Scroll of
     assert.equal(getActiveApotheosisChampions().length, 0);
   } finally {
     clearApotheosisChampions();
+  }
+});
+
+test('Stage 3.1 Pantheon 4X: settings multipliers, Champion/Boss instakill immunity, 8+8 Pantheon, 71 regions, World Sim flags, Diplomacy & Geopolitics', async () => {
+  resetUiPrefs();
+  try {
+    // 1. All 5 Apotheosis settings defaults + multiplier helpers + live economy integration
+    assert.equal(PREF_DEFAULTS.apotheosisShowTracker, true);
+    assert.equal(PREF_DEFAULTS.apotheosisWorldHostility, 'normal');
+    assert.equal(PREF_DEFAULTS.apotheosisFaithGainMult, '1');
+    assert.equal(PREF_DEFAULTS.apotheosisFaithDecayMult, '1');
+    assert.equal(PREF_DEFAULTS.apotheosisPantheonActivity, 'normal');
+
+    setPref('apotheosisFaithGainMult', '2');
+    setPref('apotheosisFaithDecayMult', '0');
+    setPref('apotheosisWorldHostility', 'relentless');
+    setPref('apotheosisPantheonActivity', 'chaotic');
+    assert.equal(getApotheosisFaithGainMultiplier(), 2);
+    assert.equal(getApotheosisFaithDecayMultiplier(), 0);
+    assert.equal(getApotheosisWorldHostilityMultiplier(), 2.5);
+    assert.equal(getApotheosisPantheonActivityMultiplier(), 2.5);
+
+    const prefGod = makeGod('war', { faith: 200, nowMinutes: 10000 });
+    addApotheosisFaith(prefGod, 50);
+    assert.equal(prefGod.apotheosis.faith, 300, '2x Faith gain multiplier doubles gained Faith');
+    const noDecay = tickApotheosisMythicDecay(prefGod, 10000, { daysOverride: 2 });
+    assert.equal(noDecay.faithLost, 0, '0x Mythic Decay multiplier disables passive Faith decay');
+
+    setPref('apotheosisFaithGainMult', '1');
+    setPref('apotheosisFaithDecayMult', '1');
+    setPref('apotheosisWorldHostility', 'normal');
+    setPref('apotheosisPantheonActivity', 'normal');
+
+    // 2. Champion & Boss immunity to Mehrunes Razor, Wabbajack, and Disintegrate
+    const targetChamp = {
+      name: 'Justiciar of Stendarr',
+      maxHealth: 2000,
+      health: 2000,
+      activeEffects: [],
+      divineChampion: true,
+      noInstakill: true,
+      mobileType: MOBILE_TYPES.Knight,
+      stats: { willpower: 10, luck: 10 },
+    };
+    const razorRes = SPECIAL_ARTIFACT_HANDLERS.get(ARTIFACTS.MehrunesRazor).strikes({
+      target: targetChamp,
+      item: { hitsLeft: 5000 },
+      rolls: () => 0.99,
+    });
+    assert.equal(razorRes.strikesModulateDamage, 200, 'Mehrunes Razor capped at 10% maxHealth on noInstakill champions');
+    let morphed = false;
+    SPECIAL_ARTIFACT_HANDLERS.get(ARTIFACTS.Wabbajack).strikes({
+      target: targetChamp,
+      ctx: { replaceFoe: () => { morphed = true; } },
+      rolls: () => 0.5,
+    });
+    assert.equal(morphed, false, 'Wabbajack refuses to polymorph protected Champions');
+
+    let disDmg = 0;
+    applySpell(
+      { effects: [{ type: 5, subType: 255, chanceBase: 100, chancePerLevel: 1 }] },
+      20,
+      targetChamp,
+      { hurt: (amt) => { disDmg += amt; } },
+      () => 0.01,
+      null,
+      { bypassSavingThrows: true },
+    );
+    assert.equal(disDmg, 200, 'Disintegrate capped at 10% maxHealth on protected Champions/Bosses');
+
+    // 3. Pantheon 8 Aedra + 8 Daedra initialization, shattered artifacts, undead curse, Grace Period, propagation & Portfolio switch
+    assert.equal(PANTHEON_DEITIES.length, 16);
+    assert.equal(PANTHEON_DEITIES.filter((d) => d.kind === 'aedra').length, 8);
+    assert.equal(PANTHEON_DEITIES.filter((d) => d.kind === 'daedra').length, 8);
+
+    const cultist = {
+      isPlayer: true,
+      items: [],
+      factionRep: new Map(),
+      guildMemberships: { mortal: { T_Zen: { guild: 'Zenithar', factionId: 22, rank: 5 } }, vampire: {} },
+      lichdom: { active: true, stage: 1 },
+      currentRegionIndex: 17,
+    };
+    cultist.factionRep = { dict: new Map([[22, { id: 22, rep: 50 }]]) };
+    setDebugFateWeight(cultist, REQUIRED_FATE_WEIGHT);
+    startApotheosisFromMantella(cultist);
+    completeApotheosisQuestline(cultist);
+    ensureApotheosisState(cultist).sacrificedArtifacts = [1]; // Mehrunes' Razor shattered -> extra -30 to Mehrunes Dagon
+    selectApotheosisPortfolio(cultist, 'order', { nowMinutes: 10000 });
+
+    const pan = ensurePantheonState(cultist, { nowMinutes: 10000 });
+    assert.ok(pan.deities.stendarr.relation < 0 || pan.deities.arkay.relation < -30, 'Lichdom penalizes Arkay/Stendarr at Ascension');
+    assert.ok(pan.deities.mehrunes_dagon.relation <= -60, 'Shattered artifact + Order Portfolio puts Mehrunes Dagon into immediate hostility/war');
+    assert.equal(pan.deities.mehrunes_dagon.graceUntilMinutes, null, 'Searing rivals skip Grace Period');
+
+    // Test Grace Period x2 offense + break + Ally/Enemy propagation
+    const pGod = makeGod('magic', { faith: 800, nowMinutes: 10000 });
+    const pState = ensurePantheonState(pGod, { nowMinutes: 10000 });
+    // Force a wary deity (`dibella`) into active Grace Period
+    pState.deities.dibella.personalHistory = -10;
+    pState.deities.dibella.relation = 10;
+    pState.deities.dibella.graceUntilMinutes = 10000 + 30 * 1440;
+    assert.equal(getDeityGraceInfo(pGod, 'dibella', 10000).active, true);
+    const maraBefore = pState.deities.mara.relation;
+    const dagonBefore = pState.deities.mehrunes_dagon.relation;
+    const graceHit = changeDeityRelation(pGod, 'dibella', -10, { propagate: true, nowMinutes: 10000 + 1440 });
+    assert.equal(graceHit.brokeGrace, true);
+    assert.equal(graceHit.deltaApplied, -20, 'Grace Period doubles negative offense penalty (-10 -> -20)');
+    assert.equal(pState.deities.mara.relation, maraBefore - 10, 'Ally Mara takes 50% propagated delta (-10)');
+    assert.equal(pState.deities.mehrunes_dagon.relation, dagonBefore + 5, 'Enemy Dagon gains 25% inverted delta (+5)');
+
+    // Portfolio switch apostate penalty (-20 to patrons of abandoned Magic portfolio >= +25)
+    const julBefore = pState.deities.julianos.personalHistory;
+    selectApotheosisPortfolio(pGod, 'war', { nowMinutes: 10000 + 30 * 1440 });
+    assert.equal(pState.deities.julianos.personalHistory, julBefore - 20, 'Former Portfolio patron Julianos penalizes -20 for apostasy');
+
+    // 4. All 71 Tamriel regions (0..61 Bay + 62..70 Provinces), normalization, & 26 REGION_FLAGS shifts
+    assert.equal(pState.regionInfluence.length, 71);
+    assert.equal(TAMRIEL_REGION_COUNT, 71);
+    const morrowindInfo = getRegionInfluence(pGod, 65);
+    assert.equal(morrowindInfo.isProvince, true);
+    assert.equal(morrowindInfo.leaderId, 'azura', 'Morrowind (#65) starts under Azura dominion');
+    for (let r = 0; r < 71; r++) {
+      const inf = getRegionInfluence(pGod, r);
+      const total = Object.values(inf.shares).reduce((a, b) => a + b, 0);
+      assert.ok(Math.abs(total - 100) <= 0.2, `Region #${r} influence sum must normalize to 100 (got ${total})`);
+    }
+    pGod.regionConditions = createRegionConditions(71);
+    turnOnConditionFlag(pGod.regionConditions, 17, REGION_FLAGS.CrimeWave);
+    assert.equal(conditionFlag(pGod.regionConditions, 17, REGION_FLAGS.CrimeWave), true);
+    const nocBefore = getRegionInfluence(pGod, 17).shares.nocturnal ?? 0;
+    applyRegionConditionInfluenceShifts(pGod, 17);
+    const nocAfter = getRegionInfluence(pGod, 17).shares.nocturnal ?? 0;
+    assert.ok(nocAfter > nocBefore, 'Active World Sim CrimeWave boosts Nocturnal regional influence');
+
+    // 5. Daily Pantheon AI turn + Searchable Chronicle + Diplomacy + Dynamic Truce + Geopolitics
+    pGod.apotheosis.cultFaithBonus = 4000;
+    pGod.apotheosis.faith = 5000;
+    const tickRes = tickPantheonDay(pGod, 10000, { daysOverride: 2, rng: () => 0.1 });
+    assert.equal(tickRes.daysProcessed, 2);
+    assert.ok(tickRes.aiMoves >= 16, 'Active Pantheon deities execute global AI turns');
+    assert.ok(queryPantheonChronicle(pGod, { filter: 'all' }).length > 0);
+
+    // Offering -> Pact -> Alliance + Sow Discord + Holy War + Dynamic Truce cost
+    pState.deities.boethiah.personalHistory = -10;
+    pState.deities.boethiah.relation = 30;
+    pState.deities.boethiah.graceUntilMinutes = null;
+    pState.deities.boethiah.lastOfferingDay = null;
+    const pactOk = proposeDivinePact(pGod, 'boethiah', { nowMinutes: 60000 });
+    assert.equal(pactOk.ok, true);
+    const offerOk = sendDivineOffering(pGod, 'boethiah', { nowMinutes: 60000 });
+    assert.equal(offerOk.ok, true);
+    assert.ok(offerOk.relation >= 55);
+    const allyOk = forgeDivineAlliance(pGod, 'boethiah', { nowMinutes: 60000 });
+    assert.equal(allyOk.ok, true);
+    assert.equal(allyOk.status, 'allied');
+
+    const discOk = sowDivineDiscord(pGod, 'akatosh', 'stendarr', { nowMinutes: 60000 });
+    assert.equal(discOk.ok, true);
+    assert.ok(discOk.interRelation < 60);
+
+    declareHolyWar(pGod, 'mara', { nowMinutes: 60000 });
+    const costBase = computeDivineTruceCost(pGod, 'mara');
+    assert.ok(costBase >= 100 && costBase <= 1500);
+    pGod.apotheosis.pantheon.deities.mara.championsDefeated = 2;
+    const costWithWins = computeDivineTruceCost(pGod, 'mara');
+    assert.ok(costWithWins <= costBase, 'Defeating hostile Champions reduces Truce cost dynamically');
+    const truceOk = offerDivineTruce(pGod, 'mara', { nowMinutes: 60000 });
+    assert.equal(truceOk.ok, true);
+    assert.ok(truceOk.truceUntilMinutes > 60000);
+
+    // Geopolitics War & Peace between two targeted regions (#17 Daggerfall & #23 Wayrest)
+    const geoWar = igniteRegionWar(pGod, 17, 23, { nowMinutes: 60000 });
+    assert.equal(geoWar.ok, true);
+    assert.equal(conditionFlag(pGod.regionConditions, 17, REGION_FLAGS.WarOngoing), true);
+    assert.equal(conditionFlag(pGod.regionConditions, 23, REGION_FLAGS.WarOngoing), true);
+
+    const geoPeace = enforceRegionPeace(pGod, 17, 23, { nowMinutes: 60000 });
+    assert.equal(geoPeace.ok, true);
+    assert.equal(conditionFlag(pGod.regionConditions, 17, REGION_FLAGS.WarOngoing), false);
+    assert.equal(conditionFlag(pGod.regionConditions, 23, REGION_FLAGS.WarWon), true);
+
+    const regLogs = queryPantheonChronicle(pGod, { filter: 'regions', search: 'Wayrest' });
+    assert.ok(regLogs.length >= 2, 'Chronicle text search & category filter find Geopolitical decrees');
+
+    // Expandable registry sanity: registering custom Prince works cleanly
+    const extra = registerPantheonDeity({ id: 'malacath', name: 'Malacath', kind: 'daedra', baseUpstart: -10 });
+    assert.equal(extra.id, 'malacath');
+    assert.ok(ensurePantheonState(pGod).deities.malacath, 'Dynamically registered deity populates existing Pantheon save cleanly');
+    const summary = getGlobalInfluenceSummary(pGod);
+    assert.equal(summary.regionCount, 71);
+
+    // Console integration smoke check
+    await executeConsoleCommand('apo', ['reset']);
+    await executeConsoleCommand('apo', ['quest', 'complete']);
+    await executeConsoleCommand('apo', ['faith', '1000']);
+    selectApotheosisPortfolio(playerEntity, 'order', { nowMinutes: 70000 });
+    const cmdPan = await executeConsoleCommand('apo', ['pantheon', 'tick', '2']);
+    assert.match(String(cmdPan), /Pantheon simulated 2 day/);
+    const cmdGeo = await executeConsoleCommand('apo', ['geopolitics', 'war', '17', '23']);
+    assert.match(String(cmdGeo), /Divine War ignited/);
+    const cmdInf = await executeConsoleCommand('apo', ['influence', '17']);
+    assert.match(String(cmdInf), /#17/);
+  } finally {
+    resetUiPrefs();
+    await executeConsoleCommand('apo', ['reset']);
   }
 });

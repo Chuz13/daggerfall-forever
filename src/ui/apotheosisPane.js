@@ -11,7 +11,9 @@
 
 import { playerEntity } from '../characters/playerEntity.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
-import { t } from '../systems/textManager.js';
+import { REGION_NAMES, isProvinceRegion } from '../formats/mapsTables.js';
+import { REGION_FLAGS, conditionFlag } from '../systems/region/regionConditions.js';
+import { t, getLocalizedRegionName } from '../systems/textManager.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { worldMinutes } from '../systems/worldTick.js';
 import {
@@ -21,20 +23,44 @@ import {
   APOTHEOSIS_QUEST_STEPS,
   APOTHEOSIS_STAGES,
   AURBIS_COMMAND_CATALOG,
+  GEOPOLITICS_PEACE_COST,
+  GEOPOLITICS_WAR_COST,
+  PANTHEON_ALLIANCE_COST,
+  PANTHEON_DEITIES,
+  PANTHEON_DISCORD_COST,
+  PANTHEON_OFFERING_COST,
+  PANTHEON_PACT_COST,
+  PANTHEON_WAR_COST,
   REQUIRED_ARTIFACTS_COUNT,
   REQUIRED_FATE_WEIGHT,
+  TAMRIEL_REGION_COUNT,
   TOTAL_FATE_TRIGGERS,
   canStartApotheosisViaArtifacts,
+  computeDivineTruceCost,
+  declareHolyWar,
+  enforceRegionPeace,
   ensureApotheosisState,
+  ensurePantheonState,
   evaluateAurbisCommand,
   evaluateFateWeight,
   executeAurbisCommand,
+  forgeDivineAlliance,
   getAurbisRuntime,
+  getDeityGraceInfo,
   getFaithMax,
+  getGlobalInfluenceSummary,
+  getPantheonDeity,
   getPortfolioSwitchCooldownInfo,
+  getRegionInfluence,
   getSpawnCreatureFaithCost,
+  igniteRegionWar,
+  offerDivineTruce,
+  proposeDivinePact,
+  queryPantheonChronicle,
   scanInventoryArtifactsForApotheosis,
   selectApotheosisPortfolio,
+  sendDivineOffering,
+  sowDivineDiscord,
   startApotheosisFromArtifacts,
 } from '../systems/apotheosis/apotheosisCore.js';
 
@@ -104,6 +130,18 @@ const APOTHEOSIS_CSS = `
 .apo-ref-cat { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: rgb(243,239,44); margin-bottom: 4px; }
 .apo-ref-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 1px solid rgba(125,116,96,0.3); background: rgba(16,20,28,0.65); cursor: pointer; text-align: left; font: inherit; color: #efe3bc; width: 100%; }
 .apo-ref-row:hover { border-color: #7cd4ff; background: rgba(18,32,44,0.8); }
+.apo-subtabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.apo-rel-bar { height: 8px; background: rgba(0,0,0,0.65); border: 1px solid rgba(125,116,96,0.45); overflow: hidden; margin: 4px 0; position: relative; }
+.apo-rel-fill { height: 100%; transition: width 0.2s ease; }
+.apo-lens-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 7px; max-height: 360px; overflow-y: auto; padding-right: 4px; }
+.apo-lens-cell { text-align: left; font: inherit; padding: 7px 9px; border: 1px solid rgba(125,116,96,0.45); background: rgba(14,18,26,0.85); color: #efe3bc; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.apo-lens-cell:hover { border-color: #7cd4ff; }
+.apo-lens-cell.sel { border-color: rgb(243,239,44); background: rgba(44,38,14,0.8); }
+.apo-lens-cell.war { box-shadow: inset 3px 0 0 #d9483b; }
+.apo-row-inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.apo-pill.warn { border-color: #e69d45; color: #ffd49c; background: rgba(54,36,12,0.8); }
+.apo-pill.bad { border-color: #e26464; color: #ffbaba; background: rgba(56,16,18,0.85); }
+.apo-pill.info { border-color: #7cd4ff; color: #cbefff; background: rgba(14,36,52,0.85); }
 `;
 
 const el = (tag, cls, txt) => {
@@ -132,14 +170,25 @@ let aurbisShowCatalog = false;
 let aurbisHistory = [];
 let aurbisHistoryIdx = -1;
 let aurbisLog = [];
+let pantheonSubTab = 'deities';
+let pantheonSelectedRegion = null;
+let pantheonTheatreFilter = 'all';
+let pantheonLensMode = 'leader';
+let pantheonRegionQuery = '';
+let pantheonDiscordA = 'akatosh';
+let pantheonDiscordB = 'mehrunes_dagon';
+let pantheonGeoA = 17;
+let pantheonGeoB = 23;
+let pantheonLogFilter = 'all';
+let pantheonLogSearch = '';
 
 const SPAWNABLE_MOBILES = Object.entries(MOBILE_TYPES)
   .filter(([name, id]) => name !== 'None' && name !== 'Horse_Invalid' && id < 65535)
   .sort((a, b) => a[1] - b[1]);
 
-/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`, `aurbis`) before opening the pane. */
+/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`, `aurbis`, `pantheon`) before opening the pane. */
 export function selectApotheosisSection(sec) {
-  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio', 'aurbis']);
+  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio', 'aurbis', 'pantheon']);
   if (valid.has(sec)) {
     activeSec = sec;
   }
@@ -155,6 +204,9 @@ export function releaseApotheosisPane() {
   aurbisInputText = '';
   aurbisShowCatalog = false;
   aurbisHistoryIdx = -1;
+  pantheonSubTab = 'deities';
+  pantheonRegionQuery = '';
+  pantheonLogSearch = '';
 }
 
 function setFeedback(msg, isError = false) {
@@ -171,6 +223,7 @@ function currentSections(trackerShown) {
   }
   secs.push(['portfolio', t('apotheosis.sec.portfolio', 'Divine Portfolio')]);
   secs.push(['aurbis', t('apotheosis.nav.aurbis', 'Scroll of Aurbis')]);
+  secs.push(['pantheon', t('apotheosis.sec.pantheon', 'Pantheon & Diplomacy')]);
   return secs;
 }
 
@@ -858,6 +911,442 @@ function renderAurbisPage(detail, entity, repaint) {
   }
 }
 
+function renderPantheonDeitiesView(detail, entity, pantheon, nowMin, repaint) {
+  const summary = getGlobalInfluenceSummary(entity);
+  const state = ensureApotheosisState(entity);
+
+  const statBox = el('div', 'apo-box');
+  statBox.append(
+    el('h4', null, t('apotheosis.pantheon.sumTitle', 'Tamrielic Standing & Discord')),
+    el('div', 'apo-meta-row',
+      t('apotheosis.pantheon.sumMeta', 'Your Global Influence: {avg}% avg · Regions Dominated: {dom}/{total}', {
+        avg: summary.avgShares.player ?? 0,
+        dom: summary.dominatedCounts.player ?? 0,
+        total: TAMRIEL_REGION_COUNT,
+      })),
+  );
+
+  // Sow Discord box
+  const discRow = el('div', 'apo-row-inline');
+  discRow.style.marginTop = '10px';
+  const selA = el('select', 'apo-select');
+  const selB = el('select', 'apo-select');
+  selA.style.maxWidth = '200px';
+  selB.style.maxWidth = '200px';
+  for (const d of PANTHEON_DEITIES) {
+    const optA = el('option', null, d.name);
+    optA.value = d.id;
+    if (d.id === pantheonDiscordA) optA.selected = true;
+    const optB = el('option', null, d.name);
+    optB.value = d.id;
+    if (d.id === pantheonDiscordB) optB.selected = true;
+    selA.append(optA);
+    selB.append(optB);
+  }
+  const discBtn = el('button', 'apo-btn', t('apotheosis.pantheon.btnDiscord', 'Sow Discord ({cost} Faith)', { cost: PANTHEON_DISCORD_COST }));
+  const syncDisc = () => {
+    discBtn.disabled = pantheonDiscordA === pantheonDiscordB || (state.faith || 0) < PANTHEON_DISCORD_COST;
+  };
+  syncDisc();
+  selA.onchange = () => { pantheonDiscordA = selA.value; syncDisc(); };
+  selB.onchange = () => { pantheonDiscordB = selB.value; syncDisc(); };
+  discBtn.onclick = () => {
+    const res = sowDivineDiscord(entity, pantheonDiscordA, pantheonDiscordB, { nowMinutes: nowMin });
+    setFeedback(
+      res.ok
+        ? t('apotheosis.pantheon.fbDiscord', 'Discord sown between {a} and {b} (mutual standing {val}).', {
+          a: getPantheonDeity(res.pair[0])?.name ?? res.pair[0],
+          b: getPantheonDeity(res.pair[1])?.name ?? res.pair[1],
+          val: res.interRelation,
+        })
+        : res.error,
+      !res.ok,
+    );
+    repaint();
+  };
+  discRow.append(selA, el('span', 'apo-pill', t('apotheosis.pantheon.vs', 'vs')), selB, discBtn);
+  statBox.append(discRow);
+  detail.append(statBox);
+
+  const renderGroup = (titleText, deities) => {
+    const groupBox = el('div', 'apo-box');
+    groupBox.append(el('h4', null, titleText));
+    const grid = el('div', 'apo-grid');
+    for (const d of deities) {
+      const entry = pantheon.deities[d.id];
+      const grace = getDeityGraceInfo(entity, d.id, nowMin);
+      const truceCost = computeDivineTruceCost(entity, d.id);
+      const card = el('div', `apo-card${entry.status === 'allied' ? ' done' : entry.status === 'war' ? '' : ''}`);
+      card.style.borderLeft = `3px solid ${d.color}`;
+
+      const badgeCls = entry.status === 'allied' || entry.status === 'pact'
+        ? 'apo-pill ok'
+        : entry.status === 'war' || entry.status === 'hostile'
+          ? 'apo-pill bad'
+          : grace.active
+            ? 'apo-pill info'
+            : 'apo-pill warn';
+      const statusText = entry.status === 'allied'
+        ? t('apotheosis.pantheon.stAllied', 'Allied ({rel})', { rel: entry.relation })
+        : entry.status === 'pact'
+          ? t('apotheosis.pantheon.stPact', 'Pact ({rel})', { rel: entry.relation })
+          : entry.status === 'war'
+            ? t('apotheosis.pantheon.stWar', 'Holy War ({rel})', { rel: entry.relation })
+            : entry.status === 'hostile'
+              ? t('apotheosis.pantheon.stHostile', 'Hostile ({rel})', { rel: entry.relation })
+              : grace.active
+                ? t('apotheosis.pantheon.stGrace', 'Grace {d}d ({rel})', { d: grace.remainingDays, rel: entry.relation })
+                : t('apotheosis.pantheon.stWary', 'Wary ({rel})', { rel: entry.relation });
+
+      const head = el('div', 'apo-card-head');
+      head.append(el('div', 'apo-card-title', d.name), el('span', badgeCls, statusText));
+
+      const relPct = Math.round(((entry.relation + 100) / 200) * 100);
+      const barWrap = el('div', 'apo-rel-bar');
+      const barFill = el('div', 'apo-rel-fill');
+      barFill.style.width = `${relPct}%`;
+      barFill.style.background = entry.relation >= 20 ? '#6ad672' : entry.relation <= -40 ? '#e05858' : '#d6b34c';
+      barWrap.append(barFill);
+
+      const domCount = summary.dominatedCounts[d.id] ?? 0;
+      const avgPct = summary.avgShares[d.id] ?? 0;
+      card.append(
+        head,
+        el('div', 'apo-card-desc', `${d.title} · ${t('apotheosis.pantheon.avgShare', 'Tamriel {pct}% ({dom} reg)', { pct: avgPct, dom: domCount })}`),
+        barWrap,
+      );
+
+      const acts = el('div', 'apo-acts');
+      const addAction = (label, disabled, onClick) => {
+        const b = el('button', 'apo-btn', label);
+        b.style.padding = '4px 8px';
+        b.style.fontSize = '12px';
+        b.disabled = disabled;
+        b.onclick = onClick;
+        acts.append(b);
+      };
+
+      addAction(
+        t('apotheosis.pantheon.actOffer', 'Offer ({cost})', { cost: PANTHEON_OFFERING_COST }),
+        (state.faith || 0) < PANTHEON_OFFERING_COST,
+        () => {
+          const r = sendDivineOffering(entity, d.id, { nowMinutes: nowMin });
+          setFeedback(r.ok ? t('apotheosis.pantheon.fbOk', '{name}: standing {rel} ({st}).', { name: d.name, rel: r.relation, st: r.status }) : r.error, !r.ok);
+          repaint();
+        },
+      );
+      if (!entry.pact && entry.status !== 'war') {
+        addAction(
+          t('apotheosis.pantheon.actPact', 'Pact ({cost})', { cost: PANTHEON_PACT_COST }),
+          entry.relation < 10 || (state.faith || 0) < PANTHEON_PACT_COST,
+          () => {
+            const r = proposeDivinePact(entity, d.id, { nowMinutes: nowMin });
+            setFeedback(r.ok ? t('apotheosis.pantheon.fbOk', '{name}: standing {rel} ({st}).', { name: d.name, rel: r.relation, st: r.status }) : r.error, !r.ok);
+            repaint();
+          },
+        );
+      }
+      if (!entry.allied && entry.status !== 'war') {
+        addAction(
+          t('apotheosis.pantheon.actAlly', 'Ally ({cost})', { cost: PANTHEON_ALLIANCE_COST }),
+          entry.relation < 50 || (state.faith || 0) < PANTHEON_ALLIANCE_COST,
+          () => {
+            const r = forgeDivineAlliance(entity, d.id, { nowMinutes: nowMin });
+            setFeedback(r.ok ? t('apotheosis.pantheon.fbOk', '{name}: standing {rel} ({st}).', { name: d.name, rel: r.relation, st: r.status }) : r.error, !r.ok);
+            repaint();
+          },
+        );
+      }
+      if (entry.status === 'war' || entry.relation <= -40) {
+        addAction(
+          t('apotheosis.pantheon.actTruce', 'Truce ({cost})', { cost: truceCost }),
+          (state.faith || 0) < truceCost,
+          () => {
+            const r = offerDivineTruce(entity, d.id, { nowMinutes: nowMin });
+            setFeedback(r.ok ? t('apotheosis.pantheon.fbTruce', '30-day Truce sealed with {name}.', { name: d.name }) : r.error, !r.ok);
+            repaint();
+          },
+        );
+      } else {
+        addAction(
+          t('apotheosis.pantheon.actWar', 'War ({cost})', { cost: PANTHEON_WAR_COST }),
+          (state.faith || 0) < PANTHEON_WAR_COST,
+          () => {
+            const r = declareHolyWar(entity, d.id, { nowMinutes: nowMin });
+            setFeedback(r.ok ? t('apotheosis.pantheon.fbWar', 'Holy War declared on {name}!', { name: d.name }) : r.error, !r.ok);
+            repaint();
+          },
+        );
+      }
+      card.append(acts);
+      grid.append(card);
+    }
+    groupBox.append(grid);
+    detail.append(groupBox);
+  };
+
+  renderGroup(t('apotheosis.pantheon.aedraGroup', 'The Eight Divines (Aedra)'), PANTHEON_DEITIES.filter((d) => d.kind === 'aedra'));
+  renderGroup(t('apotheosis.pantheon.daedraGroup', 'The Eight Daedric Princes'), PANTHEON_DEITIES.filter((d) => d.kind === 'daedra'));
+}
+
+function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
+  const state = ensureApotheosisState(entity);
+  if (pantheonSelectedRegion == null) {
+    pantheonSelectedRegion = Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : 17;
+  }
+
+  // 1. Divine Geopolitics (War & Peace between two targeted regions)
+  const geoBox = el('div', 'apo-box');
+  geoBox.append(el('h4', null, t('apotheosis.geo.title', 'Divine Geopolitics (Targeted War & Peace)')));
+  const geoRow = el('div', 'apo-row-inline');
+  const selA = el('select', 'apo-select');
+  const selB = el('select', 'apo-select');
+  selA.style.maxWidth = '220px';
+  selB.style.maxWidth = '220px';
+  for (let i = 0; i < TAMRIEL_REGION_COUNT; i++) {
+    const label = `#${i} ${getLocalizedRegionName(i, (idx) => REGION_NAMES[idx] ?? `Region ${idx}`)}${isProvinceRegion(i) ? ' *' : ''}`;
+    const oA = el('option', null, label);
+    oA.value = String(i);
+    if (i === pantheonGeoA) oA.selected = true;
+    const oB = el('option', null, label);
+    oB.value = String(i);
+    if (i === pantheonGeoB) oB.selected = true;
+    selA.append(oA);
+    selB.append(oB);
+  }
+  const warBtn = el('button', 'apo-btn', t('apotheosis.geo.btnWar', 'Ignite War ({cost})', { cost: GEOPOLITICS_WAR_COST }));
+  const peaceBtn = el('button', 'apo-btn', t('apotheosis.geo.btnPeace', 'Enforce Peace ({cost})', { cost: GEOPOLITICS_PEACE_COST }));
+  const syncGeo = () => {
+    const same = pantheonGeoA === pantheonGeoB;
+    warBtn.disabled = same || (state.faith || 0) < GEOPOLITICS_WAR_COST;
+    peaceBtn.disabled = same || (state.faith || 0) < GEOPOLITICS_PEACE_COST;
+  };
+  syncGeo();
+  selA.onchange = () => { pantheonGeoA = parseInt(selA.value, 10); syncGeo(); };
+  selB.onchange = () => { pantheonGeoB = parseInt(selB.value, 10); syncGeo(); };
+  warBtn.onclick = () => {
+    const r = igniteRegionWar(entity, pantheonGeoA, pantheonGeoB, { nowMinutes: nowMin });
+    setFeedback(r.ok ? t('apotheosis.geo.fbWar', 'War ignited between selected realms!') : r.error, !r.ok);
+    repaint();
+  };
+  peaceBtn.onclick = () => {
+    const r = enforceRegionPeace(entity, pantheonGeoA, pantheonGeoB, { nowMinutes: nowMin });
+    setFeedback(r.ok ? t('apotheosis.geo.fbPeace', 'Divine Peace enforced between selected realms!') : r.error, !r.ok);
+    repaint();
+  };
+  geoRow.append(selA, el('span', 'apo-pill', t('apotheosis.pantheon.vs', 'vs')), selB, warBtn, peaceBtn);
+  geoBox.append(geoRow);
+  detail.append(geoBox);
+
+  // 2. 71-Region Tamriel Divine Lens
+  const lensBox = el('div', 'apo-box');
+  lensBox.append(el('h4', null, t('apotheosis.lens.title', 'Tamriel Divine Lens (71 Regions)')));
+  const ctrlRow = el('div', 'apo-row-inline');
+  ctrlRow.style.marginBottom = '10px';
+  for (const [tid, tLabel] of [
+    ['all', t('apotheosis.lens.all', 'All (71)')],
+    ['bay', t('apotheosis.lens.bay', 'Iliac Bay (62)')],
+    ['provinces', t('apotheosis.lens.prov', 'Provinces (9)')],
+  ]) {
+    const b = el('button', `apo-btn${pantheonTheatreFilter === tid ? ' primary' : ''}`, tLabel);
+    b.style.padding = '4px 10px';
+    b.style.fontSize = '12px';
+    b.onclick = () => { pantheonTheatreFilter = tid; repaint(); };
+    ctrlRow.append(b);
+  }
+  for (const [lid, lLabel] of [
+    ['leader', t('apotheosis.lens.modeLead', 'Dominant Cult')],
+    ['player', t('apotheosis.lens.modePlayer', 'Your Cult %')],
+    ['wars', t('apotheosis.lens.modeWars', 'Wars & Crises')],
+  ]) {
+    const b = el('button', `apo-btn${pantheonLensMode === lid ? ' primary' : ''}`, lLabel);
+    b.style.padding = '4px 10px';
+    b.style.fontSize = '12px';
+    b.onclick = () => { pantheonLensMode = lid; repaint(); };
+    ctrlRow.append(b);
+  }
+  const searchIn = el('input', 'apo-input');
+  searchIn.type = 'text';
+  searchIn.placeholder = t('apotheosis.lens.searchPh', 'Filter region or deity...');
+  searchIn.value = pantheonRegionQuery;
+  ctrlRow.append(searchIn);
+  lensBox.append(ctrlRow);
+
+  const gridEl = el('div', 'apo-lens-grid');
+  const inspectorEl = el('div', 'apo-box');
+  inspectorEl.style.marginTop = '12px';
+
+  const paintRegionInspector = () => {
+    inspectorEl.replaceChildren();
+    const info = getRegionInfluence(entity, pantheonSelectedRegion);
+    inspectorEl.append(el('h4', null, `${info.regionName} (#${info.regionIndex}${info.isProvince ? ` · ${t('apotheosis.lens.province', 'Tamriel Province')}` : ''})`));
+    const sharesText = info.sorted.map(([k, v]) => {
+      const label = k === 'player' ? t('apotheosis.map.you', 'Your Cult') : (getPantheonDeity(k)?.name ?? k);
+      return `${label}: ${v}%`;
+    }).join(' | ');
+    inspectorEl.append(el('div', 'apo-card-desc', sharesText));
+    const flagNames = Object.entries(REGION_FLAGS)
+      .filter(([, fid]) => fid < 26 && conditionFlag(entity?.regionConditions, info.regionIndex, fid))
+      .map(([fn]) => fn);
+    if (flagNames.length > 0) {
+      inspectorEl.append(el('div', 'apo-card-prog', t('apotheosis.lens.flags', 'Active Conditions: {list}', { list: flagNames.join(', ') })));
+    }
+    const geoSetRow = el('div', 'apo-acts');
+    const bA = el('button', 'apo-btn', t('apotheosis.geo.setA', 'Set Geopolitics A'));
+    const bB = el('button', 'apo-btn', t('apotheosis.geo.setB', 'Set Geopolitics B'));
+    bA.style.padding = '4px 8px'; bA.style.fontSize = '12px';
+    bB.style.padding = '4px 8px'; bB.style.fontSize = '12px';
+    bA.onclick = () => { pantheonGeoA = info.regionIndex; repaint(); };
+    bB.onclick = () => { pantheonGeoB = info.regionIndex; repaint(); };
+    geoSetRow.append(bA, bB);
+    inspectorEl.append(geoSetRow);
+  };
+
+  const paintRegionGrid = () => {
+    gridEl.replaceChildren();
+    const q = pantheonRegionQuery.trim().toLowerCase();
+    for (let i = 0; i < TAMRIEL_REGION_COUNT; i++) {
+      if (pantheonTheatreFilter === 'bay' && isProvinceRegion(i)) continue;
+      if (pantheonTheatreFilter === 'provinces' && !isProvinceRegion(i)) continue;
+      const info = getRegionInfluence(entity, i);
+      const leadDef = info.leaderId === 'player' ? null : getPantheonDeity(info.leaderId);
+      const leadName = info.leaderId === 'player' ? t('apotheosis.map.you', 'Your Cult') : (leadDef?.name ?? info.leaderId);
+      const hasWar = conditionFlag(entity?.regionConditions, i, REGION_FLAGS.WarOngoing) || conditionFlag(entity?.regionConditions, i, REGION_FLAGS.WarBeginning);
+      if (pantheonLensMode === 'wars' && !hasWar) continue;
+      if (q && !`${info.regionName} ${leadName} ${i}`.toLowerCase().includes(q)) continue;
+
+      const cell = el('button', `apo-lens-cell${i === pantheonSelectedRegion ? ' sel' : ''}${hasWar ? ' war' : ''}`);
+      cell.style.borderLeft = `4px solid ${info.leaderId === 'player' ? 'rgb(243,239,44)' : (leadDef?.color ?? '#8b8370')}`;
+      const metric = pantheonLensMode === 'player'
+        ? t('apotheosis.lens.cellYou', 'Your Cult: {you}% · Lead: {lead}', { you: info.playerShare, lead: leadName })
+        : `${leadName} (${info.leaderShare}%) · ${t('apotheosis.map.you', 'You')}: ${info.playerShare}%`;
+      cell.append(
+        el('div', 'apo-card-title', `${info.regionName}`),
+        el('div', 'apo-card-desc', metric),
+      );
+      cell.onclick = () => {
+        pantheonSelectedRegion = i;
+        paintRegionGrid();
+        paintRegionInspector();
+      };
+      gridEl.append(cell);
+    }
+  };
+
+  searchIn.oninput = () => {
+    pantheonRegionQuery = searchIn.value;
+    paintRegionGrid();
+  };
+  paintRegionGrid();
+  paintRegionInspector();
+  lensBox.append(gridEl, inspectorEl);
+  detail.append(lensBox);
+}
+
+function renderPantheonChronicleView(detail, entity) {
+  const box = el('div', 'apo-box');
+  box.append(el('h4', null, t('apotheosis.chronicle.title', 'Pantheon Chronicle (Searchable Log)')));
+  const ctrlRow = el('div', 'apo-row-inline');
+  ctrlRow.style.marginBottom = '10px';
+  const filters = [
+    ['all', t('apotheosis.chronicle.fAll', 'All')],
+    ['my_cult', t('apotheosis.chronicle.fCult', 'My Cult')],
+    ['against_me', t('apotheosis.chronicle.fAgainst', 'Against Me')],
+    ['diplomacy', t('apotheosis.chronicle.fDip', 'Diplomacy & Wars')],
+    ['regions', t('apotheosis.chronicle.fReg', 'Regional Shifts')],
+  ];
+  const filterBtns = [];
+  const searchIn = el('input', 'apo-input');
+  searchIn.type = 'text';
+  searchIn.placeholder = t('apotheosis.chronicle.searchPh', 'Search by deity, region, or event...');
+  searchIn.value = pantheonLogSearch;
+
+  const listEl = el('div', 'apo-aurbis-log');
+  listEl.style.maxHeight = '360px';
+
+  const paintRows = () => {
+    listEl.replaceChildren();
+    const rows = queryPantheonChronicle(entity, { filter: pantheonLogFilter, search: pantheonLogSearch });
+    if (!rows.length) {
+      listEl.append(el('div', 'apo-card-desc', t('apotheosis.chronicle.empty', 'No matching Chronicle records.')));
+      return;
+    }
+    for (const r of rows) {
+      listEl.append(el('div', null, `[Day ${r.day}] ${r.text}`));
+    }
+  };
+
+  for (const [fid, fLabel] of filters) {
+    const b = el('button', `apo-btn${pantheonLogFilter === fid ? ' primary' : ''}`, fLabel);
+    b.style.padding = '4px 10px';
+    b.style.fontSize = '12px';
+    b.onclick = () => {
+      pantheonLogFilter = fid;
+      for (const [otherId, otherBtn] of filterBtns) {
+        otherBtn.className = `apo-btn${pantheonLogFilter === otherId ? ' primary' : ''}`;
+      }
+      paintRows();
+    };
+    filterBtns.push([fid, b]);
+    ctrlRow.append(b);
+  }
+  ctrlRow.append(searchIn);
+  searchIn.oninput = () => {
+    pantheonLogSearch = searchIn.value;
+    paintRows();
+  };
+  paintRows();
+  box.append(ctrlRow, listEl);
+  detail.append(box);
+}
+
+function renderPantheonPage(detail, entity, repaint) {
+  const state = ensureApotheosisState(entity);
+  const hero = el('div', 'apo-hero');
+  const left = el('div');
+  left.append(
+    el('div', 'apo-hero-title', t('apotheosis.pantheon.heading', 'Pantheon & 4X Dominion')),
+    el('div', 'apo-meta-row',
+      t('apotheosis.pantheon.sub', 'Manage relations with 8 Aedra & 8 Daedra, track influence across 71 Tamriel regions, and issue Geopolitical decrees.')),
+  );
+  hero.append(left, el('span', stageBadgeClass(state), stageBadgeText(state)));
+  detail.append(hero);
+
+  if (statusMessage) {
+    detail.append(el('div', `apo-notice${statusIsError ? ' err' : ''}`, statusMessage));
+  }
+  if (!state.ascended && state.stage !== APOTHEOSIS_STAGES.ASCENDED) {
+    detail.append(el('div', 'apo-box',
+      t('apotheosis.pantheon.locked', 'Ascend to Godhood and claim a Divine Portfolio to enter the Pantheon of Aurbis.')));
+    return;
+  }
+
+  let nowMin = 0;
+  try { nowMin = worldMinutes() || 0; } catch { nowMin = 0; }
+  const pantheon = ensurePantheonState(entity, { nowMinutes: nowMin });
+  renderFaithBox(detail, state, entity);
+
+  const tabs = el('div', 'apo-subtabs');
+  for (const [tid, label] of [
+    ['deities', t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy (16)')],
+    ['regions', t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics (71)')],
+    ['chronicle', t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle')],
+  ]) {
+    const b = el('button', `apo-btn${pantheonSubTab === tid ? ' primary' : ''}`, label);
+    b.onclick = () => { pantheonSubTab = tid; repaint(); };
+    tabs.append(b);
+  }
+  detail.append(tabs);
+
+  if (pantheonSubTab === 'regions') {
+    renderPantheonRegionsView(detail, entity, nowMin, repaint);
+  } else if (pantheonSubTab === 'chronicle') {
+    renderPantheonChronicleView(detail, entity);
+  } else {
+    renderPantheonDeitiesView(detail, entity, pantheon, nowMin, repaint);
+  }
+}
+
 function paint(root) {
   const entity = playerEntity;
   const trackerShown = !!getPref('apotheosisShowTracker');
@@ -887,6 +1376,8 @@ function paint(root) {
     renderPortfolioPage(detail, entity, repaint);
   } else if (activeSec === 'aurbis') {
     renderAurbisPage(detail, entity, repaint);
+  } else if (activeSec === 'pantheon') {
+    renderPantheonPage(detail, entity, repaint);
   } else {
     const fate = evaluateFateWeight(entity);
     const cat = fate.categories.find((c) => c.id === activeSec);

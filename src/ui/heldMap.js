@@ -232,6 +232,8 @@ import { STAR_VIOLET_CSS } from './starfall/starMapMark.js';   // STAR6: a falle
 import { STAR_CARD_TEXT } from '../systems/starfall/starWords.js';   // STAR6: its legend's word
 import { readFissureMarksIn, fissureMarksKey, FISSURE_BRASS_CSS, fissureLegendText } from './fissureMapMark.js';   // STOREFRONT: the season's Brass Fissures
 import { capturePointer } from './pointerCapture.js';   // RPT1026-CLIENT: a pad's synthetic pointer is refused a capture, never thrown
+import { t } from '../systems/textManager.js';
+import { isAscendedGod, getActiveApotheosisPlayer, getRegionInfluence, getPantheonDeity } from '../systems/apotheosis/apotheosisCore.js';
 
 export const HELD_MAP_URL = new URL('art/held-map.png', APP_ROOT ?? globalThis.document?.baseURI ?? 'https://invalid.invalid/').href;
 /** Its own pixels, and the stage's aspect. */
@@ -4256,7 +4258,19 @@ export class HeldMapWindow {
       };
     }
     const regionValid = region >= 0 && region < (this.deps.maps?.regionCount ?? 0);
-    const crisisLines = regionValid ? getRegionCrisisLines(region) : [];
+    const crisisLines = regionValid ? [...(getRegionCrisisLines(region) ?? [])] : [];
+    const apoPlayer = this.deps.playerEntity?.() ?? getActiveApotheosisPlayer?.() ?? null;
+    if (regionValid && isAscendedGod(apoPlayer)) {
+      const inf = getRegionInfluence(apoPlayer, region);
+      const leadName = inf.leaderId === 'player'
+        ? t('apotheosis.map.you', 'Your Cult')
+        : (getPantheonDeity(inf.leaderId)?.name ?? inf.leaderId);
+      crisisLines.unshift(t('apotheosis.map.dominion', 'Dominion: {god} ({pct}%) · Your Cult: {you}%', {
+        god: leadName,
+        pct: inf.leaderShare,
+        you: inf.playerShare,
+      }));
+    }
     if (ore && crisisLines.length > 0) {
       ore = {
         ...ore,
@@ -4433,6 +4447,21 @@ export class HeldMapWindow {
     card.append(el('p', 'hmmeta', this._selected.coords
       ? this._regionNameAt(Math.floor(this._selected.x), Math.floor(this._selected.y))
       : (REGION_NAMES[summary.regionIndex] ?? '')));
+    const cardPlayer = this.deps.playerEntity?.() ?? getActiveApotheosisPlayer?.() ?? null;
+    const cardRegion = this._selected.coords
+      ? (this.deps.maps?.getPoliticIndex?.(Math.floor(this._selected.x), Math.floor(this._selected.y)) ?? -1) - 128
+      : summary.regionIndex;
+    if (isAscendedGod(cardPlayer) && Number.isInteger(cardRegion) && cardRegion >= 0 && cardRegion < REGION_NAMES.length) {
+      const inf = getRegionInfluence(cardPlayer, cardRegion);
+      const leadName = inf.leaderId === 'player'
+        ? t('apotheosis.map.you', 'Your Cult')
+        : (getPantheonDeity(inf.leaderId)?.name ?? inf.leaderId);
+      card.append(el('p', 'hmmeta', t('apotheosis.map.dominion', 'Dominion: {god} ({pct}%) · Your Cult: {you}%', {
+        god: leadName,
+        pct: inf.leaderShare,
+        you: inf.playerShare,
+      })));
+    }
     // FRONTS (bible/03-World/World-Wide.md FRONTS): a place past the Bay says when its province's world events run - the
     // host's `fronts` the relay's clock, null offline and where the provinces stand no events
     const frontNow = this.deps.fronts?.() ?? null;

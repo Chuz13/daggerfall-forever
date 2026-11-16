@@ -30226,10 +30226,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     getPlayerPos: () => (player?.pos ? [...player.pos] : (cam?.pos ? [...cam.pos] : null)),
     getRegionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? 17,
     killAllFoes: () => {
+      const isProtected = (f) => !!(
+        f?.divineChampion || f?.entity?.divineChampion || f?.entity?.noInstakill ||
+        f?.entity?.apotheosisAspectBoss || f?.entity?.shadowBoss
+      );
       let count = 0;
       if (exteriorFoes?.foes) {
         for (const f of exteriorFoes.foes) {
-          if (!f.dead && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
+          if (!f.dead && !isProtected(f) && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
             exteriorFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: true, bypassShield: true });
             count++;
           }
@@ -30237,7 +30241,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       if (cityGuards?.guards) {
         for (const g of cityGuards.guards) {
-          if (!g.dead && !g.companion && !g.allied && g.entity?.team !== 'PlayerAlly' && g.entity?.mobileTeam !== 'PlayerAlly' && g.ai?.isHostile) {
+          if (!g.dead && !isProtected(g) && !g.companion && !g.allied && g.entity?.team !== 'PlayerAlly' && g.entity?.mobileTeam !== 'PlayerAlly' && g.ai?.isHostile) {
             cityGuards.hurtGuard?.(g, 99999, player.pos, null, { fromPlayer: true });
             count++;
           }
@@ -30246,7 +30250,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const dCtx = modes?.dungeonCtx;
       if (dCtx?.foes) {
         for (const f of dCtx.foes) {
-          if (!f.dead && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
+          if (!f.dead && !isProtected(f) && !f.companion && !f.allied && f.entity?.team !== 'PlayerAlly' && f.entity?.mobileTeam !== 'PlayerAlly') {
             dCtx.damageFoe?.(f, 99999, null, null, { fromPlayer: true, bypassShield: true });
             count++;
           }
@@ -30255,7 +30259,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const iFoes = modes?.interiorFoes;
       if (iFoes?.foes) {
         for (const f of iFoes.foes) {
-          if (!f.dead && (f.ai?.isHostile || f.entity?.team !== 'PlayerAlly') && !f.companion) {
+          if (!f.dead && !isProtected(f) && (f.ai?.isHostile || f.entity?.team !== 'PlayerAlly') && !f.companion) {
             iFoes.damageFoe?.(f, 99999, null, null, { fromPlayer: true, bypassShield: true });
             count++;
           }
@@ -30264,12 +30268,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       return count;
     },
     pacifyAllFoes: () => {
+      const isProtected = (f) => !!(
+        f?.divineChampion || f?.entity?.divineChampion || f?.entity?.noInstakill ||
+        f?.entity?.apotheosisAspectBoss || f?.entity?.shadowBoss
+      );
       let count = 0;
       const pacifyList = (list, requireHostileFlag = false) => {
         if (!list) return;
         for (const f of list) {
           if (
-            !f || f.dead || f.companion || f.allied ||
+            !f || f.dead || isProtected(f) || f.companion || f.allied ||
             f.livingRole === 'apotheosis_champion' || f.livingRole === 'undead_minion' ||
             f.entity?.team === 'PlayerAlly' || f.entity?.mobileTeam === 'PlayerAlly'
           ) continue;
