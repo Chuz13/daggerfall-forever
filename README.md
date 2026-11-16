@@ -6,6 +6,10 @@ A fork of DFO focused on modular single-player experience. The aim is to bring D
 
 ---
 
+Discord link: https://discord.gg/HVGrJFmYa
+
+---
+
 ## Vision
 To make a single-player, client-based, modular and highly customizable version of DFO with:
 * Selected online features playable offline and toggleable in settings (firmament, gathering and crafting, player housing, 24/7 city infrastructure).
