@@ -512,6 +512,11 @@ export function startCourt(player, regionIndex, crime, { rolls = Math.random, df
     if ((dfRand() & 1) !== 0) fine += 40;
     else daysInPrison += 3;
   }
+  // Apotheosis Shadow Tithe regional edict reduces legal fines by 50% in the decreed region
+  const shadowEdict = player?.apotheosis?.cult?.edicts?.[regionIndex];
+  if (shadowEdict?.edictId === 'shadow' && Number(shadowEdict.daysRemaining ?? 0) > 0) {
+    fine = Math.max(0, Math.round(fine * 0.5));
+  }
   // AUDIT 26 F178: the fine clamp is GetGoldAmount - coins PLUS
   // letters (DaggerfallCourtWindow.cs:169) - and the payment spends
   // letters through deductGold, so the two agree. A defendant holding

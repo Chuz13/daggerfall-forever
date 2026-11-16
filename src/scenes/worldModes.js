@@ -397,6 +397,7 @@ import { bannerKeyOf } from './hallBanners.js';   // CROWN-HALL: the throne room
 import { HOME_ENTRIES, homePriceOk, homeOnlinePrice, rentCost, rentDaysLeft, HOME_PRICE_STEP, HOME_PRICE_MIN, HOME_PRICE_MAX } from '../net/homeLaw.js';   // HOME-PRICE: what a home costs online
 import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 import { isOfflineHouseOwned } from '../systems/offlineHomes.js';
+import { getTempleCultDoorSubtitle, createSanctuaryInteriorEntry, spawnCultInteriorGuardians, isPlayerCultSiteOwned, interiorCultAltarTargets, interiorCultAltarHoverName, activateInteriorCultAltar } from './apotheosisCultHost.js';
 import { homeListedPrice } from '../net/homeListingLaw.js';   // FOUNDATION F3: a row's price
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
@@ -3455,6 +3456,7 @@ export function createWorldModes(host) {
     // port's picker simply does not select it, so a too-far click
     // falls through to whatever is behind it and says nothing.
     targets.push(...questFlatTargets(questFlats));
+    targets.push(...interiorCultAltarTargets(interiorCtx, playerEntity, interiorBuilding, homeTownOf(interiorBuilding)));
     _intList = targets;
     _intMark = _mark;
     return targets;
@@ -3578,6 +3580,7 @@ export function createWorldModes(host) {
         const t = questResourceName(questStandItem(res), { archive: st.archive ?? -1, record: st.record ?? -1, getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null });   // WHERE-ROBES: the Item's own item; AUDIT N1: a letter's signoff
         return t ? { title: t } : null;
       }
+      if (key.startsWith('cultAltar:')) return interiorCultAltarHoverName(playerEntity, key);
       return null;
     },
   ]);
@@ -7263,6 +7266,7 @@ export function createWorldModes(host) {
     for (const t of host.portTargets?.() ?? []) targets.push(t);
     // WITCH1 (scenes/witchesHost.js): the Hearth Offerings at the homes' doors - the streaming host's (the bench stands none)
     for (const t of host.witches?.targets() ?? []) targets.push(t);
+    for (const t of host.cultHost?.targets() ?? []) targets.push(t);
     _extList = { entries, npcs, graves, targets };
     _extMark = mark;
     return _extList;
@@ -7540,6 +7544,8 @@ export function createWorldModes(host) {
       const verbs = _doorText ? houseVerbs : null;
       const homeLine = verbs ? null : home ? (homeDoorFor(bd, home) === 'locked' ? 'Locked' : null) : homeSaleHover(bd);
       if (_doorText && homeLine) _doorText = { ..._doorText, subs: [...(_doorText.subs ?? []), homeLine] };
+      const cultSub = bd.buildingType === BUILDING_TYPES.Temple ? getTempleCultDoorSubtitle(playerEntity, bd, homeTownOf(bd), townTalk?.factionDict) : null;
+      if (_doorText && cultSub) _doorText = { ..._doorText, subs: [...(_doorText.subs ?? []), cultSub] };
       _doorText = homeVoteDoorText(_doorText, bd, home, verbs);   // HOME-VOTE: its votes' lines, and the vote's rows unlit
       if (verbs) _doorText = { ..._doorText, actions: verbs };
       _doorTextKey = key; _doorTextGen = gen; _doorTextHomes = homesV; _doorTextVerbs = verbsSig;
@@ -7551,6 +7557,7 @@ export function createWorldModes(host) {
       return { title: b?.isBounty ? BOUNTY_BOARD_TEXT : NOTICE_BOARD_TEXT };
     }
     if (key.startsWith('grave:')) return { title: 'Grave' };   // SEARCH1
+    if (key.startsWith('cultHatch:') || key.startsWith('cultKeeper:')) return host.cultHost?.hoverName(key) ?? null;
     if (key.startsWith('person:')) {                                       // .cs:325-393
       const pn = npcs[Number(key.split(':')[1])];
       if (!pn) return null;
@@ -7570,7 +7577,7 @@ export function createWorldModes(host) {
   /** H1's IsHouseOwned for a building where it stands - DFU's (region, key) law; AUDIT CAPTAIN'S SEA P9: never a building
    *  of an isle's town (no house is sold past the Veil, and a Betony deed's key owned the same key in every isle town of
    *  region 19 - its residents gone, its cupboards the player's). */
-  const houseOwnedAt = (b, key) => (!isEtherPlaceId(homeTownOf(b)) && isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, key, homeTownOf(b))) || (isOfflineHousingActive() && isOfflineHouseOwned(homeTownOf(b), key));   // AUDIT RELEASE R2-9: a capital's slice's deed in its own slice alone; BAY-LEFT-B: and every place past the Bay's in its own town (banking.js deedHeldIn)
+  const houseOwnedAt = (b, key) => (!isEtherPlaceId(homeTownOf(b)) && isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, key, homeTownOf(b))) || (isOfflineHousingActive() && isOfflineHouseOwned(homeTownOf(b), key)) || isPlayerCultSiteOwned(playerEntity, homeTownOf(b), key);   // AUDIT RELEASE R2-9: a capital's slice's deed in its own slice alone; BAY-LEFT-B: and every place past the Bay's in its own town (banking.js deedHeldIn)
   /** The online home a building is, as this client last heard - null offline, for a building no player can own, or
    *  while its town is not known yet. */
   function homeOf(b) {
@@ -7826,6 +7833,10 @@ export function createWorldModes(host) {
     if (typeof key === 'string' && key.startsWith('witch:')) {   // WITCH1: a Hearth Offering - too far speaks the refusal; the plaque's lit row (Take, Fill, Take in) is the verb
       if (_hitDist > _hitReach) { setMidScreenText(tooFarAwayText()); return true; }
       return host.witches?.activate(key, getInteractionMode(), plaqueActionFor(key)) ?? true;
+    }
+    if (typeof key === 'string' && (key.startsWith('cultHatch:') || key.startsWith('cultKeeper:'))) {
+      if (_hitDist > _hitReach) { setMidScreenText(tooFarAwayText()); return true; }
+      return host.cultHost?.activate(key, getInteractionMode()) ?? true;
     }
     if (_hitDist > _hitReach) { setMidScreenText(tooFarAwayText()); return true; }   // AUDIT 65 MC-2: ActivateStaticDoor's OWN first statement (:501-504), before the bash sound and the lock ladder
     return activateStaticDoor(entries[key], entries, false, { verb: plaqueActionFor(key) });   // HOME2: the verb the door's plaque lit, if it listed any
@@ -8712,6 +8723,7 @@ export function createWorldModes(host) {
       // service's word standing and the save's permanent set without it, and the next clearing of the scene cache would
       // have thrown my things away (idempotent - DFU's own AddPermanentScene guards with Contains).
       if (home?.own) addPermanentScene(sceneCache(), homeSceneName(homeTownOf(building), building.buildingKey));
+      else if (houseOwned && building?.buildingKey) addPermanentScene(sceneCache(), interiorSceneName(homeTownOf(building), building.buildingKey));
       // HEARTH1: the room's own fires, off the light list this context
       // already built - a tavern's hearth, a brazier in a hall. The
       // parent frame, which is what the lights carry and what the
@@ -8736,6 +8748,7 @@ export function createWorldModes(host) {
       }
       interiorFoes = makeInteriorFoes(ctx);   // IF: the pool lives exactly as long as the interior does
       interiorGuards = makeInteriorGuards(ctx);   // ROAD-B: ...and so does the watch that can be called into it
+      spawnCultInteriorGuardians(playerEntity, interiorBuilding, homeTownOf(interiorBuilding), interiorFoes, ctx, { say });
       ownerFoes.pools(interiorFoes, interiorGuards);   // HOST-CLOCK (scenes/ownerCatchUp.js): online with anyone else in the building's room, both pools take my clamped frame in FOE-CATCHUP's steps on the page's one plan - my player's pace, never past it
       _intNetOn = false; ensureInteriorNet();   // QUEST-PARTY phase 3b: online, the building's foes ride the room's own lane
       // X1: an armed Open/Lock spell fires on this interior's doors
@@ -8985,6 +8998,7 @@ export function createWorldModes(host) {
         clickQuestFlat(questFlats[Number(key.split(':')[1])], interiorBuilding?.buildingKey ?? 0);
         return true;
       }
+      if (key.startsWith('cultAltar:')) { activateInteriorCultAltar(playerEntity, key, { showOverlay: (w) => mountInterior(w), say, worldMinutes: Math.floor(worldMinutes()) }); return true; }
       if (key.startsWith('droppedTorch:')) { interiorTorches.activate(key, getInteractionMode()); return true; }   // HT1: PickUpLightSource
       if (key.startsWith('decor:') || key.startsWith('base:')) { (key.startsWith('base:') ? (decorTool.flying() && !decorTool.ghost() && plaqueActionFor(key) === 'out' && decorTool.act('out', key.slice(5))) : (decorTool.flying() && !decorTool.ghost() ? decorTool.act(plaqueActionFor(key) ?? 'move', decorIdOfKey(key)) : activateDecor(decorIdOfKey(key)))); return true; }   // DECOR1c: a placed piece - its storage opens for its owner; decorating runs the plaque's lit row (or Move when the fold missed), never opens the piece; Take out on the room's own furniture
       // INTERIOR-BODIES: ...AND THE PRESS ARM THE BODIES NEVER HAD.
@@ -14438,6 +14452,7 @@ export function createWorldModes(host) {
     },
     enterSailingCabin,
     enterCaravanRoom,   // WAGONS1
+    enterCultSanctuary: (site, opts = {}) => { const e = createSanctuaryInteriorEntry(site, { mapId: site?.mapId, regionIndex: site?.regionIndex, hatchWorldPos: opts.worldPos ?? [...player.pos], hatchYaw: opts.yaw ?? cam.yaw }); return e ? enterInteriorCore(e.hit, e.entries, { building: e.building }) : false; },
     tryEnter,
     exteriorActivationDistance,   // AUDIT 63 F33 (review): the rival distance the living-foe arm must beat
     exteriorActivationHit,   // FB1012d ALLY-YIELDS: ...and its pick, reach and all, for the race's `next`

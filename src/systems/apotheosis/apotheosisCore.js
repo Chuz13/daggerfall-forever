@@ -154,6 +154,57 @@ import {
 } from './apotheosisStage3.js';
 
 export {
+  CULT_FOUND_FAITH_COST,
+  CULT_CONSECRATE_FORCE_FAITH_COST,
+  CULT_CONSECRATE_PEACEFUL_FAITH_COST,
+  CULT_BRANCH_SWITCH_COST,
+  REGIONAL_EDICT_COST,
+  REGIONAL_EDICT_DURATION_DAYS,
+  REGIONAL_EDICT_DURATION_MINUTES,
+  EDICT_INFLUENCE_REQUIREMENT,
+  AEDRA_IDS,
+  DAEDRA_IDS,
+  AEDRA_FACTION_TO_GOD,
+  CULT_UPGRADE_TIERS,
+  CULT_BRANCHES,
+  REGIONAL_EDICTS,
+  REGIONAL_EDICT_IDS,
+  sanctuaryBuildingKeyFor,
+  templeSiteKey,
+  daedraHatchSiteKey,
+  playerHatchSiteKey,
+  resolveTemplePatronGodId,
+  pickDaedricPatronForCity,
+  ensureCultState,
+  registerCultSiteAsOfflineHome,
+  ensureCityCultSites,
+  getCityCultSites,
+  getAllCultSites,
+  getCultSite,
+  getCultSiteByBuilding,
+  isPlayerCultSiteOwned,
+  isPlayerCultTempleOwned,
+  hasSanctuaryKey,
+  obtainSanctuaryKeyFromGatekeeper,
+  attemptUnlockSanctuaryHatch,
+  clearSiteGuardians,
+  getSanctuaryGuardianCount,
+  consecrateSiteByForce,
+  dedicateSitePeacefully,
+  foundPlayerUndergroundSanctuary,
+  upgradeCultSite,
+  selectCultSiteBranch,
+  canIssueRegionalEdict,
+  getActiveRegionalEdict,
+  proclaimRegionalEdict,
+  getCultPassiveFaithPerDay,
+  getRegionalEdictAurbisCostMultiplier,
+  getRegionalEdictChampionDamageMultiplier,
+  getRegionalEdictBountyMultiplier,
+  tickCultAndEdictsDay,
+} from './apotheosisCult.js';
+
+export {
   isAscendedGod,
   apotheosisHpOf,
   apotheosisMpOf,
@@ -396,6 +447,7 @@ export function defaultApotheosisState() {
     debugWitnessCount: null,
     lastPortfolioSwitchMinutes: null,
     pantheon: null,
+    cult: null,
   };
 }
 
@@ -521,6 +573,7 @@ export function ensureApotheosisState(entity) {
       ? Math.trunc(Number(prev.lastPortfolioSwitchMinutes))
       : null,
     pantheon: prev.pantheon && typeof prev.pantheon === 'object' ? prev.pantheon : null,
+    cult: prev.cult && typeof prev.cult === 'object' ? prev.cult : null,
   };
   return entity.apotheosis;
 }

@@ -343,6 +343,7 @@ import { createQuayPool } from './quayPool.js';   // QUAYS: a harbour's quays, s
 import { createMonuments } from './lefayMonumentHost.js';   // LEFAY1: the monuments - Julian LeFay's in Gothway Garden, Patrick Stewart's by the White-Gold Tower - and the flowers laid at them
 import { createMerchantYards } from './merchantYardsHost.js';   // MERCHANT-YARDS: every city's and town's Stable and Wagon Yard, and their trade
 import { createWitchesHost } from './witchesHost.js';   // WITCH1: the Witches' Festival in the streets - the Hearth Offerings, the Wyrd Sister's window, the festival's doors
+import { createApotheosisCultHost } from './apotheosisCultHost.js';
 import { createPortHost, PORT_TEXT, stairRefusal, stairFeetY } from './portHost.js';   // SHIPYARDS: every port town's shipyard and lighthouse, their people, their press and the lamp - and the stair's refusals
 import { createShipyardHost } from './shipyardHost.js';   // SHIPYARDS: the shipmaster's window's host half
 import { createPassageHost } from './naval/passageHost.js';   // PASSAGE: a berth's friendly ship, booked and sailed
@@ -28895,6 +28896,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // underfoot's Hearth Offerings stood at their doors, taken from and filled; the Wyrd Sisters' window; the finds' doors.
   // The dressing and the Sisters themselves are the build's (scenes/pixelBuild.js, world/witchesDecor.js)
   witches = FORK_FLAGS.ENABLE_SEASONAL_EVENTS ? createWitchesHost({ built, renderer, pipeline, onlineHomes, townTalk, state, player, saveSoon, chatNotice, mode: _mode, get online() { return online; } }) : null;
+  const cultHost = createApotheosisCultHost({ built: () => built, renderer, pipeline, state, townTalk, modes: () => modes, groundAt: surfaceAt, worldMinutes: minuteNow });
   const _activeHomeDecor = homeDecor || {
     list: (...a) => isOfflineHousingActive() ? _offlineDecor.list(...a) : Promise.resolve({ ok: false }),
     rev: (...a) => isOfflineHousingActive() ? _offlineDecor.rev(...a) : Promise.resolve({ ok: false }),
@@ -29821,6 +29823,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     portTargets: () => portHost?.targets() ?? [],   // SHIPYARDS: the shipyards' people, boards and hulls, the lighthouses' keeper, door, hatch and lamp, in the street's one ray
     activatePort: (key, mode, verb) => portHost?.activate(key, mode, verb) ?? false,   // SHIPYARDS: the shipmaster's window on its page, the crew hall's, the tower's stair
     witches,   // WITCH1: a Wyrd Sister's press and the Hearth Offerings', in the street's one ray (scenes/witchesHost.js)
+    cultHost,
     /** AUDIT 64 F11: the StaticBuildings of every built pixel, shifted
      *  through the LIVE floating-origin translation the street NPCs
      *  ride - DFU's hit test consumes a world-space
@@ -30326,6 +30329,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       return count;
     },
     tele2loc: tele2locHelper,
+    enterCultSanctuary: (site, opts) => modes?.enterCultSanctuary?.(site, opts),
+    getCultCity: () => ({ mapId: _questLoc()?.mapTableData?.mapId ?? 0, regionIndex: _questRegionIndex(), locationName: _questLoc()?.name ?? '' }),
     tele2pixel: async (px, py) => {
       const x = Number(px);
       const y = Number(py);
@@ -34344,6 +34349,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { merchantYards?.frame(); } catch (e) { console.warn('[yards] the yards', e?.message ?? e); }   // MERCHANT-YARDS: each town's Stable and Wagon Yard stood where it is built
     portFrame();   // SHIPYARDS: each port town's shipyard and lighthouse stood where it is built, before the lights (its lamp)
     witches?.frame();   // WITCH1: the town underfoot's Hearth Offerings stood, before the lights (their lanterns)
+    cultHost?.frame();
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
     // WOD2: the mod's lights burn at every hour and each carries its own
@@ -34456,6 +34462,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     merchantYards?.draw(renderer, yardCull);   // MERCHANT-YARDS: the yards' timber and the Wagon Yards' wagons on show; PERF-YARD (AUDIT 15): the street's view test
     poiHost?.draw(renderer, yardCull);   // POI-2: the approved POIs' opaque parts, by the street's view test
     portHost?.draw(renderer, yardCull);   // SHIPYARDS: the shipyards' timber and the lighthouses' stone, by the street's view test as the yards are
+    cultHost?.draw(renderer);
     if (_mode() === 'exterior') wardenShows?.draw(renderer);   // WARDEN1: a wagon on a guard's shoulders, or in the air
     if (csaOn()) csa.draw(renderer);   // CSA-B: the boats - the hulls, the classic models their helpers stand, the baked sails
     // SERPENT1: the sea serpent's body with the opaque world, before the sea's top (its humps break it, the rest shows

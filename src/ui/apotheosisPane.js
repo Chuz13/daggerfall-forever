@@ -65,6 +65,11 @@ import {
   sowDivineDiscord,
   startApotheosisFromArtifacts,
 } from '../systems/apotheosis/apotheosisCore.js';
+import {
+  renderCultPage,
+  resetCultSectionUiState,
+  getCultScrollKey,
+} from './apotheosisCultSection.js';
 
 export const APOTHEOSIS_STYLE_ID = 'df-apotheosis-css';
 
@@ -190,9 +195,9 @@ const SPAWNABLE_MOBILES = Object.entries(MOBILE_TYPES)
   .filter(([name, id]) => name !== 'None' && name !== 'Horse_Invalid' && id < 65535)
   .sort((a, b) => a[1] - b[1]);
 
-/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`, `aurbis`, `pantheon`) before opening the pane. */
+/** Pre-selects a specific sub-section (`overview`, `meta`, `blood`, `power`, `portfolio`, `aurbis`, `pantheon`, `cult`) before opening the pane. */
 export function selectApotheosisSection(sec) {
-  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio', 'aurbis', 'pantheon']);
+  const valid = new Set(['overview', 'meta', 'blood', 'power', 'portfolio', 'aurbis', 'pantheon', 'cult']);
   if (valid.has(sec)) {
     activeSec = sec;
   }
@@ -211,6 +216,7 @@ export function releaseApotheosisPane() {
   pantheonSubTab = 'deities';
   pantheonRegionQuery = '';
   pantheonLogSearch = '';
+  resetCultSectionUiState();
 }
 
 function setFeedback(msg, isError = false) {
@@ -228,6 +234,7 @@ function currentSections(trackerShown) {
   secs.push(['portfolio', t('apotheosis.sec.portfolio', 'Divine Portfolio')]);
   secs.push(['aurbis', t('apotheosis.nav.aurbis', 'Scroll of Aurbis')]);
   secs.push(['pantheon', t('apotheosis.sec.pantheon', 'Pantheon & Diplomacy')]);
+  secs.push(['cult', t('apotheosis.sec.cult', 'Cult & Edicts')]);
   return secs;
 }
 
@@ -1406,7 +1413,7 @@ function paint(root, { resetDetailScroll = false } = {}) {
     wrap.append(rail);
 
     const detail = el('div', 'px-qdetail px-sys');
-    detail.setAttribute?.('data-scroll-key', `${activeSec}:${activeSec === 'pantheon' ? pantheonSubTab : ''}`);
+    detail.setAttribute?.('data-scroll-key', `${activeSec}:${activeSec === 'pantheon' ? pantheonSubTab : (activeSec === 'cult' ? getCultScrollKey() : '')}`);
     if (activeSec === 'overview') {
       renderOverview(detail, entity, trackerShown, repaint);
     } else if (activeSec === 'portfolio') {
@@ -1415,6 +1422,8 @@ function paint(root, { resetDetailScroll = false } = {}) {
       renderAurbisPage(detail, entity, repaint);
     } else if (activeSec === 'pantheon') {
       renderPantheonPage(detail, entity, repaint);
+    } else if (activeSec === 'cult') {
+      renderCultPage(detail, entity, repaint, { renderFaithBox, setFeedback, statusMessage, statusIsError });
     } else {
       const fate = evaluateFateWeight(entity);
       const cat = fate.categories.find((c) => c.id === activeSec);

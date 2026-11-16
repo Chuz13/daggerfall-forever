@@ -992,6 +992,13 @@ function pickDeityTargetRegion(entity, god, rng) {
   return Math.floor(rng() * TAMRIEL_REGION_COUNT) % TAMRIEL_REGION_COUNT;
 }
 
+let _cultDailyTickHook = null;
+
+/** Registers daily Cult & Edicts simulation callback invoked inside tickPantheonDay. */
+export function setCultDailyTickHook(fn) {
+  _cultDailyTickHook = typeof fn === 'function' ? fn : null;
+}
+
 /**
  * Runs daily Pantheon simulation (`worldTick.runDayChange` via `tickApotheosisMythicDecay`):
  * 1) Applies all 26 `REGION_FLAGS` shifts in every region;
@@ -1031,7 +1038,9 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
       const entry = p.deities[d.id];
       if (!entry) continue;
       entry.status = computeStatusFromEntry(entry, entry.relation, simMin);
-      const chance = clamp(0.35 * actMult, 0.05, 0.95);
+      // Normal/Relentless Pantheon activity: every one of the 16 AI deities acts daily;
+      // Passive halves daily cadence so passive worlds aren't overwhelmed.
+      const chance = actMult < 1 ? 0.5 : 1.0;
       if (rng() >= chance) continue;
 
       aiMoves++;
@@ -1110,6 +1119,8 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
         });
       }
     }
+
+    _cultDailyTickHook?.(entity, simMin, simDay, rng);
   }
 
   return { daysProcessed: daysToRun, aiMoves };
@@ -1532,6 +1543,13 @@ export function enforceRegionPeace(entity, regionA, regionB, { nowMinutes = null
   });
 
   return { ok: true, action: 'peace', regions: [rA, rB], faithSpent: cost, faith: spend.faith };
+}
+
+/** Appends an entry directly to the Pantheon Chronicle from sister Stage 3 modules (e.g. Cult & Edicts). */
+export function appendPantheonChronicle(entity, entry) {
+  const p = ensurePantheonState(entity, { nowMinutes: entry?.minutes ?? 0 });
+  if (!p) return null;
+  return pushChronicle(p, entry);
 }
 
 /** Filters & searches the Pantheon Chronicle (`filter`: 'all'|'my_cult'|'against_me'|'diplomacy'|'regions'). */

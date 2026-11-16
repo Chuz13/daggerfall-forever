@@ -111,6 +111,22 @@ import {
   igniteRegionWar,
   enforceRegionPeace,
   queryPantheonChronicle,
+  ensureCultState,
+  ensureCityCultSites,
+  getCityCultSites,
+  getAllCultSites,
+  getCultSite,
+  attemptUnlockSanctuaryHatch,
+  obtainSanctuaryKeyFromGatekeeper,
+  clearSiteGuardians,
+  consecrateSiteByForce,
+  dedicateSitePeacefully,
+  foundPlayerUndergroundSanctuary,
+  upgradeCultSite,
+  selectCultSiteBranch,
+  proclaimRegionalEdict,
+  getActiveRegionalEdict,
+  getCultPassiveFaithPerDay,
 } from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -3195,7 +3211,7 @@ async function handleApotheosisCommand(args = []) {
     if (act === 'tick') {
       const days = Math.max(1, Math.min(30, parseInt(args[2] ?? '1', 10) || 1));
       const res = tickPantheonDay(playerEntity, nowMin, { daysOverride: days });
-      return `Pantheon simulated ${res.daysProcessed} day(s), ${res.aiMoves} deity move(s).`;
+      return `Pantheon simulated ${res.daysProcessed} day(s), ${res.aiMoves} deity move(s) across ${PANTHEON_DEITIES.length} AI deities.`;
     }
     if (act === 'log') {
       const filterArg = String(args[2] ?? 'all').toLowerCase();
@@ -3277,11 +3293,118 @@ async function handleApotheosisCommand(args = []) {
     }
     return 'Usage: apo geopolitics <war|peace> <regionA> <regionB>';
   }
+  if (sub === 'cult') {
+    const nowMin = Math.floor(worldMinutes());
+    const act = String(args[1] ?? 'status').toLowerCase();
+    const cityInfo = sceneCtx?.getCultCity?.() ?? null;
+    const reg = Number.isInteger(cityInfo?.regionIndex) ? cityInfo.regionIndex : (Number.isInteger(playerEntity?.currentRegionIndex) ? playerEntity.currentRegionIndex : 17);
+    const cityMapId = cityInfo?.mapId || (reg + 1000);
+    const cityName = cityInfo?.locationName || `Region #${reg}`;
+    ensureCultState(playerEntity);
+    ensureCityCultSites(playerEntity, { mapId: cityMapId, regionIndex: reg, locationName: cityName, temples: [] });
+
+    const resolveTargetSite = (rawArg) => {
+      const a = String(rawArg ?? '').trim();
+      if (a && getCultSite(playerEntity, a)) return getCultSite(playerEntity, a);
+      const cityList = getCityCultSites(playerEntity, cityMapId);
+      const allList = getAllCultSites(playerEntity);
+      const low = a.toLowerCase();
+      if (!low || low === 'daedra' || low === 'hatch' || low === 'sanctuary') {
+        return cityList.find((s) => s.kind === 'sanctuary') ?? allList.find((s) => s.kind === 'sanctuary') ?? null;
+      }
+      if (low === 'temple') {
+        let tpl = cityList.find((s) => s.kind === 'temple') ?? allList.find((s) => s.kind === 'temple') ?? null;
+        if (!tpl) {
+          ensureCityCultSites(playerEntity, {
+            mapId: cityMapId,
+            regionIndex: reg,
+            locationName: cityName,
+            temples: [{ buildingKey: 1, factionId: 33, name: `${cityName} Temple` }],
+          });
+          tpl = getCityCultSites(playerEntity, cityMapId).find((s) => s.kind === 'temple') ?? null;
+        }
+        return tpl;
+      }
+      return cityList.find((s) => s.siteKey.toLowerCase().includes(low)) ?? allList.find((s) => s.siteKey.toLowerCase().includes(low)) ?? null;
+    };
+
+    if (act === 'found') {
+      const targetMapId = args[2] != null && /^\d+$/.test(args[2]) ? parseInt(args[2], 10) : cityMapId;
+      const res = foundPlayerUndergroundSanctuary(playerEntity, {
+        mapId: targetMapId,
+        regionIndex: reg,
+        locationName: cityName,
+        nowMinutes: nowMin,
+        force: true,
+      });
+      return res.ok ? `Founded Cult Undercroft (${res.site.siteKey}) in ${res.site.locationName} (reg=${res.site.regionIndex}).` : res.reason;
+    }
+    if (act === 'key') {
+      const site = resolveTargetSite(args[2]);
+      const mode = String(args[3] ?? 'pickpocket').toLowerCase() === 'loot' ? 'loot' : 'pickpocket';
+      if (!site) return 'Target sanctuary site not found.';
+      const res = obtainSanctuaryKeyFromGatekeeper(playerEntity, site.siteKey, mode, { skillOverride: 100, rng: () => 0 });
+      return res.ok ? `${site.siteKey}: ${res.message} (alarm=${!!site.alarmTriggered})` : res.reason;
+    }
+    if (act === 'unlock') {
+      const site = resolveTargetSite(args[2]);
+      const method = String(args[3] ?? 'lockpick').toLowerCase();
+      if (!site) return 'Target sanctuary site not found.';
+      const res = attemptUnlockSanctuaryHatch(playerEntity, site.siteKey, method, { force: true, nowMinutes: nowMin });
+      return `${site.siteKey}: unlocked=${res.unlocked}, alarm=${!!site.alarmTriggered}, method=${method}${res.ok ? '' : ` (${res.reason})`}`;
+    }
+    if (act === 'clear') {
+      const site = resolveTargetSite(args[2]);
+      if (!site) return 'Target site not found.';
+      clearSiteGuardians(playerEntity, site.siteKey);
+      return `${site.siteKey}: Guardians marked cleared (guardiansCleared=true).`;
+    }
+    if (act === 'consecrate') {
+      const site = resolveTargetSite(args[2]);
+      const mode = String(args[3] ?? 'force').toLowerCase();
+      if (!site) return 'Target site not found.';
+      const res = mode === 'peaceful'
+        ? dedicateSitePeacefully(playerEntity, site.siteKey, { nowMinutes: nowMin, force: true })
+        : consecrateSiteByForce(playerEntity, site.siteKey, { nowMinutes: nowMin, force: true });
+      return res.ok ? `${site.siteKey}: consecrated (${res.mode}) -> owner=${res.site.ownerId}, tier=${res.site.tier}.` : res.reason;
+    }
+    if (act === 'upgrade') {
+      const site = resolveTargetSite(args[2]);
+      if (!site) return 'Target site not found.';
+      const res = upgradeCultSite(playerEntity, site.siteKey, { nowMinutes: nowMin, force: true });
+      return res.ok ? `${site.siteKey}: upgraded to Tier ${res.tier}.` : res.reason;
+    }
+    if (act === 'branch') {
+      const site = resolveTargetSite(args[2]);
+      const branchId = String(args[3] ?? 'missionary').toLowerCase();
+      if (!site) return 'Target site not found.';
+      const res = selectCultSiteBranch(playerEntity, site.siteKey, branchId, { force: true });
+      return res.ok ? `${site.siteKey}: branch set to ${res.branch}.` : res.reason;
+    }
+    if (act === 'edict') {
+      const rawReg = args[2];
+      const targetReg = rawReg != null && /^\d+$/.test(String(rawReg)) ? parseInt(rawReg, 10) : reg;
+      const edictId = String(args[3] ?? 'prosperity').toLowerCase();
+      const res = proclaimRegionalEdict(playerEntity, targetReg, edictId, { nowMinutes: nowMin, force: true });
+      if (!res.ok) return res.reason;
+      if (res.cleared) return `Cleared Regional Edict in region #${targetReg}.`;
+      return `Proclaimed ${res.edict.edictId} edict in region #${targetReg} (${res.edict.daysRemaining}d remaining).`;
+    }
+    if (act === 'list') {
+      const fReg = args[2] != null && /^\d+$/.test(args[2]) ? parseInt(args[2], 10) : null;
+      const sites = getAllCultSites(playerEntity, { regionIndex: fReg });
+      if (!sites.length) return 'No Cult sites registered.';
+      return sites.map((s) => `${s.siteKey} [${s.kind}] owner=${s.ownerId} tier=${s.tier} branch=${s.branch ?? '-'} open=${!!s.unlocked} alarm=${!!s.alarmTriggered} clear=${!!s.guardiansCleared} reg=${s.regionIndex}`).join('\n');
+    }
+    const owned = getAllCultSites(playerEntity, { ownedOnly: true });
+    const ed = getActiveRegionalEdict(playerEntity, reg);
+    return `Cult Sanctums owned=${owned.length}, Passive Faith=+${getCultPassiveFaithPerDay(playerEntity)}/day, City=#${cityMapId} (${cityName}, reg=${reg}), Active Edict=${ed ? `${ed.edictId} (${ed.daysRemaining}d)` : 'none'}\nUsage: apo cult <status|list|found|unlock|key|clear|consecrate|upgrade|branch|edict>`;
+  }
   if (sub === 'reset') {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | cult <status|list|found|unlock|key|clear|consecrate|upgrade|branch|edict> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
 }
 
 registerAurbisRuntime({

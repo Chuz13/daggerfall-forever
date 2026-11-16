@@ -586,22 +586,42 @@ export const APOTHEOSIS_CHAMPION_TEMPLATES = Object.freeze({
 
 const ROMAN_RANKS = ['I', 'II', 'III', 'IV', 'V'];
 
+let _cultStage2Hooks = {
+  getAurbisCostMult: null,
+  getChampionDamageMult: null,
+  getBountyMult: null,
+  getPassiveFaithPerDay: null,
+};
+
+/** Registers regional edict & cult passive multipliers into Stage 2 mechanics without circular imports. */
+export function setCultStage2Hooks(hooks = {}) {
+  _cultStage2Hooks = {
+    getAurbisCostMult: typeof hooks?.getAurbisCostMult === 'function' ? hooks.getAurbisCostMult : null,
+    getChampionDamageMult: typeof hooks?.getChampionDamageMult === 'function' ? hooks.getChampionDamageMult : null,
+    getBountyMult: typeof hooks?.getBountyMult === 'function' ? hooks.getBountyMult : null,
+    getPassiveFaithPerDay: typeof hooks?.getPassiveFaithPerDay === 'function' ? hooks.getPassiveFaithPerDay : null,
+  };
+}
+
 /**
  * Computes Champion power scaling directly from Faith at cast time, strictly
  * reusing existing `CHAMPION_HEALTH`, `CHAMPION_DAMAGE`, `SWORN_HEALTH_PER_RANK`,
- * and `SWORN_DAMAGE_PER_RANK` multipliers.
+ * and `SWORN_DAMAGE_PER_RANK` multipliers (plus Sanctified Crusade edict if active in player's current region).
  */
-export function computeChampionFaithScaling(faithAtCast = 0) {
+export function computeChampionFaithScaling(faithAtCast = 0, entity = null) {
   const safeFaith = Math.max(0, Number(faithAtCast) || 0);
   const rank = Math.max(1, Math.min(5, 1 + Math.floor(safeFaith / 200)));
   const healthMult = Number((CHAMPION_HEALTH * (1 + SWORN_HEALTH_PER_RANK * rank)).toFixed(3));
-  const damageScale = Number((CHAMPION_DAMAGE * (1 + SWORN_DAMAGE_PER_RANK * rank)).toFixed(3));
+  const regionIndex = Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : 17;
+  const edictDmgMult = Number(_cultStage2Hooks.getChampionDamageMult?.(entity, regionIndex) ?? 1) || 1;
+  const damageScale = Number((CHAMPION_DAMAGE * (1 + SWORN_DAMAGE_PER_RANK * rank) * edictDmgMult).toFixed(3));
   return {
     faithAtCast: safeFaith,
     rank,
     romanRank: ROMAN_RANKS[rank - 1] ?? String(rank),
     healthMult,
     damageScale,
+    edictDmgMult,
   };
 }
 
@@ -670,7 +690,7 @@ export function summonApotheosisChampions(playerEntity, count = 1, { faithAtCast
       ? Math.trunc(Number(playerEntity._lastWorldMinutes))
       : Math.trunc(Number(getAurbisRuntime()?.getWorldMinutes?.() ?? 0) || 0));
 
-  const scaling = computeChampionFaithScaling(resolvedFaith);
+  const scaling = computeChampionFaithScaling(resolvedFaith, playerEntity);
   const expiresAtMinutes = resolvedNow + APOTHEOSIS_CHAMPION_DURATION_MINUTES;
 
   // Replace previous Champion summon batch cleanly so the party stays thematic to current Portfolio & Rank.
@@ -1682,6 +1702,12 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
     };
   }
 
+  const curReg = Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : 17;
+  const regionCostMult = Number(_cultStage2Hooks.getAurbisCostMult?.(entity, curReg) ?? 1) || 1;
+  if (faithCost > 0 && regionCostMult !== 1) {
+    faithCost = Math.max(1, Math.round(faithCost * regionCostMult));
+  }
+
   const preview = faithCost > 0
     ? evaluateMiracleWitnessReaction(entity, cmd, args, { witnessCount, apply: false })
     : { delta: 0, alignment: 'neutral', capped: false };
@@ -1692,6 +1718,7 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
     cmd,
     args,
     faithCost,
+    regionCostMult,
     witnessDelta: preview.delta,
     alignment: preview.alignment,
     witnessCapped: preview.capped,

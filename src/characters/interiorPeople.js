@@ -92,8 +92,8 @@ export function peopleAreVisible(
   const factionId = building?.factionId ?? 0;
   const g = guildForBuilding?.(factionId) ?? null;
 
-  // "Disable people if player owns this house" (:1209-1212)
-  if (isHouseOwned?.(building?.buildingKey) ?? false) return false;
+  // "Disable people if player owns this house" (:1209-1212); consecrated Temples retain their priests/services
+  if (type !== BUILDING_TYPES.Temple && (isHouseOwned?.(building?.buildingKey) ?? false)) return false;
 
   // A shop shows its people exactly when the player walked into an
   // OPEN one (:1215) - the latch, not the hour.
