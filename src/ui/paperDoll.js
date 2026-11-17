@@ -577,7 +577,7 @@ async function composeDoll(art, deps, entity, { background = true, scale: S = 1 
     }
   }
   const under = out.slice();   // HM1: the background alone (or nothing), for the item masks
-  const table = equipTableOf(entity);
+  const table = drawnEquipTable(entity);
   const worn = table.filter(Boolean).map((it) => ({ it, t: getTemplate(it.templateIndex) })).filter((w) => w.t);
   // cloak interiors first (BlitCloakInterior: cloak2 then cloak1,
   // the template's own record = the interior image)
@@ -866,7 +866,7 @@ export async function composeWorldPaperDoll(entity, { sheathed = false } = {}) {
     const { out, layout, width: outW, height: outH } = await composeDoll(
       art,
       { ..._deps, gender: ident.gender, race: ident.race },
-      { ...entity, equip: { slots } },
+      { ...entity, isPlayer: false, equip: { slots } },
       { background: false, scale },
     );
     const rect = alphaBounds(out, outW, outH);
