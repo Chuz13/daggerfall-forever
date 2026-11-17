@@ -626,7 +626,7 @@ test('Save/Restore round-trip (`snapshotPlayer` / `restorePlayer`) and Settings 
   assert.deepEqual(ensureApotheosisState(legacyRestored), defaultApotheosisState());
 });
 
-test('Localization: all 26 locales have all 537 Apotheosis keys with valid CSV and matching ICU placeholders', () => {
+test('Localization: all 26 locales have all Apotheosis keys with valid CSV and matching ICU placeholders', () => {
   const isApoKey = (k) => k.startsWith('apotheosis.')
     || k === 'pause.tab.apotheosis'
     || k === 'settings.sec.apotheosis'
@@ -655,7 +655,7 @@ test('Localization: all 26 locales have all 537 Apotheosis keys with valid CSV a
 
   const enRows = parseStringTableCsv(readFileSync(new URL('../../locales/en/Port_Strings.csv', import.meta.url), 'utf8'));
   const enApo = new Map(enRows.filter(([k]) => isApoKey(k)));
-  assert.equal(enApo.size, 645, 'expected 645 Apotheosis/Settings/Pause keys in English table');
+  assert.equal(enApo.size, 667, 'expected 667 Apotheosis/Settings/Pause keys in English table');
   for (const oldKey of obsoleteKeys) {
     assert.equal(enApo.has(oldKey), false, `en still has obsolete key ${oldKey}`);
   }

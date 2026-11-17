@@ -35,6 +35,7 @@ import {
   attemptUnlockSanctuaryHatch,
   obtainSanctuaryKeyFromGatekeeper,
   consecrateSiteByForce,
+  initiateForceConsecrationAssault,
   dedicateSitePeacefully,
   foundPlayerUndergroundSanctuary,
   upgradeCultSite,
@@ -529,13 +530,11 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
 
   if (!owned) {
     let forceBlocked = null;
-    if (ownerEntry?.status !== 'war' && ownerEntry?.status !== 'hostile') {
-      forceBlocked = t('apotheosis.cult.err.needHostileOrWar', 'Force consecration requires Hostile or War standing with {god} (or Allied at 100 for Peaceful Dedication).', {
-        god: ownerGod?.name ?? site.ownerId,
-      });
-    } else if (!site.guardiansCleared) {
-      forceBlocked = t('apotheosis.cult.err.clearGuardiansFirst', 'Enter inside and defeat the defending Cult Guardians before consecrating the altar.');
-    } else if (faithCur < CULT_CONSECRATE_FORCE_FAITH_COST) {
+    if (!site.guardiansCleared) {
+      forceBlocked = site.consecrationPending
+        ? t('apotheosis.cult.err.finishAssaultGuardians', 'Holy War assault in progress — enter inside and slay the remaining Cult Guardians to claim the sanctum!')
+        : t('apotheosis.cult.err.clearGuardiansFirst', 'Enter inside and activate the Altar to declare Holy War and defeat the defending Cult Guardians.');
+    } else if (faithCur < CULT_CONSECRATE_FORCE_FAITH_COST && !site.consecrationPaid) {
       forceBlocked = t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', {
         need: CULT_CONSECRATE_FORCE_FAITH_COST,
         have: faithCur,
@@ -554,13 +553,14 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
       });
     }
 
+    const cardForceCost = site.consecrationPaid ? 0 : CULT_CONSECRATE_FORCE_FAITH_COST;
     acts.append(
-      makeActionBtn(t('apotheosis.cult.btnForceConsecrate', 'Consecrate by Force ({cost} Faith)', { cost: CULT_CONSECRATE_FORCE_FAITH_COST }), {
+      makeActionBtn(t('apotheosis.cult.btnForceConsecrate', 'Consecrate by Force ({cost} Faith)', { cost: cardForceCost }), {
         tone: 'danger',
         blockedReason: forceBlocked,
         setFeedback,
         onRun: () => {
-          const r = consecrateSiteByForce(entity, site.siteKey, { nowMinutes: nowMin });
+          const r = initiateForceConsecrationAssault(entity, site.siteKey, { nowMinutes: nowMin });
           setFeedback(r.ok ? t('apotheosis.cult.consecrateDone', 'Altar consecrated to your Cult!') : r.reason, !r.ok);
           repaint();
         },

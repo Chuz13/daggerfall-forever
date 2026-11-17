@@ -165,29 +165,39 @@ export function buildSanctuaryBlock(site) {
   const interior = fabricInteriorRecord(plan, null);
   const [ax, az] = fabricCellMiddle(plan.altarCell[0], plan.altarCell[1]);
 
-  // Safety pass: verify every window block is stripped/converted to blind wall
+  // Safety pass: verify every window block is stripped/converted to blind wall;
+  // also remove any random 41020 lecterns placed by fabricInteriorRecord and any furniture overlapping the apse Altar spot
   const wallId = kitModel(KIT_PIECE.wall, plan.set);
-  const cleaned3d = (interior.block3dObjectRecords ?? []).map((obj) => (
-    isWindowModelId(obj.modelIdNum)
-      ? { ...obj, modelIdNum: wallId, modelId: String(wallId) }
-      : obj
-  ));
+  const isNearAltarSpot = (obj) => {
+    const mid = Number(obj.modelIdNum);
+    if (mid === 41020) return true;
+    if (mid >= 41000 && mid <= 43999 && mid !== 41409) {
+      const dx = (Number(obj.xPos) || 0) - ax;
+      const dz = (Number(obj.zPos) || 0) - az;
+      if ((dx * dx + dz * dz) < (72 * 72)) return true;
+    }
+    return false;
+  };
+  const cleaned3d = (interior.block3dObjectRecords ?? [])
+    .filter((obj) => !isNearAltarSpot(obj))
+    .map((obj) => (
+      isWindowModelId(obj.modelIdNum)
+        ? { ...obj, modelIdNum: wallId, modelId: String(wallId) }
+        : obj
+    ));
 
-  // Ensure a ritual Altar pedestal stands cleanly at the sanctuary's apse cell
-  const hasAltar = cleaned3d.some((o) => Number(o.modelIdNum) === 41020);
-  if (!hasAltar) {
-    cleaned3d.push({
-      modelId: '41020',
-      modelIdNum: 41020,
-      objectType: 13,
-      xPos: Math.round(ax),
-      yPos: 0,
-      zPos: Math.round(az),
-      xRotation: 0,
-      yRotation: 1024,
-      zRotation: 0,
-    });
-  }
+  // Unconditionally place the single ritual Altar pedestal cleanly at the sanctuary's apse cell
+  cleaned3d.push({
+    modelId: '41020',
+    modelIdNum: 41020,
+    objectType: 13,
+    xPos: Math.round(ax),
+    yPos: 0,
+    zPos: Math.round(az),
+    xRotation: 0,
+    yRotation: 1024,
+    zRotation: 0,
+  });
 
   const flats = [...(interior.blockFlatObjectRecords ?? [])];
   if (!flats.some((f) => f.textureArchive === EDITOR_FLATS_ARCHIVE && f.textureRecord === INTERIOR_MARKER.ENTER)) {

@@ -33,6 +33,7 @@ import {
   clearSiteGuardians,
   getSanctuaryGuardianCount,
   consecrateSiteByForce,
+  initiateForceConsecrationAssault,
   dedicateSitePeacefully,
   foundPlayerUndergroundSanctuary,
   upgradeCultSite,
@@ -568,4 +569,93 @@ test('Round 2 Polish: Road-free hatch placement, Town Automap stamps/discovery, 
   assert.equal(waveLater.length, 2, 'Respawns after 3-day cooldown');
   assert.equal(god.apotheosis.pantheon.deities[site.ownerId].relation, relStart - 10, 'New day trespass applies -5 relation');
   assert.equal(applySanctumTrespassPenalty(god, site, 10000 + CULT_GUARDIAN_RESPAWN_COOLDOWN_MINUTES + 10).penalized, false);
+  clearInterval(site._guardianCheckTimer);
+  site._guardianCheckTimer = null;
+});
+
+test('Round 3 Polish: Expanded 26 Altar Statues (incl. Dibella), Single Sanctuary Altar, & Force Consecration Assault -> Async Guardian Kill -> Auto-Consecrate', async () => {
+  resetOfflineHomes();
+  const god = makeAscendedGod('order', { region: 17, faith: 1000 });
+
+  // 1) 26 total altar styles including Dibella flats and 3D models
+  assert.equal(CULT_ALTAR_STYLES.length, 26);
+  for (const id of ['flat_97_2', 'flat_97_4', 'flat_97_5', 'flat_97_10', 'flat_202_3', 'flat_202_5', 'model_62327', 'model_74091']) {
+    assert.ok(CULT_ALTAR_STYLES.some((s) => s.id === id), `Expected altar style ${id}`);
+  }
+  assert.equal(setCultAltarStyle(god, 'flat_97_5').ok, true);
+  assert.equal(getCultAltarStyle(god).record, 5);
+
+  // 2) buildSanctuaryBlock emits exactly one 41020 altar centered at altarLocal
+  for (const poolId of SANCTUARY_INTERIOR_POOLS) {
+    const blk = buildSanctuaryBlock({ siteKey: `daedra_hatch:444_${poolId}`, mapId: 444, interiorPool: poolId });
+    const altars = blk.rmbBlock.subRecords[0].interior.block3dObjectRecords.filter((o) => Number(o.modelIdNum) === 41020);
+    assert.equal(altars.length, 1, `Pool ${poolId} places exactly 1 altar anchor`);
+    assert.equal(altars[0].xPos, Math.round(blk.altarLocal[0]));
+    assert.equal(altars[0].zPos, Math.round(blk.altarLocal[2]));
+  }
+
+  // 3) Force Consecration Assault declares Holy War (-35 rel), spawns async Guardians near altar, and auto-consecrates without double Faith/Relation penalty when last Guardian dies
+  ensureCityCultSites(god, {
+    mapId: 915,
+    regionIndex: 17,
+    locationName: 'Chesterwark',
+    temples: [{ buildingKey: 21, factionId: 35, name: 'Kynareth Sanctuary' }],
+  });
+  const kKey = templeSiteKey(915, 21);
+  const kSite = god.apotheosis.cult.sites[kKey];
+  const faithBefore = god.apotheosis.faith;
+  const relBefore = god.apotheosis.pantheon.deities.kynareth.relation;
+  const infBefore = getRegionInfluence(god, 17).playerShare;
+
+  const assault = initiateForceConsecrationAssault(god, kKey, { nowMinutes: 12000 });
+  assert.equal(assault.ok, true);
+  assert.equal(assault.assaultStarted, true);
+  assert.equal(assault.faithSpent, 200);
+  assert.equal(god.apotheosis.faith, faithBefore - 200);
+  assert.equal(kSite.consecrationPaid, true);
+  assert.equal(kSite.consecrationPending, true);
+  assert.equal(god.apotheosis.pantheon.deities.kynareth.status, 'war');
+  assert.equal(god.apotheosis.pantheon.deities.kynareth.relation, relBefore - 35);
+
+  const hudMsgs = [];
+  const asyncFoes = {
+    foes: [],
+    async spawnFoe(mob, pos) {
+      await new Promise((r) => setTimeout(r, 10));
+      const f = { mobileType: mob, pos, dead: false, entity: { health: 40 } };
+      this.foes.push(f);
+      return f;
+    },
+  };
+  const templeBld = { buildingType: BUILDING_TYPES.Temple, buildingKey: 21, factionId: 35, townMapId: 915 };
+  const templeCtx = { landing: [0, 0, 0], cultAltarAnchors: [{ pos: [5, 0, 8] }], spawnPoints: [[1, 0, 1]] };
+  spawnCultInteriorGuardians(god, templeBld, 915, asyncFoes, templeCtx, {
+    say: (m) => hudMsgs.push(m),
+    nowMinutes: 12000,
+    forceSpawn: true,
+  });
+
+  // Wait for async spawnFoe promises to resolve and land around altar anchor
+  await new Promise((r) => setTimeout(r, 40));
+  assert.equal(asyncFoes.foes.length, 2);
+  assert.ok(Math.abs(asyncFoes.foes[0].pos[0] - 5) <= 2, 'Guardians spawn around altar anchor');
+
+  // Kill all guardians and wait for guardian watcher poll to auto-consecrate
+  for (const f of asyncFoes.foes) {
+    f.dead = true;
+    f.entity.health = 0;
+  }
+  await new Promise((r) => setTimeout(r, 700));
+  if (kSite._guardianCheckTimer) {
+    clearInterval(kSite._guardianCheckTimer);
+    kSite._guardianCheckTimer = null;
+  }
+
+  assert.equal(kSite.ownerId, 'player', 'Last Guardian death automatically consecrates Temple');
+  assert.equal(kSite.consecrationPaid, false);
+  assert.equal(kSite.consecrationPending, false);
+  assert.equal(god.apotheosis.faith, faithBefore - 200, 'Does NOT double-charge 200 Faith on completion');
+  assert.equal(god.apotheosis.pantheon.deities.kynareth.relation, relBefore - 35, 'Does NOT double-penalize -35 relation on completion');
+  assert.ok(getRegionInfluence(god, 17).playerShare >= Number((infBefore + 10).toFixed(1)), 'Grants at least +10% player regional influence (plus share redistributed from Kynareth)');
+  assert.ok(hudMsgs.some((m) => /Chesterwark|consecrated|повержены|Cult/i.test(m)));
 });

@@ -57,21 +57,38 @@ export const EDICT_INFLUENCE_REQUIREMENT = 25;
 
 /** Unified 2D statue billboard flat rendered for non-player deity altars. */
 export const DEITY_DEFAULT_ALTAR_FLAT = Object.freeze({ archive: 202, record: 0 });
+export const DEITY_DEFAULT_ALTAR_BY_GOD = Object.freeze({
+  dibella: Object.freeze({ archive: 97, record: 5 }),
+});
 
 /** Player-selectable Cult Altar Statues (both 2D billboard flats & 3D statue models from Decorator's `statues`). */
 export const CULT_ALTAR_STYLES = Object.freeze([
   Object.freeze({ id: 'flat_202_0', kind: 'flat', archive: 202, record: 0, nameKey: 'apotheosis.cult.altarStyle.flat_202_0', fallbackName: 'Golden Seraph Statue (2D)' }),
   Object.freeze({ id: 'flat_202_1', kind: 'flat', archive: 202, record: 1, nameKey: 'apotheosis.cult.altarStyle.flat_202_1', fallbackName: 'Winged Solar Idol (2D)' }),
   Object.freeze({ id: 'flat_202_2', kind: 'flat', archive: 202, record: 2, nameKey: 'apotheosis.cult.altarStyle.flat_202_2', fallbackName: 'Horned Daedric Effigy (2D)' }),
+  Object.freeze({ id: 'flat_202_3', kind: 'flat', archive: 202, record: 3, nameKey: 'apotheosis.cult.altarStyle.flat_202_3', fallbackName: "Statue of Dibella's Grace (2D)" }),
+  Object.freeze({ id: 'flat_202_4', kind: 'flat', archive: 202, record: 4, nameKey: 'apotheosis.cult.altarStyle.flat_202_4', fallbackName: 'Imperial Laureate Statue (2D)' }),
+  Object.freeze({ id: 'flat_202_5', kind: 'flat', archive: 202, record: 5, nameKey: 'apotheosis.cult.altarStyle.flat_202_5', fallbackName: 'Dibellan Sanctuary Statue (2D)' }),
+  Object.freeze({ id: 'flat_202_6', kind: 'flat', archive: 202, record: 6, nameKey: 'apotheosis.cult.altarStyle.flat_202_6', fallbackName: "Stendarr's Vigilant Statue (2D)" }),
   Object.freeze({ id: 'flat_97_0', kind: 'flat', archive: 97, record: 0, nameKey: 'apotheosis.cult.altarStyle.flat_97_0', fallbackName: 'Marble Temple Shrine (2D)' }),
   Object.freeze({ id: 'flat_97_1', kind: 'flat', archive: 97, record: 1, nameKey: 'apotheosis.cult.altarStyle.flat_97_1', fallbackName: 'Sacred Chalice Pedestal (2D)' }),
+  Object.freeze({ id: 'flat_97_2', kind: 'flat', archive: 97, record: 2, nameKey: 'apotheosis.cult.altarStyle.flat_97_2', fallbackName: "Dibella's Blossom Shrine (2D)" }),
+  Object.freeze({ id: 'flat_97_4', kind: 'flat', archive: 97, record: 4, nameKey: 'apotheosis.cult.altarStyle.flat_97_4', fallbackName: "Dibella's Muse Statue (2D)" }),
+  Object.freeze({ id: 'flat_97_5', kind: 'flat', archive: 97, record: 5, nameKey: 'apotheosis.cult.altarStyle.flat_97_5', fallbackName: "Dibella's Exalted Idol (2D)" }),
+  Object.freeze({ id: 'flat_97_10', kind: 'flat', archive: 97, record: 10, nameKey: 'apotheosis.cult.altarStyle.flat_97_10', fallbackName: "Altar of Dibella's Rose (2D)" }),
   Object.freeze({ id: 'flat_98_0', kind: 'flat', archive: 98, record: 0, nameKey: 'apotheosis.cult.altarStyle.flat_98_0', fallbackName: 'Abyssal Ritual Brazier (2D)' }),
   Object.freeze({ id: 'flat_190_10', kind: 'flat', archive: 190, record: 10, nameKey: 'apotheosis.cult.altarStyle.flat_190_10', fallbackName: 'Ancient Sentinel Statue (2D)' }),
+  Object.freeze({ id: 'flat_190_11', kind: 'flat', archive: 190, record: 11, nameKey: 'apotheosis.cult.altarStyle.flat_190_11', fallbackName: 'Gargoyle Ward Statue (2D)' }),
   Object.freeze({ id: 'model_62323', kind: 'model', modelId: 62323, nameKey: 'apotheosis.cult.altarStyle.model_62323', fallbackName: 'Heroic Sovereign Statue (3D)' }),
   Object.freeze({ id: 'model_62324', kind: 'model', modelId: 62324, nameKey: 'apotheosis.cult.altarStyle.model_62324', fallbackName: 'Robed Sage Monument (3D)' }),
   Object.freeze({ id: 'model_62325', kind: 'model', modelId: 62325, nameKey: 'apotheosis.cult.altarStyle.model_62325', fallbackName: 'Armored Crusader Statue (3D)' }),
   Object.freeze({ id: 'model_62326', kind: 'model', modelId: 62326, nameKey: 'apotheosis.cult.altarStyle.model_62326', fallbackName: 'Weeping Angel Pillar (3D)' }),
+  Object.freeze({ id: 'model_62327', kind: 'model', modelId: 62327, nameKey: 'apotheosis.cult.altarStyle.model_62327', fallbackName: 'Seated Monarch Statue (3D)' }),
   Object.freeze({ id: 'model_62328', kind: 'model', modelId: 62328, nameKey: 'apotheosis.cult.altarStyle.model_62328', fallbackName: 'Obelisk of Dominion (3D)' }),
+  Object.freeze({ id: 'model_62329', kind: 'model', modelId: 62329, nameKey: 'apotheosis.cult.altarStyle.model_62329', fallbackName: 'Dark Stone Guardian Statue (3D)' }),
+  Object.freeze({ id: 'model_62330', kind: 'model', modelId: 62330, nameKey: 'apotheosis.cult.altarStyle.model_62330', fallbackName: 'Enthroned Elder Statue (3D)' }),
+  Object.freeze({ id: 'model_62317', kind: 'model', modelId: 62317, nameKey: 'apotheosis.cult.altarStyle.model_62317', fallbackName: 'Sacred Marble Arch (3D)' }),
+  Object.freeze({ id: 'model_74091', kind: 'model', modelId: 74091, nameKey: 'apotheosis.cult.altarStyle.model_74091', fallbackName: 'Grand Temple Altar Pedestal (3D)' }),
 ]);
 
 export const AEDRA_IDS = Object.freeze(
@@ -849,7 +866,7 @@ export function getSanctuaryGuardianCount(site) {
  * Consecrates an Aedra Temple or Underground Daedric Sanctuary to the Player's Cult by Force.
  * Requires Hostile/War with current owner AND interior Guardians cleared (unless `force: true`).
  */
-export function consecrateSiteByForce(entity, siteKey, { nowMinutes = 0, force = false } = {}) {
+export function consecrateSiteByForce(entity, siteKey, { nowMinutes = 0, force = false, alreadyPaid = false } = {}) {
   if (!entity || (!force && !isAscendedGod(entity))) {
     return { ok: false, reason: t('apotheosis.cult.err.notAscended', 'Ascend to Godhood first.') };
   }
@@ -876,29 +893,33 @@ export function consecrateSiteByForce(entity, siteKey, { nowMinutes = 0, force =
     if (!site.guardiansCleared) {
       return {
         ok: false,
-        reason: t('apotheosis.cult.err.clearGuardiansFirst', 'Enter inside and defeat the defending Cult Guardians before consecrating the altar.'),
+        reason: t('apotheosis.cult.err.clearGuardiansFirst', 'Enter inside and activate the Altar to declare Holy War and defeat the defending Cult Guardians.'),
       };
     }
   }
 
-  const cost = force ? 0 : CULT_CONSECRATE_FORCE_FAITH_COST;
+  const paidAlready = !!alreadyPaid || !!site.consecrationPaid;
+  const cost = force || paidAlready ? 0 : CULT_CONSECRATE_FORCE_FAITH_COST;
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `consecrate_force:${site.siteKey}` });
     if (!spend.ok) return { ok: false, reason: spend.reason };
   }
 
+  const hadBreakInPenalty = !!site.breakInPenalized;
   site.formerOwnerId = oldOwnerId;
   site.ownerId = 'player';
   site.unlocked = true;
   site.discovered = true;
   site.guardiansCleared = true;
+  site.consecrationPaid = false;
+  site.consecrationPending = false;
   site.peacefulTransfer = false;
   site.tier = Math.max(1, site.tier || 1);
   site.consecratedAtMinutes = nowMinutes;
 
   shiftRegionInfluence(entity, site.regionIndex, oldOwnerId, -10);
   shiftRegionInfluence(entity, site.regionIndex, 'player', 10);
-  if (oldGod) {
+  if (oldGod && !hadBreakInPenalty) {
     changeDeityRelation(entity, oldOwnerId, -35, { nowMinutes, category: 'my_cult' });
   }
   registerCultSiteAsOfflineHome(site);
@@ -919,6 +940,63 @@ export function consecrateSiteByForce(entity, siteKey, { nowMinutes = 0, force =
   });
 
   return { ok: true, mode: 'force', faithSpent: cost, site };
+}
+
+/**
+ * Initiates a conscious Force Consecration assault from an interior Altar:
+ * spends 200 Faith once, provokes Holy War (-35 Relation) with the patron deity,
+ * and marks `site.consecrationPending = true` so the Temple/Sanctuary claims automatically
+ * as soon as all defending Cult Guardians are slain (or immediately if `guardiansCleared`).
+ */
+export function initiateForceConsecrationAssault(entity, siteKey, { nowMinutes = 0 } = {}) {
+  if (!entity || !isAscendedGod(entity)) {
+    return { ok: false, reason: t('apotheosis.cult.err.notAscended', 'Ascend to Godhood first.') };
+  }
+  const p = ensurePantheonState(entity, { nowMinutes });
+  const site = getCultSite(entity, siteKey);
+  if (!site) return { ok: false, reason: t('apotheosis.cult.err.unknownSite', 'Sanctuary site not found.') };
+  if (site.ownerId === 'player') {
+    return { ok: false, reason: t('apotheosis.cult.err.alreadyOwned', 'This sanctum already belongs to your Cult.') };
+  }
+
+  let faithSpent = 0;
+  if (!site.consecrationPaid) {
+    const spend = spendApotheosisFaith(entity, CULT_CONSECRATE_FORCE_FAITH_COST, { reason: `consecrate_force:${site.siteKey}` });
+    if (!spend.ok) return { ok: false, reason: spend.reason };
+    site.consecrationPaid = true;
+    faithSpent = CULT_CONSECRATE_FORCE_FAITH_COST;
+  }
+
+  const oldOwnerId = site.ownerId;
+  const entry = p?.deities?.[oldOwnerId];
+  const breakIn = entry?.status === 'war' && site.breakInPenalized
+    ? { warDeclared: false, relationDelta: 0, deityName: getPantheonDeity(oldOwnerId)?.name ?? oldOwnerId }
+    : applySanctuaryBreakInConsequences(entity, site, nowMinutes);
+
+  if (site.guardiansCleared) {
+    const res = consecrateSiteByForce(entity, site.siteKey, { nowMinutes, alreadyPaid: true });
+    if (!res.ok) return res;
+    return {
+      ...res,
+      faithSpent,
+      warDeclared: !!breakIn.warDeclared,
+      completedImmediately: true,
+      assaultStarted: false,
+    };
+  }
+
+  site.consecrationPending = true;
+  site.lastGuardianSpawnMinutes = null;
+  return {
+    ok: true,
+    faithSpent,
+    warDeclared: !!breakIn.warDeclared,
+    completedImmediately: false,
+    assaultStarted: true,
+    oldOwner: oldOwnerId,
+    deityName: breakIn.deityName || oldOwnerId,
+    site,
+  };
 }
 
 /**

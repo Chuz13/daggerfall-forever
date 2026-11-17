@@ -81,6 +81,8 @@ const APOTHEOSIS_CSS = `
 .apo-pane { flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .apo-pane > .px-journal { flex: 1; height: 100%; min-height: 0; overflow: hidden; }
 .apo-pane .px-qrail { min-height: 0; overflow-y: auto; }
+.apo-qrail-group-hdr { padding: 8px 14px 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #c8a858; opacity: 0.85; border-bottom: 1px solid rgba(200,168,88,0.22); margin-bottom: 2px; user-select: none; }
+.apo-qrail-group-hdr:not(:first-child) { margin-top: 8px; }
 .apo-main-col { flex: 1 1 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .apo-sticky-head { flex-shrink: 0; padding: 0 8px 8px 0; border-bottom: 1px solid rgba(190,165,98,0.35); margin-bottom: 10px; }
 .apo-sticky-head .apo-box { margin-bottom: 8px; padding: 9px 12px; }
@@ -1409,6 +1411,11 @@ function paint(root, { resetDetailScroll = false } = {}) {
 
     const repaint = (opts = {}) => paint(root, opts);
     for (const [id, label] of secs) {
+      if (id === 'overview') {
+        rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.ascension', 'Ascension')));
+      } else if (id === 'portfolio') {
+        rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.godhood', 'Godhood')));
+      }
       const b = el('button', `px-qrow${id === activeSec ? ' on' : ''}`);
       b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
       b.onclick = () => {

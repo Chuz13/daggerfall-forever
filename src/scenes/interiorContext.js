@@ -359,7 +359,8 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   // the mill's machinery are the building's workings, not its furniture.
   const base = opts.baseEditable ? createBaseRoom({ drawList, batches: () => billboardBatches, lights: () => lights, collider }) : null;
   const iilFireplaces = [];   // IIL1: the fireplace models' centres (Improved Interior Lighting)
-  const CULT_ALTAR_MODEL_IDS = new Set([41020, 41016, 41017]);
+  const CULT_ALTAR_PRIMARY_PEDESTAL_IDS = new Set([74091, 74082, 74086, 74237]);
+  const CULT_ALTAR_MODEL_IDS = new Set([74091, 74082, 74086, 74237, 41020, 41016, 41017]);
   const cultAltarAnchors = [];
   for (const [pi, p] of interior.placements.entries()) {
     // NOTICE-PANEL (AUDIT FB1029g R2, the owner: "remove the notice board prop from all cities"): the town packs' rooms
@@ -368,15 +369,16 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     const matrix = parent(p.matrix);
     const isCultAltarModel = CULT_ALTAR_MODEL_IDS.has(Number(p.modelIdNum));
     if (dfBlock?.isApotheosisSanctuary && Number(p.modelIdNum) === 41020) {
-      // APOTHEOSIS 3.2: underground sanctuary altar uses a 2D deity flat or player's chosen Statue instead of 41020 lectern, with zero physical collision.
+      // APOTHEOSIS 3.2: underground sanctuary altar uses a 2D deity flat or player's chosen Statue instead of 41020 lectern, seated directly on floorY with zero physical collision.
+      const floorY = parentPt(0, 0, 0)[1];
       cultAltarAnchors.push({
         modelIdNum: p.modelIdNum,
         matrix,
         aabb: {
-          min: [matrix[12] - 0.65, matrix[13], matrix[14] - 0.65],
-          max: [matrix[12] + 0.65, matrix[13] + 1.8, matrix[14] + 0.65],
+          min: [matrix[12] - 0.65, floorY, matrix[14] - 0.65],
+          max: [matrix[12] + 0.65, floorY + 1.9, matrix[14] + 0.65],
         },
-        pos: [matrix[12], matrix[13], matrix[14]],
+        pos: [matrix[12], floorY, matrix[14]],
       });
       continue;
     }
@@ -957,6 +959,14 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   } catch { automapArrow = null; }
   let automapScanT = SCAN_INTERVAL_S;   // the first tick probes at once (Automap.cs:993-1002's lazy-init scan)
   placeHold?.settle();   // FIELD BUGS 2026-10-04d PLACE-LRU: built - the keep of this building's last visit goes
+  if (cultAltarAnchors.length > 1) {
+    const groundFloorY = parentPt(0, 0, 0)[1];
+    const rankOf = (id) => (CULT_ALTAR_PRIMARY_PEDESTAL_IDS.has(Number(id)) ? 0 : Number(id) === 41020 ? 1 : 2);
+    cultAltarAnchors.sort((a, b) => (
+      rankOf(a.modelIdNum) - rankOf(b.modelIdNum)
+      || Math.abs((a.pos?.[1] ?? 0) - groundFloorY) - Math.abs((b.pos?.[1] ?? 0) - groundFloorY)
+    ));
+  }
   return {
     drawList,
     get staticBatch() {   // PERF6: merged and uploaded once, on the first frame that asks

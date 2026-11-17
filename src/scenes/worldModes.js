@@ -8973,7 +8973,7 @@ export function createWorldModes(host) {
         clickQuestFlat(questFlats[Number(key.split(':')[1])], interiorBuilding?.buildingKey ?? 0);
         return true;
       }
-      if (key.startsWith('cultAltar:')) { activateInteriorCultAltar(playerEntity, key, { showOverlay: (w) => mountInterior(w), say, worldMinutes: Math.floor(worldMinutes()) }); return true; }
+      if (key.startsWith('cultAltar:')) { activateInteriorCultAltar(playerEntity, key, { showOverlay: (w) => mountInterior(w), say, worldMinutes: Math.floor(worldMinutes()), interiorBuilding, mapId: homeTownOf(interiorBuilding), interiorFoes, interiorCtx }); return true; }
       if (key.startsWith('droppedTorch:')) { interiorTorches.activate(key, getInteractionMode()); return true; }   // HT1: PickUpLightSource
       if (key.startsWith('decor:') || key.startsWith('base:')) { (key.startsWith('base:') ? (decorTool.flying() && !decorTool.ghost() && plaqueActionFor(key) === 'out' && decorTool.act('out', key.slice(5))) : (decorTool.flying() && !decorTool.ghost() ? decorTool.act(plaqueActionFor(key) ?? 'move', decorIdOfKey(key)) : activateDecor(decorIdOfKey(key)))); return true; }   // DECOR1c: a placed piece - its storage opens for its owner; decorating runs the plaque's lit row (or Move when the fold missed), never opens the piece; Take out on the room's own furniture
       // INTERIOR-BODIES: ...AND THE PRESS ARM THE BODIES NEVER HAD.
