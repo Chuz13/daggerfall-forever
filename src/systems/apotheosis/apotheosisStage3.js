@@ -992,6 +992,16 @@ function pickDeityTargetRegion(entity, god, rng) {
   return Math.floor(rng() * TAMRIEL_REGION_COUNT) % TAMRIEL_REGION_COUNT;
 }
 
+function getHeldBastionDefense(entity, regionIndex, godId) {
+  const sites = entity?.apotheosis?.cult?.sites;
+  if (!sites || !godId || godId === 'player') return 0;
+  let active = 0;
+  for (const s of Object.values(sites)) {
+    if (s && s.regionIndex === regionIndex && s.ownerId === godId) active++;
+  }
+  return Math.min(0.45, active * 0.15);
+}
+
 let _cultDailyTickHook = null;
 
 /** Registers daily Cult & Edicts simulation callback invoked inside tickPantheonDay. */
@@ -1084,7 +1094,8 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
         const foeDef = getPantheonDeity(foeId);
         const k = pairKey(d.id, foeId);
         const clashDrop = 5;
-        const clashGain = 1.5;
+        const foeBastion = foeDef ? getHeldBastionDefense(entity, regIdx, foeId) : 0;
+        const clashGain = round1(1.5 * (1 - foeBastion));
         p.interGodRelations[k] = clamp((p.interGodRelations[k] ?? -50) - clashDrop, -100, 100);
         shiftRegionInfluence(entity, regIdx, d.id, clashGain);
         if (foeDef) {

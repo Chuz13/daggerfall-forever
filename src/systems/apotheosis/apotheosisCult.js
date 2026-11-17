@@ -429,6 +429,7 @@ export function ensureCityCultSites(entity, {
   regionIndex = 0,
   locationName = '',
   temples = [],
+  buildingCount = null,
   factionDict = null,
 } = {}) {
   const cult = ensureCultState(entity);
@@ -480,8 +481,13 @@ export function ensureCityCultSites(entity, {
     }
   }
 
-  // Every town (`mid > 0`) deterministically hosts 1 hidden Daedric Underground Sanctuary hatch
-  if (mid > 0) {
+  // Every city or settlement with a Temple or >=16 buildings hosts 1 hidden Daedric Underground Sanctuary hatch;
+  // tiny hamlets without a Temple spawn one at a deterministic 25% rate to keep Aedra vs Daedra sites balanced.
+  const isSmallHamlet = buildingCount != null
+    && (!Array.isArray(temples) || temples.length === 0)
+    && Number(buildingCount) < 16;
+  const allowDaedraHatch = mid > 0 && (!isSmallHamlet || ((Math.imul(mid, 2654435761) >>> 0) % 4 === 0));
+  if (allowDaedraHatch) {
     const dk = daedraHatchSiteKey(mid);
     if (!cult.sites[dk]) {
       const princeId = pickDaedricPatronForCity(mid, reg);
@@ -1335,6 +1341,13 @@ function applyEdictFlagsToRegion(entity, regionIndex, edictSpec) {
   for (const f of edictSpec.turnOnFlags) turnOnConditionFlag(entity.regionConditions, reg, f);
 }
 
+let _edictProclaimedHook = null;
+
+/** Registers callback notified whenever a Regional Edict is proclaimed. */
+export function setEdictProclaimedHook(fn) {
+  _edictProclaimedHook = typeof fn === 'function' ? fn : null;
+}
+
 /**
  * Proclaims one of the 4 Regional Edicts in `regionIndex` (`200 Faith`, `30 days`).
  * Logs proclamation to the Pantheon Chronicle and applies immediate regional flags.
@@ -1393,7 +1406,9 @@ export function proclaimRegionalEdict(entity, regionIndex, edictId, { nowMinutes
     }),
   });
 
-  return { ok: true, edict: record, faithSpent: cost };
+  const petitionCompleted = _edictProclaimedHook ? _edictProclaimedHook(entity, reg, issuedAt) : null;
+
+  return { ok: true, edict: record, faithSpent: cost, petitionCompleted };
 }
 
 /** Computes total passive Faith generated per day by all player-owned Cult Temples & Sanctuaries. */

@@ -499,6 +499,7 @@ export const CATEGORIES = Object.freeze([
       'port:apotheosisFaithGainMult',
       'port:apotheosisFaithDecayMult',
       'port:apotheosisPantheonActivity',
+      'port:apotheosisTravelInterrupts',
     ]),
   ]),
 ]);

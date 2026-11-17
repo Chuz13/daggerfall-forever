@@ -79,6 +79,7 @@ export const PREF_DEFAULTS = Object.freeze({
   apotheosisFaithGainMult: '1',
   apotheosisFaithDecayMult: '1',
   apotheosisPantheonActivity: 'normal',
+  apotheosisTravelInterrupts: 'all',
   // UNIFIED-BANK: whether bank accounts are unified across all regions into a single global account.
   unifiedBank: true,
   // CITY-247: optional 24/7 city infrastructure keeping shops, guild halls, banks, and gates open day and night.

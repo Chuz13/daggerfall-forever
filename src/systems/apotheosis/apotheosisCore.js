@@ -223,6 +223,35 @@ export {
 } from './apotheosisCult.js';
 
 export {
+  ROAD_BLESSING_DURATION_MINUTES,
+  ROAD_BLESSING_MIN_GOLD,
+  ROAD_BLESSING_WARMTH_DEGREES,
+  ROADSIDE_DESECRATE_FAITH_BASE,
+  ROADSIDE_DESECRATE_INF_BASE,
+  ROADSIDE_WILD_REWARD_MULT,
+  ROADSIDE_DESECRATE_RELATION_PENALTY,
+  ROADSIDE_DESECRATE_COOLDOWN_MINUTES,
+  BASTION_DEFENSE_PER_SITE,
+  BASTION_DEFENSE_MAX,
+  CULT_PETITION_COOLDOWN_MINUTES,
+  CULT_PETITION_DURATION_MINUTES,
+  grantRoadBlessing,
+  getRoadBlessingInfo,
+  computeRoadBlessingMods,
+  tickRoadBlessingFatigue,
+  pickRoadsideShrineGod,
+  isRoadsideShrineDesecrated,
+  prayAtRoadsideShrine,
+  desecrateRoadsideShrine,
+  getDeityRegionBastionDefense,
+  getActiveCultPetition,
+  ensureCultPetition,
+  dismissCultPetition,
+  notifyCultPetitionProgress,
+  syncEdictPetitionIfActive,
+} from './apotheosisStage33.js';
+
+export {
   isAscendedGod,
   apotheosisHpOf,
   apotheosisMpOf,

@@ -95,6 +95,28 @@ export const STAT_NAME_GAP = 8;
  * from shapes and outlined by a machine, then looked at (tools/uiStatusProbe.mjs draws them all).
  */
 export const STATUS_GLYPHS = Object.freeze({
+  // ROAD-BLESSING (Stage 3.3): golden radiant shrine star
+  blessing: Object.freeze({
+    pal: { g: '#f2c85b', y: '#fff6b8', a: '#b58024' },
+    rows: [
+      '................',
+      '.......yy.......',
+      '......kyyk......',
+      '......kggk......',
+      '.....kkggkk.....',
+      '.kkk.kgyygk.kkk.',
+      'kggkkgyyyygkkggk',
+      'kyyyyyyyyyyyyyyk',
+      'kggkkgyyyygkkggk',
+      '.kkk.kgyygk.kkk.',
+      '.....kkggkk.....',
+      '......kggk......',
+      '.....kkaakk.....',
+      '....kaaaaaak....',
+      '....kkkkkkkk....',
+      '................',
+    ],
+  }),
   // REST1: a campfire - the flame over its crossed logs - while the night interval runs (Rested)
   rested: Object.freeze({
     pal: { f: '#ffb02a', y: '#fff0a0', w: '#9a6a3a', d: '#5a3a1e' },
@@ -667,6 +689,7 @@ export function statusTiles({
   zone = null,
   rules = null,
   mentor = null,
+  blessing = null,
 } = {}) {
   /** @type {StatusTile[]} */
   const out = [];
@@ -701,6 +724,16 @@ export function statusTiles({
     });
   if (mentor)
     tile({ key: 'mentor', kind: 'buff', name: String(mentor.name ?? ''), glyph: 'mentor', foot: mentor.foot ?? null }); // MENTOR2: mentoring, or a mentor beside me
+  if (blessing?.active)
+    tile({
+      key: 'road_blessing',
+      kind: 'buff',
+      name: String(blessing.name ?? ''),
+      glyph: 'blessing',
+      foot: blessing.foot ?? null,
+      blink: !!blessing.blink,
+      say: blessing.say ?? null,
+    });
   spells.forEach((e, i) =>
     tile({
       // AUDIT UI C3: a party mate's gift is a BUFF - ALLY-CAST lets a mate lay only what helps (systems/allyCast.js)

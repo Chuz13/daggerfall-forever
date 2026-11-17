@@ -17,7 +17,15 @@ import { doorWorldPosition, doorWorldNormal } from '../player/enterExit.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { exteriorOpenSpellFor, consumeDoorSpell } from './shared.js';
 import { playerEntity } from '../characters/playerEntity.js';
-import { APOTHEOSIS_PORTFOLIOS, getFaithMax } from '../systems/apotheosis/apotheosisCore.js';
+import {
+  APOTHEOSIS_PORTFOLIOS,
+  getFaithMax,
+  ensureCultPetition,
+  getActiveCultPetition,
+  dismissCultPetition,
+  notifyCultPetitionProgress,
+  syncEdictPetitionIfActive,
+} from '../systems/apotheosis/apotheosisCore.js';
 import { getPantheonDeity, ensurePantheonState } from '../systems/apotheosis/apotheosisStage3.js';
 import {
   CULT_BRANCHES,
@@ -762,6 +770,95 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
       label: `5 - ${t('apotheosis.cult.btnChooseAltarStatue', 'Altar Statue: {name}', { name: t(curStyle.nameKey, curStyle.fallbackName) })}`,
       action: () => openStatuePickerPage(0),
     });
+
+    const petition = ensureCultPetition(entity, { regionIndex: site.regionIndex, nowMinutes: worldMinutes })
+      ?? getActiveCultPetition(entity, worldMinutes);
+    if (petition) {
+      options.push({
+        code: 'Digit6',
+        label: `6 - ${t('apotheosis.petition.btnAltarMenu', 'Pilgrim Petition ({god})', { god: petition.godName })}`,
+        action: () => {
+          const synced = syncEdictPetitionIfActive(entity, worldMinutes);
+          if (synced?.completed) {
+            say(t('apotheosis.petition.completedHud', 'Cult Petition Completed: +{faith} Faith, +{gold}g, +{inf}% Influence!', {
+              faith: synced.faithGained,
+              gold: synced.goldGained,
+              inf: synced.influenceGained,
+            }));
+            return;
+          }
+          const petDesc = petition.type === 'inquisition'
+            ? t('apotheosis.petition.descInquisition', 'Defeat {god}\'s Inquisitors threatening your sanctum.', { god: petition.godName })
+            : petition.type === 'desecrate_shrine'
+              ? t('apotheosis.petition.descDesecrate', 'Desecrate a roadside shrine of {god} in this region (3x reward on wild roads!).', { god: petition.godName })
+              : t('apotheosis.petition.descEdict', 'Proclaim any Regional Edict in this region to guide the faithful.');
+          const petOpts = [];
+          if (petition.type === 'inquisition' && !petition.inquisitionSpawned && interiorFoes?.spawnFoe) {
+            petOpts.push({
+              code: 'Digit1',
+              label: `1 - ${t('apotheosis.petition.btnConfrontInq', 'Confront Inquisitors ({count})', { count: petition.goal || 2 })}`,
+              action: () => {
+                petition.inquisitionSpawned = true;
+                const anchor = interiorCtx?.cultAltarAnchors?.[0]?.pos ?? interiorCtx?.landing ?? [0, 0, 0];
+                const spawned = [];
+                const total = Math.max(2, petition.goal || 2);
+                const mobPool = [MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Spellsword];
+                Promise.all(Array.from({ length: total }, (_, idx) => {
+                  const pos = [anchor[0] + (idx === 0 ? -1.8 : 1.8), anchor[1], anchor[2] - 1.5];
+                  return Promise.resolve(interiorFoes.spawnFoe(mobPool[idx % mobPool.length], pos)).then((f) => {
+                    if (f) spawned.push(f);
+                  }).catch(() => {});
+                })).then(() => {
+                  if (!spawned.length) return;
+                  const timer = setInterval(() => {
+                    const alive = spawned.some((f) => !f.dead && (f.entity?.health ?? f.health ?? 1) > 0);
+                    if (alive) return;
+                    clearInterval(timer);
+                    const done = notifyCultPetitionProgress(entity, 'inquisition_cleared', {
+                      siteKey: site.siteKey,
+                      nowMinutes: worldMinutes,
+                    });
+                    if (done?.completed) {
+                      say(t('apotheosis.petition.completedHud', 'Cult Petition Completed: +{faith} Faith, +{gold}g, +{inf}% Influence!', {
+                        faith: done.faithGained,
+                        gold: done.goldGained,
+                        inf: done.influenceGained,
+                      }));
+                    }
+                  }, 500);
+                });
+                say(t('apotheosis.petition.inqSpawnedHud', '{god}\'s Inquisitors storm the sanctum!', { god: petition.godName }));
+              },
+            });
+          }
+          petOpts.push({
+            code: 'Digit2',
+            label: `2 - ${t('apotheosis.petition.btnDismiss', 'Dismiss Petition')}`,
+            action: () => {
+              dismissCultPetition(entity);
+              say(t('apotheosis.petition.dismissedHud', 'Pilgrim Petition dismissed.'));
+            },
+          });
+          petOpts.push({
+            code: 'Escape',
+            label: `Esc - ${t('apotheosis.cult.btnBack', 'Back')}`,
+            action: () => openCultAltarModal(entity, site, modalOpts),
+          });
+          showOverlay(new ChoiceWindow({
+            lines: [
+              t('apotheosis.petition.modalTitle', 'Pilgrim Petition'),
+              petDesc,
+              t('apotheosis.petition.rewardLine', 'Reward: +{faith} Faith · +{gold}g · +{inf}% Influence', {
+                faith: petition.rewardFaith,
+                gold: petition.rewardGold,
+                inf: petition.rewardInfluence,
+              }),
+            ],
+            options: petOpts,
+          }));
+        },
+      });
+    }
   }
   options.push({ code: 'Escape', label: `Esc - ${t('apotheosis.close', 'Close')}`, action: () => {} });
   showOverlay(new ChoiceWindow({ lines, options }));
@@ -865,6 +962,7 @@ export function createApotheosisCultHost(deps = {}) {
         regionIndex: p.homeRegion ?? 0,
         locationName: p.homeName ?? '',
         temples,
+        buildingCount: p.homeFrames.size,
         factionDict: townTalk?.factionDict ?? null,
       });
 

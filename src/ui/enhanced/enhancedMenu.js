@@ -3441,6 +3441,13 @@ function portRowsGame({ pause = false } = {}) {
       ['dynamic', t('menu.apotheosis.pantheonAct.dynamic', 'Dynamic (150%)')],
       ['chaotic', t('menu.apotheosis.pantheonAct.chaotic', 'Chaotic (250%)')],
     ]));
+  rows.push(necroChoice('apotheosisTravelInterrupts', t('menu.apotheosis.travelInterrupts.name', 'Fast Travel Interrupts (10m)'),
+    t('menu.apotheosis.travelInterrupts.note', 'Pause accelerated travel when passing within 10 meters of interactive roadside shrines, camps, or merchants.'),
+    [
+      ['all', t('menu.apotheosis.travelInterrupts.all', 'All Interactive')],
+      ['shrines', t('menu.apotheosis.travelInterrupts.shrines', 'Roadside Shrines Only')],
+      ['off', t('menu.apotheosis.travelInterrupts.off', 'Off')],
+    ]));
   return rows;
 }
 /** REFLEXES: in-game reflex re-selection for the active character. Reads and writes playerEntity.reflexes directly. */

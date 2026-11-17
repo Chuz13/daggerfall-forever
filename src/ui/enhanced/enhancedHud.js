@@ -68,6 +68,8 @@ import { hudText } from '../../systems/notify.js';   // BUFF-END: the ended spel
 import { cursorActive } from '../../player/pointerLock.js';   // BUFF-END: the freed mouse ends a spell
 import { overlayOpen } from './enhancedOverlays.js';
 import { getPref } from '../../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
+import { t } from '../../systems/textManager.js';
+import { getRoadBlessingInfo } from '../../systems/apotheosis/apotheosisStage33.js';
 import { hudRenown } from '../hud/hudRenown.js';   // RENOWN4: my own Renown, under the vitals
 import { survivalHudChips } from '../../systems/survival/status.js';   // SURV5: the needs (UI3: tiles in the status widget)
 import { statusTiles, afflictionRows, statusGlyphSrc, statRoom, statSide, statPlace, statOverflow, STAT_TILE, STAT_GAP, STAT_METRICS, STAT_SHORT_QUERY, STAT_MIDDLE_CLEAR } from '../hud/hudStatus.js';   // UI3: the status widget
@@ -1521,6 +1523,24 @@ function drawStatus(vitals, opts, live = null) {
   if (rules) all.unshift(...statusTiles({ rules }));   // EVENT-RULES: a world event's rules, first - never silent
   const mentor = mentorHudTile(vitals);
   if (mentor) all.unshift(...statusTiles({ mentor }));   // MENTOR2: mentoring said where the lowered numbers are felt
+  const rb = getRoadBlessingInfo(vitals, ownMinutes());
+  if (rb) {
+    const foot = rb.minutesLeft >= 60 ? `${Math.ceil(rb.minutesLeft / 60)}h` : `${rb.minutesLeft}m`;
+    all.unshift(...statusTiles({
+      blessing: {
+        active: true,
+        name: t('apotheosis.roadShrine.hudName', 'Blessing of {god}', { god: rb.godName }),
+        foot,
+        blink: rb.minutesLeft <= 30,
+        say: t('apotheosis.roadShrine.hudTip', 'Blessing of {god}: +{fat}/min Fatigue, +{deg}° Weather Resist, +10% Elemental Resist ({left} left)', {
+          god: rb.godName,
+          fat: rb.fatiguePerMin,
+          deg: rb.warmthDegrees,
+          left: foot,
+        }),
+      },
+    }));
+  }
   // a new window size or HUD scale is a new band at once (AUDIT UI C: a rotation left the old band for half a second)
   const vp = `${globalThis.innerWidth}x${globalThis.innerHeight}x${last.scale ?? 1}`;
   if (last.statVp !== vp) { last.statVp = vp; last.statTick = -1; }

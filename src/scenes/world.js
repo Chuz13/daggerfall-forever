@@ -344,6 +344,8 @@ import { createMonuments } from './lefayMonumentHost.js';   // LEFAY1: the monum
 import { createMerchantYards } from './merchantYardsHost.js';   // MERCHANT-YARDS: every city's and town's Stable and Wagon Yard, and their trade
 import { createWitchesHost } from './witchesHost.js';   // WITCH1: the Witches' Festival in the streets - the Hearth Offerings, the Wyrd Sister's window, the festival's doors
 import { createApotheosisCultHost } from './apotheosisCultHost.js';
+import { createApotheosisRoadShrinesHost } from './apotheosisRoadShrinesHost.js';
+import { tickRoadBlessingFatigue } from '../systems/apotheosis/apotheosisCore.js';
 import { createPortHost, PORT_TEXT, stairRefusal, stairFeetY } from './portHost.js';   // SHIPYARDS: every port town's shipyard and lighthouse, their people, their press and the lamp - and the stair's refusals
 import { createShipyardHost } from './shipyardHost.js';   // SHIPYARDS: the shipmaster's window's host half
 import { createPassageHost } from './naval/passageHost.js';   // PASSAGE: a berth's friendly ship, booked and sailed
@@ -11631,6 +11633,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     (key) => merchantYards?.hoverName(key) ?? null,   // MERCHANT-YARDS: a yard by its name and its keeper's, a horse or a wagon on show by its own
     (key) => portHost?.hoverName(key) ?? null,   // SHIPYARDS: a port's shipyard, crew hall and lighthouse by their names and keepers', and their rows
     (key) => witches?.hoverName(key) ?? null,   // WITCH1: a Hearth Offering by its owner and its cakes, and its rows
+    (key) => roadShrinesHost?.hoverName?.(key) ?? null,
     // PEER-PLAQUE1: another player, by the session's own name - the port's
     // own family (DFU has no other players), so it sits with the cart and
     // the camps ABOVE the mod's switch, as the names over heads already do.
@@ -28920,6 +28923,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     buildingDoors: () => buildingDoors,
     currentLoc: () => _questLoc(),
   });
+  const roadShrinesHost = createApotheosisRoadShrinesHost({
+    built: () => built,
+    renderer,
+    pipeline,
+    state,
+    groundAt: surfaceAt,
+    worldMinutes: minuteNow,
+    spawnExteriorFoe: (mob, pos, opts) => exteriorFoes?.spawnFoe?.(mob, pos, opts),
+  });
+  let _lastRoadBlessingMin = minuteNow();
+  const _travelIgnoredKeys = new Set();
+  let _travelLastProbeAt = 0;
   const _activeHomeDecor = homeDecor || {
     list: (...a) => isOfflineHousingActive() ? _offlineDecor.list(...a) : Promise.resolve({ ok: false }),
     rev: (...a) => isOfflineHousingActive() ? _offlineDecor.rev(...a) : Promise.resolve({ ok: false }),
@@ -29847,6 +29862,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     activatePort: (key, mode, verb) => portHost?.activate(key, mode, verb) ?? false,   // SHIPYARDS: the shipmaster's window on its page, the crew hall's, the tower's stair
     witches,   // WITCH1: a Wyrd Sister's press and the Hearth Offerings', in the street's one ray (scenes/witchesHost.js)
     cultHost,
+    roadShrinesHost,
     /** AUDIT 64 F11: the StaticBuildings of every built pixel, shifted
      *  through the LIVE floating-origin translation the street NPCs
      *  ride - DFU's hit test consumes a world-space
@@ -32809,7 +32825,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // (0x7d1), not a frame-tail chore.
     if (restoresSoFar() !== _portalRestores) { _portalRestores = restoresSoFar(); portalGates.clear(); livingDivers?.clear(); livingRemains?.clear(); _livingRemainsPlace.clear(); }   // PORTAL1: A LOAD ENDS EVERY PORTAL STANDING - asked at the one door every load passes (save.js restorePlayer: the world's, a classic import, a dungeon's own), so no branch of any load keeps one (AUDIT PORTAL1 U9); the save's pack is the truth. AUDIT LW-II-2 D2: and LETS THE DEEP'S LAYERS GO - a same-dungeon load keeps the pool, so the divers read the bodies its rewind cut as cut down beside the player (a death, a slaying, in the loaded game) and the remains a pile it wiped as taken (spent); met and laid again from the save's world
     if (_bootLoaded) { const gift = takePortalGiftNotice(); if (gift) townTalk.say(PORTAL_TEXT.gift(gift)); }   // PORTAL-GIFT: the stones a load gave, said once the world stands - every load's (the boot's, F9's, a dungeon's own), in every mode
-    if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') { closeBrokerDoor(); sigilBroker?.destroyAll(); }   /* AUDIT SET W2: the street left (the gate's court entered under the veil's 1.2 s, an interior, a travel) - her window shut and her post down, never carried in */ if (_torchesMode === 'exterior') lefay?.destroyAll();   /* LEFAY1: the monument's collider down, never carried in */ if (_torchesMode === 'exterior') poiHost?.standDown();   /* POI-2: the POIs' colliders down, never carried in - AUDIT POI R8: their models kept, placed again on the way out */ portalGates.forgetSteps(); _torchesMode = _mode(); }   // HT1; PORTAL1: the step forgotten at every change of place
+    if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') { closeBrokerDoor(); sigilBroker?.destroyAll(); }   /* AUDIT SET W2: the street left (the gate's court entered under the veil's 1.2 s, an interior, a travel) - her window shut and her post down, never carried in */ if (_torchesMode === 'exterior') lefay?.destroyAll();   /* LEFAY1: the monument's collider down, never carried in */ if (_torchesMode === 'exterior') roadShrinesHost?.destroyAll(); if (_torchesMode === 'exterior') poiHost?.standDown();   /* POI-2: the POIs' colliders down, never carried in - AUDIT POI R8: their models kept, placed again on the way out */ portalGates.forgetSteps(); _torchesMode = _mode(); }   // HT1; PORTAL1: the step forgotten at every change of place
     if (modes.frame(dt, now)) {
       if (_wodInside) { _wodInside = false; _wodArrival = wodArrivalOf([]); }   // WOD6: inside - the arrival's markers meet Start on the way out, from the player
       if (!skyInside) { skyInside = true; sky.setInside(true); }   // DS1: InteriorTransitionEvent
@@ -33091,6 +33107,84 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           _travelDrive = report?.drive?.arrived === false ? report.drive : null;
           if (report?.stopped) _walkStopWhy = report.stopped;   // AUDIT OW4 P4: a journey that cannot run as I am (systems/party/partyWalk.js WALK_BALKS) is not the party's to set out again
           if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale() && !tvWalkHoldsTimeScale()) resetTimeScale();   // the panel gone is the journey over (CSA-G: the helm's scale is no journey's; TV-WASD: nor the keys')
+          if (!travelOptions.isTravelActive) {
+            _travelIgnoredKeys.clear();
+          } else if (
+            travelOptions.state?.autopilot
+            && (modes?.mode ?? 'exterior') === 'exterior'
+            && !townTalk.overlayActive
+            && !(modes?.overlayHeld ?? false)
+            && !gamePaused()
+          ) {
+            const intMode = getPref('apotheosisTravelInterrupts') ?? 'all';
+            if (intMode !== 'off' && (now - _travelLastProbeAt) >= 0.25) {
+              _travelLastProbeAt = now;
+              const pPos = walkMode ? player.pos : cam.pos;
+              let hit = null;
+              for (const sh of roadShrinesHost?.nearbyShrines?.(pPos, 10) ?? []) {
+                if (!_travelIgnoredKeys.has(sh.key)) { hit = { key: sh.key, title: sh.title }; break; }
+              }
+              if (!hit && intMode === 'all') {
+                const pools = [
+                  ...(camps.targets?.() ?? []),
+                  ...(witches?.targets?.() ?? []),
+                  ...(lefay?.targets?.() ?? []),
+                  ...(sigilBroker?.targets?.() ?? []),
+                  ...(riteHost?.targets?.() ?? []),
+                ];
+                for (const tObj of pools) {
+                  if (!tObj?.key || !tObj?.aabb || _travelIgnoredKeys.has(tObj.key)) continue;
+                  const cx = (tObj.aabb.min[0] + tObj.aabb.max[0]) * 0.5;
+                  const cz = (tObj.aabb.min[2] + tObj.aabb.max[2]) * 0.5;
+                  const dx = cx - pPos[0];
+                  const dz = cz - pPos[2];
+                  if (dx * dx + dz * dz <= 100) {
+                    let title = null;
+                    for (const fn of _hoverNamers) {
+                      const r = fn(tObj.key);
+                      if (r?.title) { title = r.title; break; }
+                    }
+                    if (title) { hit = { key: tObj.key, title }; break; }
+                  }
+                }
+              }
+              if (hit) {
+                resetTimeScale();
+                townTalk.showOverlay(new ChoiceWindow({
+                  lines: [
+                    localizedText('apotheosis.travelInterrupt.title', 'Ahead by the road: {name}', { name: hit.title }),
+                    localizedText('apotheosis.travelInterrupt.ask', 'Interrupt fast travel to inspect?'),
+                  ],
+                  options: [
+                    {
+                      code: 'Digit1',
+                      label: `1 - ${localizedText('apotheosis.travelInterrupt.yes', 'Yes, stop here')}`,
+                      action: () => { travelOptions.interruptTravel(); },
+                    },
+                    {
+                      code: 'Digit2',
+                      label: `2 - ${localizedText('apotheosis.travelInterrupt.no', 'No, keep travelling')}`,
+                      action: () => { _travelIgnoredKeys.add(hit.key); },
+                    },
+                    {
+                      code: 'Escape',
+                      label: `Esc - ${localizedText('apotheosis.travelInterrupt.no', 'No, keep travelling')}`,
+                      action: () => { _travelIgnoredKeys.add(hit.key); },
+                    },
+                  ],
+                }));
+              }
+            }
+          }
+        }
+        {
+          const curMin = minuteNow();
+          if (curMin > _lastRoadBlessingMin) {
+            tickRoadBlessingFatigue(playerEntity, curMin - _lastRoadBlessingMin, curMin);
+            _lastRoadBlessingMin = curMin;
+          } else if (curMin < _lastRoadBlessingMin) {
+            _lastRoadBlessingMin = curMin;
+          }
         }
       // AUDIT 18 F9: the player's world clock, HELD by the same gate.
       // It ran only inside a dungeon before F8 moved it here; F8 then
@@ -34380,6 +34474,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     portFrame();   // SHIPYARDS: each port town's shipyard and lighthouse stood where it is built, before the lights (its lamp)
     witches?.frame();   // WITCH1: the town underfoot's Hearth Offerings stood, before the lights (their lanterns)
     cultHost?.frame();
+    roadShrinesHost?.frame();
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
     // WOD2: the mod's lights burn at every hour and each carries its own
@@ -34493,6 +34588,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     poiHost?.draw(renderer, yardCull);   // POI-2: the approved POIs' opaque parts, by the street's view test
     portHost?.draw(renderer, yardCull);   // SHIPYARDS: the shipyards' timber and the lighthouses' stone, by the street's view test as the yards are
     cultHost?.draw(renderer);
+    roadShrinesHost?.draw(renderer);
     if (_mode() === 'exterior') wardenShows?.draw(renderer);   // WARDEN1: a wagon on a guard's shoulders, or in the air
     if (csaOn()) csa.draw(renderer);   // CSA-B: the boats - the hulls, the classic models their helpers stand, the baked sails
     // SERPENT1: the sea serpent's body with the opaque world, before the sea's top (its humps break it, the rest shows
@@ -34517,6 +34613,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (cullOn) spherePlanes(multiply(proj, view, _pv), _planes);   // EV3 (GHOST1: normalised - the sphere test shares these)
     meterFor(renderer.gl)?.markCpu('batches');   // PERF-CPU: the pixel walk that fills allBatches, culling as it goes
     const allBatches = [];
+    for (const b of roadShrinesHost?.billboardBatches?.() ?? []) allBatches.push(b);
     // SHADOW-REACH (2026-09-23, Mac: "Can you tackle the 2 limitations"): THE CASTERS THE VIEW CULL REJECTS. Every
     // gate below (the pixel's, a model's, a flat batch's, a townsman's) asks the renderer whether what it just
     // rejected would cast into this frame's shadow maps - a sun cascade's frustum, which reaches 600 units

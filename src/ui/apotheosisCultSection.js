@@ -47,6 +47,13 @@ import {
   getCultPassiveFaithPerDay,
   hasSanctuaryKey,
 } from '../systems/apotheosis/apotheosisCult.js';
+import {
+  getRoadBlessingInfo,
+  ensureCultPetition,
+  getActiveCultPetition,
+  dismissCultPetition,
+  syncEdictPetitionIfActive,
+} from '../systems/apotheosis/apotheosisStage33.js';
 import { exteriorOpenSpellFor, consumeDoorSpell } from '../scenes/shared.js';
 
 let cultScopeFilter = 'city';
@@ -901,6 +908,70 @@ export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', 
   if (mode === 'edicts') {
     renderEdictsView(detail, entity, nowMin, repaint, setFeedback);
   } else {
+    const rb = getRoadBlessingInfo(entity, nowMin);
+    if (rb) {
+      const box = uiEl('div', 'apo-box');
+      box.append(
+        uiEl('div', 'apo-card-title', t('apotheosis.roadShrine.uiTitle', 'Active Road Blessing: {god}', { god: rb.godName })),
+        uiEl('div', 'apo-card-desc', t('apotheosis.roadShrine.hudTip', 'Blessing of {god}: +{fat}/min Fatigue, +{deg}° Weather Resist, +10% Elemental Resist ({left} left)', {
+          god: rb.godName,
+          fat: rb.fatiguePerMin,
+          deg: rb.warmthDegrees,
+          left: rb.minutesLeft >= 60 ? `${Math.ceil(rb.minutesLeft / 60)}h` : `${rb.minutesLeft}m`,
+        })),
+      );
+      detail.append(box);
+    }
+
+    const petReg = Math.max(0, Math.min(TAMRIEL_REGION_COUNT - 1, Math.trunc(Number(entity?.currentRegionIndex) || 0)));
+    const pet = ensureCultPetition(entity, { regionIndex: petReg, nowMinutes: nowMin })
+      ?? getActiveCultPetition(entity, nowMin);
+    if (pet) {
+      const petBox = uiEl('div', 'apo-box');
+      const regName = getLocalizedRegionName(pet.targetRegion, (i) => REGION_NAMES[i] ?? `Region ${i}`);
+      const desc = pet.type === 'inquisition'
+        ? t('apotheosis.petition.descInquisition', 'Defeat {god}\'s Inquisitors threatening your sanctum.', { god: pet.godName })
+        : pet.type === 'desecrate_shrine'
+          ? t('apotheosis.petition.descDesecrate', 'Desecrate a roadside shrine of {god} in this region (3x reward on wild roads!).', { god: pet.godName })
+          : t('apotheosis.petition.descEdict', 'Proclaim any Regional Edict in this region to guide the faithful.');
+      petBox.append(
+        uiEl('div', 'apo-card-title', `${t('apotheosis.petition.modalTitle', 'Pilgrim Petition')} · ${regName} (#${pet.targetRegion + 1})`),
+        uiEl('div', 'apo-card-desc', desc),
+        uiEl('div', 'apo-meta-row', t('apotheosis.petition.rewardLine', 'Reward: +{faith} Faith · +{gold}g · +{inf}% Influence', {
+          faith: pet.rewardFaith,
+          gold: pet.rewardGold,
+          inf: pet.rewardInfluence,
+        })),
+      );
+      const actRow = uiEl('div', 'apo-row-inline');
+      if (pet.type === 'edict') {
+        const claimBtn = uiEl('button', 'apo-btn primary', t('apotheosis.petition.btnVerifyEdict', 'Verify Edict'));
+        claimBtn.onclick = () => {
+          const synced = syncEdictPetitionIfActive(entity, nowMin);
+          if (synced?.completed) {
+            setFeedback(t('apotheosis.petition.completedHud', 'Cult Petition Completed: +{faith} Faith, +{gold}g, +{inf}% Influence!', {
+              faith: synced.faithGained,
+              gold: synced.goldGained,
+              inf: synced.influenceGained,
+            }), false);
+          } else {
+            setFeedback(t('apotheosis.petition.edictNotYet', 'No active Regional Edict found in {region} yet.', { region: regName }), true);
+          }
+          repaint();
+        };
+        actRow.append(claimBtn);
+      }
+      const disBtn = uiEl('button', 'apo-btn', t('apotheosis.petition.btnDismiss', 'Dismiss Petition'));
+      disBtn.onclick = () => {
+        dismissCultPetition(entity);
+        setFeedback(t('apotheosis.petition.dismissedHud', 'Pilgrim Petition dismissed.'), false);
+        repaint();
+      };
+      actRow.append(disBtn);
+      petBox.append(actRow);
+      detail.append(petBox);
+    }
+
     renderSanctuariesView(detail, rootModalParent ?? detail, entity, pantheon, nowMin, repaint, setFeedback);
   }
 }

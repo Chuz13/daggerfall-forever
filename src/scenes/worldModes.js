@@ -7243,6 +7243,7 @@ export function createWorldModes(host) {
     // WITCH1 (scenes/witchesHost.js): the Hearth Offerings at the homes' doors - the streaming host's (the bench stands none)
     for (const t of host.witches?.targets() ?? []) targets.push(t);
     for (const t of host.cultHost?.targets() ?? []) targets.push(t);
+    for (const t of host.roadShrinesHost?.targets() ?? []) targets.push(t);
     _extList = { entries, npcs, graves, targets };
     _extMark = mark;
     return _extList;
@@ -7534,6 +7535,7 @@ export function createWorldModes(host) {
     }
     if (key.startsWith('grave:')) return { title: 'Grave' };   // SEARCH1
     if (key.startsWith('cultHatch:') || key.startsWith('cultKeeper:')) return host.cultHost?.hoverName(key) ?? null;
+    if (key.startsWith('roadShrine:')) return host.roadShrinesHost?.hoverName(key) ?? null;
     if (key.startsWith('person:')) {                                       // .cs:325-393
       const pn = npcs[Number(key.split(':')[1])];
       if (!pn) return null;
@@ -7813,6 +7815,10 @@ export function createWorldModes(host) {
     if (typeof key === 'string' && (key.startsWith('cultHatch:') || key.startsWith('cultKeeper:'))) {
       if (_hitDist > _hitReach) { setMidScreenText(tooFarAwayText()); return true; }
       return host.cultHost?.activate(key, getInteractionMode()) ?? true;
+    }
+    if (typeof key === 'string' && key.startsWith('roadShrine:')) {
+      if (_hitDist > _hitReach) { setMidScreenText(tooFarAwayText()); return true; }
+      return host.roadShrinesHost?.activate(key, getInteractionMode()) ?? true;
     }
     if (_hitDist > _hitReach) { setMidScreenText(tooFarAwayText()); return true; }   // AUDIT 65 MC-2: ActivateStaticDoor's OWN first statement (:501-504), before the bash sound and the lock ladder
     return activateStaticDoor(entries[key], entries, false, { verb: plaqueActionFor(key) });   // HOME2: the verb the door's plaque lit, if it listed any
