@@ -117,6 +117,7 @@ export class DeathScreen {
     eyeHeight,
     capsuleHeight,
     onReset = null,
+    onLoad = null,
     entity = playerEntity,
     hint = 'ENTER end   F11 load',
     online = undefined,
@@ -127,6 +128,7 @@ export class DeathScreen {
   } = {}) {
     noteFirstUse('death'); // TUT1: the page waits beneath this screen (it keeps the top) and is read after it
     this.done = false;
+    this.onLoad = onLoad;
     // RISE-STUCK: the screen keeps the top of its host's stack until it
     // goes - a box pushed while it is up waits beneath (ui/windowStack.js
     // holdsTop), so the rise's replace takes THIS window, not the box.
@@ -258,6 +260,7 @@ export class DeathScreen {
   input(action) {
     // ENTER ends the run now; the sequence's own reset is the timer. DEATH-15: online only after the minimum, zone or not
     if (action === 'confirm' && this.canRise) this.sequence.tick(DEATH_TIME_BEFORE_RESET + 1);
+    else if (action === 'load') this.onLoad?.();
   }
   draw(renderer, canvas, font, s) {
     // FadeHUDToBlack over the death: the world dims to black behind

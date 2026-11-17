@@ -229,7 +229,7 @@ import { revenantArtFrame } from '../systems/revenant/revenantArts.js';   // RVN
 import { ARENA_PUPPET_OWNER } from '../net/arena/arenaLaw.js';   // ARENA4: the relay's fighters' puppets - a blow on one is the referee's
 import { calculateCastCost } from '../systems/spellcost.js';
 import { snapshotPlayer, restorePlayer, composeSessionState, restoreSessionState , copyEffectEntry } from '../systems/save/save.js';   // B4: the ONE quest+talk composer
-import { saveSlot, loadSlot, quickLoadSlot, QUICK_SAVE_NAME, requestScreenshot, slotLoaded } from '../systems/save/saveSlots.js';   // SAV4: the quicksave is a SLOT named QuickSave; SS1: the shot arms here, the HOST loop delivers it
+import { saveSlot, loadSlot, quickLoadSlot, lastSaveKey, QUICK_SAVE_NAME, requestScreenshot, slotLoaded } from '../systems/save/saveSlots.js';   // SAV4: the quicksave is a SLOT named QuickSave; SS1: the shot arms here, the HOST loop delivers it
 import { bindQuestFoeHost, placeFoeEnv, entityOccupancy, partyOnlyQuestShare } from './quest/questFoeHost.js';   // QUEST-OWNER: a quest's foe underground is its owner's party's alone
 import { puppetLead } from './puppetLead.js';   // DESYNC-ZERO: a moving puppet leads its last word
 import { appliedOwnerTm } from '../net/ownerClock.js';   // OWNER-CLOCK: and by its owner's clock, where the frame says it
@@ -3492,7 +3492,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // A host that passes none falls to the constructor's standing
       // defaults, which is the crouched death's geometry lost.
       const _ms = opts.motorState?.() ?? null;
-      activeOverlay = new DeathScreen({ eyeHeight: _ms?.eyeLevel, capsuleHeight: _ms?.capsule, onReset: () => { if (!opts.onlineRespawn?.()) endRunToTitleMenu(renderer); }, ...(opts.onlineRespawn ? { rises: opts.legacyWillRise } : { online: false }), penalty: madeLevelRule(_made, 'deathPenalty') !== 'none' });   // AUDIT 28 B5: the standalone dungeon (no onlineRespawn) never respawns online - no loss shown; BAL4: the world's dungeon knows a Legacy rise   // D1; D-ONLINE1: online play respawns instead of ending the run (worldModes.js's opts.onlineRespawn, world.js's onlineRespawn)
+      activeOverlay = new DeathScreen({ eyeHeight: _ms?.eyeLevel, capsuleHeight: _ms?.capsule, onReset: () => { if (!opts.onlineRespawn?.()) endRunToTitleMenu(renderer); }, onLoad: () => { const key = lastSaveKey(playerEntity.name, undefined, playerEntity.characterId ?? null); api.quickLoad(null, key); }, ...(opts.onlineRespawn ? { rises: opts.legacyWillRise } : { online: false }), penalty: madeLevelRule(_made, 'deathPenalty') !== 'none' });   // AUDIT 28 B5: the standalone dungeon (no onlineRespawn) never respawns online - no loss shown; BAL4: the world's dungeon knows a Legacy rise   // D1; D-ONLINE1: online play respawns instead of ending the run (worldModes.js's opts.onlineRespawn, world.js's onlineRespawn)
     }
   });
   // F117: Stendarr's rank-in-fifty, consulted by the door before the

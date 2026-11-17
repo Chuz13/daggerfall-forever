@@ -137,6 +137,7 @@ import { isKetchShip } from '../world/ketch/ketchShip.js';   // KETCH: the sky-k
 import { KT_ARRIVE } from '../net/ketch/ketchDeck.js';   // KETCH: where the anchor-lift sets a crew down, and its facing
 import { EG_OCCLUDE_CHEST_M } from './eliteGates/egOcclude.js';   // EG-ZN (section 11.8): the occluders between the camera and the body dithered out
 import { madeLevelOf } from '../systems/madeLevel.js';   // EG-H2 (Elite-Gates.md section 24): which made level stands under the player - one law
+import { lastSaveKey } from '../systems/save/saveSlots.js';
 import { SD_HOUR_GRADE } from '../world/superDungeon/sdLook.js';   // SD-LOOK: the Hour's grade on the lane
 /** SD-LOOK: the dungeon arm's two draw options for its dynamic draws (render/renderer.js drawMesh), made once - the hot
  *  loop makes nothing. */
@@ -1551,7 +1552,7 @@ export function createWorldModes(host) {
       // z-index 13) left in the slot stayed in the DOM over the death,
       // the video and whatever followed, eating every pointer event.
       interiorOverlay?.dispose?.();
-      interiorOverlay = new DeathScreen({ eyeHeight: player.eye[1] - player.pos[1], capsuleHeight: player.height, onReset: () => { if (!host.onlineRespawn?.()) endRunToTitleMenu(renderer); }, rises: () => host.legacyWillRise?.() ?? false });   // D1; D-ONLINE1: online play respawns instead of ending the run; BAL4: a Legacy rise offline is one (its loss stated)
+      interiorOverlay = new DeathScreen({ eyeHeight: player.eye[1] - player.pos[1], capsuleHeight: player.height, onReset: () => { if (!host.onlineRespawn?.()) endRunToTitleMenu(renderer); }, onLoad: () => { const key = lastSaveKey(playerEntity.name, undefined, playerEntity.characterId ?? null); if (key != null && host.loadKey) host.loadKey(key); else host.quickLoad?.(); }, rises: () => host.legacyWillRise?.() ?? false });   // D1; D-ONLINE1: online play respawns instead of ending the run; BAL4: a Legacy rise offline is one (its loss stated)
     }
   };
   // AUDIT 23 (hosts-1): this constructor runs AFTER the exterior host

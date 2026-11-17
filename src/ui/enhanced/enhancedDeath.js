@@ -35,6 +35,9 @@ import { deathPenaltyLine } from '../../systems/deathPenalty.js';   // DEATH-PEN
 import { armDrawWatchdog, disarmDraw } from '../drawWatchdog.js';
 import { wildDeathLines, wildDeathSlain } from '../../systems/wild/wildZone.js';   // WILD1: a death in the open zone says what it cost
 import { t } from '../../systems/textManager.js';   // L10N4: the death screen's words in the player's language
+import { bindings } from '../input.js';
+import { codeForAction } from '../../systems/inputActions.js';
+import { buttonText } from '../../systems/controlsConfig.js';
 
 export const ENHANCED_DEATH_ID = 'enhanced-death';
 const STALE_MS = 350;
@@ -50,15 +53,24 @@ const el = (tag, cls, text) => {
   return n;
 };
 
+export function quickLoadKeyLabel(store = null) {
+  try {
+    const code = codeForAction(store ?? bindings(), 'QuickLoad');
+    return code ? buttonText(code, true) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** What the keys do, from the screen's own hint - a host with no
- *  quickload passes 'ENTER end' and gets no F11 plate (FIX-E's law: a
- *  hint that is a lie is worse than none). Online, Enter and F11 both
+ *  quickload passes 'ENTER end' and gets no load plate (FIX-E's law: a
+ *  hint that is a lie is worse than none). Online, Enter and QuickLoad both
  *  RESPAWN (world.js D-ONLINE1), so one plate says so. BAL4: offline, a
- *  death Project Legacy will raise rises on Enter - F11 still loads. */
-export function deathKeys(hint, online, rises = false, offlineRespawn = false) {
+ *  death Project Legacy will raise rises on Enter - the load plate still loads. */
+export function deathKeys(hint, online, rises = false, offlineRespawn = false, loadKey = quickLoadKeyLabel()) {
   if (online) return [{ key: 'Enter', word: t('death.key.rise', 'Rise now'), confirm: true }];
   const keys = [{ key: 'Enter', word: (rises || offlineRespawn) ? t('death.key.riseLegacy', 'Rise') : t('death.key.end', 'End your tale'), confirm: true }];
-  if (/F11/i.test(String(hint ?? ''))) keys.push({ key: 'F11', word: t('death.key.load', 'Load last save') });
+  if (/F11/i.test(String(hint ?? ''))) keys.push({ key: loadKey, word: t('death.key.load', 'Load last save'), action: 'load' });
   return keys;
 }
 
@@ -85,11 +97,13 @@ function build(screen) {
     : t('death.line', 'Your tale ends here.')));
   const keys = el('div', 'dth-keys');
   for (const k of deathKeys(screen.hint, online, !!screen.rises, !!screen.offlineRespawn)) {
-    const b = el(k.confirm ? 'button' : 'span', 'dth-key');
-    b.append(el('span', 'dth-cap', k.key), el('span', 'dth-word', k.word));
+    const action = k.confirm ? 'confirm' : k.action;
+    const b = el(action ? 'button' : 'span', 'dth-key');
+    if (k.key) b.append(el('span', 'dth-cap', k.key));
+    b.append(el('span', 'dth-word', k.word));
     // A phone has no Enter: the plate is the key, through the screen's
     // own input - the same door the keyboard's confirm takes.
-    if (k.confirm) { b.type = 'button'; b.onclick = () => owner?.input?.('confirm'); }
+    if (action) { b.type = 'button'; b.onclick = () => owner?.input?.(action); }
     keys.append(b);
   }
   // DEATH4: online, the count to the respawn - offline there is none,

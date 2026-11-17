@@ -422,6 +422,19 @@ export function quickLoadSlot(characterName, storage = store(), characterId = nu
   return key === -1 ? null : loadSlot(key, storage);
 }
 
+/** QuickSave slot key for this character if restorable; otherwise the most recent restorable save by realTime
+ *  (preferring this character's own saves, then any restorable save), or null when none exist. */
+export function lastSaveKey(characterName, storage = store(), characterId = null) {
+  const qk = findSave(characterName, QUICK_SAVE_NAME, storage, characterId);
+  if (qk !== -1 && restorableSlot(qk, storage)) return qk;
+  const own = firstRestorable(
+    ({ info }) => (characterId ? info.characterId === characterId : info.characterName === characterName),
+    storage,
+  );
+  if (own) return own.key;
+  return mostRecentRestorable(storage)?.key ?? null;
+}
+
 /** ONLINE-AUTOSAVE1's slots (scenes/world.js's `beforeunload`): the
  *  QuickSave and every slot this character already has - OR NONE while
  *  the player is dead or the death screen is up (DISC19-C). DFU never
