@@ -46,10 +46,33 @@ export const CULT_BRANCH_SWITCH_COST = 180;
 export const CULT_BRANCH_COOLDOWN_DAYS = 7;
 export const CULT_BRANCH_COOLDOWN_MINUTES = CULT_BRANCH_COOLDOWN_DAYS * 1440;
 export const CULT_TELEPORT_SANCTUARY_FAITH_COST = 75;
+export const CULT_BASH_COOLDOWN_MINUTES = 60;
+export const CULT_GUARDIAN_RESPAWN_COOLDOWN_MINUTES = 3 * 1440;
+export const CULT_BREAKIN_RELATION_PENALTY = -35;
+export const CULT_TRESPASS_RELATION_PENALTY = -5;
 export const REGIONAL_EDICT_COST = 200;
 export const REGIONAL_EDICT_DURATION_DAYS = 30;
 export const REGIONAL_EDICT_DURATION_MINUTES = REGIONAL_EDICT_DURATION_DAYS * 1440;
 export const EDICT_INFLUENCE_REQUIREMENT = 25;
+
+/** Unified 2D statue billboard flat rendered for non-player deity altars. */
+export const DEITY_DEFAULT_ALTAR_FLAT = Object.freeze({ archive: 202, record: 0 });
+
+/** Player-selectable Cult Altar Statues (both 2D billboard flats & 3D statue models from Decorator's `statues`). */
+export const CULT_ALTAR_STYLES = Object.freeze([
+  Object.freeze({ id: 'flat_202_0', kind: 'flat', archive: 202, record: 0, nameKey: 'apotheosis.cult.altarStyle.flat_202_0', fallbackName: 'Golden Seraph Statue (2D)' }),
+  Object.freeze({ id: 'flat_202_1', kind: 'flat', archive: 202, record: 1, nameKey: 'apotheosis.cult.altarStyle.flat_202_1', fallbackName: 'Winged Solar Idol (2D)' }),
+  Object.freeze({ id: 'flat_202_2', kind: 'flat', archive: 202, record: 2, nameKey: 'apotheosis.cult.altarStyle.flat_202_2', fallbackName: 'Horned Daedric Effigy (2D)' }),
+  Object.freeze({ id: 'flat_97_0', kind: 'flat', archive: 97, record: 0, nameKey: 'apotheosis.cult.altarStyle.flat_97_0', fallbackName: 'Marble Temple Shrine (2D)' }),
+  Object.freeze({ id: 'flat_97_1', kind: 'flat', archive: 97, record: 1, nameKey: 'apotheosis.cult.altarStyle.flat_97_1', fallbackName: 'Sacred Chalice Pedestal (2D)' }),
+  Object.freeze({ id: 'flat_98_0', kind: 'flat', archive: 98, record: 0, nameKey: 'apotheosis.cult.altarStyle.flat_98_0', fallbackName: 'Abyssal Ritual Brazier (2D)' }),
+  Object.freeze({ id: 'flat_190_10', kind: 'flat', archive: 190, record: 10, nameKey: 'apotheosis.cult.altarStyle.flat_190_10', fallbackName: 'Ancient Sentinel Statue (2D)' }),
+  Object.freeze({ id: 'model_62323', kind: 'model', modelId: 62323, nameKey: 'apotheosis.cult.altarStyle.model_62323', fallbackName: 'Heroic Sovereign Statue (3D)' }),
+  Object.freeze({ id: 'model_62324', kind: 'model', modelId: 62324, nameKey: 'apotheosis.cult.altarStyle.model_62324', fallbackName: 'Robed Sage Monument (3D)' }),
+  Object.freeze({ id: 'model_62325', kind: 'model', modelId: 62325, nameKey: 'apotheosis.cult.altarStyle.model_62325', fallbackName: 'Armored Crusader Statue (3D)' }),
+  Object.freeze({ id: 'model_62326', kind: 'model', modelId: 62326, nameKey: 'apotheosis.cult.altarStyle.model_62326', fallbackName: 'Weeping Angel Pillar (3D)' }),
+  Object.freeze({ id: 'model_62328', kind: 'model', modelId: 62328, nameKey: 'apotheosis.cult.altarStyle.model_62328', fallbackName: 'Obelisk of Dominion (3D)' }),
+]);
 
 export const AEDRA_IDS = Object.freeze(
   PANTHEON_DEITIES.filter((d) => d.kind === 'aedra').map((d) => d.id),
@@ -301,11 +324,13 @@ export function ensureCultState(entity) {
       sites: {},
       edicts: {},
       sanctuaryKeys: {},
+      altarStyle: CULT_ALTAR_STYLES[0].id,
     };
   } else {
     if (!existing.sites || typeof existing.sites !== 'object') existing.sites = {};
     if (!existing.edicts || typeof existing.edicts !== 'object') existing.edicts = {};
     if (!existing.sanctuaryKeys || typeof existing.sanctuaryKeys !== 'object') existing.sanctuaryKeys = {};
+    if (!existing.altarStyle) existing.altarStyle = CULT_ALTAR_STYLES[0].id;
   }
   const hasOwned = Object.values(entity.apotheosis.cult.sites).some((s) => s?.ownerId === 'player');
   if (hasOwned) {
@@ -314,6 +339,32 @@ export function ensureCultState(entity) {
     entity.apotheosis.cultFaithBonus = 0;
   }
   return entity.apotheosis.cult;
+}
+
+/** Returns the player's currently chosen Cult Altar Statue descriptor (`CULT_ALTAR_STYLES`). */
+export function getCultAltarStyle(entity) {
+  const id = entity?.apotheosis?.cult?.altarStyle ?? CULT_ALTAR_STYLES[0].id;
+  return CULT_ALTAR_STYLES.find((s) => s.id === id) ?? CULT_ALTAR_STYLES[0];
+}
+
+/** Sets the player's Cult Altar Statue appearance (`CULT_ALTAR_STYLES` entry ID). */
+export function setCultAltarStyle(entity, styleId) {
+  const cult = ensureCultState(entity);
+  if (!cult) return { ok: false, reason: t('apotheosis.cult.err.unknownAltarStyle', 'Unknown altar statue style.') };
+  const picked = CULT_ALTAR_STYLES.find((s) => s.id === String(styleId ?? ''));
+  if (!picked) {
+    return { ok: false, reason: t('apotheosis.cult.err.unknownAltarStyle', 'Unknown altar statue style.') };
+  }
+  cult.altarStyle = picked.id;
+  return { ok: true, style: picked };
+}
+
+/** Marks a town Sanctuary hatch/site as discovered (so its nameplate appears on the town map). */
+export function discoverCultSite(entity, siteKey) {
+  const site = getCultSite(entity, siteKey);
+  if (!site) return false;
+  if (!site.discovered) site.discovered = true;
+  return true;
 }
 
 /** Safely registers an acquired Temple or Underground Sanctuary into offline housing persistence. */
@@ -365,6 +416,7 @@ export function ensureCityCultSites(entity, {
           ownerId: defaultPatronId,
           formerOwnerId: null,
           isPlayerFounded: false,
+          discovered: true,
           peacefulTransfer: false,
           unlocked: true,
           unlockMethod: null,
@@ -406,6 +458,7 @@ export function ensureCityCultSites(entity, {
         ownerId: princeId,
         formerOwnerId: null,
         isPlayerFounded: false,
+        discovered: false,
         peacefulTransfer: false,
         unlocked: false,
         unlockMethod: null,
@@ -486,11 +539,87 @@ export function hasSanctuaryKey(entity, siteKey) {
   return !!cult?.sanctuaryKeys?.[String(siteKey ?? '')];
 }
 
+function applySanctuaryBreakInConsequences(entity, site, nowMinutes = 0) {
+  if (!entity || !site || site.ownerId === 'player') {
+    return { warDeclared: false, relationDelta: 0, deityName: '' };
+  }
+  const god = getPantheonDeity(site.ownerId);
+  const deityName = god?.name ?? site.ownerId;
+  if (site.breakInPenalized) {
+    const p = ensurePantheonState(entity, { nowMinutes });
+    const entry = p?.deities?.[site.ownerId];
+    if (entry && entry.status !== 'war') {
+      entry.pact = false;
+      entry.allied = false;
+      entry.manualWar = true;
+      entry.status = 'war';
+    }
+    return { warDeclared: true, relationDelta: 0, deityName };
+  }
+  site.breakInPenalized = true;
+  const p = ensurePantheonState(entity, { nowMinutes });
+  const entry = p?.deities?.[site.ownerId];
+  let relationDelta = 0;
+  if (entry) {
+    entry.pact = false;
+    entry.allied = false;
+    entry.truceUntilMinutes = null;
+    entry.graceUntilMinutes = null;
+    entry.manualWar = true;
+    const rel = changeDeityRelation(entity, site.ownerId, CULT_BREAKIN_RELATION_PENALTY, {
+      nowMinutes,
+      category: 'against_me',
+    });
+    relationDelta = rel?.deltaApplied ?? CULT_BREAKIN_RELATION_PENALTY;
+    entry.status = 'war';
+  }
+  appendPantheonChronicle(entity, {
+    day: dayFromMinutes(nowMinutes),
+    minutes: nowMinutes,
+    category: 'against_me',
+    godId: site.ownerId,
+    regionIndex: site.regionIndex,
+    text: t('apotheosis.cult.chronicle.breakInWar', 'Forced intrusion into {site} provoked Holy War with {god} ({delta} Relation)!', {
+      site: site.name,
+      god: deityName,
+      delta: relationDelta || CULT_BREAKIN_RELATION_PENALTY,
+    }),
+  });
+  return { warDeclared: true, relationDelta: relationDelta || CULT_BREAKIN_RELATION_PENALTY, deityName };
+}
+
+/**
+ * Applies a small once-per-day trespass relation penalty (`-5`) when entering an enemy
+ * (`hostile` or `war`) deity's unowned Temple or Sanctuary without consecrating it.
+ */
+export function applySanctumTrespassPenalty(entity, site, nowMinutes = 0) {
+  if (!entity || !site || site.ownerId === 'player') return { penalized: false };
+  const p = ensurePantheonState(entity, { nowMinutes });
+  const entry = p?.deities?.[site.ownerId];
+  if (!entry || (entry.status !== 'war' && entry.status !== 'hostile')) {
+    return { penalized: false };
+  }
+  const day = dayFromMinutes(nowMinutes);
+  if (site.lastTrespassDay === day) return { penalized: false };
+  site.lastTrespassDay = day;
+  const god = getPantheonDeity(site.ownerId);
+  const rel = changeDeityRelation(entity, site.ownerId, CULT_TRESPASS_RELATION_PENALTY, {
+    nowMinutes,
+    propagate: false,
+    category: 'against_me',
+  });
+  return {
+    penalized: true,
+    relationDelta: rel?.deltaApplied ?? CULT_TRESPASS_RELATION_PENALTY,
+    deityName: god?.name ?? site.ownerId,
+  };
+}
+
 /**
  * Grants a Sanctuary Seal Key from the outdoor Cult Gatekeeper via Pickpocket or Loot.
- * Looting (slaying) or detected Pickpocket sets `site.alarmTriggered = true`.
+ * Looting (slaying) or detected Pickpocket sets `site.alarmTriggered = true` and provokes Holy War.
  */
-export function obtainSanctuaryKeyFromGatekeeper(entity, siteKey, mode = 'pickpocket', { rng = Math.random, skillOverride = null } = {}) {
+export function obtainSanctuaryKeyFromGatekeeper(entity, siteKey, mode = 'pickpocket', { rng = Math.random, skillOverride = null, nowMinutes = 0, force = false } = {}) {
   const cult = ensureCultState(entity);
   const site = getCultSite(entity, siteKey);
   if (!cult || !site) return { ok: false, detected: false, reason: t('apotheosis.cult.err.unknownSite', 'Sanctuary site not found.') };
@@ -498,18 +627,20 @@ export function obtainSanctuaryKeyFromGatekeeper(entity, siteKey, mode = 'pickpo
   if (mode === 'loot') {
     cult.sanctuaryKeys[site.siteKey] = true;
     site.alarmTriggered = true;
+    const breakIn = force ? { warDeclared: false, deityName: '' } : applySanctuaryBreakInConsequences(entity, site, nowMinutes);
     return {
       ok: true,
       hasKey: true,
       detected: true,
       alarm: true,
-      message: t('apotheosis.cult.keyLooted', 'Took the Sanctuary Seal Key from the fallen Gatekeeper (Alarm triggered!).'),
+      warDeclared: breakIn.warDeclared,
+      message: t('apotheosis.cult.keyLooted', 'Took the Sanctuary Seal Key from the fallen Gatekeeper (Alarm triggered & Holy War!).'),
     };
   }
 
   const pickSkill = skillOverride != null ? Number(skillOverride) : (skillValue(entity, SKILLS.Pickpocket) ?? 30);
   const chance = Math.max(0.2, Math.min(0.95, 0.35 + (pickSkill - 25) * 0.01));
-  const success = rng() < chance;
+  const success = force || rng() < chance;
   if (success) {
     cult.sanctuaryKeys[site.siteKey] = true;
     return {
@@ -522,21 +653,25 @@ export function obtainSanctuaryKeyFromGatekeeper(entity, siteKey, mode = 'pickpo
   }
 
   site.alarmTriggered = true;
+  const breakIn = force ? { warDeclared: false, deityName: '' } : applySanctuaryBreakInConsequences(entity, site, nowMinutes);
   return {
     ok: false,
     hasKey: false,
     detected: true,
     alarm: true,
-    reason: t('apotheosis.cult.keyPickFail', 'The Gatekeeper caught your hand! The Sanctuary Alarm has sounded.'),
+    warDeclared: breakIn.warDeclared,
+    reason: t('apotheosis.cult.keyPickFail', 'The Gatekeeper caught your hand! The Sanctuary Alarm has sounded and {god} declares Holy War!', {
+      god: breakIn.deityName || site.ownerId,
+    }),
   };
 }
 
 /**
  * Attempts to unlock a Daedric Underground Sanctuary Hatch via one of 4 player methods:
- *  - `'lockpick'`: Lockpicking check; failed attempt triggers `alarmTriggered`.
- *  - `'bash'`: Brute smash; always opens AND always triggers `alarmTriggered`.
- *  - `'magic'`: Open spell active, Magic Portfolio, or active `arcane` Edict in this region -> silent unlock.
- *  - `'key'`: Gatekeeper Seal Key OR Pact/Alliance with owner Daedra Prince -> silent unlock.
+ *  - `'lockpick'`: Lockpicking check; breaking in without Pact/Alliance provokes Holy War (-35), failure rings street Alarm.
+ *  - `'bash'`: Strength check + 60m cooldown; rings street Alarm and provokes Holy War (-35) whether it succeeds or fails.
+ *  - `'magic'`: Open spell active, Magic Portfolio, or active `arcane` Edict -> quiet unlock (provokes Holy War if no Pact/Alliance).
+ *  - `'key'`: Gatekeeper Seal Key OR Pact/Alliance with owner Daedra Prince -> clean unlock with no war/alarm.
  */
 export function attemptUnlockSanctuaryHatch(entity, siteKey, method = 'lockpick', opts = {}) {
   const site = getCultSite(entity, siteKey);
@@ -544,23 +679,68 @@ export function attemptUnlockSanctuaryHatch(entity, siteKey, method = 'lockpick'
 
   if (site.unlocked || site.ownerId === 'player') {
     site.unlocked = true;
+    site.discovered = true;
     return { ok: true, unlocked: true, alarm: !!site.alarmTriggered, method: site.unlockMethod ?? method };
   }
 
   const m = String(method ?? 'lockpick').toLowerCase();
   const force = !!opts.force;
+  const nowMin = Math.max(0, Math.trunc(Number(opts.nowMinutes) || 0));
   const rng = typeof opts.rng === 'function' ? opts.rng : Math.random;
+  const p = ensurePantheonState(entity, { nowMinutes: nowMin });
+  const entry = p?.deities?.[site.ownerId];
+  const cordial = entry?.status === 'pact' || entry?.status === 'allied';
 
   if (m === 'bash') {
+    const cdUntil = Number(site.bashCooldownUntilMinutes ?? 0);
+    if (!force && Number.isFinite(cdUntil) && nowMin < cdUntil) {
+      const remMin = Math.max(1, Math.ceil(cdUntil - nowMin));
+      return {
+        ok: false,
+        unlocked: false,
+        alarm: false,
+        onCooldown: true,
+        remainingMinutes: remMin,
+        method: 'bash',
+        reason: t('apotheosis.cult.err.bashCooldown', 'You must recover before bashing this hatch again ({min}m remaining).', {
+          min: remMin,
+        }),
+      };
+    }
+    const str = opts.strength != null ? Number(opts.strength) : (liveStat(entity, 'strength') ?? 50);
+    const chance = Math.max(0.15, Math.min(0.90, 0.20 + (str - 40) * 0.012));
+    const succeeded = force || rng() < chance;
+    site.bashCooldownUntilMinutes = force ? 0 : nowMin + CULT_BASH_COOLDOWN_MINUTES;
+    site.alarmTriggered = true;
+    site.discovered = true;
+    const breakIn = force || cordial
+      ? { warDeclared: false, deityName: getPantheonDeity(site.ownerId)?.name ?? site.ownerId }
+      : applySanctuaryBreakInConsequences(entity, site, nowMin);
+
+    if (!succeeded) {
+      return {
+        ok: false,
+        unlocked: false,
+        alarm: true,
+        warDeclared: breakIn.warDeclared,
+        method: 'bash',
+        reason: t('apotheosis.cult.err.bashFailed', 'Your blow rings off the iron bolts (STR {str})! Cult Guardians rush the street!', {
+          str,
+        }),
+      };
+    }
+
     site.unlocked = true;
     site.unlockMethod = 'bash';
-    site.alarmTriggered = true;
     return {
       ok: true,
       unlocked: true,
       alarm: true,
+      warDeclared: breakIn.warDeclared,
       method: 'bash',
-      message: t('apotheosis.cult.unlockBash', 'You smash the hatch bolts apart! The Shrine Alarm rings out underground.'),
+      message: t('apotheosis.cult.unlockBash', 'You smash the hatch bolts apart! Cult Guardians rush the street and {god} vows vengeance!', {
+        god: breakIn.deityName || site.ownerId,
+      }),
     };
   }
 
@@ -582,19 +762,21 @@ export function attemptUnlockSanctuaryHatch(entity, siteKey, method = 'lockpick'
     }
     site.unlocked = true;
     site.unlockMethod = 'magic';
+    site.discovered = true;
+    const breakIn = force || cordial ? { warDeclared: false } : applySanctuaryBreakInConsequences(entity, site, nowMin);
     return {
       ok: true,
       unlocked: true,
       alarm: false,
+      warDeclared: breakIn.warDeclared,
       method: 'magic',
-      message: t('apotheosis.cult.unlockMagic', 'Arcane resonance silently parts the warded hatch seals.'),
+      message: breakIn.warDeclared
+        ? t('apotheosis.cult.unlockMagicWar', 'Arcane resonance parts the hatch seals — the patron senses your intrusion and declares Holy War!')
+        : t('apotheosis.cult.unlockMagic', 'Arcane resonance silently parts the warded hatch seals.'),
     };
   }
 
   if (m === 'key') {
-    const p = ensurePantheonState(entity);
-    const entry = p?.deities?.[site.ownerId];
-    const cordial = entry?.status === 'pact' || entry?.status === 'allied';
     if (!force && !hasSanctuaryKey(entity, site.siteKey) && !cordial) {
       return {
         ok: false,
@@ -606,6 +788,7 @@ export function attemptUnlockSanctuaryHatch(entity, siteKey, method = 'lockpick'
     }
     site.unlocked = true;
     site.unlockMethod = 'key';
+    site.discovered = true;
     return {
       ok: true,
       unlocked: true,
@@ -620,6 +803,8 @@ export function attemptUnlockSanctuaryHatch(entity, siteKey, method = 'lockpick'
   const luckBonus = Math.floor((liveStat(entity, 'luck') ?? 50) / 10);
   const dc = opts.dc != null ? Number(opts.dc) : (35 + (hash32(site.siteKey) % 4) * 10);
   const roll = force || (skill + luckBonus) >= dc || (rng() * 100) < Math.max(15, 50 + (skill - dc));
+  site.discovered = true;
+  const breakIn = force || cordial ? { warDeclared: false, deityName: '' } : applySanctuaryBreakInConsequences(entity, site, nowMin);
   if (roll) {
     site.unlocked = true;
     site.unlockMethod = 'lockpick';
@@ -627,8 +812,11 @@ export function attemptUnlockSanctuaryHatch(entity, siteKey, method = 'lockpick'
       ok: true,
       unlocked: true,
       alarm: !!site.alarmTriggered,
+      warDeclared: breakIn.warDeclared,
       method: 'lockpick',
-      message: t('apotheosis.cult.unlockPickOk', 'You pick the warded hatch lock without disturbing the guards.'),
+      message: breakIn.warDeclared
+        ? t('apotheosis.cult.unlockPickOkWar', 'You pick the hatch lock quietly, but the patron marks the intrusion as Holy War!')
+        : t('apotheosis.cult.unlockPickOk', 'You pick the warded hatch lock without disturbing the guards.'),
     };
   }
 
@@ -637,8 +825,9 @@ export function attemptUnlockSanctuaryHatch(entity, siteKey, method = 'lockpick'
     ok: false,
     unlocked: false,
     alarm: true,
+    warDeclared: breakIn.warDeclared,
     method: 'lockpick',
-    reason: t('apotheosis.cult.unlockPickFail', 'The pick snaps inside the ward! Extra Guardians awaken below.'),
+    reason: t('apotheosis.cult.unlockPickFail', 'The pick snaps inside the ward! Cult Guardians rush the street!'),
   };
 }
 
@@ -701,6 +890,7 @@ export function consecrateSiteByForce(entity, siteKey, { nowMinutes = 0, force =
   site.formerOwnerId = oldOwnerId;
   site.ownerId = 'player';
   site.unlocked = true;
+  site.discovered = true;
   site.guardiansCleared = true;
   site.peacefulTransfer = false;
   site.tier = Math.max(1, site.tier || 1);
@@ -770,6 +960,7 @@ export function dedicateSitePeacefully(entity, siteKey, { nowMinutes = 0, force 
   site.formerOwnerId = oldOwnerId;
   site.ownerId = 'player';
   site.unlocked = true;
+  site.discovered = true;
   site.guardiansCleared = true;
   site.peacefulTransfer = true;
   site.tier = Math.max(1, site.tier || 1);
@@ -860,6 +1051,7 @@ export function foundPlayerUndergroundSanctuary(entity, {
     ownerId: 'player',
     formerOwnerId: null,
     isPlayerFounded: true,
+    discovered: true,
     peacefulTransfer: false,
     unlocked: true,
     unlockMethod: 'key',
@@ -938,7 +1130,7 @@ export function getCultBranchCooldownInfo(site, nowMinutes = 0) {
 export function selectCultSiteBranch(entity, siteKey, branchId, { nowMinutes = 0, force = false } = {}) {
   const site = getCultSite(entity, siteKey);
   if (!site || site.ownerId !== 'player') {
-    return { ok: false, reason: t('apotheosis.cult.err.notOwned', 'You can only specialize Cult sanctuaries you own.') };
+    return { ok: false, reason: t('apotheosis.cult.err.notOwnedBranch', 'You can only specialize Cult sanctuaries you own.') };
   }
   const bid = String(branchId ?? '').toLowerCase();
   const branch = CULT_BRANCHES[bid];
@@ -973,7 +1165,7 @@ export function selectCultSiteBranch(entity, siteKey, branchId, { nowMinutes = 0
   return { ok: true, branch: bid, faithSpent: cost, switched: isSwitch, site };
 }
 
-/** Spends Faith when remotely teleporting into a Cult Sanctuary from UI (free when standing at the street hatch). */
+/** Spends Faith when remotely teleporting into an owned Cult Sanctuary from UI (free when standing at the street hatch). */
 export function teleportToCultSanctuary(entity, siteKey, { isNearHatch = false, force = false } = {}) {
   if (!entity || (!force && !isAscendedGod(entity))) {
     return { ok: false, reason: t('apotheosis.cult.err.notAscended', 'Ascend to Godhood first.') };
@@ -981,6 +1173,12 @@ export function teleportToCultSanctuary(entity, siteKey, { isNearHatch = false, 
   const site = getCultSite(entity, siteKey);
   if (!site) {
     return { ok: false, reason: t('apotheosis.cult.err.unknownSite', 'Sanctuary site not found.') };
+  }
+  if (!force && site.ownerId !== 'player' && !isNearHatch) {
+    return {
+      ok: false,
+      reason: t('apotheosis.cult.err.teleportOwnedOnly', 'Remote teleportation only works for your own Cult Sanctuaries. Stand near the hatch on the street to enter.'),
+    };
   }
   if (site.ownerId !== 'player' && !site.unlocked) {
     return { ok: false, reason: t('apotheosis.cult.err.lockedRemote', 'Unlock or consecrate this sanctuary first.') };

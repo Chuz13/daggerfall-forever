@@ -17442,6 +17442,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const { toggleExteriorAutomap, travelTown } = createExteriorAutomapToggle({   // HOST-SPLIT: src/scenes/exteriorAutomapToggle.js
     built, cam, cpuModels, getGpuMesh, locationIndex, maps, onlineHomes: activeHomes, player, playerTravelPixel,
     questBuildingSource, state, townTalk, walkMode, weaponRig,
+    cultHatches: (mapId) => cultHost?.townMapHatches?.(mapId) ?? [],
     get activeQuestIds() { return activeQuestIds; },
     get hudArt() { return hudArt; },
     get modes() { return modes; },
@@ -28913,6 +28914,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       cam.pos = player.eyeAt();
     },
     playerPos: () => (walkMode ? player.pos : cam.pos),
+    playerFeet: () => (walkMode && playerSpawned ? player.feetAt() : null),
+    collider: () => collider,
+    spawnExteriorFoe: (mob, pos, opts) => exteriorFoes?.spawnFoe?.(mob, pos, opts),
     buildingDoors: () => buildingDoors,
     currentLoc: () => _questLoc(),
   });
@@ -30353,6 +30357,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       return modes?.enterCultSanctuary?.(site, h ? { worldPos: h.worldPos, yaw: h.yaw, ...opts } : opts);
     },
     isNearCultHatch: (siteKey) => cultHost?.isNearSiteHatch?.(siteKey) ?? false,
+    spawnCultHatchAlarm: (siteKey) => cultHost?.spawnAlarmOutside?.(siteKey) ?? false,
+    getTextureIconUrl: (a, r) => loadIcon(a, r, { scale: 1 }),
     teleportCultTarget: (kind) => cultHost?.teleportNearCultTarget?.(kind) ?? { ok: false, message: 'Cult runtime unavailable.' },
     getCultCity: () => ({ mapId: _questLoc()?.mapTableData?.mapId ?? 0, regionIndex: _questRegionIndex(), locationName: _questLoc()?.name ?? '' }),
     tele2pixel: async (px, py) => {

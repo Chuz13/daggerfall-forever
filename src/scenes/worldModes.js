@@ -3456,7 +3456,7 @@ export function createWorldModes(host) {
     // port's picker simply does not select it, so a too-far click
     // falls through to whatever is behind it and says nothing.
     targets.push(...questFlatTargets(questFlats));
-    targets.push(...interiorCultAltarTargets(interiorCtx, playerEntity, interiorBuilding, homeTownOf(interiorBuilding), renderer));
+    targets.push(...interiorCultAltarTargets(interiorCtx, playerEntity, interiorBuilding, homeTownOf(interiorBuilding), renderer, pipeline));
     _intList = targets;
     _intMark = _mark;
     return targets;
@@ -8723,7 +8723,7 @@ export function createWorldModes(host) {
       }
       interiorFoes = makeInteriorFoes(ctx);   // IF: the pool lives exactly as long as the interior does
       interiorGuards = makeInteriorGuards(ctx);   // ROAD-B: ...and so does the watch that can be called into it
-      spawnCultInteriorGuardians(playerEntity, interiorBuilding, homeTownOf(interiorBuilding), interiorFoes, ctx, { say });
+      spawnCultInteriorGuardians(playerEntity, interiorBuilding, homeTownOf(interiorBuilding), interiorFoes, ctx, { say, nowMinutes: Math.floor(worldMinutes()) });
       ownerFoes.pools(interiorFoes, interiorGuards);   // HOST-CLOCK (scenes/ownerCatchUp.js): online with anyone else in the building's room, both pools take my clamped frame in FOE-CATCHUP's steps on the page's one plan - my player's pace, never past it
       _intNetOn = false; ensureInteriorNet();   // QUEST-PARTY phase 3b: online, the building's foes ride the room's own lane
       // X1: an armed Open/Lock spell fires on this interior's doors

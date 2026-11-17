@@ -6,6 +6,13 @@ import {
   CULT_BRANCH_COOLDOWN_DAYS,
   CULT_BRANCH_COOLDOWN_MINUTES,
   CULT_TELEPORT_SANCTUARY_FAITH_COST,
+  CULT_BASH_COOLDOWN_MINUTES,
+  CULT_GUARDIAN_RESPAWN_COOLDOWN_MINUTES,
+  CULT_ALTAR_STYLES,
+  getCultAltarStyle,
+  setCultAltarStyle,
+  discoverCultSite,
+  applySanctumTrespassPenalty,
   recomputeCultFaithBonus,
   getCultBranchCooldownInfo,
   teleportToCultSanctuary,
@@ -47,11 +54,13 @@ import {
   buildSanctuaryBlock,
   isWindowModelId,
   pickSanctuaryHatchPosition,
+  cultHatchTownBlocks,
 } from '../../src/world/apotheosisSanctuaryInterior.js';
 import {
   getTempleCultDoorSubtitle,
   createSanctuaryInteriorEntry,
   isPlayerCultSiteOwned,
+  spawnCultInteriorGuardians,
 } from '../../src/scenes/apotheosisCultHost.js';
 import { peopleAreVisible } from '../../src/characters/interiorPeople.js';
 import { BUILDING_TYPES } from '../../src/world/buildingNames.js';
@@ -147,10 +156,22 @@ test('Underground Sanctuary Hatch 4 Unlock Methods + Alarm & Guardian counts', (
   assert.equal(failPick.alarm, true);
   assert.equal(getSanctuaryGuardianCount(god.apotheosis.cult.sites[hatchKey]), 4);
 
-  // 2) Bash opens unconditionally & triggers Alarm
+  // 2) Bash checks Strength + 60m cooldown, triggers Alarm & provokes Holy War (-35 rel)
   ensureCityCultSites(god, { mapId: 502, regionIndex: 17, locationName: 'Gothway' });
   const bashKey = daedraHatchSiteKey(502);
-  const bashRes = attemptUnlockSanctuaryHatch(god, bashKey, 'bash');
+  const bashFail = attemptUnlockSanctuaryHatch(god, bashKey, 'bash', { strength: 25, rng: () => 0.99, nowMinutes: 1000 });
+  assert.equal(bashFail.ok, false);
+  assert.equal(bashFail.alarm, true);
+  assert.equal(bashFail.warDeclared, true);
+  assert.equal(god.apotheosis.pantheon.deities[god.apotheosis.cult.sites[bashKey].ownerId].status, 'war');
+  const bashCd = attemptUnlockSanctuaryHatch(god, bashKey, 'bash', { strength: 90, rng: () => 0, nowMinutes: 1010 });
+  assert.equal(bashCd.ok, false);
+  assert.equal(bashCd.onCooldown, true);
+  const bashRes = attemptUnlockSanctuaryHatch(god, bashKey, 'bash', {
+    strength: 90,
+    rng: () => 0,
+    nowMinutes: 1000 + CULT_BASH_COOLDOWN_MINUTES + 1,
+  });
   assert.equal(bashRes.ok, true);
   assert.equal(bashRes.unlocked, true);
   assert.equal(bashRes.alarm, true);
@@ -453,16 +474,21 @@ test('UX & Bugfixes: Max Faith Scaling, Branch Cooldown, Remote Sanctuary TP Cos
   const tpLocked = teleportToCultSanctuary(god, dk, { isNearHatch: false });
   assert.equal(tpLocked.ok, false);
 
-  assert.equal(attemptUnlockSanctuaryHatch(god, dk, 'bash').ok, true);
+  assert.equal(attemptUnlockSanctuaryHatch(god, dk, 'bash', { strength: 90, rng: () => 0 }).ok, true);
   god.apotheosis.faith = 200;
-  const tpRemote = teleportToCultSanctuary(god, dk, { isNearHatch: false });
-  assert.equal(tpRemote.ok, true);
-  assert.equal(tpRemote.faithSpent, CULT_TELEPORT_SANCTUARY_FAITH_COST);
-  assert.equal(god.apotheosis.faith, 200 - CULT_TELEPORT_SANCTUARY_FAITH_COST);
+  // Unowned Sanctuary CANNOT be teleported into remotely; must enter at hatch (0 Faith)
+  const tpUnownedRemote = teleportToCultSanctuary(god, dk, { isNearHatch: false });
+  assert.equal(tpUnownedRemote.ok, false, 'Remote teleport rejected for unowned sanctuary');
 
   const tpHatch = teleportToCultSanctuary(god, dk, { isNearHatch: true });
   assert.equal(tpHatch.ok, true);
   assert.equal(tpHatch.faithSpent, 0);
+
+  // Owned Sanctuary CAN be teleported into remotely for 75 Faith
+  const tpOwnedRemote = teleportToCultSanctuary(god, fRes.site.siteKey, { isNearHatch: false });
+  assert.equal(tpOwnedRemote.ok, true);
+  assert.equal(tpOwnedRemote.faithSpent, CULT_TELEPORT_SANCTUARY_FAITH_COST);
+  assert.equal(god.apotheosis.faith, 200 - CULT_TELEPORT_SANCTUARY_FAITH_COST);
 
   // Sanctuary interior synthetic door must include door.centre for doorWorldPosition
   const entry = createSanctuaryInteriorEntry(god.apotheosis.cult.sites[dk], { hatchWorldPos: [0, 0, 0], hatchYaw: 0 });
@@ -483,4 +509,63 @@ test('UX & Bugfixes: Max Faith Scaling, Branch Cooldown, Remote Sanctuary TP Cos
   const subTitle = getTempleCultDoorSubtitle(god, { buildingType: BUILDING_TYPES.Temple, buildingKey: 5, factionId: 33, townMapId: 910 }, 910);
   assert.match(subTitle, /Agent/);
   assert.match(subTitle, /Tier 1/);
+});
+
+test('Round 2 Polish: Road-free hatch placement, Town Automap stamps/discovery, Altar Statues, 3-day Guardian cooldown & Trespass -5/day', () => {
+  const god = makeAscendedGod('order', { region: 17, faith: 1000 });
+
+  // 1) Altar Statue chooser supports both 2D flats and 3D statue models
+  assert.ok(CULT_ALTAR_STYLES.some((s) => s.kind === 'flat'));
+  assert.ok(CULT_ALTAR_STYLES.some((s) => s.kind === 'model' && s.modelId === 62323));
+  assert.equal(setCultAltarStyle(god, 'model_62323').ok, true);
+  assert.equal(getCultAltarStyle(god).modelId, 62323);
+
+  // 2) Road-free hatch placement skips any tile flagged by isRoadFn
+  const frames = new Map([[1, { box: [90, 0, 90, 120, 12, 120] }]]);
+  const roadSpot = pickSanctuaryHatchPosition(frames, null, null, 'daedra_hatch:77', 0, (x, z) => x >= 110 && x <= 140 && z >= 80 && z <= 140);
+  assert.equal(roadSpot[0] >= 110 && roadSpot[0] <= 140 && roadSpot[2] >= 80 && roadSpot[2] <= 140, false, 'Hatch placement avoids road strip');
+
+  // 3) Town Automap stamps 2x2 Temple square always, and shows nameplate only once discovered or player-owned
+  const rows = [{ x: 0, y: 0, autoMap: new Uint8Array(64 * 64), places: [] }];
+  const hiddenStamped = cultHatchTownBlocks(rows, [
+    { x: 16, z: 32, name: 'Hidden Daedra Hatch', discovered: false, ownerId: 'mehrunes_dagon' },
+    { x: 48, z: 32, name: 'Player Undercroft', discovered: false, ownerId: 'player' },
+  ]);
+  assert.equal(hiddenStamped[0].autoMap[(63 - Math.floor(32 / 1.6)) * 64 + Math.floor(16 / 1.6)], BUILDING_TYPES.Temple + 1);
+  assert.equal(hiddenStamped[0].places.length, 1, 'Undiscovered Daedra nameplate hidden until hovered/discovered');
+  assert.equal(hiddenStamped[0].places[0].name, 'Player Undercroft');
+
+  ensureCityCultSites(god, { mapId: 333, regionIndex: 17, locationName: 'Daggerfall' });
+  const dk = daedraHatchSiteKey(333);
+  discoverCultSite(god, dk);
+  assert.equal(god.apotheosis.cult.sites[dk].discovered, true);
+
+  // 4) Interior guardian 3-day respawn cooldown + once-per-day trespass relation penalty
+  const site = god.apotheosis.cult.sites[dk];
+  god.apotheosis.pantheon.deities[site.ownerId].status = 'war';
+  const relStart = god.apotheosis.pantheon.deities[site.ownerId].relation;
+  const mockFoes = {
+    foes: [],
+    spawnFoe(mob, pos) {
+      const f = { mobileType: mob, pos, dead: false, health: 50 };
+      this.foes.push(f);
+      return f;
+    },
+  };
+  const bld = { buildingKey: site.buildingKey, townMapId: 333, cultSiteKey: site.siteKey };
+  const mockCtx = { landing: [0, 0, 0], spawnPoints: [[2, 0, 2]] };
+
+  const wave1 = spawnCultInteriorGuardians(god, bld, 333, mockFoes, mockCtx, { nowMinutes: 10000 });
+  assert.equal(wave1.length, 2);
+  assert.equal(god.apotheosis.pantheon.deities[site.ownerId].relation, relStart - 5, 'First trespass on day drops -5 relation');
+  // Simulate leaving & re-entering 1 hour later with slain foes (within 3-day cooldown)
+  mockFoes.foes.length = 0;
+  const waveSoon = spawnCultInteriorGuardians(god, bld, 333, mockFoes, mockCtx, { nowMinutes: 10060 });
+  assert.equal(waveSoon.length, 0, 'Does not respawn guardians within 3-day cooldown');
+  assert.equal(god.apotheosis.pantheon.deities[site.ownerId].relation, relStart - 5, 'Does not double-penalize trespass on same day');
+  // 3+ days later -> respawns + daily trespass -5
+  const waveLater = spawnCultInteriorGuardians(god, bld, 333, mockFoes, mockCtx, { nowMinutes: 10000 + CULT_GUARDIAN_RESPAWN_COOLDOWN_MINUTES + 10 });
+  assert.equal(waveLater.length, 2, 'Respawns after 3-day cooldown');
+  assert.equal(god.apotheosis.pantheon.deities[site.ownerId].relation, relStart - 10, 'New day trespass applies -5 relation');
+  assert.equal(applySanctumTrespassPenalty(god, site, 10000 + CULT_GUARDIAN_RESPAWN_COOLDOWN_MINUTES + 10).penalized, false);
 });

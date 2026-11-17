@@ -70,6 +70,8 @@ import {
   renderCultPage,
   resetCultSectionUiState,
   getCultScrollKey,
+  renderAltarStatueBox,
+  renderAltarStatueModal,
 } from './apotheosisCultSection.js';
 
 export const APOTHEOSIS_STYLE_ID = 'df-apotheosis-css';
@@ -106,22 +108,24 @@ const APOTHEOSIS_CSS = `
 .apo-btn:hover:not(:disabled) { color: rgb(243,239,44); border-color: rgb(243,239,44); background: rgba(45,42,20,0.9); }
 .apo-btn:disabled { opacity: 0.48; cursor: not-allowed; border-color: rgba(125,116,96,0.4); color: #9c9482; }
 .apo-btn.primary { border-color: rgb(243,239,44); color: rgb(243,239,44); background: rgba(48,40,12,0.88); }
-.apo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.apo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
 .apo-card { padding: 10px 12px; border: 1px solid rgba(125,116,96,0.45); background: rgba(14,17,24,0.72); display: flex; flex-direction: column; gap: 6px; }
 .apo-card.done { border-color: rgba(154,214,116,0.65); background: rgba(18,32,20,0.66); }
 .apo-card.active { border-color: rgb(243,239,44); background: rgba(44,38,14,0.72); }
-.apo-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.apo-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .apo-card-title { font-size: 15px; color: #f1e6c1; font-weight: bold; }
 .apo-pill { font-size: 12px; padding: 2px 7px; border: 1px solid rgba(125,116,96,0.5); color: #b7af9b; white-space: nowrap; }
 .apo-pill.ok { border-color: #82d46e; color: #b7f5a3; background: rgba(20,48,22,0.8); }
 .apo-card-desc { font-size: 13px; line-height: 1.4; color: #c7bfa7; }
 .apo-card-prog { font-size: 12px; color: #dfd4b0; margin-top: auto; }
+.apo-statue-thumb { width: 44px; height: 44px; flex: 0 0 44px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(190,165,98,0.55); background: rgba(8,10,16,0.9); font-size: 10px; text-align: center; color: #f1e6c1; overflow: hidden; }
+.apo-statue-thumb img { max-width: 100%; max-height: 100%; image-rendering: pixelated; object-fit: contain; }
 .apo-picker-backdrop { position: fixed; inset: 0; z-index: 95; background: rgba(5,7,11,0.82); display: flex; align-items: center; justify-content: center; padding: 20px; }
 .apo-picker-modal { width: min(1060px, 95vw); max-height: 88vh; display: flex; flex-direction: column; border: 2px solid rgba(190,165,98,0.8); background: #12151e; box-shadow: 0 18px 46px rgba(0,0,0,0.88); }
 .apo-picker-head { padding: 14px 18px; border-bottom: 1px solid rgba(125,116,96,0.45); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .apo-picker-title { font-size: 18px; color: rgb(243,239,44); text-transform: uppercase; letter-spacing: 0.05em; }
 .apo-picker-sub { padding: 10px 18px 0; font-size: 13px; color: #c7bfa7; }
-.apo-picker-scroll { flex: 1; min-height: 180px; overflow-y: auto; padding: 14px 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; align-content: start; }
+.apo-picker-scroll { flex: 1; min-height: 180px; overflow-y: auto; padding: 14px 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 10px; align-content: start; }
 .apo-art-card { text-align: left; font: inherit; padding: 10px 12px; border: 2px solid rgba(125,116,96,0.5); background: rgba(18,22,30,0.85); color: #dfd4b0; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
 .apo-art-card:hover:not(:disabled) { border-color: rgba(243,239,44,0.7); }
 .apo-art-card.sel { border-color: rgb(243,239,44); background: rgba(54,44,12,0.85); color: #fff8cf; }
@@ -191,7 +195,7 @@ let aurbisLog = [];
 let pantheonSubTab = 'deities';
 let pantheonSelectedRegion = null;
 let pantheonTheatreFilter = 'all';
-let pantheonLensMode = 'leader';
+let pantheonLensMode = 'all';
 let pantheonRegionQuery = '';
 let pantheonDiscordA = 'akatosh';
 let pantheonDiscordB = 'mehrunes_dagon';
@@ -243,11 +247,11 @@ function currentSections(trackerShown) {
   }
   secs.push(['portfolio', t('apotheosis.sec.portfolio', 'Divine Portfolio')]);
   secs.push(['aurbis', t('apotheosis.nav.aurbis', 'Scroll of Aurbis')]);
-  secs.push(['pantheon_deities', t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy (16)')]);
-  secs.push(['pantheon_regions', t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics (71)')]);
+  secs.push(['pantheon_deities', t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy')]);
+  secs.push(['pantheon_regions', t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics')]);
   secs.push(['pantheon_chronicle', t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle')]);
   secs.push(['cult', t('apotheosis.cult.subTabSites', 'Temples & Underground Sanctuaries')]);
-  secs.push(['edicts', t('apotheosis.cult.subTabEdicts', 'Regional Edicts (71 Regions)')]);
+  secs.push(['edicts', t('apotheosis.cult.subTabEdicts', 'Regional Edicts')]);
   return secs;
 }
 
@@ -516,7 +520,8 @@ function renderOverview(detail, entity, trackerShown, repaint) {
 
   if (state.questlineCompletedNotice && state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO) {
     detail.append(el('div', 'apo-banner',
-      t('apotheosis.overview.questDoneBanner', 'The Apotheosis quests have started and concluded — you have become a God. Select your initial Divine Portfolio below:')));
+      t('apotheosis.overview.questDoneBanner', 'The Apotheosis quests have started and concluded — you have become a God. Select your initial Divine Portfolio and Cult Altar Statue below:')));
+    renderAltarStatueBox(detail, entity, repaint, setFeedback);
     renderPortfolioCards(detail, state, entity, repaint);
     return;
   }
@@ -669,6 +674,9 @@ function renderPortfolioPage(detail, entity, repaint) {
       })));
   }
 
+  if (state.stage === APOTHEOSIS_STAGES.AWAITING_PORTFOLIO || state.stage === APOTHEOSIS_STAGES.ASCENDED || state.ascended) {
+    renderAltarStatueBox(detail, entity, repaint, setFeedback);
+  }
   renderPortfolioCards(detail, state, entity, repaint);
 }
 
@@ -1167,7 +1175,7 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
 
   // 2. 71-Region Tamriel Divine Lens
   const lensBox = el('div', 'apo-box');
-  lensBox.append(el('h4', null, t('apotheosis.lens.title', 'Tamriel Divine Lens (71 Regions)')));
+  lensBox.append(el('h4', null, t('apotheosis.lens.title', 'Tamriel Divine Lens')));
   const ctrlRow = el('div', 'apo-row-inline');
   ctrlRow.style.marginBottom = '10px';
   for (const [tid, tLabel] of [
@@ -1181,17 +1189,14 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
     b.onclick = () => { pantheonTheatreFilter = tid; repaint(); };
     ctrlRow.append(b);
   }
-  for (const [lid, lLabel] of [
-    ['leader', t('apotheosis.lens.modeLead', 'Dominant Cult')],
-    ['player', t('apotheosis.lens.modePlayer', 'Your Cult %')],
-    ['wars', t('apotheosis.lens.modeWars', 'Wars & Crises')],
-  ]) {
-    const b = el('button', `apo-btn${pantheonLensMode === lid ? ' primary' : ''}`, lLabel);
-    b.style.padding = '4px 10px';
-    b.style.fontSize = '12px';
-    b.onclick = () => { pantheonLensMode = lid; repaint(); };
-    ctrlRow.append(b);
-  }
+  const warsBtn = el('button', `apo-btn${pantheonLensMode === 'wars' ? ' primary' : ''}`, t('apotheosis.lens.modeWars', 'Wars & Crises'));
+  warsBtn.style.padding = '4px 10px';
+  warsBtn.style.fontSize = '12px';
+  warsBtn.onclick = () => {
+    pantheonLensMode = pantheonLensMode === 'wars' ? 'all' : 'wars';
+    repaint();
+  };
+  ctrlRow.append(warsBtn);
   const searchIn = el('input', 'apo-input');
   searchIn.type = 'text';
   searchIn.placeholder = t('apotheosis.lens.searchPh', 'Filter region or deity...');
@@ -1229,6 +1234,20 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
     inspectorEl.append(geoSetRow);
   };
 
+  const CRISIS_FLAG_LIST = [
+    REGION_FLAGS.WarBeginning,
+    REGION_FLAGS.WarOngoing,
+    REGION_FLAGS.PlagueBeginning,
+    REGION_FLAGS.PlagueOngoing,
+    REGION_FLAGS.FamineBeginning,
+    REGION_FLAGS.FamineOngoing,
+    REGION_FLAGS.WitchBurnings,
+    REGION_FLAGS.CrimeWave,
+    REGION_FLAGS.BadHarvest,
+    REGION_FLAGS.PersecutedTemple,
+    REGION_FLAGS.MadWizardNearby,
+  ];
+
   const paintRegionGrid = () => {
     gridEl.replaceChildren();
     const q = pantheonRegionQuery.trim().toLowerCase();
@@ -1239,14 +1258,19 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
       const leadDef = info.leaderId === 'player' ? null : getPantheonDeity(info.leaderId);
       const leadName = info.leaderId === 'player' ? t('apotheosis.map.you', 'Your Cult') : (leadDef?.name ?? info.leaderId);
       const hasWar = conditionFlag(entity?.regionConditions, i, REGION_FLAGS.WarOngoing) || conditionFlag(entity?.regionConditions, i, REGION_FLAGS.WarBeginning);
-      if (pantheonLensMode === 'wars' && !hasWar) continue;
+      const hasCrisis = CRISIS_FLAG_LIST.some((fid) => conditionFlag(entity?.regionConditions, i, fid));
+      if (pantheonLensMode === 'wars' && !hasCrisis) continue;
       if (q && !`${info.regionName} ${leadName} ${i}`.toLowerCase().includes(q)) continue;
 
       const cell = el('button', `apo-lens-cell${i === pantheonSelectedRegion ? ' sel' : ''}${hasWar ? ' war' : ''}`);
       cell.style.borderLeft = `4px solid ${info.leaderId === 'player' ? 'rgb(243,239,44)' : (leadDef?.color ?? '#8b8370')}`;
-      const metric = pantheonLensMode === 'player'
-        ? t('apotheosis.lens.cellYou', 'Your Cult: {you}% · Lead: {lead}', { you: info.playerShare, lead: leadName })
-        : `${leadName} (${info.leaderShare}%) · ${t('apotheosis.map.you', 'You')}: ${info.playerShare}%`;
+      const metric = info.leaderId === 'player'
+        ? t('apotheosis.lens.cellYouLead', 'Your Cult: {you}% (Leader)', { you: info.playerShare })
+        : t('apotheosis.lens.cellBoth', 'Your Cult: {you}% · {lead}: {leadShare}%', {
+            you: info.playerShare,
+            lead: leadName,
+            leadShare: info.leaderShare,
+          });
       cell.append(
         el('div', 'apo-card-title', `${info.regionName}`),
         el('div', 'apo-card-desc', metric),
@@ -1330,8 +1354,8 @@ function renderPantheonChronicleView(detail, entity) {
 function renderPantheonSection(detail, entity, repaint, tabId) {
   const state = ensureApotheosisState(entity);
   const headingMap = {
-    pantheon_deities: t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy (16)'),
-    pantheon_regions: t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics (71)'),
+    pantheon_deities: t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy'),
+    pantheon_regions: t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics'),
     pantheon_chronicle: t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle'),
   };
   const hero = el('div', 'apo-hero');
@@ -1434,6 +1458,7 @@ function paint(root, { resetDetailScroll = false } = {}) {
     if (pickerOpen) {
       renderPickerModal(root, repaint, entity);
     }
+    renderAltarStatueModal(root, entity, repaint, setFeedback);
   }, { focus: true });
 
   const newRail = root.querySelector?.('.px-qrail');

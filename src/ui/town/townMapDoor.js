@@ -38,6 +38,7 @@ import {
 } from '../exteriorAutomapWindow.js';
 import { HeldMapWindow } from '../heldMap.js';
 import { yardTownBlocks } from '../../world/merchantYards/merchantYardMap.js'; // YARDS-FOUND: the town's yards on either map
+import { cultHatchTownBlocks } from '../../world/apotheosisSanctuaryInterior.js';
 import { noteFirstUse } from '../../systems/tutorials.js'; // TUT1: the first touch of a system pops its tutorial page
 
 export { preloadExteriorAutomapArt };
@@ -91,6 +92,7 @@ export function createTownMapWindow(deps = {}) {
 function laidOn(deps) {
   if (deps.ports?.length) deps = { ...deps, blocks: yardTownBlocks(deps.blocks ?? [], deps.ports) }; // SHIPYARDS-FOUND: a port town's shipyard and lighthouse, the same way
   if (deps.yards?.length) deps = { ...deps, blocks: yardTownBlocks(deps.blocks ?? [], deps.yards) };
+  if (deps.cultHatches?.length) deps = { ...deps, blocks: cultHatchTownBlocks(deps.blocks ?? [], deps.cultHatches) };
   return deps;
 }
 

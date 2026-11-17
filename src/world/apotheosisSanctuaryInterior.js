@@ -23,6 +23,8 @@ import {
 } from './interior/fabricInteriorKit.js';
 import { EDITOR_FLATS_ARCHIVE } from './rmbFlats.js';
 import { INTERIOR_MARKER } from './interior/interiorLayout.js';
+import { NAV_CELL, NAV_CELLS_PER_BLOCK } from './city/cityNavigation.js';
+import { BUILDING_TYPES } from './buildingNames.js';
 
 /** Authentic ARCH3D underground stair & cellar hatch slab model IDs. */
 export const SANCTUARY_HATCH_MODELS = Object.freeze([43600, 43603]);
@@ -243,6 +245,7 @@ export function buildSanctuaryBlock(site) {
     name: blockName,
     index: -1,
     poolId: plan.poolId,
+    isApotheosisSanctuary: true,
     altarLocal: [ax, 0, az],
     rmbBlock: {
       subRecords: [{ interior: finalInterior }],
@@ -252,14 +255,22 @@ export function buildSanctuaryBlock(site) {
 
 /**
  * Picks a deterministic outdoor town position `[x, y, z, yaw]` for an underground
- * sanctuary hatch, clear of building boxes and away from the exact centre square.
+ * sanctuary hatch, clear of building boxes, roads/paths (`isRoadFn`), and the centre square.
  * @param {Map<any, any> | null} frames
  * @param {{ minX?: number, maxX?: number, minZ?: number, maxZ?: number } | null} [locationRect]
  * @param {(x: number, z: number) => number} [heightAtFn]
  * @param {string} [seedKey]
  * @param {number} [variant] - 0 for city's Daedric hatch, 1 for player-founded hatch
+ * @param {((x: number, z: number) => boolean) | null} [isRoadFn] - returns true if `(x, z)` is on a road/path tile
  */
-export function pickSanctuaryHatchPosition(frames, locationRect = null, heightAtFn = null, seedKey = '', variant = 0) {
+export function pickSanctuaryHatchPosition(
+  frames,
+  locationRect = null,
+  heightAtFn = null,
+  seedKey = '',
+  variant = 0,
+  isRoadFn = null,
+) {
   const boxes = [];
   let sumX = 0;
   let sumZ = 0;
@@ -291,6 +302,15 @@ export function pickSanctuaryHatchPosition(frames, locationRect = null, heightAt
   const h = hashStr(`${seedKey}:${variant}`);
   const baseAngle = ((h % 360) * Math.PI) / 180 + (variant ? Math.PI : 0);
 
+  const isOffRoad = (x, z) => {
+    if (typeof isRoadFn !== 'function') return true;
+    return !isRoadFn(x, z)
+      && !isRoadFn(x + 2, z)
+      && !isRoadFn(x - 2, z)
+      && !isRoadFn(x, z + 2)
+      && !isRoadFn(x, z - 2);
+  };
+
   const isClear = (x, z, pad = 5.5) => {
     for (const b of boxes) {
       if (x >= b[0] - pad && x <= b[3] + pad && z >= b[2] - pad && z <= b[5] + pad) {
@@ -302,7 +322,7 @@ export function pickSanctuaryHatchPosition(frames, locationRect = null, heightAt
         return false;
       }
     }
-    return true;
+    return isOffRoad(x, z);
   };
 
   for (let r = span; r >= 14; r -= 6) {
@@ -318,8 +338,69 @@ export function pickSanctuaryHatchPosition(frames, locationRect = null, heightAt
   }
 
   // Fallback outer ring spot if dense town layout filled every inner ring
-  const fx = (maxBX !== -Infinity ? maxBX : centreX + 20) + (variant ? -10 : 8);
-  const fz = (maxBZ !== -Infinity ? maxBZ : centreZ + 20) + (variant ? -10 : 8);
+  let fx = (maxBX !== -Infinity ? maxBX : centreX + 20) + (variant ? -10 : 8);
+  let fz = (maxBZ !== -Infinity ? maxBZ : centreZ + 20) + (variant ? -10 : 8);
+  for (let tries = 0; tries < 8 && !isOffRoad(fx, fz); tries++) {
+    fx += variant ? -3 : 3;
+    fz += variant ? -3 : 3;
+  }
   const fy = typeof heightAtFn === 'function' ? heightAtFn(fx, fz) : 0;
   return [fx, Number.isFinite(fy) ? fy : 0, fz, 0];
+}
+
+const HATCH_MAP_BLOCK_M = NAV_CELLS_PER_BLOCK * NAV_CELL;
+const HATCH_MAP_BYTE = BUILDING_TYPES.Temple + 1;
+
+/**
+ * Stamps Cult Underground Sanctuary hatches onto the Town Automap block rows:
+ * - Paints a 2x2 Temple-colored square at the hatch's navgrid coordinates on `r.autoMap`.
+ * - Adds a Temple-style nameplate to `r.places` once discovered (`h.discovered || h.ownerId === 'player'`).
+ * Pure copy-on-write over `rows`, compatible with both Classic & Enhanced town maps.
+ */
+export function cultHatchTownBlocks(rows, hatches) {
+  if (!Array.isArray(rows) || !hatches?.length) return rows;
+  const N = NAV_CELLS_PER_BLOCK;
+  const out = rows.map((r) => ({ ...r }));
+  const copied = new Set();
+  const rowAt = (bx, by) => out.find((r) => r.x === bx && r.y === by) ?? null;
+
+  for (const h of hatches) {
+    if (!h || !Number.isFinite(h.x) || !Number.isFinite(h.z)) continue;
+    const gx = Math.floor(h.x / NAV_CELL);
+    const gy = Math.floor(h.z / NAV_CELL);
+    for (let cy = gy; cy < gy + 2; cy++) {
+      for (let cx = gx; cx < gx + 2; cx++) {
+        const bx = Math.floor(cx / N);
+        const by = Math.floor(cy / N);
+        const r = rowAt(bx, by);
+        if (!r?.autoMap?.length) continue;
+        if (!copied.has(r)) {
+          r.autoMap = r.autoMap.slice();
+          copied.add(r);
+        }
+        const lx = cx - bx * N;
+        const ly = cy - by * N;
+        if (lx >= 0 && lx < N && ly >= 0 && ly < N) {
+          r.autoMap[(N - 1 - ly) * N + lx] = HATCH_MAP_BYTE;
+        }
+      }
+    }
+    if (h.discovered || h.ownerId === 'player') {
+      const bx = Math.floor(h.x / HATCH_MAP_BLOCK_M);
+      const by = Math.floor(h.z / HATCH_MAP_BLOCK_M);
+      const r = rowAt(bx, by);
+      if (r && h.name) {
+        r.places = [
+          ...(r.places ?? []),
+          {
+            name: h.name,
+            position: [h.x - bx * HATCH_MAP_BLOCK_M, 0, h.z - by * HATCH_MAP_BLOCK_M],
+            buildingType: BUILDING_TYPES.Temple,
+            cultHatch: true,
+          },
+        ];
+      }
+    }
+  }
+  return out;
 }

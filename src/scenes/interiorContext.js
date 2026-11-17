@@ -359,11 +359,27 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   // the mill's machinery are the building's workings, not its furniture.
   const base = opts.baseEditable ? createBaseRoom({ drawList, batches: () => billboardBatches, lights: () => lights, collider }) : null;
   const iilFireplaces = [];   // IIL1: the fireplace models' centres (Improved Interior Lighting)
+  const CULT_ALTAR_MODEL_IDS = new Set([41020, 41016, 41017]);
+  const cultAltarAnchors = [];
   for (const [pi, p] of interior.placements.entries()) {
     // NOTICE-PANEL (AUDIT FB1029g R2, the owner: "remove the notice board prop from all cities"): the town packs' rooms
     // place model 41739 too - a tavern's, a temple's, a gate's. None stands; its index is kept, so a room's keys hold
     if (isBulletinBoard(p.modelIdNum)) continue;
     const matrix = parent(p.matrix);
+    const isCultAltarModel = CULT_ALTAR_MODEL_IDS.has(Number(p.modelIdNum));
+    if (dfBlock?.isApotheosisSanctuary && Number(p.modelIdNum) === 41020) {
+      // APOTHEOSIS 3.2: underground sanctuary altar uses a 2D deity flat or player's chosen Statue instead of 41020 lectern, with zero physical collision.
+      cultAltarAnchors.push({
+        modelIdNum: p.modelIdNum,
+        matrix,
+        aabb: {
+          min: [matrix[12] - 0.65, matrix[13], matrix[14] - 0.65],
+          max: [matrix[12] + 0.65, matrix[13] + 1.8, matrix[14] + 0.65],
+        },
+        pos: [matrix[12], matrix[13], matrix[14]],
+      });
+      continue;
+    }
     // NEVER TRAPS: getGpuMesh returns NULL for a model id this data set
     // does not carry (dataPipeline.js:"const index = arch.getRecordIndex(modelIdNum)".."gpuMeshes.set(modelIdNum, null);", and it CACHES the null), and
     // cpuModels is written only on its success path - so an absent
@@ -401,8 +417,8 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       && p.modelIdNum !== LADDER_MODEL_ID && p.modelIdNum !== MACHINERY_MODEL_ID
       ? decorBaseModelKey(pi, p.modelIdNum) : null;   // BASE-HIDE: a piece its owner may take out
     drawList.push({ mesh: gpu, matrix, key, aabb, modelIdNum: p.modelIdNum });
-    // PERF6: the entry stays in drawList for the automap; the main view draws the merge
-    if (!baseKey && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
+    // PERF6: the entry stays in drawList for the automap; the main view draws the merge (cult altar models stay unbatched so ownership swap can replace them cleanly and stay collision-free)
+    if (!baseKey && !isCultAltarModel && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
     automapEntries.push({
       key,
       aabb,
@@ -417,7 +433,16 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       normals: cpu.normals ?? null,   // DISC22-G: the file's facing - a building's ceilings are not its storeys
       matrix,
     });
-    collider.addMesh(baseKey ? baseBucketOf(baseKey) : 'interior', cpu.positions, cpu.indices, matrix);
+    if (isCultAltarModel) {
+      cultAltarAnchors.push({
+        modelIdNum: p.modelIdNum,
+        matrix,
+        aabb,
+        pos: [(aabb.min[0] + aabb.max[0]) * 0.5, aabb.min[1], (aabb.min[2] + aabb.max[2]) * 0.5],
+      });
+    } else {
+      collider.addMesh(baseKey ? baseBucketOf(baseKey) : 'interior', cpu.positions, cpu.indices, matrix);
+    }
     if (baseKey) base.addModel(baseKey, { model: p.modelIdNum, draw: drawList[drawList.length - 1], cpu, matrix, at: aabb.min.map((v, i) => (v + aabb.max[i]) / 2), aabb });
     if (p.modelIdNum === MACHINERY_MODEL_ID && getMachineryParts) {
       machineryParts ??= await getMachineryParts();
@@ -989,6 +1014,8 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     beds,      // RR1: the bed models
     chairs,    // SIT1: the chairs, benches and thrones sat on (world/chairSeat.js)
     base,      // BASE-HIDE: a furnishable room's own pieces (scenes/decor/decorBase.js), null in any other room
+    cultAltarAnchors,
+    isApotheosisSanctuary: !!dfBlock?.isApotheosisSanctuary,
     enterMarkers,
     treasureMarkers,   // AUDIT 63 F22: AddFlats' RandomTreasure arm, gated by the host
     spawnPoints,

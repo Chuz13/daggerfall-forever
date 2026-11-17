@@ -80,6 +80,7 @@ export function createExteriorAutomapToggle(host) {
       blocks: wallOnTownMap(b.locBlocks.map((bl) => ({ x: bl.x, y: bl.y, autoMap: bl.dfBlock?.rmbBlock?.fldHeader?.autoMapData, landmark: arenaTownLandmark(bl.dfBlock) })), townWallCellsOf(dfLoc), dfLoc.exterior.exteriorData.width),   // ARENA-MAP: the Arena's name (world/arena/arenaCity.js); TS6: a city past the Bay's wall on it (world/townWalls.js)
       yards: b.merchantYards ?? null,   // YARDS-FOUND: the town's Stable and Wagon Yard on the map - their ground and their names (ui/town/townMapDoor.js)
       ports: b.portSites ?? null,   // SHIPYARDS-FOUND: a port town's shipyard and lighthouse on it the same way
+      cultHatches: host.cultHatches?.(dfLoc.mapTableData?.mapId ?? 0) ?? null,
       playerPos: () => local,
       // the marker law is DFU's modulo of the MAP PIXEL frame, so the
       // window needs the location's origin inside that pixel back

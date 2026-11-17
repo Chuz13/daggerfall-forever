@@ -21,6 +21,7 @@ import {
   CULT_TELEPORT_SANCTUARY_FAITH_COST,
   CULT_UPGRADE_TIERS,
   CULT_BRANCHES,
+  CULT_ALTAR_STYLES,
   REGIONAL_EDICTS,
   REGIONAL_EDICT_IDS,
   REGIONAL_EDICT_COST,
@@ -29,6 +30,8 @@ import {
   getCityCultSites,
   getAllCultSites,
   getCultBranchCooldownInfo,
+  getCultAltarStyle,
+  setCultAltarStyle,
   attemptUnlockSanctuaryHatch,
   obtainSanctuaryKeyFromGatekeeper,
   consecrateSiteByForce,
@@ -49,6 +52,8 @@ let cultScopeFilter = 'city';
 let cultEdictRegion = null;
 let cultEdictSearch = '';
 let branchModalState = null; // { mode: 'found'|'branch', siteKey?: string, mapId, regionIndex, locationName, currentBranch, selectedBranch }
+let statueModalOpen = false;
+const statueIconCache = new Map();
 
 function uiEl(tag, cls = '', text = null) {
   const n = document.createElement(tag);
@@ -62,6 +67,121 @@ export function resetCultSectionUiState() {
   cultEdictRegion = null;
   cultEdictSearch = '';
   branchModalState = null;
+  statueModalOpen = false;
+}
+
+function attachStatuePreview(wrap, style) {
+  const thumb = uiEl('div', 'apo-statue-thumb');
+  if (style.kind === 'flat') {
+    const key = `${style.archive}:${style.record}`;
+    const cached = statueIconCache.get(key);
+    const addImg = (url) => {
+      if (!url) {
+        thumb.textContent = '2D';
+        return;
+      }
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = url;
+      thumb.replaceChildren(img);
+    };
+    if (cached !== undefined) {
+      addImg(cached);
+    } else {
+      thumb.textContent = '2D';
+      const urlFn = getAurbisRuntime().getSceneContext?.()?.getTextureIconUrl;
+      if (typeof urlFn === 'function') {
+        Promise.resolve(urlFn(style.archive, style.record)).then((url) => {
+          statueIconCache.set(key, url || null);
+          if (url) addImg(url);
+        }, () => {});
+      }
+    }
+  } else {
+    thumb.textContent = `3D #${style.modelId}`;
+  }
+  wrap.append(thumb);
+}
+
+/** Compact Cult Altar Statue selector box usable in both Cult Sanctums & Divine Portfolio / Ascension UI. */
+export function renderAltarStatueBox(container, entity, repaint, setFeedback) {
+  const curStyle = getCultAltarStyle(entity);
+  const box = uiEl('div', 'apo-box');
+  box.append(uiEl('h4', null, t('apotheosis.cult.altarStyleBoxTitle', 'Cult Altar Statue Appearance')));
+  const row = uiEl('div', 'apo-row-inline');
+  attachStatuePreview(row, curStyle);
+  const infoCol = uiEl('div');
+  infoCol.style.flex = '1';
+  infoCol.append(
+    uiEl('div', 'apo-card-title', t(curStyle.nameKey, curStyle.fallbackName)),
+    uiEl('div', 'apo-card-desc', t('apotheosis.cult.altarStyleDesc', 'Choose the 2D Statue Flat or 3D Statue Model manifested at altars inside all consecrated Temples and Sanctuaries.')),
+  );
+  const pickBtn = uiEl('button', 'apo-btn primary', t('apotheosis.cult.btnOpenStatuePicker', 'Choose Altar Statue'));
+  pickBtn.onclick = () => {
+    statueModalOpen = true;
+    repaint();
+  };
+  row.append(infoCol, pickBtn);
+  box.append(row);
+  container.append(box);
+}
+
+/** Full modal picker over `CULT_ALTAR_STYLES` (both 2D flats & 3D statue models). */
+export function renderAltarStatueModal(modalRoot, entity, repaint, setFeedback) {
+  if (!statueModalOpen || !modalRoot) return;
+  const curStyle = getCultAltarStyle(entity);
+  const backdrop = uiEl('div', 'apo-picker-backdrop');
+  const modal = uiEl('div', 'apo-picker-modal');
+
+  const head = uiEl('div', 'apo-picker-head');
+  head.append(
+    uiEl('div', 'apo-picker-title', t('apotheosis.cult.altarStyleModalTitle', 'Choose Your Cult Altar Statue')),
+    uiEl('span', 'apo-pill ok', t('apotheosis.cult.altarStyleCurrentBadge', 'Current: {name}', {
+      name: t(curStyle.nameKey, curStyle.fallbackName),
+    })),
+  );
+  modal.append(head);
+  modal.append(uiEl('div', 'apo-picker-sub', t('apotheosis.cult.altarStyleModalSub', 'Select either a classic 2D Statue Billboard (with live sprite preview) or a 3D Statue Model. Your choice applies across all player Sanctuaries and consecrated Temples with zero collision.')));
+
+  const scroll = uiEl('div', 'apo-picker-scroll');
+  for (const st of CULT_ALTAR_STYLES) {
+    const isSel = st.id === curStyle.id;
+    const card = uiEl('button', `apo-art-card${isSel ? ' sel' : ''}`);
+    const top = uiEl('div', 'apo-row-inline');
+    attachStatuePreview(top, st);
+    const meta = uiEl('div');
+    meta.append(
+      uiEl('div', 'apo-art-name', t(st.nameKey, st.fallbackName)),
+      uiEl('div', 'apo-art-meta', st.kind === 'flat'
+        ? t('apotheosis.cult.altarKindFlat', '2D Statue Flat · Archive {a} #{r}', { a: st.archive, r: st.record })
+        : t('apotheosis.cult.altarKindModel', '3D Statue Model · ARCH3D #{m}', { m: st.modelId })),
+    );
+    top.append(meta);
+    card.append(top);
+    card.onclick = () => {
+      const r = setCultAltarStyle(entity, st.id);
+      if (r.ok) {
+        statueModalOpen = false;
+        setFeedback(t('apotheosis.cult.altarStyleSet', 'Cult Altar Statue changed to {name}.', { name: t(st.nameKey, st.fallbackName) }), false);
+      } else {
+        setFeedback(r.reason, true);
+      }
+      repaint();
+    };
+    scroll.append(card);
+  }
+  modal.append(scroll);
+
+  const foot = uiEl('div', 'apo-picker-foot');
+  const closeBtn = uiEl('button', 'apo-btn', t('apotheosis.close', 'Close'));
+  closeBtn.onclick = () => {
+    statueModalOpen = false;
+    repaint();
+  };
+  foot.append(uiEl('span', 'apo-card-desc', t('apotheosis.cult.altarStyleFootNote', 'Click any statue to apply immediately.')), closeBtn);
+  modal.append(foot);
+  backdrop.append(modal);
+  modalRoot.append(backdrop);
 }
 
 export function getCultScrollKey() {
@@ -208,12 +328,22 @@ function renderSpecializationModal(modalRoot, entity, nowMin, repaint, setFeedba
       repaint();
     },
   });
+  const confirmWrap = uiEl('div', 'apo-row-inline');
+  if (isFound) {
+    const pickStatueBtn = uiEl('button', 'apo-btn', t('apotheosis.cult.btnChooseAltarInModal', 'Altar Statue: {name}', {
+      name: t(getCultAltarStyle(entity).nameKey, getCultAltarStyle(entity).fallbackName),
+    }));
+    pickStatueBtn.onclick = () => {
+      statueModalOpen = true;
+      repaint();
+    };
+    confirmWrap.append(pickStatueBtn);
+  }
+  confirmWrap.append(cancelBtn, confirmBtn);
   if (confirmBlocked) {
-    const confirmWrap = uiEl('div', 'apo-row-inline');
-    confirmWrap.append(cancelBtn, confirmBtn);
     foot.append(uiEl('span', 'apo-pill bad', confirmBlocked), confirmWrap);
   } else {
-    foot.append(uiEl('span', 'apo-card-desc', t('apotheosis.cult.modalReady', 'Ready to enact decree.')), cancelBtn, confirmBtn);
+    foot.append(uiEl('span', 'apo-card-desc', t('apotheosis.cult.modalReady', 'Ready to enact decree.')), confirmWrap);
   }
 
   modal.append(foot);
@@ -283,6 +413,7 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
 
   const acts = uiEl('div', 'apo-acts');
   if (site.kind === 'sanctuary' && !site.unlocked && !owned) {
+    card.append(uiEl('div', 'apo-card-desc', t('apotheosis.cult.hatchBreakInWarn', 'Warning: Breaking in without Seal Key or Pact/Alliance triggers Holy War (-35 Rel)!')));
     const needProximityReason = sceneCtx && !isNearHatch
       ? t('apotheosis.cult.err.needNearHatch', 'Stand beside the subterranean hatch in {city} to unlock or infiltrate it (console: apo cult tp daedra).', {
           city: site.locationName || regName,
@@ -290,21 +421,23 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
       : null;
 
     acts.append(
-      makeActionBtn(t('apotheosis.cult.unlockBtnLockpick', 'Pick Lock'), {
+      makeActionBtn(t('apotheosis.cult.unlockBtnLockpickWar', 'Pick Lock (Fail -> Alarm; No Pact -> War)'), {
         blockedReason: needProximityReason,
         setFeedback,
         onRun: () => {
           const r = attemptUnlockSanctuaryHatch(entity, site.siteKey, 'lockpick', { nowMinutes: nowMin });
+          if (r.alarm && isNearHatch) sceneCtx?.spawnCultHatchAlarm?.(site.siteKey);
           setFeedback(r.ok ? r.message : r.reason, !r.ok);
           repaint();
         },
       }),
-      makeActionBtn(t('apotheosis.cult.unlockBtnBash', 'Bash Open (Alarm!)'), {
+      makeActionBtn(t('apotheosis.cult.unlockBtnBashStr', 'Bash Open (STR Check · 1h CD · Alarm & War!)'), {
         tone: 'danger',
         blockedReason: needProximityReason,
         setFeedback,
         onRun: () => {
           const r = attemptUnlockSanctuaryHatch(entity, site.siteKey, 'bash', { nowMinutes: nowMin });
+          if (r.alarm && isNearHatch) sceneCtx?.spawnCultHatchAlarm?.(site.siteKey);
           setFeedback(r.message ?? r.reason, !r.ok);
           repaint();
         },
@@ -323,7 +456,7 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
           repaint();
         },
       }),
-      makeActionBtn(t('apotheosis.cult.unlockBtnKey', 'Seal Key / Pact Unlock'), {
+      makeActionBtn(t('apotheosis.cult.unlockBtnKey', 'Unlock with Seal Key / Pact (Safe)'), {
         blockedReason: needProximityReason,
         setFeedback,
         onRun: () => {
@@ -336,7 +469,8 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
         blockedReason: needProximityReason,
         setFeedback,
         onRun: () => {
-          const r = obtainSanctuaryKeyFromGatekeeper(entity, site.siteKey, 'pickpocket');
+          const r = obtainSanctuaryKeyFromGatekeeper(entity, site.siteKey, 'pickpocket', { nowMinutes: nowMin });
+          if (r.alarm && isNearHatch) sceneCtx?.spawnCultHatchAlarm?.(site.siteKey);
           setFeedback(r.ok ? r.message : r.reason, !r.ok);
           repaint();
         },
@@ -345,33 +479,52 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
   }
 
   if (site.kind === 'sanctuary' && (site.unlocked || owned) && sceneCtx?.enterCultSanctuary) {
-    const tpCost = isNearHatch ? 0 : CULT_TELEPORT_SANCTUARY_FAITH_COST;
-    const tpBlocked = faithCur < tpCost
-      ? t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', { need: tpCost, have: faithCur })
-      : null;
-    const tpLabel = tpCost > 0
-      ? t('apotheosis.cult.btnTeleportEnterCost', 'Teleport & Enter ({cost} Faith)', { cost: tpCost })
-      : t('apotheosis.cult.btnEnterFreeHatch', 'Enter Sanctuary (At Hatch · Free)');
-    acts.append(makeActionBtn(tpLabel, {
-      tone: 'primary',
-      blockedReason: tpBlocked,
-      setFeedback,
-      onRun: () => {
-        const res = teleportToCultSanctuary(entity, site.siteKey, { isNearHatch });
-        if (!res.ok) {
-          setFeedback(res.reason, true);
-          repaint();
-          return;
-        }
-        if (res.faithSpent > 0) {
-          setFeedback(t('apotheosis.cult.teleportedHud', 'Stepped through Faith into {site} (-{cost} Faith).', {
-            site: site.name,
-            cost: res.faithSpent,
-          }), false);
-        }
-        sceneCtx.enterCultSanctuary(site);
-      },
-    }));
+    if (owned) {
+      const tpCost = isNearHatch ? 0 : CULT_TELEPORT_SANCTUARY_FAITH_COST;
+      const tpBlocked = faithCur < tpCost
+        ? t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', { need: tpCost, have: faithCur })
+        : null;
+      const tpLabel = tpCost > 0
+        ? t('apotheosis.cult.btnTeleportEnterCost', 'Teleport & Enter ({cost} Faith)', { cost: tpCost })
+        : t('apotheosis.cult.btnEnterFreeHatch', 'Enter Sanctuary (At Hatch · Free)');
+      acts.append(makeActionBtn(tpLabel, {
+        tone: 'primary',
+        blockedReason: tpBlocked,
+        setFeedback,
+        onRun: () => {
+          const res = teleportToCultSanctuary(entity, site.siteKey, { isNearHatch });
+          if (!res.ok) {
+            setFeedback(res.reason, true);
+            repaint();
+            return;
+          }
+          if (res.faithSpent > 0) {
+            setFeedback(t('apotheosis.cult.teleportedHud', 'Stepped through Faith into {site} (-{cost} Faith).', {
+              site: site.name,
+              cost: res.faithSpent,
+            }), false);
+          }
+          sceneCtx.enterCultSanctuary(site);
+        },
+      }));
+    } else {
+      const enterBlocked = !isNearHatch
+        ? t('apotheosis.cult.err.teleportOwnedOnly', 'Remote teleportation only works for your own Cult Sanctuaries. Stand near the hatch on the street to enter.')
+        : null;
+      acts.append(makeActionBtn(
+        isNearHatch
+          ? t('apotheosis.cult.btnEnterFreeHatch', 'Enter Sanctuary (At Hatch · Free)')
+          : t('apotheosis.cult.btnEnterNeedHatch', 'Enter Sanctuary (Stand at Street Hatch)'),
+        {
+          tone: 'primary',
+          blockedReason: enterBlocked,
+          setFeedback,
+          onRun: () => {
+            sceneCtx.enterCultSanctuary(site);
+          },
+        },
+      ));
+    }
   }
 
   if (!owned) {
@@ -554,6 +707,7 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
   }
   ctrlBox.append(acts);
   detail.append(ctrlBox);
+  renderAltarStatueBox(detail, entity, repaint, setFeedback);
 
   const list = cultScopeFilter === 'owned'
     ? ownedSites
@@ -588,7 +742,7 @@ function renderEdictsView(detail, entity, nowMin, repaint, setFeedback) {
   const hero = uiEl('div', 'apo-hero');
   const left = uiEl('div');
   left.append(
-    uiEl('div', 'apo-hero-title', t('apotheosis.edict.heroTitle', 'Regional Edicts (71 Realms)')),
+    uiEl('div', 'apo-hero-title', t('apotheosis.edict.heroTitle', 'Regional Edicts')),
     uiEl('div', 'apo-meta-row', t('apotheosis.edict.heroSub', 'Proclaim 30-day divine decrees across provinces and Iliac Bay kingdoms where your Cult holds >=25% Influence or >=1 Sanctum.')),
   );
   hero.append(left, uiEl('span', 'apo-badge', t('apotheosis.edict.costBadge', 'Decree Cost: {cost} Faith', { cost: REGIONAL_EDICT_COST })));
@@ -618,7 +772,7 @@ function renderEdictsView(detail, entity, nowMin, repaint, setFeedback) {
   detail.append(curBox);
 
   const selBox = uiEl('div', 'apo-box');
-  selBox.append(uiEl('h4', null, t('apotheosis.edict.selectRegion', 'Target Region (71)')));
+  selBox.append(uiEl('h4', null, t('apotheosis.edict.selectRegion', 'Target Region')));
   const filterRow = uiEl('div', 'apo-aurbis-form');
   filterRow.style.marginBottom = '8px';
   const searchIn = uiEl('input', 'apo-input');
@@ -732,7 +886,7 @@ export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', 
     const hero = uiEl('div', 'apo-hero');
     hero.append(
       uiEl('div', 'apo-hero-title', mode === 'edicts'
-        ? t('apotheosis.edict.heroTitle', 'Regional Edicts (71 Realms)')
+        ? t('apotheosis.edict.heroTitle', 'Regional Edicts')
         : t('apotheosis.cult.heroTitle', 'Cult Sanctums & Underground Shrines')),
       uiEl('span', 'apo-badge', t('apotheosis.stage.mortal', 'Mortal Aspirant')),
     );
