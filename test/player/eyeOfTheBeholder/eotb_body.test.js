@@ -722,3 +722,60 @@ test('DISMOUNT & SETBILLBOARD: dismounting switches from horse sprite to foot sp
   await new Promise((res) => setTimeout(res, 20));
   assert.equal(newBody.draw(null, eye), true, 'billboard drawn without needing another toggleOffset call');
 });
+
+test('PAPERDOLL MODE: draws static cropped paperdoll on foot with sheathe toggling, keeps mounted horse and animated lycan', async () => {
+  resetSettings();
+  setModSetting(MOD, 'Graphics.Paperdoll', true);
+  try {
+    const calls = [];
+    const sampleImg = (fillAlpha = 255, withWeapon = true) => {
+      const colors = new Uint32Array(20 * 50);
+      colors.fill((fillAlpha << 24) | 0x00abcdef);
+      const held = new Uint8Array(20 * 50);
+      if (withWeapon) held[10] = 1;
+      return { width: 20, height: 50, colors, held };
+    };
+    const { b, r } = await liveBody({
+      composeDoll: async (_ent, { sheathed }) => {
+        calls.push(sheathed);
+        return sampleImg(255, !sheathed);
+      },
+      dollSig: (_ent, { sheathed }) => (sheathed ? 'sig-S' : 'sig-U'),
+    });
+    const eye = { feet: [0, 0, 0], yaw: Math.PI * 0.7, cameraPos: [2, 1.5, 2] };
+
+    // 1. Walking & attacking on foot stay static Idle / frame 0 / orientation 0
+    ticks(b, 20, walk({ attacking: true, sheathed: false, swingN: 1, ...eye }));
+    await new Promise((res) => setTimeout(res, 10));
+    assert.equal(b.draw(null, eye), true);
+    assert.equal(b.state().table, 'Idle');
+    assert.equal(b.state().frame, 0);
+    assert.equal(b.state().orientation, 0);
+    assert.equal(b.state().clip, null);
+    assert.equal(r.batches.at(-1).archive, 'eotb-paperdoll');
+    assert.ok(b.figure(), 'figure exposed for auras/wings on paperdoll');
+    assert.equal(calls.at(-1), false);
+
+    // 2. Sheathing recomposes with { sheathed: true } so weapon leaves hands
+    ticks(b, 5, still({ sheathed: true, ...eye }));
+    await new Promise((res) => setTimeout(res, 10));
+    assert.equal(b.draw(null, eye), true);
+    assert.equal(calls.at(-1), true);
+
+    // 3. Mounted keeps EOTB Horse sprite (no missing horse)
+    ticks(b, 5, { motion: { forward: 0, standing: true, riding: true, height: 1.8 }, ...eye });
+    await new Promise((res) => setTimeout(res, 10));
+    assert.equal(b.draw(null, eye), true);
+    assert.equal(b.state().shown.table, 'IdleHorse');
+    assert.equal(r.batches.at(-1).archive, 112383);
+
+    // 4. Lycanthrope form keeps animated EOTB Werewolf sprite & attack clip
+    ticks(b, 5, walk({ transformed: true, lycanthropyType: 1, attacking: true, swingN: 3, ...eye }));
+    await new Promise((res) => setTimeout(res, 10));
+    assert.equal(b.draw(null, eye), true);
+    assert.equal(b.state().clip?.table, 'AttackMeleeLycan');
+    assert.equal(r.batches.at(-1).archive, 112380);
+  } finally {
+    resetSettings();
+  }
+});

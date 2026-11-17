@@ -149,3 +149,42 @@ export function bitmapToColor32(bmp, palette, alphaIndex = 0) {
   }
   return { width: bmp.width, height: bmp.height, colors };
 }
+
+/**
+ * Bounding rectangle of non-transparent pixels in an RGBA buffer, or null when empty.
+ * @param {ArrayLike<number>} rgba
+ * @param {number} width
+ * @param {number} height
+ * @returns {{x:number,y:number,w:number,h:number}|null}
+ */
+export function alphaBounds(rgba, width, height) {
+  let x0 = width, y0 = height, x1 = -1, y1 = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (rgba[(y * width + x) * 4 + 3] === 0) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+/**
+ * Copy a sub-rectangle of an RGBA buffer; `bottomUp` reverses rows for GL billboard sampling.
+ * @param {Uint8Array|Uint8ClampedArray} rgba
+ * @param {number} width
+ * @param {{x:number,y:number,w:number,h:number}} rect
+ * @param {{bottomUp?:boolean}} [opts]
+ * @returns {Uint8Array}
+ */
+export function cropRgba(rgba, width, rect, { bottomUp = false } = {}) {
+  const out = new Uint8Array(rect.w * rect.h * 4);
+  for (let y = 0; y < rect.h; y++) {
+    const dst = bottomUp ? rect.h - 1 - y : y;
+    const start = ((rect.y + y) * width + rect.x) * 4;
+    out.set(rgba.subarray(start, start + rect.w * 4), dst * rect.w * 4);
+  }
+  return out;
+}

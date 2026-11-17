@@ -13,6 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { modSetting, setModSetting, _resetModSettings } from '../../src/systems/modSettings.js';
 import { skinCard, layeredBodyToWear, _resetSkinCardBody } from '../../src/ui/skinCard.js';
+import { getPref, setPref } from '../../src/systems/uiPrefs.js';
 import { LAYERED_OWN } from '../../src/player/eyeOfTheBeholder/layeredArmor.js';
 import { ENHANCED_CSS } from '../../src/ui/enhanced/enhancedStyle.js';
 
@@ -56,10 +57,10 @@ test('SKIN-MODE ON BY DEFAULT (the owner, 2026-10-19: "Make sure this is on by d
   assert.equal(set.attrs['aria-label'], 'Look');
   assert.equal(find(card.root, 'skinmode')[0].children[0].textContent, 'Look', 'the label a player reads');
   const p = parts(card);
-  assert.deepEqual(p.radios.map((b) => b.textContent), ['Skins', 'Layered Gearing (WIP)']);
-  assert.deepEqual(p.radios.map((b) => b.attrs.role), ['radio', 'radio']);
+  assert.deepEqual(p.radios.map((b) => b.textContent), ['Skins', 'Layered Gearing (WIP)', 'Paperdoll']);
+  assert.deepEqual(p.radios.map((b) => b.attrs.role), ['radio', 'radio', 'radio']);
   assert.deepEqual(p.checked, ['Layered Gearing (WIP)']);
-  assert.ok(p.radios[1].className.includes('on') && !p.radios[0].className.includes('on'), 'the chosen one in brass');
+  assert.ok(p.radios[1].className.includes('on') && !p.radios[0].className.includes('on') && !p.radios[2].className.includes('on'), 'the chosen one in brass');
   assert.deepEqual(p.panels, ['Mounted'], 'the On foot panel put away; Mounted as ever');
   assert.deepEqual(p.bodies.map((b) => find(b, 'skinname')[0].textContent), ['Female', 'Male'], 'the two bodies, never "Off" or "Your own body"');
   assert.deepEqual(p.bodies.map((b) => b.attrs['aria-pressed']), ['false', 'true'], 'the male character\'s own');
@@ -134,4 +135,36 @@ test('SKIN-MODE the toggle is styled: two presses side by side, the chosen one i
   assert.match(rule('.card .skinmodeset'), /display: flex;/);
   assert.match(rule('.card button.skinmodebtn.on'), /border-color: var\(--brass\);/);
   assert.match(rule('.card button.skinmodebtn:focus-visible'), /outline: 2px solid var\(--brass\);/);
+});
+
+test('SKIN-MODE PAPERDOLL: mutually exclusive with Layered Gearing, Skins, and Morrowind Body; keeps Mounted panel', () => {
+  fresh();
+  const prevMw = getPref('mwPlayerBody');
+  setPref('mwPlayerBody', true);
+  try {
+    const card = skinCard(doc, { gender: () => 'male' });
+    radio(card, 'Paperdoll').onclick();
+    assert.equal(modSetting(V, 'Graphics.Paperdoll'), true);
+    assert.equal(modSetting(V, LG), 0);
+    assert.equal(getPref('mwPlayerBody'), false, 'choosing Paperdoll turns off Morrowind Player Body');
+    const p = parts(card);
+    assert.deepEqual(p.checked, ['Paperdoll']);
+    assert.deepEqual(p.panels, ['Mounted'], 'On foot hidden; Mounted kept');
+    assert.equal(p.bodies.length, 0, 'no Layered Gearing body grid in Paperdoll mode');
+    assert.ok(find(card.root, 'meta').some((m) => /character sheet paperdoll without animations/.test(m.textContent)));
+
+    radio(card, 'Skins').onclick();
+    assert.equal(modSetting(V, 'Graphics.Paperdoll'), false);
+    assert.equal(modSetting(V, LG), 0);
+    assert.deepEqual(parts(card).panels, ['On foot', 'Mounted']);
+
+    radio(card, 'Paperdoll').onclick();
+    assert.equal(modSetting(V, 'Graphics.Paperdoll'), true);
+    radio(card, 'Layered Gearing (WIP)').onclick();
+    assert.equal(modSetting(V, 'Graphics.Paperdoll'), false);
+    assert.equal(modSetting(V, LG), LAYERED_OWN);
+  } finally {
+    setPref('mwPlayerBody', prevMw);
+    fresh();
+  }
 });

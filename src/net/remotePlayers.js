@@ -21,6 +21,7 @@
 // the singleton and could hand the inventory a stranger's doll, or the
 // stranger the player's, panel and all.
 import { composePaperDollPixels } from '../ui/paperDoll.js';
+import { alphaBounds, cropRgba } from '../formats/color32Order.js';
 import { drawnEquipTable, capeShown } from '../systems/capeShown.js';   // CAPE-TOGGLE: my cloak hidden, on everyone's screen
 import { createEquipTable } from '../characters/equipTable.js';
 import { CAPSULE_HEIGHT } from '../player/motor.js';
@@ -393,6 +394,7 @@ export function ownEotbSet() {
 export function ownLayeredGear(entity = null) {
   try {
     if (!modSetting('eye-of-the-beholder', 'Enabled')) return null;
+    if (modSetting('eye-of-the-beholder', 'Graphics.Paperdoll')) return null;
     const v = modSetting('eye-of-the-beholder', 'Graphics.LayeredGear');
     if (v === LAYERED_OWN) return entity?.gender === 'female' ? 1 : 2;
     return v === 1 || v === 2 ? v : null;
@@ -478,40 +480,7 @@ export function peerStubEntity(look) {
   return entity;
 }
 
-/**
- * The figure's bounds in an RGBA buffer - the rows and columns with any
- * alpha - or null when it is empty (AUDIT ONLINE C11: the panel's
- * headroom and floor margin are not the figure, and a billboard the
- * panel tall stood the doll short and floating).
- */
-export function alphaBounds(rgba, w, h) {
-  let x0 = w, y0 = h, x1 = -1, y1 = -1;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (rgba[(y * w + x) * 4 + 3] === 0) continue;
-      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-    }
-  }
-  return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-}
-
-/** A sub-rectangle of an RGBA buffer, copied out. `bottomUp` writes
- *  the rows in reverse (OD1, 2026-09-12, Mac: "Paperdoll is upside down
- *  when viewing other players in multiplayer"): the compositor's
- *  buffer is a UI image, row 0 at the top, while the billboard shader
- *  samples GL's bottom-up texel order (render/renderer.js's header and
- *  its vUV note - "the quad top samples v = 1"). Every other billboard
- *  arrives from TextureFile.getColor32 already bottom-up; this one was
- *  the only top-down buffer ever handed to createBillboardBatch, so
- *  the peers stood on their heads. */
-export function cropRgba(rgba, w, r, { bottomUp = false } = {}) {
-  const out = new Uint8Array(r.w * r.h * 4);
-  for (let y = 0; y < r.h; y++) {
-    const dst = bottomUp ? r.h - 1 - y : y;
-    out.set(rgba.subarray(((r.y + y) * w + r.x) * 4, ((r.y + y) * w + r.x + r.w) * 4), dst * r.w * 4);
-  }
-  return out;
-}
+export { alphaBounds, cropRgba };
 
 let _dollSeq = 0;   // the record keys, monotonic (AUDIT ONLINE C10: a size-and-millisecond key could repeat)
 
