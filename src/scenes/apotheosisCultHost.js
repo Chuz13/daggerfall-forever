@@ -1097,6 +1097,56 @@ export function createApotheosisCultHost(deps = {}) {
     if (typeof placeFeet !== 'function') {
       return { ok: false, message: 'Teleport runtime is not ready here.' };
     }
+    if (k === 'altar') {
+      const m = modes?.();
+      if ((m?.mode ?? 'exterior') !== 'interior' || !m?.interiorCtx) {
+        return { ok: false, message: 'Enter a Temple or Underground Sanctuary first to teleport to its Altar.' };
+      }
+      const ic = m.interiorCtx;
+      const anchor = ic.cultAltarAnchors?.[0];
+      const stateAabb = ic._cultAltarState?.aabb;
+      let ax, ay, az;
+      if (anchor?.pos) {
+        [ax, ay, az] = anchor.pos;
+      } else if (stateAabb) {
+        ax = (stateAabb.min[0] + stateAabb.max[0]) * 0.5;
+        ay = stateAabb.min[1];
+        az = (stateAabb.min[2] + stateAabb.max[2]) * 0.5;
+      } else if (ic.landing) {
+        ax = ic.landing[0];
+        ay = ic.landing[1];
+        az = ic.landing[2] + 2.2;
+      } else {
+        return { ok: false, message: 'Could not locate an Altar anchor inside this interior.' };
+      }
+      const land = ic.landing ?? [ax, ay, az - 2.0];
+      const dirX = land[0] - ax;
+      const dirZ = land[2] - az;
+      const dirLen = Math.hypot(dirX, dirZ);
+      const baseUx = dirLen > 0.05 ? dirX / dirLen : 0;
+      const baseUz = dirLen > 0.05 ? dirZ / dirLen : -1;
+      const candidates = [
+        [ax + baseUx * 1.45, az + baseUz * 1.45],
+        [ax, az - 1.45],
+        [ax, az + 1.45],
+        [ax - 1.45, az],
+        [ax + 1.45, az],
+      ];
+      let chosen = candidates[0];
+      let chosenY = ay;
+      for (const [cx, cz] of candidates) {
+        const fy = ic.collider?.heightAt?.(cx, cz);
+        if (Number.isFinite(fy) && Math.abs(fy - ay) <= 1.2) {
+          chosen = [cx, cz];
+          chosenY = fy;
+          break;
+        }
+      }
+      const [wx, wz] = chosen;
+      const lookYaw = Math.atan2(ax - wx, az - wz);
+      placeFeet([wx, chosenY + 0.1, wz], lookYaw);
+      return { ok: true, message: 'Teleported in front of the interior Altar.' };
+    }
     if ((modes?.()?.mode ?? 'exterior') !== 'exterior') {
       return { ok: false, message: 'Exit the interior to the street before teleporting within the settlement.' };
     }
@@ -1273,25 +1323,33 @@ export function interiorCultAltarTargets(ctx, entity, building, mapId, renderer 
     };
   }
 
-  // Replace 41020 wooden lectern / missing pedestals with 2D deity statue flat; replace any altar with player's chosen statue when owned
-  const shouldReplaceMesh = owned || ctx.isApotheosisSanctuary || !vanillaDraw || Number(vanillaDraw.modelIdNum) === 41020;
-  if (shouldReplaceMesh && vanillaDraw) {
-    vanillaDraw._batched = true;
+  const isPrimaryPedestal = Boolean(vanillaDraw && ALTAR_PRIMARY_PEDESTAL_IDS.has(Number(vanillaDraw.modelIdNum)));
+  const playerStyle = owned ? getCultAltarStyle(entity) : null;
+  const useModelStyle = Boolean(owned && playerStyle?.kind === 'model');
+
+  // Keep original Temple marble/stone pedestal visible when mounting a 2D deity/player statue on top of it;
+  // hide 41020 lecterns or hide the pedestal when replacing it with a full 3D statue model.
+  if (vanillaDraw) {
+    vanillaDraw._batched = isPrimaryPedestal ? useModelStyle : true;
   }
 
-  if (shouldReplaceMesh && renderer && pipeline) {
-    const playerStyle = owned ? getCultAltarStyle(entity) : null;
+  const pedestalTopY = isPrimaryPedestal && !useModelStyle && vanillaDraw?.aabb
+    ? vanillaDraw.aabb.max[1]
+    : altarPos[1];
+
+  if (renderer && pipeline) {
     const deityFlat = (!owned && DEITY_DEFAULT_ALTAR_BY_GOD[site.ownerId]) || DEITY_DEFAULT_ALTAR_FLAT;
+    const mountTag = isPrimaryPedestal && !useModelStyle ? `ped:${Math.round(pedestalTopY * 100)}` : `flr:${Math.round(altarPos[1] * 100)}`;
     const wantKey = playerStyle
-      ? `player:${playerStyle.id}`
-      : `deity:${deityFlat.archive}:${deityFlat.record}`;
+      ? `player:${playerStyle.id}:${mountTag}`
+      : `deity:${deityFlat.archive}:${deityFlat.record}:${mountTag}`;
 
     if (ctx._cultAltarState?.key !== wantKey) {
       clearCustomAltarVisual(ctx, renderer);
       const stateRec = { key: wantKey, batch: null, drawEntry: null, aabb: null };
       ctx._cultAltarState = stateRec;
 
-      if (!playerStyle || playerStyle.kind === 'flat') {
+      if (!useModelStyle) {
         const archive = playerStyle ? playerStyle.archive : deityFlat.archive;
         const record = playerStyle ? playerStyle.record : deityFlat.record;
         if (pipeline.getTexture && renderer.createBillboardBatch) {
@@ -1302,23 +1360,25 @@ export function interiorCultAltarTargets(ctx, entity, building, mapId, renderer 
             const rawSz = billboardSize(tex, useRec);
             const rawH = Number(rawSz?.h) || 1.8;
             const rawW = Number(rawSz?.w) || 1.0;
-            const targetH = Math.max(1.45, Math.min(2.05, rawH));
+            const maxH = isPrimaryPedestal ? 1.85 : 2.05;
+            const minH = isPrimaryPedestal ? 1.25 : 1.45;
+            const targetH = Math.max(minH, Math.min(maxH, rawH));
             const scale = rawH > 0 ? (targetH / rawH) : 1;
             const sz = { w: rawW * scale, h: targetH };
-            const basePos = [altarPos[0], altarPos[1], altarPos[2]];
+            const basePos = [altarPos[0], pedestalTopY, altarPos[2]];
             const batch = renderer.createBillboardBatch(archive, useRec, sz, [basePos]);
             if (batch && Array.isArray(ctx.billboardBatches)) {
               ctx.billboardBatches.push(batch);
               stateRec.batch = batch;
               const hw = Math.max(0.55, sz.w * 0.5);
               stateRec.aabb = {
-                min: [altarPos[0] - hw, altarPos[1] - 0.1, altarPos[2] - hw],
-                max: [altarPos[0] + hw, altarPos[1] + targetH, altarPos[2] + hw],
+                min: [altarPos[0] - hw, Math.min(altarPos[1], pedestalTopY) - 0.1, altarPos[2] - hw],
+                max: [altarPos[0] + hw, pedestalTopY + targetH, altarPos[2] + hw],
               };
             }
           }).catch(() => {});
         }
-      } else if (playerStyle.kind === 'model' && pipeline.getGpuMesh) {
+      } else if (playerStyle?.kind === 'model' && pipeline.getGpuMesh) {
         Promise.resolve(pipeline.getGpuMesh(playerStyle.modelId)).then((gpu) => {
           if (ctx._cultAltarState !== stateRec || !gpu) return;
           const cpu = pipeline.cpuModels?.get(playerStyle.modelId);
@@ -1361,7 +1421,21 @@ export function interiorCultAltarTargets(ctx, entity, building, mapId, renderer 
     }
   }
 
-  const box = ctx._cultAltarState?.aabb ?? fallbackAabb;
+  const sBox = ctx._cultAltarState?.aabb;
+  const box = sBox && fallbackAabb
+    ? {
+        min: [
+          Math.min(sBox.min[0], fallbackAabb.min[0]),
+          Math.min(sBox.min[1], fallbackAabb.min[1]),
+          Math.min(sBox.min[2], fallbackAabb.min[2]),
+        ],
+        max: [
+          Math.max(sBox.max[0], fallbackAabb.max[0]),
+          Math.max(sBox.max[1], fallbackAabb.max[1]),
+          Math.max(sBox.max[2], fallbackAabb.max[2]),
+        ],
+      }
+    : (sBox ?? fallbackAabb);
   return [{
     key: `cultAltar:${site.siteKey}`,
     aabb: {

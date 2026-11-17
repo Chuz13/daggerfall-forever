@@ -8,6 +8,9 @@ import {
   CULT_TELEPORT_SANCTUARY_FAITH_COST,
   CULT_BASH_COOLDOWN_MINUTES,
   CULT_GUARDIAN_RESPAWN_COOLDOWN_MINUTES,
+  DEITY_DEFAULT_ALTAR_BY_GOD,
+  AEDRA_IDS,
+  DAEDRA_IDS,
   CULT_ALTAR_STYLES,
   getCultAltarStyle,
   setCultAltarStyle,
@@ -394,6 +397,12 @@ test('Console Commands: apo cult subcommands & 16-deity apo pantheon tick output
 
     const tpOut = await executeConsoleCommand('apo', ['tp', 'temple']);
     assert.match(tpOut, /unavailable|Teleported|not found/i);
+
+    const tpCultAltarOut = await executeConsoleCommand('apo', ['cult', 'tp', 'altar']);
+    assert.match(tpCultAltarOut, /unavailable|Enter a Temple|Teleported/i);
+
+    const tpAltarOut = await executeConsoleCommand('apo', ['tp', 'altar']);
+    assert.match(tpAltarOut, /unavailable|Enter a Temple|Teleported/i);
   } finally {
     playerEntity.apotheosis = prev;
   }
@@ -573,25 +582,45 @@ test('Round 2 Polish: Road-free hatch placement, Town Automap stamps/discovery, 
   site._guardianCheckTimer = null;
 });
 
-test('Round 3 Polish: Expanded 26 Altar Statues (incl. Dibella), Single Sanctuary Altar, & Force Consecration Assault -> Async Guardian Kill -> Auto-Consecrate', async () => {
+test('Round 3 Polish: Expanded 33 Altar Statues (incl. Dibella & Daedra), 16 Deity Altars, Single Sanctuary Altar & Shifted Brazier, & Force Consecration Assault -> Async Guardian Kill -> Auto-Consecrate', async () => {
   resetOfflineHomes();
   const god = makeAscendedGod('order', { region: 17, faith: 1000 });
 
-  // 1) 26 total altar styles including Dibella flats and 3D models
-  assert.equal(CULT_ALTAR_STYLES.length, 26);
-  for (const id of ['flat_97_2', 'flat_97_4', 'flat_97_5', 'flat_97_10', 'flat_202_3', 'flat_202_5', 'model_62327', 'model_74091']) {
+  // 1) 33 total altar styles including authentic Dibella/Kynareth/Daedra flats and 3D models
+  assert.equal(CULT_ALTAR_STYLES.length, 33);
+  for (const id of [
+    'flat_97_2', 'flat_97_4', 'flat_97_5', 'flat_97_10',
+    'flat_97_12', 'flat_97_13', 'flat_97_14', 'flat_97_16',
+    'flat_175_0', 'flat_175_7', 'flat_175_11',
+    'flat_202_3', 'flat_202_5', 'model_62327', 'model_74091',
+  ]) {
     assert.ok(CULT_ALTAR_STYLES.some((s) => s.id === id), `Expected altar style ${id}`);
   }
   assert.equal(setCultAltarStyle(god, 'flat_97_5').ok, true);
   assert.equal(getCultAltarStyle(god).record, 5);
 
-  // 2) buildSanctuaryBlock emits exactly one 41020 altar centered at altarLocal
+  // All 16 deities have per-deity statues in DEITY_DEFAULT_ALTAR_BY_GOD
+  for (const deityId of [...AEDRA_IDS, ...DAEDRA_IDS]) {
+    assert.ok(DEITY_DEFAULT_ALTAR_BY_GOD[deityId], `Expected default altar for ${deityId}`);
+  }
+  assert.deepEqual(DEITY_DEFAULT_ALTAR_BY_GOD.azura, { archive: 175, record: 0 });
+  assert.deepEqual(DEITY_DEFAULT_ALTAR_BY_GOD.kynareth, { archive: 97, record: 13 });
+  assert.deepEqual(DEITY_DEFAULT_ALTAR_BY_GOD.dibella, { archive: 97, record: 12 });
+
+  // 2) buildSanctuaryBlock emits exactly one 41020 altar centered at altarLocal and shifts brazier 210:13 above/front
   for (const poolId of SANCTUARY_INTERIOR_POOLS) {
     const blk = buildSanctuaryBlock({ siteKey: `daedra_hatch:444_${poolId}`, mapId: 444, interiorPool: poolId });
-    const altars = blk.rmbBlock.subRecords[0].interior.block3dObjectRecords.filter((o) => Number(o.modelIdNum) === 41020);
+    const interior = blk.rmbBlock.subRecords[0].interior;
+    const altars = interior.block3dObjectRecords.filter((o) => Number(o.modelIdNum) === 41020);
     assert.equal(altars.length, 1, `Pool ${poolId} places exactly 1 altar anchor`);
     assert.equal(altars[0].xPos, Math.round(blk.altarLocal[0]));
     assert.equal(altars[0].zPos, Math.round(blk.altarLocal[2]));
+    const braziers = interior.blockFlatObjectRecords.filter((f) => f.textureArchive === 210 && f.textureRecord === 13);
+    const brazier = braziers.at(-1);
+    assert.ok(brazier, `Pool ${poolId} emits brazier light 210:13`);
+    assert.equal(brazier.xPos, Math.round(blk.altarLocal[0]));
+    assert.equal(brazier.yPos, -96);
+    assert.equal(brazier.zPos, Math.round(blk.altarLocal[2] - 55));
   }
 
   // 3) Force Consecration Assault declares Holy War (-35 rel), spawns async Guardians near altar, and auto-consecrates without double Faith/Relation penalty when last Guardian dies

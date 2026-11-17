@@ -213,11 +213,11 @@ export function buildSanctuaryBlock(site) {
       flags: 0,
     });
   }
-  // Ambient brazier/candle light above altar
+  // Ambient brazier/candle light positioned slightly in front and above the altar so it does not overlap the statue head
   flats.push({
     xPos: Math.round(ax),
-    yPos: -78,
-    zPos: Math.round(az),
+    yPos: -96,
+    zPos: Math.round(az - 55),
     textureArchive: 210,
     textureRecord: 13,
     textureBitfield: (210 << 7) | 13,
