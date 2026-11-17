@@ -7,7 +7,7 @@ export default function init(api) {
   api.perks.register({
     id: 'duelists_trance',
     name: 'Duelist\'s Trance',
-    desc: 'Mastery of momentum: grants +5% hit chance and halves fatigue penalty when combo is broken.',
+    desc: 'Combo system is active while this mod is enabled. Unlocks permanently upon reaching a 10-hit combo streak (without missing, within 6s between hits). Grants +5% hit chance and halves combo-break fatigue penalty (5 FP instead of 10 FP).',
   });
 
   // Ephemeral in-memory combo state (never bloats save files)
@@ -51,18 +51,18 @@ export default function init(api) {
         api.player.heal(5);
         api.player.restoreFatigue(25);
         api.ui.notify(api.ui.t('combo.deadly_precision', 'Combo x5: Deadly Precision! (+5 HP, +25 FP)'));
-
-        // Unlock feat milestone
-        if (!api.perks.has('duelists_trance')) {
-          api.perks.unlock('duelists_trance');
-          api.ui.notify(api.ui.t('combo.feat_unlocked', 'FEAT ACCOMPLISHED: Duelist\'s Trance unlocked!'));
-        }
       }
       // Tier 3: Master Duelist (7+ hits)
       else if (currentStreak >= 7 && currentStreak % 2 === 1) {
         api.player.heal(10);
         api.player.restoreFatigue(35);
         api.ui.notify(api.ui.t('combo.master_duelist', 'Combo x7: Master Duelist! Flow perfected! (+10 HP, +35 FP)'));
+      }
+
+      // Unlock feat milestone at 10-hit streak
+      if (currentStreak >= 10 && !api.perks.has('duelists_trance')) {
+        api.perks.unlock('duelists_trance');
+        api.ui.notify(api.ui.t('combo.feat_unlocked', 'FEAT ACCOMPLISHED: Duelist\'s Trance unlocked!'));
       }
     } else {
       // Missed swing: break flow if combo was active

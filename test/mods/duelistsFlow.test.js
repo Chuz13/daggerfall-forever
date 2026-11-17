@@ -74,7 +74,7 @@ test("Duelist's Flow: Rhythmic combat combo system, perk unlock, save safety, to
   emitModEvent('combatAttackResolved', { attacker: player, hit: true });
   assert.equal(midScreenLogs[2].msg, '⚔ COMBO x4');
 
-  // Hit 5: Tier 2 - Deadly Precision (+5 HP, +25 SP, unlocks Duelist's Trance)
+  // Hit 5: Tier 2 - Deadly Precision (+5 HP, +25 SP; perk still locked until 10 hits)
   const hpBefore5 = player.health;
   const spBefore5 = player.fatigue;
   emitModEvent('combatAttackResolved', { attacker: player, hit: true });
@@ -82,6 +82,17 @@ test("Duelist's Flow: Rhythmic combat combo system, perk unlock, save safety, to
   assert.equal(player.fatigue, Math.min(player.maxFatigue, spBefore5 + 25));
   assert.equal(midScreenLogs[3].msg, '⚔ COMBO x5');
   assert.ok(hudLogs.some((m) => m.includes('Deadly Precision') || m.includes('Смертоносная точность')));
+  assert.equal(hasUnlockedPerk(player, 'duelists_trance'), false);
+
+  // Hits 6 to 9 (with Master Duelist at 7 and 9)
+  for (let i = 6; i <= 9; i++) {
+    emitModEvent('combatAttackResolved', { attacker: player, hit: true });
+  }
+  assert.equal(hasUnlockedPerk(player, 'duelists_trance'), false);
+
+  // Hit 10: Unlocks Duelist's Trance feat
+  emitModEvent('combatAttackResolved', { attacker: player, hit: true });
+  assert.equal(midScreenLogs[8].msg, '⚔ COMBO x10');
   assert.ok(hudLogs.some((m) => m.includes('FEAT ACCOMPLISHED') || m.includes('ПОДВИГ СОВЕРШЕН')));
 
   // Check that perk is unlocked on player
@@ -98,10 +109,10 @@ test("Duelist's Flow: Rhythmic combat combo system, perk unlock, save safety, to
   assert.equal(notesWithPerk.diag.toHit.rawChance - notesBase.diag.toHit.rawChance, 5);
 
   // Check persistent career best streak
-  assert.equal(api.storage.get('bestStreak'), 5);
+  assert.equal(api.storage.get('bestStreak'), 10);
 
   // 4. Test Miss / Rhythm Broken with Perk Halved Penalty
-  // Current streak is 5 (>= 2). A miss should drain 5 FP (instead of default 10 FP) because of 'duelists_trance'
+  // Current streak is 10 (>= 2). A miss should drain 5 FP (instead of default 10 FP) because of 'duelists_trance'
   const spBeforeMiss = player.fatigue;
   emitModEvent('combatAttackResolved', { attacker: player, hit: false });
   assert.equal(player.fatigue, spBeforeMiss - 5);
