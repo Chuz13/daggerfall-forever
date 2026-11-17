@@ -65,7 +65,7 @@ export const DEITY_DEFAULT_ALTAR_BY_GOD = Object.freeze({
   julianos: Object.freeze({ archive: 97, record: 7 }),
   kynareth: Object.freeze({ archive: 97, record: 13 }),
   mara: Object.freeze({ archive: 97, record: 11 }),
-  stendarr: Object.freeze({ archive: 97, record: 3 }),
+  stendarr: Object.freeze({ archive: 97, record: 18 }),
   zenithar: Object.freeze({ archive: 97, record: 1 }),
   // 8 Daedric Princes (summon manifestations & shrines from TEXTURE.175 / TEXTURE.202)
   azura: Object.freeze({ archive: 175, record: 0 }),

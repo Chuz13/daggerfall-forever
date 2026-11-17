@@ -606,6 +606,7 @@ test('Round 3 Polish: Expanded 33 Altar Statues (incl. Dibella & Daedra), 16 Dei
   assert.deepEqual(DEITY_DEFAULT_ALTAR_BY_GOD.azura, { archive: 175, record: 0 });
   assert.deepEqual(DEITY_DEFAULT_ALTAR_BY_GOD.kynareth, { archive: 97, record: 13 });
   assert.deepEqual(DEITY_DEFAULT_ALTAR_BY_GOD.dibella, { archive: 97, record: 12 });
+  assert.deepEqual(DEITY_DEFAULT_ALTAR_BY_GOD.stendarr, { archive: 97, record: 18 });
 
   // 2) buildSanctuaryBlock emits exactly one 41020 altar centered at altarLocal and shifts brazier 210:13 above/front
   for (const poolId of SANCTUARY_INTERIOR_POOLS) {
