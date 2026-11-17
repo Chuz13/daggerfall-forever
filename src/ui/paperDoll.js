@@ -57,6 +57,8 @@ import { ownItemImage } from '../systems/item/itemTemplates.js';   // THUNDERLOC
 import { clampArmorVariant, armorArchive, HUMAN_MORPHOLOGY, ARMOR_MATERIAL } from '../systems/armorMaterials.js';
 import { raceArt, FACES_PER_RACE, raceByKey } from '../systems/races.js';   // S3c/U9: all eight races
 import { drawnPiece } from '../net/appearanceLaw.js';   // APPEARANCES: a worn piece's look
+import { drawnEquipTable } from '../systems/capeShown.js';
+import { alphaBounds, cropRgba } from '../formats/color32Order.js';
 import { isHandWraps } from '../characters/handWrapsIds.js';   // HAND-WRAPS: no doll layer
 
 export const PAPERDOLL_W = 110;
@@ -741,30 +743,30 @@ export function drawPaperDoll(renderer, m, entity, x, y) {
   return true;
 }
 
-/** GetEquipIndex: panel-relative point -> the equip slot of the
- *  topmost non-transparent item pixel (layers walked BACKWARDS). */
-export function slotAtPaperDoll(px, py) {
-  const [orgX, orgY] = PAPERDOLL_ORIGIN;
-  for (let i = _layout.length - 1; i >= 0; i--) {
-    const { slot, img } = _layout[i];
+function slotAtLayout(layout, px, py) {
+  for (let i = layout.length - 1; i >= 0; i--) {
+    const { slot, img } = layout[i];
     const [ox, oy] = dollXY(img.off);
     const x = px - ox, y = py - oy;
-    if (x < 0 || y < 0 || x >= img.bmp.width || y >= img.bmp.height) continue;
-    // FIELD-GUN4: an RGBA layer's "is there a pixel here" is its
-    // ALPHA. Reading `data` for one answers undefined, which is
-    // neither 0 nor 0xff and so returned the slot for every point
-    // inside the sprite's BOX - the transparent corners included, and
-    // that box is what sits over the doll's own body.
+    if (x < 0 || y < 0) continue;
     if (img.bmp.rgba) {   // DFMOD4: a picture `scale` texels per doll pixel is sampled at its own density
       const sc = img.bmp.scale ?? 1;
       const sx = Math.floor(x * sc), sy = Math.floor(y * sc);
       if (sx < img.bmp.width && sy < img.bmp.height && img.bmp.rgba[(sy * img.bmp.width + sx) * 4 + 3] !== 0) return slot;
       continue;
     }
-    const idx = img.bmp.data[y * img.bmp.width + x];
+    const ix = Math.floor(x), iy = Math.floor(y);
+    if (ix >= img.bmp.width || iy >= img.bmp.height) continue;
+    const idx = img.bmp.data[iy * img.bmp.width + ix];
     if (idx !== 0 && idx !== 0xff) return slot;
   }
   return null;
+}
+
+/** GetEquipIndex: panel-relative point -> the equip slot of the
+ *  topmost non-transparent item pixel (layers walked BACKWARDS). */
+export function slotAtPaperDoll(px, py) {
+  return slotAtLayout(_layout, px, py);
 }
 
 /**
@@ -800,6 +802,101 @@ export async function composeDollFor(entity) {
   } catch { return null; }
 }
 
+const _artSets = new Map();   // identity key -> art set, insertion-ordered (the oldest goes first)
+export const PEER_ART_SETS_MAX = 8;
+
+function worldPaperDollSlots(entity, sheathed = false) {
+  let raw = null;
+  try { raw = entity ? drawnEquipTable(entity) : null; } catch { raw = entity ? equipTableOf(entity) : null; }
+  const slots = Array.isArray(raw) ? raw.slice() : [];
+  if (sheathed) {
+    for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
+      if (slots[slotIndex]?.group === 'Weapons') slots[slotIndex] = null;
+    }
+  }
+  return slots;
+}
+
+/** Signature of what the world paperdoll billboard renders right now. */
+export function worldPaperDollSig(entity, { sheathed = false } = {}) {
+  const slots = worldPaperDollSlots(entity, sheathed);
+  const headOv = entity ? racialOverrideHeadArt(entity) : null;
+  const parts = [
+    entity?.race ?? 'Breton',
+    entity?.gender ?? 'male',
+    entity?.faceIndex ?? 0,
+    headOv?.file ?? '',
+    headOv?.record ?? '',
+    getBool('ChildGuard', 'PlayerNudity') ? 1 : 0,
+    dfmodGeneration(),
+    composeScale(),
+    sheathed ? 'S' : 'U',
+  ];
+  for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
+    const item = slots[slotIndex];
+    if (!item) continue;
+    const piece = drawnPiece(item);
+    parts.push(`${slotIndex}:${piece.templateIndex}:${piece.variant ?? 0}:${piece.material ?? 0}:${piece.dye ?? ''}:${piece.message ?? 0}:${piece.artifact ? (piece.playerTextureRecord ?? 'a') : ''}`);
+  }
+  if (!_art && _pixels) parts.push(`px:${_pixels.version}`);
+  return parts.join('|');
+}
+
+/** Compose the player's paperdoll cropped bottom-up for third-person world billboards, plus weapon glow mask. */
+export async function composeWorldPaperDoll(entity, { sheathed = false } = {}) {
+  if (_art && _deps) {
+    const ident = {
+      race: entity?.race ?? _ident?.race ?? 'Breton',
+      gender: entity?.gender ?? _ident?.gender ?? 'male',
+      faceIndex: entity?.faceIndex ?? _ident?.faceIndex ?? 0,
+      context: _ident?.context ?? 'town',
+    };
+    let art = _art;
+    if (paperDollIdentityDrift(entity) || !_identity?.endsWith(`#${dfmodGeneration()}`)) {
+      const key = `${paperDollIdentityKey(ident)}#${dfmodGeneration()}`;
+      art = _artSets.get(key) ?? null;
+      if (!art) {
+        art = await loadArtSet(_deps, ident);
+        if (_artSets.size >= PEER_ART_SETS_MAX) _artSets.delete(_artSets.keys().next().value);
+        _artSets.set(key, art);
+      }
+    }
+    const scale = composeScale();
+    const slots = worldPaperDollSlots(entity, sheathed);
+    const { out, layout, width: outW, height: outH } = await composeDoll(
+      art,
+      { ..._deps, gender: ident.gender, race: ident.race },
+      { ...entity, equip: { slots } },
+      { background: false, scale },
+    );
+    const rect = alphaBounds(out, outW, outH);
+    if (!rect) return null;
+    const crop = cropRgba(out, outW, rect, { bottomUp: true });
+    const hasRight = !sheathed && slots[EQUIP_SLOTS.RightHand]?.group === 'Weapons';
+    const hasLeft = !sheathed && slots[EQUIP_SLOTS.LeftHand]?.group === 'Weapons';
+    let held = null;
+    if (hasRight || hasLeft) {
+      held = new Uint8Array(rect.w * rect.h);
+      for (let cy = 0; cy < rect.h; cy++) {
+        for (let cx = 0; cx < rect.w; cx++) {
+          if (out[((rect.y + cy) * outW + (rect.x + cx)) * 4 + 3] === 0) continue;
+          const hit = slotAtLayout(layout, (rect.x + cx) / scale, (rect.y + cy) / scale);
+          if (hit === EQUIP_SLOTS.RightHand && hasRight) held[cy * rect.w + cx] = 1;
+          else if (hit === EQUIP_SLOTS.LeftHand && hasLeft) held[cy * rect.w + cx] = hasRight ? 2 : 1;
+        }
+      }
+    }
+    return { width: rect.w, height: rect.h, colors: new Uint32Array(crop.buffer), held };
+  }
+  if (_pixels?.rgba) {
+    const rect = alphaBounds(_pixels.rgba, _pixels.width, _pixels.height);
+    if (!rect) return null;
+    const crop = cropRgba(_pixels.rgba, _pixels.width, rect, { bottomUp: true });
+    return { width: rect.w, height: rect.h, colors: new Uint32Array(crop.buffer), held: null };
+  }
+  return null;
+}
+
 /**
  * ONLINE1 (AUDIT ONLINE C1-C4, C8, C9): A DOLL FOR SOMEONE ELSE. The
  * art set for the entity's own identity (a small cache, the peers'
@@ -808,8 +905,6 @@ export async function composeDollFor(entity) {
  * whoever composes and whenever. Answers { width, height, rgba }, or
  * null when the art is unavailable - never a doll on the wrong body.
  */
-const _artSets = new Map();   // identity key -> art set, insertion-ordered (the oldest goes first)
-export const PEER_ART_SETS_MAX = 8;
 export async function composePaperDollPixels(deps, entity, { context = 'town', background = true } = {}) {
   const ident = { race: entity?.race ?? 'Breton', gender: entity?.gender ?? 'male', faceIndex: entity?.faceIndex ?? 0, context };
   const key = paperDollIdentityKey(ident);

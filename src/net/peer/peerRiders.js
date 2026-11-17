@@ -461,7 +461,7 @@ export function walkerHeld(look, pose) {
  * body (1, 2, or LAYERED_OWN, the default). While they do, every other player on foot is drawn in their armor too.
  */
 export function viewerLayered() {
-  try { return !!modSetting('eye-of-the-beholder', 'Enabled') && (modSetting('eye-of-the-beholder', 'Graphics.LayeredGear') ?? 0) > 0; } catch { return false; }   // not vendored: no sprite body
+  try { return !!modSetting('eye-of-the-beholder', 'Enabled') && !modSetting('eye-of-the-beholder', 'Graphics.Paperdoll') && (modSetting('eye-of-the-beholder', 'Graphics.LayeredGear') ?? 0) > 0; } catch { return false; }   // not vendored: no sprite body
 }
 
 /** ATTACK-WARM: the most walker frames waiting to be composed - a crowd's arrival asks no more. */

@@ -28,7 +28,7 @@ export function profileSpriteLook(
   /** @type {{ gender?: string|null, outfit?: string|null }} */ who = {},
   /** @type {Record<string, any>} */ settings = {},
 ) {
-  const choice = settings['Graphics.LayeredGear'] ?? 0;
+  const choice = settings['Graphics.Paperdoll'] ? 0 : (settings['Graphics.LayeredGear'] ?? 0);
   const gender = layeredGenderOf(choice, who.gender ?? null);
   return {
     onFoot: settings['Graphics.OnFoot'] ?? 0,

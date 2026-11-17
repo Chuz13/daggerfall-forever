@@ -28259,6 +28259,11 @@
   "tr": "932e49103e5e",
   "by": "claude-in-session"
  },
+ "mods.eyeOfTheBeholder.Graphics.Paperdoll.description": {
+  "en": "503a302b1853",
+  "tr": "8c4eee8558b5",
+  "by": "claude-in-session"
+ },
  "mods.eyeOfTheBeholder.Graphics.MirrorTime.description": {
   "en": "76da2e90884f",
   "tr": "ae36ee1b38f1",
@@ -46629,6 +46634,11 @@
   "tr": "48b67bfdb4ac",
   "by": "claude-in-session"
  },
+ "skin.paperdoll.about": {
+  "en": "179564505ad5",
+  "tr": "d3576772f3e3",
+  "by": "claude-in-session"
+ },
  "skin.look": {
   "en": "b8db515e7ae6",
   "tr": "1bd77b892eea",
@@ -46637,6 +46647,11 @@
  "skin.mode.layered": {
   "en": "3283d395837c",
   "tr": "32ddef8de798",
+  "by": "claude-in-session"
+ },
+ "skin.mode.paperdoll": {
+  "en": "a615f7704b11",
+  "tr": "bdef6626b050",
   "by": "claude-in-session"
  },
  "skin.mode.skins": {

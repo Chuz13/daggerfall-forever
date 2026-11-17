@@ -64,12 +64,14 @@ import { MOD_SETTINGS, modSetting, setModSetting, storedModSetting } from '../sy
 import { spriteFor, eotbSpriteUrl } from '../player/eyeOfTheBeholder/eotbSprite.js';
 import { EOTB_FOOT_SET_COUNT } from '../player/classSkins.js';
 import { layeredPreviewUrl, layeredGenderOf, LAYERED_OWN } from '../player/eyeOfTheBeholder/layeredArmor.js'; // LAYERED-GEAR
+import { getPref, setPref } from '../systems/uiPrefs.js';
 import { t } from '../systems/textManager.js';
 
 const VENDOR = 'eye-of-the-beholder';
 const FOOT = 'Graphics.OnFoot';
 const HORSE = 'Graphics.OnHorse';
 const LAYERED = 'Graphics.LayeredGear'; // LAYERED-GEAR: 0 off, 1 female, 2 male, LAYERED_OWN the character's own (the default)
+const PAPERDOLL = 'Graphics.Paperdoll';
 
 /** LAYERED-GEAR: the body Layered Gearing was last worn in this session (1 female, 2 male; 0 none yet) - what turning
  *  it back on wears. */
@@ -119,6 +121,7 @@ export function wornSkin() {
     foot: modSetting(VENDOR, FOOT),
     horse: modSetting(VENDOR, HORSE),
     layered: modSetting(VENDOR, LAYERED) ?? 0,
+    paperdoll: modSetting(VENDOR, PAPERDOLL) === true,
     chosen: storedModSetting(VENDOR, FOOT) !== undefined,
     on: modSetting(VENDOR, 'Enabled') === true,
   };
@@ -213,7 +216,7 @@ export function skinCard(doc, { sets: offer = skinSets, gender = () => null } = 
     root.append(p);
   }
 
-  /** LAYERED-GEAR: the Look toggle - Skins or Layered Gearing, one radio each; a press switches the look at once. */
+  /** LAYERED-GEAR: the Look toggle - Skins, Layered Gearing or Paperdoll, one radio each; a press switches at once. */
   function lookToggle(layeredOn) {
     const row = el('div', 'skinmode');
     const word = t('skin.look', 'Look');
@@ -221,18 +224,22 @@ export function skinCard(doc, { sets: offer = skinSets, gender = () => null } = 
     const set = el('div', 'skinmodeset');
     set.setAttribute('role', 'radiogroup');
     set.setAttribute('aria-label', word);
+    const mode = modSetting(VENDOR, PAPERDOLL) === true ? null : layeredOn;
     for (const [on, name] of [
       [false, t('skin.mode.skins', 'Skins')],
       [true, t('skin.mode.layered', 'Layered Gearing (WIP)')],
+      [null, t('skin.mode.paperdoll', 'Paperdoll')],
     ]) {
-      const chosen = on === layeredOn;
+      const chosen = on === mode;
       const b = el('button', `skinmodebtn${chosen ? ' on' : ''}`, name);
       b.type = 'button';
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', chosen ? 'true' : 'false');
       b.onclick = () => {
         if (chosen) return;
+        setModSetting(VENDOR, PAPERDOLL, on === null);
         setModSetting(VENDOR, LAYERED, on ? layeredBodyToWear() : 0);
+        if (on === null && getPref('mwPlayerBody')) setPref('mwPlayerBody', false);
         open = null;
         paint();
       };
@@ -269,7 +276,8 @@ export function skinCard(doc, { sets: offer = skinSets, gender = () => null } = 
     root.append(
       el('p', 'meta', 'How you look in third person, and to other players who don\u2019t see you in a Morrowind body.'),
     );
-    const layeredOn = w.layered > 0;
+    const paperdollOn = !!w.paperdoll;
+    const layeredOn = !paperdollOn && w.layered > 0;
     const own = w.layered === LAYERED_OWN;
     if (w.layered === 1 || w.layered === 2) lastBody = w.layered;
     lookToggle(layeredOn);
@@ -301,6 +309,17 @@ export function skinCard(doc, { sets: offer = skinSets, gender = () => null } = 
         root.append(
           el('p', 'meta skinhint', t('skin.layered.own', "Your character's own body, until you choose one.")),
         );
+    } else if (paperdollOn) {
+      root.append(
+        el(
+          'p',
+          'meta',
+          t(
+            'skin.paperdoll.about',
+            'On foot you are drawn as your character sheet paperdoll without animations. On a horse you are drawn in your mounted skin.',
+          ),
+        ),
+      );
     } else {
       // the look sends only a CHOSEN set, so until one is pressed the others see this player's class
       if (!w.chosen)

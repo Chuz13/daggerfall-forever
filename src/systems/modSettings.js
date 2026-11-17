@@ -3750,6 +3750,15 @@ export const MOD_SETTINGS = Object.freeze({
           () => t('mods.eyeOfTheBeholder.skin.layeredOwn', 'Your own body'),
         ),
       }),
+      'Graphics.Paperdoll': Object.freeze({
+        default: false,
+        get description() {
+          return t(
+            'mods.eyeOfTheBeholder.Graphics.Paperdoll.description',
+            'On foot Paperdoll: drawn on foot as your character sheet paperdoll without animations',
+          );
+        },
+      }),
       'Graphics.ReadyStance': Object.freeze({
         default: 2,
         options: lazyWords(

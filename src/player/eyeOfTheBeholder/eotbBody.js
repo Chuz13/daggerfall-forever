@@ -51,7 +51,8 @@ import {
   DELAYED_FRAMES, ORIENTATION_TIME, signedAngleY, tableMoveSpeed, portrayedYaw,
 } from './eotbBillboard.js';
 import { spriteMarks, spriteArmsSeen } from '../../render/armoryPose.js';   // ARMORY: where the body stands in its own picture
-import { spriteFor, eotbSpriteUrl, spriteCount, spriteSize, spriteOffset, spriteArtScale, flipRows, worldOrderColors, lookedPixels, ridersReady, decodeSprite } from './eotbSprite.js';
+import { spriteFor, eotbSpriteUrl, spriteCount, spriteSize, spriteOffset, spriteArtScale, flipRows, worldOrderColors, lookedPixels, ridersReady, decodeSprite, SIZE_ON_FOOT } from './eotbSprite.js';
+import { composeWorldPaperDoll, worldPaperDollSig } from '../../ui/paperDoll.js';
 import { decodePng } from '../../systems/textureReplacement.js';   // EOTB-FLIP: the one PNG decoder the world's other PNG billboards take
 import { decodeServedPng } from '../../systems/vanillaEnhanced/vanillaEnhancedPack.js';   // FIRST-VISIT: and its decode workers
 import { isLayeredKey, decodeLayered, outfitOfSlots, outfitPieces, layeredGenderOf, LAYERED_ARCHIVE } from './layeredArmor.js';   // WORN-ARMOUR: the body in the armour it wears
@@ -138,14 +139,17 @@ export const FOOTSTEP_VOLUME_SCALE = Object.freeze({ thirdPerson: 2, firstPerson
 function look() {
   let s = {};
   try { s = modSettingsOf('eye-of-the-beholder'); } catch { s = {}; }
+  const paperdoll = !!s['Graphics.Paperdoll'];
+  const layeredChoice = paperdoll ? 0 : (s['Graphics.LayeredGear'] ?? 0);
   return {
     onFoot: s['Graphics.OnFoot'] ?? 0,
     onHorse: s['Graphics.OnHorse'] ?? 0,
     readyStance: s['Graphics.ReadyStance'] ?? 2,
     graphic: s['Graphics.Enable'] !== false,                   // "Toggle the player graphic" - ToggleBillboard's argument
-    wornArmour: layeredGenderOf(s['Graphics.LayeredGear']) != null,   // LAYERED-GEAR: the skin chosen on the profile (player/eyeOfTheBeholder/layeredArmor.js)
-    layeredChoice: s['Graphics.LayeredGear'] ?? 0,                    // LAYERED-GEAR-ON: the choice, LAYERED_OWN (the default) the character's own body
-    layeredGender: layeredGenderOf(s['Graphics.LayeredGear'], playerEntity?.gender),   // LAYERED-GEAR: and its body, female or male
+    wornArmour: layeredGenderOf(layeredChoice) != null,        // LAYERED-GEAR: the skin chosen on the profile (player/eyeOfTheBeholder/layeredArmor.js)
+    layeredChoice,                                             // LAYERED-GEAR-ON: the choice, LAYERED_OWN (the default) the character's own body
+    layeredGender: layeredGenderOf(layeredChoice, playerEntity?.gender),   // LAYERED-GEAR: and its body, female or male
+    paperdoll,
     turnToView: s['Graphics.TurnToView'] ?? 1,   // TURN-FREE: the port's default, not the bundle's (modSettings.js)
     attackStrings: s['Graphics.AttackStrings'] ?? 3,
     mirrorTime: s['Graphics.MirrorTime'] ?? 3,
@@ -234,7 +238,7 @@ const norm2 = (v) => { const l = Math.hypot(v[0], v[2]); return l > 0 ? [v[0] / 
 
 const handWeapon = () => { try { return equipTableOf(playerEntity)?.[HOLSTER_HAND_SLOT] ?? null; } catch { return null; } };
 
-export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, decode = decodeSprite, loadLantern = loadLanternArt, loadHolster = loadBackPicture, loadQuiver = loadQuiverArrow, loadBackShield = loadShieldPicture, holsterItem = null, glowOn = undefined, clock = () => Date.now() } = {}) {
+export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, decode = decodeSprite, loadLantern = loadLanternArt, loadHolster = loadBackPicture, loadQuiver = loadQuiverArrow, loadBackShield = loadShieldPicture, holsterItem = null, glowOn = undefined, clock = () => Date.now(), composeDoll = composeWorldPaperDoll, dollSig = worldPaperDollSig } = {}) {
   let renderer = null;
   /** the per-frame state thunk of the rig that owns the body (see attach) */
   let attachedState = null;
@@ -248,7 +252,11 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     // InitializeTextures does. Before this the body fetched the new set frame by frame as each was first drawn, and
     // until each landed its slot drew the OLD set's frame - a skin chosen on the pause screen walked away as two
     // people for a second. `preload` is a no-op for what is already up.
-    if (renderer && (was.onFoot !== cfg.onFoot || was.onHorse !== cfg.onHorse || was.wornArmour !== cfg.wornArmour || was.layeredGender !== cfg.layeredGender)) preload();
+    if (renderer && (was.onFoot !== cfg.onFoot || was.onHorse !== cfg.onHorse || was.wornArmour !== cfg.wornArmour || was.layeredGender !== cfg.layeredGender || was.paperdoll !== cfg.paperdoll)) {
+      preload();
+      if (cfg.paperdoll) ensurePaperdoll();
+    }
+    if (!cfg.paperdoll && pdUp) evictPaperdoll();
     return cfg;
   }
   /** the frame's state, as bodyState shapes it */
@@ -579,10 +587,58 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
    *  load, spread over the seconds a browser needs. PR-WW1: the lycan
    *  pair by the LIVE form (the mod builds it off the curse), and again,
    *  lycan tables alone, when the form changes (`onlyLycan`). */
+  const PAPERDOLL_ARCHIVE = 'eotb-paperdoll';
+  let pdSeq = 0;
+  let pdUp = null;
+  let pdInFlight = null;
+  let pdFailSig = null;
+  let pdRetryAt = 0;
+  const isPaperdollFoot = () => !!cfg.paperdoll && !(last.riding || last.transformed);
+  function evictPaperdoll() {
+    if (!pdUp) return;
+    const prevKey = `${PAPERDOLL_ARCHIVE}_${pdUp.rec}`;
+    renderer?.evictTexture?.(prevKey);
+    evictHeld(renderer, prevKey);
+    pdUp = null;
+  }
+  function ensurePaperdoll() {
+    if (!renderer) return null;
+    const sheathed = !!last.sheathed;
+    const sig = dollSig(playerEntity, { sheathed });
+    if (pdUp && pdUp.sig === sig && (!renderer.textures?.has || renderer.textures.has(`${PAPERDOLL_ARCHIVE}_${pdUp.rec}`))) return pdUp;
+    if (pdInFlight?.sig === sig) return pdUp;
+    if (pdFailSig === sig && clock() < pdRetryAt) return pdUp;
+    const req = { sig, promise: null };
+    pdInFlight = req;
+    const promise = Promise.resolve().then(() => composeDoll(playerEntity, { sheathed })).then((img) => {
+      if (!renderer || pdInFlight !== req) return;
+      pdInFlight = null;
+      if (!img?.width || !img?.height || !img?.colors) { pdFailSig = sig; pdRetryAt = clock() + 100; return; }
+      const rec = `pd_${++pdSeq}`;
+      evictPaperdoll();
+      renderer.uploadTexture(PAPERDOLL_ARCHIVE, rec, { width: img.width, height: img.height, colors: img.colors });
+      const sizeArt = (img.height * SIZE_ON_FOOT) / STANDING_HEIGHT;
+      const marksArt = img.height / 105;
+      pdUp = {
+        rec, sig, w: img.width, h: img.height, sizeArt,
+        marks: spriteMarks(img.colors, img.width, img.height, { arms: true, art: marksArt }),
+        held: heldGlowPx(img.colors, img.held, img.width, img.height, false),
+        heldOff: heldGlowPx(img.colors, img.held, img.width, img.height, false, 2),
+      };
+      pdFailSig = null; pdRetryAt = 0; firstUp = true;
+    }, () => {
+      if (pdInFlight !== req) return;
+      pdInFlight = null; pdFailSig = sig; pdRetryAt = clock() + 100;
+    });
+    req.promise = promise;
+    return pdUp;
+  }
+
   function preload(onlyLycan = false) {
     const lk = lookNow();
     preloadedForm = lk.lycanthropyType;
     if (!onlyLycan) preloadedLook = lk.horse;
+    if (!onlyLycan && cfg.paperdoll) ensurePaperdoll();
     for (const table of Object.keys(STATE_TABLES)) {
       if (onlyLycan && !table.endsWith('Lycan')) continue;
       for (let f = 0; f < frameCount(table); f++) {
@@ -958,8 +1014,9 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
    *  the answer is that centre less half the size (EOTB-FEET below). */
   function place() {
     if (!shown || !batchSize) return null;
-    const sp = spriteFor(shown.table, shown.orientation, shown.frame, lookNow());   // PR-WW1: the live form's archive
-    const xml = spriteOffset(sp.archive, sp.record);
+    const paperdoll = isPaperdollFoot();
+    const sp = paperdoll ? null : spriteFor(shown.table, shown.orientation, shown.frame, lookNow());   // PR-WW1: the live form's archive
+    const xml = paperdoll ? { scale: 1, x: 0, y: 0 } : spriteOffset(sp.archive, sp.record);
     const size = batchSize;
     const h = last.height;
     const yaw = cam.yaw, sy = Math.sin(yaw), cy = Math.cos(yaw);
@@ -1027,6 +1084,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       // same thunk is the same rig, and nothing is redone; a different
       // pair is another host's rig taking the body over.
       if (r && r === renderer && playerState === attachedState) return this;
+      if (r !== renderer) { pdUp = null; pdInFlight = null; pdFailSig = null; pdRetryAt = 0; }
       attachedState = playerState ?? null;
       clipSwing = null;   // AUDIT PRE-MERGE 0929 S1: another rig's blows count from its own start - its first is always new
       renderer = r || null;
@@ -1112,11 +1170,17 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       // the first-person billboard stands ON the camera point (IL_3e48-IL_3e6d):
       // the parent's head, so the orientation reads 0 through the zero vector
       if (FP) cam.pos = [cam.feet[0], cam.feet[1] + FP_HEAD, cam.feet[2]];
+      if (renderer && cfg.paperdoll) ensurePaperdoll();
       if (!activeFlag) return { table: stateCurrent, frame: frameCurrent, clip: null };
       update(dt);
       runDelayed();
       advanceClip(dt);
       lateUpdate(dt);
+      if (isPaperdollFoot()) {
+        isAnimating = null; animating = false; pending.length = 0;
+        stateCurrent = 'Idle'; stateLast = 'Idle'; frameCurrent = 0; lastOrientation = 0; orientationChosen = 0;
+        shown = { table: 'Idle', orientation: 0, frame: 0, mirror: false, flip: false };
+      }
       stepLantern(dt);   // HT-WAIST: not the IL's - the lantern at the waist, after the frame the mod ran
       return { table: stateCurrent, frame: frameCurrent, clip: isAnimating ? { table: isAnimating.table, i: isAnimating.i, phase: isAnimating.phase } : null };
     },
@@ -1129,32 +1193,37 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       if (feet) cam.feet = feet;
       if (Number.isFinite(yaw)) cam.yaw = yaw;
       if (eye && !FP) cam.pos = eye;
-      // [IL] IL_3dd4-IL_3ddf: the visible first-person billboard faces
-      // AWAY from the camera - a quad seen from its back, the picture
-      // mirrored
-      const flipView = FP && cfg.visibility === 2;
-      const lk = lookNow();
-      const s = spriteFor(shown.table, shown.orientation, shown.frame, lk, { flip: shown.flip !== flipView });   // PR-WW1: the live form's archive (112381 the wereboar)
       // OW-BIG (2026-09-28, Mac: "The player sprite needs to appear larger"): under the travel view the sprite is drawn
       // `face.grow` times its size (player/travelCamera.js tvOwnGrow) - a party's icon from the Overworld's height, not
       // a speck; whole steps, the batch made again at each
       const grow = face && face.grow > 1 ? face.grow : 1;
-      const up = ensure(s);
+      const paperdoll = isPaperdollFoot();
+      const flipView = FP && cfg.visibility === 2;
+      const lk = paperdoll ? null : lookNow();
+      const s = paperdoll ? null : spriteFor(shown.table, shown.orientation, shown.frame, lk, { flip: shown.flip !== flipView });   // PR-WW1: the live form's archive (112381 the wereboar)
+      const up = paperdoll ? ensurePaperdoll() : ensure(s);
+      if (paperdoll && !up && !batchRec?.startsWith(`${PAPERDOLL_ARCHIVE}:`)) return false;
       if (up) {
-        releaseOutfits(s, lk);   // AUDIT FB1022d D4: the new outfit up - the last one goes
-        const xml = spriteOffset(s.archive, s.record);
+        if (!paperdoll) releaseOutfits(s, lk);   // AUDIT FB1022d D4: the new outfit up - the last one goes
+        const xml = paperdoll ? { scale: up.sizeArt, x: 0, y: 0 } : spriteOffset(s.archive, s.record);
         const size = spriteSize(up.w, up.h, { riding: last.riding, transformed: last.transformed, scale: cfg.scale }, xml.scale);
-        const key = `${cacheKey(s)}|${grow}`;
+        const arch = paperdoll ? PAPERDOLL_ARCHIVE : s.archive, rec = paperdoll ? up.rec : s.rec;
+        const key = paperdoll ? `${PAPERDOLL_ARCHIVE}:${up.rec}|${grow}|${cfg.scale}` : `${cacheKey(s)}|${grow}`;
         if (!batch || batchRec !== key) {
           if (batch) renderer.destroyBillboardBatch?.(batch);
-          batch = renderer.createBillboardBatch(s.archive, s.rec, grow > 1 ? { w: size.w * grow, h: size.h * grow } : size, [[0, 0, 0]]);
+          batch = renderer.createBillboardBatch(arch, rec, grow > 1 ? { w: size.w * grow, h: size.h * grow } : size, [[0, 0, 0]]);
           batch.origin = [0, 0, 0];
           batch.selfCard = grow === 1;   // DISC24-C: the player's own body - it casts as drawn, into the maps redrawn every frame (render/shadowPass.js SELF CARD); OW-BIG: a grown one casts no giant's shadow
           batch.noShadow = grow > 1;   // AUDIT OW5 R2: OW-BIG's giant casts NOTHING - selfCard off was never that (render/shadowPass.js: it only keeps the card out of the lamps' maps when it is not the player's own; the sun's cascades drew the tenfold card, a fifty-metre shadow at a low sun, and the lamps' maps baked it)
           batchRec = key;
         }
-        batchSize = size; batchPx = up.h; batchPxW = up.w; batchArt = spriteArtScale(s.archive, s.record); batchMarks = up.marks ?? null; batchHeld = up.held ?? null;
-        batchHeldOff = up.heldOff ?? null; batchPair = s.pair ?? null;   // AUDIT: a pair's second weapon, and whose is on the line
+        const activeLeft = paperdoll && !last.pairRight && !last.pairLeft && handItemNow()?.equipSlot === 21;
+        batchSize = size; batchPx = up.h; batchPxW = up.w;
+        batchArt = paperdoll ? up.sizeArt : spriteArtScale(s.archive, s.record);
+        batchMarks = up.marks ?? null;
+        batchHeld = activeLeft && up.heldOff?.idx?.length ? up.heldOff : (up.held ?? null);
+        batchHeldOff = up.heldOff ?? null;
+        batchPair = paperdoll ? (up.heldOff?.idx?.length && last.pairRight && last.pairLeft ? 'R' : null) : (s.pair ?? null);   // AUDIT: a pair's second weapon, and whose is on the line
       }
       if (!batch) return false;                 // nothing up yet: the last sprite stays until one is
       const c = place();
@@ -1182,9 +1251,9 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       if (!FP || cfg.visibility === 2) renderer.drawBillboards([batch], camRight, bbUp);
       else if (cfg.visibility === 1) renderer.recordShadowBillboards?.([batch], camRight, bbUp);
       if (grow === 1) drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body - OW-BIG: a grown body's waist is not where the lantern hangs
-      if (grow === 1) drawHolster(camRight); else dropHolster();   // BACK-HOLSTER: the weapon on the back, after the body (OW-BIG's rule too)
-      if (grow === 1) drawQuiver(camRight); else dropQuiver();   // QUIVER: and a bow's quiver
-      if (grow === 1) drawBackShield(camRight); else dropBackShield();   // BACK-SHIELD: and a sheathed shield, over the weapon
+      if (!paperdoll && grow === 1) drawHolster(camRight); else dropHolster();   // BACK-HOLSTER: the weapon on the back, after the body (OW-BIG's rule too)
+      if (!paperdoll && grow === 1) drawQuiver(camRight); else dropQuiver();   // QUIVER: and a bow's quiver
+      if (!paperdoll && grow === 1) drawBackShield(camRight); else dropBackShield();   // BACK-SHIELD: and a sheathed shield, over the weapon
       // BACK-HOLSTER GLOW: drawn, the weapon's glow - in third person, on foot, alive, in your own form; LAYERED-GLOW:
       // round a worn-armour body's weapon alone, else the whole sprite
       const drawn = grow === 1 && !FP && !last.sheathed && !last.toolInHand && !last.riding && !last.transformed && !died && !last.died && !material();
