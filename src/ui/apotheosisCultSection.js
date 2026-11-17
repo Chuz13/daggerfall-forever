@@ -870,7 +870,15 @@ function renderEdictsView(detail, entity, nowMin, repaint, setFeedback) {
       setFeedback,
       onRun: () => {
         const r = proclaimRegionalEdict(entity, cultEdictRegion, eid, { nowMinutes: nowMin });
-        setFeedback(r.ok ? t('apotheosis.edict.proclaimedHud', 'Edict proclaimed across the region for 30 days!') : r.reason, !r.ok);
+        let msg = r.ok ? t('apotheosis.edict.proclaimedHud', 'Edict proclaimed across the region for 30 days!') : r.reason;
+        if (r.ok && r.petitionCompleted?.completed) {
+          msg += ' ' + t('apotheosis.petition.completedHud', 'Cult Petition Completed: +{faith} Faith, +{gold}g, +{inf}% Influence!', {
+            faith: r.petitionCompleted.faithGained,
+            gold: r.petitionCompleted.goldGained,
+            inf: r.petitionCompleted.influenceGained,
+          });
+        }
+        setFeedback(msg, !r.ok);
         repaint();
       },
     }));
@@ -935,7 +943,7 @@ export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', 
           ? t('apotheosis.petition.descDesecrate', 'Desecrate a roadside shrine of {god} in this region (3x reward on wild roads!).', { god: pet.godName })
           : t('apotheosis.petition.descEdict', 'Proclaim any Regional Edict in this region to guide the faithful.');
       petBox.append(
-        uiEl('div', 'apo-card-title', `${t('apotheosis.petition.modalTitle', 'Pilgrim Petition')} · ${regName} (#${pet.targetRegion + 1})`),
+        uiEl('div', 'apo-card-title', `${t('apotheosis.petition.modalTitle', 'Pilgrim Petition')} · ${regName} (#${pet.targetRegion})`),
         uiEl('div', 'apo-card-desc', desc),
         uiEl('div', 'apo-meta-row', t('apotheosis.petition.rewardLine', 'Reward: +{faith} Faith · +{gold}g · +{inf}% Influence', {
           faith: pet.rewardFaith,

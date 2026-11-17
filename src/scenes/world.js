@@ -28931,9 +28931,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     groundAt: surfaceAt,
     worldMinutes: minuteNow,
     spawnExteriorFoe: (mob, pos, opts) => exteriorFoes?.spawnFoe?.(mob, pos, opts),
+    townTalk,
+    placeFeet: (feet, yaw) => {
+      player.spawn(feet[0], feet[1], feet[2]);
+      playerSpawned = true;
+      if (Number.isFinite(yaw)) cam.yaw = yaw;
+      cam.pitch = 0;
+      cam.pos = player.eyeAt();
+    },
+    playerPos: () => (walkMode ? player.pos : cam.pos),
   });
   let _lastRoadBlessingMin = minuteNow();
-  const _travelIgnoredKeys = new Set();
+  const _travelIgnoredPositions = new Map();
   let _travelLastProbeAt = 0;
   const _activeHomeDecor = homeDecor || {
     list: (...a) => isOfflineHousingActive() ? _offlineDecor.list(...a) : Promise.resolve({ ok: false }),
@@ -30375,7 +30384,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     isNearCultHatch: (siteKey) => cultHost?.isNearSiteHatch?.(siteKey) ?? false,
     spawnCultHatchAlarm: (siteKey) => cultHost?.spawnAlarmOutside?.(siteKey) ?? false,
     getTextureIconUrl: (a, r) => loadIcon(a, r, { scale: 1 }),
-    teleportCultTarget: (kind) => cultHost?.teleportNearCultTarget?.(kind) ?? { ok: false, message: 'Cult runtime unavailable.' },
+    teleportCultTarget: (kind) => (kind === 'shrine'
+      ? (roadShrinesHost?.teleportNearRoadShrine?.() ?? { ok: false, message: 'Road shrines runtime unavailable.' })
+      : (cultHost?.teleportNearCultTarget?.(kind) ?? { ok: false, message: 'Cult runtime unavailable.' })),
     getCultCity: () => ({ mapId: _questLoc()?.mapTableData?.mapId ?? 0, regionIndex: _questRegionIndex(), locationName: _questLoc()?.name ?? '' }),
     tele2pixel: async (px, py) => {
       const x = Number(px);
@@ -32825,7 +32836,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // (0x7d1), not a frame-tail chore.
     if (restoresSoFar() !== _portalRestores) { _portalRestores = restoresSoFar(); portalGates.clear(); livingDivers?.clear(); livingRemains?.clear(); _livingRemainsPlace.clear(); }   // PORTAL1: A LOAD ENDS EVERY PORTAL STANDING - asked at the one door every load passes (save.js restorePlayer: the world's, a classic import, a dungeon's own), so no branch of any load keeps one (AUDIT PORTAL1 U9); the save's pack is the truth. AUDIT LW-II-2 D2: and LETS THE DEEP'S LAYERS GO - a same-dungeon load keeps the pool, so the divers read the bodies its rewind cut as cut down beside the player (a death, a slaying, in the loaded game) and the remains a pile it wiped as taken (spent); met and laid again from the save's world
     if (_bootLoaded) { const gift = takePortalGiftNotice(); if (gift) townTalk.say(PORTAL_TEXT.gift(gift)); }   // PORTAL-GIFT: the stones a load gave, said once the world stands - every load's (the boot's, F9's, a dungeon's own), in every mode
-    if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') { closeBrokerDoor(); sigilBroker?.destroyAll(); }   /* AUDIT SET W2: the street left (the gate's court entered under the veil's 1.2 s, an interior, a travel) - her window shut and her post down, never carried in */ if (_torchesMode === 'exterior') lefay?.destroyAll();   /* LEFAY1: the monument's collider down, never carried in */ if (_torchesMode === 'exterior') roadShrinesHost?.destroyAll(); if (_torchesMode === 'exterior') poiHost?.standDown();   /* POI-2: the POIs' colliders down, never carried in - AUDIT POI R8: their models kept, placed again on the way out */ portalGates.forgetSteps(); _torchesMode = _mode(); }   // HT1; PORTAL1: the step forgotten at every change of place
+    if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') { closeBrokerDoor(); sigilBroker?.destroyAll(); }   /* AUDIT SET W2: the street left (the gate's court entered under the veil's 1.2 s, an interior, a travel) - her window shut and her post down, never carried in */ if (_torchesMode === 'exterior') lefay?.destroyAll();   /* LEFAY1: the monument's collider down, never carried in */ if (_torchesMode === 'exterior') { roadShrinesHost?.destroyAll(); _travelIgnoredPositions.clear(); } if (_torchesMode === 'exterior') poiHost?.standDown();   /* POI-2: the POIs' colliders down, never carried in - AUDIT POI R8: their models kept, placed again on the way out */ portalGates.forgetSteps(); _torchesMode = _mode(); }   // HT1; PORTAL1: the step forgotten at every change of place
     if (modes.frame(dt, now)) {
       if (_wodInside) { _wodInside = false; _wodArrival = wodArrivalOf([]); }   // WOD6: inside - the arrival's markers meet Start on the way out, from the player
       if (!skyInside) { skyInside = true; sky.setInside(true); }   // DS1: InteriorTransitionEvent
@@ -33107,10 +33118,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           _travelDrive = report?.drive?.arrived === false ? report.drive : null;
           if (report?.stopped) _walkStopWhy = report.stopped;   // AUDIT OW4 P4: a journey that cannot run as I am (systems/party/partyWalk.js WALK_BALKS) is not the party's to set out again
           if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale() && !tvWalkHoldsTimeScale()) resetTimeScale();   // the panel gone is the journey over (CSA-G: the helm's scale is no journey's; TV-WASD: nor the keys')
-          if (!travelOptions.isTravelActive) {
-            _travelIgnoredKeys.clear();
-          } else if (
-            travelOptions.state?.autopilot
+          if (
+            travelOptions.isTravelActive
+            && travelOptions.state?.autopilot
             && (modes?.mode ?? 'exterior') === 'exterior'
             && !townTalk.overlayActive
             && !(modes?.overlayHeld ?? false)
@@ -33120,9 +33130,18 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             if (intMode !== 'off' && (now - _travelLastProbeAt) >= 0.25) {
               _travelLastProbeAt = now;
               const pPos = walkMode ? player.pos : cam.pos;
+              // Only clear ignore memory once the player has walked >30m away from that node instance
+              for (const [ik, ipos] of _travelIgnoredPositions.entries()) {
+                const idx = ipos[0] - pPos[0];
+                const idz = ipos[1] - pPos[2];
+                if (idx * idx + idz * idz > 900) _travelIgnoredPositions.delete(ik);
+              }
               let hit = null;
               for (const sh of roadShrinesHost?.nearbyShrines?.(pPos, 10) ?? []) {
-                if (!_travelIgnoredKeys.has(sh.key)) { hit = { key: sh.key, title: sh.title }; break; }
+                if (!_travelIgnoredPositions.has(sh.key)) {
+                  hit = { key: sh.key, title: sh.title, x: sh.pos?.[0] ?? pPos[0], z: sh.pos?.[2] ?? pPos[2] };
+                  break;
+                }
               }
               if (!hit && intMode === 'all') {
                 const pools = [
@@ -33133,7 +33152,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
                   ...(riteHost?.targets?.() ?? []),
                 ];
                 for (const tObj of pools) {
-                  if (!tObj?.key || !tObj?.aabb || _travelIgnoredKeys.has(tObj.key)) continue;
+                  if (!tObj?.key || !tObj?.aabb || _travelIgnoredPositions.has(tObj.key)) continue;
                   const cx = (tObj.aabb.min[0] + tObj.aabb.max[0]) * 0.5;
                   const cz = (tObj.aabb.min[2] + tObj.aabb.max[2]) * 0.5;
                   const dx = cx - pPos[0];
@@ -33144,32 +33163,72 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
                       const r = fn(tObj.key);
                       if (r?.title) { title = r.title; break; }
                     }
-                    if (title) { hit = { key: tObj.key, title }; break; }
+                    if (title) { hit = { key: tObj.key, title, x: cx, z: cz }; break; }
+                  }
+                }
+              }
+              // Lone road travelers (`livingRoads`) outside settlement interiors
+              if (!hit && intMode === 'all' && !_musicInLocationRect()) {
+                const roadFolks = livingRoads?.talkSeats?.() ?? [];
+                for (const p of roadFolks) {
+                  if (!p || p.dead || p.person?.dead || !p.pos) continue;
+                  const dx = p.pos[0] - pPos[0];
+                  const dz = p.pos[2] - pPos[2];
+                  if (dx * dx + dz * dz <= 100) {
+                    const name = mobilePersonName(p.person?.nameNPC);
+                    if (!name) continue;
+                    const rKey = `roadPerson:${p.id ?? name}`;
+                    if (_travelIgnoredPositions.has(rKey)) continue;
+                    hit = { key: rKey, title: name, x: p.pos[0], z: p.pos[2] };
+                    break;
+                  }
+                }
+              }
+              // Peaceful roadside Living Tamriel encounters / campfires (`exteriorFoes`)
+              if (!hit && intMode === 'all') {
+                const extFoes = exteriorFoes?.foes ?? [];
+                for (let i = 0; i < extFoes.length; i++) {
+                  const f = extFoes[i];
+                  if (!f || f.dead || f.ai?.isHostile) continue;
+                  if (!f.livingSiteId && !f.livingRole) continue;
+                  const fp = f.ai?.feet ?? f.feet ?? f.pos;
+                  if (!fp) continue;
+                  const dx = fp[0] - pPos[0];
+                  const dz = fp[2] - pPos[2];
+                  if (dx * dx + dz * dz <= 100) {
+                    const siteKey = `livingSite:${f.livingSiteId ?? f.livingRole}`;
+                    if (_travelIgnoredPositions.has(siteKey)) continue;
+                    const title = exteriorFoes.liveHoverName?.(`foe:${i}`)?.title
+                      ?? t('living.travel.caravan', 'Roadside Camp');
+                    hit = { key: siteKey, title, x: fp[0], z: fp[2] };
+                    break;
                   }
                 }
               }
               if (hit) {
+                // Record immediately so resuming travel after stopping here won't re-prompt for this same node
+                _travelIgnoredPositions.set(hit.key, [hit.x, hit.z]);
                 resetTimeScale();
                 townTalk.showOverlay(new ChoiceWindow({
                   lines: [
-                    localizedText('apotheosis.travelInterrupt.title', 'Ahead by the road: {name}', { name: hit.title }),
-                    localizedText('apotheosis.travelInterrupt.ask', 'Interrupt fast travel to inspect?'),
+                    t('apotheosis.travelInterrupt.title', 'Ahead by the road: {name}', { name: hit.title }),
+                    t('apotheosis.travelInterrupt.ask', 'Interrupt fast travel to inspect?'),
                   ],
                   options: [
                     {
                       code: 'Digit1',
-                      label: `1 - ${localizedText('apotheosis.travelInterrupt.yes', 'Yes, stop here')}`,
+                      label: `1 - ${t('apotheosis.travelInterrupt.yes', 'Yes, stop here')}`,
                       action: () => { travelOptions.interruptTravel(); },
                     },
                     {
                       code: 'Digit2',
-                      label: `2 - ${localizedText('apotheosis.travelInterrupt.no', 'No, keep travelling')}`,
-                      action: () => { _travelIgnoredKeys.add(hit.key); },
+                      label: `2 - ${t('apotheosis.travelInterrupt.no', 'No, keep travelling')}`,
+                      action: () => {},
                     },
                     {
                       code: 'Escape',
-                      label: `Esc - ${localizedText('apotheosis.travelInterrupt.no', 'No, keep travelling')}`,
-                      action: () => { _travelIgnoredKeys.add(hit.key); },
+                      label: '',
+                      action: () => {},
                     },
                   ],
                 }));

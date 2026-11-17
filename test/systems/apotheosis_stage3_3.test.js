@@ -34,6 +34,7 @@ import {
   notifyCultPetitionProgress,
 } from '../../src/systems/apotheosis/apotheosisCore.js';
 import { statusTiles } from '../../src/ui/hud/hudStatus.js';
+import { createApotheosisRoadShrinesHost } from '../../src/scenes/apotheosisRoadShrinesHost.js';
 import { createRegionConditions } from '../../src/systems/region/regionConditions.js';
 import { maxFatigue } from '../../src/systems/statMods.js';
 
@@ -241,8 +242,8 @@ test('Stage 3.3: Pilgrim Petitions lifecycle (3d cooldown, Wild 3x desecrate com
   // Cooldown prevents immediate re-issue before 3 days (4320 min)
   assert.equal(ensureCultPetition(ent, { regionIndex: 17, nowMinutes: 6200 }), null);
 
-  // After 3 days, force an edict petition (rng = 0.9 -> edict) and proclaim edict to auto-complete
-  const pet2 = ensureCultPetition(ent, { regionIndex: 17, nowMinutes: 6000 + CULT_PETITION_COOLDOWN_MINUTES + 10, rng: () => 0.9 });
+  // After 3 days, equal 1/3 weights: 0.75 -> edict; proclaim edict auto-completes even across currentRegionIndex
+  const pet2 = ensureCultPetition(ent, { regionIndex: 17, nowMinutes: 6000 + CULT_PETITION_COOLDOWN_MINUTES + 10, rng: () => 0.75 });
   assert.ok(pet2);
   assert.equal(pet2.type, 'edict');
   const edRes = proclaimRegionalEdict(ent, 17, 'prosperity', { nowMinutes: 11000, force: true });
@@ -250,9 +251,44 @@ test('Stage 3.3: Pilgrim Petitions lifecycle (3d cooldown, Wild 3x desecrate com
   assert.equal(edRes.petitionCompleted?.completed, true);
   assert.equal(getActiveCultPetition(ent, 11000), null);
 
-  // Dismiss works cleanly
+  // Inquisition petition defaults to 3 inquisitors & dismiss works cleanly
   const pet3 = ensureCultPetition(ent, { regionIndex: 17, nowMinutes: 20000, rng: () => 0.1, force: true });
   assert.ok(pet3);
+  assert.equal(pet3.type, 'inquisition');
+  assert.equal(pet3.goal, 3);
   assert.equal(dismissCultPetition(ent).ok, true);
   assert.equal(getActiveCultPetition(ent, 20000), null);
+});
+
+test('Stage 3.3 Polish: Roadside Shrines activate with interaction mode string & teleportNearRoadShrine locates nearby shrine', () => {
+  const overlays = [];
+  const teleports = [];
+  const fakePixels = new Map([
+    ['100,100', {
+      px: 100,
+      py: 100,
+      homeTown: 555,
+      homeRegion: 17,
+      homeFrames: new Map(),
+      locationRect: { xMin: 20, xMax: 44, yMin: 20, yMax: 44 },
+    }],
+  ]);
+  const host = createApotheosisRoadShrinesHost({
+    built: () => fakePixels,
+    state: { pixelTranslation: () => [0, 0, 0] },
+    groundAt: () => 5,
+    worldMinutes: () => 5000,
+    townTalk: { showOverlay: (w) => overlays.push(w), say: () => {} },
+    placeFeet: (feet, yaw) => teleports.push({ feet, yaw }),
+    playerPos: () => [0, 5, 0],
+  });
+  host.frame();
+  const tgts = host.targets();
+  assert.ok(tgts.length >= 2, 'Town without road tilemap still places 2 perimeter roadside shrines');
+  assert.equal(host.activate(tgts[0].key, 'info'), true, 'Activation works when worldModes passes mode string instead of opts object');
+  assert.equal(overlays.length, 1);
+
+  const tpRes = host.teleportNearRoadShrine();
+  assert.equal(tpRes.ok, true);
+  assert.equal(teleports.length, 1);
 });

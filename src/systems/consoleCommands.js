@@ -3112,12 +3112,12 @@ async function handleApotheosisCommand(args = []) {
       const ok = await sceneCtx.apotheosisEnterOrrery();
       return ok ? 'Entered the Cut Clockwork Orrery (Shadow of the Agent arena).' : 'Failed to enter Cut Clockwork Orrery.';
     }
-    if (dest === 'daedra' || dest === 'hatch' || dest === 'player' || dest === 'temple' || dest === 'undercroft' || dest === 'altar') {
+    if (dest === 'daedra' || dest === 'hatch' || dest === 'player' || dest === 'temple' || dest === 'undercroft' || dest === 'altar' || dest === 'shrine') {
       if (!sceneCtx?.teleportCultTarget) return 'Cult local teleport unavailable (load a settlement first).';
       const res = await sceneCtx.teleportCultTarget(dest);
       return res?.message ?? (res?.ok ? `Teleported near ${dest}.` : `Target "${dest}" not found in this settlement.`);
     }
-    return 'Usage: apo tp <direnni | zerostone | mantella | orrery | daedra | player | temple | altar>';
+    return 'Usage: apo tp <direnni | zerostone | mantella | orrery | daedra | player | temple | altar | shrine>';
   }
   if (sub === 'quest') {
     const step = String(args[1] ?? 'start').toLowerCase();
@@ -3393,12 +3393,15 @@ async function handleApotheosisCommand(args = []) {
       const res = proclaimRegionalEdict(playerEntity, targetReg, edictId, { nowMinutes: nowMin, force: true });
       if (!res.ok) return res.reason;
       if (res.cleared) return `Cleared Regional Edict in region #${targetReg}.`;
-      return `Proclaimed ${res.edict.edictId} edict in region #${targetReg} (${res.edict.daysRemaining}d remaining).`;
+      const petSuffix = res.petitionCompleted?.completed
+        ? ` (Pilgrim Petition completed: +${res.petitionCompleted.faithGained} Faith, +${res.petitionCompleted.goldGained}g, +${res.petitionCompleted.influenceGained}% Influence!)`
+        : '';
+      return `Proclaimed ${res.edict.edictId} edict in region #${targetReg} (${res.edict.daysRemaining}d remaining).${petSuffix}`;
     }
     if (act === 'tp') {
       const target = String(args[2] ?? 'daedra').toLowerCase();
-      if (!['daedra', 'hatch', 'player', 'temple', 'undercroft', 'altar'].includes(target)) {
-        return 'Usage: apo cult tp <daedra|hatch|player|temple|altar>';
+      if (!['daedra', 'hatch', 'player', 'temple', 'undercroft', 'altar', 'shrine'].includes(target)) {
+        return 'Usage: apo cult tp <daedra|hatch|player|temple|altar|shrine>';
       }
       if (!sceneCtx?.teleportCultTarget) return 'Cult local teleport unavailable (load a settlement first).';
       const res = await sceneCtx.teleportCultTarget(target);

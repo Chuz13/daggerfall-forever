@@ -64,6 +64,35 @@ function pickRoadsideDeityFoe(godId, idx = 0) {
  * Creates the exterior Roadside Shrines host.
  * @param {object} deps
  */
+function pickRoadShoulderOffset(p, tx, tz, seed = 0, fallbackDx = 1, fallbackDz = 0) {
+  const dirs = [];
+  if (p?.tilemapBytes || p?.paths) {
+    const cardinals = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (const [dx, dz] of cardinals) {
+      const nx = tx + dx;
+      const nz = tz + dz;
+      if (nx >= 0 && nx < TERRAIN_TILE_DIM && nz >= 0 && nz < TERRAIN_TILE_DIM && !isRoadTileAt(p, nx, nz)) {
+        dirs.push([dx, dz]);
+      }
+    }
+    if (dirs.length === 0) {
+      const diags = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
+      for (const [dx, dz] of diags) {
+        const nx = tx + dx;
+        const nz = tz + dz;
+        if (nx >= 0 && nx < TERRAIN_TILE_DIM && nz >= 0 && nz < TERRAIN_TILE_DIM && !isRoadTileAt(p, nx, nz)) {
+          dirs.push([dx, dz]);
+        }
+      }
+    }
+  }
+  const chosen = dirs.length ? dirs[Math.abs(seed) % dirs.length] : [fallbackDx, fallbackDz];
+  const len = Math.hypot(chosen[0], chosen[1]) || 1;
+  // Center of road tile to its outer curb is RMB_TILE_SIDE * 0.5 (~3.2m); step +1.2..1.9m onto grass shoulder
+  const dist = (RMB_TILE_SIDE * 0.5) + 1.2 + (Math.abs(seed) % 7) * 0.11;
+  return [(chosen[0] / len) * dist, (chosen[1] / len) * dist];
+}
+
 export function createApotheosisRoadShrinesHost({
   built,
   renderer,
@@ -72,11 +101,15 @@ export function createApotheosisRoadShrinesHost({
   groundAt,
   worldMinutes,
   spawnExteriorFoe,
+  townTalk,
+  placeFeet,
+  playerPos,
 } = {}) {
   const _shrines = new Map();
   let _pedestalGpu = null;
-  let _pedestalScale = 0.85;
-  let _pedestalHeight = 0.85;
+  let _pedestalHeight = 0.42;
+  let _pedestalScale = 0.42;
+  let _pedestalMinY = 0;
   let _pedestalLoading = false;
   const _statueBatches = new Map(); // shrineId -> { key, batch }
 
@@ -90,8 +123,10 @@ export function createApotheosisRoadShrinesHost({
         if (cpu?.positions) {
           const box = worldAabb(cpu.positions, yRotationMatrix([0, 0, 0], 0, 1));
           const rawH = Math.max(0.25, box.max[1] - box.min[1]);
-          _pedestalHeight = 0.85;
+          _pedestalHeight = 0.42;
           _pedestalScale = _pedestalHeight / rawH;
+          _pedestalMinY = box.min[1];
+          _statueBatches.clear();
         }
       }
       _pedestalLoading = false;
@@ -101,7 +136,7 @@ export function createApotheosisRoadShrinesHost({
   function ensureStatueBatch(shrine) {
     if (!renderer?.createBillboardBatch || !pipeline?.getTexture) return null;
     const flat = DEITY_DEFAULT_ALTAR_BY_GOD[shrine.godId] ?? DEITY_DEFAULT_ALTAR_FLAT;
-    const wantKey = `${flat.archive}:${flat.record}:${Math.round(shrine.worldPos[0] * 10)}:${Math.round(shrine.worldPos[2] * 10)}`;
+    const wantKey = `${flat.archive}:${flat.record}:${Math.round(_pedestalHeight * 100)}:${Math.round(shrine.worldPos[0] * 10)}:${Math.round(shrine.worldPos[2] * 10)}`;
     const cached = _statueBatches.get(shrine.shrineId);
     if (cached?.key === wantKey) return cached.batch ?? null;
 
@@ -116,7 +151,7 @@ export function createApotheosisRoadShrinesHost({
       const rawW = Number(raw?.w) || 0.9;
       const targetH = Math.max(1.15, Math.min(1.65, rawH));
       const sc = rawH > 0 ? (targetH / rawH) : 1;
-      const basePos = [shrine.worldPos[0], shrine.worldPos[1] + _pedestalHeight * 0.92, shrine.worldPos[2]];
+      const basePos = [shrine.worldPos[0], shrine.worldPos[1] + _pedestalHeight - 0.04, shrine.worldPos[2]];
       slot.batch = renderer.createBillboardBatch(flat.archive, rec, { w: rawW * sc, h: targetH }, [basePos]);
     }).catch(() => {});
     return null;
@@ -163,7 +198,9 @@ export function createApotheosisRoadShrinesHost({
     const tVec = [0, 0, 0];
 
     for (const p of pixels.values()) {
-      if (!p?.tilemapBytes && !p?.paths) continue;
+      if (!p) continue;
+      const hasRoadData = Boolean(p.tilemapBytes || p.paths);
+      if (!p.homeTown && !hasRoadData) continue;
       const pxT = state.pixelTranslation?.(p.px, p.py, tVec) ?? [0, 0, 0];
       const reg = Number.isInteger(p.homeRegion) ? p.homeRegion : (Number.isInteger(p.regionIndex) ? p.regionIndex : (playerEntity?.currentRegionIndex ?? 0));
 
@@ -171,32 +208,50 @@ export function createApotheosisRoadShrinesHost({
         const hasTemple = Array.from(p.homeFrames?.values?.() ?? []).some((fr) => fr?.type === BUILDING_TYPES.Temple);
         const r = p.locationRect;
         const exits = [];
-        if (r) {
+        if (hasRoadData && r) {
           const xMin = Math.max(1, Math.trunc(r.xMin ?? 0));
           const xMax = Math.min(TERRAIN_TILE_DIM - 2, Math.trunc(r.xMax ?? TERRAIN_TILE_DIM - 1));
           const zMin = Math.max(1, Math.trunc(r.yMin ?? 0));
           const zMax = Math.min(TERRAIN_TILE_DIM - 2, Math.trunc(r.yMax ?? TERRAIN_TILE_DIM - 1));
 
-          // Check 4 sides around settlement boundary for roads exiting town
           const probes = [
-            { side: 'N', list: Array.from({ length: xMax - xMin + 1 }, (_, i) => [xMin + i, Math.max(1, zMin - 1), 4.2, -3.2]) },
-            { side: 'S', list: Array.from({ length: xMax - xMin + 1 }, (_, i) => [xMin + i, Math.min(TERRAIN_TILE_DIM - 2, zMax + 1), -4.2, 3.2]) },
-            { side: 'W', list: Array.from({ length: zMax - zMin + 1 }, (_, i) => [Math.max(1, xMin - 1), zMin + i, -3.2, 4.2]) },
-            { side: 'E', list: Array.from({ length: zMax - zMin + 1 }, (_, i) => [Math.min(TERRAIN_TILE_DIM - 2, xMax + 1), zMin + i, 3.2, -4.2]) },
+            { fb: [1, 0], list: Array.from({ length: xMax - xMin + 1 }, (_, i) => [xMin + i, Math.max(1, zMin - 1)]) },
+            { fb: [-1, 0], list: Array.from({ length: xMax - xMin + 1 }, (_, i) => [xMin + i, Math.min(TERRAIN_TILE_DIM - 2, zMax + 1)]) },
+            { fb: [0, 1], list: Array.from({ length: zMax - zMin + 1 }, (_, i) => [Math.max(1, xMin - 1), zMin + i]) },
+            { fb: [0, -1], list: Array.from({ length: zMax - zMin + 1 }, (_, i) => [Math.min(TERRAIN_TILE_DIM - 2, xMax + 1), zMin + i]) },
           ];
           for (const pr of probes) {
             const hit = pr.list.find(([tx, tz]) => isRoadTileAt(p, tx, tz));
-            if (hit) exits.push({ tx: hit[0], tz: hit[1], ox: hit[2], oz: hit[3] });
+            if (hit) {
+              const [ox, oz] = pickRoadShoulderOffset(p, hit[0], hit[1], hit[0] * 31 + hit[1] * 17, pr.fb[0], pr.fb[1]);
+              exits.push({ tx: hit[0], tz: hit[1], ox, oz });
+            }
+          }
+        }
+        if (exits.length === 0 && hasRoadData) {
+          outer: for (let d = 2; d < 16; d++) {
+            for (let tx = 4; tx < TERRAIN_TILE_DIM - 4; tx += 3) {
+              if (isRoadTileAt(p, tx, d)) {
+                const [ox, oz] = pickRoadShoulderOffset(p, tx, d, tx + d, 1, 0);
+                exits.push({ tx, tz: d, ox, oz });
+                break outer;
+              }
+              if (isRoadTileAt(p, tx, TERRAIN_TILE_DIM - 1 - d)) {
+                const tz = TERRAIN_TILE_DIM - 1 - d;
+                const [ox, oz] = pickRoadShoulderOffset(p, tx, tz, tx + tz, -1, 0);
+                exits.push({ tx, tz, ox, oz });
+                break outer;
+              }
+            }
           }
         }
         if (exits.length === 0) {
-          // Fallback: first road tile in the outer ring of the pixel
-          outer: for (let d = 2; d < 16; d++) {
-            for (let tx = 4; tx < TERRAIN_TILE_DIM - 4; tx += 4) {
-              if (isRoadTileAt(p, tx, d)) { exits.push({ tx, tz: d, ox: 4.2, oz: 0 }); break outer; }
-              if (isRoadTileAt(p, tx, TERRAIN_TILE_DIM - 1 - d)) { exits.push({ tx, tz: TERRAIN_TILE_DIM - 1 - d, ox: 4.2, oz: 0 }); break outer; }
-            }
-          }
+          // Guarantee suburban shrines outside N/S perimeter for settlements lacking a road grid tag
+          const cx = r ? Math.trunc(((r.xMin ?? 20) + (r.xMax ?? 44)) * 0.5) : 32;
+          const zN = r ? Math.max(2, Math.trunc(r.yMin ?? 18) - 2) : 10;
+          const zS = r ? Math.min(TERRAIN_TILE_DIM - 3, Math.trunc(r.yMax ?? 46) + 2) : 54;
+          exits.push({ tx: cx, tz: zN, ox: 2.2, oz: -1.5 });
+          exits.push({ tx: cx, tz: zS, ox: -2.2, oz: 1.5 });
         }
         exits.forEach((ex, idx) => {
           addShrineFromTile(p, pxT, {
@@ -229,12 +284,13 @@ export function createApotheosisRoadShrinesHost({
           }
         }
         if (bestTile) {
+          const [ox, oz] = pickRoadShoulderOffset(p, bestTile[0], bestTile[1], wildHash, 1, 0);
           addShrineFromTile(p, pxT, {
             shrineId: `${SHRINE_KEY_PREFIX}wild:${p.px}:${p.py}`,
             tx: bestTile[0],
             tz: bestTile[1],
-            offsetX: 4.2,
-            offsetZ: 2.2,
+            offsetX: ox,
+            offsetZ: oz,
             regionIndex: reg,
             exitIndex: 0,
             isWild: true,
@@ -248,7 +304,7 @@ export function createApotheosisRoadShrinesHost({
   function draw(r = renderer) {
     if (!r?.drawMesh || !_pedestalGpu) return;
     for (const s of _shrines.values()) {
-      s.matrix = yRotationMatrix(s.worldPos, 0, _pedestalScale);
+      s.matrix = yRotationMatrix([s.worldPos[0], s.worldPos[1] - _pedestalMinY * _pedestalScale, s.worldPos[2]], 0, _pedestalScale);
       r.drawMesh(_pedestalGpu, s.matrix, null);
     }
   }
@@ -293,7 +349,7 @@ export function createApotheosisRoadShrinesHost({
       const dx = s.worldPos[0] - pos[0];
       const dz = s.worldPos[2] - pos[2];
       const d2 = dx * dx + dz * dz;
-      if (d2 <= r2) hits.push({ key: s.shrineId, title: s.title, distSq: d2 });
+      if (d2 <= r2) hits.push({ key: s.shrineId, title: s.title, pos: s.worldPos, distSq: d2 });
     }
     hits.sort((a, b) => a.distSq - b.distSq);
     return hits;
@@ -317,10 +373,12 @@ export function createApotheosisRoadShrinesHost({
     }
   }
 
-  function activate(key, { showOverlay, say = () => {} } = {}) {
+  function activate(key, modeOrOpts = {}) {
     if (typeof key !== 'string' || !key.startsWith(SHRINE_KEY_PREFIX)) return false;
     const shrine = _shrines.get(key);
-    if (!shrine || typeof showOverlay !== 'function') return false;
+    const showOverlay = typeof modeOrOpts?.showOverlay === 'function' ? modeOrOpts.showOverlay : (w) => townTalk?.showOverlay?.(w);
+    const say = typeof modeOrOpts?.say === 'function' ? modeOrOpts.say : (m) => townTalk?.say?.(m);
+    if (!shrine || typeof townTalk?.showOverlay !== 'function' && typeof modeOrOpts?.showOverlay !== 'function') return false;
     const nowMin = Math.floor(worldMinutes?.() ?? 0);
     const desecrated = isRoadsideShrineDesecrated(playerEntity, shrine.shrineId, nowMin);
     const wildTag = shrine.isWild
@@ -408,6 +466,39 @@ export function createApotheosisRoadShrinesHost({
     return true;
   }
 
+  function teleportNearRoadShrine() {
+    if (typeof placeFeet !== 'function') return { ok: false, message: 'Teleport runtime unavailable.' };
+    if (_shrines.size === 0) frame();
+    if (_shrines.size === 0) {
+      return { ok: false, message: 'No roadside shrines spawned in currently loaded pixels yet.' };
+    }
+    const p = playerPos?.() ?? [0, 0, 0];
+    let best = null;
+    let bestD2 = Infinity;
+    for (const s of _shrines.values()) {
+      const dx = s.worldPos[0] - p[0];
+      const dz = s.worldPos[2] - p[2];
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = s;
+      }
+    }
+    if (!best) return { ok: false, message: 'No roadside shrines found.' };
+    const sx = best.worldPos[0];
+    const sz = best.worldPos[2];
+    const wx = sx;
+    const wz = sz - 2.3;
+    const gy = typeof groundAt === 'function' ? groundAt(wx, wz) : best.worldPos[1];
+    const wy = Number.isFinite(gy) ? gy : best.worldPos[1];
+    const lookYaw = Math.atan2(sx - wx, sz - wz);
+    placeFeet([wx, wy + 0.15, wz], lookYaw);
+    return {
+      ok: true,
+      message: `Teleported to ${best.title} (${best.isWild ? 'wild road' : 'town perimeter'}, total loaded: ${_shrines.size}).`,
+    };
+  }
+
   function destroyAll() {
     _shrines.clear();
     _statueBatches.clear();
@@ -421,6 +512,7 @@ export function createApotheosisRoadShrinesHost({
     hoverName,
     activate,
     nearbyShrines,
+    teleportNearRoadShrine,
     destroyAll,
   };
 }

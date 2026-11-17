@@ -430,14 +430,14 @@ export function ensureCultPetition(entity, {
   const reg = clampReg(regionIndex);
   const regionalOwned = ownedSites.filter((s) => s.regionIndex === reg);
   const targetSite = regionalOwned[0] ?? ownedSites[0];
-  const targetReg = targetSite.regionIndex ?? reg;
+  const targetReg = regionalOwned[0] ? reg : (targetSite.regionIndex ?? reg);
   const enemyGodId = pickEnemyDeityForPetition(entity, targetReg, rng);
   const enemyDeity = getPantheonDeity(enemyGodId);
 
   const roll = rng();
-  let type = 'desecrate_shrine';
-  if (roll < 0.40) type = 'inquisition';
-  else if (roll < 0.80) type = 'desecrate_shrine';
+  let type = 'edict';
+  if (roll < 1 / 3) type = 'inquisition';
+  else if (roll < 2 / 3) type = 'desecrate_shrine';
   else type = 'edict';
 
   const baseFaith = type === 'inquisition' ? 100 : type === 'edict' ? 80 : 60;
@@ -453,7 +453,7 @@ export function ensureCultPetition(entity, {
     targetSiteKey: targetSite.siteKey,
     targetSiteName: targetSite.name,
     progress: 0,
-    goal: type === 'inquisition' ? 2 : 1,
+    goal: type === 'inquisition' ? 3 : 1,
     rewardFaith: baseFaith,
     rewardGold: baseGold,
     rewardInfluence: baseInf,
@@ -499,7 +499,8 @@ export function notifyCultPetitionProgress(entity, eventKind, {
     const godOk = !godId || godId === pet.godId;
     if (regOk && godOk) matched = true;
   } else if (pet.type === 'edict' && eventKind === 'edict_proclaimed') {
-    if (regionIndex == null || clampReg(regionIndex) === pet.targetRegion) matched = true;
+    const curReg = entity?.currentRegionIndex != null ? clampReg(entity.currentRegionIndex) : null;
+    if (regionIndex == null || clampReg(regionIndex) === pet.targetRegion || (curReg != null && clampReg(regionIndex) === curReg)) matched = true;
   }
 
   if (!matched) return { completed: false };
@@ -530,10 +531,13 @@ export function notifyCultPetitionProgress(entity, eventKind, {
 export function syncEdictPetitionIfActive(entity, nowMinutes = 0) {
   const pet = getActiveCultPetition(entity, nowMinutes);
   if (!pet || pet.type !== 'edict') return null;
-  const activeEd = getActiveRegionalEdict(entity, pet.targetRegion, nowMinutes);
-  if (!activeEd) return null;
+  const curReg = entity?.currentRegionIndex != null ? clampReg(entity.currentRegionIndex) : pet.targetRegion;
+  const activeTarget = getActiveRegionalEdict(entity, pet.targetRegion, nowMinutes);
+  const activeCur = curReg !== pet.targetRegion ? getActiveRegionalEdict(entity, curReg, nowMinutes) : null;
+  const matchedReg = activeTarget ? pet.targetRegion : (activeCur ? curReg : null);
+  if (matchedReg == null) return null;
   return notifyCultPetitionProgress(entity, 'edict_proclaimed', {
-    regionIndex: pet.targetRegion,
+    regionIndex: matchedReg,
     nowMinutes,
   });
 }

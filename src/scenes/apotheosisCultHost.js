@@ -796,15 +796,17 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
           if (petition.type === 'inquisition' && !petition.inquisitionSpawned && interiorFoes?.spawnFoe) {
             petOpts.push({
               code: 'Digit1',
-              label: `1 - ${t('apotheosis.petition.btnConfrontInq', 'Confront Inquisitors ({count})', { count: petition.goal || 2 })}`,
+              label: `1 - ${t('apotheosis.petition.btnConfrontInq', 'Confront Inquisitors ({count})', { count: petition.goal || 3 })}`,
               action: () => {
                 petition.inquisitionSpawned = true;
                 const anchor = interiorCtx?.cultAltarAnchors?.[0]?.pos ?? interiorCtx?.landing ?? [0, 0, 0];
                 const spawned = [];
-                const total = Math.max(2, petition.goal || 2);
+                const total = Math.max(3, petition.goal || 3);
                 const mobPool = [MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Spellsword];
+                const offsets = [[-1.3, -1.2], [1.3, -1.2], [0, -1.7]];
                 Promise.all(Array.from({ length: total }, (_, idx) => {
-                  const pos = [anchor[0] + (idx === 0 ? -1.8 : 1.8), anchor[1], anchor[2] - 1.5];
+                  const [ox, oz] = offsets[idx % offsets.length];
+                  const pos = [anchor[0] + ox, anchor[1], anchor[2] + oz];
                   return Promise.resolve(interiorFoes.spawnFoe(mobPool[idx % mobPool.length], pos)).then((f) => {
                     if (f) spawned.push(f);
                   }).catch(() => {});
