@@ -4826,8 +4826,8 @@
  },
  "apotheosis.overview.questDoneBanner": {
   "en": "50d7e2d56b00",
-  "tr": "d22ebf678fbf",
-  "by": "claude-in-session"
+  "tr": "54f3104d80d4",
+  "by": "human"
  },
  "apotheosis.overview.sacCounts": {
   "en": "9457d52d26e2",
@@ -27304,9 +27304,24 @@
   "tr": "a98599e94f93",
   "by": "claude-in-session"
  },
+ "menu.test.enterGod": {
+  "en": "323fb8c5fcac",
+  "tr": "6b15ffac2481",
+  "by": "claude-in-session"
+ },
  "menu.test.enterLadder": {
   "en": "f07a2cf02c18",
   "tr": "2d215a01eacb",
+  "by": "claude-in-session"
+ },
+ "menu.test.godBlurb": {
+  "en": "aac801e0f03e",
+  "tr": "369e59227e75",
+  "by": "claude-in-session"
+ },
+ "menu.test.godTitle": {
+  "en": "5d101675e920",
+  "tr": "c8664e1efa22",
   "by": "claude-in-session"
  },
  "menu.test.outdoors": {
@@ -50503,5 +50518,1990 @@
   "en": "6929fff49f47",
   "tr": "026410ca070b",
   "by": "claude-in-session"
+ },
+ "apotheosis.geo.statusWar": {
+  "en": "63aa9b788ac4",
+  "tr": "3f862f02ede6",
+  "by": "human"
+ },
+ "apotheosis.geo.statusPeace": {
+  "en": "d5aef0e4672e",
+  "tr": "86ad5af9b18e",
+  "by": "human"
+ },
+ "apotheosis.geo.errRegions": {
+  "en": "9591a51e8ca5",
+  "tr": "a78fd5678d61",
+  "by": "human"
+ },
+ "apotheosis.geo.errAlreadyWar": {
+  "en": "a3ac81bdbf7c",
+  "tr": "50eddacc1e8f",
+  "by": "human"
+ },
+ "apotheosis.geo.errAlreadyPeace": {
+  "en": "3f09a8a0762c",
+  "tr": "53ddcc0afff9",
+  "by": "human"
+ },
+ "apotheosis.close": {
+  "en": "bbfa773e5a63",
+  "tr": "0b9f7c6d05a9",
+  "by": "human"
+ },
+ "apotheosis.sec.pantheon": {
+  "en": "54e3a2f886a3",
+  "tr": "7942dbeeb74a",
+  "by": "human"
+ },
+ "apotheosis.sec.cult": {
+  "en": "c161c00d929d",
+  "tr": "e8e5bc83eb1e",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logStart": {
+  "en": "f81feb00bb21",
+  "tr": "29ee30802494",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logRealign": {
+  "en": "9f05d3eb5afa",
+  "tr": "622672b37c75",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logGraceBroken": {
+  "en": "faf6b4989910",
+  "tr": "bc72f97d8b44",
+  "by": "human"
+ },
+ "apotheosis.pantheon.aiPressure": {
+  "en": "212c31935e5f",
+  "tr": "8b1a1c580424",
+  "by": "human"
+ },
+ "apotheosis.pantheon.aiAid": {
+  "en": "fbf9ddc080e6",
+  "tr": "a7abcc5b155c",
+  "by": "human"
+ },
+ "apotheosis.pantheon.aiClash": {
+  "en": "ff95751046f8",
+  "tr": "d5ae01511194",
+  "by": "human"
+ },
+ "apotheosis.pantheon.aiExpand": {
+  "en": "4784b64fa8c9",
+  "tr": "6e23597f5cb0",
+  "by": "human"
+ },
+ "apotheosis.pantheon.errUnknown": {
+  "en": "65a645738a0d",
+  "tr": "2403ba29e194",
+  "by": "human"
+ },
+ "apotheosis.pantheon.errOfferingCd": {
+  "en": "6e80e890c26e",
+  "tr": "9b4ce8667457",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logOffer": {
+  "en": "006137c07870",
+  "tr": "7241290836a0",
+  "by": "human"
+ },
+ "apotheosis.pantheon.errPactRep": {
+  "en": "ca533d3fda0e",
+  "tr": "2e3dd3af335d",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logPact": {
+  "en": "451e4f39378d",
+  "tr": "d1a306d12e57",
+  "by": "human"
+ },
+ "apotheosis.pantheon.errAllyRep": {
+  "en": "b7b07510d70a",
+  "tr": "29a9757beb51",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logAlly": {
+  "en": "f754e0a8671f",
+  "tr": "c9096edbd215",
+  "by": "human"
+ },
+ "apotheosis.pantheon.errDiscordPair": {
+  "en": "b42340685b9e",
+  "tr": "6f7d32996747",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logDiscord": {
+  "en": "bc1931dfbe88",
+  "tr": "d05a7522d8f6",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logWar": {
+  "en": "5199f16bc86a",
+  "tr": "f248c65ea13e",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logTruceForce": {
+  "en": "961e81532073",
+  "tr": "f9f4b4c310d1",
+  "by": "human"
+ },
+ "apotheosis.pantheon.logTrucePaid": {
+  "en": "7ec4f2de1471",
+  "tr": "819dd68aadd8",
+  "by": "human"
+ },
+ "apotheosis.geo.logWar": {
+  "en": "b181596d45f7",
+  "tr": "d3264d12b646",
+  "by": "human"
+ },
+ "apotheosis.geo.logPeace": {
+  "en": "c86c4774780a",
+  "tr": "f3bdd098e39b",
+  "by": "human"
+ },
+ "apotheosis.pantheon.sumTitle": {
+  "en": "3a470e3a11b1",
+  "tr": "c795edf0b233",
+  "by": "human"
+ },
+ "apotheosis.pantheon.sumMeta": {
+  "en": "b7acdc963f33",
+  "tr": "bbc935992e77",
+  "by": "human"
+ },
+ "apotheosis.pantheon.btnDiscord": {
+  "en": "39bcee056b4f",
+  "tr": "a1c8b220249c",
+  "by": "human"
+ },
+ "apotheosis.pantheon.fbDiscord": {
+  "en": "eefc1b75e4ad",
+  "tr": "c07790ee35dc",
+  "by": "human"
+ },
+ "apotheosis.pantheon.vs": {
+  "en": "691a77cd21a3",
+  "tr": "cdf49c083e1f",
+  "by": "human"
+ },
+ "apotheosis.pantheon.stAllied": {
+  "en": "3ce735140f97",
+  "tr": "d2c33b392742",
+  "by": "human"
+ },
+ "apotheosis.pantheon.stPact": {
+  "en": "88a33f973f43",
+  "tr": "d6656ccf4dc0",
+  "by": "human"
+ },
+ "apotheosis.pantheon.stWar": {
+  "en": "5cf05346bded",
+  "tr": "85a11be29a34",
+  "by": "human"
+ },
+ "apotheosis.pantheon.stHostile": {
+  "en": "d27cc1c130e2",
+  "tr": "75629efd7f8c",
+  "by": "human"
+ },
+ "apotheosis.pantheon.stGrace": {
+  "en": "cb83fec54a1d",
+  "tr": "70d44e473cca",
+  "by": "human"
+ },
+ "apotheosis.pantheon.stWary": {
+  "en": "c43d1497ca41",
+  "tr": "3c2a123fff14",
+  "by": "human"
+ },
+ "apotheosis.pantheon.avgShare": {
+  "en": "3a42507a1852",
+  "tr": "717808b90610",
+  "by": "human"
+ },
+ "apotheosis.pantheon.actOffer": {
+  "en": "796323996b52",
+  "tr": "eb8fe0ccb499",
+  "by": "human"
+ },
+ "apotheosis.pantheon.fbOk": {
+  "en": "7005143abe4b",
+  "tr": "30612695b77d",
+  "by": "human"
+ },
+ "apotheosis.pantheon.actPact": {
+  "en": "d0819352d507",
+  "tr": "79ddf1cc1db7",
+  "by": "human"
+ },
+ "apotheosis.pantheon.actAlly": {
+  "en": "0e6d8d993930",
+  "tr": "ca773e3e8616",
+  "by": "human"
+ },
+ "apotheosis.pantheon.actTruce": {
+  "en": "144d5932474a",
+  "tr": "ae8813f75eab",
+  "by": "human"
+ },
+ "apotheosis.pantheon.fbTruce": {
+  "en": "15770991951b",
+  "tr": "49f669549cd9",
+  "by": "human"
+ },
+ "apotheosis.pantheon.actWar": {
+  "en": "421ea8ef8d9c",
+  "tr": "2be536361e5e",
+  "by": "human"
+ },
+ "apotheosis.pantheon.fbWar": {
+  "en": "347b61fdaa3f",
+  "tr": "18b435dfa2fc",
+  "by": "human"
+ },
+ "apotheosis.pantheon.aedraGroup": {
+  "en": "e96e657c5867",
+  "tr": "b8a6e6264e73",
+  "by": "human"
+ },
+ "apotheosis.pantheon.daedraGroup": {
+  "en": "6350976110f7",
+  "tr": "5a5a16686b94",
+  "by": "human"
+ },
+ "apotheosis.geo.title": {
+  "en": "99d9705ff477",
+  "tr": "d47497ab0b95",
+  "by": "human"
+ },
+ "apotheosis.geo.btnWar": {
+  "en": "cf32f27e1e6a",
+  "tr": "9a6869ba52f2",
+  "by": "human"
+ },
+ "apotheosis.geo.btnPeace": {
+  "en": "f110dab5bb02",
+  "tr": "1088bff42caf",
+  "by": "human"
+ },
+ "apotheosis.geo.fbWar": {
+  "en": "ff78f9c0bd40",
+  "tr": "60aeb13f71b5",
+  "by": "human"
+ },
+ "apotheosis.geo.fbPeace": {
+  "en": "a038be2a4bfa",
+  "tr": "815c4358e056",
+  "by": "human"
+ },
+ "apotheosis.lens.title": {
+  "en": "a37df44048a3",
+  "tr": "175ba30b2837",
+  "by": "human"
+ },
+ "apotheosis.lens.all": {
+  "en": "a262f55d0059",
+  "tr": "12000c2568df",
+  "by": "human"
+ },
+ "apotheosis.lens.bay": {
+  "en": "de59953780be",
+  "tr": "129f3c025a78",
+  "by": "human"
+ },
+ "apotheosis.lens.prov": {
+  "en": "5ff69a9fdf9a",
+  "tr": "96e51b7a9cb5",
+  "by": "human"
+ },
+ "apotheosis.lens.modeLead": {
+  "en": "0e038306a64c",
+  "tr": "fa3caeb2218b",
+  "by": "human"
+ },
+ "apotheosis.lens.modePlayer": {
+  "en": "8258b1eba66f",
+  "tr": "166513596714",
+  "by": "human"
+ },
+ "apotheosis.lens.modeWars": {
+  "en": "c66bc19501b0",
+  "tr": "a1eddb8a167a",
+  "by": "human"
+ },
+ "apotheosis.lens.searchPh": {
+  "en": "e8a5ed0b597a",
+  "tr": "082d077fbd58",
+  "by": "human"
+ },
+ "apotheosis.lens.province": {
+  "en": "c96a0014b152",
+  "tr": "3500c8efb804",
+  "by": "human"
+ },
+ "apotheosis.map.you": {
+  "en": "d84cce00a338",
+  "tr": "139abe21fb71",
+  "by": "human"
+ },
+ "apotheosis.map.dominion": {
+  "en": "5648a7d12804",
+  "tr": "bfd05703bcd1",
+  "by": "human"
+ },
+ "apotheosis.lens.flags": {
+  "en": "c4752b2b1474",
+  "tr": "4b368b0a7db8",
+  "by": "human"
+ },
+ "apotheosis.geo.setA": {
+  "en": "4d44ccf55a31",
+  "tr": "8799104e4028",
+  "by": "human"
+ },
+ "apotheosis.geo.setB": {
+  "en": "6f3bc06ec4a0",
+  "tr": "f1bf36ed1482",
+  "by": "human"
+ },
+ "apotheosis.lens.cellYou": {
+  "en": "2c2a724ef7c4",
+  "tr": "ec53c5877c34",
+  "by": "human"
+ },
+ "apotheosis.chronicle.title": {
+  "en": "ea7d8f4bc0ee",
+  "tr": "485e51795010",
+  "by": "human"
+ },
+ "apotheosis.chronicle.fAll": {
+  "en": "6a72085653e4",
+  "tr": "109b6e854224",
+  "by": "human"
+ },
+ "apotheosis.chronicle.fCult": {
+  "en": "657579dad31d",
+  "tr": "72d8963ba35f",
+  "by": "human"
+ },
+ "apotheosis.chronicle.fAgainst": {
+  "en": "19743436eb80",
+  "tr": "f2281c835d04",
+  "by": "human"
+ },
+ "apotheosis.chronicle.fDip": {
+  "en": "8fec57ffe29c",
+  "tr": "c547f7ef1f38",
+  "by": "human"
+ },
+ "apotheosis.chronicle.fReg": {
+  "en": "57e111b75420",
+  "tr": "8874ee34a554",
+  "by": "human"
+ },
+ "apotheosis.chronicle.searchPh": {
+  "en": "cb779be8d7df",
+  "tr": "41cb550a7449",
+  "by": "human"
+ },
+ "apotheosis.chronicle.empty": {
+  "en": "ef76ab9e30d8",
+  "tr": "a61fb64efa3d",
+  "by": "human"
+ },
+ "apotheosis.pantheon.heading": {
+  "en": "1b16b5c7eebe",
+  "tr": "23ef6821c270",
+  "by": "human"
+ },
+ "apotheosis.pantheon.sub": {
+  "en": "5a1a38069820",
+  "tr": "dd481a567068",
+  "by": "human"
+ },
+ "apotheosis.pantheon.locked": {
+  "en": "98a1544c77e8",
+  "tr": "e37c77ad599e",
+  "by": "human"
+ },
+ "apotheosis.pantheon.tabDeities": {
+  "en": "377f55cb2bf3",
+  "tr": "bd4d14eb1041",
+  "by": "human"
+ },
+ "apotheosis.pantheon.tabRegions": {
+  "en": "db28a61f0d53",
+  "tr": "1a1c33d3425c",
+  "by": "human"
+ },
+ "apotheosis.pantheon.tabChronicle": {
+  "en": "8ead5a7b3bfb",
+  "tr": "3e9d97ed8d8e",
+  "by": "human"
+ },
+ "apotheosis.cult.subTabSites": {
+  "en": "349836ff2b94",
+  "tr": "a41d874ebe66",
+  "by": "human"
+ },
+ "apotheosis.cult.subTabEdicts": {
+  "en": "ac6b0fa65742",
+  "tr": "a06df07bc988",
+  "by": "human"
+ },
+ "apotheosis.cult.kindTemple": {
+  "en": "e13968a7d5f2",
+  "tr": "6afd1b44593e",
+  "by": "human"
+ },
+ "apotheosis.cult.kindSanctuary": {
+  "en": "75726d8bd063",
+  "tr": "b869f6fc13be",
+  "by": "human"
+ },
+ "apotheosis.cult.playerSanctuaryTitle": {
+  "en": "bda3f4e7dfaf",
+  "tr": "1facd325e79d",
+  "by": "human"
+ },
+ "apotheosis.cult.doorPlayerTemple": {
+  "en": "8d5400b82812",
+  "tr": "72ae7d5fb1bb",
+  "by": "human"
+ },
+ "apotheosis.cult.doorPatronTemple": {
+  "en": "4d60e927882f",
+  "tr": "3ddb07a6f77e",
+  "by": "human"
+ },
+ "apotheosis.cult.ownedBadge": {
+  "en": "3831bae46dbc",
+  "tr": "aa6a5871be20",
+  "by": "human"
+ },
+ "apotheosis.cult.ownerPatron": {
+  "en": "ca40bcab45bc",
+  "tr": "e200ca7d2760",
+  "by": "human"
+ },
+ "apotheosis.cult.openBadge": {
+  "en": "cf9b77061f7b",
+  "tr": "cadea0154a35",
+  "by": "human"
+ },
+ "apotheosis.cult.lockedBadge": {
+  "en": "a798882f1c31",
+  "tr": "3cad3a9ed4e5",
+  "by": "human"
+ },
+ "apotheosis.cult.alarmBadge": {
+  "en": "3d9a55e9e888",
+  "tr": "eedeab3f96f8",
+  "by": "human"
+ },
+ "apotheosis.cult.hasKeyBadge": {
+  "en": "07b3781d1101",
+  "tr": "ed0027cd107c",
+  "by": "human"
+ },
+ "apotheosis.cult.guardiansClear": {
+  "en": "caea33394e4e",
+  "tr": "df328dadf51d",
+  "by": "human"
+ },
+ "apotheosis.cult.guardiansActive": {
+  "en": "e56f24a354f3",
+  "tr": "1853e906530a",
+  "by": "human"
+ },
+ "apotheosis.cult.guardiansPresent": {
+  "en": "35d4eee3d439",
+  "tr": "7c266c2897a3",
+  "by": "human"
+ },
+ "apotheosis.cult.guardiansSlainHud": {
+  "en": "81d9c913886d",
+  "tr": "02cb600723d7",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchPlayerHeader": {
+  "en": "0dbaacc16f8a",
+  "tr": "a21ffc14376e",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchPlayerTitle": {
+  "en": "0dbaacc16f8a",
+  "tr": "855765eeb170",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchDaedraHeader": {
+  "en": "99a885a3213f",
+  "tr": "d4380be154c1",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchTitle": {
+  "en": "99a885a3213f",
+  "tr": "d4380be154c1",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchStateOpen": {
+  "en": "0677f507885a",
+  "tr": "a9ac6f446cd3",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchStateLocked": {
+  "en": "3f71ffb3b372",
+  "tr": "c4429df9fc36",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchAlarmOn": {
+  "en": "ccd5a771dd1a",
+  "tr": "375f29f6ec39",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchAlarmQuiet": {
+  "en": "2d919356c688",
+  "tr": "aec4354c91b5",
+  "by": "human"
+ },
+ "apotheosis.cult.btnEnter": {
+  "en": "d1992125da1f",
+  "tr": "5cd63472413c",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockBtnLockpick": {
+  "en": "bfffaaf40116",
+  "tr": "90995f861fd5",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockBtnBash": {
+  "en": "27836b8b20bb",
+  "tr": "4a9d8cd982a7",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockBtnMagic": {
+  "en": "8953b20062d4",
+  "tr": "fa200652d828",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockBtnKey": {
+  "en": "08d0f9a43331",
+  "tr": "8f696211c80d",
+  "by": "human"
+ },
+ "apotheosis.cult.btnStealKey": {
+  "en": "bcfbfba34131",
+  "tr": "6ff0bfbe6b25",
+  "by": "human"
+ },
+ "apotheosis.cult.keeperName": {
+  "en": "19d37d34381d",
+  "tr": "4fd98151b97b",
+  "by": "human"
+ },
+ "apotheosis.cult.keeperNoKey": {
+  "en": "99065ef2bc3b",
+  "tr": "28ab2313e13f",
+  "by": "human"
+ },
+ "apotheosis.cult.keeperHint": {
+  "en": "1d28a3ca31fa",
+  "tr": "22098edac6ba",
+  "by": "human"
+ },
+ "apotheosis.cult.tier1": {
+  "en": "9f03473ac5e8",
+  "tr": "83fd2a053a90",
+  "by": "human"
+ },
+ "apotheosis.cult.tier2": {
+  "en": "07e865a26ef6",
+  "tr": "7299abf8e9f5",
+  "by": "human"
+ },
+ "apotheosis.cult.tier3": {
+  "en": "16bd551053b4",
+  "tr": "d9814fee82e8",
+  "by": "human"
+ },
+ "apotheosis.cult.branch.missionary": {
+  "en": "4bb9ba7f3211",
+  "tr": "6f0de00bd3ae",
+  "by": "human"
+ },
+ "apotheosis.cult.branch.missionaryDesc": {
+  "en": "407674f4c000",
+  "tr": "85b4fcb6e23e",
+  "by": "human"
+ },
+ "apotheosis.cult.branch.militant": {
+  "en": "00e43a389740",
+  "tr": "bb6c6e1aa359",
+  "by": "human"
+ },
+ "apotheosis.cult.branch.militantDesc": {
+  "en": "1743ab4aa3b8",
+  "tr": "399a52d92b64",
+  "by": "human"
+ },
+ "apotheosis.cult.branch.oracle": {
+  "en": "b694bca81e70",
+  "tr": "46bc2f467a9c",
+  "by": "human"
+ },
+ "apotheosis.cult.branch.oracleDesc": {
+  "en": "4871a85600e5",
+  "tr": "6e54c1f09402",
+  "by": "human"
+ },
+ "apotheosis.cult.altarOwnedTitle": {
+  "en": "cd94dd03d12b",
+  "tr": "1c419d0bd00b",
+  "by": "human"
+ },
+ "apotheosis.cult.altarPatronTitle": {
+  "en": "93a656b1c62d",
+  "tr": "22b10f9bd70a",
+  "by": "human"
+ },
+ "apotheosis.cult.altarClickHint": {
+  "en": "5c277f2a4431",
+  "tr": "812d9c491220",
+  "by": "human"
+ },
+ "apotheosis.cult.branchLabel": {
+  "en": "4c72ba3506bb",
+  "tr": "37558efc4b28",
+  "by": "human"
+ },
+ "apotheosis.cult.branchNone": {
+  "en": "166f8cbe8612",
+  "tr": "cf08b7e757f9",
+  "by": "human"
+ },
+ "apotheosis.cult.branchNoneShort": {
+  "en": "4fed7452ced8",
+  "tr": "b9cf11be4ec2",
+  "by": "human"
+ },
+ "apotheosis.cult.btnForceConsecrate": {
+  "en": "7a18dae4d7d5",
+  "tr": "45c4ed7fa0e6",
+  "by": "human"
+ },
+ "apotheosis.cult.btnPeacefulDedicate": {
+  "en": "b7590fe7e618",
+  "tr": "466eeee90619",
+  "by": "human"
+ },
+ "apotheosis.cult.consecrateDone": {
+  "en": "9e7348b37c37",
+  "tr": "f80045c016e7",
+  "by": "human"
+ },
+ "apotheosis.cult.btnUpgradeTier": {
+  "en": "858e4f59fe4d",
+  "tr": "04318449f8db",
+  "by": "human"
+ },
+ "apotheosis.cult.btnUpgradeCost": {
+  "en": "aa02d76b5de9",
+  "tr": "a44232b0a9ac",
+  "by": "human"
+ },
+ "apotheosis.cult.upgradedHud": {
+  "en": "c891f1a937ee",
+  "tr": "9decbe46ee4f",
+  "by": "human"
+ },
+ "apotheosis.cult.branchSetHud": {
+  "en": "23ab4bc73082",
+  "tr": "a778cb6ecc82",
+  "by": "human"
+ },
+ "apotheosis.cult.statOwned": {
+  "en": "ed45cd45a8b3",
+  "tr": "aea76aaee443",
+  "by": "human"
+ },
+ "apotheosis.cult.statFaithDay": {
+  "en": "b9238008607f",
+  "tr": "ea8ead141fef",
+  "by": "human"
+ },
+ "apotheosis.cult.statCity": {
+  "en": "868ddd810f8a",
+  "tr": "1cc463a9a999",
+  "by": "human"
+ },
+ "apotheosis.cult.btnFoundSanctuary": {
+  "en": "6b7897706b00",
+  "tr": "27dd3705e296",
+  "by": "human"
+ },
+ "apotheosis.cult.foundedHud": {
+  "en": "8520ceb6e09e",
+  "tr": "510955adc8c7",
+  "by": "human"
+ },
+ "apotheosis.cult.cityAlreadyHas": {
+  "en": "29b959004c75",
+  "tr": "e30dd6b80812",
+  "by": "human"
+ },
+ "apotheosis.cult.filterCity": {
+  "en": "e261643d073c",
+  "tr": "af2611fbdb72",
+  "by": "human"
+ },
+ "apotheosis.cult.filterAll": {
+  "en": "480c5dd85fff",
+  "tr": "5c6e1db7264f",
+  "by": "human"
+ },
+ "apotheosis.cult.emptySites": {
+  "en": "e3def4894920",
+  "tr": "e81966708148",
+  "by": "human"
+ },
+ "apotheosis.cult.err.unknownSite": {
+  "en": "b7a36441eb53",
+  "tr": "c8d722019054",
+  "by": "human"
+ },
+ "apotheosis.cult.keyLooted": {
+  "en": "adc606c202b3",
+  "tr": "d52d95315561",
+  "by": "human"
+ },
+ "apotheosis.cult.keyStolen": {
+  "en": "1359e9be69a2",
+  "tr": "03b879be406b",
+  "by": "human"
+ },
+ "apotheosis.cult.keyPickFail": {
+  "en": "279c8860cb42",
+  "tr": "8b40a817801f",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockBash": {
+  "en": "354615c52eac",
+  "tr": "615517a49015",
+  "by": "human"
+ },
+ "apotheosis.cult.err.needMagicUnlock": {
+  "en": "0aae298a7574",
+  "tr": "38db76038565",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockMagic": {
+  "en": "cb66682a25a3",
+  "tr": "f899aeabc4d5",
+  "by": "human"
+ },
+ "apotheosis.cult.err.needKeyUnlock": {
+  "en": "450e678c625e",
+  "tr": "7814d72485cb",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockKey": {
+  "en": "fd201f2eac83",
+  "tr": "592f8a4e7e9d",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockPickOk": {
+  "en": "d251752179e6",
+  "tr": "9d3021051ff1",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockPickFail": {
+  "en": "1f7a6699c1fb",
+  "tr": "03e4175a924e",
+  "by": "human"
+ },
+ "apotheosis.cult.err.notAscended": {
+  "en": "4a8ba1a5e50e",
+  "tr": "4cf8113bf37c",
+  "by": "human"
+ },
+ "apotheosis.cult.err.alreadyOwned": {
+  "en": "4fe590d08fab",
+  "tr": "1032a76e602c",
+  "by": "human"
+ },
+ "apotheosis.cult.err.needHostileOrWar": {
+  "en": "bbf5e3b523a2",
+  "tr": "c4c71ead56b6",
+  "by": "human"
+ },
+ "apotheosis.cult.err.clearGuardiansFirst": {
+  "en": "b7bd0dea18cf",
+  "tr": "f24ce05365ad",
+  "by": "human"
+ },
+ "apotheosis.cult.err.needMaxAlly": {
+  "en": "4d80b953b2b6",
+  "tr": "3aad47da632f",
+  "by": "human"
+ },
+ "apotheosis.cult.err.needCity": {
+  "en": "55a39e231a9b",
+  "tr": "25ae9f53592d",
+  "by": "human"
+ },
+ "apotheosis.cult.err.cityHasSanctuary": {
+  "en": "14847e33bb2a",
+  "tr": "1cea8fe7a104",
+  "by": "human"
+ },
+ "apotheosis.cult.err.notOwned": {
+  "en": "53af3f6a186f",
+  "tr": "f93c8e35c0bd",
+  "by": "human"
+ },
+ "apotheosis.cult.err.maxTier": {
+  "en": "882b0ea96976",
+  "tr": "ae3f23d340bc",
+  "by": "human"
+ },
+ "apotheosis.cult.err.unknownBranch": {
+  "en": "158f5318c98f",
+  "tr": "f837d97cc445",
+  "by": "human"
+ },
+ "apotheosis.cult.err.sameBranch": {
+  "en": "0c64c08b9c5b",
+  "tr": "493053af59ed",
+  "by": "human"
+ },
+ "apotheosis.cult.chronicle.forceConsecrate": {
+  "en": "1ee4e5759c3f",
+  "tr": "e4bb5bd3fceb",
+  "by": "human"
+ },
+ "apotheosis.cult.chronicle.peacefulDedicate": {
+  "en": "f2265a0b1c78",
+  "tr": "2d58c4803906",
+  "by": "human"
+ },
+ "apotheosis.cult.chronicle.founded": {
+  "en": "d13521e378e4",
+  "tr": "f34e5b03ce8c",
+  "by": "human"
+ },
+ "apotheosis.cult.chronicle.upgraded": {
+  "en": "71e70affa924",
+  "tr": "cd8306ce866a",
+  "by": "human"
+ },
+ "apotheosis.edict.selectRegion": {
+  "en": "b64af8cee6ff",
+  "tr": "f9814c5742a0",
+  "by": "human"
+ },
+ "apotheosis.edict.regionOption": {
+  "en": "bb8edbb67932",
+  "tr": "bb8edbb67932",
+  "by": "human"
+ },
+ "apotheosis.edict.eligible": {
+  "en": "b77f907d17a0",
+  "tr": "b5baf3c7be0e",
+  "by": "human"
+ },
+ "apotheosis.edict.notEligible": {
+  "en": "6ea47ce5ca03",
+  "tr": "359c3dd17261",
+  "by": "human"
+ },
+ "apotheosis.edict.err.ineligible": {
+  "en": "5ce0e23eeb71",
+  "tr": "91dafb24a2a9",
+  "by": "human"
+ },
+ "apotheosis.edict.err.unknownEdict": {
+  "en": "31bae1065a8c",
+  "tr": "c4d22db6f3bd",
+  "by": "human"
+ },
+ "apotheosis.edict.activeBadge": {
+  "en": "57f3942df67c",
+  "tr": "9e5ed5f71c77",
+  "by": "human"
+ },
+ "apotheosis.edict.btnRepeal": {
+  "en": "ea44d931f8ff",
+  "tr": "9c30c1481e9f",
+  "by": "human"
+ },
+ "apotheosis.edict.repealedHud": {
+  "en": "6c3e2343c4c5",
+  "tr": "c209428ee13d",
+  "by": "human"
+ },
+ "apotheosis.edict.currentlyActive": {
+  "en": "30f854ae7570",
+  "tr": "e329125d94fe",
+  "by": "human"
+ },
+ "apotheosis.edict.whatHappensLine": {
+  "en": "148d1c7512d7",
+  "tr": "a73acf6ea457",
+  "by": "human"
+ },
+ "apotheosis.edict.btnProclaim": {
+  "en": "0f47b938a8d7",
+  "tr": "32298c24faaa",
+  "by": "human"
+ },
+ "apotheosis.edict.proclaimedHud": {
+  "en": "f3bfd657fc13",
+  "tr": "a7ec9a5749c0",
+  "by": "human"
+ },
+ "apotheosis.edict.chronicle.proclaimed": {
+  "en": "ec275b39814f",
+  "tr": "8b74b8fa727c",
+  "by": "human"
+ },
+ "apotheosis.edict.chronicle.expired": {
+  "en": "bca48601e37f",
+  "tr": "d1ae8ec7fa00",
+  "by": "human"
+ },
+ "apotheosis.edict.prosperity.name": {
+  "en": "08bffe4b5b4b",
+  "tr": "ee421aaa90c2",
+  "by": "human"
+ },
+ "apotheosis.edict.prosperity.whatHappens": {
+  "en": "724f728b73df",
+  "tr": "6ace5075db72",
+  "by": "human"
+ },
+ "apotheosis.edict.crusade.name": {
+  "en": "2b53f55ef8eb",
+  "tr": "9c57ce9b96e5",
+  "by": "human"
+ },
+ "apotheosis.edict.crusade.whatHappens": {
+  "en": "44ff1f2caa8a",
+  "tr": "c47821431801",
+  "by": "human"
+ },
+ "apotheosis.edict.arcane.name": {
+  "en": "c3844d43a016",
+  "tr": "a713fef8b440",
+  "by": "human"
+ },
+ "apotheosis.edict.arcane.whatHappens": {
+  "en": "34705f867215",
+  "tr": "f6d668f33549",
+  "by": "human"
+ },
+ "apotheosis.edict.shadow.name": {
+  "en": "801375b1c9c0",
+  "tr": "d169707a7c62",
+  "by": "human"
+ },
+ "apotheosis.edict.shadow.whatHappens": {
+  "en": "56cd05d52352",
+  "tr": "d99b57e2d2a5",
+  "by": "human"
+ },
+ "apotheosis.cult.defaultDomain": {
+  "en": "382431fb2dc9",
+  "tr": "e66cb2a0824c",
+  "by": "human"
+ },
+ "apotheosis.cult.defaultAscendedName": {
+  "en": "8485192cfe58",
+  "tr": "a37cd16b6431",
+  "by": "human"
+ },
+ "apotheosis.cult.doorPlayerTempleNamed": {
+  "en": "c533aeb5a2dd",
+  "tr": "60071e23e8ed",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchPlayerTitleNamed": {
+  "en": "a19dbfe8926f",
+  "tr": "1be58a7946e9",
+  "by": "human"
+ },
+ "apotheosis.cult.altarOwnedTitleNamed": {
+  "en": "9ae449daec30",
+  "tr": "a81b58dbf28a",
+  "by": "human"
+ },
+ "apotheosis.cult.err.branchCooldown": {
+  "en": "904628abe245",
+  "tr": "e28d1587109c",
+  "by": "human"
+ },
+ "apotheosis.cult.err.lockedRemote": {
+  "en": "b1935fdd8b28",
+  "tr": "22f541f0c25b",
+  "by": "human"
+ },
+ "apotheosis.cult.modalFoundTitle": {
+  "en": "f17fe66b577b",
+  "tr": "ed5e230cb9ab",
+  "by": "human"
+ },
+ "apotheosis.cult.modalBranchTitle": {
+  "en": "c9858c8683dc",
+  "tr": "4b06f75dc645",
+  "by": "human"
+ },
+ "apotheosis.cult.modalFoundBadge": {
+  "en": "1100bf56558e",
+  "tr": "d5ca5bc1967d",
+  "by": "human"
+ },
+ "apotheosis.cult.modalFirstPickFree": {
+  "en": "ff1ca3201583",
+  "tr": "662886ea1518",
+  "by": "human"
+ },
+ "apotheosis.cult.modalSwitchMeta": {
+  "en": "a4094123b9f4",
+  "tr": "2294bbba859a",
+  "by": "human"
+ },
+ "apotheosis.cult.modalFoundSub": {
+  "en": "7ba93a736baf",
+  "tr": "86df3c8c4124",
+  "by": "human"
+ },
+ "apotheosis.cult.modalBranchFirstSub": {
+  "en": "29545c6f84fc",
+  "tr": "a6f6e063f7ab",
+  "by": "human"
+ },
+ "apotheosis.cult.modalBranchSwitchSub": {
+  "en": "1e108d8c2682",
+  "tr": "807876133cc2",
+  "by": "human"
+ },
+ "apotheosis.cult.branchMetaMaxFaith": {
+  "en": "751ede2da13c",
+  "tr": "f11e2b52e3f4",
+  "by": "human"
+ },
+ "apotheosis.cult.branchMetaGuards": {
+  "en": "5a1e2885e670",
+  "tr": "55227e406b4b",
+  "by": "human"
+ },
+ "apotheosis.cult.branchMetaMissionary": {
+  "en": "840a25c17ed2",
+  "tr": "162b28a227c0",
+  "by": "human"
+ },
+ "apotheosis.cult.branchActiveOption": {
+  "en": "3559a9a4d9ef",
+  "tr": "6b6874d50736",
+  "by": "human"
+ },
+ "apotheosis.cult.err.chooseBranch": {
+  "en": "a806a571dd43",
+  "tr": "0c5fe0761161",
+  "by": "human"
+ },
+ "apotheosis.cult.err.needFaith": {
+  "en": "b6521e6ff7c3",
+  "tr": "d5eaaa10926e",
+  "by": "human"
+ },
+ "apotheosis.cult.btnConfirmFound": {
+  "en": "47b26bedd118",
+  "tr": "5ad3f6e1fa07",
+  "by": "human"
+ },
+ "apotheosis.cult.btnConfirmSwitch": {
+  "en": "f6c36d6348c4",
+  "tr": "7f8eaa8b98b9",
+  "by": "human"
+ },
+ "apotheosis.cult.btnConfirmSelect": {
+  "en": "9d3424956d85",
+  "tr": "c37da527978c",
+  "by": "human"
+ },
+ "apotheosis.cult.modalReady": {
+  "en": "8399283128a0",
+  "tr": "b5faa1ba1818",
+  "by": "human"
+ },
+ "apotheosis.cult.reqsSummary": {
+  "en": "aead6290a50c",
+  "tr": "4ab9a7762e4c",
+  "by": "human"
+ },
+ "apotheosis.cult.err.needNearHatch": {
+  "en": "3653595d16f0",
+  "tr": "039dc1436f65",
+  "by": "human"
+ },
+ "apotheosis.cult.btnTeleportEnterCost": {
+  "en": "9b70751b7b82",
+  "tr": "fac6e4c27098",
+  "by": "human"
+ },
+ "apotheosis.cult.btnEnterFreeHatch": {
+  "en": "05219b4fd438",
+  "tr": "11655767d73c",
+  "by": "human"
+ },
+ "apotheosis.cult.teleportedHud": {
+  "en": "87f91e9386a8",
+  "tr": "c4fca414b3b9",
+  "by": "human"
+ },
+ "apotheosis.cult.btnChooseBranch": {
+  "en": "1faa0fbeb4c6",
+  "tr": "1df201160d98",
+  "by": "human"
+ },
+ "apotheosis.cult.btnSwitchBranchCd": {
+  "en": "e2486eb88d74",
+  "tr": "dd20b6bc89f5",
+  "by": "human"
+ },
+ "apotheosis.cult.btnSwitchBranch": {
+  "en": "f6c36d6348c4",
+  "tr": "7f8eaa8b98b9",
+  "by": "human"
+ },
+ "apotheosis.cult.heroTitle": {
+  "en": "46b88aea10e4",
+  "tr": "abc96c19c111",
+  "by": "human"
+ },
+ "apotheosis.cult.heroSub": {
+  "en": "4977c4c75302",
+  "tr": "0f53e8e0837d",
+  "by": "human"
+ },
+ "apotheosis.cult.ctrlTitle": {
+  "en": "66bb41e8d018",
+  "tr": "e7fd989e665c",
+  "by": "human"
+ },
+ "apotheosis.cult.statMaxFaithBonus": {
+  "en": "3ce259369e18",
+  "tr": "1b46813eecc0",
+  "by": "human"
+ },
+ "apotheosis.cult.statExplored": {
+  "en": "d12956961f66",
+  "tr": "eaeb77ac403e",
+  "by": "human"
+ },
+ "apotheosis.cult.filterOwned": {
+  "en": "225747ee464c",
+  "tr": "c7fd86c5ea61",
+  "by": "human"
+ },
+ "apotheosis.cult.filterAllCount": {
+  "en": "772c5a2b509e",
+  "tr": "19025ce035e4",
+  "by": "human"
+ },
+ "apotheosis.edict.heroTitle": {
+  "en": "ac6b0fa65742",
+  "tr": "03b53bfc5b31",
+  "by": "human"
+ },
+ "apotheosis.edict.heroSub": {
+  "en": "f4f04060bc03",
+  "tr": "1dd7b14e7c87",
+  "by": "human"
+ },
+ "apotheosis.edict.costBadge": {
+  "en": "3fabe537ecc1",
+  "tr": "0451d1d1078d",
+  "by": "human"
+ },
+ "apotheosis.edict.currentBoxTitle": {
+  "en": "16332642c83d",
+  "tr": "89d16d73f6a6",
+  "by": "human"
+ },
+ "apotheosis.edict.curLocationStats": {
+  "en": "15ae43ed70d0",
+  "tr": "c3b9c8288752",
+  "by": "human"
+ },
+ "apotheosis.edict.btnFocusCurrent": {
+  "en": "3104968d0897",
+  "tr": "5f11ca9424e4",
+  "by": "human"
+ },
+ "apotheosis.edict.searchPh": {
+  "en": "3a5abf4cb26c",
+  "tr": "a2f1bdc78fb1",
+  "by": "human"
+ },
+ "apotheosis.cult.locked": {
+  "en": "eec90ca57e39",
+  "tr": "c118ebcb3568",
+  "by": "human"
+ },
+ "apotheosis.cult.err.notOwnedBranch": {
+  "en": "e34f607dae80",
+  "tr": "81fccea6f98e",
+  "by": "human"
+ },
+ "apotheosis.cult.err.unknownAltarStyle": {
+  "en": "8594cbcce53a",
+  "tr": "882e4fb573a1",
+  "by": "human"
+ },
+ "apotheosis.cult.chronicle.breakInWar": {
+  "en": "749f0e1f7099",
+  "tr": "9e0fb724d460",
+  "by": "human"
+ },
+ "apotheosis.cult.err.bashCooldown": {
+  "en": "594fcefb6913",
+  "tr": "b4b7c417eb7d",
+  "by": "human"
+ },
+ "apotheosis.cult.err.bashFailed": {
+  "en": "9d7ea530aa19",
+  "tr": "f302cc651725",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockMagicWar": {
+  "en": "4b1adb9b2fa5",
+  "tr": "af7f36227a24",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockPickOkWar": {
+  "en": "91ad0f8d8981",
+  "tr": "394424995c0a",
+  "by": "human"
+ },
+ "apotheosis.cult.err.teleportOwnedOnly": {
+  "en": "0835530475af",
+  "tr": "4a8f76747ca4",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_202_0": {
+  "en": "2e038c397b47",
+  "tr": "805ab903e063",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_202_1": {
+  "en": "e7553ae18cb4",
+  "tr": "d10f7ae47dc8",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_202_2": {
+  "en": "0f5e68d87ca1",
+  "tr": "d9441714b35a",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_0": {
+  "en": "0fc9bbe6be1a",
+  "tr": "73741f6bc8a9",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_1": {
+  "en": "5980f1ec8a94",
+  "tr": "e4065b355134",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_98_0": {
+  "en": "ceb2c1a47db2",
+  "tr": "0320009525eb",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_190_10": {
+  "en": "1f6d6ecc4756",
+  "tr": "860de36b2588",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62323": {
+  "en": "6b343a769367",
+  "tr": "1ca1d4192830",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62324": {
+  "en": "8f52fc5e040b",
+  "tr": "556f220a201e",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62325": {
+  "en": "723af1108689",
+  "tr": "6abc7fd66b06",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62326": {
+  "en": "4cbc1c37fc4e",
+  "tr": "8e0f582eee52",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62328": {
+  "en": "504667ea5125",
+  "tr": "42b12bcf870b",
+  "by": "human"
+ },
+ "apotheosis.cult.trespassPenaltyHud": {
+  "en": "7b44ef933b5b",
+  "tr": "8effbb096640",
+  "by": "human"
+ },
+ "apotheosis.cult.hatchBreakInWarn": {
+  "en": "30fc9de75343",
+  "tr": "60b68a2dfe25",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockBtnLockpickWar": {
+  "en": "8fdf14d5a7e5",
+  "tr": "a9b6c31b7a45",
+  "by": "human"
+ },
+ "apotheosis.cult.unlockBtnBashStr": {
+  "en": "26f47032f214",
+  "tr": "03212b9af909",
+  "by": "human"
+ },
+ "apotheosis.cult.btnBack": {
+  "en": "b52b36b7269f",
+  "tr": "f6dab074d7bb",
+  "by": "human"
+ },
+ "apotheosis.cult.activeBadge": {
+  "en": "a733b809d2f1",
+  "tr": "76ddd792f8fd",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyleSet": {
+  "en": "bce0ac7283d7",
+  "tr": "98570a2de17e",
+  "by": "human"
+ },
+ "apotheosis.cult.btnMoreStatues": {
+  "en": "14cd029bfa49",
+  "tr": "426c63d26b3c",
+  "by": "human"
+ },
+ "apotheosis.cult.btnPrevStatues": {
+  "en": "9de9410a1ad1",
+  "tr": "d0e8e59c555a",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStylePickTitle": {
+  "en": "9f96592b8af9",
+  "tr": "fcf7c914aab1",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyleCurrentLine": {
+  "en": "5e2b3f091eec",
+  "tr": "3655822b6d00",
+  "by": "human"
+ },
+ "apotheosis.cult.altarFaithLine": {
+  "en": "fd118f56e531",
+  "tr": "e403a0a734e9",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmForceTitle": {
+  "en": "fd870c4523f6",
+  "tr": "1c0d4b4095e2",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmCostLine": {
+  "en": "a7e367b3acb9",
+  "tr": "31fd84b72c3f",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmForceWarn": {
+  "en": "b3b9c3e4b49f",
+  "tr": "e62bb02fef26",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmBtnSpend": {
+  "en": "0821d9265e54",
+  "tr": "f724c94d44fc",
+  "by": "human"
+ },
+ "apotheosis.locked": {
+  "en": "a798882f1c31",
+  "tr": "42f0f9d8dfda",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmPeacefulTitle": {
+  "en": "1643d8111ed1",
+  "tr": "dfec2aa2d9cb",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmPeacefulInfo": {
+  "en": "734228807439",
+  "tr": "77ae4b3e3857",
+  "by": "human"
+ },
+ "apotheosis.cult.btnUpgradeTierCost": {
+  "en": "aa02d76b5de9",
+  "tr": "73c19b977cdb",
+  "by": "human"
+ },
+ "apotheosis.cult.btnMaxTierReached": {
+  "en": "cec0df686f30",
+  "tr": "e7e09d21546d",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmUpgradeTitle": {
+  "en": "4a6fcaa66114",
+  "tr": "e58504868bfc",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmUpgradeInfo": {
+  "en": "758175974ac3",
+  "tr": "d80b0c001bc9",
+  "by": "human"
+ },
+ "apotheosis.cult.freeLabel": {
+  "en": "75f527181b57",
+  "tr": "afb73e881620",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmBranchTitle": {
+  "en": "0023a3c1adc4",
+  "tr": "876eb643f0f5",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmBtnFree": {
+  "en": "46caff297605",
+  "tr": "b4e0bf995dbf",
+  "by": "human"
+ },
+ "apotheosis.cult.btnChooseAltarStatue": {
+  "en": "308a6f2ffac9",
+  "tr": "48febe105bf9",
+  "by": "human"
+ },
+ "apotheosis.cult.btnChooseAltarInModal": {
+  "en": "308a6f2ffac9",
+  "tr": "48febe105bf9",
+  "by": "human"
+ },
+ "apotheosis.lens.cellYouLead": {
+  "en": "a6203489730a",
+  "tr": "13943d6d1402",
+  "by": "human"
+ },
+ "apotheosis.lens.cellBoth": {
+  "en": "ad87e2bdc9f7",
+  "tr": "95bc7d2d9d7b",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyleBoxTitle": {
+  "en": "0db8d722758a",
+  "tr": "fb749d8fdd56",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyleDesc": {
+  "en": "ed0550b4bcff",
+  "tr": "4c3b9a20b25e",
+  "by": "human"
+ },
+ "apotheosis.cult.btnOpenStatuePicker": {
+  "en": "fe840b4ce302",
+  "tr": "20c667a5f352",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyleModalTitle": {
+  "en": "57a6a60244f4",
+  "tr": "c91fc25facd7",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyleCurrentBadge": {
+  "en": "5e2b3f091eec",
+  "tr": "3655822b6d00",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyleModalSub": {
+  "en": "9d41753f6194",
+  "tr": "363279792bf5",
+  "by": "human"
+ },
+ "apotheosis.cult.altarKindFlat": {
+  "en": "e3de013c5342",
+  "tr": "bae8e8c8d482",
+  "by": "human"
+ },
+ "apotheosis.cult.altarKindModel": {
+  "en": "54260c8b2ba1",
+  "tr": "8032bcee326a",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyleFootNote": {
+  "en": "2f610b2f9af2",
+  "tr": "2aea14fb4426",
+  "by": "human"
+ },
+ "apotheosis.cult.btnEnterNeedHatch": {
+  "en": "eb25778a7f88",
+  "tr": "2a148822a859",
+  "by": "human"
+ },
+ "apotheosis.group.ascension": {
+  "en": "2de8f87cb665",
+  "tr": "250febc5cf13",
+  "by": "human"
+ },
+ "apotheosis.group.godhood": {
+  "en": "d8014d7d925e",
+  "tr": "e66cb2a0824c",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_202_3": {
+  "en": "cecbc9c16ed6",
+  "tr": "11c5a58381f0",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_202_4": {
+  "en": "ae0a67ee1cf3",
+  "tr": "e67a00beda00",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_202_5": {
+  "en": "995c88962d8f",
+  "tr": "cd0ef5993d38",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_202_6": {
+  "en": "5e9ab3a3e820",
+  "tr": "c9a4d8d69d0a",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_2": {
+  "en": "aed3d0387d6b",
+  "tr": "b790d6772ea4",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_4": {
+  "en": "999aeaa2b1df",
+  "tr": "cf815fdaf0de",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_5": {
+  "en": "ba27c87108e5",
+  "tr": "76c960ff929d",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_10": {
+  "en": "59187ce5f879",
+  "tr": "a43a928ec028",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_190_11": {
+  "en": "1a3f299eb69b",
+  "tr": "a6260d097c9e",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62327": {
+  "en": "cee7e94dcddf",
+  "tr": "7aebacf9e3d8",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62329": {
+  "en": "b159ef448645",
+  "tr": "2399b2b163a0",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62330": {
+  "en": "1355637dc76e",
+  "tr": "e778d14f4865",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_62317": {
+  "en": "b03271e2ea02",
+  "tr": "f4535eed296b",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.model_74091": {
+  "en": "cc2adcf0cd9c",
+  "tr": "d7132bc0685c",
+  "by": "human"
+ },
+ "apotheosis.cult.confirmForceAssaultWarn": {
+  "en": "1779fef4f1a7",
+  "tr": "f7590aabe78d",
+  "by": "human"
+ },
+ "apotheosis.cult.btnConfirmYesConsecrate": {
+  "en": "5ff97df48087",
+  "tr": "e9cb637e3f7d",
+  "by": "human"
+ },
+ "apotheosis.cult.btnConfirmNoStepBack": {
+  "en": "b4c32e7b468d",
+  "tr": "8b96d963295d",
+  "by": "human"
+ },
+ "apotheosis.cult.assaultStartedHud": {
+  "en": "05000eb0c86f",
+  "tr": "56c299d14a56",
+  "by": "human"
+ },
+ "apotheosis.cult.consecrateVictoryHud": {
+  "en": "c19ed5d50361",
+  "tr": "60c46d76bd77",
+  "by": "human"
+ },
+ "apotheosis.cult.err.finishAssaultGuardians": {
+  "en": "b2c0315a2d58",
+  "tr": "3bc0aac0829e",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_12": {
+  "en": "ade6866f8eb3",
+  "tr": "a7bb08c38807",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_13": {
+  "en": "5075dff45660",
+  "tr": "093947b84e1e",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_14": {
+  "en": "25765b2752a9",
+  "tr": "89e24e8c6d77",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_97_16": {
+  "en": "33e20274aff7",
+  "tr": "3483f58483d2",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_175_0": {
+  "en": "ec03893a793c",
+  "tr": "2f88e9a73c54",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_175_7": {
+  "en": "1a57f062845f",
+  "tr": "80492959cdae",
+  "by": "human"
+ },
+ "apotheosis.cult.altarStyle.flat_175_11": {
+  "en": "1ec6ec4b182b",
+  "tr": "6b6a1cb6bbaa",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.err.noEntity": {
+  "en": "15b7399451c0",
+  "tr": "45cf1f3ee677",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.err.zeroGold": {
+  "en": "ff8afa1ed93d",
+  "tr": "c389dd33e3f0",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.err.notEnoughGold": {
+  "en": "75b6eca86af6",
+  "tr": "2fec84a34751",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.err.alreadyDesecrated": {
+  "en": "983771da3cd6",
+  "tr": "cbe902c852ed",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.wildTitle": {
+  "en": "ec3482bf997c",
+  "tr": "f7493530de59",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.townTitle": {
+  "en": "4798deec0452",
+  "tr": "b66272e7f279",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.hoverSub": {
+  "en": "630495b05a2c",
+  "tr": "e4f3e62ea9c4",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.wildBonusNote": {
+  "en": "5a6ca5314a19",
+  "tr": "a15487f31c5e",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.townNote": {
+  "en": "a65beab20a80",
+  "tr": "398ab31317fd",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.prayedMsg": {
+  "en": "908654fa5bbd",
+  "tr": "f5e6ab8f003a",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.donate50": {
+  "en": "45b948df55bd",
+  "tr": "77e2d8e67e89",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.donate200": {
+  "en": "bddca70aa987",
+  "tr": "0991159c6383",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.donate500": {
+  "en": "580e7a439683",
+  "tr": "f962393e715b",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.desecrate": {
+  "en": "9ec1b2c91781",
+  "tr": "fc44878e0797",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.desecratedWarn": {
+  "en": "61dd80d51068",
+  "tr": "9eb8a9e935c2",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.desecratedOk": {
+  "en": "14c60b3a21be",
+  "tr": "a4134e175f8f",
+  "by": "human"
+ },
+ "apotheosis.petition.completedHud": {
+  "en": "bf3c36fe5192",
+  "tr": "c22cd995bedf",
+  "by": "human"
+ },
+ "apotheosis.cult.btnClose": {
+  "en": "bbfa773e5a63",
+  "tr": "0b9f7c6d05a9",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.alreadyDesecratedNote": {
+  "en": "622d0ced4078",
+  "tr": "1701ce806cf2",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.blessDesc": {
+  "en": "b9048c64aac9",
+  "tr": "a890ee253442",
+  "by": "human"
+ },
+ "apotheosis.petition.btnAltarMenu": {
+  "en": "29f4b01fac3d",
+  "tr": "ac49c31633f0",
+  "by": "human"
+ },
+ "apotheosis.petition.descInquisition": {
+  "en": "868d54fd434f",
+  "tr": "da1e1849b8c5",
+  "by": "human"
+ },
+ "apotheosis.petition.descDesecrate": {
+  "en": "70c42656560f",
+  "tr": "e83f24234d18",
+  "by": "human"
+ },
+ "apotheosis.petition.descEdict": {
+  "en": "7e0f0e6a61f4",
+  "tr": "b7a24e63cbee",
+  "by": "human"
+ },
+ "apotheosis.petition.btnConfrontInq": {
+  "en": "80f144e9df48",
+  "tr": "2422548e0d80",
+  "by": "human"
+ },
+ "apotheosis.petition.inqSpawnedHud": {
+  "en": "d6a6fa167928",
+  "tr": "92990f98af87",
+  "by": "human"
+ },
+ "apotheosis.petition.btnDismiss": {
+  "en": "3ce904406459",
+  "tr": "4826f707aa7b",
+  "by": "human"
+ },
+ "apotheosis.petition.dismissedHud": {
+  "en": "c2fb939a6045",
+  "tr": "0b04898aa0e0",
+  "by": "human"
+ },
+ "apotheosis.petition.modalTitle": {
+  "en": "751378a60aa3",
+  "tr": "202ecebd54fd",
+  "by": "human"
+ },
+ "apotheosis.petition.rewardLine": {
+  "en": "39bf38ac88fd",
+  "tr": "dd50ce56a2f4",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.uiTitle": {
+  "en": "153b41929a4b",
+  "tr": "37394302badb",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.hudTip": {
+  "en": "376bea591a74",
+  "tr": "10c0f7e3e71b",
+  "by": "human"
+ },
+ "apotheosis.petition.btnVerifyEdict": {
+  "en": "c14c05676c02",
+  "tr": "8dd56ef8ad11",
+  "by": "human"
+ },
+ "apotheosis.petition.edictNotYet": {
+  "en": "8639898e4bc9",
+  "tr": "cf509c6cfa2d",
+  "by": "human"
+ },
+ "apotheosis.roadShrine.hudName": {
+  "en": "bec5b10de4cc",
+  "tr": "59d22b92b2a3",
+  "by": "human"
+ },
+ "menu.apotheosis.hostility.name": {
+  "en": "ba39978cfe3f",
+  "tr": "719fb7d9402f",
+  "by": "human"
+ },
+ "menu.apotheosis.hostility.note": {
+  "en": "11e230170fd0",
+  "tr": "8f4a339c7cac",
+  "by": "human"
+ },
+ "menu.apotheosis.hostility.calm": {
+  "en": "b267b90f68c7",
+  "tr": "4368e28d5f00",
+  "by": "human"
+ },
+ "menu.apotheosis.hostility.normal": {
+  "en": "824cf2852963",
+  "tr": "f955e91556d3",
+  "by": "human"
+ },
+ "menu.apotheosis.hostility.aggressive": {
+  "en": "79b95c8b3ab5",
+  "tr": "a2e669c58111",
+  "by": "human"
+ },
+ "menu.apotheosis.hostility.relentless": {
+  "en": "b66c1b2312ea",
+  "tr": "60aee10f950b",
+  "by": "human"
+ },
+ "menu.apotheosis.faithGain.name": {
+  "en": "454db9ee7026",
+  "tr": "661aa19f59c2",
+  "by": "human"
+ },
+ "menu.apotheosis.faithGain.note": {
+  "en": "9e74d00edc6a",
+  "tr": "4729a53e4f64",
+  "by": "human"
+ },
+ "menu.apotheosis.faithDecay.name": {
+  "en": "8f92aeabfced",
+  "tr": "917d7639396d",
+  "by": "human"
+ },
+ "menu.apotheosis.faithDecay.note": {
+  "en": "6e4c4b65af60",
+  "tr": "503bf1808760",
+  "by": "human"
+ },
+ "menu.apotheosis.faithDecay.off": {
+  "en": "3dcaa7929ce2",
+  "tr": "0aa66b42b158",
+  "by": "human"
+ },
+ "menu.apotheosis.pantheonAct.name": {
+  "en": "b50ce312a75f",
+  "tr": "33619a6fc37c",
+  "by": "human"
+ },
+ "menu.apotheosis.pantheonAct.note": {
+  "en": "72f9e0b94c4c",
+  "tr": "8513cf9ab8b4",
+  "by": "human"
+ },
+ "menu.apotheosis.pantheonAct.passive": {
+  "en": "3353b5b307a8",
+  "tr": "f251a3222100",
+  "by": "human"
+ },
+ "menu.apotheosis.pantheonAct.normal": {
+  "en": "51792fa0bd50",
+  "tr": "434ade6cfa95",
+  "by": "human"
+ },
+ "menu.apotheosis.pantheonAct.dynamic": {
+  "en": "c36602bc573e",
+  "tr": "e21956c506e5",
+  "by": "human"
+ },
+ "menu.apotheosis.pantheonAct.chaotic": {
+  "en": "7216d3b8fb53",
+  "tr": "5f9697012d49",
+  "by": "human"
+ },
+ "menu.apotheosis.travelInterrupts.name": {
+  "en": "5c04b99f9573",
+  "tr": "f7c7420bc8cf",
+  "by": "human"
+ },
+ "menu.apotheosis.travelInterrupts.note": {
+  "en": "49984dd3fd10",
+  "tr": "a003ea1bd2cd",
+  "by": "human"
+ },
+ "menu.apotheosis.travelInterrupts.all": {
+  "en": "62e5a40ba3fb",
+  "tr": "449a600fc767",
+  "by": "human"
+ },
+ "menu.apotheosis.travelInterrupts.shrines": {
+  "en": "9b478cdf1fd2",
+  "tr": "3148c7be477e",
+  "by": "human"
+ },
+ "menu.apotheosis.travelInterrupts.off": {
+  "en": "e3de5ab0ca4c",
+  "tr": "b71aa1762127",
+  "by": "human"
+ },
+ "apotheosis.travelInterrupt.title": {
+  "en": "d4799138bbee",
+  "tr": "9c13c3744828",
+  "by": "human"
+ },
+ "apotheosis.travelInterrupt.ask": {
+  "en": "20b8f8092b5a",
+  "tr": "04f5175ba3ab",
+  "by": "human"
+ },
+ "apotheosis.travelInterrupt.yes": {
+  "en": "661d907c38b0",
+  "tr": "3c833bf35b5e",
+  "by": "human"
+ },
+ "apotheosis.travelInterrupt.no": {
+  "en": "627a208aea7c",
+  "tr": "f19d6e49e3c4",
+  "by": "human"
  }
 }

@@ -24,6 +24,19 @@
 // "a real character" - the armory below supersedes it.
 
 import { RACES } from './races.js';
+import { t } from './textManager.js';
+import { hitPointsPerLevelUp } from './chargen.js';
+import { ONLINE_BONUS_POOL } from './levelEven.js';
+import { STAT_KEYS_ORDER } from './statMods.js';
+import { SKILLS } from './skills.js';
+import { setMasterSkills, masterSkill } from './masterSkills.js';
+import { computeEntityMods } from './entityMods.js';
+import {
+  APOTHEOSIS_SOURCES,
+  startApotheosisQuestline,
+  completeApotheosisQuestline,
+  selectApotheosisPortfolio,
+} from './apotheosis/apotheosisCore.js';
 import { resurrectionSpell } from './resurrect.js';   // RESURRECT1: the sorceress carries one, to test with
 import { applyHeadlessChargen } from './chargenSession.js';
 import { addItem } from './inventory.js';
@@ -109,7 +122,26 @@ export const TEST_SEA_TEXT = Object.freeze({
 });
 
 /** The doors that start OUTDOORS - a spawn, not a character: never the classic start's dungeon (main.js's route). */
-export const testStartsOutdoors = (id) => id === TEST_RIDE.id || id === TEST_SEA.id;
+export const testStartsOutdoors = (id) => id === TEST_RIDE.id || id === TEST_SEA.id || id === TEST_GOD.id;
+
+/** Newly ascended god preset: level 35 Nord Warrior, Portfolio of War, starting outdoors in Chesterwark. */
+export const TEST_GOD = Object.freeze({
+  id: 'god',
+  preset: 'nord-warrior',
+  region: 'Daggerfall',
+  loc: 'Chesterwark',
+  level: 35,
+  portfolio: 'war',
+  get label() { return t('menu.test.godTitle', 'Ascended God'); },
+  get blurb() {
+    return t(
+      'menu.test.godBlurb',
+      'A fairly leveled Nord Warrior (Level 35) who has just ascended to godhood with the Portfolio of War, starting outdoors in Chesterwark.',
+    );
+  },
+});
+
+export const testStartLocation = (id) => (id === TEST_GOD.id ? { region: TEST_GOD.region, loc: TEST_GOD.loc } : null);
 
 /** #5: the sea door's two switches - Come Sail Away (the world latches it once, at the load this door starts) and
  *  Naval Combat - turned on, and left on, as the loot door leaves its ladder. */
@@ -126,6 +158,7 @@ export function testEntryById(id) {
   if (id === TEST_RIDE.id) return { preset: testPresetById(TEST_RIDE.preset), ride: true };
   if (id === TEST_SEA.id) return { preset: testPresetById(TEST_SEA.preset), ride: false, sea: true };
   if (id === TEST_LOOT.id) return { preset: testPresetById(TEST_LOOT.preset), ride: false, loot: true };
+  if (id === TEST_GOD.id) return { preset: testPresetById(TEST_GOD.preset), ride: false, god: true };
   const preset = testPresetById(id);
   return preset ? { preset, ride: false } : null;
 }
@@ -460,6 +493,75 @@ export async function applyTestCharacter(playerEntity, preset, { fetchBytes, spe
   if (cuirass) equipItem(playerEntity, cuirass);
   if (sword) equipItem(playerEntity, sword);
   return { added: added.length };
+}
+
+const GOD_STAT_PRIORITY = Object.freeze([
+  'strength', 'endurance', 'agility', 'speed', 'willpower', 'intelligence', 'personality', 'luck',
+]);
+
+/**
+ * Levels a freshly created Test Room character to Level 35 by fair rules
+ * (normal HP rolls, 5 stat points/level up to 100, class skills & mastery)
+ * and completes Apotheosis with the Portfolio of War as a newly ascended god.
+ */
+export function seedTestGod(entity, { spellsByIndex = null, nowMinutes = null } = {}) {
+  const career = entity.career;
+  entity.stats ??= {};
+  for (const k of STAT_KEYS_ORDER) entity.stats[k] ??= 50;
+
+  while ((entity.level ?? 1) < TEST_GOD.level) {
+    entity.level = (entity.level ?? 1) + 1;
+    if (career && typeof career === 'object' && Number.isFinite(career.hitPointsPerLevel)) {
+      const hpAdd = hitPointsPerLevelUp(career, entity.stats.endurance, () => 0.5);
+      entity.maxHealth = (entity.rawMaxHealth ?? entity.maxHealth ?? 35) + hpAdd;
+      entity.rawMaxHealth = entity.maxHealth;
+    }
+    let pool = ONLINE_BONUS_POOL;
+    while (pool > 0) {
+      const key = GOD_STAT_PRIORITY.find((k) => (entity.stats[k] ?? 0) < 100);
+      if (!key) break;
+      entity.stats[key] += 1;
+      pool--;
+    }
+  }
+
+  entity.skills ??= [];
+  if (career) {
+    for (const id of [...(career.primarySkills ?? []), ...(career.majorSkills ?? []), ...(career.minorSkills ?? [])]) {
+      entity.skills[id] = Math.max(entity.skills[id] ?? 0, 100);
+    }
+    setMasterSkills(entity, true);
+    const toMaster = [
+      ...(career.primarySkills ?? []).slice(0, 3),
+      ...(career.majorSkills ?? []).slice(0, 2),
+      ...(career.minorSkills ?? []).slice(0, 1),
+    ];
+    for (const id of toMaster) masterSkill(entity, id);
+    const prim = career.primarySkills ?? [];
+    if (prim[0] != null) entity.skills[prim[0]] = Math.max(entity.skills[prim[0]] ?? 0, 200);
+    if (prim[1] != null) entity.skills[prim[1]] = Math.max(entity.skills[prim[1]] ?? 0, 170);
+    if (prim[2] != null) entity.skills[prim[2]] = Math.max(entity.skills[prim[2]] ?? 0, 170);
+  }
+  entity.skills[SKILLS.Destruction] = Math.max(entity.skills[SKILLS.Destruction] ?? 0, 100);
+  entity.skills[SKILLS.Restoration] = Math.max(entity.skills[SKILLS.Restoration] ?? 0, 100);
+  entity.skills[SKILLS.Daedric] = Math.max(entity.skills[SKILLS.Daedric] ?? 0, 100);
+  addTestMissileSpells(entity, spellsByIndex);
+
+  entity.totalKills = Math.max(entity.totalKills ?? 0, 5000);
+  entity.questsCompleted = Math.max(entity.questsCompleted ?? 0, 50);
+  entity.nemesesDefeated = Math.max(entity.nemesesDefeated ?? 0, 10);
+  if (!Array.isArray(entity.booksRead) || entity.booksRead.length < 25) {
+    entity.booksRead = Array.from({ length: 25 }, (_, i) => i + 1);
+  }
+
+  startApotheosisQuestline(entity, { source: APOTHEOSIS_SOURCES.ARTIFACTS });
+  completeApotheosisQuestline(entity);
+  const res = selectApotheosisPortfolio(entity, TEST_GOD.portfolio, { nowMinutes, free: true });
+  computeEntityMods(entity);
+  entity.health = entity.maxHealth;
+  entity.magicka = entity.maxMagicka;
+  entity.fatigue = entity.maxFatigue;
+  return res;
 }
 
 /**

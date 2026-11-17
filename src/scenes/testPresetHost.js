@@ -3,7 +3,7 @@
 // settled names by value at construction, every live one (a `let` someone writes, a `const` made below) read at its
 // use as `boot.<name>` - as the code read them where it was.
 import { applyHeadlessChargen, createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex } from '../systems/chargenSession.js';
-import { applyTestCharacter, seedTestLoot, seedTestMount } from '../systems/testRoom.js';
+import { applyTestCharacter, seedTestGod, seedTestLoot, seedTestMount } from '../systems/testRoom.js';
 import { autoBuildArms, buildArmsFor } from '../combat/weapon/weaponRig.js';
 import { enumerateSaves } from '../systems/save/saveSlots.js';
 import { exitToTitleMenu, fetchBytes } from './shared.js';
@@ -40,6 +40,10 @@ export function createTestPreset(boot) {
       if (testEntry.ride) { seedTestMount(playerEntity); boot.rideOutWanted = true; }
       if (testEntry.sea) boot.seaTestWanted = true;   // FIELD BUGS 2026-09-29 (the sea) #5: the Bay, her helm and a pirate wait for the first stand
       if (testEntry.loot) console.log(`[testroom] loot ladder: ${seedTestLoot(playerEntity).length} rolled items in the pack`);   // LR3
+      if (testEntry.god) {
+        const res = seedTestGod(playerEntity, { spellsByIndex: sbi });
+        console.log(`[testroom] ascended god: level ${playerEntity.level}, portfolio=${res.portfolio}, faith=${res.faith}`);
+      }
       // The Morrowind rigs, WITHOUT the trip to the pause card - the
       // room exists to look at them. Only when the data is attached;
       // without it the classic sprite stands exactly as everywhere

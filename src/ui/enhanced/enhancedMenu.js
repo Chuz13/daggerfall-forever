@@ -105,7 +105,7 @@ import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on th
 import { drawTutorialsPane, releaseTutorialsPane } from '../tutorialsPane.js';   // TUT1: the Tutorials tab and section - every tutorial page, to read again
 import { drawApotheosisPane, releaseApotheosisPane } from '../apotheosisPane.js';   // APOTHEOSIS: Fate Weight, Artifact Sacrifice & Portfolios
 import { drawShotsPane, releaseShotsPane } from '../shotsPane.js';   // LOAD1: the Screenshots pane - the gallery the PrintScreen key keeps
-import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
+import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT, TEST_GOD } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../../formats/morrowind/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../../systems/equip.js';
 import { boonStatRows } from '../temperatureCard.js';   // AUDIT C&C B11: the Attributes page names the boons that raise them
@@ -1155,6 +1155,11 @@ function paneTest(body) {
   loot.append(el('p', 'meta', TEST_LOOT.blurb));
   loot.append(acts([{ label: t('menu.test.enterLadder', 'Enter with the ladder'), primary: true, onClick: () => onAction(`test:${TEST_LOOT.id}`) }]));
   body.append(loot);
+  const god = el('div', 'card');
+  god.append(el('h3', null, TEST_GOD.label));
+  god.append(el('p', 'meta', TEST_GOD.blurb));
+  god.append(acts([{ label: t('menu.test.enterGod', 'Enter as an Ascended God'), primary: true, onClick: () => onAction(`test:${TEST_GOD.id}`) }]));
+  body.append(god);
   // FT12 (Mac, 2026-09-14: "move the test the outdoors to the test room
   // tab"): the outdoors test door lives with the other test doors. It
   // was the last row of the Enhanced category of Settings, which is off

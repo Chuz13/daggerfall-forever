@@ -294,6 +294,9 @@ async function boot() {
     const { testStartsOutdoors } = await import('./systems/testRoom.js');
     if (testStartsOutdoors(params.get('test'))) params.delete('classic');
     else params.set('classic', '1');
+    const { testStartLocation } = await import('./systems/testRoom.js');
+    const testLoc = testStartLocation(params.get('test'));
+    if (testLoc) { params.set('region', testLoc.region); params.set('loc', testLoc.loc); }
     // FB1012d BIRTH-START (Discord, "Odd family tree behavior": "the game spat them out near Privateer's Hold instead of
     // starting them at the family's seat"): a member born from the Online page's waiting house is born in the place their
     // birth names (`region`/`loc` - the line's seat), as the world's own Succession's birth is (places.js birthSearch drops

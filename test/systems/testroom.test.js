@@ -16,8 +16,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  TEST_PRESETS, TEST_RIDE, testPresetById, testEntryById, testGearRows, testItemOf, applyTestCharacter, seedTestMount, TEST_BOOKS,
+  TEST_PRESETS, TEST_RIDE, TEST_GOD, testPresetById, testEntryById, testGearRows, testItemOf, applyTestCharacter, seedTestMount, seedTestGod, testStartsOutdoors, testStartLocation, TEST_BOOKS,
 } from '../../src/systems/testRoom.js';
+import { isAscendedGod, apotheosisHpOf } from '../../src/systems/apotheosis/apotheosisLive.js';
 import { hasHorse, TRANSPORT_HORSE_TEMPLATE } from '../../src/systems/inventorySession.js';
 import { positionPlayerToLocation, EXTRA_DISTANCE } from '../../src/world/locationEntrance.js';
 import { RMB_SIDE } from '../../src/world/locationLayout.js';
@@ -318,4 +319,47 @@ test('EB3: every test pack carries books - real ids of the classic mapping, mint
     }
   }
   assert.ok(TEST_BOOKS.includes(28), 'Brief History of the Empire I - a long book, for the leaves');
+});
+
+test('TEST_GOD: newly ascended Level 35 Nord Warrior (War) starting outdoors in Chesterwark', () => {
+  assert.equal(TEST_GOD.id, 'god');
+  assert.equal(TEST_GOD.preset, 'nord-warrior');
+  assert.equal(TEST_GOD.level, 35);
+  assert.equal(TEST_GOD.portfolio, 'war');
+  assert.deepEqual(testEntryById('god'), { preset: testPresetById('nord-warrior'), ride: false, god: true });
+  assert.equal(testStartsOutdoors('god'), true);
+  assert.deepEqual(testStartLocation('god'), { region: 'Daggerfall', loc: 'Chesterwark' });
+  assert.equal(testStartLocation('nord-warrior'), null);
+
+  const career = {
+    name: CLASS_CAREERS[testPresetById('nord-warrior').classIndex],
+    hitPointsPerLevel: 12,
+    primarySkills: [28, 30, 31],
+    majorSkills: [29, 32, 33],
+    minorSkills: [12, 13, 14, 15, 16, 17],
+  };
+  const entity = {
+    level: 1,
+    career,
+    stats: { strength: 60, intelligence: 40, willpower: 45, agility: 50, endurance: 60, personality: 45, speed: 50, luck: 50 },
+    skills: new Array(36).fill(10),
+    maxHealth: 40,
+    rawMaxHealth: 40,
+    health: 40,
+    maxMagicka: 20,
+    magicka: 20,
+    maxFatigue: 110,
+    fatigue: 110,
+    spells: [],
+  };
+  const res = seedTestGod(entity, { nowMinutes: 1000 });
+  assert.equal(res.ok, true);
+  assert.equal(entity.level, 35);
+  assert.equal(isAscendedGod(entity), true);
+  assert.equal(entity.apotheosis.portfolio, 'war');
+  assert.equal(entity.apotheosis.faith, 500);
+  assert.ok(entity.rawMaxHealth > 40, 'fair HP gained across 34 levels');
+  assert.ok(apotheosisHpOf(entity) >= 500, 'godhood vitals bonus active');
+  assert.equal(entity.health, entity.maxHealth);
+  assert.equal(entity.stats.strength, 100, 'base mortal stat capped at 100 before portfolio mods');
 });
