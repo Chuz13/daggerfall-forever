@@ -22,6 +22,7 @@ import {
 import {
   ensureCultState,
   getAllCultSites,
+  getCultSite,
   getActiveRegionalEdict,
   setEdictProclaimedHook,
 } from './apotheosisCult.js';
@@ -34,6 +35,7 @@ export const ROADSIDE_DESECRATE_INF_BASE = 0.5;
 export const ROADSIDE_WILD_REWARD_MULT = 3;
 export const ROADSIDE_DESECRATE_RELATION_PENALTY = -10;
 export const ROADSIDE_DESECRATE_COOLDOWN_MINUTES = 1440; // 1 in-game day per shrine node
+export const ROADSIDE_DONATE_COOLDOWN_MINUTES = 1440; // 1 in-game day per shrine node
 
 export const BASTION_DEFENSE_PER_SITE = 0.15;
 export const BASTION_DEFENSE_MAX = 0.45;
@@ -77,7 +79,7 @@ export function grantRoadBlessing(entity, godId, donationGold = 50, nowMinutes =
   const now = Number(nowMinutes) || 0;
   const tier = gold >= 500 ? 3 : gold >= 200 ? 2 : 1;
   const fatiguePerMin = tier === 3 ? 4 : tier === 2 ? 3 : 2;
-  const warmthDegrees = tier === 3 ? 8 : tier === 2 ? 6 : 4;
+  const warmthDegrees = tier === 3 ? 10 : tier === 2 ? 7 : 5;
   const expiresAtMinutes = now + ROAD_BLESSING_DURATION_MINUTES;
 
   apo.roadBlessing = {
@@ -106,13 +108,19 @@ export function getRoadBlessingInfo(entity, nowMinutes = 0) {
   const b = entity?.apotheosis?.roadBlessing;
   if (!b || typeof b !== 'object') return null;
   const now = Number(nowMinutes) || 0;
+  if (b.grantedAtMinutes != null && now > 0 && (now - Number(b.grantedAtMinutes)) >= 100000) {
+    // Rebase legacy minute-of-day timestamps onto total campaign minutes
+    b.grantedAtMinutes = now;
+    b.expiresAtMinutes = now + ROAD_BLESSING_DURATION_MINUTES;
+  }
   const exp = Number(b.expiresAtMinutes) || 0;
-  if (now >= exp) {
+  if (now > 0 && now >= exp) {
     delete entity.apotheosis.roadBlessing;
     computeEntityMods(entity);
     return null;
   }
-  const minutesLeft = Math.max(0, Math.ceil(exp - now));
+  const refNow = now > 0 ? now : (Number(b.grantedAtMinutes) || 0);
+  const minutesLeft = Math.max(1, Math.ceil(exp - refNow) || ROAD_BLESSING_DURATION_MINUTES);
   const deity = getPantheonDeity(b.godId);
   return {
     active: true,
@@ -135,8 +143,8 @@ export function computeRoadBlessingMods(entity) {
   return {
     warmth: deg,
     coldDegrees: deg,
-    heatDegrees: deg,
-    dry: 0.25,
+    heatDegrees: deg * 2,
+    dry: 25,
     fatigueLess: 0.20,
     resist: { frost: 10, fire: 10, shock: 10 },
   };
@@ -214,10 +222,34 @@ export function isRoadsideShrineDesecrated(entity, shrineId, nowMinutes = 0) {
   return (Number(nowMinutes) || 0) - Number(ts) < ROADSIDE_DESECRATE_COOLDOWN_MINUTES;
 }
 
+function pruneOldDonations(cult, nowMinutes) {
+  if (!cult.donatedShrines || typeof cult.donatedShrines !== 'object') {
+    cult.donatedShrines = {};
+    return;
+  }
+  const now = Number(nowMinutes) || 0;
+  const cutoff = now - ROADSIDE_DONATE_COOLDOWN_MINUTES * 3;
+  for (const [k, ts] of Object.entries(cult.donatedShrines)) {
+    const nTs = Number(ts) || 0;
+    if ((now > 0 && nTs > now) || nTs < cutoff) delete cult.donatedShrines[k];
+  }
+}
+
+/** Returns true if an offering was already made at this roadside shrine within the 24h cooldown. */
+export function isRoadsideShrineDonated(entity, shrineId, nowMinutes = 0) {
+  const ts = entity?.apotheosis?.cult?.donatedShrines?.[shrineId];
+  if (ts == null) return false;
+  const now = Number(nowMinutes) || 0;
+  const nTs = Number(ts) || 0;
+  if (now > 0 && nTs > now + ROADSIDE_DONATE_COOLDOWN_MINUTES) return false;
+  if (now < nTs) return true;
+  return (now - nTs) < ROADSIDE_DONATE_COOLDOWN_MINUTES;
+}
+
 /**
  * Pray & donate gold at a Roadside Shrine.
  * Grants relation (+1..+8), small regional influence for the patron god,
- * and Road Blessing (if gold >= 50).
+ * and Road Blessing (if gold >= 50), subject to a per-shrine 24h offering cooldown.
  */
 export function prayAtRoadsideShrine(entity, {
   shrineId = 'roadside:unknown',
@@ -231,6 +263,23 @@ export function prayAtRoadsideShrine(entity, {
   if (amount <= 0) {
     return { ok: false, reason: t('apotheosis.roadShrine.err.zeroGold', 'Enter a positive gold offering.') };
   }
+  const cult = ensureCultState(entity);
+  const now = Number(nowMinutes) || 0;
+  pruneOldDonations(cult, now);
+
+  if (isRoadsideShrineDesecrated(entity, shrineId, now)) {
+    return {
+      ok: false,
+      reason: t('apotheosis.roadShrine.err.alreadyDesecrated', 'This shrine has already been desecrated today.'),
+    };
+  }
+  if (isRoadsideShrineDonated(entity, shrineId, now)) {
+    return {
+      ok: false,
+      reason: t('apotheosis.roadShrine.err.alreadyDonated', 'You have already made an offering at this shrine today.'),
+    };
+  }
+
   const curGold = Math.max(0, Math.trunc(Number(entity.goldPieces) || 0));
   if (curGold < amount) {
     return {
@@ -240,11 +289,14 @@ export function prayAtRoadsideShrine(entity, {
   }
 
   const reg = clampReg(regionIndex);
-  const now = Number(nowMinutes) || 0;
   const deity = getPantheonDeity(godId);
   const targetGodId = deity?.id ?? resolveRegionPatronDeityId(reg);
 
   entity.goldPieces = curGold - amount;
+  if (cult) {
+    if (!cult.donatedShrines || typeof cult.donatedShrines !== 'object') cult.donatedShrines = {};
+    cult.donatedShrines[shrineId] = now;
+  }
 
   // Small faith tithe if already ascended
   let faithSpent = 0;
@@ -392,15 +444,10 @@ function pickEnemyDeityForPetition(entity, regionIndex, rng = Math.random) {
   return pool[Math.floor(rng() * pool.length) % pool.length].id;
 }
 
-/** Returns currently active (unexpired) Cult Petition, or null. */
-export function getActiveCultPetition(entity, nowMinutes = 0) {
+/** Returns currently active Cult Petition (kept until completed or dismissed), or null. */
+export function getActiveCultPetition(entity, _nowMinutes = 0) {
   const pet = entity?.apotheosis?.cult?.petition;
   if (!pet || typeof pet !== 'object') return null;
-  const now = Number(nowMinutes) || 0;
-  if (pet.expiresAtMinutes != null && now >= pet.expiresAtMinutes) {
-    entity.apotheosis.cult.petition = null;
-    return null;
-  }
   return pet;
 }
 
@@ -492,15 +539,20 @@ export function notifyCultPetitionProgress(entity, eventKind, {
   if (!pet) return { completed: false };
 
   let matched = false;
+  let influenceRegion = pet.targetRegion;
   if (pet.type === 'inquisition' && eventKind === 'inquisition_cleared') {
-    if (!siteKey || siteKey === pet.targetSiteKey) matched = true;
+    matched = true;
+    const siteReg = siteKey ? getCultSite(entity, siteKey)?.regionIndex : null;
+    if (siteReg != null) influenceRegion = clampReg(siteReg);
   } else if (pet.type === 'desecrate_shrine' && eventKind === 'desecrate_shrine') {
-    const regOk = regionIndex == null || clampReg(regionIndex) === pet.targetRegion;
     const godOk = !godId || godId === pet.godId;
-    if (regOk && godOk) matched = true;
+    if (godOk) {
+      matched = true;
+      if (regionIndex != null) influenceRegion = clampReg(regionIndex);
+    }
   } else if (pet.type === 'edict' && eventKind === 'edict_proclaimed') {
-    const curReg = entity?.currentRegionIndex != null ? clampReg(entity.currentRegionIndex) : null;
-    if (regionIndex == null || clampReg(regionIndex) === pet.targetRegion || (curReg != null && clampReg(regionIndex) === curReg)) matched = true;
+    matched = true;
+    if (regionIndex != null) influenceRegion = clampReg(regionIndex);
   }
 
   if (!matched) return { completed: false };
@@ -513,7 +565,7 @@ export function notifyCultPetitionProgress(entity, eventKind, {
   entity.apotheosis.faith = (entity.apotheosis.faith || 0) + faithGained;
   entity.goldPieces = (Math.max(0, Math.trunc(Number(entity.goldPieces) || 0))) + goldGained;
   ensurePantheonState(entity, { nowMinutes });
-  shiftRegionInfluence(entity, pet.targetRegion, 'player', infGained);
+  shiftRegionInfluence(entity, influenceRegion, 'player', infGained);
 
   entity.apotheosis.cult.petition = null;
   return {
@@ -532,9 +584,22 @@ export function syncEdictPetitionIfActive(entity, nowMinutes = 0) {
   const pet = getActiveCultPetition(entity, nowMinutes);
   if (!pet || pet.type !== 'edict') return null;
   const curReg = entity?.currentRegionIndex != null ? clampReg(entity.currentRegionIndex) : pet.targetRegion;
-  const activeTarget = getActiveRegionalEdict(entity, pet.targetRegion, nowMinutes);
-  const activeCur = curReg !== pet.targetRegion ? getActiveRegionalEdict(entity, curReg, nowMinutes) : null;
-  const matchedReg = activeTarget ? pet.targetRegion : (activeCur ? curReg : null);
+  const candidates = [pet.targetRegion];
+  if (curReg !== pet.targetRegion) candidates.push(curReg);
+  const edicts = entity?.apotheosis?.cult?.edicts;
+  if (edicts && typeof edicts === 'object') {
+    for (const rKey of Object.keys(edicts)) {
+      const reg = Number(rKey);
+      if (Number.isInteger(reg) && !candidates.includes(reg)) candidates.push(reg);
+    }
+  }
+  let matchedReg = null;
+  for (const r of candidates) {
+    if (getActiveRegionalEdict(entity, r)) {
+      matchedReg = r;
+      break;
+    }
+  }
   if (matchedReg == null) return null;
   return notifyCultPetitionProgress(entity, 'edict_proclaimed', {
     regionIndex: matchedReg,

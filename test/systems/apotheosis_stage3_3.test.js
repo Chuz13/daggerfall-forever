@@ -7,6 +7,7 @@ import {
   ROADSIDE_DESECRATE_FAITH_BASE,
   ROADSIDE_DESECRATE_INF_BASE,
   ROADSIDE_WILD_REWARD_MULT,
+  ROADSIDE_DONATE_COOLDOWN_MINUTES,
   BASTION_DEFENSE_PER_SITE,
   BASTION_DEFENSE_MAX,
   CULT_PETITION_COOLDOWN_MINUTES,
@@ -25,6 +26,7 @@ import {
   getRoadBlessingInfo,
   tickRoadBlessingFatigue,
   pickRoadsideShrineGod,
+  isRoadsideShrineDonated,
   prayAtRoadsideShrine,
   desecrateRoadsideShrine,
   getDeityRegionBastionDefense,
@@ -37,6 +39,8 @@ import { statusTiles } from '../../src/ui/hud/hudStatus.js';
 import { createApotheosisRoadShrinesHost } from '../../src/scenes/apotheosisRoadShrinesHost.js';
 import { createRegionConditions } from '../../src/systems/region/regionConditions.js';
 import { maxFatigue } from '../../src/systems/statMods.js';
+import { feltTemperature, wardrobeCtx } from '../../src/systems/survival/temperature.js';
+import { CLIMATES } from '../../src/formats/mapsFile.js';
 
 function makeAscended(portfolio = 'order', { region = 17, faith = 900, luck = 50 } = {}) {
   const ent = {
@@ -84,10 +88,11 @@ test('Stage 3.3: Road Blessing grants Fatigue regen, Weather Resist mods, 12h ex
   assert.equal(ent.goldPieces, 4800);
   assert.ok(ent.fatigue > 100, 'Immediate fatigue restoration applied');
 
-  // EntityMods channels reflect Weather Resist (warmth/coldDegrees/heatDegrees) + fatigueLess + elemental resist
-  assert.equal(ent._mods.warmth, 6);
-  assert.equal(ent._mods.coldDegrees, 6);
-  assert.equal(ent._mods.heatDegrees, 6);
+  // EntityMods channels reflect Weather Resist (warmth/coldDegrees/heatDegrees/dry) + fatigueLess + elemental resist
+  assert.equal(ent._mods.warmth, 7);
+  assert.equal(ent._mods.coldDegrees, 7);
+  assert.equal(ent._mods.heatDegrees, 14);
+  assert.equal(ent._mods.dry, 25);
   assert.equal(Number(ent._mods.fatigueLess.toFixed(2)), 0.45, '0.25 War + 0.20 Road Blessing');
   assert.equal(ent._mods.resist.frost, 10);
 
@@ -291,4 +296,111 @@ test('Stage 3.3 Polish: Roadside Shrines activate with interaction mode string &
   const tpRes = host.teleportNearRoadShrine();
   assert.equal(tpRes.ok, true);
   assert.equal(teleports.length, 1);
+});
+
+test('Stage 3.3 Round 2: Per-shrine 24h donation cooldown, campaign clock survival, and feltTemperature shift', () => {
+  const ent = makeAscended('order', { region: 17, faith: 500 });
+  const coldEnv = { climateIndex: CLIMATES.Mountain, month: 0, hour: 2, weather: 'snow' };
+  const hotEnv = { climateIndex: CLIMATES.Desert2, month: 6, hour: 12, weather: 'sunny', inSunlight: true };
+
+  const baseCold = feltTemperature(coldEnv, null, wardrobeCtx(ent._mods)).felt;
+  const baseHot = feltTemperature(hotEnv, null, wardrobeCtx(ent._mods)).felt;
+
+  const tNow = 540000;
+  const r1 = prayAtRoadsideShrine(ent, {
+    shrineId: 'roadShrine:town:100:0',
+    godId: 'mara',
+    regionIndex: 17,
+    goldAmount: 500,
+    nowMinutes: tNow,
+  });
+  assert.equal(r1.ok, true);
+  assert.equal(isRoadsideShrineDonated(ent, 'roadShrine:town:100:0', tNow + 100), true);
+
+  // Repeat offering at the same shrine within 24h is blocked without deducting gold
+  const goldAfterFirst = ent.goldPieces;
+  const rDup = prayAtRoadsideShrine(ent, {
+    shrineId: 'roadShrine:town:100:0',
+    godId: 'mara',
+    regionIndex: 17,
+    goldAmount: 200,
+    nowMinutes: tNow + 100,
+  });
+  assert.equal(rDup.ok, false);
+  assert.equal(ent.goldPieces, goldAfterFirst);
+
+  // Offering at a different shrine succeeds
+  const rOther = prayAtRoadsideShrine(ent, {
+    shrineId: 'roadShrine:town:100:1',
+    godId: 'zenithar',
+    regionIndex: 17,
+    goldAmount: 50,
+    nowMinutes: tNow + 120,
+  });
+  assert.equal(rOther.ok, true);
+
+  // Same shrine resets cleanly after 24h cooldown
+  assert.equal(isRoadsideShrineDonated(ent, 'roadShrine:town:100:0', tNow + ROADSIDE_DONATE_COOLDOWN_MINUTES), false);
+  const rNextDay = prayAtRoadsideShrine(ent, {
+    shrineId: 'roadShrine:town:100:0',
+    godId: 'mara',
+    regionIndex: 17,
+    goldAmount: 500,
+    nowMinutes: tNow + ROADSIDE_DONATE_COOLDOWN_MINUTES,
+  });
+  assert.equal(rNextDay.ok, true);
+
+  // Felt temperature shifts measurably toward comfortable in both cold & hot climates
+  const blessedCold = feltTemperature(coldEnv, null, wardrobeCtx(ent._mods)).felt;
+  const blessedHot = feltTemperature(hotEnv, null, wardrobeCtx(ent._mods)).felt;
+  assert.ok(blessedCold > baseCold, `Expected cold temperature to warm up (${baseCold} -> ${blessedCold})`);
+  assert.ok(blessedHot < baseHot, `Expected hot temperature to cool down (${baseHot} -> ${blessedHot})`);
+
+  // Legacy minute-of-day timestamps (~600) are rebased onto campaign clock (~540,000) instead of wiped on HUD poll
+  ent.apotheosis.roadBlessing.grantedAtMinutes = 600;
+  ent.apotheosis.roadBlessing.expiresAtMinutes = 1320;
+  const rebased = getRoadBlessingInfo(ent, 540000);
+  assert.ok(rebased && rebased.active);
+  assert.equal(rebased.expiresAtMinutes, 540000 + ROAD_BLESSING_DURATION_MINUTES);
+});
+
+test('Stage 3.3 Round 2: Cross-region & post-advance_days Inquisition and Edict petition completion', () => {
+  const ent = makeAscended('magic', { region: 17, faith: 1000 });
+  ensureCityCultSites(ent, {
+    mapId: 100,
+    regionIndex: 17,
+    temples: [{ buildingKey: 1, factionId: 35, name: 'Daggerfall Temple' }],
+  });
+  ensureCityCultSites(ent, {
+    mapId: 200,
+    regionIndex: 16,
+    temples: [{ buildingKey: 2, factionId: 22, name: 'Chesterwark Temple' }],
+  });
+  changeDeityRelation(ent, 'kynareth', -150, { propagate: false });
+  changeDeityRelation(ent, 'zenithar', -150, { propagate: false });
+  const sk1 = templeSiteKey(100, 1);
+  const sk2 = templeSiteKey(200, 2);
+  clearSiteGuardians(ent, sk1);
+  clearSiteGuardians(ent, sk2);
+  assert.equal(consecrateSiteByForce(ent, sk1, { nowMinutes: 500000 }).ok, true);
+  assert.equal(consecrateSiteByForce(ent, sk2, { nowMinutes: 500000 }).ok, true);
+
+  // Inquisition issued for reg 17 (sk1), time jumps 10 days (> 7d nominal duration), cleared at reg 16 (sk2)
+  const inqPet = ensureCultPetition(ent, { regionIndex: 17, nowMinutes: 501000, rng: () => 0.1, force: true });
+  assert.equal(inqPet.type, 'inquisition');
+  const tenDaysLater = 501000 + 10 * 1440;
+  assert.ok(getActiveCultPetition(ent, tenDaysLater), 'Active petition persists after advance_days until completed/dismissed');
+  const inqDone = notifyCultPetitionProgress(ent, 'inquisition_cleared', {
+    siteKey: sk2,
+    nowMinutes: tenDaysLater,
+  });
+  assert.equal(inqDone.completed, true);
+
+  // Edict petition issued for reg 17 completes when proclaiming edict in reg 16 after teleport
+  const edPet = ensureCultPetition(ent, { regionIndex: 17, nowMinutes: tenDaysLater + 5000, rng: () => 0.75, force: true });
+  assert.equal(edPet.type, 'edict');
+  const edRes = proclaimRegionalEdict(ent, 16, 'arcane', { nowMinutes: tenDaysLater + 5100, force: true });
+  assert.equal(edRes.ok, true);
+  assert.equal(edRes.petitionCompleted?.completed, true);
+  assert.equal(getActiveCultPetition(ent, tenDaysLater + 5100), null);
 });

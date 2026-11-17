@@ -28908,7 +28908,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk,
     modes: () => modes,
     groundAt: surfaceAt,
-    worldMinutes: minuteNow,
+    worldMinutes,
     placeFeet: (feet, yaw) => {
       player.spawn(feet[0], feet[1], feet[2]);
       playerSpawned = true;
@@ -28929,7 +28929,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     pipeline,
     state,
     groundAt: surfaceAt,
-    worldMinutes: minuteNow,
+    worldMinutes,
     spawnExteriorFoe: (mob, pos, opts) => exteriorFoes?.spawnFoe?.(mob, pos, opts),
     townTalk,
     placeFeet: (feet, yaw) => {
@@ -28941,7 +28941,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     playerPos: () => (walkMode ? player.pos : cam.pos),
   });
-  let _lastRoadBlessingMin = minuteNow();
+  let _lastRoadBlessingMin = worldMinutes();
   const _travelIgnoredPositions = new Map();
   let _travelLastProbeAt = 0;
   const _activeHomeDecor = homeDecor || {
@@ -30388,6 +30388,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       ? (roadShrinesHost?.teleportNearRoadShrine?.() ?? { ok: false, message: 'Road shrines runtime unavailable.' })
       : (cultHost?.teleportNearCultTarget?.(kind) ?? { ok: false, message: 'Cult runtime unavailable.' })),
     getCultCity: () => ({ mapId: _questLoc()?.mapTableData?.mapId ?? 0, regionIndex: _questRegionIndex(), locationName: _questLoc()?.name ?? '' }),
+    hudSay: (msg) => townTalk?.say?.(msg),
     tele2pixel: async (px, py) => {
       const x = Number(px);
       const y = Number(py);
@@ -33237,7 +33238,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           }
         }
         {
-          const curMin = minuteNow();
+          const curMin = worldMinutes();
           if (curMin > _lastRoadBlessingMin) {
             tickRoadBlessingFatigue(playerEntity, curMin - _lastRoadBlessingMin, curMin);
             _lastRoadBlessingMin = curMin;

@@ -506,6 +506,73 @@ export function openSanctuaryHatchModal(entity, site, {
   return true;
 }
 
+function computeInquisitorSpawnPositions(interiorCtx, count = 3) {
+  const anchor = interiorCtx?.cultAltarAnchors?.[0]?.pos ?? interiorCtx?.landing ?? [0, 0, 0];
+  const land = interiorCtx?.landing ?? [anchor[0], anchor[1], anchor[2] - 2.0];
+  const col = interiorCtx?.collider;
+  const baseY = Number.isFinite(land[1]) ? land[1] : (Number.isFinite(anchor[1]) ? anchor[1] : 0);
+
+  const dx = land[0] - anchor[0];
+  const dz = land[2] - anchor[2];
+  const dLen = Math.hypot(dx, dz);
+  const ux = dLen > 0.2 ? dx / dLen : 0;
+  const uz = dLen > 0.2 ? dz / dLen : -1;
+  const px = -uz;
+  const pz = ux;
+
+  const specs = [
+    [anchor[0] + ux * 1.45 - px * 0.65, anchor[2] + uz * 1.45 - pz * 0.65],
+    [anchor[0] + ux * 1.45 + px * 0.65, anchor[2] + uz * 1.45 + pz * 0.65],
+    [anchor[0] + ux * 1.95, anchor[2] + uz * 1.95],
+    [anchor[0] + ux * 1.25, anchor[2] + uz * 1.25],
+    [anchor[0] + ux * 1.85 - px * 0.65, anchor[2] + uz * 1.85 - pz * 0.65],
+    [anchor[0] + ux * 1.85 + px * 0.65, anchor[2] + uz * 1.85 + pz * 0.65],
+    [anchor[0] + ux * 2.35 - px * 0.45, anchor[2] + uz * 2.35 - pz * 0.45],
+    [anchor[0] + ux * 2.35 + px * 0.45, anchor[2] + uz * 2.35 + pz * 0.45],
+    [land[0] - px * 0.5, land[2] - pz * 0.5],
+    [land[0] + px * 0.5, land[2] + pz * 0.5],
+    [land[0], land[2]],
+  ];
+
+  const isValidSpot = (cx, cz) => {
+    let fy = baseY;
+    if (typeof col?.heightAt === 'function') {
+      const h = col.heightAt(cx, cz);
+      if (!Number.isFinite(h) || Math.abs(h - baseY) > 1.2) return null;
+      fy = h;
+    }
+    if (typeof col?.raycast === 'function') {
+      const from = [land[0], baseY + 1.0, land[2]];
+      const rx = cx - from[0];
+      const rz = cz - from[2];
+      const len = Math.hypot(rx, rz);
+      if (len > 0.25) {
+        const hit = col.raycast(from, [rx / len, 0, rz / len], len);
+        if (Number.isFinite(hit) && hit < len - 0.15) return null;
+      }
+    }
+    return [cx, fy, cz];
+  };
+
+  const picked = [];
+  for (const [cx, cz] of specs) {
+    if (picked.length >= count) break;
+    const okPos = isValidSpot(cx, cz);
+    if (!okPos) continue;
+    const tooClose = picked.some((q) => Math.hypot(q[0] - okPos[0], q[2] - okPos[2]) < 0.55);
+    if (!tooClose) picked.push(okPos);
+  }
+  while (picked.length < count) {
+    const i = picked.length;
+    const ox = (i - 1) * 0.3;
+    const cx = land[0] + px * ox;
+    const cz = land[2] + pz * ox;
+    const fy = typeof col?.heightAt === 'function' ? col.heightAt(cx, cz) : baseY;
+    picked.push([cx, Number.isFinite(fy) && Math.abs(fy - baseY) <= 1.2 ? fy : baseY, cz]);
+  }
+  return picked;
+}
+
 /**
  * Interactive Cult Altar modal inside an Aedra Temple or Underground Sanctuary (`cultAltar:<siteKey>`).
  * Every Faith-spending action displays cost & confirms via ChoiceWindow before execution.
@@ -787,6 +854,27 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
             }));
             return;
           }
+          const isFoeAlive = (f) => Boolean(f && !f.dead && (f.entity ? f.entity.health > 0 : (f.health ?? 1) > 0));
+          if (petition.type === 'inquisition' && petition.inquisitionSpawned) {
+            const roomInq = (interiorFoes?.foes ?? []).filter((f) => f?._cultInquisitionFoe);
+            if (roomInq.length > 0 && roomInq.every((f) => !isFoeAlive(f))) {
+              const done = notifyCultPetitionProgress(entity, 'inquisition_cleared', {
+                siteKey: site.siteKey,
+                nowMinutes: worldMinutes,
+              });
+              if (done?.completed) {
+                say(t('apotheosis.petition.completedHud', 'Cult Petition Completed: +{faith} Faith, +{gold}g, +{inf}% Influence!', {
+                  faith: done.faithGained,
+                  gold: done.goldGained,
+                  inf: done.influenceGained,
+                }));
+              }
+              return;
+            }
+            if (roomInq.length === 0) {
+              petition.inquisitionSpawned = false;
+            }
+          }
           const petDesc = petition.type === 'inquisition'
             ? t('apotheosis.petition.descInquisition', 'Defeat {god}\'s Inquisitors threatening your sanctum.', { god: petition.godName })
             : petition.type === 'desecrate_shrine'
@@ -799,21 +887,41 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
               label: `1 - ${t('apotheosis.petition.btnConfrontInq', 'Confront Inquisitors ({count})', { count: petition.goal || 3 })}`,
               action: () => {
                 petition.inquisitionSpawned = true;
-                const anchor = interiorCtx?.cultAltarAnchors?.[0]?.pos ?? interiorCtx?.landing ?? [0, 0, 0];
                 const spawned = [];
                 const total = Math.max(3, petition.goal || 3);
                 const mobPool = [MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Spellsword];
-                const offsets = [[-1.3, -1.2], [1.3, -1.2], [0, -1.7]];
-                Promise.all(Array.from({ length: total }, (_, idx) => {
-                  const [ox, oz] = offsets[idx % offsets.length];
-                  const pos = [anchor[0] + ox, anchor[1], anchor[2] + oz];
-                  return Promise.resolve(interiorFoes.spawnFoe(mobPool[idx % mobPool.length], pos)).then((f) => {
-                    if (f) spawned.push(f);
+                const positions = computeInquisitorSpawnPositions(interiorCtx, total);
+                const land = interiorCtx?.landing ?? positions[0] ?? [0, 0, 0];
+                Promise.all(positions.map((pos, idx) => {
+                  const lookYaw = Math.atan2(land[0] - pos[0], land[2] - pos[2]);
+                  return Promise.resolve(interiorFoes.spawnFoe(mobPool[idx % mobPool.length], pos, {
+                    yaw: lookYaw,
+                    loose: true,
+                    hostile: true,
+                    feetGiven: true,
+                  })).then((f) => {
+                    if (f) {
+                      f._cultInquisitionFoe = true;
+                      spawned.push(f);
+                    }
                   }).catch(() => {});
                 })).then(() => {
-                  if (!spawned.length) return;
+                  if (!spawned.length) {
+                    petition.inquisitionSpawned = false;
+                    return;
+                  }
                   const timer = setInterval(() => {
-                    const alive = spawned.some((f) => !f.dead && (f.entity?.health ?? f.health ?? 1) > 0);
+                    if (!getActiveCultPetition(entity)) {
+                      clearInterval(timer);
+                      return;
+                    }
+                    if (Array.isArray(interiorFoes?.foes) && !spawned.some((f) => interiorFoes.foes.includes(f))) {
+                      const curPet = getActiveCultPetition(entity);
+                      if (curPet && curPet.id === petition.id) curPet.inquisitionSpawned = false;
+                      clearInterval(timer);
+                      return;
+                    }
+                    const alive = spawned.some((f) => isFoeAlive(f));
                     if (alive) return;
                     clearInterval(timer);
                     const done = notifyCultPetitionProgress(entity, 'inquisition_cleared', {

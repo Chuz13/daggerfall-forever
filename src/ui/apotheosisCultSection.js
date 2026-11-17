@@ -70,6 +70,14 @@ function uiEl(tag, cls = '', text = null) {
   return n;
 }
 
+function resolveLiveRegionIndex(entity) {
+  const sceneCtx = getAurbisRuntime().getSceneContext?.();
+  const raw = sceneCtx?.getCultCity?.()?.regionIndex
+    ?? sceneCtx?.getRegionIndex?.()
+    ?? (Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : 17);
+  return Math.max(0, Math.min(TAMRIEL_REGION_COUNT - 1, Math.trunc(Number(raw) || 0)));
+}
+
 export function resetCultSectionUiState() {
   cultScopeFilter = 'city';
   cultEdictRegion = null;
@@ -636,7 +644,7 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
 
 function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repaint, setFeedback) {
   const cityInfo = getAurbisRuntime().getSceneContext?.()?.getCultCity?.() ?? null;
-  const reg = Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : 17;
+  const reg = resolveLiveRegionIndex(entity);
   const cityMapId = cityInfo?.mapId || (reg + 1000);
   const cityReg = Number.isInteger(cityInfo?.regionIndex) ? cityInfo.regionIndex : reg;
   const cityName = cityInfo?.locationName || getLocalizedRegionName(cityReg, (i) => REGION_NAMES[i] ?? `Region ${i}`);
@@ -735,7 +743,7 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
 }
 
 function renderEdictsView(detail, entity, nowMin, repaint, setFeedback) {
-  const curReg = Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : 17;
+  const curReg = resolveLiveRegionIndex(entity);
   if (cultEdictRegion == null || cultEdictRegion < 0 || cultEdictRegion >= TAMRIEL_REGION_COUNT) {
     cultEdictRegion = curReg;
   }
@@ -931,7 +939,7 @@ export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', 
       detail.append(box);
     }
 
-    const petReg = Math.max(0, Math.min(TAMRIEL_REGION_COUNT - 1, Math.trunc(Number(entity?.currentRegionIndex) || 0)));
+    const petReg = resolveLiveRegionIndex(entity);
     const pet = ensureCultPetition(entity, { regionIndex: petReg, nowMinutes: nowMin })
       ?? getActiveCultPetition(entity, nowMin);
     if (pet) {

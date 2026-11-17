@@ -14,12 +14,15 @@ import { billboardSize } from '../world/rmbFlats.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { playerEntity } from '../characters/playerEntity.js';
+import { feltNow } from '../systems/survival/env.js';
 import {
   DEITY_DEFAULT_ALTAR_BY_GOD,
   DEITY_DEFAULT_ALTAR_FLAT,
   getPantheonDeity,
+  getActiveCultPetition,
   pickRoadsideShrineGod,
   isRoadsideShrineDesecrated,
+  isRoadsideShrineDonated,
   prayAtRoadsideShrine,
   desecrateRoadsideShrine,
   ROADSIDE_DESECRATE_FAITH_BASE,
@@ -157,13 +160,13 @@ export function createApotheosisRoadShrinesHost({
     return null;
   }
 
-  function addShrineFromTile(p, pxT, { shrineId, tx, tz, offsetX = 4.2, offsetZ = 4.2, regionIndex, exitIndex = 0, isWild = false, isSettlementWithoutTemple = false }) {
+  function addShrineFromTile(p, pxT, { shrineId, tx, tz, offsetX = 4.2, offsetZ = 4.2, regionIndex, exitIndex = 0, isWild = false, isSettlementWithoutTemple = false, overrideGodId = null }) {
     const [cx, cz] = tileWorldCenter(tx, tz);
     const wx = pxT[0] + cx + offsetX;
     const wz = pxT[2] + cz + offsetZ;
     const wy = typeof groundAt === 'function' ? groundAt(wx, wz) : 0;
     const worldPos = [wx, Number.isFinite(wy) ? wy : 0, wz];
-    const godId = pickRoadsideShrineGod(playerEntity, {
+    const godId = overrideGodId || pickRoadsideShrineGod(playerEntity, {
       shrineId,
       regionIndex,
       exitIndex,
@@ -196,6 +199,8 @@ export function createApotheosisRoadShrinesHost({
     if (!pixels || !state) return;
     ensurePedestalMesh();
     const tVec = [0, 0, 0];
+    const activePet = getActiveCultPetition(playerEntity);
+    const wantPetGod = activePet?.type === 'desecrate_shrine' ? activePet.godId : null;
 
     for (const p of pixels.values()) {
       if (!p) continue;
@@ -253,9 +258,24 @@ export function createApotheosisRoadShrinesHost({
           exits.push({ tx: cx, tz: zN, ox: 2.2, oz: -1.5 });
           exits.push({ tx: cx, tz: zS, ox: -2.2, oz: 1.5 });
         }
+        let petGodPlacedInTown = false;
         exits.forEach((ex, idx) => {
+          const shrineId = `${SHRINE_KEY_PREFIX}town:${p.homeTown}:${idx}`;
+          const pickedGod = pickRoadsideShrineGod(playerEntity, {
+            shrineId,
+            regionIndex: reg,
+            exitIndex: idx,
+            isSettlementWithoutTemple: !hasTemple,
+          });
+          let overrideGodId = null;
+          if (wantPetGod && pickedGod === wantPetGod) {
+            petGodPlacedInTown = true;
+          } else if (wantPetGod && idx === 1 && !petGodPlacedInTown) {
+            overrideGodId = wantPetGod;
+            petGodPlacedInTown = true;
+          }
           addShrineFromTile(p, pxT, {
-            shrineId: `${SHRINE_KEY_PREFIX}town:${p.homeTown}:${idx}`,
+            shrineId,
             tx: ex.tx,
             tz: ex.tz,
             offsetX: ex.ox,
@@ -264,6 +284,7 @@ export function createApotheosisRoadShrinesHost({
             exitIndex: idx,
             isWild: false,
             isSettlementWithoutTemple: !hasTemple,
+            overrideGodId,
           });
         });
       } else {
@@ -381,6 +402,7 @@ export function createApotheosisRoadShrinesHost({
     if (!shrine || typeof townTalk?.showOverlay !== 'function' && typeof modeOrOpts?.showOverlay !== 'function') return false;
     const nowMin = Math.floor(worldMinutes?.() ?? 0);
     const desecrated = isRoadsideShrineDesecrated(playerEntity, shrine.shrineId, nowMin);
+    const donated = isRoadsideShrineDonated(playerEntity, shrine.shrineId, nowMin);
     const wildTag = shrine.isWild
       ? t('apotheosis.roadShrine.wildBonusNote', 'Wild Highway Shrine: 3x Desecration Rewards ({faith} Faith)', {
           faith: ROADSIDE_DESECRATE_FAITH_BASE * ROADSIDE_WILD_REWARD_MULT,
@@ -399,19 +421,26 @@ export function createApotheosisRoadShrinesHost({
         say(res.reason);
         return;
       }
+      if (playerEntity?.survival && typeof playerEntity.survival === 'object') {
+        const live = feltNow(playerEntity);
+        if (live) playerEntity.survival.felt = live.felt;
+      }
       say(t('apotheosis.roadShrine.prayedMsg', 'Donated {gold}g to {god}. Road Blessing active for 12h (+{fat}/min Fatigue, +{deg}° Weather Resist).', {
         gold: res.goldSpent,
         god: res.godName,
         fat: res.blessing?.fatiguePerMin ?? 2,
-        deg: res.blessing?.warmthDegrees ?? 4,
+        deg: res.blessing?.warmthDegrees ?? 5,
       }));
     };
 
-    const opts = [
-      { code: 'Digit1', label: `1 - ${t('apotheosis.roadShrine.donate50', 'Donate 50g (Road Blessing Tier I)')}`, action: () => doDonate(50) },
-      { code: 'Digit2', label: `2 - ${t('apotheosis.roadShrine.donate200', 'Donate 200g (Road Blessing Tier II)')}`, action: () => doDonate(200) },
-      { code: 'Digit3', label: `3 - ${t('apotheosis.roadShrine.donate500', 'Donate 500g (Road Blessing Tier III)')}`, action: () => doDonate(500) },
-    ];
+    const opts = [];
+    if (!donated && !desecrated) {
+      opts.push(
+        { code: 'Digit1', label: `1 - ${t('apotheosis.roadShrine.donate50', 'Donate 50g (Road Blessing Tier I)')}`, action: () => doDonate(50) },
+        { code: 'Digit2', label: `2 - ${t('apotheosis.roadShrine.donate200', 'Donate 200g (Road Blessing Tier II)')}`, action: () => doDonate(200) },
+        { code: 'Digit3', label: `3 - ${t('apotheosis.roadShrine.donate500', 'Donate 500g (Road Blessing Tier III)')}`, action: () => doDonate(500) },
+      );
+    }
     if (!desecrated) {
       opts.push({
         code: 'Digit4',
@@ -453,13 +482,17 @@ export function createApotheosisRoadShrinesHost({
     }
     opts.push({ code: 'Escape', label: `Esc - ${t('apotheosis.cult.btnClose', 'Close')}`, action: () => {} });
 
+    const statusLine = desecrated
+      ? t('apotheosis.roadShrine.alreadyDesecratedNote', 'Already desecrated today.')
+      : donated
+        ? t('apotheosis.roadShrine.alreadyDonatedLine', 'Offering already made here today (resets in 24h).')
+        : t('apotheosis.roadShrine.blessDesc', 'Donations restore Fatigue and grant a 12h Weather & Fatigue Road Blessing.');
+
     showOverlay(new ChoiceWindow({
       lines: [
         shrine.title,
         wildTag,
-        desecrated
-          ? t('apotheosis.roadShrine.alreadyDesecratedNote', 'Already desecrated today.')
-          : t('apotheosis.roadShrine.blessDesc', 'Donations restore Fatigue and grant a 12h Weather & Fatigue Road Blessing.'),
+        statusLine,
       ],
       options: opts,
     }));

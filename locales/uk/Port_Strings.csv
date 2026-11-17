@@ -10505,3 +10505,5 @@ apotheosis.travelInterrupt.title,"Попереду біля дороги: {name}
 apotheosis.travelInterrupt.ask,"Перервати прискорену подорож для огляду?"
 apotheosis.travelInterrupt.yes,"Так, зупинитися тут"
 apotheosis.travelInterrupt.no,"Ні, їхати далі"
+apotheosis.roadShrine.err.alreadyDonated,"Ви вже зробили пожертву біля цього святилища сьогодні."
+apotheosis.roadShrine.alreadyDonatedLine,"Пожертву тут сьогодні вже зроблено (оновлення через 24 год)."

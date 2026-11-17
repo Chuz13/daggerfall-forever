@@ -3393,9 +3393,11 @@ async function handleApotheosisCommand(args = []) {
       const res = proclaimRegionalEdict(playerEntity, targetReg, edictId, { nowMinutes: nowMin, force: true });
       if (!res.ok) return res.reason;
       if (res.cleared) return `Cleared Regional Edict in region #${targetReg}.`;
-      const petSuffix = res.petitionCompleted?.completed
-        ? ` (Pilgrim Petition completed: +${res.petitionCompleted.faithGained} Faith, +${res.petitionCompleted.goldGained}g, +${res.petitionCompleted.influenceGained}% Influence!)`
-        : '';
+      let petSuffix = '';
+      if (res.petitionCompleted?.completed) {
+        sceneCtx?.hudSay?.(`Cult Petition Completed: +${res.petitionCompleted.faithGained} Faith, +${res.petitionCompleted.goldGained}g, +${res.petitionCompleted.influenceGained}% Influence!`);
+        petSuffix = ` (Pilgrim Petition completed: +${res.petitionCompleted.faithGained} Faith, +${res.petitionCompleted.goldGained}g, +${res.petitionCompleted.influenceGained}% Influence!)`;
+      }
       return `Proclaimed ${res.edict.edictId} edict in region #${targetReg} (${res.edict.daysRemaining}d remaining).${petSuffix}`;
     }
     if (act === 'tp') {
