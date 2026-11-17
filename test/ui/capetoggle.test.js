@@ -14,6 +14,7 @@ import { EQUIP_SLOTS } from '../../src/characters/paperdoll/paperdoll.js';
 import { composeLook } from '../../src/net/remotePlayers.js';
 import { validLook, RELAY_VERSION, worldRoom } from '../../src/net/wire.js';
 import { OnlineSession } from '../../src/net/online.js';
+import { worldPaperDollSig } from '../../src/ui/paperDoll.js';
 import { createAuraHost } from '../../src/scenes/auraHost.js';
 import { keepSession, adoptIdentity } from '../../src/net/accountClient.js';
 import { mountEnhancedInventory } from '../../src/ui/enhanced/enhancedInventory.js';
@@ -167,4 +168,21 @@ test('CAPE-TOGGLE the pack: the Cloaks panel\'s cell holds the switch - an eye, 
   assert.ok(PLUS_CSS.includes(ARMOUR_CSS));
   assert.match(ARMOUR_CSS, /\n\.pack-shell \.wornmap \.worncape \{ justify-self: end; align-self: end;/);
   assert.ok(FRAME_ROLES.tile.includes('.pack-shell .wornmap .worncape'), 'a tile of the frame: each dress paints it as the panel it stands on');
+});
+
+test('CAPE-TOGGLE the 2D paperdoll: composeDoll and worldPaperDollSig both read drawnEquipTable so the 2D inventory doll and 3rd-person paperdoll stay in sync with the cape switch', () => {
+  const pd = read('src/ui/paperDoll.js');
+  const from = pd.indexOf('async function composeDoll(');
+  const body = pd.slice(from, pd.indexOf('\nexport async function refreshPaperDoll(', from));
+  assert.match(body, /\bconst table = drawnEquipTable\(entity\);/, '2D inventory paperdoll compositor respects capeShown');
+  assert.doesNotMatch(body, /\bequipTableOf\(/, 'composeDoll never bypasses drawnEquipTable');
+
+  const e = hero(), c = cloak();
+  e.items.push(c); equipItem(e, c);
+  const slot = c.equipSlot;
+  const sigShown = withCape(true, () => worldPaperDollSig(e));
+  const sigHidden = withCape(false, () => worldPaperDollSig(e));
+  assert.ok(sigShown.includes(`|${slot}:154:`), 'worldPaperDollSig includes cloak when capeShown is true');
+  assert.ok(!sigHidden.includes(`|${slot}:154:`), 'worldPaperDollSig omits cloak when capeShown is false');
+  assert.notEqual(sigShown, sigHidden, 'toggling capeShown changes worldPaperDollSig so the billboard recomposes');
 });
