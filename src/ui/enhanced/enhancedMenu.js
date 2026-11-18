@@ -104,6 +104,7 @@ import { questTracker, followOn, trackButton } from '../quest/questTracker.js'; 
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
 import { drawTutorialsPane, releaseTutorialsPane } from '../tutorialsPane.js';   // TUT1: the Tutorials tab and section - every tutorial page, to read again
 import { drawApotheosisPane, releaseApotheosisPane } from '../apotheosisPane.js';   // APOTHEOSIS: Fate Weight, Artifact Sacrifice & Portfolios
+import { drawLichdomPane, releaseLichdomPane, lichdomTabShown } from '../lichdomPane.js';   // Lichdom & Archlich progression pane
 import { drawShotsPane, releaseShotsPane } from '../shotsPane.js';   // LOAD1: the Screenshots pane - the gallery the PrintScreen key keeps
 import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT, TEST_GOD } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../../formats/morrowind/mwNpc.js';
@@ -5129,12 +5130,12 @@ let footObs = /** @type {ResizeObserver|null} */ (null);
 // GROWTH1 (2026-10-17, the owner: "give the firmament, level up page, and specializations its own tab within the pause
 // menu"): how a character grows - the Ascension, the specialisations' guide, the Firmament and the captain's stars, the
 // skies drawn in the tab (pauseGrowth, below; ui/growth/growthTab.js), after the Stats it grew out of.
-const PAUSE_TABS = Object.freeze([['quests', 'Quests'], ['stats', 'Stats'], ['growth', 'Growth'], ['holdings', 'Holdings'], ['family', 'Family'], ['apotheosis', 'Apotheosis'], ['tutorials', 'Tutorials'], ['system', 'System']]);
+const PAUSE_TABS = Object.freeze([['quests', 'Quests'], ['stats', 'Stats'], ['growth', 'Growth'], ['holdings', 'Holdings'], ['family', 'Family'], ['apotheosis', 'Apotheosis'], ['lichdom', 'Lichdom'], ['tutorials', 'Tutorials'], ['system', 'System']]);
 /** HOLDINGS: every tab a landing may name (mountEnhancedMenu's `at`). */
 export const PAUSE_TAB_IDS = Object.freeze(PAUSE_TABS.map(([id]) => id));
 /** LEGACY3: a tab drawn now - the Family tab while the game is played with Project Legacy (FAMILY-TAB: the mod on AND a
  *  house for the game played - ui/familyPages.js familyTabShown); a landing on it otherwise lands on System. */
-const pauseTabShown = (id) => id !== 'family' || familyTabShown();
+const pauseTabShown = (id) => (id !== 'family' || familyTabShown()) && (id !== 'lichdom' || lichdomTabShown(playerEntity));
 /** L10N4: the pause window's tab and page words in the player's language, by id - the tables keep the English ids'
  *  labels; a page another module adds (the professions', the revenants', the companions') shows its own label. */
 const PAUSE_TEXT = Object.freeze({
@@ -5144,6 +5145,7 @@ const PAUSE_TEXT = Object.freeze({
   holdings: () => t('pause.tab.holdings', 'Holdings'),
   family: () => t('pause.tab.family', 'Family'),
   apotheosis: () => t('pause.tab.apotheosis', 'Apotheosis'),
+  lichdom: () => t('pause.tab.lichdom', 'Lichdom'),
   tutorials: () => t('pause.tab.tutorials', 'Tutorials'),
   system: () => t('pause.tab.system', 'System'),
   character: () => t('pause.stats.character', 'Character'),
@@ -5173,7 +5175,7 @@ function pauseWindow() {
   win.append(tabs);
 
   const body = el('div', 'px-body');
-  ({ quests: pauseQuests, stats: pauseStats, growth: pauseGrowth, holdings: pauseHoldings, family: pauseFamily, apotheosis: (b) => drawApotheosisPane(b, { closePause: () => onAction('continue') }), tutorials: drawTutorialsPane, system: pauseSystem })[pauseTab](body);   // TUT1 - GROWTH1
+  ({ quests: pauseQuests, stats: pauseStats, growth: pauseGrowth, holdings: pauseHoldings, family: pauseFamily, apotheosis: (b) => drawApotheosisPane(b, { closePause: () => onAction('continue') }), lichdom: drawLichdomPane, tutorials: drawTutorialsPane, system: pauseSystem })[pauseTab](body);   // TUT1 - GROWTH1
   if (pauseTab === 'growth') win.classList.add('px-win-growth');   // GROWTH-BOOK: one size for every page of the tab (was GROWTH3's px-win-wide, a face up only)
   win.append(body);
   return win;
@@ -6926,6 +6928,7 @@ export function mountEnhancedMenu(host, {
       stopPost();   // SERVER-POST: and the mailbox's ticks
       releaseTutorialsPane();   // TUT1: the next visit opens on the first page
       releaseApotheosisPane();   // APOTHEOSIS: reset subtab/modal state on menu close
+      releaseLichdomPane();
       stopSeason();   // SEASON-BOOK: and the season window's
       stopShop();   // SHOP: and the shop's
       releaseGrowthTab();   // GROWTH3: a face on the Growth stage goes with the window (full screen too)
