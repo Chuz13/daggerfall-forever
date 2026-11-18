@@ -3453,6 +3453,14 @@ function portRowsGame({ pause = false } = {}) {
       ['shrines', t('menu.apotheosis.travelInterrupts.shrines', 'Roadside Shrines Only')],
       ['off', t('menu.apotheosis.travelInterrupts.off', 'Off')],
     ]));
+  rows.push(necroChoice('apotheosisTempleSieges', t('menu.apotheosis.templeSieges.name', 'Temple Sieges & Religious Wars'),
+    t('menu.apotheosis.templeSieges.note', 'Controls siege frequency against your sanctuaries, inter-deity religious wars, and wilderness war skirmish encounters.'),
+    [
+      ['off', t('menu.apotheosis.templeSieges.off', 'Off')],
+      ['low', t('menu.apotheosis.templeSieges.low', 'Low')],
+      ['mid', t('menu.apotheosis.templeSieges.mid', 'Mid')],
+      ['high', t('menu.apotheosis.templeSieges.high', 'High')],
+    ]));
   return rows;
 }
 /** REFLEXES: in-game reflex re-selection for the active character. Reads and writes playerEntity.reflexes directly. */

@@ -429,6 +429,7 @@ import {
   apotheosisChampionParty,
   applyApotheosisChampionStrength,
   setApotheosisChampionExpiredHook,
+  shouldInterruptFastTravelForWar,
 } from '../systems/apotheosis/apotheosisCore.js';
 import { setApotheosisRebirthHook, setApotheosisRebirthFailedHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
 import {
@@ -4159,6 +4160,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerTravelPixel: () => playerTravelPixel(),
     inLocationRect: () => _musicInLocationRect(),
     onRoad: () => _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16) || onTheRoad(),
+    climateIndex: () => {
+      const px = playerTravelPixel();
+      return px && maps?.getClimateIndex ? maps.getClimateIndex(px.x, px.y) : 231;
+    },
     afloat: () => (!!csaRuntime?.isSailing?.() || !!csaAboard?.aboard?.boat || !!naval?.aboard?.()) && !_musicInLocationRect(),
     heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
     collider,
@@ -15623,6 +15628,22 @@ export async function bootWorld(canvas, renderer, params, status) {
             townTalk.say(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
           }
         }
+        // APOTHEOSIS STAGE 3.4: Unified Divine & Mundane War Skirmish Fast-Travel Interrupt (LAND-ONLY, NEVER AT SEA!)
+        if (!interruptedEventType) {
+          const midX = Math.round((curPixel.x + pick.pixel.x) / 2);
+          const midY = Math.round((curPixel.y + pick.pixel.y) / 2);
+          const sailingNow = isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, curPixel)
+            || Boolean(csaRuntime?.isSailing?.() || csaAboard?.aboard?.boat || naval?.aboard?.());
+          const midOcean = maps?.getClimateIndex?.(midX, midY) === CLIMATES.Ocean
+            || Boolean(seaVentures?.openSeaAt?.({ x: midX, y: midY }));
+          if (!sailingNow && !midOcean && shouldInterruptFastTravelForWar(playerEntity, regIdx, worldMinutes(), { isOcean: false, isAfloat: false })) {
+            interruptedEventType = 'war_skirmish';
+            targetPixelX = midX;
+            targetPixelY = midY;
+            travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
+            townTalk.say(t('apotheosis.skirmish.fastTravelInterruptHud', 'Warring banners block the road ahead!'));
+          }
+        }
       }
 
       try {
@@ -15692,6 +15713,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (interruptedEventType === 'witch_hunter_ambush') {
           const party = generatePurifierParty(getTaintTier(playerEntity) || 'tainted');
           spawnPurifiers(party);
+        } else if (interruptedEventType === 'war_skirmish') {
+          livingSceneHostOf().spawnWarSkirmishNow({ force: false });
         } else {
           const pf = walkMode && playerSpawned ? player.feetAt() : cam.pos;
           const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
@@ -28920,6 +28943,28 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerFeet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     collider: () => collider,
     spawnExteriorFoe: (mob, pos, opts) => exteriorFoes?.spawnFoe?.(mob, pos, opts),
+    exteriorFoes: () => exteriorFoes,
+    teleToSiteCity: async (site) => {
+      if (!site) return false;
+      const targetMid = Number(site.mapId) >>> 0;
+      let hitPick = null;
+      for (const [k, rec] of locationIndex.entries()) {
+        const mid = Number(rec?.mapTableData?.mapId ?? rec?.mapId ?? 0) >>> 0;
+        if (targetMid && mid === targetMid) {
+          const [px, py] = k.split(',').map(Number);
+          hitPick = { pixel: { x: px, y: py }, name: rec.name || site.locationName || k };
+          break;
+        }
+      }
+      if (!hitPick && site.locationName) {
+        return tele2locHelper(site.locationName);
+      }
+      if (!hitPick) return false;
+      hudFade.smashHUDToBlack();
+      const ok = await teleportTo(hitPick, { zoneFree: true });
+      if (!ok) hudFade.clearFade();
+      return ok;
+    },
     buildingDoors: () => buildingDoors,
     currentLoc: () => _questLoc(),
   });
@@ -30387,6 +30432,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     teleportCultTarget: (kind) => (kind === 'shrine'
       ? (roadShrinesHost?.teleportNearRoadShrine?.() ?? { ok: false, message: 'Road shrines runtime unavailable.' })
       : (cultHost?.teleportNearCultTarget?.(kind) ?? { ok: false, message: 'Cult runtime unavailable.' })),
+    defendCultSiege: (siteKey, opts) => cultHost?.defendCultSiege?.(siteKey, opts) ?? Promise.resolve({ ok: false, reason: 'Cult runtime unavailable.' }),
+    spawnWarSkirmish: (opts) => livingSceneHostOf()?.spawnWarSkirmishNow?.(opts) ?? { ok: false, reason: 'Living scene unavailable.' },
     getCultCity: () => ({ mapId: _questLoc()?.mapTableData?.mapId ?? 0, regionIndex: _questRegionIndex(), locationName: _questLoc()?.name ?? '' }),
     hudSay: (msg) => townTalk?.say?.(msg),
     tele2pixel: async (px, py) => {
@@ -33185,12 +33232,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
                   }
                 }
               }
-              // Peaceful roadside Living Tamriel encounters / campfires (`exteriorFoes`)
+              // Peaceful roadside Living Tamriel encounters & War Skirmishes (`exteriorFoes`)
               if (!hit && intMode === 'all') {
                 const extFoes = exteriorFoes?.foes ?? [];
                 for (let i = 0; i < extFoes.length; i++) {
                   const f = extFoes[i];
-                  if (!f || f.dead || f.ai?.isHostile) continue;
+                  if (!f || f.dead) continue;
+                  const isWarSkirmishFoe = f.livingRole === 'skirmish_guard' || f.livingRole === 'skirmish_rebel';
+                  if (f.ai?.isHostile && !isWarSkirmishFoe) continue;
                   if (!f.livingSiteId && !f.livingRole) continue;
                   const fp = f.ai?.feet ?? f.feet ?? f.pos;
                   if (!fp) continue;
@@ -33199,8 +33248,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
                   if (dx * dx + dz * dz <= 100) {
                     const siteKey = `livingSite:${f.livingSiteId ?? f.livingRole}`;
                     if (_travelIgnoredPositions.has(siteKey)) continue;
-                    const title = exteriorFoes.liveHoverName?.(`foe:${i}`)?.title
-                      ?? t('living.travel.caravan', 'Roadside Camp');
+                    const title = isWarSkirmishFoe
+                      ? t('apotheosis.skirmish.travelInterruptName', 'War Skirmish')
+                      : (exteriorFoes.liveHoverName?.(`foe:${i}`)?.title ?? t('living.travel.caravan', 'Roadside Camp'));
                     hit = { key: siteKey, title, x: fp[0], z: fp[2] };
                     break;
                   }

@@ -254,6 +254,32 @@ export {
 } from './apotheosisStage33.js';
 
 export {
+  APOTHEOSIS_SIEGE_TIERS,
+  DIVINE_WAR_SUPPORT_COST,
+  DIVINE_WAR_TRUCE_COST,
+  DIVINE_SKIRMISH_PACIFY_FAITH_COST,
+  MUNDANE_WAR_PACIFY_EXTRA_GOLD,
+  DIVINE_WAR_DURATION_DAYS,
+  WAR_SKIRMISH_PACIFY_GOAL,
+  MAX_CONCURRENT_GOD_WARS,
+  getApotheosisSiegeConfig,
+  getActiveCultSieges,
+  startCultSiteSiege,
+  resolveCultSiegeOutcome,
+  getActiveGodWars,
+  startInterDeityWar,
+  supportGodWarSide,
+  enforceGodWarTruce,
+  tickStage34Daily,
+  getActiveWarForRegion,
+  setWarPlayerStance,
+  canSpawnWarSkirmish,
+  markWarSkirmishSpawned,
+  resolveWarSkirmishPacify,
+  shouldInterruptFastTravelForWar,
+} from './apotheosisStage34.js';
+
+export {
   isAscendedGod,
   apotheosisHpOf,
   apotheosisMpOf,

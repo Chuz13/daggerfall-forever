@@ -592,6 +592,7 @@ export function ensurePantheonState(entity, { nowMinutes = null } = {}) {
       deities: {},
       interGodRelations: {},
       regionWars: {},
+      activeGodWars: [],
       regionInfluence: buildInitialRegions(entity),
       chronicle: [],
       lastPantheonTickDay: dayFromMinutes(refMin),
@@ -605,6 +606,7 @@ export function ensurePantheonState(entity, { nowMinutes = null } = {}) {
   if (!p.deities || typeof p.deities !== 'object') p.deities = {};
   if (!p.interGodRelations || typeof p.interGodRelations !== 'object') p.interGodRelations = {};
   if (!p.regionWars || typeof p.regionWars !== 'object') p.regionWars = {};
+  if (!Array.isArray(p.activeGodWars)) p.activeGodWars = [];
   if (!Array.isArray(p.regionInfluence) || p.regionInfluence.length !== TAMRIEL_REGION_COUNT) {
     p.regionInfluence = buildInitialRegions(entity);
   }
@@ -1003,10 +1005,16 @@ function getHeldBastionDefense(entity, regionIndex, godId) {
 }
 
 let _cultDailyTickHook = null;
+let _stage34DailyTickHook = null;
 
 /** Registers daily Cult & Edicts simulation callback invoked inside tickPantheonDay. */
 export function setCultDailyTickHook(fn) {
   _cultDailyTickHook = typeof fn === 'function' ? fn : null;
+}
+
+/** Registers Stage 3.4 Temple Siege & Inter-Deity Religious War daily tick callback. */
+export function setStage34DailyTickHook(fn) {
+  _stage34DailyTickHook = typeof fn === 'function' ? fn : null;
 }
 
 /**
@@ -1130,6 +1138,7 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
     }
 
     _cultDailyTickHook?.(entity, simMin, simDay, rng);
+    _stage34DailyTickHook?.(entity, simMin, simDay, rng);
   }
 
   return { daysProcessed: daysToRun, aiMoves };

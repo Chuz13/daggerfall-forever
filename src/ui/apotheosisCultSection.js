@@ -54,6 +54,7 @@ import {
   dismissCultPetition,
   syncEdictPetitionIfActive,
 } from '../systems/apotheosis/apotheosisStage33.js';
+import { getActiveCultSieges } from '../systems/apotheosis/apotheosisStage34.js';
 import { exteriorOpenSpellFor, consumeDoorSpell } from '../scenes/shared.js';
 
 let cultScopeFilter = 'city';
@@ -400,6 +401,10 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
     const totalMaxBonus = (tierSpec.maxFaithBonus ?? 0) + (bSpec?.maxFaithBonus ?? 0);
     metaRow.append(uiEl('span', 'apo-pill info', bSpec ? t(bSpec.nameKey, bSpec.fallbackName) : t('apotheosis.cult.branchNoneShort', 'No Branch')));
     metaRow.append(uiEl('span', 'apo-pill ok', `+${totalFaithDay} Faith/d · +${totalMaxBonus} Max`));
+    if (site.siege) {
+      const hrsLeft = Math.max(1, Math.ceil((Number(site.siege.expiresAtMinutes ?? nowMin) - nowMin) / 60));
+      metaRow.append(uiEl('span', 'apo-pill bad', t('apotheosis.siege.cardBadge', 'UNDER SIEGE ({hrs}h)', { hrs: hrsLeft })));
+    }
   } else {
     if (site.kind === 'sanctuary') {
       metaRow.append(uiEl('span', `apo-pill ${site.unlocked ? 'ok' : 'warn'}`, site.unlocked
@@ -428,6 +433,45 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
   }
 
   const acts = uiEl('div', 'apo-acts');
+  if (owned && site.siege) {
+    const hrsLeft = Math.max(1, Math.ceil((Number(site.siege.expiresAtMinutes ?? nowMin) - nowMin) / 60));
+    card.append(uiEl('div', 'apo-card-desc', t(
+      'apotheosis.siege.cardDesc',
+      'Besieged by {god} ({hrs}h remaining · {atk} Attackers vs {def} Garrison)!',
+      {
+        god: site.siege.attackerGodName ?? site.siege.attackerGodId,
+        hrs: hrsLeft,
+        atk: site.siege.attackerCount ?? 3,
+        def: site.siege.defenderCount ?? 2,
+      },
+    )));
+    const curCity = sceneCtx?.getCultCity?.() ?? null;
+    const inSameCity = curCity && (Number(curCity.mapId) >>> 0) === (Number(site.mapId) >>> 0);
+    const tpDefCost = inSameCity ? 0 : CULT_TELEPORT_SANCTUARY_FAITH_COST;
+    const defBlocked = !sceneCtx?.defendCultSiege
+      ? t('apotheosis.siege.errNoRuntime', 'Siege battle runtime unavailable.')
+      : faithCur < tpDefCost
+        ? t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', { need: tpDefCost, have: faithCur })
+        : null;
+    const defLabel = tpDefCost > 0
+      ? t('apotheosis.siege.btnDefendCost', 'Teleport to Defend Siege ({cost} Faith)', { cost: tpDefCost })
+      : t('apotheosis.siege.btnDefendFree', 'Defend Siege Here (Free)');
+    acts.append(makeActionBtn(defLabel, {
+      tone: 'danger',
+      blockedReason: defBlocked,
+      setFeedback,
+      onRun: () => {
+        Promise.resolve(sceneCtx.defendCultSiege(site.siteKey)).then((r) => {
+          if (r && !r.ok) {
+            setFeedback(r.reason, true);
+          } else {
+            setFeedback(r?.message || t('apotheosis.siege.deployedHud', 'Arrived at {site} to break the siege!', { site: site.name }), false);
+          }
+          repaint();
+        });
+      },
+    }));
+  }
   if (site.kind === 'sanctuary' && !site.unlocked && !owned) {
     card.append(uiEl('div', 'apo-card-desc', t('apotheosis.cult.hatchBreakInWarn', 'Warning: Breaking in without Seal Key or Pact/Alliance triggers Holy War (-35 Rel)!')));
     const needProximityReason = sceneCtx && !isNearHatch
@@ -669,6 +713,46 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
   );
   hero.append(left, uiEl('span', 'apo-badge ascended', t('apotheosis.cult.statOwned', 'Owned Sanctums: {n}', { n: ownedSites.length })));
   detail.append(hero);
+
+  const activeSieges = getActiveCultSieges(entity);
+  if (activeSieges.length > 0) {
+    const siegeBox = uiEl('div', 'apo-box');
+    siegeBox.append(uiEl('h4', null, t('apotheosis.siege.alertBoxTitle', 'Active Sanctuary Sieges ({n})', { n: activeSieges.length })));
+    const sceneCtx = getAurbisRuntime().getSceneContext?.() ?? null;
+    const curCity = sceneCtx?.getCultCity?.() ?? null;
+    for (const s of activeSieges) {
+      const hrs = Math.max(1, Math.ceil((Number(s.siege?.expiresAtMinutes ?? nowMin) - nowMin) / 60));
+      const row = uiEl('div', 'apo-row-inline');
+      row.append(
+        uiEl('span', 'apo-pill bad', `${s.name} · ${s.siege?.attackerGodName ?? s.siege?.attackerGodId} (${hrs}h)`),
+      );
+      const inSame = curCity && (Number(curCity.mapId) >>> 0) === (Number(s.mapId) >>> 0);
+      const cost = inSame ? 0 : CULT_TELEPORT_SANCTUARY_FAITH_COST;
+      const blocked = !sceneCtx?.defendCultSiege
+        ? t('apotheosis.siege.errNoRuntime', 'Siege battle runtime unavailable.')
+        : faithCur < cost
+          ? t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', { need: cost, have: faithCur })
+          : null;
+      row.append(makeActionBtn(
+        cost > 0
+          ? t('apotheosis.siege.btnDefendCost', 'Teleport to Defend Siege ({cost} Faith)', { cost })
+          : t('apotheosis.siege.btnDefendFree', 'Defend Siege Here (Free)'),
+        {
+          tone: 'danger',
+          blockedReason: blocked,
+          setFeedback,
+          onRun: () => {
+            Promise.resolve(sceneCtx.defendCultSiege(s.siteKey)).then((r) => {
+              setFeedback(r?.ok ? r.message : r?.reason, r && !r.ok);
+              repaint();
+            });
+          },
+        },
+      ));
+      siegeBox.append(row);
+    }
+    detail.append(siegeBox);
+  }
 
   const ctrlBox = uiEl('div', 'apo-box');
   ctrlBox.append(uiEl('h4', null, t('apotheosis.cult.ctrlTitle', 'Settlement Command — {city}', { city: cityName })));

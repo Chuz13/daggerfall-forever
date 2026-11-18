@@ -127,6 +127,14 @@ import {
   proclaimRegionalEdict,
   getActiveRegionalEdict,
   getCultPassiveFaithPerDay,
+  getActiveCultSieges,
+  startCultSiteSiege,
+  resolveCultSiegeOutcome,
+  getActiveGodWars,
+  startInterDeityWar,
+  supportGodWarSide,
+  enforceGodWarTruce,
+  getActiveWarForRegion,
 } from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -3419,11 +3427,81 @@ async function handleApotheosisCommand(args = []) {
     const ed = getActiveRegionalEdict(playerEntity, reg);
     return `Cult Sanctums owned=${owned.length}, Passive Faith=+${getCultPassiveFaithPerDay(playerEntity)}/day, City=#${cityMapId} (${cityName}, reg=${reg}), Active Edict=${ed ? `${ed.edictId} (${ed.daysRemaining}d)` : 'none'}\nUsage: apo cult <status|list|tp|found|unlock|key|clear|consecrate|upgrade|branch|edict>`;
   }
+  if (sub === 'siege') {
+    const nowMin = Math.floor(worldMinutes());
+    const act = String(args[1] ?? 'status').toLowerCase();
+    if (act === 'start') {
+      const siteKey = args[2] && args[2] !== '-' ? String(args[2]) : null;
+      const godId = args[3] ? String(args[3]).toLowerCase() : null;
+      const res = startCultSiteSiege(playerEntity, siteKey, godId, { nowMinutes: nowMin, force: true });
+      return res.ok ? `Siege started: ${res.site.siteKey} (${res.site.name}) besieged by ${res.siege.attackerGodId} for ${res.siege.durationDays}d (${res.siege.attackerCount} vs ${res.siege.defenderCount}).` : res.reason;
+    }
+    if (act === 'defend') {
+      const siteKey = args[2] ? String(args[2]) : null;
+      if (!sceneCtx?.defendCultSiege) return 'Siege defense runtime unavailable here.';
+      const res = await sceneCtx.defendCultSiege(siteKey, { force: true });
+      return res?.ok ? res.message : (res?.reason ?? 'Failed to deploy to siege defense.');
+    }
+    if (act === 'win' || act === 'lose' || act === 'fail') {
+      const active = getActiveCultSieges(playerEntity);
+      const siteKey = args[2] ? String(args[2]) : (active[0]?.siteKey ?? null);
+      if (!siteKey) return 'No active siege found.';
+      const outcome = act === 'win' ? 'victory' : 'failed';
+      const res = resolveCultSiegeOutcome(playerEntity, siteKey, outcome, { nowMinutes: nowMin });
+      return res.ok ? res.message : res.reason;
+    }
+    const sieges = getActiveCultSieges(playerEntity);
+    if (!sieges.length) return 'No active Sanctuary or Temple sieges.\nUsage: apo siege <status|start [siteKey] [godId]|defend [siteKey]|win [siteKey]|lose [siteKey]>';
+    return sieges.map((s) => {
+      const hrs = Math.max(1, Math.ceil((Number(s.siege?.expiresAtMinutes ?? nowMin) - nowMin) / 60));
+      return `${s.siteKey} (${s.name}): attacker=${s.siege.attackerGodId}, ${hrs}h left, ${s.siege.attackerCount} vs ${s.siege.defenderCount}`;
+    }).join('\n');
+  }
+  if (sub === 'war') {
+    const nowMin = Math.floor(worldMinutes());
+    const curReg = sceneCtx?.getRegionIndex?.() ?? playerEntity?.currentRegionIndex ?? 17;
+    const act = String(args[1] ?? 'status').toLowerCase();
+    if (act === 'start' || act === 'here') {
+      const godA = args[2] ? String(args[2]).toLowerCase() : 'akatosh';
+      const godB = args[3] ? String(args[3]).toLowerCase() : 'mehrunes_dagon';
+      const regions = act === 'here' ? [curReg] : null;
+      const res = startInterDeityWar(playerEntity, godA, godB, { nowMinutes: nowMin, regions });
+      return res.ok ? res.message : res.reason;
+    }
+    if (act === 'skirmish') {
+      if (!sceneCtx?.spawnWarSkirmish) return 'War skirmish runtime unavailable here.';
+      const res = sceneCtx.spawnWarSkirmish({ force: true });
+      return res?.ok ? `Spawned Wilderness War Skirmish (${res.warDesc?.sideAName ?? 'A'} vs ${res.warDesc?.sideBName ?? 'B'}).` : (res?.reason ?? 'Could not spawn war skirmish.');
+    }
+    if (act === 'support') {
+      const wars = getActiveGodWars(playerEntity);
+      const godId = args[2] ? String(args[2]).toLowerCase() : wars[0]?.godA;
+      const warId = args[3] ?? wars[0]?.id;
+      const res = supportGodWarSide(playerEntity, warId, godId, { nowMinutes: nowMin, force: true });
+      return res.ok ? res.message : res.reason;
+    }
+    if (act === 'truce') {
+      const wars = getActiveGodWars(playerEntity);
+      const warId = args[2] ?? wars[0]?.id;
+      const res = enforceGodWarTruce(playerEntity, warId, { nowMinutes: nowMin, force: true });
+      return res.ok ? res.message : res.reason;
+    }
+    const wars = getActiveGodWars(playerEntity);
+    const localWar = getActiveWarForRegion(playerEntity, curReg);
+    const lines = wars.length
+      ? wars.map((w) => `${w.id}: ${w.godA} vs ${w.godB} (${w.daysRemaining}d left, regions=[${w.regions.join(',')}], stance=${w.playerStance ?? 'none'})`)
+      : ['No active Inter-Deity Religious Wars.'];
+    lines.push(localWar
+      ? `Current Region #${curReg}: ${localWar.warKind} war (${localWar.sideAName} vs ${localWar.sideBName}), stance=${localWar.playerStance ?? 'none'}, pacified=${localWar.pacifiedCount}/3`
+      : `Current Region #${curReg}: at peace.`);
+    lines.push('Usage: apo war <status|start [godA] [godB]|here [godA] [godB]|skirmish|support <godId>|truce>');
+    return lines.join('\n');
+  }
   if (sub === 'reset') {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | cult <status|list|tp|found|unlock|key|clear|consecrate|upgrade|branch|edict> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
+  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | cult <status|list|tp|found|unlock|key|clear|consecrate|upgrade|branch|edict> | siege <status|start|defend|win|lose> | war <status|start|here|skirmish|support|truce> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
 }
 
 registerAurbisRuntime({

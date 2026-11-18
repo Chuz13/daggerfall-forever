@@ -14,6 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { CLIMATES } from '../../formats/mapsFile.js';
+import { t } from '../textManager.js';
 import { adoptLight } from '../../render/lightId.js';
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { SEASONS, seasonValue, dateFromClassicMinutes } from '../gameDate.js';
@@ -92,7 +93,20 @@ import {
   NEMESIS_ARCHETYPES,
   NEMESIS_RESOLUTION,
 } from './nemesisHost.js';
-import { recordNemesisDefeated } from '../apotheosis/apotheosisCore.js';
+import { recordNemesisDefeated, getPantheonDeity } from '../apotheosis/apotheosisCore.js';
+import {
+  DIVINE_SKIRMISH_PACIFY_FAITH_COST,
+  WAR_SKIRMISH_PACIFY_GOAL,
+  getApotheosisSiegeConfig,
+  getActiveWarForRegion,
+  setWarPlayerStance,
+  canSpawnWarSkirmish,
+  markWarSkirmishSpawned,
+  resolveWarSkirmishPacify,
+} from '../apotheosis/apotheosisStage34.js';
+import { addApotheosisFaith } from '../apotheosis/apotheosisStage2.js';
+import { shiftRegionInfluence } from '../apotheosis/apotheosisStage3.js';
+import { isAscendedGod } from '../apotheosis/apotheosisLive.js';
 import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME } from './pleaHost.js';
 import {
   ensureAdventurerPool,
@@ -195,6 +209,7 @@ export const LIVING_SITE_KINDS = Object.freeze({
   QUARANTINE_TENT: 'QUARANTINE_TENT',
   PLEA_ENCOUNTER: 'PLEA_ENCOUNTER',
   URBAN_SKIRMISH: 'URBAN_SKIRMISH',
+  WAR_SKIRMISH: 'WAR_SKIRMISH',
   NEMESIS_AMBUSH: 'NEMESIS_AMBUSH',
   ADVENTURER_MEETING: 'ADVENTURER_MEETING',
   WANDERING_ADVENTURER: 'WANDERING_ADVENTURER',
@@ -701,6 +716,7 @@ export function buildLivingSiteBlueprint({
   adv: passedAdv = null,
   dfLocation = null,
   locationType = 0,
+  warDesc = null,
 }) {
   const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
   const h0 = typeof heightAt === 'function' ? heightAt(centerX, centerZ) : 0;
@@ -1037,6 +1053,85 @@ export function buildLivingSiteBlueprint({
         role: 'skirmish_rebel',
         team: SKIRMISH_TEAMS.INSURGENTS,
         campId: 'skirmish_rebels',
+        factionSide: 'rebels',
+      });
+    }
+  } else if (kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
+    const war = warDesc ?? getActiveWarForRegion(playerEntity, regionIndex) ?? {
+      warKind: 'mundane',
+      warId: `mundane_war_${regionIndex}`,
+      regIdx: regionIndex,
+      regionName: `Region ${regionIndex}`,
+      godA: null,
+      godB: null,
+      sideAId: 'vanguard',
+      sideBId: 'invaders',
+      sideAName: t('apotheosis.skirmish.vanguardGeneric', 'Regional Vanguard'),
+      sideBName: t('apotheosis.skirmish.invaders', 'Invading Warband'),
+      playerStance: null,
+      pacifiedCount: 0,
+    };
+    meta.warDesc = war;
+    meta.skirmishStance = war.playerStance === 'sideA'
+      ? 'watch'
+      : war.playerStance === 'sideB'
+        ? 'rebels'
+        : 'neutral_watch';
+
+    const cfg = getApotheosisSiegeConfig();
+    const squadCount = Math.max(2, cfg.enabled ? cfg.skirmishSize : 3);
+    meshes.push(
+      { modelId: LIVING_MODELS.BANNER, feet: [centerX - 3.2, snapY(centerX - 3.2, centerZ), centerZ], yawDeg: 20 },
+      { modelId: LIVING_MODELS.CRATES, feet: [centerX + 3.2, snapY(centerX + 3.2, centerZ + 0.8), centerZ + 0.8], yawDeg: -30 },
+    );
+    flats.push({ ...LIVING_FLATS.BRAZIER, feet: [centerX, y0, centerZ] });
+
+    const pickWarSideMob = (godId, idx, isSideB = false) => {
+      if (war.warKind === 'divine' && godId) {
+        const deity = getPantheonDeity(godId);
+        if (deity?.kind === 'daedra') {
+          const dPool = [MOBILE_TYPES.Daedroth, MOBILE_TYPES.DaedraSeducer, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Spellsword];
+          return dPool[idx % dPool.length];
+        }
+        const aPool = [MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Archer, MOBILE_TYPES.Spellsword];
+        return aPool[idx % aPool.length];
+      }
+      const mPoolA = [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer];
+      const mPoolB = [MOBILE_TYPES.Barbarian, MOBILE_TYPES.Rogue, MOBILE_TYPES.Archer];
+      return (isSideB ? mPoolB : mPoolA)[idx % 3];
+    };
+
+    for (let i = 0; i < squadCount; i++) {
+      const gx = centerX - 4.5 - (i % 2) * 1.4;
+      const gz = centerZ + (i - (squadCount - 1) * 0.5) * 1.8;
+      actors.push({
+        mobileType: pickWarSideMob(war.godA, i, false),
+        name: war.sideAName,
+        level: Math.max(4, playerLevel),
+        feet: [gx, snapY(gx, gz), gz],
+        yaw: Math.PI * 0.5,
+        allied: war.playerStance === 'sideA',
+        hostile: true,
+        role: 'skirmish_guard',
+        team: war.playerStance === 'sideA' ? 'PlayerAlly' : 'WarSideA',
+        campId: 'war_side_a',
+        factionSide: 'guards',
+      });
+    }
+    for (let i = 0; i < squadCount; i++) {
+      const rx = centerX + 4.5 + (i % 2) * 1.4;
+      const rz = centerZ + (i - (squadCount - 1) * 0.5) * 1.8;
+      actors.push({
+        mobileType: pickWarSideMob(war.godB, i, true),
+        name: war.sideBName,
+        level: Math.max(4, playerLevel),
+        feet: [rx, snapY(rx, rz), rz],
+        yaw: -Math.PI * 0.5,
+        allied: war.playerStance === 'sideB',
+        hostile: true,
+        role: 'skirmish_rebel',
+        team: war.playerStance === 'sideB' ? 'PlayerAlly' : 'WarSideB',
+        campId: 'war_side_b',
         factionSide: 'rebels',
       });
     }
@@ -1577,10 +1672,24 @@ export function createLivingSceneHost(deps) {
   }
 
   function retargetSkirmishFoes(site) {
-    if (!site || site.kind !== LIVING_SITE_KINDS.URBAN_SKIRMISH) return;
+    if (!site || (site.kind !== LIVING_SITE_KINDS.URBAN_SKIRMISH && site.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH)) return;
     const player = deps.playerEntity?.();
     const guards = site.foes.filter((f) => f?.livingRole === 'skirmish_guard' && !f.dead && deps.inPool(f));
     const rebels = site.foes.filter((f) => f?.livingRole === 'skirmish_rebel' && !f.dead && deps.inPool(f));
+
+    if (site.skirmishStance === 'both_hostile') {
+      for (const f of [...guards, ...rebels]) {
+        if (f.entity) { f.entity.team = 'PlayerEnemy'; f.entity.mobileTeam = 'PlayerEnemy'; }
+        f.allied = false;
+        if (f.ai) {
+          f.ai.isHostile = true;
+          f.ai.detected = true;
+          f.ai.target = player;
+          f.ai.targetSenses = player;
+        }
+      }
+      return;
+    }
 
     if (site.skirmishStance === 'watch' || site.skirmishStance === 'defenders' || site.skirmishStance === 'bodyguard') {
       for (const g of guards) {
@@ -1666,11 +1775,11 @@ export function createLivingSceneHost(deps) {
     } else {
       for (const g of guards) {
         if (g.ai) {
-          g.ai.isHostile = true;
-          g.ai.detected = true;
+          const tgt = closestLiveTarget(g.ai.feet ?? g.feet, rebels);
+          g.ai.isHostile = Boolean(tgt);
+          g.ai.detected = Boolean(tgt);
           const cur = g.ai.target;
           if (!cur || cur.dead || !deps.inPool(cur) || cur === player) {
-            const tgt = closestLiveTarget(g.ai.feet ?? g.feet, rebels);
             g.ai.target = tgt;
             g.ai.targetSenses = tgt;
           }
@@ -1678,11 +1787,11 @@ export function createLivingSceneHost(deps) {
       }
       for (const r of rebels) {
         if (r.ai) {
-          r.ai.isHostile = true;
-          r.ai.detected = true;
+          const tgt = closestLiveTarget(r.ai.feet ?? r.feet, guards);
+          r.ai.isHostile = Boolean(tgt);
+          r.ai.detected = Boolean(tgt);
           const cur = r.ai.target;
           if (!cur || cur.dead || !deps.inPool(cur) || cur === player) {
-            const tgt = closestLiveTarget(r.ai.feet ?? r.feet, guards);
             r.ai.target = tgt;
             r.ai.targetSenses = tgt;
           }
@@ -2813,27 +2922,141 @@ export function createLivingSceneHost(deps) {
               deps.say(LIVING_WORDS.navalChoicePirates(), 5);
             },
           },
-          {
-            code: 'Digit3',
-            label: `3. ${LIVING_WORDS.navalChoiceNeutral()}`,
-            action: () => {
-              const res = resolveSideChoice(squad, NAVAL_CHOICE.NEUTRAL, player, rng);
-              if (res.scavenge && player) {
-                const salvageGold = Math.round(
-                  (50 + Math.max(1, Number(player?.level ?? 1)) * 15) * (res.salvageBonusMult || 1)
-                );
-                player.goldPieces = Number(player.goldPieces ?? 0) + salvageGold;
-                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                deps.say(LIVING_WORDS.navalScavenged(salvageGold), 5);
-              } else {
-                deps.say(LIVING_WORDS.navalChoiceNeutral(), 4);
-              }
+            {
+              code: 'Digit3',
+              label: `3. ${LIVING_WORDS.navalChoiceNeutral()}`,
+              action: () => {
+                const res = resolveSideChoice(squad, NAVAL_CHOICE.NEUTRAL, player, rng);
+                if (res.scavenge && player) {
+                  const salvageGold = Math.round(
+                    (50 + Math.max(1, Number(player?.level ?? 1)) * 15) * (res.salvageBonusMult || 1)
+                  );
+                  player.goldPieces = Number(player.goldPieces ?? 0) + salvageGold;
+                  deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                  deps.say(LIVING_WORDS.navalScavenged(salvageGold), 5);
+                } else {
+                  deps.say(LIVING_WORDS.navalChoiceNeutral(), 4);
+                }
+              },
             },
-          },
-        ],
-      });
+          ],
+        });
+      } else if (s.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
+        const warDesc = s.blueprint.meta?.warDesc ?? getActiveWarForRegion(player, regIdx);
+        const sideAName = warDesc?.sideAName ?? 'Vanguard';
+        const sideBName = warDesc?.sideBName ?? 'Warband';
+        const runPacify = () => {
+          const res = resolveWarSkirmishPacify(player, warDesc, { nowMinutes: nowMin, rng });
+          if (res.faithShortage) {
+            deps.say(res.reason, 5);
+            s.skirmishStance = 'neutral_watch';
+            retargetSkirmishFoes(s);
+            return;
+          }
+          s.skirmishStance = res.skirmishStance;
+          retargetSkirmishFoes(s);
+          const score = res.rollResult?.totalScore ?? 50;
+          const dc = res.rollResult?.targetScore ?? 85;
+          if (!res.pacified) {
+            if (res.skirmishStance === 'both_hostile') {
+              deps.say(t('apotheosis.skirmish.pacifyCritFail', 'Parley failed fatally ({score}/{dc}) — both sides attack you!', { score, dc }), 6);
+            } else {
+              deps.say(t('apotheosis.skirmish.pacifyFail', 'Parley failed ({score}/{dc}) — the battle rages on around you.', { score, dc }), 5);
+            }
+            return;
+          }
+          deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+          const progStr = `${Math.min(WAR_SKIRMISH_PACIFY_GOAL, res.pacifiedCount)}/${WAR_SKIRMISH_PACIFY_GOAL}`;
+          deps.say(
+            t('apotheosis.skirmish.pacifyOk', 'Skirmish pacified ({deg} {score}/{dc}, {prog})! +{faith} Faith +{inf}% Inf.', {
+              deg: res.degree,
+              score,
+              dc,
+              prog: progStr,
+              faith: res.faithReward,
+              inf: res.infReward,
+            }),
+            6,
+          );
+        };
+
+        // Never re-open ChoiceWindow once the player has chosen a stance for this war!
+        if (warDesc?.playerStance === 'sideA') {
+          s.skirmishStance = 'watch';
+          retargetSkirmishFoes(s);
+          deps.say(t('apotheosis.skirmish.savedSideA', 'Your banner rallies {side} against {foe}.', { side: sideAName, foe: sideBName }), 5);
+          return;
+        }
+        if (warDesc?.playerStance === 'sideB') {
+          s.skirmishStance = 'rebels';
+          retargetSkirmishFoes(s);
+          deps.say(t('apotheosis.skirmish.savedSideB', 'Your banner rallies {side} against {foe}.', { side: sideBName, foe: sideAName }), 5);
+          return;
+        }
+        if (warDesc?.playerStance === 'watch') {
+          s.skirmishStance = 'neutral_watch';
+          retargetSkirmishFoes(s);
+          deps.say(t('apotheosis.skirmish.savedWatch', 'Observing the clash between {a} and {b} from the sidelines.', { a: sideAName, b: sideBName }), 4);
+          return;
+        }
+        if (warDesc?.playerStance === 'peace') {
+          runPacify();
+          return;
+        }
+
+        const isDivineWar = warDesc?.warKind === 'divine';
+        const pacifyLabel = isDivineWar
+          ? t('apotheosis.skirmish.optPacifyDivine', 'Reconcile & Pacify ({cost} Faith + Hard Diplomacy)', { cost: DIVINE_SKIRMISH_PACIFY_FAITH_COST })
+          : t('apotheosis.skirmish.optPacifyMundane', 'Reconcile & Pacify (Hard Diplomacy Check)');
+
+        deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
+        deps.openChoice({
+          lines: [
+            isDivineWar
+              ? t('apotheosis.skirmish.titleDivine', 'Divine War Skirmish: {a} vs {b}', { a: sideAName, b: sideBName })
+              : t('apotheosis.skirmish.titleMundane', 'War Skirmish in {region}: {a} vs {b}', { region: warDesc?.regionName ?? 'Tamriel', a: sideAName, b: sideBName }),
+            t('apotheosis.skirmish.choiceNote', 'Your stance will hold for this entire war.'),
+          ],
+          options: [
+            {
+              code: 'Digit1',
+              label: `1. ${t('apotheosis.skirmish.optSide', 'Join {side}', { side: sideAName })}`,
+              action: () => {
+                setWarPlayerStance(player, warDesc, 'sideA');
+                s.skirmishStance = 'watch';
+                retargetSkirmishFoes(s);
+                deps.say(t('apotheosis.skirmish.savedSideA', 'Your banner rallies {side} against {foe}.', { side: sideAName, foe: sideBName }), 5);
+              },
+            },
+            {
+              code: 'Digit2',
+              label: `2. ${t('apotheosis.skirmish.optSide', 'Join {side}', { side: sideBName })}`,
+              action: () => {
+                setWarPlayerStance(player, warDesc, 'sideB');
+                s.skirmishStance = 'rebels';
+                retargetSkirmishFoes(s);
+                deps.say(t('apotheosis.skirmish.savedSideB', 'Your banner rallies {side} against {foe}.', { side: sideBName, foe: sideAName }), 5);
+              },
+            },
+            {
+              code: 'Digit3',
+              label: `3. ${pacifyLabel}`,
+              action: runPacify,
+            },
+            {
+              code: 'Digit4',
+              label: `4. ${t('apotheosis.skirmish.optWatch', 'Observe from afar (stay neutral)')}`,
+              action: () => {
+                setWarPlayerStance(player, warDesc, 'watch');
+                s.skirmishStance = 'neutral_watch';
+                retargetSkirmishFoes(s);
+                deps.say(t('apotheosis.skirmish.savedWatch', 'Observing the clash between {a} and {b} from the sidelines.', { a: sideAName, b: sideBName }), 4);
+              },
+            },
+          ],
+        });
+      }
     }
-  }
 
   function standSite(blueprint) {
     if (!blueprint) return null;
@@ -2847,6 +3070,7 @@ export function createLivingSceneHost(deps) {
       foes: /** @type {any[]} */ ([]),
       batches: /** @type {any[]} */ ([]),
       navalSquadron: null,
+      skirmishStance: blueprint.meta?.skirmishStance ?? null,
       interacted: false,
     };
     stood = site;
@@ -2937,7 +3161,7 @@ export function createLivingSceneHost(deps) {
               rec.entity.suppressInfighting = true;
             }
           }
-          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || a.role?.startsWith('skirmish_')) {
+          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || (a.role?.startsWith('skirmish_') && blueprint.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH)) {
             const urbanLoot = LivingTamrielConfig.urbanLootMode;
             if (urbanLoot === LIVING_URBAN_LOOT.ZERO) {
               rec.lootDropped = true; // suppresses corpse loot generation to protect economy
@@ -3004,7 +3228,7 @@ export function createLivingSceneHost(deps) {
             }
           }
           site.foes.push(rec);
-          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
+          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || blueprint.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
             retargetSkirmishFoes(site);
           }
         })
@@ -3235,6 +3459,42 @@ export function createLivingSceneHost(deps) {
       return;
     }
 
+    // 4.5 Unified Wilderness War Skirmish (Divine & Mundane Wars — strictly land-only, never at sea!)
+    const isOceanWild = Boolean(deps.afloat?.()) || (typeof deps.climateIndex === 'function' && deps.climateIndex() === CLIMATES.Ocean);
+    if (!isOceanWild && canSpawnWarSkirmish(player, regIdx, nowMin, { isOcean: isOceanWild, isAfloat: Boolean(deps.afloat?.()) }) && rng() < 0.70) {
+      const warDesc = getActiveWarForRegion(player, regIdx);
+      if (warDesc) {
+        lastSpawnMinute = nowMin;
+        markWarSkirmishSpawned(player, nowMin);
+        const warSite = standSite(
+          buildLivingSiteBlueprint({
+            kind: LIVING_SITE_KINDS.WAR_SKIRMISH,
+            centerX: cx,
+            centerZ: cz,
+            heightAt: deps.heightAt,
+            regionIndex: regIdx,
+            playerEntity: player,
+            nowMinutes: nowMin,
+            onRoad,
+            rng,
+            warDesc,
+          }),
+        );
+        if (warSite && warDesc.playerStance && warDesc.playerStance !== 'peace') {
+          triggerSiteInteraction(warSite);
+        } else if (warSite) {
+          deps.say(
+            t('apotheosis.skirmish.spottedHud', 'Clashing banners ahead: {a} vs {b}!', {
+              a: warDesc.sideAName,
+              b: warDesc.sideBName,
+            }),
+            5,
+          );
+        }
+        return;
+      }
+    }
+
     // 5. Non-seeking Wandering Road/Wilderness Adventurer
     const roadAdvSiteChance = getRoadAdventurerSiteChance(LivingTamrielConfig.roadAdventurers);
     if (roadAdvSiteChance > 0 && rng() < (onRoad ? roadAdvSiteChance * 1.35 : roadAdvSiteChance)) {
@@ -3335,22 +3595,57 @@ export function createLivingSceneHost(deps) {
           }
         }
         if (
-          stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH &&
+          (stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || stood.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) &&
           !stood.orderRestored &&
           stood.foes.length > 0
         ) {
           retargetSkirmishFoes(stood);
-          const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
-          if (rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r))) {
-            stood.orderRestored = true;
-            const regIdx = deps.regionIndex();
-            const contractRes = completeRegionalCrisisContract(regIdx, deps.playerEntity());
-            if (contractRes) {
+          if (stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
+            const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
+            if (rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r))) {
+              stood.orderRestored = true;
+              const regIdx = deps.regionIndex();
+              const contractRes = completeRegionalCrisisContract(regIdx, deps.playerEntity());
+              if (contractRes) {
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                deps.say(contractRes.message, 6);
+              } else {
+                onContractCompleted(regIdx);
+                deps.say(LIVING_WORDS.urbanOrderRestored(), 5);
+              }
+            }
+          } else {
+            const warDesc = stood.blueprint.meta?.warDesc;
+            const guards = stood.foes.filter((f) => f?.livingRole === 'skirmish_guard');
+            const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
+            const guardsDead = guards.length > 0 && guards.every((g) => g.dead || !deps.inPool(g));
+            const rebelsDead = rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r));
+            if (warDesc?.playerStance === 'sideA' && rebelsDead) {
+              stood.orderRestored = true;
+              const pl = deps.playerEntity();
+              if (warDesc.warKind === 'divine' && isAscendedGod(pl)) {
+                addApotheosisFaith(pl, 35, { source: 'war_skirmish_win', nowMinutes: nowMin });
+                shiftRegionInfluence(pl, warDesc.regIdx, 'player', 1.0);
+                deps.say(t('apotheosis.skirmish.winDivine', 'Enemy zealots routed! +35 Faith · +1.0% Influence.'), 5);
+              } else if (pl) {
+                pl.goldPieces = (Number(pl.goldPieces) || 0) + 150;
+                adjustPlayerRegionalRep(pl, warDesc.regIdx, 3);
+                deps.say(t('apotheosis.skirmish.winMundane', 'Enemy warband routed! +150g · +3 Reputation.'), 5);
+              }
               deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-              deps.say(contractRes.message, 6);
-            } else {
-              onContractCompleted(regIdx);
-              deps.say(LIVING_WORDS.urbanOrderRestored(), 5);
+            } else if (warDesc?.playerStance === 'sideB' && guardsDead) {
+              stood.orderRestored = true;
+              const pl = deps.playerEntity();
+              if (warDesc.warKind === 'divine' && isAscendedGod(pl)) {
+                addApotheosisFaith(pl, 35, { source: 'war_skirmish_win', nowMinutes: nowMin });
+                shiftRegionInfluence(pl, warDesc.regIdx, 'player', 1.0);
+                deps.say(t('apotheosis.skirmish.winDivine', 'Enemy zealots routed! +35 Faith · +1.0% Influence.'), 5);
+              } else if (pl) {
+                pl.goldPieces = (Number(pl.goldPieces) || 0) + 150;
+                adjustPlayerRegionalRep(pl, warDesc.regIdx, -3);
+                deps.say(t('apotheosis.skirmish.winMundaneSideB', 'Opposing vanguard routed! +150g.'), 5);
+              }
+              deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
             }
           }
         }
@@ -3402,13 +3697,18 @@ export function createLivingSceneHost(deps) {
           }
         }
         const isNaval = stood.kind === LIVING_SITE_KINDS.NAVAL_SQUADRON;
-        const interactDistance = isNaval ? 350 : SITE_INTERACT_DISTANCE_M;
+        const interactDistance = isNaval
+          ? 350
+          : stood.kind === LIVING_SITE_KINDS.WAR_SKIRMISH
+            ? 24
+            : SITE_INTERACT_DISTANCE_M;
         if (
           !stood.interacted &&
           d <= interactDistance &&
           (isNaval ||
             stood.kind === LIVING_SITE_KINDS.CHECKPOINT ||
             stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH ||
+            stood.kind === LIVING_SITE_KINDS.WAR_SKIRMISH ||
             stood.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH ||
             stood.kind === LIVING_SITE_KINDS.ADVENTURER_MEETING ||
             stood.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER ||
@@ -3585,6 +3885,47 @@ export function createLivingSceneHost(deps) {
         actorCount: stood.foes.length,
         interacted: stood.interacted,
       };
+    },
+
+    /**
+     * Immediately stands a Wilderness War Skirmish ahead of the player (strictly land-only, never at sea!).
+     */
+    spawnWarSkirmishNow({ warDesc = null, force = false } = {}) {
+      const isAfloatNow = Boolean(deps.afloat?.());
+      const isOceanNow = isAfloatNow || (typeof deps.climateIndex === 'function' && deps.climateIndex() === CLIMATES.Ocean);
+      if (isOceanNow) {
+        return { ok: false, reason: 'War skirmishes never spawn at sea / ocean.' };
+      }
+      const feet = deps.feet?.();
+      if (!feet) return { ok: false, reason: 'Player position unavailable.' };
+      const regIdx = deps.regionIndex();
+      const player = deps.playerEntity();
+      const nowMin = deps.clock();
+      const chosenWar = warDesc ?? getActiveWarForRegion(player, regIdx);
+      if (!chosenWar && !force) {
+        return { ok: false, reason: 'No active Religious or Regional War in this region.' };
+      }
+      const safe = findSafeSiteCenter(deps, feet, 16, rng() * Math.PI * 2, 5.0);
+      const cx = safe?.suitable ? safe.x : feet[0] + 12;
+      const cz = safe?.suitable ? safe.z : feet[2] + 6;
+      const site = standSite(
+        buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.WAR_SKIRMISH,
+          centerX: cx,
+          centerZ: cz,
+          heightAt: deps.heightAt,
+          regionIndex: regIdx,
+          playerEntity: player,
+          nowMinutes: nowMin,
+          onRoad: deps.onRoad?.() ?? false,
+          rng,
+          warDesc: chosenWar,
+        }),
+      );
+      if (!site) return { ok: false, reason: 'Could not build war skirmish at this location.' };
+      markWarSkirmishSpawned(player, nowMin);
+      triggerSiteInteraction(site);
+      return { ok: true, site, warDesc: site.blueprint?.meta?.warDesc ?? chosenWar };
     },
 
     /** Clears any active site and releases all spawned actors and batches. */

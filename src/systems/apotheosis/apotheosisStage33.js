@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { t } from '../textManager.js';
+import { hudText } from '../notify.js';
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 import { computeEntityMods, registerEntityFold } from '../entityMods.js';
 import { liveStat, maxFatigue } from '../statMods.js';
@@ -568,6 +569,16 @@ export function notifyCultPetitionProgress(entity, eventKind, {
   shiftRegionInfluence(entity, influenceRegion, 'player', infGained);
 
   entity.apotheosis.cult.petition = null;
+  const message = t(
+    'apotheosis.petition.completedHud',
+    'Cult Petition Completed: +{faith} Faith, +{gold}g, +{inf}% Influence!',
+    {
+      faith: faithGained,
+      gold: goldGained,
+      inf: infGained,
+    },
+  );
+  hudText(message, 6);
   return {
     completed: true,
     petition: pet,
@@ -576,6 +587,7 @@ export function notifyCultPetitionProgress(entity, eventKind, {
     faithGained,
     goldGained,
     influenceGained: infGained,
+    message,
   };
 }
 

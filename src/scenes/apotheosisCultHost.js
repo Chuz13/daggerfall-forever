@@ -20,18 +20,25 @@ import { playerEntity } from '../characters/playerEntity.js';
 import {
   APOTHEOSIS_PORTFOLIOS,
   getFaithMax,
+  spendApotheosisFaith,
   ensureCultPetition,
   getActiveCultPetition,
   dismissCultPetition,
   notifyCultPetitionProgress,
   syncEdictPetitionIfActive,
+  getActiveCultSieges,
+  resolveCultSiegeOutcome,
 } from '../systems/apotheosis/apotheosisCore.js';
 import { getPantheonDeity, ensurePantheonState } from '../systems/apotheosis/apotheosisStage3.js';
+import { LivingTamrielConfig, LIVING_URBAN_LOOT } from '../systems/living/livingConfig.js';
+import { goldStack } from '../systems/inventory.js';
+import { makePotion, potionRecipeKey, POTION_RECIPES } from '../systems/potions.js';
 import {
   CULT_BRANCHES,
   CULT_BRANCH_SWITCH_COST,
   CULT_CONSECRATE_FORCE_FAITH_COST,
   CULT_CONSECRATE_PEACEFUL_FAITH_COST,
+  CULT_TELEPORT_SANCTUARY_FAITH_COST,
   CULT_GUARDIAN_RESPAWN_COOLDOWN_MINUTES,
   CULT_UPGRADE_TIERS,
   CULT_ALTAR_STYLES,
@@ -994,12 +1001,15 @@ export function createApotheosisCultHost(deps = {}) {
     playerFeet,
     collider,
     spawnExteriorFoe,
+    exteriorFoes,
+    teleToSiteCity,
     buildingDoors,
     currentLoc,
   } = deps;
   const _hatches = new Map(); // siteKey -> { site, pixel, localPose, locOrigin, mapTitle, worldPos, yaw, matrix, aabb, keeperPos, keeperAabb, remap }
   const _hatchBuckets = new Map(); // siteKey -> { bucket, sig }
   const _meshCache = new Map();
+  const _activeSiegeBattles = new Map(); // siteKey -> { siteKey, attackers: [], defenders: [], pending: number, resolved: false }
   let _fallbackGpu = null;
 
   function hatchTitleFor(site) {
@@ -1119,6 +1129,269 @@ export function createApotheosisCultHost(deps = {}) {
       }
     }
     syncHatchColliders();
+    tickActiveSiegeBattles();
+  }
+
+  function applySiegeLootPolicy(rec) {
+    if (!rec) return;
+    const urbanLoot = LivingTamrielConfig.urbanLootMode;
+    if (urbanLoot === LIVING_URBAN_LOOT.ZERO) {
+      rec.lootDropped = true;
+      rec._suppressLoot = true;
+      if (rec.entity?.items) rec.entity.items = [];
+    } else if (urbanLoot === LIVING_URBAN_LOOT.SUPPLIES) {
+      rec.lootDropped = true;
+      rec._suppressLoot = false;
+      if (rec.entity) {
+        const supplies = [goldStack(15 + Math.floor(Math.random() * 25))];
+        if (Math.random() > 0.35) {
+          const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
+          if (healRec) supplies.push(makePotion(potionRecipeKey(healRec.ingredients)));
+        }
+        rec.entity.items = supplies;
+      }
+    } else {
+      rec.lootDropped = false;
+      rec._suppressLoot = false;
+    }
+  }
+
+  function resolveSiegeAnchor(site) {
+    if (site.kind === 'sanctuary') {
+      const h = _hatches.get(site.siteKey);
+      if (h?.worldPos) return [...h.worldPos];
+    }
+    const pixels = built?.();
+    if (pixels?.size) {
+      let activePixel = null;
+      for (const p of pixels.values()) {
+        if (p?.homeTown && (Number(p.homeTown) >>> 0) === (Number(site.mapId) >>> 0)) {
+          activePixel = p;
+          break;
+        }
+      }
+      if (activePixel) {
+        const doors = typeof buildingDoors === 'function' ? buildingDoors() : [];
+        const doorRec = (Array.isArray(doors) ? doors : []).find(
+          (d) => d.pixelKey === activePixel.key && (d.buildingKey === site.buildingKey || d.door?.buildingKey === site.buildingKey),
+        );
+        if (doorRec?.door) {
+          const dp = doorWorldPosition(doorRec.door);
+          const dn = doorWorldNormal(doorRec.door);
+          const wx = dp[0] + dn[0] * 3.0;
+          const wz = dp[2] + dn[2] * 3.0;
+          const wy = typeof groundAt === 'function' ? groundAt(wx, wz) : dp[1];
+          return [wx, Number.isFinite(wy) ? wy : dp[1], wz];
+        }
+        const tFr = activePixel.homeFrames?.get(site.buildingKey);
+        if (tFr?.box && tFr.box.length >= 6) {
+          const tVec = [0, 0, 0];
+          const pxT = state?.pixelTranslation?.(activePixel.px, activePixel.py, tVec) ?? [0, 0, 0];
+          const wx = pxT[0] + (tFr.box[0] + tFr.box[3]) * 0.5;
+          const wz = pxT[2] + tFr.box[5] + 3.0;
+          const wy = typeof groundAt === 'function' ? groundAt(wx, wz) : pxT[1];
+          return [wx, Number.isFinite(wy) ? wy : 0, wz];
+        }
+      }
+    }
+    const pPos = typeof playerPos === 'function' ? playerPos() : [0, 0, 0];
+    return [pPos[0] + 5, pPos[1] || 0, pPos[2] + 5];
+  }
+
+  function pickSiegeAttackerMob(godId, idx) {
+    const deity = getPantheonDeity(godId);
+    if (deity?.kind === 'daedra') {
+      const pool = [MOBILE_TYPES.Daedroth, MOBILE_TYPES.DaedraSeducer, MOBILE_TYPES.FireDaedra, MOBILE_TYPES.FrostDaedra];
+      return pool[idx % pool.length];
+    }
+    const pool = [MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Spellsword, MOBILE_TYPES.Archer];
+    return pool[idx % pool.length];
+  }
+
+  function pickSiegeDefenderMob(idx) {
+    const pool = [MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Healer];
+    return pool[idx % pool.length];
+  }
+
+  function spawnCultSiegeBattle(siteKey) {
+    if (typeof spawnExteriorFoe !== 'function') return false;
+    if ((modes?.()?.mode ?? 'exterior') !== 'exterior') return false;
+    const site = getCultSite(playerEntity, siteKey);
+    if (!site || !site.siege) return false;
+    if (_activeSiegeBattles.has(site.siteKey)) {
+      const existing = _activeSiegeBattles.get(site.siteKey);
+      if (!existing.resolved) return true;
+    }
+
+    const siege = site.siege;
+    const anchor = resolveSiegeAnchor(site);
+    const [ax, ay, az] = anchor;
+    const atkCount = Math.max(2, Number(siege.attackerCount) || 3);
+    const defCount = Math.max(1, Number(siege.defenderCount) || 2);
+    const rec = { siteKey: site.siteKey, attackers: [], defenders: [], pending: atkCount, resolved: false };
+    _activeSiegeBattles.set(site.siteKey, rec);
+    siege.spawned = true;
+
+    const pLevel = Math.max(5, Number(playerEntity?.level ?? 5));
+    const ownerName = playerEntity?.name || t('apotheosis.cult.defaultAscendedName', 'Ascended');
+
+    for (let i = 0; i < atkCount; i++) {
+      const ang = (i * Math.PI * 2) / atkCount + 0.35;
+      const dist = 7.5 + (i % 2) * 2.0;
+      const fx = ax + Math.cos(ang) * dist;
+      const fz = az + Math.sin(ang) * dist;
+      const fy = typeof groundAt === 'function' ? groundAt(fx, fz) : ay;
+      const mob = pickSiegeAttackerMob(siege.attackerGodId, i);
+      Promise.resolve(spawnExteriorFoe(mob, [fx, Number.isFinite(fy) ? fy : ay, fz], {
+        yaw: Math.atan2(ax - fx, az - fz),
+        level: pLevel + 2,
+        allied: false,
+        team: 'PlayerEnemy',
+        loose: true,
+        transient: true,
+        managed: true,
+        feetGiven: true,
+      })).then((foe) => {
+        rec.pending = Math.max(0, rec.pending - 1);
+        if (!foe) return;
+        foe.livingRole = 'cult_siege_attacker';
+        foe._siegeSiteKey = site.siteKey;
+        if (foe.entity) {
+          foe.entity.name = `${siege.attackerGodName ?? siege.attackerGodId} Besieger`;
+          foe.entity.team = 'PlayerEnemy';
+          foe.entity.mobileTeam = 'PlayerEnemy';
+        }
+        if (foe.ai) {
+          foe.ai.isHostile = true;
+          foe.ai.detected = true;
+          foe.ai.target = playerEntity;
+        }
+        applySiegeLootPolicy(foe);
+        rec.attackers.push(foe);
+      }).catch(() => {
+        rec.pending = Math.max(0, rec.pending - 1);
+      });
+    }
+
+    for (let i = 0; i < defCount; i++) {
+      const ang = (i * Math.PI * 2) / defCount + 0.1;
+      const dist = 3.0 + (i % 2) * 1.2;
+      const dx = ax + Math.cos(ang) * dist;
+      const dz = az + Math.sin(ang) * dist;
+      const dy = typeof groundAt === 'function' ? groundAt(dx, dz) : ay;
+      const mob = pickSiegeDefenderMob(i);
+      Promise.resolve(spawnExteriorFoe(mob, [dx, Number.isFinite(dy) ? dy : ay, dz], {
+        yaw: Math.atan2(dx - ax, dz - az),
+        level: pLevel + (site.branch === 'militant' ? 2 : 0),
+        allied: true,
+        team: 'PlayerAlly',
+        loose: true,
+        transient: true,
+        managed: true,
+        feetGiven: true,
+      })).then((ally) => {
+        if (!ally) return;
+        ally.livingRole = 'cult_siege_defender';
+        ally._siegeSiteKey = site.siteKey;
+        if (ally.entity) {
+          ally.entity.name = `${ownerName}'s Temple Garrison`;
+          ally.entity.team = 'PlayerAlly';
+          ally.entity.mobileTeam = 'PlayerAlly';
+          if (site.branch === 'militant' && Number.isFinite(ally.entity.maxHealth)) {
+            const boosted = Math.round(ally.entity.maxHealth * 1.35);
+            ally.entity.maxHealth = boosted;
+            ally.entity.health = boosted;
+            ally.entity.currentHealth = boosted;
+          }
+        }
+        if (ally.ai) {
+          ally.ai.isHostile = true;
+          ally.ai.detected = true;
+          ally.ai.target = null;
+        }
+        applySiegeLootPolicy(ally);
+        rec.defenders.push(ally);
+      }).catch(() => {});
+    }
+    return true;
+  }
+
+  function tickActiveSiegeBattles() {
+    if ((modes?.()?.mode ?? 'exterior') !== 'exterior') return;
+    const pixels = built?.();
+    const extList = typeof exteriorFoes === 'function' ? exteriorFoes()?.foes : exteriorFoes?.foes;
+
+    // Auto-spawn siege force if player walks into a besieged city in exterior
+    if (pixels?.size) {
+      for (const p of pixels.values()) {
+        if (!p?.homeTown) continue;
+        for (const s of getActiveCultSieges(playerEntity)) {
+          if ((Number(s.mapId) >>> 0) === (Number(p.homeTown) >>> 0) && !s.siege?.spawned && !_activeSiegeBattles.has(s.siteKey)) {
+            spawnCultSiegeBattle(s.siteKey);
+          }
+        }
+      }
+    }
+
+    for (const [sk, battle] of _activeSiegeBattles) {
+      if (battle.resolved) continue;
+      const liveAtk = battle.attackers.filter((f) => f && !f.dead && (!extList || extList.includes(f)));
+      const liveDef = battle.defenders.filter((f) => f && !f.dead && (!extList || extList.includes(f)));
+
+      for (const d of liveDef) {
+        if (d.ai && (!d.ai.target || d.ai.target.dead || d.ai.target === playerEntity)) {
+          d.ai.target = liveAtk[0] ?? null;
+          d.ai.targetSenses = d.ai.target;
+        }
+      }
+      for (const a of liveAtk) {
+        if (a.ai && (!a.ai.target || a.ai.target.dead)) {
+          a.ai.target = liveDef[0] ?? playerEntity;
+          a.ai.targetSenses = a.ai.target;
+        }
+      }
+
+      if (battle.pending <= 0 && battle.attackers.length > 0 && liveAtk.length === 0) {
+        battle.resolved = true;
+        _activeSiegeBattles.delete(sk);
+        const nowMin = Math.floor(worldMinutes?.() ?? 0);
+        const res = resolveCultSiegeOutcome(playerEntity, sk, 'victory', { nowMinutes: nowMin });
+        if (res.ok) townTalk?.say?.(res.message, 6);
+      }
+    }
+  }
+
+  async function defendCultSiege(siteKey = null, { force = false } = {}) {
+    const site = siteKey
+      ? getCultSite(playerEntity, siteKey)
+      : (getActiveCultSieges(playerEntity)[0] ?? null);
+    if (!site || !site.siege) {
+      return { ok: false, reason: t('apotheosis.siege.errNoActiveSiege', 'That sanctum is not currently under siege.') };
+    }
+    const curLoc = typeof currentLoc === 'function' ? currentLoc() : null;
+    const sameTownExterior = (Number(curLoc?.mapTableData?.mapId ?? 0) >>> 0) === (Number(site.mapId) >>> 0)
+      && (modes?.()?.mode ?? 'exterior') === 'exterior';
+
+    if (!sameTownExterior && !force) {
+      const spend = spendApotheosisFaith(playerEntity, CULT_TELEPORT_SANCTUARY_FAITH_COST, { reason: 'defend_siege' });
+      if (!spend.ok) return { ok: false, reason: spend.error };
+    }
+    if ((modes?.()?.mode ?? 'exterior') !== 'exterior') {
+      modes?.()?.forceExitToExterior?.();
+    }
+    const afterLoc = typeof currentLoc === 'function' ? currentLoc() : null;
+    if ((Number(afterLoc?.mapTableData?.mapId ?? 0) >>> 0) !== (Number(site.mapId) >>> 0) && typeof teleToSiteCity === 'function') {
+      await teleToSiteCity(site);
+    }
+    frame();
+    const tpKind = site.kind === 'temple' ? 'temple' : (site.isPlayerFounded ? 'player' : 'daedra');
+    teleportNearCultTarget(tpKind);
+    if (_activeSiegeBattles.get(site.siteKey)?.resolved === false) {
+      _activeSiegeBattles.delete(site.siteKey);
+    }
+    site.siege.spawned = false;
+    spawnCultSiegeBattle(site.siteKey);
+    return { ok: true, site, message: t('apotheosis.siege.deployedHud', 'Arrived at {site} to break the siege!', { site: site.name }) };
   }
 
   function spawnAlarmOutside(siteKey) {
@@ -1458,6 +1731,8 @@ export function createApotheosisCultHost(deps = {}) {
     teleportNearCultTarget,
     spawnAlarmOutside,
     townMapHatches,
+    spawnCultSiegeBattle,
+    defendCultSiege,
   };
 }
 

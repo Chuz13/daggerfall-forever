@@ -65,6 +65,11 @@ import {
   sendDivineOffering,
   sowDivineDiscord,
   startApotheosisFromArtifacts,
+  DIVINE_WAR_SUPPORT_COST,
+  DIVINE_WAR_TRUCE_COST,
+  getActiveGodWars,
+  supportGodWarSide,
+  enforceGodWarTruce,
 } from '../systems/apotheosis/apotheosisCore.js';
 import {
   renderCultPage,
@@ -926,7 +931,79 @@ function renderAurbisPage(detail, entity, repaint) {
   }
 }
 
+function renderActiveReligiousWarsBox(detail, entity, nowMin, repaint) {
+  const wars = getActiveGodWars(entity);
+  if (!wars.length) return;
+  const state = ensureApotheosisState(entity);
+  const faith = Math.trunc(Number(state?.faith) || 0);
+  const box = el('div', 'apo-box');
+  box.append(el('h4', null, t('apotheosis.war.panelTitle', 'Active Inter-Deity Religious Wars ({n})', { n: wars.length })));
+
+  for (const war of wars) {
+    const defA = getPantheonDeity(war.godA);
+    const defB = getPantheonDeity(war.godB);
+    const nameA = defA?.name ?? war.godAName ?? war.godA;
+    const nameB = defB?.name ?? war.godBName ?? war.godB;
+    const regNames = (war.regions ?? [])
+      .map((r) => getLocalizedRegionName(r, (i) => REGION_NAMES[i] ?? `Region ${i}`))
+      .join(', ');
+
+    const card = el('div', 'apo-card');
+    const head = el('div', 'apo-card-head');
+    head.append(
+      el('div', 'apo-card-title', `${nameA} vs ${nameB}`),
+      el('span', 'apo-pill bad', t('apotheosis.war.daysBadge', '{days}d left · {n} Regions', {
+        days: war.daysRemaining ?? 0,
+        n: war.regions?.length ?? 0,
+      })),
+    );
+    card.append(head);
+    card.append(el('div', 'apo-card-desc', t('apotheosis.war.regionsList', 'Contested Regions: {regions}', { regions: regNames })));
+
+    const stanceRow = el('div', 'apo-row-inline');
+    const stanceLabel = war.playerStance === 'sideA'
+      ? nameA
+      : war.playerStance === 'sideB'
+        ? nameB
+        : war.playerStance === 'peace'
+          ? t('apotheosis.war.stancePeace', 'Peacemaker')
+          : war.playerStance === 'watch'
+            ? t('apotheosis.war.stanceWatch', 'Observer')
+            : t('apotheosis.war.stanceNone', 'Undeclared');
+    stanceRow.append(el('span', `apo-pill ${war.playerStance ? 'ok' : 'warn'}`, t('apotheosis.war.stanceBadge', 'Your Stance: {stance}', { stance: stanceLabel })));
+    card.append(stanceRow);
+
+    const acts = el('div', 'apo-acts');
+    const supABtn = el('button', 'apo-btn primary', t('apotheosis.war.btnSupport', 'Support {god} ({cost} Faith)', { god: nameA, cost: DIVINE_WAR_SUPPORT_COST }));
+    supABtn.disabled = faith < DIVINE_WAR_SUPPORT_COST || war.playerStance === 'sideA';
+    supABtn.onclick = () => {
+      const res = supportGodWarSide(entity, war.id, war.godA, { nowMinutes: nowMin });
+      setFeedback(res.ok ? res.message : res.reason, !res.ok);
+      repaint();
+    };
+    const supBBtn = el('button', 'apo-btn primary', t('apotheosis.war.btnSupport', 'Support {god} ({cost} Faith)', { god: nameB, cost: DIVINE_WAR_SUPPORT_COST }));
+    supBBtn.disabled = faith < DIVINE_WAR_SUPPORT_COST || war.playerStance === 'sideB';
+    supBBtn.onclick = () => {
+      const res = supportGodWarSide(entity, war.id, war.godB, { nowMinutes: nowMin });
+      setFeedback(res.ok ? res.message : res.reason, !res.ok);
+      repaint();
+    };
+    const truceBtn = el('button', 'apo-btn', t('apotheosis.war.btnTruce', 'Enforce Divine Truce ({cost} Faith)', { cost: DIVINE_WAR_TRUCE_COST }));
+    truceBtn.disabled = faith < DIVINE_WAR_TRUCE_COST;
+    truceBtn.onclick = () => {
+      const res = enforceGodWarTruce(entity, war.id, { nowMinutes: nowMin });
+      setFeedback(res.ok ? res.message : res.reason, !res.ok);
+      repaint();
+    };
+    acts.append(supABtn, supBBtn, truceBtn);
+    card.append(acts);
+    box.append(card);
+  }
+  detail.append(box);
+}
+
 function renderPantheonDeitiesView(detail, entity, pantheon, nowMin, repaint) {
+  renderActiveReligiousWarsBox(detail, entity, nowMin, repaint);
   const summary = getGlobalInfluenceSummary(entity);
   const state = ensureApotheosisState(entity);
 
@@ -1105,6 +1182,7 @@ function renderPantheonDeitiesView(detail, entity, pantheon, nowMin, repaint) {
 }
 
 function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
+  renderActiveReligiousWarsBox(detail, entity, nowMin, repaint);
   const state = ensureApotheosisState(entity);
   if (pantheonSelectedRegion == null) {
     pantheonSelectedRegion = Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : 17;
