@@ -21,12 +21,14 @@ import { foeTitle } from '../../systems/foeTitle.js'; // FOE-TITLE: what a speci
 import { bossTraitWords, bossTraitRules, bossWardNow, bossClockS } from '../../systems/bossTraits.js'; // BOSS-TRAITS: the traits a foe carries, their rules, its ward
 
 export const FOE_TARGET_SECONDS = 6;
+export const FOE_HOVER_DISTANCE = 2.8;
 /** LOOT7 (the Loot arc): a CHAMPION's trait before its name; ELITE FOES: "Elite" before it; REVENANT: its own name -
  *  systems/foeTitle.js, the one home every surface asks (a leaf, as this one is). */
 const titled = (e, base) => foeTitle(e, base, { traits: false }); // AUDIT WORLD-EVENTS L5-12: the traits are said on their own line below
 
 let _foe = null;
 let _left = 0;
+let _hoverFallback = null;
 /** TELL9: seconds since the player last struck a foe (markFoeStruck) - a threat yields to a foe struck this recently. */
 let _sinceStruck = Infinity;
 /** TELL9 (bible/12-Enhanced-AI/Feud-Arc.md 11.1): a foe that winds up at me takes the bar unless I struck another in
@@ -51,6 +53,7 @@ export function markFoeStruck(foe, { fromPlayer = true } = {}) {
   if (bout && !bout.chained) return;
   _foe = foe;
   _left = FOE_TARGET_SECONDS;
+  _hoverFallback = null;
   _sinceStruck = 0; // TELL9: a threat yields to it for THREAT_YIELD_S
 }
 
@@ -84,6 +87,38 @@ export function markFoeThreat(foe) {
   if (_foe && _foe !== foe && !_foe.dead && (_sinceStruck < THREAT_YIELD_S || _foe.duel)) return; // AUDIT TELL U7: nor while my duel's opponent holds it (its health comes only as the duel's word does)
   _foe = foe;
   _left = FOE_TARGET_SECONDS;
+  _hoverFallback = null;
+}
+
+function isCombatMob(foe) {
+  if (!foe) return false;
+  if (foe.ai?.isHostile || foe._pupMine) return true;
+  if (foe.ai?.target != null || foe.entity?.skirmishForceInfighting || foe._siegeSiteKey) return true;
+  const role = foe.livingRole;
+  return typeof role === 'string' && (role.startsWith('skirmish_') || role.startsWith('cult_siege_'));
+}
+
+function hoverDistanceXZ(foe, eyeOrDist) {
+  if (typeof eyeOrDist === 'number') return Number.isFinite(eyeOrDist) ? eyeOrDist : Infinity;
+  const feet = foe?.ai?.feet ?? foe?.feet ?? foe?.pos;
+  if (!eyeOrDist || !feet) return Infinity;
+  const dx = Number(eyeOrDist[0]) - Number(feet[0]);
+  const dz = Number(eyeOrDist[2]) - Number(feet[2]);
+  return Number.isFinite(dx) && Number.isFinite(dz) ? Math.hypot(dx, dz) : Infinity;
+}
+
+/** Close-range combat mob hover: surfaces name & health bar on the target frame without changing World Tooltips' hostile plaque rule. */
+export function markFoeHovered(foe, eyeOrDist = null, fallbackName = null) {
+  if (!foe?.entity || foe.dead) return false;
+  const bout = foe.entity.bout;
+  if (bout && !bout.chained) return false;
+  if (_foe && _foe.duel && !_foe.dead) return false;
+  if (!isCombatMob(foe)) return false;
+  if (!(hoverDistanceXZ(foe, eyeOrDist) <= FOE_HOVER_DISTANCE)) return false;
+  _left = _foe === foe ? Math.max(_left, 2.0) : 2.0;
+  _foe = foe;
+  _hoverFallback = fallbackName || null;
+  return true;
 }
 
 /** Per-frame decay, from the one host-agnostic HUD call. */
@@ -94,6 +129,7 @@ export function tickFoeTarget(dt = 0) {
   if (_left <= 0 || _foe.dead) {
     _foe = null;
     _left = 0;
+    _hoverFallback = null;
   }
 }
 
@@ -109,7 +145,7 @@ export function foeTarget() {
   if (e.relayHealth && !(share > 0)) return null;
   const max = e.maxHealth || e.health || 1;
   return {
-    name: String(titled(e, e.name ?? e.career?.name ?? 'Foe')), // LOOT7: a champion's trait before its name; ELITE FOES: an elite's word; REVENANT: its own name
+    name: String(titled(e, e.name ?? e.career?.name ?? _hoverFallback ?? 'Foe')), // LOOT7: a champion's trait before its name; ELITE FOES: an elite's word; REVENANT: its own name
     health: share != null ? share * max : Math.max(0, e.health ?? 0),
     maxHealth: max,
     fade: Math.min(1, _left / 1.5), // the last second and a half
@@ -133,5 +169,6 @@ export function foeTargetRef() {
 export function clearFoeTarget() {
   _foe = null;
   _left = 0;
+  _hoverFallback = null;
   _sinceStruck = Infinity;
 }

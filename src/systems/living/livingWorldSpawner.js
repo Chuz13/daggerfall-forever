@@ -1072,7 +1072,11 @@ export function buildLivingSiteBlueprint({
       pacifiedCount: 0,
     };
     meta.warDesc = war;
-    meta.skirmishStance = 'neutral_watch';
+    meta.skirmishStance = war.playerStance === 'sideA'
+      ? 'watch'
+      : war.playerStance === 'sideB'
+        ? 'rebels'
+        : 'neutral_watch';
 
     const cfg = getApotheosisSiegeConfig();
     const squadCount = Math.max(2, cfg.enabled ? cfg.skirmishSize : 3);
@@ -2973,7 +2977,11 @@ export function createLivingSceneHost(deps) {
           ],
         });
       } else if (s.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
-        const warDesc = s.blueprint.meta?.warDesc ?? getActiveWarForRegion(player, regIdx);
+        const liveWar = getActiveWarForRegion(player, regIdx, {
+          preferKind: s.blueprint.meta?.warDesc?.warKind ?? null,
+        }) ?? s.blueprint.meta?.warDesc;
+        if (s.blueprint.meta && liveWar) s.blueprint.meta.warDesc = liveWar;
+        const warDesc = liveWar ?? s.blueprint.meta?.warDesc;
         const sideAName = warDesc?.sideAName ?? 'Vanguard';
         const sideBName = warDesc?.sideBName ?? 'Warband';
         const runPacify = () => {
@@ -3657,6 +3665,20 @@ export function createLivingSceneHost(deps) {
           !stood.orderRestored &&
           stood.foes.length > 0
         ) {
+          if (stood.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
+            const liveWar = getActiveWarForRegion(deps.playerEntity(), deps.regionIndex(), {
+              preferKind: stood.blueprint.meta?.warDesc?.warKind ?? null,
+            }) ?? stood.blueprint.meta?.warDesc;
+            if (liveWar) {
+              if (stood.blueprint.meta) stood.blueprint.meta.warDesc = liveWar;
+              if (liveWar.playerStance === 'sideA') stood.skirmishStance = 'watch';
+              else if (liveWar.playerStance === 'sideB') stood.skirmishStance = 'rebels';
+              else if (liveWar.playerStance === 'watch') stood.skirmishStance = 'neutral_watch';
+              else if (liveWar.playerStance == null && (stood.skirmishStance === 'watch' || stood.skirmishStance === 'rebels')) {
+                stood.skirmishStance = 'neutral_watch';
+              }
+            }
+          }
           retargetSkirmishFoes(stood);
           if (stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
             const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
@@ -3765,6 +3787,7 @@ export function createLivingSceneHost(deps) {
         if (
           !stood.interacted &&
           d <= interactDistance &&
+          !(stood.kind === LIVING_SITE_KINDS.WAR_SKIRMISH && deps.isAutopiloting?.()) &&
           (isNaval ||
             stood.kind === LIVING_SITE_KINDS.CHECKPOINT ||
             stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH ||
@@ -3993,7 +4016,8 @@ export function createLivingSceneHost(deps) {
     },
 
     interactCurrentSiteIfWarSkirmish() {
-      if (!stood || stood.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH || stood.interacted) return false;
+      if (!stood || stood.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH) return false;
+      stood.interacted = false;
       triggerSiteInteraction(stood);
       return true;
     },

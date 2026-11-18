@@ -205,6 +205,7 @@ import { composeNamer, composeContents } from '../systems/worldHover.js';   // I
 import { createInteriorPeek } from '../systems/containerPreview.js';   // CONTAINER-PEEK: a cupboard's plaque lists what it already holds
 import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER: the race's WINNER, so the plaque names what the press would open
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, and the hide door for the branches that return above it
+import { markFoeHovered } from '../ui/hud/hudFoeTarget.js';
 import { quickLootTake, quickLootSpend, plaqueActionFor } from '../systems/quickLoot.js'; import { showPickups } from '../ui/pickupFeed.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door; PICKUP-FEED: what a take moved, as cards (the take's `took`)
 import { plaqueListing } from '../systems/quickLoot.js';   // AUDIT HOME-VOTE B1: whether the plaque lists verbs - the Info box only where none is drawn
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
@@ -3551,6 +3552,7 @@ export function createWorldModes(host) {
       if (key.startsWith('mobileFoe:')) {
         const f = liveFoeFor(interiorFoePool(), key, 'mobileFoe');
         if (!f) return null;
+        markFoeHovered(f, player?.pos ?? null, enemyDisplayName(f.mobileType));
         const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands under its health bar alone
         return t ? { title: t, subs: questFoeSubs(f) } : null;   // QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
       }

@@ -136,6 +136,7 @@ import {
   enforceGodWarTruce,
   getActiveWarForRegion,
   setWarPlayerStance,
+  resetMundaneWarProgress,
   resolveWarSkirmishPacify,
   getApotheosisSiegeConfig,
 } from './apotheosis/apotheosisCore.js';
@@ -1944,6 +1945,9 @@ registerCommand(
         if (cond.values && (!cond.values[flagId] || cond.values[flagId] <= 0)) {
           cond.values[flagId] = 3;
         }
+        if (flagId === REGION_FLAGS.WarOngoing || flagId === REGION_FLAGS.WarBeginning) {
+          resetMundaneWarProgress(playerEntity, regionIndex);
+        }
         const st = getRegionState(regionIndex);
         return `Activated vanilla flag ${flagName} (counter: ${cond.values?.[flagId] ?? 3}) in Region ${regionIndex} (${st.regionName}) -> Macro: ${st.crisis} (${st.phase}).`;
       }
@@ -1959,6 +1963,9 @@ registerCommand(
         return `Unknown crisis or flag "${args[1]}". Valid macro types: war, plague, famine, civil_strife, or any REGION_FLAGS name (e.g. WitchBurnings, BadHarvest, MadWizardNearby, TGMInJail).`;
       }
       setRegionCrisis(regionIndex, crisisType, CRISIS_PHASE.START);
+      if (crisisType === CRISIS_TYPE.WAR) {
+        resetMundaneWarProgress(playerEntity, regionIndex);
+      }
       const st = getRegionState(regionIndex);
       return `Started ${crisisType} crisis in Region ${regionIndex} (${st.regionName}) (Phase: ${CRISIS_PHASE.START}).`;
     }
@@ -3436,10 +3443,15 @@ async function handleApotheosisCommand(args = []) {
     if (act === 'start') {
       const siteKeyArg = args[2] && args[2] !== '-' ? String(args[2]) : null;
       const godId = args[3] ? String(args[3]).toLowerCase() : null;
-      if (!siteKeyArg && getAllCultSites(playerEntity, { ownedOnly: true }).length === 0) {
-        const cityInfo = sceneCtx?.getCultCity?.() ?? null;
+      const cityInfo = sceneCtx?.getCultCity?.() ?? null;
+      const cityMid = cityInfo?.mapId ? (Number(cityInfo.mapId) >>> 0) : 0;
+      const owned = getAllCultSites(playerEntity, { ownedOnly: true });
+      const hasOwnedHere = cityMid > 0
+        ? owned.some((s) => (Number(s.mapId) >>> 0) === cityMid)
+        : owned.length > 0;
+      if (!siteKeyArg && !hasOwnedHere) {
         const reg = Number.isInteger(cityInfo?.regionIndex) ? cityInfo.regionIndex : (Number.isInteger(playerEntity?.currentRegionIndex) ? playerEntity.currentRegionIndex : 17);
-        const cityMapId = cityInfo?.mapId || (reg + 1000);
+        const cityMapId = cityMid || (reg + 1000);
         const cityName = cityInfo?.locationName || `Region #${reg}`;
         foundPlayerUndergroundSanctuary(playerEntity, {
           mapId: cityMapId,
@@ -3449,7 +3461,14 @@ async function handleApotheosisCommand(args = []) {
           force: true,
         });
       }
-      const res = startCultSiteSiege(playerEntity, siteKeyArg, godId, { nowMinutes: nowMin, force: true });
+      const res = startCultSiteSiege(playerEntity, siteKeyArg, godId, {
+        nowMinutes: nowMin,
+        force: true,
+        preferredMapId: cityMid || null,
+      });
+      if (res.ok && sceneCtx?.defendCultSiege && (!siteKeyArg || (cityMid > 0 && (Number(res.site.mapId) >>> 0) === cityMid))) {
+        await sceneCtx.defendCultSiege(res.site.siteKey, { force: true });
+      }
       return res.ok ? `Siege started: ${res.site.siteKey} (${res.site.name}) besieged by ${res.siege.attackerGodId} for ${res.siege.durationDays}d (${res.siege.attackerCount} vs ${res.siege.defenderCount}).` : res.reason;
     }
     if (act === 'defend') {

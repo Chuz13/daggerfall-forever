@@ -14,7 +14,7 @@ import { isShopShelfModel } from '../systems/shopStock.js';   // AUDIT-SEATS: a 
 import { IIL_LIGHT_ARCHIVE } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { YesNoBoxWindow } from '../ui/yesNoBox.js';   // SOFTCAP3: the Master Skills offer
 import { FlatAnimator, armFlatAnim, MISSILE_FPS } from '../render/flatAnimation.js';   // FA1: the flats that move
-import { markFoeStruck, markHostStruck } from '../ui/hud/hudFoeTarget.js';   // STAND-IN-BAR (AUDIT KETCH II): an event's host struck takes the target bar
+import { markFoeStruck, markHostStruck, markFoeHovered } from '../ui/hud/hudFoeTarget.js';   // STAND-IN-BAR (AUDIT KETCH II): an event's host struck takes the target bar
 import { combatStanding, dungeonShare, foeShare, progressionScaling, placeVeteran } from '../systems/skillSoftcap.js';   // SOFTCAP2: tougher foes, by dungeon tier; BAL3: and by the place's own threat
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP1
 import { heroThreatOf } from '../systems/heroThreat.js';   // BAL11: the hero's threat
@@ -8979,6 +8979,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (key.startsWith('mobileFoe:')) {
       const f = liveFoeFor(foes, key, 'mobileFoe');
       if (!f) return null;
+      markFoeHovered(f, lastPlayerFeet, enemyDisplayName(f.mobileType));
       const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands on its health bar alone; a kneeling revenant (still hostile in its motor) is done fighting, so it says so below
       return t ? { title: f.yielded ? `${t} - beaten` : t, subs: questFoeSubs(f) } : null;   // REVENANT-FATE (the 2026-10-02 audit): a kneeling revenant says so, as the street's does; QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
     }

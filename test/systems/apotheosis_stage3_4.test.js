@@ -23,6 +23,7 @@ import {
   tickStage34Daily,
   getActiveWarForRegion,
   setWarPlayerStance,
+  resetMundaneWarProgress,
   canSpawnWarSkirmish,
   markWarSkirmishSpawned,
   resolveWarSkirmishPacify,
@@ -65,6 +66,12 @@ import { getTargets, PLAYER_TARGET } from '../../src/characters/enemy/enemyTarge
 import { playerEntity } from '../../src/characters/playerEntity.js';
 import { snapshotPlayer, restorePlayer } from '../../src/systems/save/save.js';
 import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
+import {
+  markFoeHovered,
+  foeTarget,
+  clearFoeTarget,
+  FOE_HOVER_DISTANCE,
+} from '../../src/ui/hud/hudFoeTarget.js';
 
 function makeAscended(portfolio = 'war', { region = 17, faith = 2000 } = {}) {
   const ent = {
@@ -760,4 +767,121 @@ test('Stage 3.4 Feedback: Named Geopolitical wars, preferKind disambiguation & s
   assert.equal(chosenRes.target, sideB[0], 'Skirmish armies target each other and ignore player even when infighting toggle is off');
   const onlyPlayerRes = getTargets(sideA[0], [PLAYER_TARGET], [0, 0, 0], { infighting: false });
   assert.equal(onlyPlayerRes.target, null, 'Neutral skirmish soldier must never target PLAYER_TARGET');
+});
+
+test('Stage 3.4 Follow-up Fixes: preferredMapId siege selection, named rival kingdoms, autopilot ChoiceWindow & live stance sync, close-range hover HP bar', async () => {
+  // 1. startCultSiteSiege with preferredMapId picks the current town sanctum over another town sanctum
+  const ent = makeAscended('war', { region: 17, faith: 2000 });
+  const siteA = foundPlayerUndergroundSanctuary(ent, { mapId: 351438067, regionIndex: 17, locationName: 'Newtower', nowMinutes: 100, force: true }).site;
+  const siteB = foundPlayerUndergroundSanctuary(ent, { mapId: 109159001, regionIndex: 17, locationName: 'Gothway Garden', nowMinutes: 110, force: true }).site;
+  const siegeRes = startCultSiteSiege(ent, null, 'mara', { nowMinutes: 120, force: true, preferredMapId: siteB.mapId });
+  assert.equal(siegeRes.ok, true);
+  assert.equal(siegeRes.site.siteKey, siteB.siteKey, 'preferredMapId selects Gothway Garden sanctum instead of Newtower');
+  assert.equal(siteA.siege ?? null, null);
+
+  // 2. Mundane regional war without explicit pair still resolves a real named rival kingdom (Wayrest Vanguard for Daggerfall)
+  setRegionCrisis(17, CRISIS_TYPE.WAR, CRISIS_PHASE.MID, 8);
+  turnOnConditionFlag(ent.regionConditions, 17, REGION_FLAGS.WarOngoing);
+  // Simulate stale observer stance from an earlier war
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'watch');
+  assert.equal(getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }).playerStance, 'watch');
+  resetMundaneWarProgress(ent, 17);
+  const warAfterReset = getActiveWarForRegion(ent, 17, { preferKind: 'mundane' });
+  assert.ok(warAfterReset);
+  assert.equal(warAfterReset.playerStance, null, 'resetMundaneWarProgress restores undeclared stance');
+  assert.equal(warAfterReset.sideAName, 'Daggerfall Vanguard');
+  assert.equal(warAfterReset.sideBName, 'Wayrest Vanguard', 'Never falls back to generic Invading Warband');
+  assert.deepEqual(warAfterReset.regions, [17, 23]);
+
+  // 3. Fast-travel autopilot does not consume WAR_SKIRMISH interacted flag early; interactCurrentSiteIfWarSkirmish opens ChoiceWindow
+  // 4. Mid-skirmish setWarPlayerStance live-syncs actors on the very next frame(dt)
+  let autopilot = true;
+  let choiceOpenCount = 0;
+  let lastChoice = null;
+  const extPool = [];
+  const host = createLivingSceneHost({
+    feet: () => [0, 0, 0],
+    ready: () => true,
+    clock: () => 500,
+    regionIndex: () => 17,
+    inLocationRect: () => false,
+    onRoad: () => true,
+    afloat: () => false,
+    isAutopiloting: () => autopilot,
+    heightAt: () => 0,
+    playerEntity: () => ent,
+    spawn: async (mob, pos, opts) => {
+      const rec = {
+        mobileType: mob,
+        dead: false,
+        feet: [...pos],
+        entity: { team: opts.team, mobileTeam: opts.team, health: 40, maxHealth: 40 },
+        ai: { isHostile: true, detected: true, target: null, feet: [...pos], yaw: opts.yaw ?? 0, height: 1.8, sightRadius: 30, wouldBeSpawned: true, collider: { raycast: () => null } },
+      };
+      extPool.push(rec);
+      return rec;
+    },
+    remove: (r) => { const idx = extPool.indexOf(r); if (idx >= 0) extPool.splice(idx, 1); },
+    inPool: (r) => extPool.includes(r),
+    say: () => {},
+    openChoice: (spec) => { choiceOpenCount++; lastChoice = spec; },
+  });
+
+  // Spawn while autopiloting at range -> simulate player pressing Stop Here in travel interrupt
+  const sp = host.spawnWarSkirmishNow({ force: true, preferKind: 'mundane' });
+  assert.equal(sp.ok, true);
+  await new Promise((r) => setTimeout(r, 15));
+  // Even if frame runs while autopilot is active, interactCurrentSiteIfWarSkirmish still opens ChoiceWindow reliably
+  host.frame(1.1);
+  autopilot = false;
+  const openedAfterStop = host.interactCurrentSiteIfWarSkirmish();
+  assert.equal(openedAfterStop, true);
+  assert.ok(choiceOpenCount >= 1 && lastChoice?.options?.length === 4);
+
+  // Switch stance via Apotheosis UI mid-skirmish -> next frame retargets live actors immediately!
+  const sideA = extPool.filter((f) => f.livingRole === 'skirmish_guard');
+  const sideB = extPool.filter((f) => f.livingRole === 'skirmish_rebel');
+  assert.equal(sideA[0].entity.name, 'Daggerfall Vanguard');
+  assert.equal(sideB[0].entity.name, 'Wayrest Vanguard');
+
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'sideA');
+  host.frame(1.1);
+  assert.equal(sideA[0].entity.team, 'PlayerAlly');
+  assert.equal(sideA[0].entity.skirmishNeutralToPlayer, true);
+  assert.equal(sideB[0].entity.team, 'PlayerEnemy');
+  assert.equal(sideB[0].entity.skirmishNeutralToPlayer, false);
+
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'sideB');
+  host.frame(1.1);
+  assert.equal(sideB[0].entity.team, 'PlayerAlly');
+  assert.equal(sideB[0].entity.skirmishNeutralToPlayer, true);
+  assert.equal(sideA[0].entity.team, 'PlayerEnemy');
+  assert.equal(sideA[0].entity.skirmishNeutralToPlayer, false);
+
+  // 5. Close-range combat mob hover surfaces name & health bar in hudFoeTarget
+  clearFoeTarget();
+  const nearEye = [sideA[0].ai.feet[0], sideA[0].ai.feet[1] + 1.6, sideA[0].ai.feet[2] + 1.9];
+  const farEye = [sideA[0].ai.feet[0], sideA[0].ai.feet[1] + 1.6, sideA[0].ai.feet[2] + (FOE_HOVER_DISTANCE + 1.0)];
+
+  assert.equal(markFoeHovered(sideA[0], farEye, 'Knight'), false, 'Beyond close range does not hijack bar');
+  assert.equal(foeTarget(), null);
+
+  assert.equal(markFoeHovered(sideA[0], nearEye, 'Knight'), true, 'Within close range shows combat mob bar');
+  assert.equal(foeTarget().name, 'Daggerfall Vanguard');
+  assert.equal(foeTarget().health, 40);
+
+  // Monster without entity.name uses fallback enemyDisplayName
+  const wolf = { entity: { health: 18, maxHealth: 20 }, ai: { isHostile: true, feet: [0, 0, 0] }, dead: false };
+  assert.equal(markFoeHovered(wolf, [0, 1.6, 1.5], 'Wolf'), true);
+  assert.equal(foeTarget().name, 'Wolf');
+
+  // Peaceful non-combat NPC/guard is ignored by combat hover bar
+  const peacefulGuard = { entity: { name: 'City Watch', health: 50, maxHealth: 50 }, ai: { isHostile: false, feet: [0, 0, 0] }, dead: false };
+  assert.equal(markFoeHovered(peacefulGuard, [0, 1.6, 1.0], 'City Watch'), false);
+  clearFoeTarget();
+
+  // igniteRegionWar also clears stale mundane stances
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'watch');
+  igniteRegionWar(ent, 17, 23, { nowMinutes: 600, force: true });
+  assert.equal(getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }).playerStance, null);
 });

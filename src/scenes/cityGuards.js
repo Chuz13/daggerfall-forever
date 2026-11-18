@@ -106,6 +106,7 @@ import { rollCorpseKit } from '../systems/foeLootCap.js';   // KIT-ROLL: a plain
 import { liveFoeTargets, liveFoeFor } from '../player/activate.js';   // WORLD-HOVER H2: the LIVE bodies, in the shape the hover's one seam takes
 import { corpseName, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: "<who> (dead)", the mod's own word (.cs:526); H2: and a LIVE one's, when it is not hostile (.cs:304-312)
 import { enemyDisplayName } from '../characters/enemy/enemyBasics.js';   // the port's own name, the index law in one place (a LIVE one's fallback)
+import { markFoeHovered } from '../ui/hud/hudFoeTarget.js';
 import { bloodCentre } from './hitEffects.js';   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { bloodHit, LETHAL_HIT } from '../combat/blood/bloodDecals.js';   // BLOOD1b: the blow, in the shape the mark's ladder reads
 import { EnemySoundSource, acuteHearingMultiplier, WatchVoice, ATTRACT_RADIUS, OCCLUDED_VOLUME_SCALE } from '../characters/enemy/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home; HALT-ONE: the watch's one voice
@@ -1140,9 +1141,11 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   /** Per-frame drive; returns the live mobile batches (the host draws
    *  them on the flats' axis with the corpses). */
   let _ecvT = 0;   // ECV1: the watch's clock (seconds), for the shimmer and the hit reveal
+  let _lastEye = null;
   /** BLOOD2c: how the bleeding ledger reads a watchman. */
   const guardBleedView = (g) => ({ feet: g.ai?.feet, health: g.entity?.health, maxHealth: g.entity?.maxHealth, bloodIndex: ENEMY_BASICS[GUARD_MOBILE_TYPE]?.bloodIndex ?? 0, dead: !!g.dead, corpse: !!g.corpse });
   function update(dt, playerFeet, eye, senses = {}) {
+    if (eye || playerFeet) _lastEye = eye ?? playerFeet;
     hitEffects?.bleed?.(dt, guards, guardBleedView);   // BLOOD2c: a wounded watchman drips, a killed one bleeds out (a walk-away has no body and leaves no pool)
     _ecvT += dt;
     const ecvOn = combatVisualsOn();   // ECV1: once per frame
@@ -1787,6 +1790,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // exterior door's is a bare NUMBER.
     const g = liveFoeFor(guards, key, 'mobileGuard', { idOf });
     if (!g) return null;
+    markFoeHovered(g, _lastEye, enemyDisplayName(g.mobileType));
     const t = mobileEntityName(liveEntityName(g, enemyDisplayName(g.mobileType)), { hostile: !!g.ai?.isHostile });   // HOVER-PLAIN: the one law at every live arm
     return t ? { title: t } : null;
   };

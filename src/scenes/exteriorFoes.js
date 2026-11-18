@@ -20,7 +20,7 @@ import { foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: what a revena
 import { strikeTraits, traitWireKey } from './foeTraitsHost.js';   // AUDIT WORLD-EVENTS: my blow's door - resisted, its number retold, each trait taught once; and the record key's share
 import { bossStrikeAt, bossTakeAt, eliteTraits, giveBossTraits, maybeApplyMobTraits, bossTraitsOf, bossTraitsOfMask, bossTraitsMost, bossTraitMask, markBossWrath, bossWardShare, hasBossTrait, standBossWard, tickBossClock, bossClockS, bossTraitsTick, bossWardBrokeLine, bossWrathLine } from '../systems/bossTraits.js';   // BOSS-TRAITS: a hard foe's own rules (AUDIT WORLD-EVENTS: its clock, its tick, its ward on the wire, its rules taught)
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
-import { markFoeStruck } from '../ui/hud/hudFoeTarget.js';   // PX30
+import { markFoeStruck, markFoeHovered } from '../ui/hud/hudFoeTarget.js';   // PX30
 import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice } from '../systems/lycanthropy.js';   // V4: the beast's attack voice
 import { copyEffectEntry } from '../systems/save/save.js';   // AUDIT 26 F216: the caster-stripping effect copy, one home
@@ -2181,6 +2181,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // exterior door's is a bare NUMBER.
     const f = liveFoeFor(foes, key, 'mobileFoe', { idOf });
     if (!f) return null;
+    markFoeHovered(f, _eye, enemyDisplayName(f.mobileType));
     const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded && !f._pupYield });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands on its health bar alone; a kneeling revenant (mine or a peer's, still hostile in its motor) is done fighting, so it says so below
     return t ? { title: f.yielded || f._pupYield ? `${t} - beaten` : t, subs: questFoeSubs(f) } : null;   // REVENANT-FATE: a kneeling revenant says so; QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
   };

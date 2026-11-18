@@ -178,7 +178,7 @@ export function startCultSiteSiege(
   entity,
   siteKey = null,
   attackerGodId = null,
-  { nowMinutes = 0, force = false, tierOverride = null } = {},
+  { nowMinutes = 0, force = false, tierOverride = null, preferredMapId = null } = {},
 ) {
   if (!entity) return { ok: false, reason: t('apotheosis.siege.errNoEntity', 'No active character.') };
   const cult = ensureCultState(entity);
@@ -191,9 +191,16 @@ export function startCultSiteSiege(
 
   const owned = getAllCultSites(entity, { ownedOnly: true });
   const unbesieged = owned.filter((s) => !s.siege);
+  const prefMid = preferredMapId != null && Number(preferredMapId) > 0 ? (Number(preferredMapId) >>> 0) : 0;
+  const preferredUnbesieged = prefMid
+    ? unbesieged.find((s) => (Number(s.mapId) >>> 0) === prefMid)
+    : null;
+  const preferredAny = prefMid
+    ? owned.find((s) => (Number(s.mapId) >>> 0) === prefMid)
+    : null;
   const site = siteKey
     ? getCultSite(entity, siteKey)
-    : (unbesieged[0] ?? owned[0] ?? null);
+    : (preferredUnbesieged ?? preferredAny ?? unbesieged[0] ?? owned[0] ?? null);
 
   if (!site) {
     return { ok: false, reason: t('apotheosis.siege.errNoSite', 'No player-owned Temple or Sanctuary found to besiege.') };
@@ -751,7 +758,45 @@ function buildDivineWarDescriptor(divineWar, reg, regName) {
   };
 }
 
-function findRivalWarRegions(entity, reg) {
+const CANONICAL_RIVAL_REGIONS = Object.freeze({
+  17: 23, // Daggerfall <-> Wayrest
+  23: 17, // Wayrest <-> Daggerfall
+  19: 20, // Betony <-> Sentinel
+  20: 22, // Sentinel <-> Lainlyn
+  22: 20, // Lainlyn <-> Sentinel
+  18: 17, // Glenpoint -> Daggerfall
+  21: 17, // Anticlere -> Daggerfall
+  16: 26, // Wrothgarian Mountains <-> Orsinium Area
+  26: 23, // Orsinium Area -> Wayrest
+  5: 17,  // Dwynnen -> Daggerfall
+  9: 23,  // Isle of Balfiera -> Wayrest
+  34: 23, // Alcaire -> Wayrest
+  33: 23, // Menevia -> Wayrest
+});
+
+function resolveCanonicalRivalRegion(reg) {
+  const mapped = CANONICAL_RIVAL_REGIONS[reg];
+  if (Number.isInteger(mapped) && mapped !== reg) return mapped;
+  return reg === 17 ? 23 : 17;
+}
+
+/**
+ * Clears saved stance & pacification progress for a mundane war in `regionIndex`
+ * so newly declared regional wars start undeclared (`ChoiceWindow` opens on first clash).
+ */
+export function resetMundaneWarProgress(entity, regionIndex) {
+  const cult = ensureCultState(entity);
+  if (!cult) return;
+  const reg = clampReg(regionIndex);
+  if (cult.mundaneWarStances && typeof cult.mundaneWarStances === 'object') {
+    delete cult.mundaneWarStances[reg];
+  }
+  if (cult.mundaneWarPacified && typeof cult.mundaneWarPacified === 'object') {
+    delete cult.mundaneWarPacified[reg];
+  }
+}
+
+function findExplicitRivalWarRegions(entity, reg) {
   const out = [];
   const regWars = entity?.apotheosis?.pantheon?.regionWars;
   if (!regWars || typeof regWars !== 'object') return out;
@@ -767,20 +812,57 @@ function findRivalWarRegions(entity, reg) {
   return out;
 }
 
+function findRivalWarRegions(entity, reg) {
+  const out = findExplicitRivalWarRegions(entity, reg);
+  if (out.length === 0) {
+    const divineRegs = new Set();
+    const wars = entity?.apotheosis?.pantheon?.activeGodWars;
+    if (Array.isArray(wars)) {
+      for (const w of wars) {
+        for (const r of w?.regions ?? []) divineRegs.add(r);
+      }
+    }
+    const canon = resolveCanonicalRivalRegion(reg);
+    const canonFlag = conditionFlag(entity?.regionConditions, canon, REGION_FLAGS.WarOngoing)
+      || conditionFlag(entity?.regionConditions, canon, REGION_FLAGS.WarBeginning);
+    if (canonFlag && !divineRegs.has(canon)) {
+      out.push(canon);
+    } else {
+      for (let r = 0; r < TAMRIEL_REGION_COUNT; r++) {
+        if (r === reg || divineRegs.has(r)) continue;
+        const fl = conditionFlag(entity?.regionConditions, r, REGION_FLAGS.WarOngoing)
+          || conditionFlag(entity?.regionConditions, r, REGION_FLAGS.WarBeginning);
+        if (fl) {
+          out.push(r);
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}
+
 function buildMundaneWarDescriptor(entity, reg, regName) {
   const regState = getRegionState(reg);
   const flagWar = conditionFlag(entity?.regionConditions, reg, REGION_FLAGS.WarOngoing)
     || conditionFlag(entity?.regionConditions, reg, REGION_FLAGS.WarBeginning);
+  const explicitRivals = findExplicitRivalWarRegions(entity, reg);
+  const isMundaneWar = Boolean(flagWar || regState?.crisis === CRISIS_TYPE.WAR || explicitRivals.length > 0);
+  if (!isMundaneWar) {
+    const cult = entity?.apotheosis?.cult;
+    if (cult?.mundaneWarStances) delete cult.mundaneWarStances[reg];
+    if (cult?.mundaneWarPacified) delete cult.mundaneWarPacified[reg];
+    return null;
+  }
   const rivalRegs = findRivalWarRegions(entity, reg);
-  const isMundaneWar = Boolean(flagWar || regState?.crisis === CRISIS_TYPE.WAR || rivalRegs.length > 0);
-  if (!isMundaneWar) return null;
+  if (rivalRegs.length === 0) {
+    rivalRegs.push(resolveCanonicalRivalRegion(reg));
+  }
 
   const cult = entity?.apotheosis?.cult;
   const playerStance = cult?.mundaneWarStances?.[reg] ?? null;
   const pacifiedCount = Number(cult?.mundaneWarPacified?.[reg] || 0);
-  const rivalName = rivalRegs.length > 0
-    ? getLocalizedRegionName(rivalRegs[0], (i) => REGION_NAMES[i] ?? `Region ${i}`)
-    : null;
+  const rivalName = getLocalizedRegionName(rivalRegs[0], (i) => REGION_NAMES[i] ?? `Region ${i}`);
   return {
     warKind: 'mundane',
     warId: `mundane_war_${reg}`,
@@ -792,9 +874,7 @@ function buildMundaneWarDescriptor(entity, reg, regName) {
     sideAId: 'vanguard',
     sideBId: 'invaders',
     sideAName: t('apotheosis.skirmish.vanguard', '{region} Vanguard', { region: regName }),
-    sideBName: rivalName
-      ? t('apotheosis.skirmish.vanguard', '{region} Vanguard', { region: rivalName })
-      : t('apotheosis.skirmish.invaders', 'Invading Warband'),
+    sideBName: t('apotheosis.skirmish.vanguard', '{region} Vanguard', { region: rivalName }),
     playerStance,
     pacifiedCount,
     war: null,

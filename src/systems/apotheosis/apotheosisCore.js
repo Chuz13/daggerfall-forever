@@ -275,6 +275,7 @@ export {
   tickStage34Daily,
   getActiveWarForRegion,
   setWarPlayerStance,
+  resetMundaneWarProgress,
   canSpawnWarSkirmish,
   markWarSkirmishSpawned,
   resolveWarSkirmishPacify,

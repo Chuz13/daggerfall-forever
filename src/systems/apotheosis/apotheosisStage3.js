@@ -1467,6 +1467,15 @@ export function igniteRegionWar(entity, regionA, regionB, { nowMinutes = null, f
   if (!Array.isArray(entity.regionConditions)) entity.regionConditions = createRegionConditions(TAMRIEL_REGION_COUNT);
   turnOnConditionFlag(entity.regionConditions, rA, REGION_FLAGS.WarOngoing);
   turnOnConditionFlag(entity.regionConditions, rB, REGION_FLAGS.WarOngoing);
+  const cult = entity?.apotheosis?.cult;
+  if (cult?.mundaneWarStances) {
+    delete cult.mundaneWarStances[rA];
+    delete cult.mundaneWarStances[rB];
+  }
+  if (cult?.mundaneWarPacified) {
+    delete cult.mundaneWarPacified[rA];
+    delete cult.mundaneWarPacified[rB];
+  }
 
   const dict = entity?.factionRep?.dict;
   if (dict instanceof Map) {
