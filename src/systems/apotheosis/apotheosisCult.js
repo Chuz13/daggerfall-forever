@@ -40,6 +40,7 @@ import {
 } from '../../world/apotheosisSanctuaryInterior.js';
 
 export const CULT_FOUND_FAITH_COST = 350;
+export const CULT_FOUND_GOLD_COST = 50000;
 export const CULT_CONSECRATE_FORCE_FAITH_COST = 200;
 export const CULT_CONSECRATE_PEACEFUL_FAITH_COST = 450;
 export const CULT_BRANCH_SWITCH_COST = 180;
@@ -140,6 +141,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     nameKey: 'apotheosis.cult.tier1',
     fallbackName: 'Initiate Shrine',
     upgradeCost: 0,
+    upgradeGoldCost: 0,
     faithPerDay: 12,
     maxFaithBonus: 100,
     infPerDay: 0.4,
@@ -150,6 +152,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     nameKey: 'apotheosis.cult.tier2',
     fallbackName: 'Sacred Precinct',
     upgradeCost: 220,
+    upgradeGoldCost: 25000,
     faithPerDay: 22,
     maxFaithBonus: 250,
     infPerDay: 0.8,
@@ -160,6 +163,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     nameKey: 'apotheosis.cult.tier3',
     fallbackName: 'Grand Sanctum',
     upgradeCost: 420,
+    upgradeGoldCost: 50000,
     faithPerDay: 36,
     maxFaithBonus: 500,
     infPerDay: 1.4,
@@ -1136,9 +1140,29 @@ export function foundPlayerUndergroundSanctuary(entity, {
   }
 
   const cost = force ? 0 : CULT_FOUND_FAITH_COST;
+  const goldCost = force ? 0 : CULT_FOUND_GOLD_COST;
+  if (cost > 0) {
+    const curFaith = Math.trunc(Number(entity.apotheosis?.faith) || 0);
+    if (curFaith < cost) {
+      return {
+        ok: false,
+        reason: t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', { need: cost, have: curFaith }),
+      };
+    }
+  }
+  const curGold = Math.max(0, Math.trunc(Number(entity.goldPieces) || 0));
+  if (goldCost > 0 && curGold < goldCost) {
+    return {
+      ok: false,
+      reason: t('apotheosis.roadShrine.err.notEnoughGold', 'Not enough gold ({have}g / {need}g).', { have: curGold, need: goldCost }),
+    };
+  }
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `found_sanctuary:${mid}` });
     if (!spend.ok) return { ok: false, reason: spend.reason };
+  }
+  if (goldCost > 0) {
+    entity.goldPieces = Math.max(0, curGold - goldCost);
   }
 
   const initialBranch = branch && CULT_BRANCHES[String(branch).toLowerCase()]
@@ -1188,7 +1212,7 @@ export function foundPlayerUndergroundSanctuary(entity, {
     }),
   });
 
-  return { ok: true, faithSpent: cost, site };
+  return { ok: true, faithSpent: cost, goldSpent: goldCost, site };
 }
 
 /** Upgrades a player-owned Cult Temple or Sanctuary (`Tier 1 -> 2 -> 3`). */
@@ -1203,9 +1227,29 @@ export function upgradeCultSite(entity, siteKey, { nowMinutes = 0, force = false
   }
   const nextSpec = CULT_UPGRADE_TIERS[curTier + 1];
   const cost = force ? 0 : nextSpec.upgradeCost;
+  const goldCost = force ? 0 : (nextSpec.upgradeGoldCost ?? 0);
+  if (cost > 0) {
+    const curFaith = Math.trunc(Number(entity.apotheosis?.faith) || 0);
+    if (curFaith < cost) {
+      return {
+        ok: false,
+        reason: t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', { need: cost, have: curFaith }),
+      };
+    }
+  }
+  const curGold = Math.max(0, Math.trunc(Number(entity.goldPieces) || 0));
+  if (goldCost > 0 && curGold < goldCost) {
+    return {
+      ok: false,
+      reason: t('apotheosis.roadShrine.err.notEnoughGold', 'Not enough gold ({have}g / {need}g).', { have: curGold, need: goldCost }),
+    };
+  }
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `upgrade_cult:${site.siteKey}` });
     if (!spend.ok) return { ok: false, reason: spend.reason };
+  }
+  if (goldCost > 0) {
+    entity.goldPieces = Math.max(0, curGold - goldCost);
   }
   site.tier = nextSpec.tier;
   recomputeCultFaithBonus(entity);
@@ -1219,7 +1263,7 @@ export function upgradeCultSite(entity, siteKey, { nowMinutes = 0, force = false
       tier: nextSpec.tier,
     }),
   });
-  return { ok: true, tier: site.tier, faithSpent: cost, site };
+  return { ok: true, tier: site.tier, faithSpent: cost, goldSpent: goldCost, site };
 }
 
 /** Returns specialization switch cooldown info for an owned site. */

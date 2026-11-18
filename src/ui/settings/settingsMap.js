@@ -500,6 +500,7 @@ export const CATEGORIES = Object.freeze([
       'port:apotheosisFaithDecayMult',
       'port:apotheosisPantheonActivity',
       'port:apotheosisTravelInterrupts',
+      'port:apotheosisTempleSieges',
     ]),
   ]),
 ]);

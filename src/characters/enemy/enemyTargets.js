@@ -248,7 +248,7 @@ export function getTargets(self, candidates, playerFeet, {
     if (bout === false) continue;
     if (bout !== true && !civilian && !star && !goal) {
     // NoTarget mode (:776-777): the BASICS team here
-    if ((noTargetMode || !ai.isHostile || selfMobileTeam === 'PlayerAlly' || self.companion != null) && isPlayer) continue;   // AUDIT CC-B2: a companion never the player's foe, whatever his team reads
+    if ((noTargetMode || !ai.isHostile || selfMobileTeam === 'PlayerAlly' || self.companion != null || self.entity?.skirmishNeutralToPlayer) && isPlayer) continue;   // AUDIT CC-B2: a companion never the player's foe, whatever his team reads
     if (dropLocal && isLocalPlayerTarget(c)) continue;   // AUDIT-F5: a wilderness foe unaware of a fast traveller (scenes/exteriorFoes.js) - them alone
     // Pacified enemies should not attack player allies (:780-781)
     if (!ai.isHostile && targetEntity && targetEntity.team === 'PlayerAlly') continue;
@@ -267,7 +267,8 @@ export function getTargets(self, candidates, playerFeet, {
     if (!isPlayer && selfCamp != null && targetCamp != null && selfCamp === targetCamp) continue;
     if (!isPlayer && selfTeam != null && selfTeam !== 'PlayerEnemy' && targetEntity?.team != null && targetEntity.team === selfTeam) continue;
 
-    if (infighting && !self.entity?.suppressInfighting && targetEntity && !targetEntity.suppressInfighting) {
+    const forceInfighting = Boolean(self.entity?.skirmishForceInfighting && targetEntity?.skirmishForceInfighting);
+    if ((infighting || forceInfighting) && !self.entity?.suppressInfighting && targetEntity && !targetEntity.suppressInfighting) {
       // CAMP-RIVALS (2026-09-25, Mac: "if not the same kind they attack each other"): two
       // wilderness groups of the SAME kind (combat Team) keep the classic truce and never fight;
       // groups of different kinds fight on sight through this ordinary infighting arm.

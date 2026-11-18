@@ -79,7 +79,7 @@ function makeAscendedGod(portfolio = 'order', { region = 17, faith = 900 } = {})
     name: 'Agent',
     level: 25,
     currentRegionIndex: region,
-    goldPieces: 5000,
+    goldPieces: 250000,
     stats: { willpower: 70, luck: 60 },
     skills: { 10: 55, 22: 65 },
     factionRep: { dict: new Map() },

@@ -969,6 +969,89 @@ function renderAurbisPage(detail, entity, repaint) {
   }
 }
 
+function renderWarContestedRegionsRow(container, entity, regionIndices, pacifiedByRegion, repaint) {
+  const uniqueRegs = [...new Set((regionIndices ?? []).filter((r) => Number.isInteger(r)))];
+  if (!uniqueRegs.length) return;
+  const row = el('div', 'apo-row-inline');
+  row.style.marginTop = '6px';
+  row.append(el('span', 'apo-meta-row', t('apotheosis.war.contestedClick', 'Contested Regions (click to inspect):')));
+  const curReg = Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : null;
+  for (const r of uniqueRegs) {
+    const rName = getLocalizedRegionName(r, (i) => REGION_NAMES[i] ?? `Region ${i}`);
+    const pac = pacifiedByRegion ? Number(pacifiedByRegion[r] || 0) : null;
+    const isHere = r === curReg;
+    const lbl = pac != null
+      ? `${rName} (#${r}) · ${pac}/${WAR_SKIRMISH_PACIFY_GOAL}${isHere ? ' ★' : ''}`
+      : `${rName} (#${r})${isHere ? ' ★' : ''}`;
+    const btn = el('button', `apo-btn${isHere ? ' primary' : ''}`, lbl);
+    btn.style.padding = '3px 8px';
+    btn.style.fontSize = '12px';
+    btn.onclick = () => {
+      pantheonSelectedRegion = r;
+      activeSec = 'pantheon_regions';
+      repaint({ resetDetailScroll: true });
+    };
+    row.append(btn);
+  }
+  container.append(row);
+}
+
+function renderWarSkirmishControls(container, entity, warDesc, nowMin, repaint, { includeRegions = true } = {}) {
+  if (!warDesc) return;
+  const cfg = getApotheosisSiegeConfig();
+  const lastSk = Number(ensureCultState(entity)?.lastWarSkirmishMinutes ?? -999999);
+  const minsLeft = Math.max(0, Math.ceil((lastSk + cfg.skirmishCooldownMinutes) - nowMin));
+  const stanceName = warDesc.playerStance === 'sideA'
+    ? warDesc.sideAName
+    : warDesc.playerStance === 'sideB'
+      ? warDesc.sideBName
+      : warDesc.playerStance === 'peace'
+        ? t('apotheosis.war.stancePeace', 'Peacemaker')
+        : warDesc.playerStance === 'watch'
+          ? t('apotheosis.war.stanceWatch', 'Observer')
+          : t('apotheosis.war.stanceNone', 'Undeclared');
+
+  const pillLine = el('div', 'apo-row-inline');
+  pillLine.style.marginTop = '6px';
+  pillLine.append(
+    el('span', `apo-pill ${warDesc.playerStance ? 'ok' : 'warn'}`, t('apotheosis.war.stanceBadge', 'Your Stance: {stance}', { stance: stanceName })),
+    el('span', 'apo-pill info', t('apotheosis.lens.pacifiedBadge', 'Skirmishes Pacified: {cur}/{goal}', {
+      cur: warDesc.pacifiedCount ?? 0,
+      goal: WAR_SKIRMISH_PACIFY_GOAL,
+    })),
+    el('span', `apo-pill ${minsLeft > 0 ? 'warn' : 'ok'}`, minsLeft > 0
+      ? t('apotheosis.lens.skirmishCdWait', 'Next Skirmish Cooldown: {min}m', { min: minsLeft })
+      : t('apotheosis.lens.skirmishCdReady', 'Wilderness Skirmishes: Ready')),
+  );
+  container.append(pillLine);
+
+  if (includeRegions && Array.isArray(warDesc.regions) && warDesc.regions.length > 0) {
+    renderWarContestedRegionsRow(container, entity, warDesc.regions, warDesc.war?.regionPacified ?? null, repaint);
+  }
+
+  const stanceBtns = el('div', 'apo-acts');
+  stanceBtns.append(el('span', 'apo-meta-row', t('apotheosis.war.skirmishStanceLabel', 'Wilderness Stance (Free):')));
+  for (const [sVal, sLbl] of [
+    ['sideA', warDesc.sideAName],
+    ['sideB', warDesc.sideBName],
+    ['peace', t('apotheosis.war.stancePeace', 'Peacemaker')],
+    ['watch', t('apotheosis.war.stanceWatch', 'Observer')],
+    ['reset', t('apotheosis.war.btnResetStance', 'Ask Again Next Clash')],
+  ]) {
+    const sb = el('button', `apo-btn${(warDesc.playerStance ?? 'reset') === sVal ? ' primary' : ''}`, sLbl);
+    sb.style.padding = '4px 8px';
+    sb.style.fontSize = '12px';
+    sb.disabled = (warDesc.playerStance ?? 'reset') === sVal;
+    sb.onclick = () => {
+      setWarPlayerStance(entity, warDesc, sVal);
+      setFeedback(t('apotheosis.war.stanceUpdated', 'War stance updated to {stance}.', { stance: sLbl }), false);
+      repaint();
+    };
+    stanceBtns.append(sb);
+  }
+  container.append(stanceBtns);
+}
+
 function renderActiveReligiousWarsBox(detail, entity, nowMin, repaint) {
   const wars = getActiveGodWars(entity);
   if (!wars.length) return;
@@ -982,9 +1065,6 @@ function renderActiveReligiousWarsBox(detail, entity, nowMin, repaint) {
     const defB = getPantheonDeity(war.godB);
     const nameA = defA?.name ?? war.godAName ?? war.godA;
     const nameB = defB?.name ?? war.godBName ?? war.godB;
-    const regNames = (war.regions ?? [])
-      .map((r) => getLocalizedRegionName(r, (i) => REGION_NAMES[i] ?? `Region ${i}`))
-      .join(', ');
 
     const card = el('div', 'apo-card');
     const head = el('div', 'apo-card-head');
@@ -996,20 +1076,21 @@ function renderActiveReligiousWarsBox(detail, entity, nowMin, repaint) {
       })),
     );
     card.append(head);
-    card.append(el('div', 'apo-card-desc', t('apotheosis.war.regionsList', 'Contested Regions: {regions}', { regions: regNames })));
 
-    const stanceRow = el('div', 'apo-row-inline');
-    const stanceLabel = war.playerStance === 'sideA'
-      ? nameA
-      : war.playerStance === 'sideB'
-        ? nameB
-        : war.playerStance === 'peace'
-          ? t('apotheosis.war.stancePeace', 'Peacemaker')
-          : war.playerStance === 'watch'
-            ? t('apotheosis.war.stanceWatch', 'Observer')
-            : t('apotheosis.war.stanceNone', 'Undeclared');
-    stanceRow.append(el('span', `apo-pill ${war.playerStance ? 'ok' : 'warn'}`, t('apotheosis.war.stanceBadge', 'Your Stance: {stance}', { stance: stanceLabel })));
-    card.append(stanceRow);
+    renderWarContestedRegionsRow(card, entity, war.regions ?? [], war.regionPacified ?? {}, repaint);
+
+    const warDesc = {
+      warKind: 'divine',
+      warId: war.id,
+      regIdx: war.regions?.[0] ?? 17,
+      regions: war.regions ?? [],
+      sideAName: nameA,
+      sideBName: nameB,
+      playerStance: war.playerStance ?? null,
+      pacifiedCount: war.pacifiedCount ?? 0,
+      war,
+    };
+    renderWarSkirmishControls(card, entity, warDesc, nowMin, repaint, { includeRegions: false });
 
     const acts = el('div', 'apo-acts');
     const supABtn = el('button', 'apo-btn primary', t('apotheosis.war.btnSupport', 'Support {god} ({cost} Faith)', { god: nameA, cost: DIVINE_WAR_SUPPORT_COST }));
@@ -1289,6 +1370,31 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
   };
   geoRow.append(selA, el('span', 'apo-pill', t('apotheosis.pantheon.vs', 'vs')), selB, warBtn, peaceBtn);
   geoBox.append(geoRow, geoStatusRow);
+
+  const regWars = entity?.apotheosis?.pantheon?.regionWars ?? {};
+  const activePairs = Object.entries(regWars).filter(([, active]) => Boolean(active));
+  if (activePairs.length > 0) {
+    const activeRow = el('div', 'apo-row-inline');
+    activeRow.style.marginTop = '8px';
+    activeRow.append(el('span', 'apo-meta-row', t('apotheosis.geo.activeWarsLabel', 'Active Regional Wars (click to inspect):')));
+    for (const [pk] of activePairs) {
+      const [aStr, bStr] = String(pk).split('|');
+      const rA = Number(aStr);
+      const rB = Number(bStr);
+      if (!Number.isInteger(rA) || !Number.isInteger(rB)) continue;
+      const chip = el('button', 'apo-btn danger', `${regName(rA)} (#${rA}) vs ${regName(rB)} (#${rB})`);
+      chip.style.padding = '3px 8px';
+      chip.style.fontSize = '12px';
+      chip.onclick = () => {
+        pantheonGeoA = rA;
+        pantheonGeoB = rB;
+        pantheonSelectedRegion = rA;
+        repaint();
+      };
+      activeRow.append(chip);
+    }
+    geoBox.append(activeRow);
+  }
   detail.append(geoBox);
 
   // 2. 71-Region Tamriel Divine Lens
@@ -1359,51 +1465,7 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
         ? t('apotheosis.lens.warDivineTitle', 'Active Religious War: {a} vs {b}', { a: regWar.sideAName, b: regWar.sideBName })
         : t('apotheosis.lens.warMundaneTitle', 'Active Regional War: {a} vs {b}', { a: regWar.sideAName, b: regWar.sideBName });
       warBox.append(el('h4', null, warTitle));
-
-      const cfg = getApotheosisSiegeConfig();
-      const lastSk = Number(ensureCultState(entity)?.lastWarSkirmishMinutes ?? -999999);
-      const minsLeft = Math.max(0, Math.ceil((lastSk + cfg.skirmishCooldownMinutes) - nowMin));
-      const stanceName = regWar.playerStance === 'sideA'
-        ? regWar.sideAName
-        : regWar.playerStance === 'sideB'
-          ? regWar.sideBName
-          : regWar.playerStance === 'peace'
-            ? t('apotheosis.war.stancePeace', 'Peacemaker')
-            : regWar.playerStance === 'watch'
-              ? t('apotheosis.war.stanceWatch', 'Observer')
-              : t('apotheosis.war.stanceNone', 'Undeclared');
-
-      const pillLine = el('div', 'apo-row-inline');
-      pillLine.append(
-        el('span', `apo-pill ${regWar.playerStance ? 'ok' : 'warn'}`, t('apotheosis.war.stanceBadge', 'Your Stance: {stance}', { stance: stanceName })),
-        el('span', 'apo-pill info', t('apotheosis.lens.pacifiedBadge', 'Skirmishes Pacified: {cur}/{goal}', {
-          cur: regWar.pacifiedCount ?? 0,
-          goal: WAR_SKIRMISH_PACIFY_GOAL,
-        })),
-        el('span', `apo-pill ${minsLeft > 0 ? 'warn' : 'ok'}`, minsLeft > 0
-          ? t('apotheosis.lens.skirmishCdWait', 'Next Skirmish Cooldown: {min}m', { min: minsLeft })
-          : t('apotheosis.lens.skirmishCdReady', 'Wilderness Skirmishes: Ready')),
-      );
-      warBox.append(pillLine);
-
-      const stanceBtns = el('div', 'apo-acts');
-      for (const [sVal, sLbl] of [
-        ['sideA', regWar.sideAName],
-        ['sideB', regWar.sideBName],
-        ['peace', t('apotheosis.war.stancePeace', 'Peacemaker')],
-        ['watch', t('apotheosis.war.stanceWatch', 'Observer')],
-        ['reset', t('apotheosis.war.btnResetStance', 'Ask Again Next Clash')],
-      ]) {
-        const sb = el('button', `apo-btn${(regWar.playerStance ?? 'reset') === sVal ? ' primary' : ''}`, sLbl);
-        sb.disabled = (regWar.playerStance ?? 'reset') === sVal;
-        sb.onclick = () => {
-          setWarPlayerStance(entity, regWar, sVal);
-          setFeedback(t('apotheosis.war.stanceUpdated', 'War stance updated to {stance}.', { stance: sLbl }), false);
-          repaint();
-        };
-        stanceBtns.append(sb);
-      }
-      warBox.append(stanceBtns);
+      renderWarSkirmishControls(warBox, entity, regWar, nowMin, repaint, { includeRegions: true });
       inspectorEl.append(warBox);
     }
   };

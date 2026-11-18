@@ -3464,6 +3464,9 @@ async function handleApotheosisCommand(args = []) {
       if (!siteKey) return 'No active siege found.';
       const outcome = act === 'win' ? 'victory' : 'failed';
       const res = resolveCultSiegeOutcome(playerEntity, siteKey, outcome, { nowMinutes: nowMin });
+      if (res.ok && outcome === 'failed') {
+        sceneCtx?.dismissCultSiegeBattle?.(siteKey);
+      }
       return res.ok ? res.message : res.reason;
     }
     const sieges = getActiveCultSieges(playerEntity);
@@ -3487,8 +3490,10 @@ async function handleApotheosisCommand(args = []) {
     }
     if (act === 'skirmish') {
       if (!sceneCtx?.spawnWarSkirmish) return 'War skirmish runtime unavailable here.';
-      const res = sceneCtx.spawnWarSkirmish({ force: true });
-      return res?.ok ? `Spawned Wilderness War Skirmish (${res.warDesc?.sideAName ?? 'A'} vs ${res.warDesc?.sideBName ?? 'B'}).` : (res?.reason ?? 'Could not spawn war skirmish.');
+      const rawKind = args[2] ? String(args[2]).toLowerCase() : null;
+      const preferKind = rawKind === 'mundane' || rawKind === 'divine' ? rawKind : null;
+      const res = sceneCtx.spawnWarSkirmish({ force: true, preferKind });
+      return res?.ok ? `Spawned Wilderness War Skirmish (${res.warDesc?.warKind ?? 'war'}: ${res.warDesc?.sideAName ?? 'A'} vs ${res.warDesc?.sideBName ?? 'B'}).` : (res?.reason ?? 'Could not spawn war skirmish.');
     }
     if (act === 'support') {
       const wars = getActiveGodWars(playerEntity);
@@ -3497,8 +3502,13 @@ async function handleApotheosisCommand(args = []) {
       const res = supportGodWarSide(playerEntity, warId, godId, { nowMinutes: nowMin, force: true });
       return res.ok ? res.message : res.reason;
     }
-    if (act === 'truce') {
-      const wars = getActiveGodWars(playerEntity);
+    if (act === 'truce' || act === 'clear') {
+      const wars = [...getActiveGodWars(playerEntity)];
+      if (!wars.length) return 'No active Inter-Deity Religious Wars.';
+      if (act === 'clear' || String(args[2] ?? '').toLowerCase() === 'all') {
+        for (const w of wars) enforceGodWarTruce(playerEntity, w.id, { nowMinutes: nowMin, force: true });
+        return `Cleared ${wars.length} active Inter-Deity Religious War(s).`;
+      }
       const warId = args[2] ?? wars[0]?.id;
       const res = enforceGodWarTruce(playerEntity, warId, { nowMinutes: nowMin, force: true });
       return res.ok ? res.message : res.reason;
@@ -3550,7 +3560,7 @@ async function handleApotheosisCommand(args = []) {
     lines.push(localWar
       ? `Current Region #${curReg}: ${localWar.warKind} war (${localWar.sideAName} vs ${localWar.sideBName}), stance=${localWar.playerStance ?? 'none'}, pacified=${localWar.pacifiedCount}/3`
       : `Current Region #${curReg}: at peace.`);
-    lines.push('Usage: apo war <status|start [gA] [gB]|here [gA] [gB]|skirmish|support <godId>|truce|stance <sideA|sideB|peace|watch|reset>|pacify [triumph|success|partial|fail|critfail]|cooldown [clear]>');
+    lines.push('Usage: apo war <status|start [gA] [gB]|here [gA] [gB]|skirmish [divine|mundane]|support <godId>|truce [all|<warId>]|clear|stance <sideA|sideB|peace|watch|reset>|pacify [triumph|success|partial|fail|critfail]|cooldown [clear]>');
     return lines.join('\n');
   }
   if (sub === 'reset') {

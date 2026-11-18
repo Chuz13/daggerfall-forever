@@ -1072,11 +1072,7 @@ export function buildLivingSiteBlueprint({
       pacifiedCount: 0,
     };
     meta.warDesc = war;
-    meta.skirmishStance = war.playerStance === 'sideA'
-      ? 'watch'
-      : war.playerStance === 'sideB'
-        ? 'rebels'
-        : 'neutral_watch';
+    meta.skirmishStance = 'neutral_watch';
 
     const cfg = getApotheosisSiegeConfig();
     const squadCount = Math.max(2, cfg.enabled ? cfg.skirmishSize : 3);
@@ -1679,7 +1675,12 @@ export function createLivingSceneHost(deps) {
 
     if (site.skirmishStance === 'both_hostile') {
       for (const f of [...guards, ...rebels]) {
-        if (f.entity) { f.entity.team = 'PlayerEnemy'; f.entity.mobileTeam = 'PlayerEnemy'; }
+        if (f.entity) {
+          f.entity.team = 'PlayerEnemy';
+          f.entity.mobileTeam = 'PlayerEnemy';
+          f.entity.skirmishNeutralToPlayer = false;
+          f.entity.skirmishForceInfighting = true;
+        }
         f.allied = false;
         if (f.ai) {
           f.ai.isHostile = true;
@@ -1693,7 +1694,12 @@ export function createLivingSceneHost(deps) {
 
     if (site.skirmishStance === 'watch' || site.skirmishStance === 'defenders' || site.skirmishStance === 'bodyguard') {
       for (const g of guards) {
-        if (g.entity) { g.entity.team = 'PlayerAlly'; g.entity.mobileTeam = 'PlayerAlly'; }
+        if (g.entity) {
+          g.entity.team = 'PlayerAlly';
+          g.entity.mobileTeam = 'PlayerAlly';
+          g.entity.skirmishNeutralToPlayer = true;
+          g.entity.skirmishForceInfighting = true;
+        }
         g.allied = true;
         if (g.ai) {
           const cur = g.ai.target;
@@ -1707,7 +1713,12 @@ export function createLivingSceneHost(deps) {
         }
       }
       for (const r of rebels) {
-        if (r.entity) { r.entity.team = 'PlayerEnemy'; r.entity.mobileTeam = 'PlayerEnemy'; }
+        if (r.entity) {
+          r.entity.team = 'PlayerEnemy';
+          r.entity.mobileTeam = 'PlayerEnemy';
+          r.entity.skirmishNeutralToPlayer = false;
+          r.entity.skirmishForceInfighting = true;
+        }
         r.allied = false;
         if (r.ai) {
           r.ai.isHostile = true;
@@ -1723,7 +1734,12 @@ export function createLivingSceneHost(deps) {
       }
     } else if (site.skirmishStance === 'rebels') {
       for (const r of rebels) {
-        if (r.entity) { r.entity.team = 'PlayerAlly'; r.entity.mobileTeam = 'PlayerAlly'; }
+        if (r.entity) {
+          r.entity.team = 'PlayerAlly';
+          r.entity.mobileTeam = 'PlayerAlly';
+          r.entity.skirmishNeutralToPlayer = true;
+          r.entity.skirmishForceInfighting = true;
+        }
         r.allied = true;
         if (r.ai) {
           const cur = r.ai.target;
@@ -1737,7 +1753,12 @@ export function createLivingSceneHost(deps) {
         }
       }
       for (const g of guards) {
-        if (g.entity) { g.entity.team = 'PlayerEnemy'; g.entity.mobileTeam = 'PlayerEnemy'; }
+        if (g.entity) {
+          g.entity.team = 'PlayerEnemy';
+          g.entity.mobileTeam = 'PlayerEnemy';
+          g.entity.skirmishNeutralToPlayer = false;
+          g.entity.skirmishForceInfighting = true;
+        }
         g.allied = false;
         if (g.ai) {
           g.ai.isHostile = true;
@@ -1759,6 +1780,8 @@ export function createLivingSceneHost(deps) {
           f.entity.team = 'SkirmishPeace';
           f.entity.mobileTeam = 'SkirmishPeace';
           f.entity.suppressInfighting = true;
+          f.entity.skirmishNeutralToPlayer = true;
+          f.entity.skirmishForceInfighting = false;
           f.entity.campId = site.campId ?? 'skirmish_peace';
         }
         f.campId = site.campId ?? 'skirmish_peace';
@@ -1774,6 +1797,10 @@ export function createLivingSceneHost(deps) {
       }
     } else {
       for (const g of guards) {
+        if (g.entity) {
+          g.entity.skirmishNeutralToPlayer = true;
+          g.entity.skirmishForceInfighting = true;
+        }
         if (g.ai) {
           const tgt = closestLiveTarget(g.ai.feet ?? g.feet, rebels);
           g.ai.isHostile = Boolean(tgt);
@@ -1786,6 +1813,10 @@ export function createLivingSceneHost(deps) {
         }
       }
       for (const r of rebels) {
+        if (r.entity) {
+          r.entity.skirmishNeutralToPlayer = true;
+          r.entity.skirmishForceInfighting = true;
+        }
         if (r.ai) {
           const tgt = closestLiveTarget(r.ai.feet ?? r.feet, guards);
           r.ai.isHostile = Boolean(tgt);
@@ -3167,6 +3198,7 @@ export function createLivingSceneHost(deps) {
             return;
           }
           rec.campId = a.campId;
+          rec.livingSiteKind = blueprint.kind;
           if (rec.entity) {
             rec.entity.name = a.name;
             rec.entity.campId = a.campId;
@@ -3176,6 +3208,10 @@ export function createLivingSceneHost(deps) {
             }
             if (a.suppressInfighting || a.role === 'bandit_camp') {
               rec.entity.suppressInfighting = true;
+            }
+            if (blueprint.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
+              rec.entity.skirmishNeutralToPlayer = true;
+              rec.entity.skirmishForceInfighting = true;
             }
           }
           if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || (a.role?.startsWith('skirmish_') && blueprint.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH)) {
@@ -3481,13 +3517,18 @@ export function createLivingSceneHost(deps) {
     if (!isOceanWild && canSpawnWarSkirmish(player, regIdx, nowMin, { isOcean: isOceanWild, isAfloat: Boolean(deps.afloat?.()) }) && rng() < 0.70) {
       const warDesc = getActiveWarForRegion(player, regIdx);
       if (warDesc) {
+        const warDist = 16 + rng() * 5;
+        const warAngle = deps.facingYaw?.() ?? angle;
+        const warSafe = findSafeSiteCenter(deps, feet, warDist, warAngle, 5.0);
+        const wcx = warSafe.suitable ? warSafe.x : cx;
+        const wcz = warSafe.suitable ? warSafe.z : cz;
         lastSpawnMinute = nowMin;
         markWarSkirmishSpawned(player, nowMin);
         const warSite = standSite(
           buildLivingSiteBlueprint({
             kind: LIVING_SITE_KINDS.WAR_SKIRMISH,
-            centerX: cx,
-            centerZ: cz,
+            centerX: wcx,
+            centerZ: wcz,
             heightAt: deps.heightAt,
             regionIndex: regIdx,
             playerEntity: player,
@@ -3497,7 +3538,7 @@ export function createLivingSceneHost(deps) {
             warDesc,
           }),
         );
-        if (warSite && warDesc.playerStance && warDesc.playerStance !== 'peace') {
+        if (warSite && !deps.isAutopiloting?.() && warDesc.playerStance !== 'peace') {
           triggerSiteInteraction(warSite);
         } else if (warSite) {
           deps.say(
@@ -3912,7 +3953,7 @@ export function createLivingSceneHost(deps) {
     /**
      * Immediately stands a Wilderness War Skirmish ahead of the player (strictly land-only, never at sea!).
      */
-    spawnWarSkirmishNow({ warDesc = null, force = false } = {}) {
+    spawnWarSkirmishNow({ warDesc = null, force = false, preferKind = null, angle = null } = {}) {
       const isAfloatNow = Boolean(deps.afloat?.());
       const isOceanNow = isAfloatNow || (typeof deps.climateIndex === 'function' && deps.climateIndex() === CLIMATES.Ocean);
       if (isOceanNow) {
@@ -3923,13 +3964,14 @@ export function createLivingSceneHost(deps) {
       const regIdx = deps.regionIndex();
       const player = deps.playerEntity();
       const nowMin = deps.clock();
-      const chosenWar = warDesc ?? getActiveWarForRegion(player, regIdx);
+      const chosenWar = warDesc ?? getActiveWarForRegion(player, regIdx, { preferKind });
       if (!chosenWar && !force) {
         return { ok: false, reason: 'No active Religious or Regional War in this region.' };
       }
-      const safe = findSafeSiteCenter(deps, feet, 16, rng() * Math.PI * 2, 5.0);
-      const cx = safe?.suitable ? safe.x : feet[0] + 12;
-      const cz = safe?.suitable ? safe.z : feet[2] + 6;
+      const spawnAngle = Number.isFinite(angle) ? angle : (deps.facingYaw?.() ?? rng() * Math.PI * 2);
+      const safe = findSafeSiteCenter(deps, feet, 15, spawnAngle, 5.0);
+      const cx = safe?.suitable ? safe.x : feet[0] + Math.sin(spawnAngle) * 14;
+      const cz = safe?.suitable ? safe.z : feet[2] + Math.cos(spawnAngle) * 14;
       const site = standSite(
         buildLivingSiteBlueprint({
           kind: LIVING_SITE_KINDS.WAR_SKIRMISH,
@@ -3948,6 +3990,12 @@ export function createLivingSceneHost(deps) {
       markWarSkirmishSpawned(player, nowMin);
       triggerSiteInteraction(site);
       return { ok: true, site, warDesc: site.blueprint?.meta?.warDesc ?? chosenWar };
+    },
+
+    interactCurrentSiteIfWarSkirmish() {
+      if (!stood || stood.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH || stood.interacted) return false;
+      triggerSiteInteraction(stood);
+      return true;
     },
 
     /** Clears any active site and releases all spawned actors and batches. */

@@ -14,6 +14,7 @@ import {
 } from '../systems/apotheosis/apotheosisStage3.js';
 import {
   CULT_FOUND_FAITH_COST,
+  CULT_FOUND_GOLD_COST,
   CULT_CONSECRATE_FORCE_FAITH_COST,
   CULT_CONSECRATE_PEACEFUL_FAITH_COST,
   CULT_BRANCH_SWITCH_COST,
@@ -233,9 +234,12 @@ function renderSpecializationModal(modalRoot, entity, nowMin, repaint, setFeedba
   const site = st.siteKey ? getAllCultSites(entity).find((s) => s.siteKey === st.siteKey) : null;
   const cd = site && !isFound ? getCultBranchCooldownInfo(site, nowMin) : { onCooldown: false, remainingDays: 0 };
   const faithCur = Math.trunc(Number(entity?.apotheosis?.faith) || 0);
+  const goldCur = Math.max(0, Math.trunc(Number(entity?.goldPieces) || 0));
   const selectedCost = isFound
     ? CULT_FOUND_FAITH_COST
     : (!curBranch ? 0 : CULT_BRANCH_SWITCH_COST);
+  const selectedGoldCost = isFound ? CULT_FOUND_GOLD_COST : 0;
+  const fmtNum = (n) => Math.trunc(Number(n) || 0).toLocaleString('en-US');
 
   const backdrop = uiEl('div', 'apo-picker-backdrop');
   const modal = uiEl('div', 'apo-picker-modal');
@@ -247,7 +251,10 @@ function renderSpecializationModal(modalRoot, entity, nowMin, repaint, setFeedba
   head.append(
     uiEl('div', 'apo-picker-title', titleText),
     uiEl('span', 'apo-pill info', isFound
-      ? t('apotheosis.cult.modalFoundBadge', 'Founding Cost: {cost} Faith', { cost: CULT_FOUND_FAITH_COST })
+      ? t('apotheosis.cult.modalFoundBadgeGold', 'Cost: {faith} Faith · {gold}g', {
+          faith: CULT_FOUND_FAITH_COST,
+          gold: fmtNum(CULT_FOUND_GOLD_COST),
+        })
       : (!curBranch
         ? t('apotheosis.cult.modalFirstPickFree', 'Initial Specialization: Free')
         : t('apotheosis.cult.modalSwitchMeta', 'Switch Cost: {cost} Faith · Cooldown: {days}d', {
@@ -318,10 +325,18 @@ function renderSpecializationModal(modalRoot, entity, nowMin, repaint, setFeedba
       need: selectedCost,
       have: faithCur,
     });
+  } else if (goldCur < selectedGoldCost) {
+    confirmBlocked = t('apotheosis.roadShrine.err.notEnoughGold', 'Not enough gold ({have}g / {need}g).', {
+      have: fmtNum(goldCur),
+      need: fmtNum(selectedGoldCost),
+    });
   }
 
   const confirmLabel = isFound
-    ? t('apotheosis.cult.btnConfirmFound', 'Found Sanctuary ({cost} Faith)', { cost: selectedCost })
+    ? t('apotheosis.cult.btnConfirmFoundGold', 'Found Sanctuary ({faith} Faith · {gold}g)', {
+        faith: selectedCost,
+        gold: fmtNum(selectedGoldCost),
+      })
     : (selectedCost > 0
       ? t('apotheosis.cult.btnConfirmSwitch', 'Switch Specialization ({cost} Faith)', { cost: selectedCost })
       : t('apotheosis.cult.btnConfirmSelect', 'Confirm Specialization (Free)'));
@@ -372,12 +387,23 @@ function renderSpecializationModal(modalRoot, entity, nowMin, repaint, setFeedba
   modalRoot.append(backdrop);
 }
 
+function runSacrificeSiegeSite(entity, siteKey, nowMin, setFeedback, repaint) {
+  const r = resolveCultSiegeOutcome(entity, siteKey, 'failed', { nowMinutes: nowMin });
+  if (r.ok) {
+    getAurbisRuntime().getSceneContext?.()?.dismissCultSiegeBattle?.(siteKey);
+  }
+  setFeedback(r.ok ? r.message : r.reason, !r.ok);
+  repaint();
+}
+
 function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setFeedback, closePause = null) {
   const regName = getLocalizedRegionName(site.regionIndex, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   const owned = site.ownerId === 'player';
   const ownerGod = owned ? null : getPantheonDeity(site.ownerId);
   const ownerEntry = ownerGod ? pantheon?.deities?.[ownerGod.id] : null;
   const faithCur = Math.trunc(Number(entity?.apotheosis?.faith) || 0);
+  const goldCur = Math.max(0, Math.trunc(Number(entity?.goldPieces) || 0));
+  const fmtNum = (n) => Math.trunc(Number(n) || 0).toLocaleString('en-US');
   const sceneCtx = getAurbisRuntime().getSceneContext?.() ?? null;
   const isNearHatch = site.kind === 'sanctuary' ? Boolean(sceneCtx?.isNearCultHatch?.(site.siteKey)) : false;
 
@@ -497,11 +523,7 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
       {
         tone: 'danger',
         setFeedback,
-        onRun: () => {
-          const r = resolveCultSiegeOutcome(entity, site.siteKey, 'failed', { nowMinutes: nowMin });
-          setFeedback(r.ok ? r.message : r.reason, !r.ok);
-          repaint();
-        },
+        onRun: () => runSacrificeSiegeSite(entity, site.siteKey, nowMin, setFeedback, repaint),
       },
     ));
   }
@@ -673,20 +695,31 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
   } else {
     const curTier = Math.max(1, Math.min(3, site.tier || 1));
     if (curTier < 3) {
-      const nextCost = CULT_UPGRADE_TIERS[curTier + 1].upgradeCost;
+      const nextSpec = CULT_UPGRADE_TIERS[curTier + 1];
+      const nextCost = nextSpec.upgradeCost;
+      const nextGoldCost = nextSpec.upgradeGoldCost ?? 0;
       const upgBlocked = faithCur < nextCost
         ? t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', { need: nextCost, have: faithCur })
-        : null;
-      acts.append(makeActionBtn(t('apotheosis.cult.btnUpgradeCost', 'Upgrade to Tier {tier} ({cost} Faith)', { tier: curTier + 1, cost: nextCost }), {
-        tone: 'primary',
-        blockedReason: upgBlocked,
-        setFeedback,
-        onRun: () => {
-          const r = upgradeCultSite(entity, site.siteKey, { nowMinutes: nowMin });
-          setFeedback(r.ok ? t('apotheosis.cult.upgradedHud', 'Sanctum elevated to Tier {tier}.', { tier: r.tier }) : r.reason, !r.ok);
-          repaint();
+        : goldCur < nextGoldCost
+          ? t('apotheosis.roadShrine.err.notEnoughGold', 'Not enough gold ({have}g / {need}g).', { have: fmtNum(goldCur), need: fmtNum(nextGoldCost) })
+          : null;
+      acts.append(makeActionBtn(
+        t('apotheosis.cult.btnUpgradeCostGold', 'Upgrade to Tier {tier} ({faith} Faith · {gold}g)', {
+          tier: curTier + 1,
+          faith: nextCost,
+          gold: fmtNum(nextGoldCost),
+        }),
+        {
+          tone: 'primary',
+          blockedReason: upgBlocked,
+          setFeedback,
+          onRun: () => {
+            const r = upgradeCultSite(entity, site.siteKey, { nowMinutes: nowMin });
+            setFeedback(r.ok ? t('apotheosis.cult.upgradedHud', 'Sanctum elevated to Tier {tier}.', { tier: r.tier }) : r.reason, !r.ok);
+            repaint();
+          },
         },
-      }));
+      ));
     }
 
     const cd = getCultBranchCooldownInfo(site, nowMin);
@@ -728,6 +761,8 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
   const cityReg = Number.isInteger(cityInfo?.regionIndex) ? cityInfo.regionIndex : reg;
   const cityName = cityInfo?.locationName || getLocalizedRegionName(cityReg, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   const faithCur = Math.trunc(Number(entity?.apotheosis?.faith) || 0);
+  const goldCur = Math.max(0, Math.trunc(Number(entity?.goldPieces) || 0));
+  const fmtNum = (n) => Math.trunc(Number(n) || 0).toLocaleString('en-US');
 
   ensureCityCultSites(entity, {
     mapId: cityMapId,
@@ -791,11 +826,7 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
         {
           tone: 'danger',
           setFeedback,
-          onRun: () => {
-            const res = resolveCultSiegeOutcome(entity, s.siteKey, 'failed', { nowMinutes: nowMin });
-            setFeedback(res.ok ? res.message : res.reason, !res.ok);
-            repaint();
-          },
+          onRun: () => runSacrificeSiegeSite(entity, s.siteKey, nowMin, setFeedback, repaint),
         },
       ));
       siegeBox.append(row);
@@ -809,6 +840,7 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
   pillRow.append(
     uiEl('span', 'apo-pill ok', t('apotheosis.cult.statFaithDay', 'Passive Faith: +{n}/day', { n: passiveFaith })),
     uiEl('span', 'apo-pill info', t('apotheosis.cult.statMaxFaithBonus', 'Max Faith Bonus: +{n}', { n: entity?.apotheosis?.cultFaithBonus ?? 0 })),
+    uiEl('span', 'apo-pill warn', t('apotheosis.cult.statGold', 'Purse: {gold}g', { gold: fmtNum(goldCur) })),
     uiEl('span', 'apo-pill', t('apotheosis.cult.statExplored', 'Explored Sites: {n}', { n: allSites.length })),
   );
   ctrlBox.append(pillRow);
@@ -820,23 +852,31 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
   if (!hasCitySanctum) {
     const foundBlocked = faithCur < CULT_FOUND_FAITH_COST
       ? t('apotheosis.cult.err.needFaith', 'Not enough Faith (need {need}, have {have}).', { need: CULT_FOUND_FAITH_COST, have: faithCur })
-      : null;
-    acts.append(makeActionBtn(t('apotheosis.cult.btnFoundSanctuary', 'Found Underground Sanctuary ({cost} Faith)', { cost: CULT_FOUND_FAITH_COST }), {
-      tone: 'primary',
-      blockedReason: foundBlocked,
-      setFeedback,
-      onRun: () => {
-        branchModalState = {
-          mode: 'found',
-          mapId: cityMapId,
-          regionIndex: cityReg,
-          locationName: cityName,
-          currentBranch: null,
-          selectedBranch: 'missionary',
-        };
-        repaint();
+      : goldCur < CULT_FOUND_GOLD_COST
+        ? t('apotheosis.roadShrine.err.notEnoughGold', 'Not enough gold ({have}g / {need}g).', { have: fmtNum(goldCur), need: fmtNum(CULT_FOUND_GOLD_COST) })
+        : null;
+    acts.append(makeActionBtn(
+      t('apotheosis.cult.btnFoundSanctuaryGold', 'Found Underground Sanctuary ({faith} Faith · {gold}g)', {
+        faith: CULT_FOUND_FAITH_COST,
+        gold: fmtNum(CULT_FOUND_GOLD_COST),
+      }),
+      {
+        tone: 'primary',
+        blockedReason: foundBlocked,
+        setFeedback,
+        onRun: () => {
+          branchModalState = {
+            mode: 'found',
+            mapId: cityMapId,
+            regionIndex: cityReg,
+            locationName: cityName,
+            currentBranch: null,
+            selectedBranch: 'missionary',
+          };
+          repaint();
+        },
       },
-    }));
+    ));
   } else {
     acts.append(uiEl('span', 'apo-pill ok', t('apotheosis.cult.cityAlreadyHas', 'Your Cult already holds a consecrated sanctum in this city.')));
   }

@@ -4,6 +4,9 @@ import assert from 'node:assert/strict';
 
 import {
   APOTHEOSIS_SIEGE_TIERS,
+  CULT_FOUND_FAITH_COST,
+  CULT_FOUND_GOLD_COST,
+  CULT_UPGRADE_TIERS,
   DIVINE_WAR_SUPPORT_COST,
   DIVINE_WAR_TRUCE_COST,
   DIVINE_SKIRMISH_PACIFY_FAITH_COST,
@@ -34,6 +37,8 @@ import {
   clearSiteGuardians,
   getRegionInfluence,
   shiftRegionInfluence,
+  igniteRegionWar,
+  areRegionsAtWar,
   ensureCultPetition,
   proclaimRegionalEdict,
 } from '../../src/systems/apotheosis/apotheosisCore.js';
@@ -55,6 +60,8 @@ import { SKILLS } from '../../src/systems/skills.js';
 import { CLIMATES } from '../../src/formats/mapsFile.js';
 import { setPref } from '../../src/systems/uiPrefs.js';
 import { createApotheosisCultHost } from '../../src/scenes/apotheosisCultHost.js';
+import { foeHostile } from '../../src/systems/encounters.js';
+import { getTargets, PLAYER_TARGET } from '../../src/characters/enemy/enemyTargets.js';
 import { playerEntity } from '../../src/characters/playerEntity.js';
 import { snapshotPlayer, restorePlayer } from '../../src/systems/save/save.js';
 import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
@@ -64,7 +71,7 @@ function makeAscended(portfolio = 'war', { region = 17, faith = 2000 } = {}) {
     name: 'Divus',
     level: 25,
     currentRegionIndex: region,
-    goldPieces: 5000,
+    goldPieces: 250000,
     fatigue: 200,
     stats: { strength: 65, endurance: 70, willpower: 75, personality: 80, luck: 60 },
     skills: { [SKILLS.Etiquette]: 85 },
@@ -584,4 +591,173 @@ test('Stage 3.4 Polish: Console commands apo siege start (auto-found) and apo wa
     playerEntity.apotheosis = prevApo;
     playerEntity.currentRegionIndex = prevReg;
   }
+});
+
+test('Stage 3.4 Feedback: Cult Founding (50,000g) & Upgrade (25,000g / 50,000g) gold costs + atomic validation', () => {
+  assert.equal(CULT_FOUND_GOLD_COST, 50000);
+  assert.equal(CULT_UPGRADE_TIERS[2].upgradeGoldCost, 25000);
+  assert.equal(CULT_UPGRADE_TIERS[3].upgradeGoldCost, 50000);
+
+  const god = makeAscended('order', { region: 17, faith: 2000 });
+  god.goldPieces = 49999;
+  const failFound = foundPlayerUndergroundSanctuary(god, { mapId: 3301, regionIndex: 17, locationName: 'Daggerfall', nowMinutes: 100 });
+  assert.equal(failFound.ok, false);
+  assert.equal(god.apotheosis.faith, 2000, 'Failed gold check must not deduct Faith');
+  assert.equal(god.goldPieces, 49999);
+
+  god.goldPieces = 125000;
+  const okFound = foundPlayerUndergroundSanctuary(god, { mapId: 3301, regionIndex: 17, locationName: 'Daggerfall', nowMinutes: 100 });
+  assert.equal(okFound.ok, true);
+  assert.equal(okFound.faithSpent, CULT_FOUND_FAITH_COST);
+  assert.equal(okFound.goldSpent, 50000);
+  assert.equal(god.goldPieces, 75000);
+
+  // Tier 2 upgrade costs 25,000g + 220 Faith; check insufficient gold first
+  god.goldPieces = 24999;
+  const faithBeforeT2 = god.apotheosis.faith;
+  const failT2 = upgradeCultSite(god, okFound.site.siteKey, { nowMinutes: 120 });
+  assert.equal(failT2.ok, false);
+  assert.equal(god.apotheosis.faith, faithBeforeT2);
+
+  god.goldPieces = 75000;
+  const okT2 = upgradeCultSite(god, okFound.site.siteKey, { nowMinutes: 120 });
+  assert.equal(okT2.ok, true);
+  assert.equal(okT2.tier, 2);
+  assert.equal(okT2.goldSpent, 25000);
+  assert.equal(god.goldPieces, 50000);
+
+  // Tier 3 upgrade costs 50,000g + 420 Faith
+  god.goldPieces = 49999;
+  const failT3 = upgradeCultSite(god, okFound.site.siteKey, { nowMinutes: 130 });
+  assert.equal(failT3.ok, false);
+
+  god.goldPieces = 50000;
+  const okT3 = upgradeCultSite(god, okFound.site.siteKey, { nowMinutes: 130 });
+  assert.equal(okT3.ok, true);
+  assert.equal(okT3.tier, 3);
+  assert.equal(okT3.goldSpent, 50000);
+  assert.equal(god.goldPieces, 0);
+});
+
+test('Stage 3.4 Feedback: dismissCultSiegeBattle despawns attackers & defenders via portal leave when sacrificing sanctum', async () => {
+  const prevApo = playerEntity.apotheosis;
+  try {
+    playerEntity.apotheosis = {
+      ascended: true,
+      stage: 'ascended',
+      source: 'mantella',
+      portfolio: 'war',
+      ascendedAtMinutes: 1000,
+      faith: 1200,
+      cultFaithBonus: 500,
+    };
+    ensurePantheonState(playerEntity, { nowMinutes: 1000 });
+    ensureCultState(playerEntity);
+    const f = foundPlayerUndergroundSanctuary(playerEntity, { mapId: 3302, regionIndex: 17, locationName: 'Wayrest', nowMinutes: 1000, force: true });
+    startCultSiteSiege(playerEntity, f.site.siteKey, 'molag_bal', { nowMinutes: 1000, force: true });
+
+    const extPool = [];
+    const portalLeaves = [];
+    const extObj = {
+      foes: extPool,
+      companionFx: {
+        leave(rec, done) {
+          portalLeaves.push(rec);
+          done();
+        },
+      },
+      removeFoe(rec) {
+        const idx = extPool.indexOf(rec);
+        if (idx >= 0) extPool.splice(idx, 1);
+      },
+    };
+    const host = createApotheosisCultHost({
+      built: () => new Map([['10,10', { key: '10,10', px: 10, py: 10, homeTown: 3302, frames: new Map() }]]),
+      groundAt: () => 0,
+      modes: () => ({ mode: 'exterior' }),
+      worldMinutes: () => 1000,
+      exteriorFoes: () => extObj,
+      spawnExteriorFoe: async (mob, pos, opts) => {
+        const rec = { mobileType: mob, pos: [...pos], entity: { team: opts.team }, ai: { isHostile: true, detected: true, target: playerEntity, feet: [...pos] }, dead: false };
+        extPool.push(rec);
+        return rec;
+      },
+    });
+    host.spawnCultSiegeBattle(f.site.siteKey);
+    await new Promise((r) => setTimeout(r, 15));
+    assert.ok(extPool.length > 0);
+
+    resolveCultSiegeOutcome(playerEntity, f.site.siteKey, 'failed', { nowMinutes: 1010 });
+    const count = host.dismissCultSiegeBattle(f.site.siteKey);
+    assert.ok(count > 0);
+    assert.equal(portalLeaves.length, count, 'Every siege mob departs via portal animation');
+    assert.equal(extPool.length, 0, 'Siege pool clears cleanly after sacrificing sanctum');
+  } finally {
+    playerEntity.apotheosis = prevApo;
+  }
+});
+
+test('Stage 3.4 Feedback: Named Geopolitical wars, preferKind disambiguation & skirmishNeutralToPlayer / TravelOptions safety', async () => {
+  const ent = makeAscended('war', { region: 17, faith: 1500 });
+  const geoRes = igniteRegionWar(ent, 17, 23, { nowMinutes: 1000, force: true }); // Daggerfall (#17) vs Wayrest (#23)
+  assert.equal(geoRes.ok, true);
+  assert.equal(areRegionsAtWar(ent, 17, 23), true);
+
+  const munWar = getActiveWarForRegion(ent, 17);
+  assert.ok(munWar);
+  assert.equal(munWar.warKind, 'mundane');
+  assert.deepEqual(munWar.regions, [17, 23]);
+  assert.ok(munWar.sideAName.includes('Daggerfall') && munWar.sideBName.includes('Wayrest'));
+
+  // Disambiguate mundane vs divine when an active God War also touches region 17
+  startInterDeityWar(ent, 'akatosh', 'molag_bal', { nowMinutes: 1000, regions: [17] });
+  assert.equal(getActiveWarForRegion(ent, 17).warKind, 'divine');
+  assert.equal(getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }).warKind, 'mundane');
+
+  // Unchosen/neutral WAR_SKIRMISH foes never trigger foeHostile() or target the player, while clashing with each other
+  const extPool = [];
+  let openedChoice = null;
+  const host = createLivingSceneHost({
+    feet: () => [0, 0, 0],
+    ready: () => true,
+    clock: () => 2000,
+    regionIndex: () => 17,
+    inLocationRect: () => false,
+    onRoad: () => true,
+    afloat: () => false,
+    heightAt: () => 0,
+    playerEntity: () => ent,
+    spawn: async (mob, pos, opts) => {
+      const rec = {
+        mobileType: mob,
+        dead: false,
+        feet: [...pos],
+        entity: { team: opts.team, mobileTeam: opts.team },
+        ai: { isHostile: true, detected: true, target: null, feet: [...pos], yaw: opts.yaw ?? 0, height: 1.8, sightRadius: 30, wouldBeSpawned: true, collider: { raycast: () => null } },
+      };
+      extPool.push(rec);
+      return rec;
+    },
+    remove: (r) => { const idx = extPool.indexOf(r); if (idx >= 0) extPool.splice(idx, 1); },
+    inPool: (r) => extPool.includes(r),
+    say: () => {},
+    openChoice: (spec) => { openedChoice = spec; },
+  });
+
+  const spawnRes = host.spawnWarSkirmishNow({ force: true, preferKind: 'mundane' });
+  assert.equal(spawnRes.ok, true);
+  assert.equal(spawnRes.warDesc.warKind, 'mundane');
+  assert.ok(openedChoice?.options?.length === 4);
+  await new Promise((r) => setTimeout(r, 15));
+
+  const sideA = extPool.filter((f) => f.livingRole === 'skirmish_guard');
+  const sideB = extPool.filter((f) => f.livingRole === 'skirmish_rebel');
+  assert.ok(sideA.length >= 2 && sideB.length >= 2);
+  assert.equal(foeHostile(sideA[0]), false, 'Side A neutral to player until side is chosen');
+  assert.equal(foeHostile(sideB[0]), false, 'Side B neutral to player until side is chosen');
+
+  const chosenRes = getTargets(sideA[0], [sideB[0], PLAYER_TARGET], [0, 0, 0], { infighting: false });
+  assert.equal(chosenRes.target, sideB[0], 'Skirmish armies target each other and ignore player even when infighting toggle is off');
+  const onlyPlayerRes = getTargets(sideA[0], [PLAYER_TARGET], [0, 0, 0], { infighting: false });
+  assert.equal(onlyPlayerRes.target, null, 'Neutral skirmish soldier must never target PLAYER_TARGET');
 });

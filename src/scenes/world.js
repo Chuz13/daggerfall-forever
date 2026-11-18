@@ -429,6 +429,7 @@ import {
   apotheosisChampionParty,
   applyApotheosisChampionStrength,
   setApotheosisChampionExpiredHook,
+  getActiveWarForRegion,
   shouldInterruptFastTravelForWar,
 } from '../systems/apotheosis/apotheosisCore.js';
 import { setApotheosisRebirthHook, setApotheosisRebirthFailedHook, APOTHEOSIS_REBIRTH_MINUTES } from '../systems/apotheosis/apotheosisLive.js';
@@ -4174,8 +4175,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, o),
     remove: (f) => exteriorFoes.removeFoe(f),
     inPool: (f) => exteriorFoes.foes.includes(f),
+    isAutopiloting: () => Boolean(travelOptions?.isTravelActive && travelOptions?.state?.autopilot),
+    facingYaw: () => cam.yaw,
     say: (text, sec) => townTalk.say(text, sec),
-    openChoice: (spec) => townTalk.showOverlay(new ChoiceWindow({ lines: spec.lines, options: spec.options })),
+    openChoice: (spec) => {
+      resetTimeScale();
+      travelOptions?.messages?.pauseTravel?.();
+      townTalk.showOverlay(new ChoiceWindow({ lines: spec.lines, options: spec.options }));
+    },
     openLivingActor: (rec) => openLivingSiteActor(rec),
     playSound: (id) => audio?.playOneShot?.(id, 0.75),
     myId: () => (online?.id ?? 'player'),
@@ -15595,53 +15602,61 @@ export async function bootWorld(canvas, renderer, params, status) {
       let travelMinutes = computed.minutes;
       let interruptedEventType = null;
       let interruptedRegionIdx = 0;
+      let interruptedWarDesc = null;
       if (!partyArrival) {
         const curPixel = playerTravelPixel();
         const regIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(curPixel.x, curPixel.y) ?? 0) : 0;
+        const destRegIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(pick.pixel.x, pick.pixel.y) ?? regIdx) : regIdx;
+        const midX = Math.round((curPixel.x + pick.pixel.x) / 2);
+        const midY = Math.round((curPixel.y + pick.pixel.y) / 2);
+        const midRegIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(midX, midY) ?? regIdx) : regIdx;
         interruptedRegionIdx = regIdx;
-        const playerLuck = liveStat(playerEntity, 'luck') || 50;
-        const interruption = evaluateTravelInterruption({
-          regionIndex: regIdx,
-          playerLuck,
-          nowMinutes: worldMinutes(),
-        });
-        if (interruption.shouldInterrupt) {
-          interruptedEventType = interruption.eventType;
-          targetPixelX = Math.round((curPixel.x + pick.pixel.x) / 2);
-          targetPixelY = Math.round((curPixel.y + pick.pixel.y) / 2);
-          travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
-          if (interruption.eventType === TRAVEL_EVENT_TYPE.PEACEFUL_CARAVAN) {
-            townTalk.say(LIVING_WORDS.travelCaravan());
-          } else if (interruption.eventType === TRAVEL_EVENT_TYPE.ROAD_DILEMMA) {
-            townTalk.say(LIVING_WORDS.travelDilemma());
-          } else if (interruption.eventType === TRAVEL_EVENT_TYPE.AMBUSH) {
-            townTalk.say(LIVING_WORDS.travelAmbush());
-          }
-        } else if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.witchHunters !== 'off') {
-          const tripHours = Math.max(1, (computed?.minutes ?? 60) / 60);
-          const witchAmbush = checkTravelWitchHunterAmbush(playerEntity, tripHours);
-          if (witchAmbush.ambush) {
-            interruptedEventType = 'witch_hunter_ambush';
-            targetPixelX = Math.round((curPixel.x + pick.pixel.x) / 2);
-            targetPixelY = Math.round((curPixel.y + pick.pixel.y) / 2);
-            travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
-            townTalk.say(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
-          }
-        }
+
         // APOTHEOSIS STAGE 3.4: Unified Divine & Mundane War Skirmish Fast-Travel Interrupt (LAND-ONLY, NEVER AT SEA!)
+        const sailingNow = isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, curPixel)
+          || Boolean(csaRuntime?.isSailing?.() || csaAboard?.aboard?.boat || naval?.aboard?.());
+        const midOcean = maps?.getClimateIndex?.(midX, midY) === CLIMATES.Ocean
+          || Boolean(seaVentures?.openSeaAt?.({ x: midX, y: midY }));
+        const warReg = [regIdx, midRegIdx, destRegIdx].find((r) => getActiveWarForRegion(playerEntity, r) != null) ?? regIdx;
+        if (!sailingNow && !midOcean && shouldInterruptFastTravelForWar(playerEntity, warReg, worldMinutes(), { isOcean: false, isAfloat: false })) {
+          interruptedEventType = 'war_skirmish';
+          interruptedWarDesc = getActiveWarForRegion(playerEntity, warReg);
+          interruptedRegionIdx = warReg;
+          targetPixelX = midX;
+          targetPixelY = midY;
+          travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
+          townTalk.say(t('apotheosis.skirmish.fastTravelInterruptHud', 'Warring banners block the road ahead!'));
+        }
+
         if (!interruptedEventType) {
-          const midX = Math.round((curPixel.x + pick.pixel.x) / 2);
-          const midY = Math.round((curPixel.y + pick.pixel.y) / 2);
-          const sailingNow = isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, curPixel)
-            || Boolean(csaRuntime?.isSailing?.() || csaAboard?.aboard?.boat || naval?.aboard?.());
-          const midOcean = maps?.getClimateIndex?.(midX, midY) === CLIMATES.Ocean
-            || Boolean(seaVentures?.openSeaAt?.({ x: midX, y: midY }));
-          if (!sailingNow && !midOcean && shouldInterruptFastTravelForWar(playerEntity, regIdx, worldMinutes(), { isOcean: false, isAfloat: false })) {
-            interruptedEventType = 'war_skirmish';
+          const playerLuck = liveStat(playerEntity, 'luck') || 50;
+          const interruption = evaluateTravelInterruption({
+            regionIndex: regIdx,
+            playerLuck,
+            nowMinutes: worldMinutes(),
+          });
+          if (interruption.shouldInterrupt) {
+            interruptedEventType = interruption.eventType;
             targetPixelX = midX;
             targetPixelY = midY;
             travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
-            townTalk.say(t('apotheosis.skirmish.fastTravelInterruptHud', 'Warring banners block the road ahead!'));
+            if (interruption.eventType === TRAVEL_EVENT_TYPE.PEACEFUL_CARAVAN) {
+              townTalk.say(LIVING_WORDS.travelCaravan());
+            } else if (interruption.eventType === TRAVEL_EVENT_TYPE.ROAD_DILEMMA) {
+              townTalk.say(LIVING_WORDS.travelDilemma());
+            } else if (interruption.eventType === TRAVEL_EVENT_TYPE.AMBUSH) {
+              townTalk.say(LIVING_WORDS.travelAmbush());
+            }
+          } else if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.witchHunters !== 'off') {
+            const tripHours = Math.max(1, (computed?.minutes ?? 60) / 60);
+            const witchAmbush = checkTravelWitchHunterAmbush(playerEntity, tripHours);
+            if (witchAmbush.ambush) {
+              interruptedEventType = 'witch_hunter_ambush';
+              targetPixelX = midX;
+              targetPixelY = midY;
+              travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
+              townTalk.say(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
+            }
           }
         }
       }
@@ -15713,9 +15728,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (interruptedEventType === 'witch_hunter_ambush') {
           const party = generatePurifierParty(getTaintTier(playerEntity) || 'tainted');
           spawnPurifiers(party);
-        } else if (interruptedEventType === 'war_skirmish') {
-          livingSceneHostOf().spawnWarSkirmishNow({ force: false });
-        } else {
+        } else if (interruptedEventType !== 'war_skirmish') {
           const pf = walkMode && playerSpawned ? player.feetAt() : cam.pos;
           const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
             ? LIVING_SITE_KINDS.BANDIT_CAMP
@@ -15832,6 +15845,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // raised by the arrival is pushed onto a screen that is still
       // black, and the fade it clears is the one that has not started.
       hudFade.fadeHUDFromBlack();
+      if (interruptedEventType === 'war_skirmish') {
+        livingSceneHostOf().spawnWarSkirmishNow({ warDesc: interruptedWarDesc, force: true, angle: cam.yaw });
+      }
       // AUDIT 64 F22 - DaggerfallTravelPopUp_OnPostFastTravel
       // (PlayerEntity.cs:2455-2459): "Clear crime state post fast
       // travel". PlayerEntity subscribes it at :211, and it is a
@@ -30433,6 +30449,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       ? (roadShrinesHost?.teleportNearRoadShrine?.() ?? { ok: false, message: 'Road shrines runtime unavailable.' })
       : (cultHost?.teleportNearCultTarget?.(kind) ?? { ok: false, message: 'Cult runtime unavailable.' })),
     defendCultSiege: (siteKey, opts) => cultHost?.defendCultSiege?.(siteKey, opts) ?? Promise.resolve({ ok: false, reason: 'Cult runtime unavailable.' }),
+    dismissCultSiegeBattle: (siteKey) => cultHost?.dismissCultSiegeBattle?.(siteKey) ?? 0,
     spawnWarSkirmish: (opts) => livingSceneHostOf()?.spawnWarSkirmishNow?.(opts) ?? { ok: false, reason: 'Living scene unavailable.' },
     getCultCity: () => ({ mapId: _questLoc()?.mapTableData?.mapId ?? 0, regionIndex: _questRegionIndex(), locationName: _questLoc()?.name ?? '' }),
     hudSay: (msg) => townTalk?.say?.(msg),
@@ -33233,25 +33250,35 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
                 }
               }
               // Peaceful roadside Living Tamriel encounters & War Skirmishes (`exteriorFoes`)
-              if (!hit && intMode === 'all') {
+              if (!hit) {
                 const extFoes = exteriorFoes?.foes ?? [];
                 for (let i = 0; i < extFoes.length; i++) {
                   const f = extFoes[i];
                   if (!f || f.dead) continue;
-                  const isWarSkirmishFoe = f.livingRole === 'skirmish_guard' || f.livingRole === 'skirmish_rebel';
+                  const isWarSkirmishFoe = f.livingSiteKind === LIVING_SITE_KINDS.WAR_SKIRMISH
+                    || f.entity?.team === 'WarSideA'
+                    || f.entity?.team === 'WarSideB';
+                  if (!isWarSkirmishFoe && intMode !== 'all') continue;
                   if (f.ai?.isHostile && !isWarSkirmishFoe) continue;
                   if (!f.livingSiteId && !f.livingRole) continue;
                   const fp = f.ai?.feet ?? f.feet ?? f.pos;
                   if (!fp) continue;
                   const dx = fp[0] - pPos[0];
                   const dz = fp[2] - pPos[2];
-                  if (dx * dx + dz * dz <= 100) {
-                    const siteKey = `livingSite:${f.livingSiteId ?? f.livingRole}`;
+                  const maxDistSq = isWarSkirmishFoe ? 484 : 100;
+                  if (dx * dx + dz * dz <= maxDistSq) {
+                    const siteKey = `livingSite:${f.livingSiteId ?? (isWarSkirmishFoe ? 'war_skirmish' : f.livingRole)}`;
                     if (_travelIgnoredPositions.has(siteKey)) continue;
                     const title = isWarSkirmishFoe
                       ? t('apotheosis.skirmish.travelInterruptName', 'War Skirmish')
                       : (exteriorFoes.liveHoverName?.(`foe:${i}`)?.title ?? t('living.travel.caravan', 'Roadside Camp'));
-                    hit = { key: siteKey, title, x: fp[0], z: fp[2] };
+                    hit = {
+                      key: siteKey,
+                      title,
+                      x: fp[0],
+                      z: fp[2],
+                      onStop: isWarSkirmishFoe ? () => { livingSceneHostOf()?.interactCurrentSiteIfWarSkirmish?.(); } : null,
+                    };
                     break;
                   }
                 }
@@ -33269,7 +33296,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
                     {
                       code: 'Digit1',
                       label: `1 - ${t('apotheosis.travelInterrupt.yes', 'Yes, stop here')}`,
-                      action: () => { travelOptions.interruptTravel(); },
+                      action: () => {
+                        travelOptions.interruptTravel();
+                        hit.onStop?.();
+                      },
                     },
                     {
                       code: 'Digit2',

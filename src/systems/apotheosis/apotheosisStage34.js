@@ -728,64 +728,102 @@ export function tickStage34Daily(entity, simMin = 0, simDay = 0, rng = Math.rand
 // 4. UNIFIED WILDERNESS WAR SKIRMISHES (DIVINE & MUNDANE WARS)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Inspects `regionIndex` and returns a unified war descriptor if either an
- * Inter-Deity Religious War (`warKind: 'divine'`) or a Mundane regional war
- * (`warKind: 'mundane'`) is currently active in that region.
- */
-export function getActiveWarForRegion(entity, regionIndex) {
-  const reg = clampReg(regionIndex);
-  const regName = getLocalizedRegionName(reg, (i) => REGION_NAMES[i] ?? `Region ${i}`);
-  const wars = entity?.apotheosis?.pantheon?.activeGodWars;
-  if (Array.isArray(wars)) {
-    const divineWar = wars.find((w) => Array.isArray(w?.regions) && w.regions.includes(reg));
-    if (divineWar) {
-      const defA = getPantheonDeity(divineWar.godA);
-      const defB = getPantheonDeity(divineWar.godB);
-      const godAName = defA?.name ?? divineWar.godAName ?? divineWar.godA;
-      const godBName = defB?.name ?? divineWar.godBName ?? divineWar.godB;
-      return {
-        warKind: 'divine',
-        warId: divineWar.id,
-        regIdx: reg,
-        regionName: regName,
-        godA: divineWar.godA,
-        godB: divineWar.godB,
-        sideAId: divineWar.godA,
-        sideBId: divineWar.godB,
-        sideAName: t('apotheosis.skirmish.crusaders', '{god} Crusaders', { god: godAName }),
-        sideBName: t('apotheosis.skirmish.zealots', '{god} Zealots', { god: godBName }),
-        playerStance: divineWar.playerStance ?? null,
-        pacifiedCount: Number(divineWar.regionPacified?.[reg] || 0),
-        war: divineWar,
-      };
-    }
-  }
+function buildDivineWarDescriptor(divineWar, reg, regName) {
+  const defA = getPantheonDeity(divineWar.godA);
+  const defB = getPantheonDeity(divineWar.godB);
+  const godAName = defA?.name ?? divineWar.godAName ?? divineWar.godA;
+  const godBName = defB?.name ?? divineWar.godBName ?? divineWar.godB;
+  return {
+    warKind: 'divine',
+    warId: divineWar.id,
+    regIdx: reg,
+    regionName: regName,
+    regions: Array.isArray(divineWar.regions) && divineWar.regions.length ? [...divineWar.regions] : [reg],
+    godA: divineWar.godA,
+    godB: divineWar.godB,
+    sideAId: divineWar.godA,
+    sideBId: divineWar.godB,
+    sideAName: t('apotheosis.skirmish.crusaders', '{god} Crusaders', { god: godAName }),
+    sideBName: t('apotheosis.skirmish.zealots', '{god} Zealots', { god: godBName }),
+    playerStance: divineWar.playerStance ?? null,
+    pacifiedCount: Number(divineWar.regionPacified?.[reg] || 0),
+    war: divineWar,
+  };
+}
 
+function findRivalWarRegions(entity, reg) {
+  const out = [];
+  const regWars = entity?.apotheosis?.pantheon?.regionWars;
+  if (!regWars || typeof regWars !== 'object') return out;
+  for (const [pk, active] of Object.entries(regWars)) {
+    if (!active) continue;
+    const [aStr, bStr] = String(pk).split('|');
+    const rA = Number(aStr);
+    const rB = Number(bStr);
+    if (!Number.isInteger(rA) || !Number.isInteger(rB)) continue;
+    if (rA === reg && rB !== reg && !out.includes(rB)) out.push(rB);
+    else if (rB === reg && rA !== reg && !out.includes(rA)) out.push(rA);
+  }
+  return out;
+}
+
+function buildMundaneWarDescriptor(entity, reg, regName) {
   const regState = getRegionState(reg);
   const flagWar = conditionFlag(entity?.regionConditions, reg, REGION_FLAGS.WarOngoing)
     || conditionFlag(entity?.regionConditions, reg, REGION_FLAGS.WarBeginning);
-  const isMundaneWar = Boolean(flagWar || regState?.crisis === CRISIS_TYPE.WAR);
+  const rivalRegs = findRivalWarRegions(entity, reg);
+  const isMundaneWar = Boolean(flagWar || regState?.crisis === CRISIS_TYPE.WAR || rivalRegs.length > 0);
   if (!isMundaneWar) return null;
 
   const cult = entity?.apotheosis?.cult;
   const playerStance = cult?.mundaneWarStances?.[reg] ?? null;
   const pacifiedCount = Number(cult?.mundaneWarPacified?.[reg] || 0);
+  const rivalName = rivalRegs.length > 0
+    ? getLocalizedRegionName(rivalRegs[0], (i) => REGION_NAMES[i] ?? `Region ${i}`)
+    : null;
   return {
     warKind: 'mundane',
     warId: `mundane_war_${reg}`,
     regIdx: reg,
     regionName: regName,
+    regions: [reg, ...rivalRegs],
     godA: null,
     godB: null,
     sideAId: 'vanguard',
     sideBId: 'invaders',
     sideAName: t('apotheosis.skirmish.vanguard', '{region} Vanguard', { region: regName }),
-    sideBName: t('apotheosis.skirmish.invaders', 'Invading Warband'),
+    sideBName: rivalName
+      ? t('apotheosis.skirmish.vanguard', '{region} Vanguard', { region: rivalName })
+      : t('apotheosis.skirmish.invaders', 'Invading Warband'),
     playerStance,
     pacifiedCount,
     war: null,
   };
+}
+
+/**
+ * Inspects `regionIndex` and returns a unified war descriptor if either an
+ * Inter-Deity Religious War (`warKind: 'divine'`) or a Mundane regional war
+ * (`warKind: 'mundane'`) is currently active in that region.
+ * Pass `{ preferKind: 'mundane' | 'divine' }` to disambiguate when both exist.
+ */
+export function getActiveWarForRegion(entity, regionIndex, { preferKind = null } = {}) {
+  const reg = clampReg(regionIndex);
+  const regName = getLocalizedRegionName(reg, (i) => REGION_NAMES[i] ?? `Region ${i}`);
+  const wars = entity?.apotheosis?.pantheon?.activeGodWars;
+  const divineWar = Array.isArray(wars)
+    ? wars.find((w) => Array.isArray(w?.regions) && w.regions.includes(reg))
+    : null;
+
+  if (preferKind === 'mundane') {
+    return buildMundaneWarDescriptor(entity, reg, regName)
+      ?? (divineWar ? buildDivineWarDescriptor(divineWar, reg, regName) : null);
+  }
+  if (divineWar) {
+    return buildDivineWarDescriptor(divineWar, reg, regName);
+  }
+  if (preferKind === 'divine') return null;
+  return buildMundaneWarDescriptor(entity, reg, regName);
 }
 
 /**
@@ -977,6 +1015,26 @@ export function resolveWarSkirmishPacify(
           const p = ensurePantheonState(entity, { nowMinutes: now });
           const wIdx = p?.activeGodWars?.indexOf(warDesc.war) ?? -1;
           if (wIdx >= 0) p.activeGodWars.splice(wIdx, 1);
+        }
+      } else {
+        const cult = ensureCultState(entity);
+        if (cult?.mundaneWarPacified) delete cult.mundaneWarPacified[reg];
+        if (cult?.mundaneWarStances) delete cult.mundaneWarStances[reg];
+        const regWars = entity?.apotheosis?.pantheon?.regionWars;
+        if (regWars && typeof regWars === 'object') {
+          for (const [pk, active] of Object.entries(regWars)) {
+            if (!active) continue;
+            const [aStr, bStr] = String(pk).split('|');
+            const rA = Number(aStr);
+            const rB = Number(bStr);
+            if (rA === reg || rB === reg) {
+              regWars[pk] = false;
+              const otherReg = rA === reg ? rB : rA;
+              if (Number.isInteger(otherReg) && findRivalWarRegions(entity, otherReg).length === 0) {
+                setSingleRegionWarFlag(entity, otherReg, false);
+              }
+            }
+          }
         }
       }
       if (isAscendedGod(entity)) {

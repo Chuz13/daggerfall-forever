@@ -769,8 +769,14 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
   } else {
     const curTier = Math.max(1, Math.min(3, Math.trunc(Number(site.tier) || 1)));
     const nextSpec = curTier < 3 ? CULT_UPGRADE_TIERS[curTier + 1] : null;
+    const goldCur = Math.max(0, Math.trunc(Number(entity.goldPieces) || 0));
+    const fmtNum = (n) => Math.trunc(Number(n) || 0).toLocaleString('en-US');
     const upgLabel = nextSpec
-      ? t('apotheosis.cult.btnUpgradeTierCost', 'Upgrade to Tier {tier} ({cost} Faith)', { tier: nextSpec.tier, cost: nextSpec.upgradeCost })
+      ? t('apotheosis.cult.btnUpgradeCostGold', 'Upgrade to Tier {tier} ({faith} Faith · {gold}g)', {
+          tier: nextSpec.tier,
+          faith: nextSpec.upgradeCost,
+          gold: fmtNum(nextSpec.upgradeGoldCost ?? 0),
+        })
       : t('apotheosis.cult.btnMaxTierReached', 'Grand Sanctum (Tier III · Max)');
 
     options.push({
@@ -781,16 +787,25 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
           say(t('apotheosis.cult.err.maxTier', 'This sanctuary is already at Grand Sanctum (Tier III).'));
           return;
         }
+        const nextGold = nextSpec.upgradeGoldCost ?? 0;
         openConfirm(
           [
             t('apotheosis.cult.confirmUpgradeTitle', 'Confirm Sanctum Upgrade to Tier {tier}', { tier: nextSpec.tier }),
-            t('apotheosis.cult.confirmCostLine', 'Cost: {cost} Faith (You have {have})', { cost: nextSpec.upgradeCost, have: faithCur }),
+            t('apotheosis.cult.confirmCostLineGold', 'Cost: {faith} Faith · {gold}g (You have {haveFaith} Faith · {haveGold}g)', {
+              faith: nextSpec.upgradeCost,
+              gold: fmtNum(nextGold),
+              haveFaith: faithCur,
+              haveGold: fmtNum(goldCur),
+            }),
             t('apotheosis.cult.confirmUpgradeInfo', 'New output: +{f}/day Faith, +{m} Max Faith reservoir.', {
               f: nextSpec.faithPerDay,
               m: nextSpec.maxFaithBonus,
             }),
           ],
-          t('apotheosis.cult.confirmBtnSpend', 'Confirm ({cost} Faith)', { cost: nextSpec.upgradeCost }),
+          t('apotheosis.cult.confirmBtnSpendGold', 'Confirm ({faith} Faith · {gold}g)', {
+            faith: nextSpec.upgradeCost,
+            gold: fmtNum(nextGold),
+          }),
           () => {
             const r = upgradeCultSite(entity, site.siteKey, { nowMinutes: worldMinutes });
             say(r.ok ? t('apotheosis.cult.upgradedHud', 'Sanctum elevated to Tier {tier}.', { tier: r.tier }) : r.reason);
@@ -1266,6 +1281,7 @@ export function createApotheosisCultHost(deps = {}) {
       countedDead: new Set(),
       pending: atkCount,
       resolved: false,
+      dismissed: false,
     };
     _activeSiegeBattles.set(site.siteKey, rec);
     siege.spawned = true;
@@ -1291,6 +1307,11 @@ export function createApotheosisCultHost(deps = {}) {
       })).then((foe) => {
         rec.pending = Math.max(0, rec.pending - 1);
         if (!foe) return;
+        const ext = typeof exteriorFoes === 'function' ? exteriorFoes() : exteriorFoes;
+        if (rec.dismissed) {
+          ext?.removeFoe?.(foe);
+          return;
+        }
         foe.livingRole = 'cult_siege_attacker';
         foe._siegeSiteKey = site.siteKey;
         if (foe.entity) {
@@ -1327,6 +1348,11 @@ export function createApotheosisCultHost(deps = {}) {
         feetGiven: true,
       })).then((ally) => {
         if (!ally) return;
+        const ext = typeof exteriorFoes === 'function' ? exteriorFoes() : exteriorFoes;
+        if (rec.dismissed) {
+          ext?.removeFoe?.(ally);
+          return;
+        }
         ally.livingRole = 'cult_siege_defender';
         ally._siegeSiteKey = site.siteKey;
         if (ally.entity) {
@@ -1352,6 +1378,60 @@ export function createApotheosisCultHost(deps = {}) {
     return true;
   }
 
+  function dismissCultSiegeBattle(siteKey = null) {
+    const ext = typeof exteriorFoes === 'function' ? exteriorFoes() : exteriorFoes;
+    const extList = ext?.foes ?? [];
+    const targetKeys = siteKey ? [siteKey] : [..._activeSiegeBattles.keys()];
+    const dismissedFoes = new Set();
+    let count = 0;
+
+    const retireFoe = (f) => {
+      if (!f || dismissedFoes.has(f)) return;
+      dismissedFoes.add(f);
+      count++;
+      if (f.ai) {
+        f.ai.isHostile = false;
+        f.ai.detected = false;
+        f.ai.target = null;
+        f.ai.secondaryTarget = null;
+        f.ai.targetSenses = null;
+      }
+      if (f.dead) {
+        ext?.removeFoe?.(f);
+        return;
+      }
+      const removeNow = () => {
+        if (typeof ext?.removeFoe === 'function') ext.removeFoe(f);
+        else if (Array.isArray(extList)) {
+          const idx = extList.indexOf(f);
+          if (idx >= 0) extList.splice(idx, 1);
+        }
+      };
+      if (typeof ext?.companionFx?.leave === 'function' && f.ai) {
+        ext.companionFx.leave(f, removeNow);
+      } else {
+        removeNow();
+      }
+    };
+
+    for (const sk of targetKeys) {
+      const battle = _activeSiegeBattles.get(sk);
+      if (battle) {
+        battle.resolved = true;
+        battle.dismissed = true;
+        for (const a of battle.attackers) retireFoe(a);
+        for (const d of battle.defenders) retireFoe(d);
+        _activeSiegeBattles.delete(sk);
+      }
+      if (Array.isArray(extList)) {
+        for (const f of [...extList]) {
+          if (f && f._siegeSiteKey === sk) retireFoe(f);
+        }
+      }
+    }
+    return count;
+  }
+
   function tickActiveSiegeBattles() {
     if ((modes?.()?.mode ?? 'exterior') !== 'exterior') return;
     const pixels = built?.();
@@ -1373,8 +1453,7 @@ export function createApotheosisCultHost(deps = {}) {
       if (battle.resolved) continue;
       const site = getCultSite(playerEntity, sk);
       if (!site || !site.siege) {
-        battle.resolved = true;
-        _activeSiegeBattles.delete(sk);
+        dismissCultSiegeBattle(sk);
         continue;
       }
 
@@ -1807,6 +1886,7 @@ export function createApotheosisCultHost(deps = {}) {
     spawnAlarmOutside,
     townMapHatches,
     spawnCultSiegeBattle,
+    dismissCultSiegeBattle,
     defendCultSiege,
   };
 }

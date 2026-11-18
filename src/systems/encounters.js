@@ -434,7 +434,7 @@ export function fightNear(foes, feet) {
  *  C-slice - reads hostile, which is the charter's "absent member idles the arm" for a flag whose absence means "no
  *  pacification here". */
 export function foeHostile(f) {
-  return !!f && !f.dead && !!f.ai && (f.ai.isHostile ?? true) && mobileTeamOf(f.entity) !== 'PlayerAlly';
+  return !!f && !f.dead && !!f.ai && !f.entity?.skirmishNeutralToPlayer && (f.ai.isHostile ?? true) && mobileTeamOf(f.entity) !== 'PlayerAlly';
 }
 
 /** WILD-ALERT (2026-10-04, Mac: "Enemies alerted are given an exclamation point and slow down as they do now, non alerted
