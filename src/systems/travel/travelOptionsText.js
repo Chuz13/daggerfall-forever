@@ -86,6 +86,13 @@ export const TRAVEL_NAV_TEXT = Object.freeze({
   },
 });
 
+/** Status label for straight-ahead accelerated travel without a road or destination. */
+export const TRAVEL_FORWARD_TEXT = Object.freeze({
+  get MsgFollowForward() {
+    return t('travel.nav.followForward', 'Travelling forward.');
+  },
+});
+
 /** C#'s `string.Format` for the placeholders these strings use: `{0}`,
  *  `{1}`, `{2}` filled positionally. An index with no argument is left
  *  as it stands rather than printed as "undefined". */

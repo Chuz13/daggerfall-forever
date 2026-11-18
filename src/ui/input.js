@@ -648,6 +648,11 @@ export function moveHeld(keys) {
 }
 export const anyMove = (mv) => mv.forwards || mv.backwards || mv.left || mv.right;
 
+/** Whether either Shift modifier key is held in `keys`. */
+export function shiftModifierHeld(keys) {
+  return !!keys && (keys.has('ShiftLeft') || keys.has('ShiftRight'));
+}
+
 /** Overlay-mode actions (chargen, level-up, sheet, windows). Digits
  *  joined for the U6 input box (the blind-god answer is "1"). */
 export function overlayAction(e) {

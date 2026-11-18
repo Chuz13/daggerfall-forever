@@ -1194,7 +1194,7 @@ import { HeadBobber } from '../player/headBobber.js';   // AUDIT 28 W10: HeadBob
 import { createClimbFeelHost } from '../player/climb/climbFeel.js';   // CLIMB4: the climb's camera
 import { lastHealthLost, lastHealthLostPercent } from '../ui/hud/hudVitals.js';   // AUDIT 28 W9: the detector's loss
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
-import { keyEdges, noteKeyDown, noteKeyUp, letGoOnBlur, beginInputFrame, pressed, released, actionsOf, actionOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
+import { keyEdges, noteKeyDown, noteKeyUp, letGoOnBlur, beginInputFrame, pressed, released, actionsOf, actionOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld, shiftModifierHeld } from '../ui/input.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: one door in front of every way out of a running game; AUDIT-MACL F3: ...and down for a door the game opened itself
 import { codeMeans, getBinding, codeForAction, getJoystickUIBinding, HELM_RUDDER_ACTIONS } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
 import { buttonText } from '../systems/controlsConfig.js';   // AUDIT DEEP T1-12: the travel view's hint names the bound keys as the Controls page does
@@ -16943,6 +16943,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // field on the network object, terrainGenClient.js).
     roads: () => { const net = terrainGen.roads(); return net?.source === 'basic-roads' ? net : null; },
     onRoad: () => travellerOnRoad(),   // RATE-LAW: a straight walk's ground - the road's rate while it runs along one
+    streams: (px, py) => StreamingWorldState.streams(px, py),
     isWater: (x, y) => tvWater(x, y),   // AUDIT DEEP T2-1: a road journey's resume never aims across the sea - AUDIT TAMRIEL-WIDE C5: the ground's own sea, past the Bay too
     seaWaterAt: (x, z) => tvSeaWaterAt(...state.localFromWorld(x, z)),   // FIELD BUGS 2026-10-21d PASSAGE-IN: the ground the boat floats on, native units - a sailed leg's mark
     worldPos: () => { const wc = state.worldCoords(walkMode ? player.pos : cam.pos); return { x: wc.x, z: wc.z }; },
@@ -17098,6 +17099,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  never fired), and Travel Options switched off answers nothing. TO-ONLINE: the SAME door as
    *  beginAcceleratedTravel's, which has no online stand-down, so neither does this. */
   function travelFollowPressed() { return !naval?.aboard?.() && pressed(latch.edge, keys, 'FollowPaths'); }   // SPYGLASS: aboard, K is the glass's - a deck has no road
+  function travelFollowShiftHeld() {
+    if (!shiftModifierHeld(keys)) return false;
+    const code = getBinding(bindings(), 'FollowPaths');
+    return !(typeof code === 'string' && code.startsWith('Shift') && code.includes('+'));
+  }
 
   /** AUDIT OW5 G2 (the audit before the merge): THE OVERWORLD'S OWN LINES OUTLAST ITS CLOCK. A HUD line counts down in
    *  game time (CSA-G: PopupText's Time.deltaTime), so at a journey's x10 "You have found X." (five seconds) was up for
@@ -31236,6 +31242,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** OW-ONLY: a Travel Options journey on the enhanced interface is the Overworld's - raised, silently, the frame nothing
    *  forbids it (no window, no foe, the view's own gate), whoever began it (the map, its resume, the follow key). */
   function tvJourneyUp() {
+    if (travelOptions?.state?.walk === 'forward') return;
     // AUDIT OW3 J1: a journey that WALKS - the panel up and the autopilot driving; a panel left up over a stopped journey
     // (an interrupt that closes nothing) is no journey to raise the view over. OW-TOGGLE: a first-person journey is none
     if (!tvOwnsJourneys() || travelView.state !== 'off' || !travelOptions.isTravelActive || !travelOptions.state?.autopilot) return;
@@ -32520,6 +32527,17 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // `ignoreEncounters` (15 s) let the autopilot drive ON THE GROUND at the spinner's full rate - through foes, into
     // unbuilt ground, with no load governor: the lag Mac met. The classic skin's ground journey is untouched, and so is
     // First-Person Travel's (OW-TOGGLE: the journey the player chose to walk on the ground)
+    if (journey && !travelView?.active && travelOptions?.state?.walk === 'forward') {
+      const foes = journeyThreatCap(false, false);
+      const rate = csaHoldsTimeScale() ? null : (foes.strangerRate ? Math.min(foeRate(foes, travelAsked), foes.strangerRate) : foeRate(foes, travelAsked));
+      if (rate != null && worldTimeScale() !== rate) setWorldTimeScale(rate);
+      tvHeld = rate != null && rate < travelAsked ? rate : null;
+      tvHeldWhy = tvHeld != null ? 'foes' : null;
+      journeySlowSaid(tvHeldWhy);
+      tvWalking = 0;
+      travelGovernor.reset();
+      return;
+    }
     if (journey && !travelView?.active && tvOwnsJourneys()) {
       if (worldTimeScale() !== 1) setWorldTimeScale(1);
       tvHeld = travelAsked > 1 ? 1 : null;   // the panel says the clock is held (the ground's rate stays the journey's)
@@ -33156,7 +33174,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // path leg arriving, the junction map's upkeep) it does itself.
         _travelDrive = null;
         if (travelOptions) {
-          const followDown = travelFollowPressed();
+          let followDown = travelFollowPressed();
+          if (followDown && !travelOptions.state?.autopilot && !_overlayHeld && !gamePaused()
+            && !townTalk.overlayActive && !(modes?.overlayHeld ?? false) && (modes?.mode ?? 'exterior') === 'exterior') {
+            if (climbingNow()) { tvSay(TRAVEL_VIEW_TEXT.climbing); followDown = false; }
+            else if (wagonRiders?.seated()) { tvSay(TRAVEL_VIEW_TEXT.rider); followDown = false; }
+            else if (csaAboard.aboard) { tvSay(TRAVEL_VIEW_TEXT.passenger); followDown = false; }
+          }
+          const followShift = followDown && travelFollowShiftHeld();
           travelNavFrame.dt = dt;   // TRAVEL-NAV1: the frame the steering's reach is measured over
           refreshTravelOptionsSettings();   // TO-LIVE: a dial turned mid-journey reaches it
           const report = travelOptions.update({
@@ -33176,7 +33201,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             isPlayerOnHUD: !townTalk.overlayActive && !(modes?.overlayHeld ?? false) && !travelControlUI?.isShowing,
             gamePaused: gamePaused(),
             inputPaused: _overlayHeld,
-            followKeyDown: followDown,
+            followKeyDown: followDown && !followShift,
+            followShiftDown: followShift,
             helpKeyDown: false,   // H over the travel UI is routed by the key ladder, not polled
             isPlayerInside: (modes?.mode ?? 'exterior') !== 'exterior',
           });
@@ -36128,6 +36154,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused(),
           destination: travelControlUI?.destinationName ?? '',
           following: !travelOptions?.destinationName,
+          forward: travelOptions?.state?.walk === 'forward',
           accel: travelControlUI?.timeAcceleration ?? 1,   // RATE-LAW: the rate the journey's ground runs at
           onRoad: !!travelControlUI?.onRoad,   // RATE-LAW: and which ground it is
           held: tvHeld,   // TV2: the travel view's cap, while it holds the clock under the ground's rate

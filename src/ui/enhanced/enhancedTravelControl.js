@@ -292,7 +292,7 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   cls(parts.bar, 'barClass', `travelpanel-bar${state.following ? ' following' : ''}${junctionOnly ? ' hidden' : ''}`); // OW-DECK: `following` on the bar too - docked, it is outside the root
   put(parts.name, 'name', String(state.destination ?? ''));
   const eta = etaText(state.minutesLeft);
-  const dist = distanceText(state.from, state.to);
+  const dist = state.forward ? '' : distanceText(state.from, state.to);
   put(parts.sub, 'sub', [eta, dist].filter(Boolean).join('  ·  '));
   // TV2: the clock may be HELD under the ground's rate (systems/travel/travelGovernor.js: the land loading; OW6: an alerted
   // enemy near) - the rate that runs, then the ground's. RATE-LAW: the ground says which rate; PACE-DIALS: the player's

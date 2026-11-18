@@ -31,11 +31,12 @@ import {
 import {
   readTravelOptionsSettings, createTravelOptions, travelSpeedMultiplier, avoidEncounterChance,
   locationTypeString, locationTypeName, locationRectsOf, locBorderCornerRects, circumnavigateTarget,
-  ROAD_LEG_KINDS, IGNORE_ENCOUNTERS_SECONDS, AVOID_ENCOUNTER_OFFSET, CLIMATE_OCEAN,
+  clipRayToMapEdge, ROAD_LEG_KINDS, IGNORE_ENCOUNTERS_SECONDS, AVOID_ENCOUNTER_OFFSET, CLIMATE_OCEAN,
   TRAVEL_OPTIONS_VENDOR,
 } from '../../../src/systems/travel/travelOptions.js';
 import { MOD_ACTIONS } from '../../../src/systems/inputActions.js';   // KB1: the follow key's six are the carry's now
-import { TRAVEL_OPTIONS_TEXT, format, localize, directionText } from '../../../src/systems/travel/travelOptionsText.js';
+import { shiftModifierHeld } from '../../../src/ui/input.js';
+import { TRAVEL_OPTIONS_TEXT, TRAVEL_FORWARD_TEXT, format, localize, directionText } from '../../../src/systems/travel/travelOptionsText.js';
 // AUDIT-TO1: the two classes the port did not carry, pinned at the foot
 import { registerCustomGuild, canAccessService } from '../../../src/systems/guild/guildServices.js';
 import { ENCHANTMENT_TYPES, enchantmentMagicRound } from '../../../src/systems/enchantments.js';
@@ -1922,4 +1923,146 @@ test('TO-ONLINE: an online trip the toggles call WALKED is a ride, and the "you 
   // and it is the branch that carries the mod's own two labels
   assert.match(pop, /this\.walkedTrip = true;\s*\n\s*this\.countdownValueTravelTimeDays = 0;/);
   assert.match(pop, /if \(this\.walkedTrip\) \{\s*\n\s*shadowText\(renderer, font, TO_TEXT\.MsgPlayerControlled,/);
+});
+
+test('Shift+FollowPaths ray clipping stays within map pixel bounds and preserves exact bearing', () => {
+  const origin = mapPixelWorldOrigin(500, 250);
+  const wx = origin.x + 16384;
+  const wz = origin.z + 16384;
+
+  const t1 = clipRayToMapEdge(wx, wz, 33);
+  assert.ok(t1, 'finds target along 33 deg bearing');
+  assert.ok(t1.pixel.x >= 0 && t1.pixel.x < 1000 && t1.pixel.y >= 0 && t1.pixel.y < 500, 'inside Iliac Bay bounds');
+  assert.equal(t1.pixel.y, 0, '33 deg ray from center reaches northern edge pixel y=0');
+  const bearing1 = normalisedYaw(calculateYaw(wx, wz, t1.x, t1.z));
+  assert.ok(Math.abs(bearing1 - 33) < 0.01, `bearing preserved: ${bearing1}`);
+
+  const t2 = clipRayToMapEdge(wx, wz, 217);
+  assert.ok(t2, 'finds target along 217 deg bearing');
+  assert.ok(t2.pixel.x >= 0 && t2.pixel.x < 1000 && t2.pixel.y >= 0 && t2.pixel.y < 500, 'inside southwest bounds');
+  assert.equal(t2.pixel.y, 499, '217 deg ray from center reaches southern edge pixel y=499');
+  const bearing2 = normalisedYaw(calculateYaw(wx, wz, t2.x, t2.z));
+  assert.ok(Math.abs(bearing2 - 217) < 0.01, `bearing preserved: ${bearing2}`);
+
+  const tamrielBounds = (px, py) => px >= -862 && px < 5138 && py >= -975 && py < 2775;
+  const tTam = clipRayToMapEdge(wx, wz, 90, tamrielBounds);
+  assert.ok(tTam && tTam.pixel.x === 5137 && tTam.pixel.y === 250, 'custom streams predicate reaches extended Tamriel east edge');
+
+  const edgeOrigin = mapPixelWorldOrigin(999, 250);
+  assert.equal(clipRayToMapEdge(edgeOrigin.x + MP_WORLD_UNITS - 200, edgeOrigin.z + 16384, 90), null,
+    'returns null at outer boundary facing out of bounds');
+});
+
+test('Shift+FollowPaths runs straight ahead off-road, switches x60/x100 dynamically, handles pauses/encounters, and toggles off cleanly', () => {
+  dialAtTop();
+  const makeHost = (over = {}) => {
+    const hold = {};
+    const ui = new TravelControlUI({ onClose: () => hold.to.interruptTravel(), onCancel: () => hold.to.clearTravelDestination() });
+    let onRoad = false;
+    const r = rig({
+      ...over,
+      deps: {
+        ui,
+        onRoad: () => onRoad,
+        ...over.deps,
+      },
+    });
+    hold.to = r.to;
+    return { ...r, ui, setOnRoad: (v) => { onRoad = v; } };
+  };
+
+  assert.equal(shiftModifierHeld(new Set(['ShiftLeft'])), true);
+  assert.equal(shiftModifierHeld(new Set(['ShiftRight'])), true);
+  assert.equal(shiftModifierHeld(new Set(['KeyK'])), false);
+
+  // Starts off-road even with roadsIntegration disabled, keeps exact yaw, and switches x60 <-> x100 dynamically
+  {
+    const { to, ui, state, scales, setOnRoad } = makeHost({ settings: { roadsIntegration: false } });
+    state.yaw = 33;
+    to.update({ isPlayerOnHUD: true, followShiftDown: true });
+    assert.equal(ui.isShowing, true);
+    assert.equal(ui.destinationName, TRAVEL_FORWARD_TEXT.MsgFollowForward);
+    assert.equal(to.state.walk, 'forward');
+    assert.equal(to.destinationName, null);
+    assert.equal(to.isPathFollowing, true);
+    assert.deepEqual([ui.timeAcceleration, ui.onRoad, scales.at(-1)], [60, false, 60], 'off-road runs at x60');
+
+    setOnRoad(true);
+    const r2 = to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false });
+    assert.ok(Math.abs(r2.drive.yaw - 33) < 0.01, `keeps exact yaw 33 deg, got ${r2.drive.yaw}`);
+    assert.deepEqual([ui.timeAcceleration, ui.onRoad, scales.at(-1), to.road], [100, true, 100, true], 'crossing onto a road accelerates to x100');
+
+    setOnRoad(false);
+    to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false });
+    assert.deepEqual([ui.timeAcceleration, ui.onRoad, scales.at(-1), to.road], [60, false, 60, false], 'leaving the road returns to x60');
+
+    // Simple toggle: pressing plain K stops forward travel
+    to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false, followKeyDown: true });
+    assert.deepEqual([ui.isShowing, to.state.autopilot, scales.at(-1)], [false, null, 1], 'plain K stops forward travel');
+  }
+
+  // Pressing Shift+K stops both forward travel and regular road-following
+  {
+    const { to, ui, state, scales } = makeHost();
+    state.yaw = 127;
+    to.update({ isPlayerOnHUD: true, followShiftDown: true });
+    assert.equal(ui.isShowing, true);
+    to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false, followShiftDown: true });
+    assert.deepEqual([ui.isShowing, to.state.autopilot, scales.at(-1)], [false, null, 1], 'Shift+K toggles forward travel off');
+
+    const roadHost = makeHost();
+    const at = (x, y) => x + y * 1000;
+    roadHost.net.roads[at(500, 250)] = E | W;
+    roadHost.state.yaw = 90;
+    roadHost.to.followPath();
+    assert.equal(roadHost.ui.isShowing, true);
+    roadHost.to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false, followShiftDown: true });
+    assert.deepEqual([roadHost.ui.isShowing, roadHost.to.state.autopilot], [false, null], 'Shift+K also stops normal followPath');
+  }
+
+  // LocationPause nearby ignores the starting location and stops at a newly entered location
+  {
+    const { to, ui, state, boxed } = makeHost({ settings: { locationPause: LOC_PAUSE_NEAR } });
+    state.location = { mapId: 10, name: 'Start Town', locationType: LOCATION_TYPES.TownCity };
+    state.yaw = 90;
+    to.update({ isPlayerOnHUD: true, followShiftDown: true });
+    assert.equal(ui.isShowing, true, 'starting inside a location does not pause immediately');
+    assert.deepEqual(boxed, []);
+
+    state.location = { mapId: 20, name: 'Next Ruin', locationType: LOCATION_TYPES.DungeonRuin };
+    const r = to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false });
+    assert.equal(r.stopped, 'location');
+    assert.equal(ui.isShowing, false);
+    assert.equal(boxed.length, 1);
+    assert.match(boxed[0], /Next Ruin/);
+  }
+
+  // Encounter avoidance resumes forward travel rather than falling back to followPath
+  {
+    const { to, ui, state, boxed } = makeHost({ roll: 1 });
+    state.yaw = 42;
+    to.update({ isPlayerOnHUD: true, followShiftDown: true });
+    state.enemies = true;
+    to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false });
+    assert.equal(ui.isShowing, true, 'resumes after winning avoid roll');
+    assert.equal(ui.destinationName, TRAVEL_FORWARD_TEXT.MsgFollowForward);
+    assert.equal(to.state.walk, 'forward');
+    assert.equal(ui.message, TRAVEL_OPTIONS_TEXT.MsgAvoidSuccess);
+    assert.deepEqual(boxed, []);
+  }
+
+  // Arriving at the target rect on the last valid map pixel ends cleanly without a destination box
+  {
+    const { to, ui, state, boxed } = makeHost();
+    state.yaw = 90;
+    to.update({ isPlayerOnHUD: true, followShiftDown: true });
+    const ap = to.state.autopilot;
+    assert.equal(ap.destinationMapPixel.x, 999);
+    state.pixel = { ...ap.destinationMapPixel };
+    state.pos = { x: ap.destinationCentre.x, z: ap.destinationCentre.z };
+    const r = to.update({ topWindowIsTravelUI: true, isPlayerOnHUD: false });
+    assert.equal(r.drive.arrived, true);
+    assert.deepEqual([ui.isShowing, to.state.autopilot, to.state.walk, to.arrived], [false, null, null, 1]);
+    assert.deepEqual(boxed, []);
+  }
 });

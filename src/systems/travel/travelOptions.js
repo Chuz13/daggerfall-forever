@@ -51,10 +51,11 @@ import {
 } from './travelPaths.js';
 import { TravelAutopilot, rectOf, rectMinMax, rectContains, rectCentre, ARRIVAL_BUFFER, LANE_CORNER_TURN } from './travelAutopilot.js';
 import { TOWN_PACE_MAX } from './townWalk.js';   // OW-TOWN-WALK: a town's streets walked at a town's pace
-import { TRAVEL_OPTIONS_TEXT as T, TRAVEL_NAV_TEXT, format, localize } from './travelOptionsText.js';
+import { TRAVEL_OPTIONS_TEXT as T, TRAVEL_NAV_TEXT, TRAVEL_FORWARD_TEXT, format, localize } from './travelOptionsText.js';
 import { hasPortFor } from './travelPorts.js';   // SEAT2b part two: HasPort, or a members' Harbour at a seat
 import { FATIGUE_MULTIPLIER } from '../statMods.js';
 import { LOCATION_TYPES, CLIMATES, worldCoordToMapPixel } from '../../formats/mapsFile.js';
+import { inBay } from '../../world/tamriel/tamrielFrame.js';
 import { joinPoint, dryLine as dryLineOf, finalRoadVia } from './travelRoute.js';   // AUDIT OW3 J3: a resume rejoins the road where the start's join did; AUDIT DEEP T2-1's law, one home (OWS2)
 import { seaLegMark, seaLegWindow, seaLegBuiltAt, SEA_LEG_UNBUILT, SEA_LEG_DRY } from './seaMark.js';
 import { legEnd, nearestOnLine, lineUpTo } from './roadLine.js';   // ROAD-FOLLOW: a road past the Bay walked on its curves   // FIELD BUGS 2026-10-21d PASSAGE-IN: a sailed leg aimed where she floats
@@ -448,6 +449,61 @@ export function circumnavigateTarget(worldX, worldZ, yaw, locationRect, location
   return null;
 }
 
+const FORWARD_RAY_MAX_STEPS = 30000;
+
+/**
+ * Clips a ray from `(worldX, worldZ)` along `yawDegrees` to the last valid map
+ * pixel along that ray, keeping an inward safety margin so accelerated travel
+ * stops before leaving streamed terrain. Returns null when already at the edge.
+ */
+export function clipRayToMapEdge(worldX, worldZ, yawDegrees, isValidPixel = inBay) {
+  const valid = typeof isValidPixel === 'function' ? isValidPixel : inBay;
+  const startPx = worldCoordToMapPixel(worldX, worldZ);
+  if (!valid(startPx.x, startPx.y)) return null;
+  const rad = (normalisedYaw(yawDegrees) * Math.PI) / 180;
+  const dx = Math.sin(rad);
+  const dz = Math.cos(rad);
+  const pointOk = (t) => {
+    const p1 = worldCoordToMapPixel(worldX + dx * t, worldZ + dz * t);
+    if (!valid(p1.x, p1.y)) return false;
+    const p2 = worldCoordToMapPixel(worldX + dx * (t + ARRIVAL_BUFFER), worldZ + dz * (t + ARRIVAL_BUFFER));
+    return valid(p2.x, p2.y);
+  };
+  if (!pointOk(0)) return null;
+  let lastOk = 0;
+  let badAt = null;
+  for (let i = 1; i <= FORWARD_RAY_MAX_STEPS; i++) {
+    const t = i * HALF_MP_WORLD_UNITS;
+    if (pointOk(t)) {
+      lastOk = t;
+    } else {
+      badAt = t;
+      break;
+    }
+  }
+  let tEnd = lastOk;
+  if (badAt != null) {
+    let lo = lastOk;
+    let hi = badAt;
+    for (let k = 0; k < 16; k++) {
+      const mid = (lo + hi) * 0.5;
+      if (pointOk(mid)) lo = mid;
+      else hi = mid;
+    }
+    tEnd = lo;
+  }
+  if (tEnd < P_SIZE) return null;
+  const tx = worldX + dx * tEnd;
+  const tz = worldZ + dz * tEnd;
+  const pixel = worldCoordToMapPixel(tx, tz);
+  return {
+    x: tx,
+    z: tz,
+    pixel,
+    rect: rectOf(tx - P_SIZE / 2, tz - P_SIZE / 2, P_SIZE, P_SIZE),
+  };
+}
+
 /** The mod, as a host builds it. `deps` is the whole of its world -
  *  see the comment at the top of this file for why. */
 export function createTravelOptions(deps = {}) {
@@ -562,6 +618,7 @@ export function createTravelOptions(deps = {}) {
     st.destinationName = null;
     st.autopilot = null;
     st.route = null;   // TV2
+    st.walk = null;
     st.estimateMinutes = null;   // AUDIT-TO1 L5
     if (ui?.isShowing) ui.closeWindow();
   }
@@ -948,6 +1005,7 @@ export function createTravelOptions(deps = {}) {
   function applyRate(force = false) {
     const street = !!st.route?.street;   // OW-TOWN-WALK: a town's streets, at a town's pace - paved ground (a street's grid weighs its roads best)
     const onRoad = street || journeyOnRoad();
+    if (st.walk === 'forward') st.road = onRoad;
     const rate = street ? Math.min(st.route.street.pace ?? TOWN_PACE_MAX, travelRateOf(true)) : st.walk === 'ring' ? Math.min(MAX_CIRCUMNAVIGATION_ACCEL, travelRateOf(onRoad)) : travelRateOf(onRoad);   // IC-PACE: the street's own town's pace
     if (!force && rate === st.rate && onRoad === st.rateOnRoad) return;
     st.rate = rate;
@@ -1057,6 +1115,37 @@ export function createTravelOptions(deps = {}) {
       say(T.MsgNoPath);
     }
     return false;
+  }
+
+  /** Accelerated straight-ahead travel along the exact current yaw, clipped to the last valid map pixel. */
+  function followForward() {
+    const p = pos(), yaw = yawDeg();
+    const target = clipRayToMapEdge(p.x, p.z, yaw, deps.streams);
+    if (!target) {
+      say(T.MsgNoPath);
+      return false;
+    }
+    st.route = null;
+    st.destinationName = null;
+    st.destinationSummary = null;
+    st.estimateMinutes = null;
+    st.circumnavigatePathsDataPt = 0;
+    st.lastCrossed = 0;
+    st.shutStop = false;
+    st.lastLocation = deps.currentLocation?.() ?? null;
+    st.road = !!deps.onRoad?.();
+    st.destinationCautious = true;
+    st.walk = 'forward';
+    ui?.setDestinationName(TRAVEL_FORWARD_TEXT.MsgFollowForward);
+    st.autopilot = new TravelAutopilot(target.pixel, target.rect, st.settings.recklessTravelMultiplier, { edgeArrival: true });
+    st.autopilot.yaw = yaw;
+    st.autopilot.onArrival = () => {
+      ui?.closeWindow();
+      clearTravelDestination();
+      st.arrived++;
+    };
+    initTravelUI();
+    return true;
   }
 
   /** :681-720, BeginPathTravel - one leg of a followed path. */
@@ -1227,6 +1316,7 @@ export function createTravelOptions(deps = {}) {
       st.lastPlayerFacing = 0;   // :1208 - so a persistent map redraws at once
       if (route) { st.route = route; resumeRoute(); }   // AUDIT OW4 J2: the view's own journey, on from where it stood
       else if (st.destinationName != null) resumeTravel();
+      else if (st.walk === 'forward') followForward();
       else followPath();
       ui?.showMessage(T.MsgAvoidSuccess);
       return true;
@@ -1366,9 +1456,13 @@ export function createTravelOptions(deps = {}) {
         st.uiCloseWhenTop = !!ui?.isShowing;
         return { drive, handled: true, interrupted: true };
       }
-      // :1358-1362 - the follow key stops a followed journey.
-      if (st.destinationName == null && st.settings.roadsIntegration && !frame.inputPaused && frame.followKeyDown) {
+      // :1358-1362 - the follow key stops a followed journey (or straight-ahead travel).
+      if (st.destinationName == null && !frame.inputPaused && (
+        frame.followShiftDown || ((st.settings.roadsIntegration || st.walk === 'forward') && frame.followKeyDown)
+      )) {
         if (ui?.isShowing) ui.closeWindow();
+        if (st.autopilot) interruptTravel();
+        return { handled: true };
       }
       // :1364-1375 - crossing another path while walking a town's ring
       if (st.circumnavigatePathsDataPt !== 0) {
@@ -1389,7 +1483,7 @@ export function createTravelOptions(deps = {}) {
       }
       // :1391-1400 - a location nearby, under LocationPause "nearby"
       const loc = deps.currentLocation?.() ?? null;
-      if (st.settings.locationPause === LOC_PAUSE_NEAR && st.destinationName != null && deps.hasCurrentLocation?.()
+      if (st.settings.locationPause === LOC_PAUSE_NEAR && (st.destinationName != null || st.walk === 'forward') && deps.hasCurrentLocation?.()
         && !sameLocation(loc, st.lastLocation) && (deps.localizedCurrentLocationName?.() ?? '') !== st.destinationName) {
         st.lastLocation = loc;
         deps.discoverLocation?.(loc);
@@ -1438,10 +1532,11 @@ export function createTravelOptions(deps = {}) {
       // RATE-LAW: the ground under a running journey may have changed - a route's next leg, a straight line onto a road
       // or off it - and the rate with it (asked of the clock only on a change)
       if (st.autopilot && ui?.isShowing) applyRate();
-    } else if (st.settings.roadsIntegration && !frame.inputPaused && frame.followKeyDown && frame.isPlayerOnHUD) {
+    } else if (!frame.inputPaused && frame.isPlayerOnHUD && (frame.followShiftDown || (st.settings.roadsIntegration && frame.followKeyDown))) {
       // :1438-1446 - the follow key, with no journey running
       if (frame.isPlayerInside) return { handled: true };
       if (deps.enemiesNearby?.()) messageBox(deps.text?.('cannotTravelWithEnemiesNearby') ?? 'You cannot travel with enemies nearby.');
+      else if (frame.followShiftDown) followForward();
       else followPath();
     }
     // :1448-1470 - the junction map's own upkeep
@@ -1480,7 +1575,7 @@ export function createTravelOptions(deps = {}) {
    *  "entered" arm. */
   function onEnterLocationRect(location) {
     if (st.enterRectDetached) return;   // AUDIT-TO1 M1: the mod's `-=` at :994-996
-    if (st.destinationName && st.settings.locationPause === LOC_PAUSE_ENTER) {
+    if ((st.destinationName || (st.walk === 'forward' && st.autopilot && ui?.isShowing)) && st.settings.locationPause === LOC_PAUSE_ENTER) {
       if (ui?.isShowing) ui.closeWindow();
       messageBox(format(T.MsgEnterLocation, deps.locationTypeName?.() ?? '',
         deps.localizedLocationName?.(location) ?? location?.name ?? ''));
@@ -1513,7 +1608,7 @@ export function createTravelOptions(deps = {}) {
     beginTravel, resumeTravel, beginTravelToCoords, clearTravelDestination,
     beginTravelAlongRoute, beginTravelToPoint,   // TV2: the travel view's two journeys
     get route() { return st.route; },
-    followPath, beginPathTravel, selectNextPath, circumnavigateLocation,
+    followPath, followForward, beginPathTravel, selectNextPath, circumnavigateLocation,
     interruptTravel, update, helpText, messages,
     followKeyText: () => deps.binding?.('FollowPaths') || null,   // KB1: the FollowPaths key's name, or null unbound
     initLocationRects, setLocationRects,
