@@ -1801,7 +1801,10 @@ export function createLivingSceneHost(deps) {
       }
     } else {
       for (const g of guards) {
+        g.allied = false;
         if (g.entity) {
+          g.entity.team = site.kind === LIVING_SITE_KINDS.WAR_SKIRMISH ? 'WarSideA' : 'CityWatch';
+          g.entity.mobileTeam = g.entity.team;
           g.entity.skirmishNeutralToPlayer = true;
           g.entity.skirmishForceInfighting = true;
         }
@@ -1817,7 +1820,10 @@ export function createLivingSceneHost(deps) {
         }
       }
       for (const r of rebels) {
+        r.allied = false;
         if (r.entity) {
+          r.entity.team = site.kind === LIVING_SITE_KINDS.WAR_SKIRMISH ? 'WarSideB' : 'PlayerEnemy';
+          r.entity.mobileTeam = r.entity.team;
           r.entity.skirmishNeutralToPlayer = true;
           r.entity.skirmishForceInfighting = true;
         }
@@ -2982,6 +2988,7 @@ export function createLivingSceneHost(deps) {
         }) ?? s.blueprint.meta?.warDesc;
         if (s.blueprint.meta && liveWar) s.blueprint.meta.warDesc = liveWar;
         const warDesc = liveWar ?? s.blueprint.meta?.warDesc;
+        s._lastSyncedPlayerStance = warDesc?.playerStance ?? null;
         const sideAName = warDesc?.sideAName ?? 'Vanguard';
         const sideBName = warDesc?.sideBName ?? 'Warband';
         const runPacify = () => {
@@ -2993,6 +3000,7 @@ export function createLivingSceneHost(deps) {
             return;
           }
           s.skirmishStance = res.skirmishStance;
+          s._lastSyncedPlayerStance = res.pacified ? 'peace' : (warDesc?.playerStance ?? null);
           retargetSkirmishFoes(s);
           const score = res.rollResult?.totalScore ?? 50;
           const dc = res.rollResult?.targetScore ?? 85;
@@ -3079,6 +3087,7 @@ export function createLivingSceneHost(deps) {
               label: `1. ${t('apotheosis.skirmish.optSideReward', 'Join {side} ({reward})', { side: sideAName, reward: rewardTag })}`,
               action: () => {
                 setWarPlayerStance(player, warDesc, 'sideA');
+                s._lastSyncedPlayerStance = 'sideA';
                 s.skirmishStance = 'watch';
                 retargetSkirmishFoes(s);
                 deps.say(t('apotheosis.skirmish.savedSideA', 'Your banner rallies {side} against {foe}.', { side: sideAName, foe: sideBName }), 5);
@@ -3089,6 +3098,7 @@ export function createLivingSceneHost(deps) {
               label: `2. ${t('apotheosis.skirmish.optSideReward', 'Join {side} ({reward})', { side: sideBName, reward: rewardTag })}`,
               action: () => {
                 setWarPlayerStance(player, warDesc, 'sideB');
+                s._lastSyncedPlayerStance = 'sideB';
                 s.skirmishStance = 'rebels';
                 retargetSkirmishFoes(s);
                 deps.say(t('apotheosis.skirmish.savedSideB', 'Your banner rallies {side} against {foe}.', { side: sideBName, foe: sideAName }), 5);
@@ -3104,6 +3114,7 @@ export function createLivingSceneHost(deps) {
               label: `4. ${t('apotheosis.skirmish.optWatch', 'Observe from afar (stay neutral)')}`,
               action: () => {
                 setWarPlayerStance(player, warDesc, 'watch');
+                s._lastSyncedPlayerStance = 'watch';
                 s.skirmishStance = 'neutral_watch';
                 retargetSkirmishFoes(s);
                 deps.say(t('apotheosis.skirmish.savedWatch', 'Observing the clash between {a} and {b} from the sidelines.', { a: sideAName, b: sideBName }), 4);
@@ -3127,6 +3138,7 @@ export function createLivingSceneHost(deps) {
       batches: /** @type {any[]} */ ([]),
       navalSquadron: null,
       skirmishStance: blueprint.meta?.skirmishStance ?? null,
+      _lastSyncedPlayerStance: blueprint.meta?.warDesc?.playerStance ?? null,
       interacted: false,
     };
     stood = site;
@@ -3671,11 +3683,18 @@ export function createLivingSceneHost(deps) {
             }) ?? stood.blueprint.meta?.warDesc;
             if (liveWar) {
               if (stood.blueprint.meta) stood.blueprint.meta.warDesc = liveWar;
-              if (liveWar.playerStance === 'sideA') stood.skirmishStance = 'watch';
-              else if (liveWar.playerStance === 'sideB') stood.skirmishStance = 'rebels';
-              else if (liveWar.playerStance === 'watch') stood.skirmishStance = 'neutral_watch';
-              else if (liveWar.playerStance == null && (stood.skirmishStance === 'watch' || stood.skirmishStance === 'rebels')) {
-                stood.skirmishStance = 'neutral_watch';
+              const nextPlayerStance = liveWar.playerStance ?? null;
+              if (nextPlayerStance !== stood._lastSyncedPlayerStance) {
+                stood._lastSyncedPlayerStance = nextPlayerStance;
+                if (nextPlayerStance === 'sideA') stood.skirmishStance = 'watch';
+                else if (nextPlayerStance === 'sideB') stood.skirmishStance = 'rebels';
+                else if (nextPlayerStance === 'watch') stood.skirmishStance = 'neutral_watch';
+                else if (nextPlayerStance === 'peace') {
+                  stood.interacted = false;
+                } else if (nextPlayerStance == null) {
+                  stood.skirmishStance = 'neutral_watch';
+                  stood.interacted = false;
+                }
               }
             }
           }
@@ -3702,8 +3721,29 @@ export function createLivingSceneHost(deps) {
             const rebelsDead = rebels.length > 0 && rebels.every((r) => Boolean(r.dead));
             const activeSideA = warDesc?.playerStance === 'sideA' || stood.skirmishStance === 'watch';
             const activeSideB = warDesc?.playerStance === 'sideB' || stood.skirmishStance === 'rebels';
+            const calmAllies = (list) => {
+              for (const ally of list) {
+                if (!ally || ally.dead) continue;
+                ally.allied = true;
+                if (ally.entity) {
+                  ally.entity.team = 'PlayerAlly';
+                  ally.entity.mobileTeam = 'PlayerAlly';
+                  ally.entity.skirmishNeutralToPlayer = true;
+                  ally.entity.skirmishForceInfighting = false;
+                }
+                if (ally.ai) {
+                  ally.ai.isHostile = false;
+                  ally.ai.detected = false;
+                  ally.ai.target = null;
+                  ally.ai.secondaryTarget = null;
+                  ally.ai.targetSenses = null;
+                  ally.ai.idle = true;
+                }
+              }
+            };
             if (activeSideA && rebelsDead) {
               stood.orderRestored = true;
+              calmAllies(guards);
               const pl = deps.playerEntity();
               if (warDesc.warKind === 'divine' && isAscendedGod(pl)) {
                 addApotheosisFaith(pl, 35, { source: 'war_skirmish_win', nowMinutes: nowMin });
@@ -3717,6 +3757,7 @@ export function createLivingSceneHost(deps) {
               deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
             } else if (activeSideB && guardsDead) {
               stood.orderRestored = true;
+              calmAllies(rebels);
               const pl = deps.playerEntity();
               if (warDesc.warKind === 'divine' && isAscendedGod(pl)) {
                 addApotheosisFaith(pl, 35, { source: 'war_skirmish_win', nowMinutes: nowMin });

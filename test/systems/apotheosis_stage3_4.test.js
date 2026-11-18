@@ -885,3 +885,145 @@ test('Stage 3.4 Follow-up Fixes: preferredMapId siege selection, named rival kin
   igniteRegionWar(ent, 17, 23, { nowMinutes: 600, force: true });
   assert.equal(getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }).playerStance, null);
 });
+
+test('Stage 3.4 QA Pass: rival symmetry & cross-region stance sync, Observer/reset mid-skirmish, post-victory calming & siege infighting', async () => {
+  // 1. Only region #17 flagged at war -> rival region #23 (Wayrest) mirrors it symmetrically
+  const ent = makeAscended('order', { region: 23, faith: 1500 });
+  turnOnConditionFlag(ent.regionConditions, 17, REGION_FLAGS.WarOngoing);
+  const w17 = getActiveWarForRegion(ent, 17, { preferKind: 'mundane' });
+  const w23 = getActiveWarForRegion(ent, 23, { preferKind: 'mundane' });
+  assert.ok(w17 && w23);
+  assert.equal(w23.sideAName, 'Wayrest Vanguard');
+  assert.equal(w23.sideBName, 'Daggerfall Vanguard');
+  assert.deepEqual(w23.regions, [23, 17]);
+
+  // Setting stance to Side A (Daggerfall) in #17 flips to Side B (Daggerfall) in #23
+  setWarPlayerStance(ent, w17, 'sideA');
+  assert.equal(getActiveWarForRegion(ent, 23, { preferKind: 'mundane' }).playerStance, 'sideB');
+  setWarPlayerStance(ent, w17, 'watch');
+  assert.equal(getActiveWarForRegion(ent, 23, { preferKind: 'mundane' }).playerStance, 'watch');
+  setWarPlayerStance(ent, w17, null);
+  assert.equal(getActiveWarForRegion(ent, 23, { preferKind: 'mundane' }).playerStance, null);
+
+  // 2. Live mid-skirmish: Side A -> Observer resets teams; Reset/Ask re-opens ChoiceWindow; Victory calms surviving allies
+  let choiceOpenCount = 0;
+  const extPool = [];
+  const host = createLivingSceneHost({
+    feet: () => [0, 0, 0],
+    ready: () => true,
+    clock: () => 1200,
+    regionIndex: () => 17,
+    inLocationRect: () => false,
+    onRoad: () => true,
+    afloat: () => false,
+    isAutopiloting: () => false,
+    heightAt: () => 0,
+    playerEntity: () => ent,
+    spawn: async (mob, pos, opts) => {
+      const rec = {
+        mobileType: mob,
+        dead: false,
+        feet: [...pos],
+        entity: { team: opts.team, mobileTeam: opts.team, health: 40, maxHealth: 40 },
+        ai: { isHostile: true, detected: true, target: null, feet: [...pos], yaw: opts.yaw ?? 0, height: 1.8, sightRadius: 30, wouldBeSpawned: true, collider: { raycast: () => null } },
+      };
+      extPool.push(rec);
+      return rec;
+    },
+    remove: (r) => { const idx = extPool.indexOf(r); if (idx >= 0) extPool.splice(idx, 1); },
+    inPool: (r) => extPool.includes(r),
+    say: () => {},
+    openChoice: () => { choiceOpenCount++; },
+  });
+
+  host.spawnWarSkirmishNow({ force: true, preferKind: 'mundane' });
+  await new Promise((r) => setTimeout(r, 15));
+  const sideA = extPool.filter((f) => f.livingRole === 'skirmish_guard');
+  const sideB = extPool.filter((f) => f.livingRole === 'skirmish_rebel');
+
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'sideA');
+  host.frame(1.1);
+  assert.equal(sideA[0].entity.team, 'PlayerAlly');
+
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'watch');
+  host.frame(1.1);
+  assert.equal(sideA[0].entity.team, 'WarSideA');
+  assert.equal(sideB[0].entity.team, 'WarSideB');
+  assert.equal(sideA[0].allied, false);
+
+  const prevChoices = choiceOpenCount;
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), null);
+  host.frame(1.1);
+  assert.equal(choiceOpenCount, prevChoices + 1, 'Resetting stance mid-skirmish re-opens ChoiceWindow on active clash');
+
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'sideA');
+  host.frame(1.1);
+  for (const r of sideB) r.dead = true;
+  host.frame(1.1);
+  assert.equal(sideA[0].ai.isHostile, false, 'Surviving allies calm down after skirmish victory');
+  assert.equal(sideA[0].entity.skirmishForceInfighting, false);
+
+  // 3. Siege attackers & defenders have infighting + defender friendly-fire protection and calm on victory
+  const prevApo = playerEntity.apotheosis;
+  const prevReg = playerEntity.currentRegionIndex;
+  try {
+    playerEntity.currentRegionIndex = 17;
+    playerEntity.apotheosis = {
+      ascended: true,
+      stage: 'ascended',
+      source: 'mantella',
+      portfolio: 'war',
+      ascendedAtMinutes: 1300,
+      faith: 1500,
+      cultFaithBonus: 500,
+    };
+    ensurePantheonState(playerEntity, { nowMinutes: 1300 });
+    ensureCultState(playerEntity);
+    const sSite = foundPlayerUndergroundSanctuary(playerEntity, { mapId: 9012, regionIndex: 17, locationName: 'TestTown', nowMinutes: 1300, force: true }).site;
+    startCultSiteSiege(playerEntity, sSite.siteKey, 'mehrunes_dagon', { nowMinutes: 1310, force: true });
+    const siegePool = [];
+    const cultHost = createApotheosisCultHost({
+      modes: () => ({ mode: 'exterior' }),
+      built: () => new Map([['0,0', { key: '0,0', homeTown: 9012, px: 0, py: 0, frames: new Map() }]]),
+      state: { pixelTranslation: () => [0, 0, 0] },
+      exteriorFoes: () => ({
+        foes: siegePool,
+        removeFoe: (f) => { const idx = siegePool.indexOf(f); if (idx >= 0) siegePool.splice(idx, 1); },
+      }),
+      spawnExteriorFoe: async (mob, pos, opts) => {
+        const rec = {
+          mobileType: mob,
+          dead: false,
+          feet: [...pos],
+          entity: { team: opts.team, mobileTeam: opts.team, health: 50, maxHealth: 50 },
+          ai: { isHostile: true, detected: true, target: null, feet: [...pos], yaw: opts.yaw ?? 0, height: 1.8, sightRadius: 30, wouldBeSpawned: true },
+        };
+        siegePool.push(rec);
+        return rec;
+      },
+      worldMinutes: () => 1320,
+      groundAt: () => 0,
+      collider: () => ({ raycast: () => null }),
+      townTalk: { say: () => {} },
+    });
+
+    assert.equal(cultHost.spawnCultSiegeBattle(sSite.siteKey), true);
+    await new Promise((r) => setTimeout(r, 15));
+    const atks = siegePool.filter((f) => f.livingRole === 'cult_siege_attacker');
+    const defs = siegePool.filter((f) => f.livingRole === 'cult_siege_defender');
+    assert.ok(atks.length >= 2 && defs.length >= 1);
+    assert.equal(atks[0].entity.skirmishForceInfighting, true);
+    assert.equal(defs[0].entity.skirmishForceInfighting, true);
+    assert.equal(defs[0].entity.skirmishNeutralToPlayer, true);
+
+    cultHost.frame();
+    for (const a of atks) a.dead = true;
+    cultHost.frame();
+    assert.equal(sSite.siege, null, 'Siege resolves as victory when all attackers fall');
+    assert.equal(defs[0].ai.isHostile, false, 'Surviving garrison calms down after siege victory');
+    assert.equal(defs[0].entity.skirmishForceInfighting, false);
+  } finally {
+    playerEntity.apotheosis = prevApo;
+    playerEntity.currentRegionIndex = prevReg;
+  }
+});

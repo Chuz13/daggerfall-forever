@@ -1318,6 +1318,7 @@ export function createApotheosisCultHost(deps = {}) {
           foe.entity.name = `${siege.attackerGodName ?? siege.attackerGodId} Besieger`;
           foe.entity.team = 'PlayerEnemy';
           foe.entity.mobileTeam = 'PlayerEnemy';
+          foe.entity.skirmishForceInfighting = true;
         }
         if (foe.ai) {
           foe.ai.isHostile = true;
@@ -1359,6 +1360,8 @@ export function createApotheosisCultHost(deps = {}) {
           ally.entity.name = `${ownerName}'s Temple Garrison`;
           ally.entity.team = 'PlayerAlly';
           ally.entity.mobileTeam = 'PlayerAlly';
+          ally.entity.skirmishNeutralToPlayer = true;
+          ally.entity.skirmishForceInfighting = true;
           if (site.branch === 'militant' && Number.isFinite(ally.entity.maxHealth)) {
             const boosted = Math.round(ally.entity.maxHealth * 1.35);
             ally.entity.maxHealth = boosted;
@@ -1479,9 +1482,15 @@ export function createApotheosisCultHost(deps = {}) {
       const liveDef = battle.defenders.filter((f) => f && !f.dead && (!extList || extList.includes(f)));
 
       for (const d of liveDef) {
+        if (d.entity) {
+          d.entity.team = 'PlayerAlly';
+          d.entity.mobileTeam = 'PlayerAlly';
+          d.entity.skirmishNeutralToPlayer = true;
+          d.entity.skirmishForceInfighting = liveAtk.length > 0;
+        }
         if (d.ai) {
           d.ai.isHostile = liveAtk.length > 0;
-          if (!d.ai.target || d.ai.target.dead || d.ai.target === playerEntity) {
+          if (!d.ai.target || d.ai.target.dead || d.ai.target === playerEntity || d.ai.target.isPlayer) {
             d.ai.target = liveAtk[0] ?? null;
             d.ai.targetSenses = d.ai.target;
           }
@@ -1497,6 +1506,22 @@ export function createApotheosisCultHost(deps = {}) {
       if (site.siege.remainingAttackers <= 0) {
         battle.resolved = true;
         _activeSiegeBattles.delete(sk);
+        for (const d of battle.defenders) {
+          if (!d || d.dead) continue;
+          if (d.entity) {
+            d.entity.team = 'PlayerAlly';
+            d.entity.mobileTeam = 'PlayerAlly';
+            d.entity.skirmishNeutralToPlayer = true;
+            d.entity.skirmishForceInfighting = false;
+          }
+          if (d.ai) {
+            d.ai.isHostile = false;
+            d.ai.detected = false;
+            d.ai.target = null;
+            d.ai.secondaryTarget = null;
+            d.ai.targetSenses = null;
+          }
+        }
         const nowMin = Math.floor(worldMinutes?.() ?? 0);
         const res = resolveCultSiegeOutcome(playerEntity, sk, 'victory', { nowMinutes: nowMin });
         if (res.ok) townTalk?.say?.(res.message, 6);

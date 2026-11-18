@@ -1026,7 +1026,8 @@ function renderWarSkirmishControls(container, entity, warDesc, nowMin, repaint, 
   container.append(pillLine);
 
   if (includeRegions && Array.isArray(warDesc.regions) && warDesc.regions.length > 0) {
-    renderWarContestedRegionsRow(container, entity, warDesc.regions, warDesc.war?.regionPacified ?? null, repaint);
+    const pacMap = warDesc.war?.regionPacified ?? ensureCultState(entity)?.mundaneWarPacified ?? null;
+    renderWarContestedRegionsRow(container, entity, warDesc.regions, pacMap, repaint);
   }
 
   const stanceBtns = el('div', 'apo-acts');
@@ -1457,8 +1458,12 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
     geoSetRow.append(bA, bB);
     inspectorEl.append(geoSetRow);
 
-    const regWar = getActiveWarForRegion(entity, info.regionIndex);
-    if (regWar) {
+    const divWar = getActiveWarForRegion(entity, info.regionIndex, { preferKind: 'divine' });
+    const munWar = getActiveWarForRegion(entity, info.regionIndex, { preferKind: 'mundane' });
+    const activeWars = [];
+    if (divWar?.warKind === 'divine') activeWars.push(divWar);
+    if (munWar?.warKind === 'mundane') activeWars.push(munWar);
+    for (const regWar of activeWars) {
       const warBox = el('div', 'apo-box');
       warBox.style.marginTop = '10px';
       const warTitle = regWar.warKind === 'divine'

@@ -3509,10 +3509,17 @@ async function handleApotheosisCommand(args = []) {
     }
     if (act === 'skirmish') {
       if (!sceneCtx?.spawnWarSkirmish) return 'War skirmish runtime unavailable here.';
-      const rawKind = args[2] ? String(args[2]).toLowerCase() : null;
-      const preferKind = rawKind === 'mundane' || rawKind === 'divine' ? rawKind : null;
+      const toks = [args[2], args[3]].filter(Boolean).map((x) => String(x).toLowerCase());
+      const preferKind = toks.find((x) => x === 'mundane' || x === 'divine') ?? null;
+      if (toks.includes('ask') || toks.includes('reset')) {
+        const curWar = getActiveWarForRegion(playerEntity, curReg, { preferKind });
+        if (curWar) setWarPlayerStance(playerEntity, curWar, null);
+      }
       const res = sceneCtx.spawnWarSkirmish({ force: true, preferKind });
-      return res?.ok ? `Spawned Wilderness War Skirmish (${res.warDesc?.warKind ?? 'war'}: ${res.warDesc?.sideAName ?? 'A'} vs ${res.warDesc?.sideBName ?? 'B'}).` : (res?.reason ?? 'Could not spawn war skirmish.');
+      const stStr = res?.warDesc?.playerStance ?? 'undeclared';
+      return res?.ok
+        ? `Spawned Wilderness War Skirmish (${res.warDesc?.warKind ?? 'war'}: ${res.warDesc?.sideAName ?? 'A'} vs ${res.warDesc?.sideBName ?? 'B'}, stance=${stStr}).`
+        : (res?.reason ?? 'Could not spawn war skirmish.');
     }
     if (act === 'support') {
       const wars = getActiveGodWars(playerEntity);

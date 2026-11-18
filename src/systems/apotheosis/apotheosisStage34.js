@@ -812,16 +812,21 @@ function findExplicitRivalWarRegions(entity, reg) {
   return out;
 }
 
+function getDivineWarRegionSet(entity) {
+  const divineRegs = new Set();
+  const wars = entity?.apotheosis?.pantheon?.activeGodWars;
+  if (Array.isArray(wars)) {
+    for (const w of wars) {
+      for (const r of w?.regions ?? []) divineRegs.add(r);
+    }
+  }
+  return divineRegs;
+}
+
 function findRivalWarRegions(entity, reg) {
   const out = findExplicitRivalWarRegions(entity, reg);
   if (out.length === 0) {
-    const divineRegs = new Set();
-    const wars = entity?.apotheosis?.pantheon?.activeGodWars;
-    if (Array.isArray(wars)) {
-      for (const w of wars) {
-        for (const r of w?.regions ?? []) divineRegs.add(r);
-      }
-    }
+    const divineRegs = getDivineWarRegionSet(entity);
     const canon = resolveCanonicalRivalRegion(reg);
     const canonFlag = conditionFlag(entity?.regionConditions, canon, REGION_FLAGS.WarOngoing)
       || conditionFlag(entity?.regionConditions, canon, REGION_FLAGS.WarBeginning);
@@ -842,19 +847,38 @@ function findRivalWarRegions(entity, reg) {
   return out;
 }
 
+function findIncomingMundaneRivals(entity, reg) {
+  const out = [];
+  const divineRegs = getDivineWarRegionSet(entity);
+  for (let r = 0; r < TAMRIEL_REGION_COUNT; r++) {
+    if (r === reg || divineRegs.has(r)) continue;
+    const st = getRegionState(r);
+    const fl = conditionFlag(entity?.regionConditions, r, REGION_FLAGS.WarOngoing)
+      || conditionFlag(entity?.regionConditions, r, REGION_FLAGS.WarBeginning);
+    if (!fl && st?.crisis !== CRISIS_TYPE.WAR) continue;
+    const rivals = findRivalWarRegions(entity, r);
+    const primary = rivals.length > 0 ? rivals[0] : resolveCanonicalRivalRegion(r);
+    if (primary === reg) out.push(r);
+  }
+  return out;
+}
+
 function buildMundaneWarDescriptor(entity, reg, regName) {
   const regState = getRegionState(reg);
   const flagWar = conditionFlag(entity?.regionConditions, reg, REGION_FLAGS.WarOngoing)
     || conditionFlag(entity?.regionConditions, reg, REGION_FLAGS.WarBeginning);
   const explicitRivals = findExplicitRivalWarRegions(entity, reg);
-  const isMundaneWar = Boolean(flagWar || regState?.crisis === CRISIS_TYPE.WAR || explicitRivals.length > 0);
+  const incomingRivals = (flagWar || regState?.crisis === CRISIS_TYPE.WAR || explicitRivals.length > 0)
+    ? []
+    : findIncomingMundaneRivals(entity, reg);
+  const isMundaneWar = Boolean(flagWar || regState?.crisis === CRISIS_TYPE.WAR || explicitRivals.length > 0 || incomingRivals.length > 0);
   if (!isMundaneWar) {
     const cult = entity?.apotheosis?.cult;
     if (cult?.mundaneWarStances) delete cult.mundaneWarStances[reg];
     if (cult?.mundaneWarPacified) delete cult.mundaneWarPacified[reg];
     return null;
   }
-  const rivalRegs = findRivalWarRegions(entity, reg);
+  const rivalRegs = incomingRivals.length > 0 ? [...incomingRivals] : findRivalWarRegions(entity, reg);
   if (rivalRegs.length === 0) {
     rivalRegs.push(resolveCanonicalRivalRegion(reg));
   }
@@ -923,10 +947,19 @@ export function setWarPlayerStance(entity, warDesc, stance) {
   if (!cult.mundaneWarStances || typeof cult.mundaneWarStances !== 'object') {
     cult.mundaneWarStances = {};
   }
-  if (nextStance == null) {
-    delete cult.mundaneWarStances[warDesc.regIdx];
-  } else {
-    cult.mundaneWarStances[warDesc.regIdx] = nextStance;
+  const writeRegStance = (rIdx, st) => {
+    if (!Number.isInteger(rIdx)) return;
+    if (st == null) delete cult.mundaneWarStances[rIdx];
+    else cult.mundaneWarStances[rIdx] = st;
+  };
+  writeRegStance(warDesc.regIdx, nextStance);
+  const flipped = nextStance === 'sideA' ? 'sideB' : nextStance === 'sideB' ? 'sideA' : nextStance;
+  if (Array.isArray(warDesc.regions)) {
+    for (const r of warDesc.regions) {
+      if (Number.isInteger(r) && r !== warDesc.regIdx) {
+        writeRegStance(r, flipped);
+      }
+    }
   }
   return true;
 }
@@ -1098,8 +1131,7 @@ export function resolveWarSkirmishPacify(
         }
       } else {
         const cult = ensureCultState(entity);
-        if (cult?.mundaneWarPacified) delete cult.mundaneWarPacified[reg];
-        if (cult?.mundaneWarStances) delete cult.mundaneWarStances[reg];
+        const affected = new Set([reg, ...(Array.isArray(warDesc.regions) ? warDesc.regions : [])]);
         const regWars = entity?.apotheosis?.pantheon?.regionWars;
         if (regWars && typeof regWars === 'object') {
           for (const [pk, active] of Object.entries(regWars)) {
@@ -1111,10 +1143,16 @@ export function resolveWarSkirmishPacify(
               regWars[pk] = false;
               const otherReg = rA === reg ? rB : rA;
               if (Number.isInteger(otherReg) && findRivalWarRegions(entity, otherReg).length === 0) {
-                setSingleRegionWarFlag(entity, otherReg, false);
+                affected.add(otherReg);
               }
             }
           }
+        }
+        for (const r of affected) {
+          if (!Number.isInteger(r)) continue;
+          if (cult?.mundaneWarPacified) delete cult.mundaneWarPacified[r];
+          if (cult?.mundaneWarStances) delete cult.mundaneWarStances[r];
+          setSingleRegionWarFlag(entity, r, false);
         }
       }
       if (isAscendedGod(entity)) {
