@@ -17,6 +17,7 @@ import { doorWorldPosition, doorWorldNormal } from '../player/enterExit.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { exteriorOpenSpellFor, consumeDoorSpell } from './shared.js';
 import { playerEntity } from '../characters/playerEntity.js';
+import { freeLodgedFeet } from '../characters/foeSpacing.js';
 import {
   APOTHEOSIS_PORTFOLIOS,
   getFaithMax,
@@ -1159,7 +1160,13 @@ export function createApotheosisCultHost(deps = {}) {
   function resolveSiegeAnchor(site) {
     if (site.kind === 'sanctuary') {
       const h = _hatches.get(site.siteKey);
-      if (h?.worldPos) return [...h.worldPos];
+      if (h?.worldPos) {
+        const yaw = Number(h.yaw) || 0;
+        return {
+          pos: [...h.worldPos],
+          normal: [Math.cos(yaw), Math.sin(yaw)],
+        };
+      }
     }
     const pixels = built?.();
     if (pixels?.size) {
@@ -1178,10 +1185,16 @@ export function createApotheosisCultHost(deps = {}) {
         if (doorRec?.door) {
           const dp = doorWorldPosition(doorRec.door);
           const dn = doorWorldNormal(doorRec.door);
-          const wx = dp[0] + dn[0] * 3.0;
-          const wz = dp[2] + dn[2] * 3.0;
+          const len = Math.hypot(dn[0], dn[2]) || 1;
+          const nx = dn[0] / len;
+          const nz = dn[2] / len;
+          const wx = dp[0] + nx * 2.5;
+          const wz = dp[2] + nz * 2.5;
           const wy = typeof groundAt === 'function' ? groundAt(wx, wz) : dp[1];
-          return [wx, Number.isFinite(wy) ? wy : dp[1], wz];
+          return {
+            pos: [wx, Number.isFinite(wy) ? wy : dp[1], wz],
+            normal: [nx, nz],
+          };
         }
         const tFr = activePixel.homeFrames?.get(site.buildingKey);
         if (tFr?.box && tFr.box.length >= 6) {
@@ -1190,12 +1203,15 @@ export function createApotheosisCultHost(deps = {}) {
           const wx = pxT[0] + (tFr.box[0] + tFr.box[3]) * 0.5;
           const wz = pxT[2] + tFr.box[5] + 3.0;
           const wy = typeof groundAt === 'function' ? groundAt(wx, wz) : pxT[1];
-          return [wx, Number.isFinite(wy) ? wy : 0, wz];
+          return {
+            pos: [wx, Number.isFinite(wy) ? wy : 0, wz],
+            normal: [0, 1],
+          };
         }
       }
     }
     const pPos = typeof playerPos === 'function' ? playerPos() : [0, 0, 0];
-    return [pPos[0] + 5, pPos[1] || 0, pPos[2] + 5];
+    return { pos: [pPos[0], pPos[1] || 0, pPos[2]], normal: [0, 1] };
   }
 
   function pickSiegeAttackerMob(godId, idx) {
@@ -1213,6 +1229,17 @@ export function createApotheosisCultHost(deps = {}) {
     return pool[idx % pool.length];
   }
 
+  function spawnSiegePoint([ax, ay, az], [nx, nz], dist, spreadRad) {
+    const baseAng = Math.atan2(nx, nz) + spreadRad;
+    const fx = ax + Math.sin(baseAng) * dist;
+    const fz = az + Math.cos(baseAng) * dist;
+    const fy = typeof groundAt === 'function' ? groundAt(fx, fz) : ay;
+    const pt = [fx, Number.isFinite(fy) ? fy : ay, fz];
+    const col = typeof collider === 'function' ? collider() : collider;
+    if (col) freeLodgedFeet(col, pt);
+    return pt;
+  }
+
   function spawnCultSiegeBattle(siteKey) {
     if (typeof spawnExteriorFoe !== 'function') return false;
     if ((modes?.()?.mode ?? 'exterior') !== 'exterior') return false;
@@ -1224,11 +1251,22 @@ export function createApotheosisCultHost(deps = {}) {
     }
 
     const siege = site.siege;
-    const anchor = resolveSiegeAnchor(site);
-    const [ax, ay, az] = anchor;
-    const atkCount = Math.max(2, Number(siege.attackerCount) || 3);
+    const anchorInfo = resolveSiegeAnchor(site);
+    const [ax, ay, az] = anchorInfo.pos;
+    const [nx, nz] = anchorInfo.normal;
+    if (siege.remainingAttackers == null) {
+      siege.remainingAttackers = Math.max(2, Number(siege.attackerCount) || 3);
+    }
+    const atkCount = Math.max(1, Number(siege.remainingAttackers) || 0);
     const defCount = Math.max(1, Number(siege.defenderCount) || 2);
-    const rec = { siteKey: site.siteKey, attackers: [], defenders: [], pending: atkCount, resolved: false };
+    const rec = {
+      siteKey: site.siteKey,
+      attackers: [],
+      defenders: [],
+      countedDead: new Set(),
+      pending: atkCount,
+      resolved: false,
+    };
     _activeSiegeBattles.set(site.siteKey, rec);
     siege.spawned = true;
 
@@ -1236,14 +1274,13 @@ export function createApotheosisCultHost(deps = {}) {
     const ownerName = playerEntity?.name || t('apotheosis.cult.defaultAscendedName', 'Ascended');
 
     for (let i = 0; i < atkCount; i++) {
-      const ang = (i * Math.PI * 2) / atkCount + 0.35;
-      const dist = 7.5 + (i % 2) * 2.0;
-      const fx = ax + Math.cos(ang) * dist;
-      const fz = az + Math.sin(ang) * dist;
-      const fy = typeof groundAt === 'function' ? groundAt(fx, fz) : ay;
+      const tNorm = atkCount === 1 ? 0 : (i / (atkCount - 1)) - 0.5;
+      const spread = tNorm * Math.PI * 0.72;
+      const dist = 6.5 + (i % 2) * 2.0;
+      const pos = spawnSiegePoint([ax, ay, az], [nx, nz], dist, spread);
       const mob = pickSiegeAttackerMob(siege.attackerGodId, i);
-      Promise.resolve(spawnExteriorFoe(mob, [fx, Number.isFinite(fy) ? fy : ay, fz], {
-        yaw: Math.atan2(ax - fx, az - fz),
+      Promise.resolve(spawnExteriorFoe(mob, pos, {
+        yaw: Math.atan2(ax - pos[0], az - pos[2]),
         level: pLevel + 2,
         allied: false,
         team: 'PlayerEnemy',
@@ -1274,14 +1311,13 @@ export function createApotheosisCultHost(deps = {}) {
     }
 
     for (let i = 0; i < defCount; i++) {
-      const ang = (i * Math.PI * 2) / defCount + 0.1;
-      const dist = 3.0 + (i % 2) * 1.2;
-      const dx = ax + Math.cos(ang) * dist;
-      const dz = az + Math.sin(ang) * dist;
-      const dy = typeof groundAt === 'function' ? groundAt(dx, dz) : ay;
+      const tNorm = defCount === 1 ? 0 : (i / (defCount - 1)) - 0.5;
+      const spread = tNorm * Math.PI * 0.6;
+      const dist = 2.6 + (i % 2) * 0.9;
+      const pos = spawnSiegePoint([ax, ay, az], [nx, nz], dist, spread);
       const mob = pickSiegeDefenderMob(i);
-      Promise.resolve(spawnExteriorFoe(mob, [dx, Number.isFinite(dy) ? dy : ay, dz], {
-        yaw: Math.atan2(dx - ax, dz - az),
+      Promise.resolve(spawnExteriorFoe(mob, pos, {
+        yaw: Math.atan2(nx, nz),
         level: pLevel + (site.branch === 'militant' ? 2 : 0),
         allied: true,
         team: 'PlayerAlly',
@@ -1335,13 +1371,41 @@ export function createApotheosisCultHost(deps = {}) {
 
     for (const [sk, battle] of _activeSiegeBattles) {
       if (battle.resolved) continue;
+      const site = getCultSite(playerEntity, sk);
+      if (!site || !site.siege) {
+        battle.resolved = true;
+        _activeSiegeBattles.delete(sk);
+        continue;
+      }
+
+      // Count genuine attacker deaths only; leaving town / distance culling must NEVER grant a win!
+      for (const a of battle.attackers) {
+        if (a?.dead && !battle.countedDead.has(a)) {
+          battle.countedDead.add(a);
+          const total = Math.max(1, Number(site.siege.attackerCount) || battle.attackers.length);
+          site.siege.remainingAttackers = Math.max(0, Number(site.siege.remainingAttackers ?? total) - 1);
+          const left = site.siege.remainingAttackers;
+          if (left > 0) {
+            const slain = Math.max(1, total - left);
+            townTalk?.say?.(t(
+              'apotheosis.siege.killProgress',
+              'Siege of {site}: {slain}/{total} besiegers slain ({left} left)!',
+              { site: site.name, slain, total, left },
+            ), 4);
+          }
+        }
+      }
+
       const liveAtk = battle.attackers.filter((f) => f && !f.dead && (!extList || extList.includes(f)));
       const liveDef = battle.defenders.filter((f) => f && !f.dead && (!extList || extList.includes(f)));
 
       for (const d of liveDef) {
-        if (d.ai && (!d.ai.target || d.ai.target.dead || d.ai.target === playerEntity)) {
-          d.ai.target = liveAtk[0] ?? null;
-          d.ai.targetSenses = d.ai.target;
+        if (d.ai) {
+          d.ai.isHostile = liveAtk.length > 0;
+          if (!d.ai.target || d.ai.target.dead || d.ai.target === playerEntity) {
+            d.ai.target = liveAtk[0] ?? null;
+            d.ai.targetSenses = d.ai.target;
+          }
         }
       }
       for (const a of liveAtk) {
@@ -1351,12 +1415,16 @@ export function createApotheosisCultHost(deps = {}) {
         }
       }
 
-      if (battle.pending <= 0 && battle.attackers.length > 0 && liveAtk.length === 0) {
+      if (site.siege.remainingAttackers <= 0) {
         battle.resolved = true;
         _activeSiegeBattles.delete(sk);
         const nowMin = Math.floor(worldMinutes?.() ?? 0);
         const res = resolveCultSiegeOutcome(playerEntity, sk, 'victory', { nowMinutes: nowMin });
         if (res.ok) townTalk?.say?.(res.message, 6);
+      } else if (battle.pending <= 0 && battle.attackers.length > 0 && liveAtk.length === 0) {
+        // Attackers were culled when player left the settlement — allow respawning remaining attackers on return
+        _activeSiegeBattles.delete(sk);
+        site.siege.spawned = false;
       }
     }
   }
@@ -1384,8 +1452,15 @@ export function createApotheosisCultHost(deps = {}) {
       await teleToSiteCity(site);
     }
     frame();
-    const tpKind = site.kind === 'temple' ? 'temple' : (site.isPlayerFounded ? 'player' : 'daedra');
-    teleportNearCultTarget(tpKind);
+    if (typeof placeFeet === 'function') {
+      const anchor = resolveSiegeAnchor(site);
+      const lookYaw = Math.atan2(anchor.normal[0], anchor.normal[1]);
+      const playerSpawnPt = spawnSiegePoint(anchor.pos, anchor.normal, 1.0, 0);
+      placeFeet([playerSpawnPt[0], playerSpawnPt[1] + 0.15, playerSpawnPt[2]], lookYaw);
+    } else {
+      const tpKind = site.kind === 'temple' ? 'temple' : (site.isPlayerFounded ? 'player' : 'daedra');
+      teleportNearCultTarget(tpKind);
+    }
     if (_activeSiegeBattles.get(site.siteKey)?.resolved === false) {
       _activeSiegeBattles.delete(site.siteKey);
     }

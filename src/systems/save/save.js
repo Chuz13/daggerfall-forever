@@ -474,6 +474,12 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
       ...(entity.apotheosis.pantheon !== undefined
         ? { pantheon: entity.apotheosis.pantheon && typeof entity.apotheosis.pantheon === 'object' ? structuredClone(entity.apotheosis.pantheon) : null }
         : {}),
+      ...(entity.apotheosis.cult !== undefined
+        ? { cult: entity.apotheosis.cult && typeof entity.apotheosis.cult === 'object' ? structuredClone(entity.apotheosis.cult) : null }
+        : {}),
+      ...(entity.apotheosis.roadBlessing !== undefined
+        ? { roadBlessing: entity.apotheosis.roadBlessing && typeof entity.apotheosis.roadBlessing === 'object' ? structuredClone(entity.apotheosis.roadBlessing) : null }
+        : {}),
     }
     : null;
   // S1: a STOCK spell travels as its SPELLS.STD index (the compact
@@ -995,6 +1001,12 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
       sacrificedArtifacts: Array.isArray(snap.apotheosis.sacrificedArtifacts) ? [...snap.apotheosis.sacrificedArtifacts] : [],
       ...(snap.apotheosis.pantheon !== undefined
         ? { pantheon: snap.apotheosis.pantheon && typeof snap.apotheosis.pantheon === 'object' ? structuredClone(snap.apotheosis.pantheon) : null }
+        : {}),
+      ...(snap.apotheosis.cult !== undefined
+        ? { cult: snap.apotheosis.cult && typeof snap.apotheosis.cult === 'object' ? structuredClone(snap.apotheosis.cult) : null }
+        : {}),
+      ...(snap.apotheosis.roadBlessing !== undefined
+        ? { roadBlessing: snap.apotheosis.roadBlessing && typeof snap.apotheosis.roadBlessing === 'object' ? structuredClone(snap.apotheosis.roadBlessing) : null }
         : {}),
     }
     : null;

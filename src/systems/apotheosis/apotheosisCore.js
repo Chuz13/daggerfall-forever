@@ -263,6 +263,7 @@ export {
   WAR_SKIRMISH_PACIFY_GOAL,
   MAX_CONCURRENT_GOD_WARS,
   getApotheosisSiegeConfig,
+  getCultSiegePreview,
   getActiveCultSieges,
   startCultSiteSiege,
   resolveCultSiegeOutcome,

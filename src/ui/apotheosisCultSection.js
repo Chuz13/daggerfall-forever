@@ -54,7 +54,11 @@ import {
   dismissCultPetition,
   syncEdictPetitionIfActive,
 } from '../systems/apotheosis/apotheosisStage33.js';
-import { getActiveCultSieges } from '../systems/apotheosis/apotheosisStage34.js';
+import {
+  getActiveCultSieges,
+  getCultSiegePreview,
+  resolveCultSiegeOutcome,
+} from '../systems/apotheosis/apotheosisStage34.js';
 import { exteriorOpenSpellFor, consumeDoorSpell } from '../scenes/shared.js';
 
 let cultScopeFilter = 'city';
@@ -368,7 +372,7 @@ function renderSpecializationModal(modalRoot, entity, nowMin, repaint, setFeedba
   modalRoot.append(backdrop);
 }
 
-function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setFeedback) {
+function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setFeedback, closePause = null) {
   const regName = getLocalizedRegionName(site.regionIndex, (i) => REGION_NAMES[i] ?? `Region ${i}`);
   const owned = site.ownerId === 'player';
   const ownerGod = owned ? null : getPantheonDeity(site.ownerId);
@@ -435,16 +439,31 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
   const acts = uiEl('div', 'apo-acts');
   if (owned && site.siege) {
     const hrsLeft = Math.max(1, Math.ceil((Number(site.siege.expiresAtMinutes ?? nowMin) - nowMin) / 60));
+    const prev = getCultSiegePreview(entity, site);
     card.append(uiEl('div', 'apo-card-desc', t(
-      'apotheosis.siege.cardDesc',
-      'Besieged by {god} ({hrs}h remaining · {atk} Attackers vs {def} Garrison)!',
+      'apotheosis.siege.cardDescDetailed',
+      'Besieged by {god} ({hrs}h remaining · {left}/{atk} Attackers left vs {def} Garrison)!',
       {
-        god: site.siege.attackerGodName ?? site.siege.attackerGodId,
+        god: prev?.attackerName ?? site.siege.attackerGodId,
         hrs: hrsLeft,
-        atk: site.siege.attackerCount ?? 3,
-        def: site.siege.defenderCount ?? 2,
+        left: prev?.remainingAttackers ?? site.siege.attackerCount ?? 3,
+        atk: prev?.attackerCount ?? site.siege.attackerCount ?? 3,
+        def: prev?.defenderCount ?? site.siege.defenderCount ?? 2,
       },
     )));
+    if (prev) {
+      card.append(uiEl('div', 'apo-card-prog', t(
+        'apotheosis.siege.stakesLine',
+        'Victory: +{faith} Faith · +{gold}g · +{inf}% Inf | Fall/Sacrifice: Reverts to {god} Tier 1 (-{loss}% Inf)',
+        {
+          faith: prev.victoryFaith,
+          gold: prev.victoryGold,
+          inf: prev.victoryInfluence,
+          god: prev.attackerName,
+          loss: prev.lossInfluence,
+        },
+      )));
+    }
     const curCity = sceneCtx?.getCultCity?.() ?? null;
     const inSameCity = curCity && (Number(curCity.mapId) >>> 0) === (Number(site.mapId) >>> 0);
     const tpDefCost = inSameCity ? 0 : CULT_TELEPORT_SANCTUARY_FAITH_COST;
@@ -457,20 +476,34 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
       ? t('apotheosis.siege.btnDefendCost', 'Teleport to Defend Siege ({cost} Faith)', { cost: tpDefCost })
       : t('apotheosis.siege.btnDefendFree', 'Defend Siege Here (Free)');
     acts.append(makeActionBtn(defLabel, {
-      tone: 'danger',
+      tone: 'primary',
       blockedReason: defBlocked,
       setFeedback,
       onRun: () => {
         Promise.resolve(sceneCtx.defendCultSiege(site.siteKey)).then((r) => {
           if (r && !r.ok) {
             setFeedback(r.reason, true);
+            repaint();
           } else {
             setFeedback(r?.message || t('apotheosis.siege.deployedHud', 'Arrived at {site} to break the siege!', { site: site.name }), false);
+            if (closePause) closePause();
+            else repaint();
           }
-          repaint();
         });
       },
     }));
+    acts.append(makeActionBtn(
+      t('apotheosis.siege.btnSacrifice', 'Sacrifice Sanctum (-{loss}% Inf)', { loss: prev?.lossInfluence ?? 3 }),
+      {
+        tone: 'danger',
+        setFeedback,
+        onRun: () => {
+          const r = resolveCultSiegeOutcome(entity, site.siteKey, 'failed', { nowMinutes: nowMin });
+          setFeedback(r.ok ? r.message : r.reason, !r.ok);
+          repaint();
+        },
+      },
+    ));
   }
   if (site.kind === 'sanctuary' && !site.unlocked && !owned) {
     card.append(uiEl('div', 'apo-card-desc', t('apotheosis.cult.hatchBreakInWarn', 'Warning: Breaking in without Seal Key or Pact/Alliance triggers Holy War (-35 Rel)!')));
@@ -565,6 +598,7 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
             }), false);
           }
           sceneCtx.enterCultSanctuary(site);
+          if (closePause) closePause();
         },
       }));
     } else {
@@ -581,6 +615,7 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
           setFeedback,
           onRun: () => {
             sceneCtx.enterCultSanctuary(site);
+          if (closePause) closePause();
           },
         },
       ));
@@ -686,7 +721,7 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
   container.append(card);
 }
 
-function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repaint, setFeedback) {
+function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repaint, setFeedback, closePause = null) {
   const cityInfo = getAurbisRuntime().getSceneContext?.()?.getCultCity?.() ?? null;
   const reg = resolveLiveRegionIndex(entity);
   const cityMapId = cityInfo?.mapId || (reg + 1000);
@@ -738,14 +773,28 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
           ? t('apotheosis.siege.btnDefendCost', 'Teleport to Defend Siege ({cost} Faith)', { cost })
           : t('apotheosis.siege.btnDefendFree', 'Defend Siege Here (Free)'),
         {
-          tone: 'danger',
+          tone: 'primary',
           blockedReason: blocked,
           setFeedback,
           onRun: () => {
             Promise.resolve(sceneCtx.defendCultSiege(s.siteKey)).then((r) => {
               setFeedback(r?.ok ? r.message : r?.reason, r && !r.ok);
-              repaint();
+              if (r?.ok && closePause) closePause();
+              else repaint();
             });
+          },
+        },
+      ));
+      const pRow = getCultSiegePreview(entity, s);
+      row.append(makeActionBtn(
+        t('apotheosis.siege.btnSacrifice', 'Sacrifice Sanctum (-{loss}% Inf)', { loss: pRow?.lossInfluence ?? 3 }),
+        {
+          tone: 'danger',
+          setFeedback,
+          onRun: () => {
+            const res = resolveCultSiegeOutcome(entity, s.siteKey, 'failed', { nowMinutes: nowMin });
+            setFeedback(res.ok ? res.message : res.reason, !res.ok);
+            repaint();
           },
         },
       ));
@@ -818,7 +867,7 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
   } else {
     const grid = uiEl('div', 'apo-grid');
     for (const site of list) {
-      renderSiteCard(grid, entity, pantheon, site, nowMin, repaint, setFeedback);
+      renderSiteCard(grid, entity, pantheon, site, nowMin, repaint, setFeedback, closePause);
     }
     detail.append(grid);
   }
@@ -981,7 +1030,7 @@ function renderEdictsView(detail, entity, nowMin, repaint, setFeedback) {
 }
 
 /** Renders Milestone 3.2 Cult & Sanctuaries OR 71-Region Edicts view inside Apotheosis Pause UI. */
-export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', rootModalParent = null, setFeedback }) {
+export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', rootModalParent = null, setFeedback, closePause = null }) {
   let nowMin = 0;
   try {
     nowMin = Number(getAurbisRuntime().getWorldMinutes?.() ?? 0) || 0;
@@ -1072,6 +1121,6 @@ export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', 
       detail.append(petBox);
     }
 
-    renderSanctuariesView(detail, rootModalParent ?? detail, entity, pantheon, nowMin, repaint, setFeedback);
+    renderSanctuariesView(detail, rootModalParent ?? detail, entity, pantheon, nowMin, repaint, setFeedback, closePause);
   }
 }

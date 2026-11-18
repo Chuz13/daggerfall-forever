@@ -1696,14 +1696,14 @@ export function createLivingSceneHost(deps) {
         if (g.entity) { g.entity.team = 'PlayerAlly'; g.entity.mobileTeam = 'PlayerAlly'; }
         g.allied = true;
         if (g.ai) {
-          g.ai.isHostile = true;
-          g.ai.detected = true;
           const cur = g.ai.target;
-          if (!cur || cur.dead || !deps.inPool(cur) || cur === player) {
-            const tgt = closestLiveTarget(g.ai.feet ?? g.feet, rebels);
-            g.ai.target = tgt;
-            g.ai.targetSenses = tgt;
-          }
+          const tgt = (!cur || cur.dead || !deps.inPool(cur) || cur === player)
+            ? closestLiveTarget(g.ai.feet ?? g.feet, rebels)
+            : cur;
+          g.ai.target = tgt;
+          g.ai.targetSenses = tgt;
+          g.ai.isHostile = Boolean(tgt);
+          g.ai.detected = Boolean(tgt);
         }
       }
       for (const r of rebels) {
@@ -1726,14 +1726,14 @@ export function createLivingSceneHost(deps) {
         if (r.entity) { r.entity.team = 'PlayerAlly'; r.entity.mobileTeam = 'PlayerAlly'; }
         r.allied = true;
         if (r.ai) {
-          r.ai.isHostile = true;
-          r.ai.detected = true;
           const cur = r.ai.target;
-          if (!cur || cur.dead || !deps.inPool(cur) || cur === player) {
-            const tgt = closestLiveTarget(r.ai.feet ?? r.feet, guards);
-            r.ai.target = tgt;
-            r.ai.targetSenses = tgt;
-          }
+          const tgt = (!cur || cur.dead || !deps.inPool(cur) || cur === player)
+            ? closestLiveTarget(r.ai.feet ?? r.feet, guards)
+            : cur;
+          r.ai.target = tgt;
+          r.ai.targetSenses = tgt;
+          r.ai.isHostile = Boolean(tgt);
+          r.ai.detected = Boolean(tgt);
         }
       }
       for (const g of guards) {
@@ -2967,17 +2967,30 @@ export function createLivingSceneHost(deps) {
           }
           deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
           const progStr = `${Math.min(WAR_SKIRMISH_PACIFY_GOAL, res.pacifiedCount)}/${WAR_SKIRMISH_PACIFY_GOAL}`;
-          deps.say(
-            t('apotheosis.skirmish.pacifyOk', 'Skirmish pacified ({deg} {score}/{dc}, {prog})! +{faith} Faith +{inf}% Inf.', {
-              deg: res.degree,
-              score,
-              dc,
-              prog: progStr,
-              faith: res.faithReward,
-              inf: res.infReward,
-            }),
-            6,
-          );
+          if (res.degree === LIVING_ROLL_DEGREE.PARTIAL) {
+            deps.say(
+              t('apotheosis.skirmish.pacifyPartial', 'Compromise truce ({score}/{dc}, {prog}) — extra fatigue & resources spent! +{faith} Faith +{inf}% Inf.', {
+                score,
+                dc,
+                prog: progStr,
+                faith: res.faithReward,
+                inf: res.infReward,
+              }),
+              6,
+            );
+          } else {
+            deps.say(
+              t('apotheosis.skirmish.pacifyOk', 'Skirmish pacified ({deg} {score}/{dc}, {prog})! +{faith} Faith +{inf}% Inf.', {
+                deg: res.degree,
+                score,
+                dc,
+                prog: progStr,
+                faith: res.faithReward,
+                inf: res.infReward,
+              }),
+              6,
+            );
+          }
         };
 
         // Never re-open ChoiceWindow once the player has chosen a stance for this war!
@@ -3005,9 +3018,13 @@ export function createLivingSceneHost(deps) {
         }
 
         const isDivineWar = warDesc?.warKind === 'divine';
+        const rewardTag = isDivineWar
+          ? t('apotheosis.skirmish.winPreviewDivine', '+35 Faith · +1% Inf')
+          : t('apotheosis.skirmish.winPreviewMundane', '+150g · Rep');
+        const curPac = Number(warDesc?.pacifiedCount ?? 0);
         const pacifyLabel = isDivineWar
-          ? t('apotheosis.skirmish.optPacifyDivine', 'Reconcile & Pacify ({cost} Faith + Hard Diplomacy)', { cost: DIVINE_SKIRMISH_PACIFY_FAITH_COST })
-          : t('apotheosis.skirmish.optPacifyMundane', 'Reconcile & Pacify (Hard Diplomacy Check)');
+          ? t('apotheosis.skirmish.optPacifyDivineProgress', 'Reconcile & Pacify ({cost} Faith · DC 85 · {cur}/3)', { cost: DIVINE_SKIRMISH_PACIFY_FAITH_COST, cur: curPac })
+          : t('apotheosis.skirmish.optPacifyMundaneProgress', 'Reconcile & Pacify (Hard Diplomacy DC 85 · {cur}/3)', { cur: curPac });
 
         deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
         deps.openChoice({
@@ -3015,12 +3032,12 @@ export function createLivingSceneHost(deps) {
             isDivineWar
               ? t('apotheosis.skirmish.titleDivine', 'Divine War Skirmish: {a} vs {b}', { a: sideAName, b: sideBName })
               : t('apotheosis.skirmish.titleMundane', 'War Skirmish in {region}: {a} vs {b}', { region: warDesc?.regionName ?? 'Tamriel', a: sideAName, b: sideBName }),
-            t('apotheosis.skirmish.choiceNote', 'Your stance will hold for this entire war.'),
+            t('apotheosis.skirmish.choiceNote', 'Your stance will hold for this entire war (pacify 3 clashes to end regional war).'),
           ],
           options: [
             {
               code: 'Digit1',
-              label: `1. ${t('apotheosis.skirmish.optSide', 'Join {side}', { side: sideAName })}`,
+              label: `1. ${t('apotheosis.skirmish.optSideReward', 'Join {side} ({reward})', { side: sideAName, reward: rewardTag })}`,
               action: () => {
                 setWarPlayerStance(player, warDesc, 'sideA');
                 s.skirmishStance = 'watch';
@@ -3030,7 +3047,7 @@ export function createLivingSceneHost(deps) {
             },
             {
               code: 'Digit2',
-              label: `2. ${t('apotheosis.skirmish.optSide', 'Join {side}', { side: sideBName })}`,
+              label: `2. ${t('apotheosis.skirmish.optSideReward', 'Join {side} ({reward})', { side: sideBName, reward: rewardTag })}`,
               action: () => {
                 setWarPlayerStance(player, warDesc, 'sideB');
                 s.skirmishStance = 'rebels';
@@ -3618,9 +3635,11 @@ export function createLivingSceneHost(deps) {
             const warDesc = stood.blueprint.meta?.warDesc;
             const guards = stood.foes.filter((f) => f?.livingRole === 'skirmish_guard');
             const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
-            const guardsDead = guards.length > 0 && guards.every((g) => g.dead || !deps.inPool(g));
-            const rebelsDead = rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r));
-            if (warDesc?.playerStance === 'sideA' && rebelsDead) {
+            const guardsDead = guards.length > 0 && guards.every((g) => Boolean(g.dead));
+            const rebelsDead = rebels.length > 0 && rebels.every((r) => Boolean(r.dead));
+            const activeSideA = warDesc?.playerStance === 'sideA' || stood.skirmishStance === 'watch';
+            const activeSideB = warDesc?.playerStance === 'sideB' || stood.skirmishStance === 'rebels';
+            if (activeSideA && rebelsDead) {
               stood.orderRestored = true;
               const pl = deps.playerEntity();
               if (warDesc.warKind === 'divine' && isAscendedGod(pl)) {
@@ -3633,7 +3652,7 @@ export function createLivingSceneHost(deps) {
                 deps.say(t('apotheosis.skirmish.winMundane', 'Enemy warband routed! +150g · +3 Reputation.'), 5);
               }
               deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-            } else if (warDesc?.playerStance === 'sideB' && guardsDead) {
+            } else if (activeSideB && guardsDead) {
               stood.orderRestored = true;
               const pl = deps.playerEntity();
               if (warDesc.warKind === 'divine' && isAscendedGod(pl)) {
@@ -3759,6 +3778,9 @@ export function createLivingSceneHost(deps) {
      */
     isCriminalTarget(foe) {
       if (!foe) return false;
+      if (stood?.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
+        return false;
+      }
       if (stood?.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
         if (stood.skirmishStance === 'chaos' || stood.skirmishStance === 'rebels') {
           return false;

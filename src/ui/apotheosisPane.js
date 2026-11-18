@@ -67,7 +67,13 @@ import {
   startApotheosisFromArtifacts,
   DIVINE_WAR_SUPPORT_COST,
   DIVINE_WAR_TRUCE_COST,
+  WAR_SKIRMISH_PACIFY_GOAL,
+  getApotheosisSiegeConfig,
+  getCultSiegePreview,
+  getActiveCultSieges,
   getActiveGodWars,
+  getActiveWarForRegion,
+  setWarPlayerStance,
   supportGodWarSide,
   enforceGodWarTruce,
 } from '../systems/apotheosis/apotheosisCore.js';
@@ -210,6 +216,7 @@ let pantheonGeoA = 17;
 let pantheonGeoB = 23;
 let pantheonLogFilter = 'all';
 let pantheonLogSearch = '';
+let pauseCloser = null;
 
 const SPAWNABLE_MOBILES = Object.entries(MOBILE_TYPES)
   .filter(([name, id]) => name !== 'None' && name !== 'Horse_Invalid' && id < 65535)
@@ -237,6 +244,7 @@ export function releaseApotheosisPane() {
   pantheonSubTab = 'deities';
   pantheonRegionQuery = '';
   pantheonLogSearch = '';
+  pauseCloser = null;
   resetCultSectionUiState();
 }
 
@@ -245,19 +253,23 @@ function setFeedback(msg, isError = false) {
   statusIsError = !!isError;
 }
 
-function currentSections(trackerShown) {
+function currentSections(trackerShown, entity = null) {
   const secs = [['overview', t('apotheosis.sec.overview', 'Ascension Overview')]];
   if (trackerShown) {
     secs.push(['meta', t('apotheosis.sec.meta', 'CHIM & Mind')]);
     secs.push(['blood', t('apotheosis.sec.blood', 'Blood & Crucible')]);
     secs.push(['power', t('apotheosis.sec.power', 'Dominion & World')]);
   }
+  const wars = entity ? getActiveGodWars(entity).length : 0;
+  const sieges = entity ? getActiveCultSieges(entity).length : 0;
+  const deitiesLabel = t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy') + (wars > 0 ? ` [! ${wars}]` : '');
+  const cultLabel = t('apotheosis.cult.subTabSites', 'Temples & Underground Sanctuaries') + (sieges > 0 ? ` [! ${sieges}]` : '');
   secs.push(['portfolio', t('apotheosis.sec.portfolio', 'Divine Portfolio')]);
   secs.push(['aurbis', t('apotheosis.nav.aurbis', 'Scroll of Aurbis')]);
-  secs.push(['pantheon_deities', t('apotheosis.pantheon.tabDeities', 'Deities & Diplomacy')]);
+  secs.push(['pantheon_deities', deitiesLabel]);
   secs.push(['pantheon_regions', t('apotheosis.pantheon.tabRegions', 'Divine Lens & Geopolitics')]);
   secs.push(['pantheon_chronicle', t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle')]);
-  secs.push(['cult', t('apotheosis.cult.subTabSites', 'Temples & Underground Sanctuaries')]);
+  secs.push(['cult', cultLabel]);
   secs.push(['edicts', t('apotheosis.cult.subTabEdicts', 'Regional Edicts')]);
   return secs;
 }
@@ -561,6 +573,32 @@ function renderOverview(detail, entity, trackerShown, repaint) {
     acts.append(manageBtn, aurbisBtn);
     godBox.append(acts);
     detail.append(godBox);
+
+    const activeSieges = getActiveCultSieges(entity);
+    const activeWars = getActiveGodWars(entity);
+    if (activeSieges.length > 0 || activeWars.length > 0) {
+      const warAlert = el('div', 'apo-banner');
+      warAlert.append(
+        el('div', 'apo-card-title', t('apotheosis.overview.crisisTitle', 'Pantheon Alert: Active Sieges & Religious Wars')),
+        el('div', 'apo-card-desc', t('apotheosis.overview.crisisDesc', 'Besieged Sanctums: {sieges} · Active Inter-Deity Wars: {wars}', {
+          sieges: activeSieges.length,
+          wars: activeWars.length,
+        })),
+      );
+      const alertActs = el('div', 'apo-acts');
+      if (activeSieges.length > 0) {
+        const sBtn = el('button', 'apo-btn danger', t('apotheosis.overview.btnViewSieges', 'Defend Sanctuaries ({n})', { n: activeSieges.length }));
+        sBtn.onclick = () => { activeSec = 'cult'; repaint(); };
+        alertActs.append(sBtn);
+      }
+      if (activeWars.length > 0) {
+        const wBtn = el('button', 'apo-btn primary', t('apotheosis.overview.btnViewWars', 'Manage Religious Wars ({n})', { n: activeWars.length }));
+        wBtn.onclick = () => { activeSec = 'pantheon_deities'; repaint(); };
+        alertActs.append(wBtn);
+      }
+      warAlert.append(alertActs);
+      detail.append(warAlert);
+    }
   }
 
   if (trackerShown) {
@@ -1312,6 +1350,62 @@ function renderPantheonRegionsView(detail, entity, nowMin, repaint) {
     bB.onclick = () => { pantheonGeoB = info.regionIndex; repaint(); };
     geoSetRow.append(bA, bB);
     inspectorEl.append(geoSetRow);
+
+    const regWar = getActiveWarForRegion(entity, info.regionIndex);
+    if (regWar) {
+      const warBox = el('div', 'apo-box');
+      warBox.style.marginTop = '10px';
+      const warTitle = regWar.warKind === 'divine'
+        ? t('apotheosis.lens.warDivineTitle', 'Active Religious War: {a} vs {b}', { a: regWar.sideAName, b: regWar.sideBName })
+        : t('apotheosis.lens.warMundaneTitle', 'Active Regional War: {a} vs {b}', { a: regWar.sideAName, b: regWar.sideBName });
+      warBox.append(el('h4', null, warTitle));
+
+      const cfg = getApotheosisSiegeConfig();
+      const lastSk = Number(ensureCultState(entity)?.lastWarSkirmishMinutes ?? -999999);
+      const minsLeft = Math.max(0, Math.ceil((lastSk + cfg.skirmishCooldownMinutes) - nowMin));
+      const stanceName = regWar.playerStance === 'sideA'
+        ? regWar.sideAName
+        : regWar.playerStance === 'sideB'
+          ? regWar.sideBName
+          : regWar.playerStance === 'peace'
+            ? t('apotheosis.war.stancePeace', 'Peacemaker')
+            : regWar.playerStance === 'watch'
+              ? t('apotheosis.war.stanceWatch', 'Observer')
+              : t('apotheosis.war.stanceNone', 'Undeclared');
+
+      const pillLine = el('div', 'apo-row-inline');
+      pillLine.append(
+        el('span', `apo-pill ${regWar.playerStance ? 'ok' : 'warn'}`, t('apotheosis.war.stanceBadge', 'Your Stance: {stance}', { stance: stanceName })),
+        el('span', 'apo-pill info', t('apotheosis.lens.pacifiedBadge', 'Skirmishes Pacified: {cur}/{goal}', {
+          cur: regWar.pacifiedCount ?? 0,
+          goal: WAR_SKIRMISH_PACIFY_GOAL,
+        })),
+        el('span', `apo-pill ${minsLeft > 0 ? 'warn' : 'ok'}`, minsLeft > 0
+          ? t('apotheosis.lens.skirmishCdWait', 'Next Skirmish Cooldown: {min}m', { min: minsLeft })
+          : t('apotheosis.lens.skirmishCdReady', 'Wilderness Skirmishes: Ready')),
+      );
+      warBox.append(pillLine);
+
+      const stanceBtns = el('div', 'apo-acts');
+      for (const [sVal, sLbl] of [
+        ['sideA', regWar.sideAName],
+        ['sideB', regWar.sideBName],
+        ['peace', t('apotheosis.war.stancePeace', 'Peacemaker')],
+        ['watch', t('apotheosis.war.stanceWatch', 'Observer')],
+        ['reset', t('apotheosis.war.btnResetStance', 'Ask Again Next Clash')],
+      ]) {
+        const sb = el('button', `apo-btn${(regWar.playerStance ?? 'reset') === sVal ? ' primary' : ''}`, sLbl);
+        sb.disabled = (regWar.playerStance ?? 'reset') === sVal;
+        sb.onclick = () => {
+          setWarPlayerStance(entity, regWar, sVal);
+          setFeedback(t('apotheosis.war.stanceUpdated', 'War stance updated to {stance}.', { stance: sLbl }), false);
+          repaint();
+        };
+        stanceBtns.append(sb);
+      }
+      warBox.append(stanceBtns);
+      inspectorEl.append(warBox);
+    }
   };
 
   const CRISIS_FLAG_LIST = [
@@ -1470,7 +1564,9 @@ function renderPantheonSection(detail, entity, repaint, tabId) {
 function paint(root, { resetDetailScroll = false } = {}) {
   const entity = playerEntity;
   const trackerShown = !!getPref('apotheosisShowTracker');
-  const secs = currentSections(trackerShown);
+  const stEarly = entity?.apotheosis ?? {};
+  const canBadge = Boolean(stEarly.ascended || stEarly.stage === APOTHEOSIS_STAGES.ASCENDED);
+  const secs = currentSections(trackerShown, canBadge ? entity : null);
   if (!secs.some(([id]) => id === activeSec)) activeSec = 'overview';
 
   const bodyEl = root.parentElement;
@@ -1530,6 +1626,7 @@ function paint(root, { resetDetailScroll = false } = {}) {
         mode: activeSec === 'edicts' ? 'edicts' : 'sanctuaries',
         rootModalParent: root,
         setFeedback,
+        closePause: pauseCloser,
       });
     } else {
       const fate = evaluateFateWeight(entity);
@@ -1562,7 +1659,8 @@ function paint(root, { resetDetailScroll = false } = {}) {
 }
 
 /** Draws the Apotheosis Pause tab body. */
-export function drawApotheosisPane(body) {
+export function drawApotheosisPane(body, { closePause = null } = {}) {
+  pauseCloser = typeof closePause === 'function' ? closePause : null;
   ensureStyle();
   const root = el('div', 'apo-pane');
   body.append(root);

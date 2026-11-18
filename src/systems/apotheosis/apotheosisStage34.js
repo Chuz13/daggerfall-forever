@@ -225,6 +225,7 @@ export function startCultSiteSiege(
     expiresAtMinutes: now + durationMinutes,
     durationDays,
     attackerCount,
+    remainingAttackers: attackerCount,
     defenderCount,
     spawned: false,
   };
@@ -255,6 +256,37 @@ export function startCultSiteSiege(
 }
 
 /**
+ * Computes exact Siege victory rewards and failure/sacrifice penalties for `site`.
+ */
+export function getCultSiegePreview(entity, site) {
+  if (!site?.siege) return null;
+  const tier = Math.max(1, Math.min(3, Number(site.tier) || 1));
+  const baseReward = tier === 3
+    ? { faith: 220, influence: 5.0, gold: 3000 }
+    : tier === 2
+      ? { faith: 140, influence: 3.0, gold: 1500 }
+      : { faith: 80, influence: 1.5, gold: 750 };
+  const victoryFaith = site.branch === 'militant'
+    ? Math.round(baseReward.faith * 1.3)
+    : baseReward.faith;
+  const baseLoss = tier === 3 ? 10 : tier === 2 ? 6 : 3;
+  const lossInfluence = Math.min(12, baseLoss + (site.branch === 'missionary' ? 2 : 0));
+  const attackerDef = getPantheonDeity(site.siege.attackerGodId);
+  return {
+    attackerGodId: site.siege.attackerGodId,
+    attackerName: site.siege.attackerGodName ?? attackerDef?.name ?? site.siege.attackerGodId,
+    attackerCount: Number(site.siege.attackerCount) || 3,
+    remainingAttackers: Math.max(0, Number(site.siege.remainingAttackers ?? site.siege.attackerCount) || 0),
+    defenderCount: Number(site.siege.defenderCount) || 2,
+    durationDays: Number(site.siege.durationDays) || 3,
+    victoryFaith,
+    victoryGold: baseReward.gold,
+    victoryInfluence: baseReward.influence,
+    lossInfluence,
+  };
+}
+
+/**
  * Resolves an active siege on `siteKey` with either `'victory'` or `'failed'`.
  * Victory rewards Faith/Gold/Influence (+30% Faith if Militant).
  * Failure/Sacrifice reverts the sanctum to attacker Tier 1 and shifts -3%..-12% influence.
@@ -272,25 +304,17 @@ export function resolveCultSiegeOutcome(
   }
 
   const siege = site.siege;
+  const preview = getCultSiegePreview(entity, site);
   const now = Number(nowMinutes) || 0;
   const p = ensurePantheonState(entity, { nowMinutes: now });
   const attackerId = siege.attackerGodId || 'mehrunes_dagon';
-  const attackerDef = getPantheonDeity(attackerId);
-  const attackerName = siege.attackerGodName ?? attackerDef?.name ?? attackerId;
+  const attackerName = preview?.attackerName ?? attackerId;
   const regName = getLocalizedRegionName(site.regionIndex, (i) => REGION_NAMES[i] ?? `Region ${i}`);
-  const tier = Math.max(1, Math.min(3, Number(site.tier) || 1));
 
   if (outcome === 'victory') {
-    const baseReward = tier === 3
-      ? { faith: 220, influence: 5.0, gold: 3000 }
-      : tier === 2
-        ? { faith: 140, influence: 3.0, gold: 1500 }
-        : { faith: 80, influence: 1.5, gold: 750 };
-    const faithReward = site.branch === 'militant'
-      ? Math.round(baseReward.faith * 1.3)
-      : baseReward.faith;
-    const goldReward = baseReward.gold;
-    const infReward = baseReward.influence;
+    const faithReward = preview.victoryFaith;
+    const goldReward = preview.victoryGold;
+    const infReward = preview.victoryInfluence;
 
     if (isAscendedGod(entity)) {
       addApotheosisFaith(entity, faithReward, { source: 'siege_victory', nowMinutes: now });
@@ -333,8 +357,7 @@ export function resolveCultSiegeOutcome(
   }
 
   // Failed / Sacrificed site falls to attacker at Tier 1
-  const baseLoss = tier === 3 ? 10 : tier === 2 ? 6 : 3;
-  const infLoss = Math.min(12, baseLoss + (site.branch === 'missionary' ? 2 : 0));
+  const infLoss = preview.lossInfluence;
 
   const regInf = getRegionInfluence(entity, site.regionIndex);
   const targetPlayerShare = round1(Math.max(0, (regInf?.playerShare ?? 0) - infLoss));
@@ -766,13 +789,15 @@ export function getActiveWarForRegion(entity, regionIndex) {
 }
 
 /**
- * Persists the player's chosen war stance (`'sideA' | 'sideB' | 'peace' | 'watch'`)
+ * Persists the player's chosen war stance (`'sideA' | 'sideB' | 'peace' | 'watch' | null`)
  * across all skirmishes of that Divine or Mundane war.
  */
 export function setWarPlayerStance(entity, warDesc, stance) {
   if (!entity || !warDesc) return false;
+  const nextStance = stance === 'reset' ? null : (stance ?? null);
+  warDesc.playerStance = nextStance;
   if (warDesc.warKind === 'divine' && warDesc.war) {
-    warDesc.war.playerStance = stance;
+    warDesc.war.playerStance = nextStance;
     return true;
   }
   const cult = ensureCultState(entity);
@@ -780,7 +805,11 @@ export function setWarPlayerStance(entity, warDesc, stance) {
   if (!cult.mundaneWarStances || typeof cult.mundaneWarStances !== 'object') {
     cult.mundaneWarStances = {};
   }
-  cult.mundaneWarStances[warDesc.regIdx] = stance;
+  if (nextStance == null) {
+    delete cult.mundaneWarStances[warDesc.regIdx];
+  } else {
+    cult.mundaneWarStances[warDesc.regIdx] = nextStance;
+  }
   return true;
 }
 
@@ -823,7 +852,7 @@ export function markWarSkirmishSpawned(entity, nowMinutes = 0) {
 export function resolveWarSkirmishPacify(
   entity,
   warDesc,
-  { nowMinutes = 0, rng = Math.random, force = false } = {},
+  { nowMinutes = 0, rng = Math.random, force = false, forcedDegree = null } = {},
 ) {
   if (!entity || !warDesc) {
     return { ok: false, reason: t('apotheosis.war.errNoWar', 'No matching active Religious War.'), skirmishStance: 'neutral_watch' };
@@ -859,7 +888,7 @@ export function resolveWarSkirmishPacify(
     rng,
   });
 
-  const degree = rollResult.degree;
+  const degree = forcedDegree ?? rollResult.degree;
   let pacified = false;
   let skirmishStance = 'neutral_watch';
   let pacifyIncrement = 0;

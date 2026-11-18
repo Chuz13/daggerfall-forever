@@ -9,6 +9,7 @@ import {
   DIVINE_SKIRMISH_PACIFY_FAITH_COST,
   WAR_SKIRMISH_PACIFY_GOAL,
   getApotheosisSiegeConfig,
+  getCultSiegePreview,
   getActiveCultSieges,
   startCultSiteSiege,
   resolveCultSiegeOutcome,
@@ -53,6 +54,10 @@ import { setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from '../../src/systems/li
 import { SKILLS } from '../../src/systems/skills.js';
 import { CLIMATES } from '../../src/formats/mapsFile.js';
 import { setPref } from '../../src/systems/uiPrefs.js';
+import { createApotheosisCultHost } from '../../src/scenes/apotheosisCultHost.js';
+import { playerEntity } from '../../src/characters/playerEntity.js';
+import { snapshotPlayer, restorePlayer } from '../../src/systems/save/save.js';
+import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
 
 function makeAscended(portfolio = 'war', { region = 17, faith = 2000 } = {}) {
   const ent = {
@@ -349,5 +354,234 @@ test('Stage 3.3 -> 3.4 Fix: Edict Petition completion emits live HUD notificatio
   } finally {
     unregister();
     _resetNotifyForTests();
+  }
+});
+
+test('Stage 3.4 Polish: getCultSiegePreview & save.js deep-clone of cult & roadBlessing', () => {
+  const ent = makeAscended('order', { region: 17, faith: 800 });
+  ent.skills[SKILLS.Etiquette] = 50;
+  const f = foundPlayerUndergroundSanctuary(ent, {
+    mapId: 902,
+    regionIndex: 17,
+    locationName: 'Daggerfall',
+    branch: 'militant',
+    nowMinutes: 1000,
+    force: true,
+  });
+  assert.equal(f.ok, true);
+  startCultSiteSiege(ent, f.site.siteKey, 'molag_bal', { nowMinutes: 1000, force: true });
+  const prev = getCultSiegePreview(ent, f.site);
+  assert.ok(prev);
+  assert.equal(prev.victoryFaith, Math.round(80 * 1.3)); // Tier 1 Militant +30% = 104
+  assert.equal(prev.lossInfluence, 3);
+
+  ent.apotheosis.roadBlessing = { godId: 'mara', tier: 2, expiresAtMinutes: 2000 };
+  const snap = snapshotPlayer(ent, {});
+  // Mutate original entity after snapshot — must NOT mutate snap!
+  ent.apotheosis.cult.sites[f.site.siteKey].siege.attackerCount = 99;
+  ent.apotheosis.roadBlessing.tier = 1;
+  assert.notEqual(snap.apotheosis.cult.sites[f.site.siteKey].siege.attackerCount, 99);
+  assert.equal(snap.apotheosis.roadBlessing.tier, 2);
+
+  const restored = makeAscended('war', { region: 17, faith: 100 });
+  restorePlayer(restored, snap, new Map());
+  assert.equal(restored.apotheosis.roadBlessing.tier, 2);
+  assert.ok(restored.apotheosis.cult.sites[f.site.siteKey].siege);
+  restored.apotheosis.roadBlessing.tier = 3;
+  assert.equal(snap.apotheosis.roadBlessing.tier, 2);
+});
+
+test('Stage 3.4 Polish: Siege leaving-town cull does NOT grant victory; killing all attackers DOES', async () => {
+  const prevApo = playerEntity.apotheosis;
+  const prevReg = playerEntity.currentRegionIndex;
+  const prevGold = playerEntity.goldPieces;
+  try {
+    setPref('apotheosisTempleSieges', 'low'); // base 3 attackers, 1 defender
+    playerEntity.currentRegionIndex = 17;
+    playerEntity.goldPieces = 1000;
+    playerEntity.apotheosis = {
+      ascended: true,
+      stage: 'ascended',
+      source: 'mantella',
+      portfolio: 'war',
+      ascendedAtMinutes: 1000,
+      faith: 500,
+      cultFaithBonus: 500,
+    };
+    ensurePantheonState(playerEntity, { nowMinutes: 1000 });
+    ensureCultState(playerEntity);
+
+    const f = foundPlayerUndergroundSanctuary(playerEntity, {
+      mapId: 505,
+      regionIndex: 17,
+      locationName: 'Testburg',
+      nowMinutes: 1000,
+      force: true,
+    });
+    assert.equal(f.ok, true);
+    const siegeRes = startCultSiteSiege(playerEntity, f.site.siteKey, 'mehrunes_dagon', { nowMinutes: 1000, force: true });
+    assert.equal(siegeRes.ok, true);
+    assert.equal(f.site.siege.attackerCount, 3);
+    assert.equal(f.site.siege.remainingAttackers, 3);
+
+    const extPool = [];
+    const talks = [];
+    const builtMap = new Map();
+    const host = createApotheosisCultHost({
+      built: () => builtMap,
+      renderer: null,
+      pipeline: null,
+      state: { pixelTranslation: () => [0, 0, 0] },
+      townTalk: { say: (msg) => talks.push(msg) },
+      modes: () => ({ mode: 'exterior' }),
+      groundAt: () => 0,
+      worldMinutes: () => 1200,
+      placeFeet: () => {},
+      playerPos: () => [0, 0, 0],
+      playerFeet: () => [0, 0, 0],
+      spawnExteriorFoe: async (_mob, pos, opts) => {
+        const rec = { dead: false, feet: pos, allied: !!opts.allied, ai: { isHostile: true, target: null }, entity: { items: [] } };
+        extPool.push(rec);
+        return rec;
+      },
+      exteriorFoes: () => ({ foes: extPool }),
+      buildingDoors: () => [],
+      currentLoc: () => ({ mapTableData: { mapId: 505 }, name: 'Testburg' }),
+    });
+
+    assert.equal(host.spawnCultSiegeBattle(f.site.siteKey), true);
+    await new Promise((r) => setTimeout(r, 10));
+    const attackers = extPool.filter((r) => r.livingRole === 'cult_siege_attacker');
+    assert.equal(attackers.length, 3);
+
+    // 1. Kill ONLY 1 attacker, then simulate leaving town (culling the other 2 from extPool without killing them!)
+    attackers[0].dead = true;
+    host.frame();
+    assert.equal(f.site.siege.remainingAttackers, 2);
+    assert.equal(getActiveCultSieges(playerEntity).length, 1);
+
+    // Cull living attackers 1 and 2 from extPool (player left town!)
+    extPool.length = 0;
+    host.frame();
+    // MUST NOT award victory; remainingAttackers stays 2 and siege stays active with spawned=false!
+    assert.equal(getActiveCultSieges(playerEntity).length, 1);
+    assert.equal(f.site.siege.remainingAttackers, 2);
+    assert.equal(f.site.siege.spawned, false);
+
+    // 2. Return to city -> only remaining 2 attackers respawn, kill them cleanly -> victory!
+    assert.equal(host.spawnCultSiegeBattle(f.site.siteKey), true);
+    await new Promise((r) => setTimeout(r, 10));
+    const wave2Attackers = extPool.filter((r) => r.livingRole === 'cult_siege_attacker');
+    assert.equal(wave2Attackers.length, 2);
+    for (const a of wave2Attackers) a.dead = true;
+    host.frame();
+    assert.equal(getActiveCultSieges(playerEntity).length, 0);
+  } finally {
+    playerEntity.apotheosis = prevApo;
+    playerEntity.currentRegionIndex = prevReg;
+    playerEntity.goldPieces = prevGold;
+  }
+});
+
+test('Stage 3.4 Polish: WAR_SKIRMISH Side B first-contact victory, non-criminal strike & ally disarm', async () => {
+  setPref('apotheosisTempleSieges', 'mid');
+  const ent = makeAscended('shadows', { region: 22, faith: 800 });
+  const warRes = startInterDeityWar(ent, 'akatosh', 'boethiah', { nowMinutes: 2000, regions: [22] });
+  assert.equal(warRes.ok, true);
+
+  let lastChoice = null;
+  const extPool = [];
+  const host = createLivingSceneHost({
+    feet: () => [0, 0, 0],
+    ready: () => true,
+    clock: () => 2500,
+    regionIndex: () => 22,
+    inLocationRect: () => false,
+    onRoad: () => true,
+    afloat: () => false,
+    climateIndex: () => CLIMATES.TemperateWoodlands,
+    heightAt: () => 0,
+    playerEntity: () => ent,
+    spawn: async (_type, feet, opts) => {
+      const rec = {
+        dead: false,
+        feet,
+        allied: !!opts.allied,
+        ai: { isHostile: true, detected: false, target: null, feet },
+        entity: { items: [{ isGold: true, count: 10 }] },
+      };
+      extPool.push(rec);
+      return rec;
+    },
+    remove: () => {},
+    inPool: (f) => extPool.includes(f),
+    say: () => {},
+    openChoice: (spec) => { lastChoice = spec; },
+  });
+
+  const spawnRes = host.spawnWarSkirmishNow({ force: true });
+  assert.equal(spawnRes.ok, true);
+  await new Promise((r) => setTimeout(r, 10));
+  const sideA = extPool.filter((f) => f.livingRole === 'skirmish_guard');
+  const sideB = extPool.filter((f) => f.livingRole === 'skirmish_rebel');
+  assert.equal(sideA.length, 3);
+  assert.equal(sideB.length, 3);
+
+  // Pick Side B in ChoiceWindow (option index 1)
+  lastChoice.options[1].action();
+  assert.equal(warRes.war.playerStance, 'sideB');
+  // Siding with Side B must NEVER mark hitting Side A as criminal
+  assert.equal(host.isCriminalTarget(sideA[0]), false);
+
+  // Culling Side A without dying must NOT award victory
+  extPool.length = 0;
+  for (const r of sideB) extPool.push(r);
+  host.frame(1.1);
+  assert.equal(ent.apotheosis.faith, 800);
+
+  // Actual deaths of Side A award +35 Faith and disarm surviving Side B allies!
+  for (const g of sideA) {
+    g.dead = true;
+    extPool.push(g);
+  }
+  host.frame(1.1);
+  assert.equal(ent.apotheosis.faith, 835);
+  assert.equal(sideB[0].ai.isHostile, false);
+});
+
+test('Stage 3.4 Polish: Console commands apo siege start (auto-found) and apo war stance/pacify/cooldown', async () => {
+  const prevApo = playerEntity.apotheosis;
+  const prevReg = playerEntity.currentRegionIndex;
+  try {
+    playerEntity.currentRegionIndex = 17;
+    playerEntity.apotheosis = {
+      ascended: true,
+      stage: 'ascended',
+      source: 'mantella',
+      portfolio: 'war',
+      ascendedAtMinutes: 1000,
+      faith: 1500,
+      cultFaithBonus: 500,
+    };
+    ensurePantheonState(playerEntity, { nowMinutes: 1000 });
+    ensureCultState(playerEntity);
+
+    const siegeMsg = await executeConsoleCommand('apo', ['siege', 'start']);
+    assert.ok(String(siegeMsg).includes('Siege started:'));
+    assert.equal(getActiveCultSieges(playerEntity).length, 1);
+
+    const warMsg = await executeConsoleCommand('apo', ['war', 'here', 'akatosh', 'mehrunes_dagon']);
+    assert.ok(String(warMsg).includes('Religious War'));
+    const stMsg = await executeConsoleCommand('apo', ['war', 'stance', 'watch']);
+    assert.ok(String(stMsg).includes('watch'));
+    const resetMsg = await executeConsoleCommand('apo', ['war', 'stance', 'reset']);
+    assert.ok(String(resetMsg).includes('reset'));
+    const cdMsg = await executeConsoleCommand('apo', ['war', 'cooldown', 'clear']);
+    assert.ok(String(cdMsg).includes('Cleared'));
+    const pacMsg = await executeConsoleCommand('apo', ['war', 'pacify', 'partial']);
+    assert.ok(String(pacMsg).includes('PARTIAL'));
+  } finally {
+    playerEntity.apotheosis = prevApo;
+    playerEntity.currentRegionIndex = prevReg;
   }
 });

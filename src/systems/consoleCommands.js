@@ -135,6 +135,9 @@ import {
   supportGodWarSide,
   enforceGodWarTruce,
   getActiveWarForRegion,
+  setWarPlayerStance,
+  resolveWarSkirmishPacify,
+  getApotheosisSiegeConfig,
 } from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
 import { getAllRegisteredPerks } from './mods/modPluginApi.js';
@@ -3431,9 +3434,22 @@ async function handleApotheosisCommand(args = []) {
     const nowMin = Math.floor(worldMinutes());
     const act = String(args[1] ?? 'status').toLowerCase();
     if (act === 'start') {
-      const siteKey = args[2] && args[2] !== '-' ? String(args[2]) : null;
+      const siteKeyArg = args[2] && args[2] !== '-' ? String(args[2]) : null;
       const godId = args[3] ? String(args[3]).toLowerCase() : null;
-      const res = startCultSiteSiege(playerEntity, siteKey, godId, { nowMinutes: nowMin, force: true });
+      if (!siteKeyArg && getAllCultSites(playerEntity, { ownedOnly: true }).length === 0) {
+        const cityInfo = sceneCtx?.getCultCity?.() ?? null;
+        const reg = Number.isInteger(cityInfo?.regionIndex) ? cityInfo.regionIndex : (Number.isInteger(playerEntity?.currentRegionIndex) ? playerEntity.currentRegionIndex : 17);
+        const cityMapId = cityInfo?.mapId || (reg + 1000);
+        const cityName = cityInfo?.locationName || `Region #${reg}`;
+        foundPlayerUndergroundSanctuary(playerEntity, {
+          mapId: cityMapId,
+          regionIndex: reg,
+          locationName: cityName,
+          nowMinutes: nowMin,
+          force: true,
+        });
+      }
+      const res = startCultSiteSiege(playerEntity, siteKeyArg, godId, { nowMinutes: nowMin, force: true });
       return res.ok ? `Siege started: ${res.site.siteKey} (${res.site.name}) besieged by ${res.siege.attackerGodId} for ${res.siege.durationDays}d (${res.siege.attackerCount} vs ${res.siege.defenderCount}).` : res.reason;
     }
     if (act === 'defend') {
@@ -3454,7 +3470,8 @@ async function handleApotheosisCommand(args = []) {
     if (!sieges.length) return 'No active Sanctuary or Temple sieges.\nUsage: apo siege <status|start [siteKey] [godId]|defend [siteKey]|win [siteKey]|lose [siteKey]>';
     return sieges.map((s) => {
       const hrs = Math.max(1, Math.ceil((Number(s.siege?.expiresAtMinutes ?? nowMin) - nowMin) / 60));
-      return `${s.siteKey} (${s.name}): attacker=${s.siege.attackerGodId}, ${hrs}h left, ${s.siege.attackerCount} vs ${s.siege.defenderCount}`;
+      const rem = s.siege.remainingAttackers ?? s.siege.attackerCount;
+      return `${s.siteKey} (${s.name}): attacker=${s.siege.attackerGodId}, ${hrs}h left, ${rem}/${s.siege.attackerCount} attackers vs ${s.siege.defenderCount} garrison`;
     }).join('\n');
   }
   if (sub === 'war') {
@@ -3486,6 +3503,45 @@ async function handleApotheosisCommand(args = []) {
       const res = enforceGodWarTruce(playerEntity, warId, { nowMinutes: nowMin, force: true });
       return res.ok ? res.message : res.reason;
     }
+    if (act === 'stance') {
+      const localWar = getActiveWarForRegion(playerEntity, curReg);
+      if (!localWar) return `No active Divine or Mundane war in region #${curReg}.`;
+      const targetStance = String(args[2] ?? 'reset').trim();
+      const map = { sidea: 'sideA', sideb: 'sideB', peace: 'peace', watch: 'watch', reset: null };
+      const key = targetStance.toLowerCase();
+      if (!(key in map)) return 'Usage: apo war stance <sideA|sideB|peace|watch|reset>';
+      setWarPlayerStance(playerEntity, localWar, map[key]);
+      return `Region #${curReg} (${localWar.warKind}) war stance -> ${map[key] ?? 'undeclared (reset)'}.`;
+    }
+    if (act === 'pacify') {
+      const localWar = getActiveWarForRegion(playerEntity, curReg);
+      if (!localWar) return `No active Divine or Mundane war in region #${curReg}.`;
+      const degMap = {
+        triumph: 'TRIUMPH',
+        success: 'SUCCESS',
+        partial: 'PARTIAL',
+        fail: 'FAILURE',
+        failure: 'FAILURE',
+        critfail: 'CRITICAL_FAILURE',
+      };
+      const rawDeg = args[2] ? String(args[2]).toLowerCase() : null;
+      const forcedDegree = rawDeg && degMap[rawDeg] ? degMap[rawDeg] : null;
+      const res = resolveWarSkirmishPacify(playerEntity, localWar, { nowMinutes: nowMin, force: true, forcedDegree });
+      return res.ok
+        ? `Pacify result: degree=${res.degree}, pacified=${res.pacified}, count=${res.pacifiedCount}/3, warEndedEarly=${!!res.warEndedEarly}, stance=${res.skirmishStance}`
+        : res.reason;
+    }
+    if (act === 'cooldown') {
+      const cult = ensureCultState(playerEntity);
+      if (String(args[2] ?? '').toLowerCase() === 'clear') {
+        cult.lastWarSkirmishMinutes = -999999;
+        return 'Cleared wilderness war skirmish cooldown (ready to spawn immediately).';
+      }
+      const cfg = getApotheosisSiegeConfig();
+      const lastMin = Number(cult?.lastWarSkirmishMinutes ?? -999999);
+      const waitMin = Math.max(0, Math.ceil((lastMin + cfg.skirmishCooldownMinutes) - nowMin));
+      return `War Skirmish Cooldown (${cfg.tier}): ${waitMin}m remaining (limit=${cfg.skirmishCooldownMinutes}m, interruptChance=${Math.round(cfg.fastTravelInterruptChance * 100)}%).`;
+    }
     const wars = getActiveGodWars(playerEntity);
     const localWar = getActiveWarForRegion(playerEntity, curReg);
     const lines = wars.length
@@ -3494,7 +3550,7 @@ async function handleApotheosisCommand(args = []) {
     lines.push(localWar
       ? `Current Region #${curReg}: ${localWar.warKind} war (${localWar.sideAName} vs ${localWar.sideBName}), stance=${localWar.playerStance ?? 'none'}, pacified=${localWar.pacifiedCount}/3`
       : `Current Region #${curReg}: at peace.`);
-    lines.push('Usage: apo war <status|start [godA] [godB]|here [godA] [godB]|skirmish|support <godId>|truce>');
+    lines.push('Usage: apo war <status|start [gA] [gB]|here [gA] [gB]|skirmish|support <godId>|truce|stance <sideA|sideB|peace|watch|reset>|pacify [triumph|success|partial|fail|critfail]|cooldown [clear]>');
     return lines.join('\n');
   }
   if (sub === 'reset') {
