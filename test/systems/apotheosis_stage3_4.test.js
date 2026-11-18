@@ -61,7 +61,9 @@ import { SKILLS } from '../../src/systems/skills.js';
 import { CLIMATES } from '../../src/formats/mapsFile.js';
 import { setPref } from '../../src/systems/uiPrefs.js';
 import { createApotheosisCultHost } from '../../src/scenes/apotheosisCultHost.js';
+import { createExteriorFoes } from '../../src/scenes/exteriorFoes.js';
 import { foeHostile } from '../../src/systems/encounters.js';
+import { isShipmate, sparedBySwing, sparedByPlayer } from '../../src/combat/friendlyFire.js';
 import { getTargets, PLAYER_TARGET } from '../../src/characters/enemy/enemyTargets.js';
 import { playerEntity } from '../../src/characters/playerEntity.js';
 import { snapshotPlayer, restorePlayer } from '../../src/systems/save/save.js';
@@ -1022,6 +1024,198 @@ test('Stage 3.4 QA Pass: rival symmetry & cross-region stance sync, Observer/res
     assert.equal(sSite.siege, null, 'Siege resolves as victory when all attackers fall');
     assert.equal(defs[0].ai.isHostile, false, 'Surviving garrison calms down after siege victory');
     assert.equal(defs[0].entity.skirmishForceInfighting, false);
+  } finally {
+    playerEntity.apotheosis = prevApo;
+    playerEntity.currentRegionIndex = prevReg;
+  }
+});
+
+test('Stage 3.4 Friendly Fire: siege defenders and allied skirmish sides are spared across swings, arrows, spells, and zero-damage hits', async () => {
+  const ent = makeAscended('war', { region: 17, faith: 2000 });
+  turnOnConditionFlag(ent.regionConditions, 17, REGION_FLAGS.WarOngoing);
+  const war = getActiveWarForRegion(ent, 17, { preferKind: 'mundane' });
+  assert.ok(war);
+
+  const extPool = [];
+  const host = createLivingSceneHost({
+    feet: () => [0, 0, 0],
+    ready: () => true,
+    clock: () => 2500,
+    regionIndex: () => 17,
+    inLocationRect: () => false,
+    onRoad: () => true,
+    afloat: () => false,
+    isAutopiloting: () => false,
+    heightAt: () => 0,
+    playerEntity: () => ent,
+    spawn: async (mob, pos, opts) => {
+      const rec = {
+        mobileType: mob,
+        dead: false,
+        feet: [...pos],
+        entity: { team: opts.team, mobileTeam: opts.team, health: 100, maxHealth: 100 },
+        ai: { isHostile: true, detected: true, target: null, feet: [...pos], yaw: opts.yaw ?? 0, height: 1.8, sightRadius: 30, wouldBeSpawned: true, collider: { raycast: () => null } },
+      };
+      extPool.push(rec);
+      return rec;
+    },
+    remove: (r) => { const idx = extPool.indexOf(r); if (idx >= 0) extPool.splice(idx, 1); },
+    inPool: (r) => extPool.includes(r),
+    say: () => {},
+    openChoice: () => {},
+  });
+
+  host.spawnWarSkirmishNow({ force: true, preferKind: 'mundane' });
+  await new Promise((r) => setTimeout(r, 15));
+  const sideA = extPool.filter((f) => f.livingRole === 'skirmish_guard');
+  const sideB = extPool.filter((f) => f.livingRole === 'skirmish_rebel');
+  assert.ok(sideA.length >= 2 && sideB.length >= 2);
+
+  // Neutral / Observer: neither side is spared
+  assert.equal(isShipmate(sideA[0]), false);
+  assert.equal(sparedByPlayer(sideA[0]), false);
+  assert.equal(sparedByPlayer(sideB[0]), false);
+
+  // Side with Side A -> Side A spared, Side B vulnerable
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'sideA');
+  host.frame(1.1);
+  assert.equal(sideA[0].shipmate, true);
+  assert.equal(isShipmate(sideA[0]), true);
+  assert.equal(sparedBySwing(sideA[0]), true);
+  assert.equal(sparedByPlayer(sideA[0]), true);
+  assert.equal(sparedBySwing(sideB[0]), false);
+  assert.equal(sparedByPlayer(sideB[0]), false);
+
+  // Switch mid-skirmish to Side B -> Side B spared, Side A vulnerable
+  setWarPlayerStance(ent, getActiveWarForRegion(ent, 17, { preferKind: 'mundane' }), 'sideB');
+  host.frame(1.1);
+  assert.equal(sideB[0].shipmate, true);
+  assert.equal(sparedBySwing(sideB[0]), true);
+  assert.equal(sparedByPlayer(sideB[0]), true);
+  assert.equal(sideA[0].shipmate, false);
+  assert.equal(sparedBySwing(sideA[0]), false);
+  assert.equal(sparedByPlayer(sideA[0]), false);
+
+  // Victory keeps surviving Side B allies spared so post-victory swings never cleave them
+  for (const g of sideA) g.dead = true;
+  host.frame(1.1);
+  assert.equal(sideB[0].ai.isHostile, false);
+  assert.equal(sparedByPlayer(sideB[0]), true);
+
+  // Sanctuary / Temple Siege defenders + real exteriorFoes pool doors (resolvePlayerHit, damageFoe, attackFromPlayer)
+  const prevApo = playerEntity.apotheosis;
+  const prevReg = playerEntity.currentRegionIndex;
+  try {
+    playerEntity.currentRegionIndex = 17;
+    playerEntity.apotheosis = {
+      ascended: true,
+      stage: 'ascended',
+      source: 'mantella',
+      portfolio: 'war',
+      ascendedAtMinutes: 2500,
+      faith: 1500,
+      cultFaithBonus: 500,
+    };
+    ensurePantheonState(playerEntity, { nowMinutes: 2500 });
+    ensureCultState(playerEntity);
+    const sSite = foundPlayerUndergroundSanctuary(playerEntity, { mapId: 9013, regionIndex: 17, locationName: 'FfTown', nowMinutes: 2500, force: true }).site;
+    startCultSiteSiege(playerEntity, sSite.siteKey, 'molag_bal', { nowMinutes: 2510, force: true });
+
+    const fakePool = createExteriorFoes({
+      renderer: { createBillboardBatch: () => ({}), destroyBillboardBatch: () => {}, textures: new Map() },
+      collider: { raycast: () => Infinity, heightAt: () => 0 },
+      fetchBytes: async () => new Uint8Array(0),
+      getTexture: async () => null,
+      uploadRecordFrame: () => {},
+      currentMinute: () => 2520,
+      currentPixelKey: () => '0,0',
+      playerEntity,
+      audio: null,
+      rolls: () => 0.1,
+      rand: () => 0.1,
+    });
+
+    const makePoolRec = (mob, pos, opts, hp = 100) => {
+      const turnCalls = [];
+      const rec = {
+        mobileType: mob,
+        dead: false,
+        feet: [...pos],
+        allied: !!opts.allied,
+        entity: { team: opts.team, mobileTeam: opts.team, health: hp, maxHealth: hp, stats: { speed: 50, luck: 50, agility: 50 }, armorValues: new Array(7).fill(0) },
+        ai: {
+          isHostile: true,
+          detected: true,
+          target: null,
+          feet: [...pos],
+          yaw: 0,
+          height: 1.8,
+          sightRadius: 30,
+          wouldBeSpawned: true,
+          makeEnemyHostileToAttacker: (...args) => { turnCalls.push(args); },
+        },
+        _turnCalls: turnCalls,
+      };
+      fakePool.foes.push(rec);
+      return rec;
+    };
+
+    const cultHost = createApotheosisCultHost({
+      modes: () => ({ mode: 'exterior' }),
+      built: () => new Map([['0,0', { key: '0,0', homeTown: 9013, px: 0, py: 0, frames: new Map() }]]),
+      state: { pixelTranslation: () => [0, 0, 0] },
+      exteriorFoes: () => fakePool,
+      spawnExteriorFoe: async (mob, pos, opts) => makePoolRec(mob, pos, opts, 100),
+      worldMinutes: () => 2520,
+      groundAt: () => 0,
+      collider: () => ({ raycast: () => Infinity }),
+      townTalk: { say: () => {} },
+    });
+
+    assert.equal(cultHost.spawnCultSiegeBattle(sSite.siteKey), true);
+    await new Promise((r) => setTimeout(r, 15));
+    const atks = fakePool.foes.filter((f) => f.livingRole === 'cult_siege_attacker');
+    const defs = fakePool.foes.filter((f) => f.livingRole === 'cult_siege_defender');
+    assert.ok(atks.length >= 2 && defs.length >= 1);
+
+    const def = defs[0];
+    const atk = atks[0];
+    assert.equal(def.shipmate, true);
+    assert.equal(isShipmate(def), true);
+    assert.equal(sparedBySwing(def), true);
+    assert.equal(sparedByPlayer(def), true);
+    assert.equal(sparedByPlayer(atk), false);
+
+    // Move defender alone right in front of player and strike through exteriorFoes' real doors
+    for (const a of atks) a.ai.feet = [50, 0, 50];
+    for (const d of defs) d.ai.feet = [50, 0, 50];
+    def.ai.feet = [0, 0, 1];
+    let seenCands = [];
+    const mockWeapon = {
+      strikingWeapon: null,
+      resolveHit(cands, _pe, canSee) {
+        seenCands = [...cands];
+        return cands
+          .filter((foe) => canSee(foe).dist <= 2.5)
+          .map((foe) => ({ foe, damage: 35 }));
+      },
+    };
+    const hitDef = fakePool.resolvePlayerHit(mockWeapon, [0, 1.5, 0], [0, 0, 1], [0, 0, 0], () => true);
+    assert.equal(seenCands.includes(def), false, 'Temple Garrison defender is filtered before PlayerWeapon.resolveHit');
+    assert.equal(hitDef, false, 'Player melee swing must completely skip lone Temple Garrison defender');
+    assert.equal(def.entity.health, 100);
+
+    fakePool.damageFoe(def, 40, [0, 0, 0], [0, 0, 1], { fromPlayer: true, kind: 'spell' });
+    fakePool.attackFromPlayer(def, [0, 0, 0], 'arrow');
+    assert.equal(def.entity.health, 100, 'Direct player spell/arrow damage cannot hurt defender');
+    assert.equal(def.entity.team, 'PlayerAlly', 'Defender keeps PlayerAlly team');
+    assert.equal(def._turnCalls.length, 0, 'Defender never turns hostile on player');
+
+    // Whereas an attacker IS struck and damaged normally by resolvePlayerHit
+    atk.ai.feet = [0, 0, 1];
+    const hitAtk = fakePool.resolvePlayerHit(mockWeapon, [0, 1.5, 0], [0, 0, 1], [0, 0, 0], () => true);
+    assert.equal(hitAtk, true, 'Player melee swing still hits siege attacker');
+    assert.equal(atk.entity.health, 65);
   } finally {
     playerEntity.apotheosis = prevApo;
     playerEntity.currentRegionIndex = prevReg;

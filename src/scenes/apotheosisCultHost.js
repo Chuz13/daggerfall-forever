@@ -1355,6 +1355,8 @@ export function createApotheosisCultHost(deps = {}) {
           return;
         }
         ally.livingRole = 'cult_siege_defender';
+        ally.allied = true;
+        ally.shipmate = true;
         ally._siegeSiteKey = site.siteKey;
         if (ally.entity) {
           ally.entity.name = `${ownerName}'s Temple Garrison`;
@@ -1482,6 +1484,8 @@ export function createApotheosisCultHost(deps = {}) {
       const liveDef = battle.defenders.filter((f) => f && !f.dead && (!extList || extList.includes(f)));
 
       for (const d of liveDef) {
+        d.allied = true;
+        d.shipmate = true;
         if (d.entity) {
           d.entity.team = 'PlayerAlly';
           d.entity.mobileTeam = 'PlayerAlly';
@@ -1508,6 +1512,8 @@ export function createApotheosisCultHost(deps = {}) {
         _activeSiegeBattles.delete(sk);
         for (const d of battle.defenders) {
           if (!d || d.dead) continue;
+          d.allied = true;
+          d.shipmate = true;
           if (d.entity) {
             d.entity.team = 'PlayerAlly';
             d.entity.mobileTeam = 'PlayerAlly';

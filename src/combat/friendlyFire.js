@@ -17,9 +17,16 @@
 // watchman the owner names): every door passes them by, and their own blasts and shafts pass by the player and each
 // other (hostMagic.js). A summoned daedra or a quest's companion keeps DFU's own friendly fire.
 
-/** Whether `t` (a pool's foe) is a shipmate: an ally of the player's, alive, on a ship's deck. */
+/** Whether `t` (a pool's foe) is a shipmate or spared ally: a crewmate on a deck, a unit marked `shipmate`, a cult
+ *  siege defender, or a Living Tamriel / Apotheosis skirmish ally fighting on the player's side. */
 export const isShipmate = (t) =>
-  !!t && (t.deckBoat != null || t.shipmate === true) && !t.dead && t.entity?.team === 'PlayerAlly';
+  !!t &&
+  (t.deckBoat != null ||
+    t.shipmate === true ||
+    t.livingRole === 'cult_siege_defender' ||
+    (t.allied === true && (t.livingSiteKind != null || t.livingRole != null))) &&
+  !t.dead &&
+  t.entity?.team === 'PlayerAlly';
 
 /** AUDIT WORLD-EVENTS L4-5: whether `t` is one of a raid's refugees (RAID5's Exodus, scenes/raidSitesHost.js) - the
  *  player's ally, alive, walking to the square: spared as a shipmate is (one blow turned one on the player, and one

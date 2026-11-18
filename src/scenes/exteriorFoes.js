@@ -867,7 +867,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     handleAttackFromPlayer(f, playerFeet);
   }
   function handleAttackFromPlayer(f, playerFeet = null, peer = false, peerId = null) {
-    if (!f?.ai || f.companion != null) return;   // AUDIT CC-B1: no blow of the player's - nor a peer's - turns a companion
+    if (!f?.ai || f.companion != null || (!peer && sparedBySwing(f))) return;   // AUDIT CC-B1: no blow of the player's - nor a peer's - turns a companion; STAGE3.4: nor a spared skirmish/siege ally
     // ROAD-B: DaggerfallEntityBehaviour.cs:255-258 sits BEFORE the
     // call below and is a different law - the whole area turns, this
     // one foe additionally learns where the blow came from. The

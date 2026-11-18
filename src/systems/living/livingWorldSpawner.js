@@ -1686,6 +1686,7 @@ export function createLivingSceneHost(deps) {
           f.entity.skirmishForceInfighting = true;
         }
         f.allied = false;
+        f.shipmate = false;
         if (f.ai) {
           f.ai.isHostile = true;
           f.ai.detected = true;
@@ -1705,6 +1706,7 @@ export function createLivingSceneHost(deps) {
           g.entity.skirmishForceInfighting = true;
         }
         g.allied = true;
+        g.shipmate = true;
         if (g.ai) {
           const cur = g.ai.target;
           const tgt = (!cur || cur.dead || !deps.inPool(cur) || cur === player)
@@ -1724,6 +1726,7 @@ export function createLivingSceneHost(deps) {
           r.entity.skirmishForceInfighting = true;
         }
         r.allied = false;
+        r.shipmate = false;
         if (r.ai) {
           r.ai.isHostile = true;
           r.ai.detected = true;
@@ -1745,6 +1748,7 @@ export function createLivingSceneHost(deps) {
           r.entity.skirmishForceInfighting = true;
         }
         r.allied = true;
+        r.shipmate = true;
         if (r.ai) {
           const cur = r.ai.target;
           const tgt = (!cur || cur.dead || !deps.inPool(cur) || cur === player)
@@ -1764,6 +1768,7 @@ export function createLivingSceneHost(deps) {
           g.entity.skirmishForceInfighting = true;
         }
         g.allied = false;
+        g.shipmate = false;
         if (g.ai) {
           g.ai.isHostile = true;
           g.ai.detected = true;
@@ -1780,6 +1785,7 @@ export function createLivingSceneHost(deps) {
       site.orderRestored = true;
       for (const f of site.foes) {
         f.allied = false;
+        f.shipmate = false;
         if (f.entity) {
           f.entity.team = 'SkirmishPeace';
           f.entity.mobileTeam = 'SkirmishPeace';
@@ -1802,6 +1808,7 @@ export function createLivingSceneHost(deps) {
     } else {
       for (const g of guards) {
         g.allied = false;
+        g.shipmate = false;
         if (g.entity) {
           g.entity.team = site.kind === LIVING_SITE_KINDS.WAR_SKIRMISH ? 'WarSideA' : 'CityWatch';
           g.entity.mobileTeam = g.entity.team;
@@ -1821,6 +1828,7 @@ export function createLivingSceneHost(deps) {
       }
       for (const r of rebels) {
         r.allied = false;
+        r.shipmate = false;
         if (r.entity) {
           r.entity.team = site.kind === LIVING_SITE_KINDS.WAR_SKIRMISH ? 'WarSideB' : 'PlayerEnemy';
           r.entity.mobileTeam = r.entity.team;
@@ -2183,6 +2191,9 @@ export function createLivingSceneHost(deps) {
                       f.entity.mobileTeam = 'PlayerAlly';
                     }
                     if (f.ai) f.ai.isHostile = false;
+                    f.companion = `adv:${comp.name}`;
+                    f.allied = true;
+                    f.shipmate = true;
                     companionFoe = f;
                   }
                 }
@@ -2915,14 +2926,20 @@ export function createLivingSceneHost(deps) {
               resolveSideChoice(squad, NAVAL_CHOICE.LAW, player, rng);
               for (const f of s.foes) {
                 if (f?.livingRole === 'naval_law') {
+                  f.allied = true;
+                  f.shipmate = true;
                   if (f.entity) {
                     f.entity.team = 'PlayerAlly';
                     f.entity.mobileTeam = 'PlayerAlly';
                   }
                   if (f.ai) f.ai.isHostile = false;
-                } else if (f?.livingRole === 'naval_pirate' && f.ai) {
-                  f.ai.isHostile = true;
-                  f.ai.detected = true;
+                } else if (f?.livingRole === 'naval_pirate') {
+                  f.allied = false;
+                  f.shipmate = false;
+                  if (f.ai) {
+                    f.ai.isHostile = true;
+                    f.ai.detected = true;
+                  }
                 }
               }
               if (s.navalSquadron?.pirateShips) {
@@ -2943,14 +2960,20 @@ export function createLivingSceneHost(deps) {
               const res = resolveSideChoice(squad, NAVAL_CHOICE.PIRATES, player, rng);
               for (const f of s.foes) {
                 if (f?.livingRole === 'naval_pirate') {
+                  f.allied = true;
+                  f.shipmate = true;
                   if (f.entity) {
                     f.entity.team = 'PlayerAlly';
                     f.entity.mobileTeam = 'PlayerAlly';
                   }
                   if (f.ai) f.ai.isHostile = false;
-                } else if (f?.livingRole === 'naval_law' && f.ai) {
-                  f.ai.isHostile = true;
-                  f.ai.detected = true;
+                } else if (f?.livingRole === 'naval_law') {
+                  f.allied = false;
+                  f.shipmate = false;
+                  if (f.ai) {
+                    f.ai.isHostile = true;
+                    f.ai.detected = true;
+                  }
                 }
               }
               if (s.navalSquadron?.lawShips) {
@@ -2968,6 +2991,12 @@ export function createLivingSceneHost(deps) {
               label: `3. ${LIVING_WORDS.navalChoiceNeutral()}`,
               action: () => {
                 const res = resolveSideChoice(squad, NAVAL_CHOICE.NEUTRAL, player, rng);
+                for (const f of s.foes) {
+                  if (f?.livingRole === 'naval_law' || f?.livingRole === 'naval_pirate') {
+                    f.allied = false;
+                    f.shipmate = false;
+                  }
+                }
                 if (res.scavenge && player) {
                   const salvageGold = Math.round(
                     (50 + Math.max(1, Number(player?.level ?? 1)) * 15) * (res.salvageBonusMult || 1)
@@ -3219,6 +3248,8 @@ export function createLivingSceneHost(deps) {
           }
           rec.campId = a.campId;
           rec.livingSiteKind = blueprint.kind;
+          rec.allied = Boolean(a.allied);
+          rec.shipmate = Boolean(a.allied);
           if (rec.entity) {
             rec.entity.name = a.name;
             rec.entity.campId = a.campId;
@@ -3725,6 +3756,7 @@ export function createLivingSceneHost(deps) {
               for (const ally of list) {
                 if (!ally || ally.dead) continue;
                 ally.allied = true;
+                ally.shipmate = true;
                 if (ally.entity) {
                   ally.entity.team = 'PlayerAlly';
                   ally.entity.mobileTeam = 'PlayerAlly';
@@ -4254,6 +4286,10 @@ export function buildDungeonAdventurerChoiceSpec({
           });
           if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
             recruitAdventurerCompanion(adv);
+            if (foeRecord) {
+              foeRecord.allied = true;
+              foeRecord.shipmate = true;
+            }
             if (foeRecord?.entity) {
               foeRecord.entity.team = 'PlayerAlly';
               foeRecord.entity.mobileTeam = 'PlayerAlly';
