@@ -106,7 +106,7 @@ import { drawTutorialsPane, releaseTutorialsPane } from '../tutorialsPane.js';  
 import { drawApotheosisPane, releaseApotheosisPane } from '../apotheosisPane.js';   // APOTHEOSIS: Fate Weight, Artifact Sacrifice & Portfolios
 import { drawLichdomPane, releaseLichdomPane, lichdomTabShown } from '../lichdomPane.js';   // Lichdom & Archlich progression pane
 import { drawShotsPane, releaseShotsPane } from '../shotsPane.js';   // LOAD1: the Screenshots pane - the gallery the PrintScreen key keeps
-import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT, TEST_GOD } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
+import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT, TEST_GOD, TEST_ASCENSION } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../../formats/morrowind/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../../systems/equip.js';
 import { boonStatRows } from '../temperatureCard.js';   // AUDIT C&C B11: the Attributes page names the boons that raise them
@@ -1161,6 +1161,11 @@ function paneTest(body) {
   god.append(el('p', 'meta', TEST_GOD.blurb));
   god.append(acts([{ label: t('menu.test.enterGod', 'Enter as an Ascended God'), primary: true, onClick: () => onAction(`test:${TEST_GOD.id}`) }]));
   body.append(god);
+  const ascension = el('div', 'card');
+  ascension.append(el('h3', null, TEST_ASCENSION.label));
+  ascension.append(el('p', 'meta', TEST_ASCENSION.blurb));
+  ascension.append(acts([{ label: t('menu.test.enterAscension', 'Enter at Direnni Tower'), primary: true, onClick: () => onAction(`test:${TEST_ASCENSION.id}`) }]));
+  body.append(ascension);
   // FT12 (Mac, 2026-09-14: "move the test the outdoors to the test room
   // tab"): the outdoors test door lives with the other test doors. It
   // was the last row of the Enhanced category of Settings, which is off

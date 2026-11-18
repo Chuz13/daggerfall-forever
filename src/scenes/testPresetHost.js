@@ -3,7 +3,7 @@
 // settled names by value at construction, every live one (a `let` someone writes, a `const` made below) read at its
 // use as `boot.<name>` - as the code read them where it was.
 import { applyHeadlessChargen, createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex } from '../systems/chargenSession.js';
-import { applyTestCharacter, seedTestGod, seedTestLoot, seedTestMount } from '../systems/testRoom.js';
+import { applyTestCharacter, seedTestAscensionSpellsword, seedTestGod, seedTestLoot, seedTestMount } from '../systems/testRoom.js';
 import { autoBuildArms, buildArmsFor } from '../combat/weapon/weaponRig.js';
 import { enumerateSaves } from '../systems/save/saveSlots.js';
 import { exitToTitleMenu, fetchBytes } from './shared.js';
@@ -43,6 +43,11 @@ export function createTestPreset(boot) {
       if (testEntry.god) {
         const res = seedTestGod(playerEntity, { spellsByIndex: sbi });
         console.log(`[testroom] ascended god: level ${playerEntity.level}, portfolio=${res.portfolio}, faith=${res.faith}`);
+      }
+      if (testEntry.ascension) {
+        const res = seedTestAscensionSpellsword(playerEntity, { spellsByIndex: sbi });
+        surfacePlayer();
+        console.log(`[testroom] ascension spellsword: level ${res.level}, hp=${res.maxHealth}, mp=${res.maxMagicka}, stars=${res.stars}, wt=${res.weightKg.toFixed(1)}/${res.maxWeightKg.toFixed(1)}kg`);
       }
       // The Morrowind rigs, WITHOUT the trip to the pause card - the
       // room exists to look at them. Only when the data is attached;

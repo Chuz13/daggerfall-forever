@@ -25,22 +25,32 @@
 
 import { RACES } from './races.js';
 import { t } from './textManager.js';
-import { hitPointsPerLevelUp } from './chargen.js';
+import { hitPointsPerLevelUp, defineLiveMaxHealth, defineLiveMaxMagicka } from './chargen.js';
 import { ONLINE_BONUS_POOL } from './levelEven.js';
-import { STAT_KEYS_ORDER } from './statMods.js';
-import { SKILLS } from './skills.js';
+import { STAT_KEYS_ORDER, liveStat, FATIGUE_MULTIPLIER } from './statMods.js';
+import { SKILLS, SKILL_COUNT } from './skills.js';
 import { setMasterSkills, masterSkill } from './masterSkills.js';
+import { choosePath } from './arcanePaths.js';
+import { chooseMartialPath } from './martialPaths.js';
+import { signatureSpell } from './signatureSpells.js';
+import { buildCustomSpell, SPELLBOOK_TEMPLATE_INDEX } from './spell/spellMaker.js';
+import { spellRecordOfIndex } from './loot/loot.js';
 import { computeEntityMods } from './entityMods.js';
 import {
   APOTHEOSIS_SOURCES,
+  REQUIRED_FATE_WEIGHT,
   startApotheosisQuestline,
   completeApotheosisQuestline,
   selectApotheosisPortfolio,
+  resetApotheosisForDebug,
+  setDebugFateWeight,
+  evaluateFateWeight,
 } from './apotheosis/apotheosisCore.js';
 import { resurrectionSpell } from './resurrect.js';   // RESURRECT1: the sorceress carries one, to test with
 import { applyHeadlessChargen } from './chargenSession.js';
-import { addItem } from './inventory.js';
-import { equipItem } from './equip.js';
+import { addItem, carriedWeight } from './inventory.js';
+import { equipItem, unequipSlot, equipTableOf, EQUIP_SLOTS } from './equip.js';
+import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { mintCondition, templateByIndex, itemBaseValue, setItemFields } from './item/itemTemplates.js';   // MAC-N1: SetItem's name + value, the one export
 import { WEAPONS_ENUM, ARMOR_ENUM, createWeapon, ARROW_TEMPLATE } from '../combat/enemyEquipment.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
@@ -49,14 +59,21 @@ import { BOOK_TEMPLATE, createBook } from './books.js';   // EB3: books in the p
 import { BOOK_ID_TITLES } from './booksData.js';
 import { setPref } from './uiPrefs.js';   // LR3: the loot door turns the ladder on for the session
 import { setModSetting } from './modSettings.js';   // FIELD BUGS 2026-09-29 (the sea) #5: the sea door turns Come Sail Away on
-import { applyRarity, LEGENDARIES, ROLLED_TIERS, exaltLegendary, WARDROBE_LEGENDARIES, ARCANE_LEGENDARIES, cursePiece, SOCKET_EMPTY, GEM_IDS, socketMax, addTechniqueLine } from './loot/lootRarity.js';   // LR3: one of everything the ladder can mint; LOOT2: and an Exalted; LOOT15: the wardrobe's; LOOT16: a curse; TECH1: a technique; BAL9c: the arcane three
+import { applyRarity, LEGENDARIES, ROLLED_TIERS, exaltLegendary, WARDROBE_LEGENDARIES, ARCANE_LEGENDARIES, legendaryById, cursePiece, SOCKET_EMPTY, GEM_IDS, socketMax, addTechniqueLine } from './loot/lootRarity.js';   // LR3: one of everything the ladder can mint; LOOT2: and an Exalted; LOOT15: the wardrobe's; LOOT16: a curse; TECH1: a technique; BAL9c: the arcane three
 import { TECHNIQUE_IDS, TECHNIQUES, GAUNTLETS_TEMPLATE } from '../combat/technique/techniqueRoster.js';   // TECH1: one piece a technique, to try them all
-import { AETHERIC_RECORDS, mintAetheric } from './aetheric.js';   // SET6: the Aetheric rung - Ruhn's Regalia, whole (RAID4b: and the raiding parties' three sets)
+import { AETHERIC_RECORDS, PANOPLY_SET_PIECES, REGALIA, mintAetheric } from './aetheric.js';   // SET6: the Aetheric rung - Ruhn's Regalia, whole (RAID4b: and the raiding parties' three sets)
 import { mintHourlock, mintGilded, GILDED_RECORDS } from './gilded.js';   // GILDED1: the top rung's first record, to be seen and fired (its shot: arrows since GUNS-UNFOUND, below); GILDED2: and the world's two
 import { welkyndStone, varlaStone } from './ayleidStones.js';   // LOOT21: the Ayleid stones
 import { mintGem } from './gems.js';   // GEM2: the graded gems
 import { createThunderlock, createPellets, THUNDERLOCK_TEMPLATE, PELLET_TEMPLATE } from './thunderlock.js';   // TSR-GUN: the port's own weapon, and the import IS its registration
 import { createPistolet, PISTOLET_TEMPLATE } from './pistolet.js';   // PISTOLET: the second gun, the same way
+import { setOfflineFirmamentRenown } from './offlineFirmament.js';
+import { characterIdOf } from './characterId.js';
+import { createNewRecord as createNewProfRecord, getActiveOfflineRecord as getActiveProfRecord, saveOfflineRecord as saveProfRecord } from './offlineProfessions.js';
+import { xpForRank } from '../net/professionLaw.js';
+import { allOfflineHomes, inheritOfflineHome } from './offlineHomes.js';
+import { createBankAccounts, SHIP_TYPES } from './banking.js';
+import { REGION_NAMES } from '../formats/mapsTables.js';
 
 /** The prebuilt characters. `race` is the DF race key (races.js RACES
  *  spelling - mwRaceId derives the Morrowind id from it), `classIndex`
@@ -122,7 +139,7 @@ export const TEST_SEA_TEXT = Object.freeze({
 });
 
 /** The doors that start OUTDOORS - a spawn, not a character: never the classic start's dungeon (main.js's route). */
-export const testStartsOutdoors = (id) => id === TEST_RIDE.id || id === TEST_SEA.id || id === TEST_GOD.id;
+export const testStartsOutdoors = (id) => id === TEST_RIDE.id || id === TEST_SEA.id || id === TEST_GOD.id || id === TEST_ASCENSION.id;
 
 /** Newly ascended god preset: level 35 Nord Warrior, Portfolio of War, starting outdoors in Chesterwark. */
 export const TEST_GOD = Object.freeze({
@@ -141,7 +158,27 @@ export const TEST_GOD = Object.freeze({
   },
 });
 
-export const testStartLocation = (id) => (id === TEST_GOD.id ? { region: TEST_GOD.region, loc: TEST_GOD.loc } : null);
+/** Battle-ready Level 35 Spellsword challenger outside Direnni Tower (98 unspent Firmament stars, primed for Siege/Tower/Shadow). */
+export const TEST_ASCENSION = Object.freeze({
+  id: 'ascension',
+  preset: 'breton-sorceress',
+  region: REGION_NAMES[9],
+  loc: 'Direnni Tower',
+  level: 35,
+  get label() { return t('menu.test.ascensionTitle', 'Ascension Challenger (Spellsword)'); },
+  get blurb() {
+    return t(
+      'menu.test.ascensionBlurb',
+      'A battle-ready Level 35 Spellsword (3x INT magicka, Battlemage & Warblade paths, Aetheric Panoply, 98 unspent Firmament stars) outside Direnni Tower, primed for the Siege, Tower, and Shadow of the Agent.',
+    );
+  },
+});
+
+export const testStartLocation = (id) => {
+  if (id === TEST_GOD.id) return { region: TEST_GOD.region, loc: TEST_GOD.loc };
+  if (id === TEST_ASCENSION.id) return { region: TEST_ASCENSION.region, loc: TEST_ASCENSION.loc };
+  return null;
+};
 
 /** #5: the sea door's two switches - Come Sail Away (the world latches it once, at the load this door starts) and
  *  Naval Combat - turned on, and left on, as the loot door leaves its ladder. */
@@ -159,6 +196,7 @@ export function testEntryById(id) {
   if (id === TEST_SEA.id) return { preset: testPresetById(TEST_SEA.preset), ride: false, sea: true };
   if (id === TEST_LOOT.id) return { preset: testPresetById(TEST_LOOT.preset), ride: false, loot: true };
   if (id === TEST_GOD.id) return { preset: testPresetById(TEST_GOD.preset), ride: false, god: true };
+  if (id === TEST_ASCENSION.id) return { preset: testPresetById(TEST_ASCENSION.preset), ride: false, ascension: true };
   const preset = testPresetById(id);
   return preset ? { preset, ride: false } : null;
 }
@@ -562,6 +600,222 @@ export function seedTestGod(entity, { spellsByIndex = null, nowMinutes = null } 
   entity.magicka = entity.maxMagicka;
   entity.fatigue = entity.maxFatigue;
   return res;
+}
+
+/**
+ * Configures a battle-ready Level 35 custom Spellsword primed for all three Apotheosis
+ * combat trials (Direnni Siege, Direnni Tower Hard-Mode, Shadow of the Agent),
+ * with 98 unspent Firmament stars, 50 Craft Points, Aetheric Panoply + Shalidor's Brand,
+ * and a backup Battle Axe (Ruhn's Gatecleaver) to bypass Shadow of the Agent's >100 skill resistance.
+ */
+export function seedTestAscensionSpellsword(entity, { spellsByIndex = null } = {}) {
+  entity.career = {
+    name: 'Spellsword',
+    hitPointsPerLevel: 20,
+    advancementMultiplier: 1.5,
+    abilityFlagsAndSpellPointsBitfield: 0, // 3.0x INT spell point multiplier, no disadvantages
+    weaponArmorShieldsBitfield: 0,
+    forbiddenMaterialsFlags: 0,
+    attackModifierFlags: 0,
+    primarySkills: [SKILLS.LongBlade, SKILLS.Destruction, SKILLS.Alteration],
+    majorSkills: [SKILLS.Restoration, SKILLS.Axe, SKILLS.BluntWeapon],
+    minorSkills: [
+      SKILLS.Mysticism, SKILLS.Thaumaturgy, SKILLS.Illusion,
+      SKILLS.CriticalStrike, SKILLS.Dodging, SKILLS.Running,
+    ],
+    strength: 50,
+    intelligence: 50,
+    willpower: 50,
+    agility: 50,
+    endurance: 50,
+    personality: 50,
+    speed: 50,
+    luck: 50,
+  };
+
+  defineLiveMaxHealth(entity);
+  defineLiveMaxMagicka(entity);
+  delete entity.maxMagickaOverride;
+  entity.level = TEST_ASCENSION.level;
+  entity.stats = {
+    ...(entity.stats ?? {}),
+    strength: 100,
+    intelligence: 100,
+    willpower: 100,
+    endurance: 100,
+    agility: 100,
+    speed: 100,
+    luck: 90,
+    personality: 75,
+  };
+
+  const rawHp = 45 + (TEST_ASCENSION.level - 1) * 15;
+  entity.maxHealth = rawHp;
+  entity.rawMaxHealth = rawHp;
+
+  entity.skills = new Array(SKILL_COUNT).fill(45);
+  entity.skills[SKILLS.LongBlade] = 200;
+  entity.skills[SKILLS.Destruction] = 150;
+  entity.skills[SKILLS.Alteration] = 140;
+  entity.skills[SKILLS.Restoration] = 100;
+  entity.skills[SKILLS.Axe] = 100;
+  entity.skills[SKILLS.BluntWeapon] = 100;
+  entity.skills[SKILLS.Mysticism] = 100;
+  entity.skills[SKILLS.Thaumaturgy] = 100;
+  entity.skills[SKILLS.Illusion] = 100;
+  entity.skills[SKILLS.CriticalStrike] = 100;
+  entity.skills[SKILLS.Dodging] = 100;
+  entity.skills[SKILLS.Running] = 100;
+  entity.skills[SKILLS.ShortBlade] = 100;
+  entity.skills[SKILLS.Archery] = 100;
+  entity.skills[SKILLS.Medical] = 100;
+  entity.skills[SKILLS.Stealth] = 100;
+  entity.skills[SKILLS.Daedric] = 100;
+
+  setMasterSkills(entity, true);
+  entity.masteredSkills = [];
+  for (const id of [
+    SKILLS.LongBlade,
+    SKILLS.Destruction,
+    SKILLS.Alteration,
+    SKILLS.Restoration,
+    SKILLS.Axe,
+    SKILLS.Mysticism,
+  ]) {
+    masterSkill(entity, id);
+  }
+
+  entity.arcanePath = null;
+  choosePath(entity, 'battlemage');
+  entity.martialPath = null;
+  chooseMartialPath(entity, 'warblade');
+
+  entity.spells = [];
+  const pushSpell = (sp) => {
+    if (!sp) return;
+    if (!entity.spells.some((k) => k === sp || (k?.index === sp.index && k?.name === sp.name))) {
+      entity.spells.push(sp);
+    }
+  };
+  pushSpell(signatureSpell('battlemage'));
+  addTestMissileSpells(entity, spellsByIndex);
+  const slot = (type, subType, settings) => ({ type, subType, settings });
+  const balmName = t('spell.balynasBalm', "Balyna's Balm");
+  const freeActionName = t('spell.freeAction', 'Free Action');
+  const standardKit = [
+    [8, () => buildCustomSpell({ name: 'Shock', element: 3, rangeType: 1, icon: 0, index: -1003, slots: [slot(4, 0, { magnitudeBaseLow: 10, magnitudeBaseHigh: 20, magnitudeLevelBase: 2, magnitudeLevelHigh: 3, magnitudePerLevel: 1 })] })],
+    [97, () => buildCustomSpell({ name: balmName, element: 4, rangeType: 0, icon: 0, index: -1004, slots: [slot(10, 8, { magnitudeBaseLow: 12, magnitudeBaseHigh: 20, magnitudeLevelBase: 2, magnitudeLevelHigh: 3, magnitudePerLevel: 1 })] })],
+    [17, () => buildCustomSpell({ name: 'Shield', element: 4, rangeType: 0, icon: 0, index: -1005, slots: [slot(35, 255, { durationBase: 8, durationMod: 2, durationPerLevel: 1, magnitudeBaseLow: 25, magnitudeBaseHigh: 45, magnitudeLevelBase: 5, magnitudeLevelHigh: 5, magnitudePerLevel: 1 })] })],
+    [10, () => buildCustomSpell({ name: freeActionName, element: 4, rangeType: 0, icon: 0, index: -1006, slots: [slot(26, 255, { durationBase: 8, durationMod: 2, durationPerLevel: 1 })] })],
+    [44, () => buildCustomSpell({ name: 'Chameleon', element: 4, rangeType: 0, icon: 0, index: -1007, slots: [slot(23, 0, { durationBase: 8, durationMod: 2, durationPerLevel: 1 })] })],
+    [37, () => buildCustomSpell({ name: 'Slowfalling', element: 4, rangeType: 0, icon: 0, index: -1008, slots: [slot(25, 255, { durationBase: 8, durationMod: 2, durationPerLevel: 1 })] })],
+  ];
+  for (const [id, fallback] of standardKit) {
+    pushSpell(spellsByIndex?.get?.(id) ?? spellRecordOfIndex(id) ?? fallback());
+  }
+
+  const slots = equipTableOf(entity);
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i]) unequipSlot(entity, i);
+  }
+  entity.items = [];
+  setPref('lootRarity', true);
+
+  addItem(entity.items, mintCondition(setItemFields({ group: 'MiscItems', templateIndex: SPELLBOOK_TEMPLATE_INDEX })));
+
+  for (const rec of PANOPLY_SET_PIECES) {
+    if (rec.id === 'panoply-saber') continue;
+    const item = mintAetheric(rec);
+    addItem(entity.items, item);
+    if (rec.id === 'panoply-shield') equipItem(entity, item, EQUIP_SLOTS.LeftHand);
+    else equipItem(entity, item);
+  }
+
+  const addLegendary = (id, baseItem, { equip = true, hand = null } = {}) => {
+    const rec = legendaryById(id);
+    const item = rec ? applyRarity(baseItem, 'legendary', () => 0, [rec]) : baseItem;
+    item.isIdentified = true;
+    addItem(entity.items, item);
+    if (equip) equipItem(entity, item, hand);
+    return item;
+  };
+
+  addLegendary('shalidors-brand', createWeapon(WEAPONS_ENUM.Longsword, 9), { equip: true, hand: EQUIP_SLOTS.RightHand });
+
+  const gatecleaverRec = REGALIA.find((r) => r.id === 'ruhn-gatecleaver');
+  if (gatecleaverRec) {
+    addItem(entity.items, mintAetheric(gatecleaverRec));
+  }
+
+  const mintPlain = (group, templateIndex) =>
+    mintCondition(setItemFields({ group, templateIndex, name: templateByIndex(templateIndex)?.name ?? '', flags: 0 }));
+
+  for (const [id, templateIndex] of [
+    ['eye-of-magnus', 133],
+    ['amulet-of-the-nine', 139],
+    ['ring-of-artaeum', 135],
+    ['archmages-loop', 135],
+    ['duelists-vambrace', 134],
+    ['mark-of-the-hist', 137],
+  ]) {
+    addLegendary(id, mintPlain('Jewellery', templateIndex), { equip: true });
+  }
+
+  const female = entity.gender === 'female';
+  const clothGroup = female ? 'WomensClothing' : 'MensClothing';
+  addLegendary('stendarr-vestments', mintPlain(clothGroup, female ? 201 : 164), { equip: true });
+  addLegendary('wrothgar-mantle', mintPlain(clothGroup, female ? 192 : 155), { equip: true });
+
+  for (let i = 0; i < 5; i++) addItem(entity.items, welkyndStone());
+  for (let i = 0; i < 2; i++) addItem(entity.items, varlaStone());
+
+  entity.goldPieces = 1000;
+  entity.bankAccounts = createBankAccounts();
+  if (entity.bankAccounts[0]) entity.bankAccounts[0].accountGold = 500000;
+
+  const charId = characterIdOf(entity);
+  const profRec = getActiveProfRecord() || createNewProfRecord();
+  profRec.tracks ??= {};
+  const rank100Xp = xpForRank(100);
+  for (const id of ['smithing', 'enchanting', 'herbalism', 'mining']) {
+    profRec.tracks[id] = { profession: id, rank: 100, xp: rank100Xp };
+    profRec[id] = profRec.tracks[id];
+  }
+  saveProfRecord(charId, profRec);
+
+  const firmRes = setOfflineFirmamentRenown(entity, 50, { resetTree: true });
+
+  resetApotheosisForDebug(entity);
+  entity.totalKills = Math.max(entity.totalKills ?? 0, 5000);
+  entity.questsCompleted = Math.max(entity.questsCompleted ?? 0, 50);
+  entity.nemesesDefeated = Math.max(entity.nemesesDefeated ?? 0, 10);
+  if (!Array.isArray(entity.booksRead) || entity.booksRead.length < 25) {
+    entity.booksRead = Array.from({ length: 25 }, (_, i) => i + 1);
+  }
+  entity.ownedShip = Math.max(entity.ownedShip ?? 0, SHIP_TYPES.Small);
+  if (allOfflineHomes().length === 0) {
+    inheritOfflineHome({ mapId: 910101, buildingKey: 1, region: 17 });
+  }
+  const preFate = evaluateFateWeight(entity);
+  if (!preFate.ready) setDebugFateWeight(entity, REQUIRED_FATE_WEIGHT);
+
+  computeEntityMods(entity);
+  entity.health = entity.maxHealth;
+  entity.magicka = entity.maxMagicka;
+  entity.fatigue = (liveStat(entity, 'strength') + liveStat(entity, 'endurance')) * FATIGUE_MULTIPLIER;
+
+  const fate = evaluateFateWeight(entity);
+  return {
+    level: entity.level,
+    maxHealth: entity.maxHealth,
+    maxMagicka: entity.maxMagicka,
+    stars: firmRes.stars,
+    craftPoints: 50,
+    weightKg: carriedWeight(entity),
+    maxWeightKg: entityMaxEncumbrance(entity),
+    fateCount: fate.count,
+    fateTotal: fate.total,
+  };
 }
 
 /**

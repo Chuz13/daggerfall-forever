@@ -16,8 +16,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  TEST_PRESETS, TEST_RIDE, TEST_GOD, testPresetById, testEntryById, testGearRows, testItemOf, applyTestCharacter, seedTestMount, seedTestGod, testStartsOutdoors, testStartLocation, TEST_BOOKS,
+  TEST_PRESETS, TEST_RIDE, TEST_GOD, TEST_ASCENSION, testPresetById, testEntryById, testGearRows, testItemOf, applyTestCharacter, seedTestMount, seedTestGod, seedTestAscensionSpellsword, testStartsOutdoors, testStartLocation, TEST_BOOKS,
 } from '../../src/systems/testRoom.js';
+import { carriedWeight } from '../../src/systems/inventory.js';
+import { entityMaxEncumbrance, baseDamageMin, baseDamageMax } from '../../src/combat/formulas.js';   // TSR-GUN: AUDIT 18 F1's law - damage is the TEMPLATE's, never a baked field
+import { PANOPLY_SET_PIECES } from '../../src/systems/aetheric.js';
+import { SKILLS } from '../../src/systems/skills.js';
+import { SPELLBOOK_TEMPLATE_INDEX } from '../../src/systems/spell/spellMaker.js';
+import { evaluateFateWeight } from '../../src/systems/apotheosis/apotheosisCore.js';
+import { getActiveRecord as getActiveFirmRecord } from '../../src/systems/offlineFirmament.js';
+import { characterIdOf } from '../../src/systems/characterId.js';
+import { starsFor } from '../../src/net/firmament/firmamentLaw.js';
+import { getPref, setPref } from '../../src/systems/uiPrefs.js';
+import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
+import { playerEntity } from '../../src/characters/playerEntity.js';
 import { isAscendedGod, apotheosisHpOf } from '../../src/systems/apotheosis/apotheosisLive.js';
 import { hasHorse, TRANSPORT_HORSE_TEMPLATE } from '../../src/systems/inventorySession.js';
 import { positionPlayerToLocation, EXTRA_DISTANCE } from '../../src/world/locationEntrance.js';
@@ -29,9 +41,8 @@ import { CLASS_CAREERS } from '../../src/systems/chargen.js';
 import { ITEM_TEMPLATES, templateByIndex } from '../../src/systems/item/itemTemplates.js';
 import { WEAPONS_ENUM, ARMOR_ENUM, ARROW_TEMPLATE } from '../../src/combat/enemyEquipment.js';
 import { ARMOR_MATERIAL } from '../../src/systems/armorMaterials.js';
-import { EQUIP_SLOTS } from '../../src/systems/equip.js';
+import { EQUIP_SLOTS, equipTableOf } from '../../src/systems/equip.js';
 import { THUNDERLOCK_TEMPLATE, PELLET_TEMPLATE, isThunderlock, isPellet, pelletCount } from '../../src/systems/thunderlock.js';
-import { baseDamageMin, baseDamageMax } from '../../src/combat/formulas.js';   // TSR-GUN: AUDIT 18 F1's law - damage is the TEMPLATE's, never a baked field
 import { hostText } from '../hostText.mjs';   // PIN MOVED (HOST-SPLIT TEST-PRESET): the world host whole
 
 const read = (p) => readFileSync(p, 'utf8');
@@ -362,4 +373,122 @@ test('TEST_GOD: newly ascended Level 35 Nord Warrior (War) starting outdoors in 
   assert.ok(apotheosisHpOf(entity) >= 500, 'godhood vitals bonus active');
   assert.equal(entity.health, entity.maxHealth);
   assert.equal(entity.stats.strength, 100, 'base mortal stat capped at 100 before portfolio mods');
+});
+
+test('TEST_ASCENSION: Level 35 Spellsword test room outdoors at Direnni Tower without mod perks or encumbrance overflow', () => {
+  assert.equal(TEST_ASCENSION.id, 'ascension');
+  assert.equal(TEST_ASCENSION.preset, 'breton-sorceress');
+  assert.equal(TEST_ASCENSION.region, 'Isle of Balfiera');
+  assert.equal(TEST_ASCENSION.loc, 'Direnni Tower');
+  assert.equal(TEST_ASCENSION.level, 35);
+  assert.deepEqual(testEntryById('ascension'), { preset: testPresetById('breton-sorceress'), ride: false, ascension: true });
+  assert.equal(testStartsOutdoors('ascension'), true);
+  assert.deepEqual(testStartLocation('ascension'), { region: 'Isle of Balfiera', loc: 'Direnni Tower' });
+
+  const prevLootRarity = getPref('lootRarity');
+  setPref('lootRarity', true);
+  try {
+    const entity = {
+      isPlayer: true,
+      name: 'Test Spellsword',
+      level: 1,
+      skills: new Array(36).fill(10),
+      items: [],
+      spells: [],
+    };
+    const res = seedTestAscensionSpellsword(entity);
+    assert.equal(res.level, 35);
+    assert.equal(entity.level, 35);
+    assert.equal(entity.career?.name, 'Spellsword');
+    assert.equal(entity.career?.hitPointsPerLevel, 20);
+    assert.equal(entity.career?.abilityFlagsAndSpellPointsBitfield, 0);
+    assert.equal(entity.career?.weaponArmorShieldsBitfield, 0);
+    assert.equal(entity.stats.speed, 100);
+    assert.equal(entity.stats.personality, 75);
+    assert.equal(entity.stats.luck, 90);
+    assert.equal(entity.unlockedPerks, undefined, 'no mod perks granted');
+    assert.equal(entity.skills[SKILLS.LongBlade], 200);
+    assert.equal(entity.skills[SKILLS.Destruction], 150);
+    assert.equal(entity.skills[SKILLS.Alteration], 140);
+    assert.equal(entity.skills[SKILLS.Restoration], 100);
+    assert.equal(entity.skills[SKILLS.Axe], 100);
+    assert.equal(entity.skills[SKILLS.Mysticism], 100);
+    assert.equal(entity.arcanePath, 'battlemage');
+    assert.equal(entity.martialPath, 'warblade');
+
+    const slots = equipTableOf(entity);
+    const equippedIds = new Set(
+      slots.filter(Boolean).map((it) => it.aetheric ?? it.legendary),
+    );
+    for (const rec of PANOPLY_SET_PIECES) {
+      if (rec.id === 'panoply-saber') continue;
+      assert.ok(equippedIds.has(rec.id), `Panoply piece equipped: ${rec.id}`);
+    }
+    assert.ok(!equippedIds.has('panoply-saber'), 'Panoply Saber omitted in favor of Shalidor\'s Brand');
+    assert.equal(slots[EQUIP_SLOTS.RightHand]?.legendary, 'shalidors-brand');
+    assert.equal(slots[EQUIP_SLOTS.LeftHand]?.aetheric, 'panoply-shield');
+    assert.ok(equippedIds.has('wrothgar-mantle'));
+    assert.ok(equippedIds.has('stendarr-vestments'));
+    for (const id of ['eye-of-magnus', 'amulet-of-the-nine', 'ring-of-artaeum', 'archmages-loop', 'duelists-vambrace', 'mark-of-the-hist']) {
+      assert.ok(equippedIds.has(id), `Legendary jewelry equipped: ${id}`);
+    }
+    const packGatecleaver = entity.items.find((it) => it.aetheric === 'ruhn-gatecleaver');
+    assert.ok(packGatecleaver, "Ruhn's Gatecleaver is in pack");
+    assert.ok(!equippedIds.has('ruhn-gatecleaver'), "Ruhn's Gatecleaver left unequipped so shield + longsword stay active");
+    assert.ok(entity.items.some((it) => it.templateIndex === SPELLBOOK_TEMPLATE_INDEX), 'Spellbook present in pack');
+
+    const wt = carriedWeight(entity);
+    const cap = entityMaxEncumbrance(entity);
+    assert.ok(wt < cap, `carriedWeight (${wt}) must stay under maxEncumbrance (${cap})`);
+    assert.equal(res.stars, 98);
+    assert.equal(starsFor(50), 98);
+    assert.equal(res.craftPoints, 50);
+    const firmRec = getActiveFirmRecord(characterIdOf(entity));
+    assert.equal(firmRec.renown, 50);
+    assert.equal(firmRec.tree, '');
+    assert.equal(evaluateFateWeight(entity).ready, true);
+    assert.ok(res.fateCount >= 16);
+  } finally {
+    setPref('lootRarity', prevLootRarity);
+  }
+});
+
+test('console commands apo spellsword / spellsword / apo_ready seed Ascension Spellsword on playerEntity', async () => {
+  const prevLootRarity = getPref('lootRarity');
+  const prevState = {
+    level: playerEntity.level,
+    career: playerEntity.career,
+    stats: playerEntity.stats ? { ...playerEntity.stats } : undefined,
+    skills: Array.isArray(playerEntity.skills) ? [...playerEntity.skills] : undefined,
+    items: Array.isArray(playerEntity.items) ? [...playerEntity.items] : undefined,
+    equip: playerEntity.equip,
+    spells: Array.isArray(playerEntity.spells) ? [...playerEntity.spells] : undefined,
+    goldPieces: playerEntity.goldPieces,
+    maxHealth: playerEntity.maxHealth,
+    rawMaxHealth: playerEntity.rawMaxHealth,
+    health: playerEntity.health,
+    maxMagicka: playerEntity.maxMagicka,
+    magicka: playerEntity.magicka,
+    maxFatigue: playerEntity.maxFatigue,
+    fatigue: playerEntity.fatigue,
+    arcanePath: playerEntity.arcanePath,
+    martialPath: playerEntity.martialPath,
+  };
+  setPref('lootRarity', true);
+  try {
+    const out1 = await executeConsoleCommand('apo', ['spellsword']);
+    assert.match(String(out1), /Spellsword L35 seeded/);
+    assert.match(String(out1), /98 unspent Stars/);
+    assert.equal(playerEntity.level, 35);
+    assert.equal(playerEntity.career?.name, 'Spellsword');
+    assert.ok(carriedWeight(playerEntity) < entityMaxEncumbrance(playerEntity));
+
+    const out2 = await executeConsoleCommand('spellsword', []);
+    assert.match(String(out2), /Spellsword L35 seeded/);
+    const out3 = await executeConsoleCommand('apo_ready', []);
+    assert.match(String(out3), /Spellsword L35 seeded/);
+  } finally {
+    Object.assign(playerEntity, prevState);
+    setPref('lootRarity', prevLootRarity);
+  }
 });

@@ -45,6 +45,7 @@ import { createFirmamentBook, setFirmamentBook } from '../net/firmament/firmamen
 import { setFirmamentTree, setFirmamentOffline } from './firmamentLive.js';
 import {
   renownForXp,
+  renownXpFor,
   renownKillXp,
   renownQuestXp,
 } from '../net/renown.js';
@@ -98,7 +99,12 @@ export function loadOfflineRecord(charId) {
       const renown = Math.max(1, renownForXp(xp));
       const tree = typeof data?.tree === 'string' ? data.tree : '';
       const said = Number.isFinite(data?.said) ? data.said : renown;
-      return { xp, renown, tree, said };
+      const bonusStars = Number.isFinite(data?.bonusStars) && data.bonusStars > 0 ? Math.trunc(data.bonusStars) : 0;
+      const bonusCraft = Number.isFinite(data?.bonusCraft) && data.bonusCraft > 0 ? Math.trunc(data.bonusCraft) : 0;
+      const rec = { xp, renown, tree, said };
+      if (bonusStars > 0) rec.bonusStars = bonusStars;
+      if (bonusCraft > 0) rec.bonusCraft = bonusCraft;
+      return rec;
     }
   } catch {
     /* appStorage error fallback */
@@ -173,9 +179,9 @@ export function createOfflineFirmamentBook({ entity, wallet = null }) {
     state: async (character) => {
       const rec = getActiveRecord(character);
       const renown = Math.max(1, renownForXp(rec.xp));
-      const stars = starsFor(renown);
+      const stars = starsFor(renown) + (rec.bonusStars ?? 0);
       const ranks = offlineProfRanks(character);
-      const craft = craftPointsFor(Object.values(ranks));
+      const craft = craftPointsFor(Object.values(ranks)) + (rec.bonusCraft ?? 0);
       return {
         ok: true,
         data: {
@@ -195,9 +201,9 @@ export function createOfflineFirmamentBook({ entity, wallet = null }) {
     set: async (character, packedTree, rid) => {
       const rec = getActiveRecord(character);
       const renown = Math.max(1, renownForXp(rec.xp));
-      const stars = starsFor(renown);
+      const stars = starsFor(renown) + (rec.bonusStars ?? 0);
       const ranks = offlineProfRanks(character);
-      const craft = craftPointsFor(Object.values(ranks));
+      const craft = craftPointsFor(Object.values(ranks)) + (rec.bonusCraft ?? 0);
       const unpacked = unpackTree(packedTree);
       const fault = treeFault(unpacked, stars, craft);
       if (fault) return { ok: false, error: fault };
@@ -235,13 +241,13 @@ export function createOfflineFirmamentBook({ entity, wallet = null }) {
       }
       const renown = Math.max(1, renownForXp(rec.xp));
       const ranks = offlineProfRanks(character);
-      const craft = craftPointsFor(Object.values(ranks));
+      const craft = craftPointsFor(Object.values(ranks)) + (rec.bonusCraft ?? 0);
       return {
         ok: true,
         data: {
           tree: '',
           renown,
-          stars: starsFor(renown),
+          stars: starsFor(renown) + (rec.bonusStars ?? 0),
           craft,
           ranks,
         },
@@ -301,6 +307,44 @@ export function initOfflineRenown({ playerEntity, firmBook, say = null }) {
 
   // Initial read of book
   firmBook?.read?.().catch(() => {});
+}
+
+/**
+ * Set offline Renown level directly for a character (e.g. test presets / debug setup)
+ * and optionally reset the constellation tree so all Stars can be allocated manually.
+ * @param {any} entity
+ * @param {number} [targetLevel=50]
+ * @param {{ resetTree?: boolean }} [opts]
+ */
+export function setOfflineFirmamentRenown(entity, targetLevel = 50, { resetTree = true } = {}) {
+  const level = Math.max(1, Math.min(50, Math.trunc(Number(targetLevel) || 1)));
+  _activePlayerEntity = entity ?? _activePlayerEntity;
+  const charId = characterIdOf(_activePlayerEntity) || _activeCharId || 'offline';
+  _activeCharId = charId;
+  const xp = renownXpFor(level);
+  const renown = Math.max(1, renownForXp(xp));
+  const prevTree = typeof _activeRecord?.tree === 'string' ? _activeRecord.tree : '';
+  _activeRecord = {
+    xp,
+    renown,
+    tree: resetTree ? '' : prevTree,
+    said: renown,
+  };
+  saveOfflineRecord(charId, _activeRecord);
+  if (_activePlayerEntity) {
+    setRenownLayer(_activePlayerEntity, renown);
+  }
+  if (isOfflineFirmamentActive()) {
+    setFirmamentOffline(true);
+  }
+  if (resetTree) {
+    setFirmamentTree(null);
+  }
+  if (_activePlayerEntity) {
+    computeEntityMods(_activePlayerEntity);
+  }
+  _activeFirmBook?.read?.().catch(() => {});
+  return { renown, xp, stars: starsFor(renown) };
 }
 
 /**

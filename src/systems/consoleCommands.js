@@ -51,6 +51,7 @@ import { setWeather, setDivineWeatherOverride, currentWeather } from './weather/
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
 import { defineLiveMaxMagicka } from './chargen.js';
+import { seedTestAscensionSpellsword } from './testRoom.js';
 import {
   animateDeadSpell,
   corpseExplosionSpell,
@@ -2997,6 +2998,21 @@ function applyApotheosisDebugSet(entity, metricRaw, valRaw) {
   return { ok: true, metric, val, fate };
 }
 
+function runApotheosisSpellswordSetup() {
+  if (!playerEntity) return 'Error: playerEntity is not initialized.';
+  const sceneCtx = getDebugSceneContext();
+  const res = seedTestAscensionSpellsword(playerEntity, { spellsByIndex: sceneCtx?.spellsByIndex ?? null });
+  surfacePlayer?.();
+  return [
+    `Spellsword L${res.level} seeded (career: ${playerEntity.career?.name ?? 'Spellsword'}, 3x INT magicka, no mod perks).`,
+    `Vitals: HP ${res.maxHealth} | MP ${res.maxMagicka} | Fatigue ${playerEntity.maxFatigue} | Weight ${res.weightKg.toFixed(1)}/${res.maxWeightKg.toFixed(1)}kg`,
+    `Mastery: LongBlade 200 | Destruction 150 | Alteration 140 | Restoration/Axe/Mysticism 100 | Paths: battlemage + warblade`,
+    `Kit: 8pc Panoply of the Aether + Shalidor's Brand (Ruhn's Gatecleaver in pack) + 6 Legendary jewelry + 5 Welkynd + 2 Varla`,
+    `Firmament: Renown 50 -> ${res.stars} unspent Stars (empty tree) + ${res.craftPoints} Craft Points (open Growth -> Firmament to assign).`,
+    `Fate Weight: ${res.fateCount}/${res.fateTotal}. Next: apo quest start -> apo quest siege -> apo quest wave13 -> apo quest tower -> apo quest zerostone -> apo quest shadow`,
+  ].join('\n');
+}
+
 async function handleApotheosisCommand(args = []) {
   if (!playerEntity) return 'Error: playerEntity is not initialized.';
   const sceneCtx = getDebugSceneContext();
@@ -3589,11 +3605,14 @@ async function handleApotheosisCommand(args = []) {
     lines.push('Usage: apo war <status|start [gA] [gB]|here [gA] [gB]|skirmish [divine|mundane]|support <godId>|truce [all|<warId>]|clear|stance <sideA|sideB|peace|watch|reset>|pacify [triumph|success|partial|fail|critfail]|cooldown [clear]>');
     return lines.join('\n');
   }
+  if (sub === 'spellsword' || sub === 'ready') {
+    return runApotheosisSpellswordSetup();
+  }
   if (sub === 'reset') {
     resetApotheosisForDebug(playerEntity);
     return 'Apotheosis state reset to mortal aspirant (Fate Weight override cleared).';
   }
-  return 'Usage: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | cult <status|list|tp|found|unlock|key|clear|consecrate|upgrade|branch|edict> | siege <status|start|defend|win|lose> | war <status|start|here|skirmish|support|truce> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
+  return 'Usage: apotheosis [status | spellsword | ready | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | champion [party|status|clear] | pantheon [status|tick|log|offer|pact|ally|war|truce|discord|rep] | influence [reg|set] | geopolitics <war|peace> <rA> <rB> | cult <status|list|tp|found|unlock|key|clear|consecrate|upgrade|branch|edict> | siege <status|start|defend|win|lose> | war <status|start|here|skirmish|support|truce> | set <metric> [v] | mantella [usurp] | tp <...> | quest <...> | rebirth | reset]';
 }
 
 registerAurbisRuntime({
@@ -3617,15 +3636,27 @@ registerCommand(
 
 registerCommand(
   'apotheosis',
-  'Inspect or test Apotheosis: apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apotheosis [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
+  'Inspect or test Apotheosis: apotheosis [status | spellsword | ready | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
+  'apotheosis [status | spellsword | ready | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
 );
 registerCommand(
   'apo',
-  'Alias for apotheosis: apo [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
-  'apo [status | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
+  'Alias for apotheosis: apo [status | spellsword | ready | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd> | set <metric> [v] | mantella | tp | quest | rebirth | reset]',
+  'apo [status | spellsword | ready | artifacts [n] | fate <ready|full> | faith [n|max] | decay [days] | witness [n|clear] | aurbis <cmd...> | set <kills|quests|nemesis|books|discover|maxhp|renown|stars|home|ship|skill200|spec> [v] | mantella [usurp] | tp <direnni|zerostone|mantella [holder]|orrery> | quest <start|siege|wave13|tower|zerostone|shadow|complete> | rebirth | reset]',
   handleApotheosisCommand,
+);
+registerCommand(
+  'spellsword',
+  'Seed a battle-ready Level 35 Ascension Spellsword with Panoply of the Aether, 98 unspent Firmament Stars, and Fate Weight ready: spellsword',
+  'spellsword',
+  runApotheosisSpellswordSetup,
+);
+registerCommand(
+  'apo_ready',
+  'Alias for spellsword: seed the Level 35 Ascension Spellsword build for Direnni Siege / Tower / Shadow duel: apo_ready',
+  'apo_ready',
+  runApotheosisSpellswordSetup,
 );
 
 /** ConsoleInputHistory (ConsoleInputHistory.cs), whole - the up/down
