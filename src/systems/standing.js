@@ -246,7 +246,12 @@ export function challengeFine(player, regionIndex, { ownNow = 0, worldNow = ownN
     Math.max(MIN_PENALTY[t], BASE_PENALTY[t] - PENALTY_PER_LEGAL_REP_POINT[t] * rep),
   );
   const fine = 40 * Math.trunc(amount / 40);
-  return isBanished(player, regionIndex, worldNow) ? fine * 2 : fine;
+  const rawFine = isBanished(player, regionIndex, worldNow) ? fine * 2 : fine;
+  const shadowEdict = player?.apotheosis?.cult?.edicts?.[regionIndex];
+  if (shadowEdict?.edictId === 'shadow' && Number(shadowEdict.daysRemaining) > 0) {
+    return Math.max(1, Math.round(rawFine * 0.5));
+  }
+  return rawFine;
 }
 
 // ---- WATCH-KNOWS: a first minor offence warned -------------------------------------------------------------------

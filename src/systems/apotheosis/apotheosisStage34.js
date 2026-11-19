@@ -319,15 +319,11 @@ export function resolveCultSiegeOutcome(
   const regName = getLocalizedRegionName(site.regionIndex, (i) => REGION_NAMES[i] ?? `Region ${i}`);
 
   if (outcome === 'victory') {
-    const faithReward = preview.victoryFaith;
+    const faithReward = entity?.apotheosis
+      ? addApotheosisFaith(entity, preview.victoryFaith, { reason: 'siege_victory', nowMinutes: now, force: true }).requested
+      : 0;
     const goldReward = preview.victoryGold;
     const infReward = preview.victoryInfluence;
-
-    if (isAscendedGod(entity)) {
-      addApotheosisFaith(entity, faithReward, { source: 'siege_victory', nowMinutes: now });
-    } else if (entity.apotheosis) {
-      entity.apotheosis.faith = (Number(entity.apotheosis.faith) || 0) + faithReward;
-    }
     entity.goldPieces = Math.max(0, Math.trunc(Number(entity.goldPieces) || 0) + goldReward);
     shiftRegionInfluence(entity, site.regionIndex, 'player', infReward);
 
@@ -1084,12 +1080,12 @@ export function resolveWarSkirmishPacify(
       infReward = 1.5;
     }
 
-    if (faithReward > 0) {
-      if (isAscendedGod(entity)) {
-        addApotheosisFaith(entity, faithReward, { source: 'skirmish_pacify', nowMinutes: now });
-      } else if (entity.apotheosis) {
-        entity.apotheosis.faith = (Number(entity.apotheosis.faith) || 0) + faithReward;
-      }
+    if (faithReward > 0 && entity?.apotheosis) {
+      faithReward = addApotheosisFaith(entity, faithReward, {
+        reason: 'skirmish_pacify',
+        nowMinutes: now,
+        force: true,
+      }).requested;
     }
     if (goldReward > 0) {
       entity.goldPieces = Math.max(0, (Number(entity.goldPieces) || 0) + goldReward);

@@ -281,7 +281,7 @@ test('Founding Player Underground Sanctuary, Upgrade Tiers I->II->III, and Speci
   assert.equal(dup.ok, false);
 
   // Upgrade Tier 1 -> 2 -> 3 & Oracle Branch
-  assert.equal(getCultPassiveFaithPerDay(god), 12);
+  assert.equal(getCultPassiveFaithPerDay(god), 4);
   god.apotheosis.faith = 1000;
   const u2 = upgradeCultSite(god, pk);
   assert.equal(u2.ok, true);
@@ -294,7 +294,7 @@ test('Founding Player Underground Sanctuary, Upgrade Tiers I->II->III, and Speci
 
   const br = selectCultSiteBranch(god, pk, 'oracle');
   assert.equal(br.ok, true);
-  assert.equal(getCultPassiveFaithPerDay(god), 48, 'Grand Sanctum (36) + Oracle Reliquary (+12) = +48 passive Faith/day');
+  assert.equal(getCultPassiveFaithPerDay(god), 19, 'Grand Sanctum (14) + Oracle Reliquary (+5) = +19 passive Faith/day');
 });
 
 test('Regional Edicts (71 regions): per-region eligibility, live region-checked gameplay hooks, and 30-day Chronicle lifecycle', () => {

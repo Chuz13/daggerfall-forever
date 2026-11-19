@@ -142,7 +142,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     fallbackName: 'Initiate Shrine',
     upgradeCost: 0,
     upgradeGoldCost: 0,
-    faithPerDay: 12,
+    faithPerDay: 4,
     maxFaithBonus: 100,
     infPerDay: 0.4,
     guardCount: 2,
@@ -153,7 +153,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     fallbackName: 'Sacred Precinct',
     upgradeCost: 220,
     upgradeGoldCost: 25000,
-    faithPerDay: 22,
+    faithPerDay: 8,
     maxFaithBonus: 250,
     infPerDay: 0.8,
     guardCount: 3,
@@ -164,7 +164,7 @@ export const CULT_UPGRADE_TIERS = Object.freeze({
     fallbackName: 'Grand Sanctum',
     upgradeCost: 420,
     upgradeGoldCost: 50000,
-    faithPerDay: 36,
+    faithPerDay: 14,
     maxFaithBonus: 500,
     infPerDay: 1.4,
     guardCount: 4,
@@ -199,10 +199,10 @@ export const CULT_BRANCHES = Object.freeze({
     nameKey: 'apotheosis.cult.branch.oracle',
     fallbackName: 'Oracle Reliquary',
     descKey: 'apotheosis.cult.branch.oracleDesc',
-    fallbackDesc: '+12 bonus daily Faith offerings and +150 Max Faith capacity from devout pilgrims.',
+    fallbackDesc: '+5 bonus daily Faith offerings and +150 Max Faith capacity from devout pilgrims.',
     infMult: 1.0,
     extraGuards: 0,
-    bonusFaithPerDay: 12,
+    bonusFaithPerDay: 5,
     maxFaithBonus: 150,
   }),
 });
@@ -1540,7 +1540,8 @@ export function tickCultAndEdictsDay(entity, simMin = 0, simDay = null) {
   }
 
   if (dailyFaith > 0) {
-    addApotheosisFaith(entity, dailyFaith, { source: 'cult_daily', nowMinutes: simMin });
+    // Passive sanctuary/edict offerings do not count as active divine worship, so Mythic Decay still checks idle days.
+    addApotheosisFaith(entity, dailyFaith, { reason: 'cult_daily', nowMinutes: simMin, markDailyGain: false });
   }
   if (dailyGold > 0 && typeof entity === 'object') {
     entity.goldPieces = Math.max(0, (Number(entity.goldPieces) || 0) + dailyGold);

@@ -24,6 +24,7 @@ import {
   templateByIndex,
 } from '../item/itemTemplates.js';
 import { REGION_FLAGS } from '../region/regionConditions.js';
+import { assignModBundle } from '../effects.js';
 import { registerSpellLandedListener } from '../spell/spellPower.js';
 import {
   APOTHEOSIS_CHAMPION_DURATION_MINUTES,
@@ -45,6 +46,9 @@ import {
 export const MINUTES_PER_DAY = 1440;
 export const AURBIS_GOLD_PER_FAITH = 10;
 export const AURBIS_PORTAL_FAITH_COST = 120;
+export const AURBIS_DIVINE_SHIELD_COST = 1000;
+export const APOTHEOSIS_DIVINE_SHIELD_ROUNDS = 1440;
+export const APOTHEOSIS_DIVINE_SHIELD_PER_LEVEL = 50;
 export const MAX_WITNESS_BONUS_PER_DAY = 3;
 export const WITNESS_ALIGNED_BONUS = 15;
 export const WITNESS_OPPOSED_PENALTY = 20;
@@ -216,6 +220,13 @@ export const AURBIS_COMMAND_CATALOG = Object.freeze([
         costHint: '40 Faith',
         desc: () => t('apotheosis.aurbis.cmd.heal', 'Restore health, magicka, and fatigue to maximum.'),
       },
+      {
+        cmd: 'divine_shield',
+        aliases: ['aegis', 'divine_aegis', 'apotheosis_shield'],
+        syntax: 'divine_shield',
+        costHint: '1000 Faith',
+        desc: () => t('apotheosis.aurbis.cmd.divineShield', 'Wrap yourself in a 24-hour Divine Aegis absorbing Level × 50 damage.'),
+      },
     ],
   },
   {
@@ -373,8 +384,8 @@ export const AURBIS_COMMAND_CATALOG = Object.freeze([
       },
       {
         cmd: 'ancient_lich',
-        aliases: ['ancientlich', 'necro_ancient_lich', 'necro ancient_lich'],
-        syntax: 'ancient_lich [on|off]',
+        aliases: ['ancientlich', 'archlich', 'arch_lich', 'necro_ancient_lich', 'necro_archlich', 'necro_arch_lich', 'necro ancient_lich', 'necro archlich'],
+        syntax: 'ancient_lich [on|off] | archlich [on|off]',
         costHint: '600 Faith (100 off)',
         desc: () => t('apotheosis.aurbis.cmd.ancientLich', 'Ascend into or shed Ancient Lichdom.'),
       },
@@ -508,14 +519,14 @@ export function addApotheosisFaith(entity, amount, {
 } = {}) {
   const apo = normalizeStage2Fields(entity);
   if (!apo || (!force && !isAscendedGod(entity))) {
-    return { added: 0, faith: apo?.faith ?? 0, faithMax: getFaithMax(apo), reason };
+    return { added: 0, requested: 0, faith: apo?.faith ?? 0, faithMax: getFaithMax(apo), reason };
   }
   const maxFaith = getFaithMax(apo);
   const rawDelta = Math.max(0, Math.trunc(Number(amount) || 0));
   const gainMult = raw ? 1 : getApotheosisFaithGainMultiplier();
   const delta = rawDelta > 0 ? Math.max(1, Math.round(rawDelta * gainMult)) : 0;
   const before = apo.faith;
-  apo.faith = Math.min(maxFaith, before + delta);
+  apo.faith = before >= maxFaith ? before : Math.min(maxFaith, before + delta);
   if (markDailyGain && delta > 0 && nowMinutes != null && Number.isFinite(Number(nowMinutes))) {
     apo.lastFaithGainDay = dayIndexFromMinutes(nowMinutes);
   }
@@ -600,6 +611,65 @@ export function setCultStage2Hooks(hooks = {}) {
     getChampionDamageMult: typeof hooks?.getChampionDamageMult === 'function' ? hooks.getChampionDamageMult : null,
     getBountyMult: typeof hooks?.getBountyMult === 'function' ? hooks.getBountyMult : null,
     getPassiveFaithPerDay: typeof hooks?.getPassiveFaithPerDay === 'function' ? hooks.getPassiveFaithPerDay : null,
+  };
+}
+
+let _alliedChampionBonusHook = null;
+
+/** Registers Pantheon Allied Deity champion reinforcement hook without circular imports. */
+export function setAlliedChampionBonusHook(fn) {
+  _alliedChampionBonusHook = typeof fn === 'function' ? fn : null;
+}
+
+/** Returns Divine Aegis shield HP (`Level × 50`) scaled from entity level. */
+export function computeDivineShieldStrength(entity) {
+  const lvl = Math.max(1, Math.trunc(Number(entity?.level) || 1));
+  return lvl * APOTHEOSIS_DIVINE_SHIELD_PER_LEVEL;
+}
+
+/**
+ * Applies a 24-hour (`1440` rounds) Divine Aegis (`kind: 'shield'`) absorbing
+ * `Level × 50` damage onto `entity.activeEffects` (upgrading any live shield pool).
+ */
+export function applyApotheosisDivineShield(entity) {
+  if (!entity || typeof entity !== 'object') {
+    return { ok: false, pool: 0, rounds: 0, hours: 0, message: 'No target vessel.' };
+  }
+  const pool = computeDivineShieldStrength(entity);
+  const rounds = APOTHEOSIS_DIVINE_SHIELD_ROUNDS;
+  const shieldName = t('apotheosis.aurbis.divineShieldSpellName', 'Divine Aegis');
+  if (!Array.isArray(entity.activeEffects)) entity.activeEffects = [];
+  const inc = entity.activeEffects.find((a) => a.kind === 'shield' && !a.ended);
+  if (inc) {
+    inc.startingShield = Math.max(Number(inc.startingShield) || 0, pool);
+    inc.shieldRemaining = Math.max(Number(inc.shieldRemaining) || 0, pool);
+    inc.roundsRemaining = Math.max(Number(inc.roundsRemaining) || 0, rounds);
+    inc.bundleName = shieldName;
+    inc.bundleIcon = 17;
+    inc.bundleSelfCast = true;
+    inc.bundlePower = true;
+    inc.apotheosisDivineShield = true;
+  } else {
+    // `assignModBundle` -> `pushActive` decrements `roundsRemaining` once on cast; +1 yields exact 1440 rounds remaining.
+    const entry = assignModBundle(entity, {
+      name: shieldName,
+      kind: 'shield',
+      rounds: rounds + 1,
+      bundleType: 'Spell',
+    });
+    entry.startingShield = pool;
+    entry.shieldRemaining = pool;
+    entry.bundleIcon = 17;
+    entry.bundleSelfCast = true;
+    entry.bundlePower = true;
+    entry.apotheosisDivineShield = true;
+  }
+  return {
+    ok: true,
+    pool,
+    rounds,
+    hours: 24,
+    message: t('apotheosis.aurbis.divineShieldApplied', 'Divine Aegis wraps your vessel: {pool} Shield HP for 24 hours.', { pool }),
   };
 }
 
@@ -727,10 +797,47 @@ export function summonApotheosisChampions(playerEntity, count = 1, { faithAtCast
     summoned.push(rec);
   }
 
+  let alliedReinforcement = null;
+  const alliedBonus = _alliedChampionBonusHook?.(playerEntity) ?? null;
+  if (alliedBonus && alliedBonus.deityId) {
+    const id = `apochamp_ally_${Date.now().toString(36)}_${_championIdCounter++}`;
+    alliedReinforcement = {
+      id,
+      key: `apochamp:${id}`,
+      boat: 'apochamp',
+      name: id,
+      roleId: `allied_${alliedBonus.deityId}`,
+      title: `${alliedBonus.title} (${alliedBonus.deityName} · Rank ${scaling.romanRank})`,
+      portfolio,
+      isAlliedDeityChampion: true,
+      alliedDeityId: alliedBonus.deityId,
+      alliedDeityName: alliedBonus.deityName,
+      mobile: alliedBonus.mobile,
+      gender: alliedBonus.gender || 'male',
+      health: null,
+      maxHealth: null,
+      faithAtCast: scaling.faithAtCast,
+      rank: scaling.rank,
+      romanRank: scaling.romanRank,
+      healthMult: scaling.healthMult,
+      damageScale: scaling.damageScale,
+      summonedAtMinutes: resolvedNow,
+      expiresAtMinutes,
+      stance: 'follow',
+      dead: false,
+      expired: false,
+    };
+    _activeChampions.push(alliedReinforcement);
+    summoned.push(alliedReinforcement);
+  }
+
   const summaryNames = summoned.map((c) => c.title).join(', ');
-  const message = n === 1
-    ? `Divine Champion ${summaryNames} steps forth from Aetherius for 24 hours (HP x${scaling.healthMult}, DMG x${scaling.damageScale}).`
-    : `Divine Champion Party (${n}) steps forth from Aetherius for 24 hours (Rank ${scaling.romanRank}: HP x${scaling.healthMult}, DMG x${scaling.damageScale}): ${summaryNames}.`;
+  const baseMsg = n === 1
+    ? `Divine Champion ${summoned[0].title} steps forth from Aetherius for 24 hours (HP x${scaling.healthMult}, DMG x${scaling.damageScale}).`
+    : `Divine Champion Party (${n}) steps forth from Aetherius for 24 hours (Rank ${scaling.romanRank}: HP x${scaling.healthMult}, DMG x${scaling.damageScale}): ${summoned.slice(0, n).map((c) => c.title).join(', ')}.`;
+  const message = alliedReinforcement
+    ? `${baseMsg} + Allied reinforcement from ${alliedBonus.deityName}: ${alliedReinforcement.title}!`
+    : baseMsg;
 
   return {
     ok: true,
@@ -739,6 +846,7 @@ export function summonApotheosisChampions(playerEntity, count = 1, { faithAtCast
     scaling,
     expiresAtMinutes,
     champions: summoned,
+    alliedReinforcement,
     message,
   };
 }
@@ -1277,8 +1385,12 @@ function isLichMiracleCommand(cmd, sub = '') {
     cmd === 'lich' ||
     cmd === 'ancient_lich' ||
     cmd === 'ancientlich' ||
+    cmd === 'archlich' ||
+    cmd === 'arch_lich' ||
     cmd === 'necro_lich' ||
     cmd === 'necro_ancient_lich' ||
+    cmd === 'necro_archlich' ||
+    cmd === 'necro_arch_lich' ||
     cmd === 'necro_spells' ||
     cmd === 'necrospells' ||
     cmd === 'necro_disguise' ||
@@ -1321,10 +1433,11 @@ export function classifyMiraclePortfolioAlignment(portfolio, cmd, args = []) {
   const sub = String(args[0] ?? '').toLowerCase();
   const arg1 = String(args[1] ?? '').toLowerCase();
   const isPacify = cmd === 'pacifyall' || cmd === 'pacify_all' || cmd === 'pacify';
+  const isShield = cmd === 'divine_shield' || cmd === 'aegis' || cmd === 'divine_aegis' || cmd === 'apotheosis_shield';
   const isLich = isLichMiracleCommand(cmd, sub);
 
   if (portfolio === 'order') {
-    if (cmd === 'heal' || cmd === 'player_heal' || cmd === 'legalrep' || isPacify) return 'aligned';
+    if (cmd === 'heal' || cmd === 'player_heal' || cmd === 'legalrep' || isPacify || isShield) return 'aligned';
     if (cmd === 'bounty' && sub === 'clear') return 'aligned';
     if (cmd === 'bounty' && sub === 'set') return 'opposed';
     if (cmd === 'crisis' && sub === 'stop') return 'aligned';
@@ -1343,7 +1456,7 @@ export function classifyMiraclePortfolioAlignment(portfolio, cmd, args = []) {
   }
 
   if (portfolio === 'magic') {
-    if (cmd === 'portal' || cmd === 'tele2loc' || cmd === 'teleport' || cmd === 'tp' || cmd === '/tp' || cmd === 'weather' || cmd === 'set_weather' || cmd === 'time' || cmd === 'set_time' || cmd === 'advance_time' || cmd === 'advancetime' || cmd === 'pass_time' || cmd === 'passtime' || cmd === 'advance_days' || cmd === 'advancedays' || cmd === 'pass_days' || cmd === 'map_revealall' || cmd === 'map_reveallocations' || cmd === 'map_reveallocation' || cmd === 'give_grimoire' || cmd === 'givegrimoire' || isLich) {
+    if (isShield || cmd === 'portal' || cmd === 'tele2loc' || cmd === 'teleport' || cmd === 'tp' || cmd === '/tp' || cmd === 'weather' || cmd === 'set_weather' || cmd === 'time' || cmd === 'set_time' || cmd === 'advance_time' || cmd === 'advancetime' || cmd === 'pass_time' || cmd === 'passtime' || cmd === 'advance_days' || cmd === 'advancedays' || cmd === 'pass_days' || cmd === 'map_revealall' || cmd === 'map_reveallocations' || cmd === 'map_reveallocation' || cmd === 'give_grimoire' || cmd === 'givegrimoire' || isLich) {
       return 'aligned';
     }
     return 'neutral';
@@ -1481,6 +1594,8 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
 
   if (cmd === 'heal' || cmd === 'player_heal') {
     faithCost = 40;
+  } else if (cmd === 'divine_shield' || cmd === 'aegis' || cmd === 'divine_aegis' || cmd === 'apotheosis_shield') {
+    faithCost = AURBIS_DIVINE_SHIELD_COST;
   } else if (cmd === 'pacifyall' || cmd === 'pacify_all' || cmd === 'pacify') {
     faithCost = 80;
   } else if (cmd === 'summon_champion' || cmd === 'champion' || cmd === 'apotheosis_champion') {
@@ -1560,7 +1675,15 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
     const sub = String(args[0] ?? '').toLowerCase();
     const off = sub === 'off' || sub === 'false' || sub === '0';
     faithCost = off ? 100 : 400;
-  } else if (cmd === 'ancient_lich' || cmd === 'ancientlich' || cmd === 'necro_ancient_lich') {
+  } else if (
+    cmd === 'ancient_lich' ||
+    cmd === 'ancientlich' ||
+    cmd === 'archlich' ||
+    cmd === 'arch_lich' ||
+    cmd === 'necro_ancient_lich' ||
+    cmd === 'necro_archlich' ||
+    cmd === 'necro_arch_lich'
+  ) {
     const sub = String(args[0] ?? '').toLowerCase();
     const off = sub === 'off' || sub === 'false' || sub === '0';
     faithCost = off ? 100 : 600;
@@ -1580,7 +1703,7 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
     } else if (sub === 'lich') {
       const off = arg1 === 'off' || arg1 === 'false' || arg1 === '0';
       faithCost = off ? 100 : 400;
-    } else if (sub === 'ancient_lich' || sub === 'ancientlich') {
+    } else if (sub === 'ancient_lich' || sub === 'ancientlich' || sub === 'archlich' || sub === 'arch_lich') {
       const off = arg1 === 'off' || arg1 === 'false' || arg1 === '0';
       faithCost = off ? 100 : 600;
     } else if (sub === 'disguise') {
@@ -1646,7 +1769,9 @@ export function evaluateAurbisCommand(rawLine, entity, { witnessCount = 0 } = {}
         ? parseInt(args[1], 10)
         : (Number.isInteger(entity?.currentRegionIndex) ? entity.currentRegionIndex : 17);
       const bountyAmt = Number(entity?.regionalBounties?.[curReg] ?? 0) || 0;
-      faithCost = Math.max(30, Math.ceil(bountyAmt / 20));
+      const baseClear = Math.max(30, Math.ceil(bountyAmt / 20));
+      const bountyMult = Number(_cultStage2Hooks.getBountyMult?.(entity, curReg) ?? 1) || 1;
+      faithCost = bountyMult !== 1 ? Math.max(15, Math.round(baseClear * bountyMult)) : baseClear;
     } else if (sub === 'set') {
       faithCost = 60;
     } else {

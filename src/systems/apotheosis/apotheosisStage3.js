@@ -33,12 +33,14 @@ import {
 import { startFactionEnemies, endFactionEnemies } from '../faction/factionRelations.js';
 import { provinceFactionId } from '../faction/provinceFactions.js';
 import { DIVINES } from '../guild/guildFactions.js';
+import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { APOTHEOSIS_INITIAL_FAITH, isAscendedGod } from './apotheosisLive.js';
 import {
   addApotheosisFaith,
   spendApotheosisFaith,
   getApotheosisPantheonActivityMultiplier,
   getApotheosisWorldHostilityMultiplier,
+  setAlliedChampionBonusHook,
   setPantheonTickHook,
 } from './apotheosisStage2.js';
 
@@ -1594,5 +1596,60 @@ export function queryPantheonChronicle(entity, { filter = 'all', search = '' } =
   });
 }
 
-// Register daily Pantheon turn callback into Stage 2 Mythic Decay without creating an ESM import cycle.
+/** Thematic bonus Champion granted when summoning Champions while Allied with a Deity or Daedric Prince. */
+export const ALLIED_DEITY_CHAMPIONS = Object.freeze({
+  akatosh: Object.freeze({ title: 'Dragon-Knight of Time', mobile: MOBILE_TYPES.Knight, gender: 'male' }),
+  arkay: Object.freeze({ title: 'Warden of the Cycle', mobile: MOBILE_TYPES.Spellsword, gender: 'male' }),
+  dibella: Object.freeze({ title: 'Muse of Radiance', mobile: MOBILE_TYPES.Bard, gender: 'female' }),
+  julianos: Object.freeze({ title: 'Arch-Scribe of Logic', mobile: MOBILE_TYPES.Mage, gender: 'male' }),
+  kynareth: Object.freeze({ title: 'Tempest-Ranger of the Sky', mobile: MOBILE_TYPES.Ranger, gender: 'female' }),
+  mara: Object.freeze({ title: 'Seraphic Templar of Mercy', mobile: MOBILE_TYPES.Healer, gender: 'female' }),
+  stendarr: Object.freeze({ title: 'Crusader of Mercy', mobile: MOBILE_TYPES.Knight, gender: 'male' }),
+  zenithar: Object.freeze({ title: 'Ironclad Arbiter of Toil', mobile: MOBILE_TYPES.Warrior, gender: 'male' }),
+  mehrunes_dagon: Object.freeze({ title: 'Dremora Scourge of Destruction', mobile: MOBILE_TYPES.FireDaedra, gender: 'male' }),
+  molag_bal: Object.freeze({ title: 'Harvester of Coldharbour', mobile: MOBILE_TYPES.DaedraLord, gender: 'male' }),
+  boethiah: Object.freeze({ title: 'Blade of Plots', mobile: MOBILE_TYPES.Assassin, gender: 'female' }),
+  mephala: Object.freeze({ title: 'Webspinner Seducer', mobile: MOBILE_TYPES.DaedraSeducer, gender: 'female' }),
+  nocturnal: Object.freeze({ title: 'Nightingale Shadow-Wraith', mobile: MOBILE_TYPES.Nightblade, gender: 'female' }),
+  hermaeus_mora: Object.freeze({ title: 'Seeker of Apocrypha', mobile: MOBILE_TYPES.Sorcerer, gender: 'male' }),
+  azura: Object.freeze({ title: 'Starlight Dawn-Guard', mobile: MOBILE_TYPES.Battlemage, gender: 'female' }),
+  sheogorath: Object.freeze({ title: 'Golden Jester of Mania', mobile: MOBILE_TYPES.Daedroth, gender: 'male' }),
+});
+
+/**
+ * Returns the highest-standing Allied deity's bonus Champion descriptor without
+ * mutating uninitialized Pantheon state (so tests without Pantheon keep exact base counts).
+ */
+export function getAlliedGodChampionBonus(entity) {
+  const deities = entity?.apotheosis?.pantheon?.deities;
+  if (!deities || typeof deities !== 'object') return null;
+  let bestDeity = null;
+  let bestRel = -Infinity;
+  for (const d of PANTHEON_DEITIES) {
+    const entry = deities[d.id];
+    if (!entry || entry.status !== 'allied') continue;
+    const rel = Number(entry.relation) || 0;
+    if (rel > bestRel) {
+      bestRel = rel;
+      bestDeity = d;
+    }
+  }
+  if (!bestDeity) return null;
+  const tpl = ALLIED_DEITY_CHAMPIONS[bestDeity.id] ?? {
+    title: 'Allied Emissary',
+    mobile: MOBILE_TYPES.Knight,
+    gender: 'male',
+  };
+  return {
+    deityId: bestDeity.id,
+    deityName: bestDeity.name,
+    relation: bestRel,
+    title: tpl.title,
+    mobile: tpl.mobile,
+    gender: tpl.gender,
+  };
+}
+
+// Register daily Pantheon turn & Allied Champion bonus hooks into Stage 2 without creating an ESM import cycle.
 setPantheonTickHook((entity, nowMinutes, opts) => tickPantheonDay(entity, nowMinutes, opts));
+setAlliedChampionBonusHook((entity) => getAlliedGodChampionBonus(entity));

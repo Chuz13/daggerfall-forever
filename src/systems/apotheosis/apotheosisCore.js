@@ -81,6 +81,9 @@ import {
 } from './apotheosisLive.js';
 import {
   AURBIS_PORTAL_FAITH_COST,
+  AURBIS_DIVINE_SHIELD_COST,
+  APOTHEOSIS_DIVINE_SHIELD_ROUNDS,
+  APOTHEOSIS_DIVINE_SHIELD_PER_LEVEL,
   FORBIDDEN_AURBIS_COMMANDS,
   AURBIS_COMMAND_CATALOG,
   addApotheosisFaith,
@@ -98,7 +101,10 @@ import {
   parseAurbisCommandLine,
   evaluateAurbisCommand,
   executeAurbisCommand,
+  computeDivineShieldStrength,
+  applyApotheosisDivineShield,
   APOTHEOSIS_CHAMPION_TEMPLATES,
+  setAlliedChampionBonusHook,
   computeChampionFaithScaling,
   applyApotheosisChampionStrength,
   summonApotheosisChampions,
@@ -126,6 +132,7 @@ import {
   GEOPOLITICS_WAR_COST,
   GEOPOLITICS_PEACE_COST,
   PANTHEON_DEITIES,
+  ALLIED_DEITY_CHAMPIONS,
   registerPantheonDeity,
   getPantheonDeities,
   getPantheonDeity,
@@ -151,6 +158,7 @@ import {
   igniteRegionWar,
   enforceRegionPeace,
   queryPantheonChronicle,
+  getAlliedGodChampionBonus,
 } from './apotheosisStage3.js';
 
 export {
@@ -316,6 +324,9 @@ export {
   registerAurbisRuntime,
   getAurbisRuntime,
   AURBIS_PORTAL_FAITH_COST,
+  AURBIS_DIVINE_SHIELD_COST,
+  APOTHEOSIS_DIVINE_SHIELD_ROUNDS,
+  APOTHEOSIS_DIVINE_SHIELD_PER_LEVEL,
   FORBIDDEN_AURBIS_COMMANDS,
   AURBIS_COMMAND_CATALOG,
   addApotheosisFaith,
@@ -333,7 +344,10 @@ export {
   parseAurbisCommandLine,
   evaluateAurbisCommand,
   executeAurbisCommand,
+  computeDivineShieldStrength,
+  applyApotheosisDivineShield,
   APOTHEOSIS_CHAMPION_TEMPLATES,
+  setAlliedChampionBonusHook,
   computeChampionFaithScaling,
   applyApotheosisChampionStrength,
   summonApotheosisChampions,
@@ -359,6 +373,7 @@ export {
   GEOPOLITICS_WAR_COST,
   GEOPOLITICS_PEACE_COST,
   PANTHEON_DEITIES,
+  ALLIED_DEITY_CHAMPIONS,
   registerPantheonDeity,
   getPantheonDeities,
   getPantheonDeity,
@@ -384,6 +399,7 @@ export {
   igniteRegionWar,
   enforceRegionPeace,
   queryPantheonChronicle,
+  getAlliedGodChampionBonus,
 };
 
 export const TOTAL_FATE_TRIGGERS = 24;

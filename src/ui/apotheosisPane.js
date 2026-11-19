@@ -65,6 +65,8 @@ import {
   sendDivineOffering,
   sowDivineDiscord,
   startApotheosisFromArtifacts,
+  computeDivineShieldStrength,
+  getAlliedGodChampionBonus,
   DIVINE_WAR_SUPPORT_COST,
   DIVINE_WAR_TRUCE_COST,
   WAR_SKIRMISH_PACIFY_GOAL,
@@ -254,8 +256,9 @@ function setFeedback(msg, isError = false) {
 }
 
 function currentSections(trackerShown, entity = null) {
+  const isAscended = Boolean(entity?.apotheosis?.ascended || entity?.apotheosis?.stage === APOTHEOSIS_STAGES.ASCENDED);
   const secs = [['overview', t('apotheosis.sec.overview', 'Ascension Overview')]];
-  if (trackerShown) {
+  if (!isAscended && trackerShown) {
     secs.push(['meta', t('apotheosis.sec.meta', 'CHIM & Mind')]);
     secs.push(['blood', t('apotheosis.sec.blood', 'Blood & Crucible')]);
     secs.push(['power', t('apotheosis.sec.power', 'Dominion & World')]);
@@ -271,6 +274,11 @@ function currentSections(trackerShown, entity = null) {
   secs.push(['pantheon_chronicle', t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle')]);
   secs.push(['cult', cultLabel]);
   secs.push(['edicts', t('apotheosis.cult.subTabEdicts', 'Regional Edicts')]);
+  if (isAscended && trackerShown) {
+    secs.push(['meta', t('apotheosis.sec.meta', 'CHIM & Mind')]);
+    secs.push(['blood', t('apotheosis.sec.blood', 'Blood & Crucible')]);
+    secs.push(['power', t('apotheosis.sec.power', 'Dominion & World')]);
+  }
   return secs;
 }
 
@@ -599,6 +607,16 @@ function renderOverview(detail, entity, trackerShown, repaint) {
       warAlert.append(alertActs);
       detail.append(warAlert);
     }
+
+    const guideBox = el('div', 'apo-box');
+    guideBox.append(
+      el('h4', null, t('apotheosis.overview.guideTitle', 'Path of Divinity — Quick Guide')),
+      el('div', 'apo-card-desc', t('apotheosis.overview.guideFaith', '• Faith & Portfolio: Earn Faith through deeds aligned with your Portfolio, Roadside Shrines, Pilgrim Petitions, and Sanctuary offerings.')),
+      el('div', 'apo-card-desc', t('apotheosis.overview.guideAurbis', '• Scroll of Aurbis: Spend Faith on Quick Miracles (Portals, Healing, Divine Aegis 24h shield, Champions) or type decrees including lich / archlich on|off.')),
+      el('div', 'apo-card-desc', t('apotheosis.overview.guideCult', '• Cult & Edicts: Claim city Temples or found Underground Sanctuaries, upgrade them to Tier III, choose a Branch, and issue 30-day Regional Edicts.')),
+      el('div', 'apo-card-desc', t('apotheosis.overview.guidePantheon', '• Pantheon & Allies: Forge Alliances (+1 Allied God Champion on every Champion summon!), shape Divine & Mundane Wars, and defend besieged Sanctuaries.')),
+    );
+    detail.append(guideBox);
   }
 
   if (trackerShown) {
@@ -781,16 +799,23 @@ function renderAurbisPage(detail, entity, repaint) {
 
   // Quick Miracles
   const quickBox = el('div', 'apo-box');
-  quickBox.append(el('h4', null, t('apotheosis.aurbis.quickTitle', 'Quick Miracles (13)')));
+  quickBox.append(el('h4', null, t('apotheosis.aurbis.quickTitle', 'Quick Miracles (14)')));
   const quickGrid = el('div', 'apo-aurbis-grid');
+
+  const shieldHp = computeDivineShieldStrength(entity);
+  const alliedBonus = getAlliedGodChampionBonus(entity);
+  const alliedTag = alliedBonus
+    ? ` · ${t('apotheosis.aurbis.q.alliedPlus', '+1 {deity} Ally', { deity: alliedBonus.deityName })}`
+    : '';
 
   const fixedMiracles = [
     { label: t('apotheosis.aurbis.q.portal', 'Divine Portal'), desc: t('apotheosis.aurbis.q.portalDesc', 'Open Portal Stone map'), cmd: 'portal' },
     { label: t('apotheosis.aurbis.q.heal', 'Divine Restoration'), desc: t('apotheosis.aurbis.q.healDesc', 'Restore Health, Magicka & Fatigue'), cmd: 'heal' },
+    { label: t('apotheosis.aurbis.q.shield', 'Divine Aegis (24h)'), desc: t('apotheosis.aurbis.q.shieldDesc', '24h protective shield absorbing {hp} HP (Lvl × 50)', { hp: shieldHp }), cmd: 'divine_shield' },
     { label: t('apotheosis.aurbis.q.pacifyall', 'Pacify All Foes'), desc: t('apotheosis.aurbis.q.pacifyallDesc', 'Calm all hostiles on the map (+Order Faith)'), cmd: 'pacifyall' },
     { label: t('apotheosis.aurbis.q.killall', 'Smite Hostiles'), desc: t('apotheosis.aurbis.q.killallDesc', 'Strike down nearby foes'), cmd: 'killall' },
-    { label: t('apotheosis.aurbis.q.champion', 'Summon Champion (24h)'), desc: t('apotheosis.aurbis.q.championDesc', 'Summon 1 Faith-scaled Portfolio Champion'), cmd: 'summon_champion' },
-    { label: t('apotheosis.aurbis.q.champions', 'Champion Party x4 (24h)'), desc: t('apotheosis.aurbis.q.championsDesc', 'Summon 4 Faith-scaled Portfolio Champions'), cmd: 'summon_champions' },
+    { label: t('apotheosis.aurbis.q.champion', 'Summon Champion (24h)'), desc: `${t('apotheosis.aurbis.q.championDesc', 'Summon 1 Faith-scaled Portfolio Champion')}${alliedTag}`, cmd: 'summon_champion' },
+    { label: t('apotheosis.aurbis.q.champions', 'Champion Party x4 (24h)'), desc: `${t('apotheosis.aurbis.q.championsDesc', 'Summon 4 Faith-scaled Portfolio Champions')}${alliedTag}`, cmd: 'summon_champions' },
     { label: t('apotheosis.aurbis.q.sun', 'Clear Skies'), desc: t('apotheosis.aurbis.q.sunDesc', 'Part stormclouds across the land'), cmd: 'weather 0' },
     { label: t('apotheosis.aurbis.q.storm', 'Call Storm'), desc: t('apotheosis.aurbis.q.stormDesc', 'Summon thunder & tempest'), cmd: 'weather 5' },
     { label: t('apotheosis.aurbis.q.time', 'Turn Day (+12h)'), desc: t('apotheosis.aurbis.q.timeDesc', 'Advance Tamrielic clock by 12h'), cmd: 'advance_time 12' },
@@ -1227,6 +1252,12 @@ function renderPantheonDeitiesView(detail, entity, pantheon, nowMin, repaint) {
         el('div', 'apo-card-desc', `${d.title} · ${t('apotheosis.pantheon.avgShare', 'Tamriel {pct}% ({dom} reg)', { pct: avgPct, dom: domCount })}`),
         barWrap,
       );
+      if (entry.status === 'allied') {
+        const bonusNote = el('div', 'apo-pill ok',
+          t('apotheosis.pantheon.alliedBonusNote', 'Allied Bonus: +1 {name} Champion on Summon', { name: d.name }));
+        bonusNote.style.alignSelf = 'flex-start';
+        card.append(bonusNote);
+      }
 
       const acts = el('div', 'apo-acts');
       const addAction = (label, disabled, onClick) => {
@@ -1652,7 +1683,13 @@ function paint(root, { resetDetailScroll = false } = {}) {
 
     const repaint = (opts = {}) => paint(root, opts);
     for (const [id, label] of secs) {
-      if (id === 'overview') {
+      if (canBadge) {
+        if (id === 'overview') {
+          rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.godhood', 'Godhood')));
+        } else if (id === 'meta') {
+          rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.completedTrials', 'Completed Trials')));
+        }
+      } else if (id === 'overview') {
         rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.ascension', 'Ascension')));
       } else if (id === 'portfolio') {
         rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.godhood', 'Godhood')));

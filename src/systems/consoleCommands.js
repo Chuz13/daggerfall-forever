@@ -89,6 +89,7 @@ import {
   registerAurbisRuntime,
   tickApotheosisMythicDecay,
   executeAurbisCommand,
+  applyApotheosisDivineShield,
   summonApotheosisChampions,
   getActiveApotheosisChampions,
   clearApotheosisChampions,
@@ -435,6 +436,21 @@ for (const cmdName of ['summon_champions', 'champion_party', 'champions', 'summo
     'Summon a party of 4 Faith-scaled Portfolio Divine Champions for 24h',
     cmdName,
     () => handleSummonChampionCommand(4),
+  );
+}
+
+function handleDivineShieldCommand() {
+  const res = applyApotheosisDivineShield(playerEntity);
+  surfacePlayer?.();
+  return res?.message || 'Divine Aegis applied.';
+}
+
+for (const cmdName of ['divine_shield', 'aegis', 'divine_aegis', 'apotheosis_shield']) {
+  registerCommand(
+    cmdName,
+    'Wrap yourself in a 24-hour Divine Aegis shield (Level x 50 HP)',
+    cmdName,
+    handleDivineShieldCommand,
   );
 }
 
@@ -2338,7 +2354,7 @@ registerCommand(
       applyLichdom(playerEntity, { nowMinutes: worldMinutes() });
       return 'Lichdom transformation complete! You are now an immortal creature of darkness.';
     }
-    if (sub === 'ancient_lich' || sub === 'ancientlich') {
+    if (sub === 'ancient_lich' || sub === 'ancientlich' || sub === 'archlich' || sub === 'arch_lich') {
       const val = String(args[1] || 'toggle').toLowerCase();
       const currentlyAncientLich = isAncientLich(playerEntity);
       const currentlyLich = isLich(playerEntity);
@@ -2626,13 +2642,17 @@ registerCommand(
       getConsoleCommand('addspell').callback(['all_necro']);
       return '<b>[Necro Full Test Kit]</b> Level 20, Mysticism/Destruction 100, INT/WIL 100, Grimoire Read, Skinning Knife (603), Elixir of Unlife + 4 reagents, and all 4 Necromancy spells granted!';
     }
-    return 'Usage: necro <status | lich [on|off] | ancient_lich [on|off] | taint [add <n>|set <n>] | spawn <type|corpse> | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
+    return 'Usage: necro <status | lich [on|off] | ancient_lich [on|off] | archlich [on|off] | taint [add <n>|set <n>] | spawn <type|corpse> | minions [list|clear|raise <type>] | harvest | detonate | elixir | test [kit|lich|harvest|synergy] | ambush>';
   }
 );
 
 registerCommand('necro_ancient_lich', 'Toggle Ancient Lich transformation: necro_ancient_lich [on|off]', 'necro_ancient_lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
 registerCommand('ancient_lich', 'Toggle Ancient Lich transformation: ancient_lich [on|off]', 'ancient_lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
 registerCommand('ancientlich', 'Toggle Ancient Lich transformation: ancientlich [on|off]', 'ancientlich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
+registerCommand('archlich', 'Toggle Ancient Lich (Archlich) transformation: archlich [on|off]', 'archlich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
+registerCommand('arch_lich', 'Toggle Ancient Lich (Archlich) transformation: arch_lich [on|off]', 'arch_lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
+registerCommand('necro_archlich', 'Toggle Ancient Lich (Archlich) transformation: necro_archlich [on|off]', 'necro_archlich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
+registerCommand('necro_arch_lich', 'Toggle Ancient Lich (Archlich) transformation: necro_arch_lich [on|off]', 'necro_arch_lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['ancient_lich', ...args]));
 registerCommand('necro_lich', 'Toggle Lich transformation: necro_lich [on|off]', 'necro_lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['lich', ...args]));
 registerCommand('lich', 'Toggle Lich transformation: lich [on|off]', 'lich [on|off]', (args = []) => getConsoleCommand('necro').callback(['lich', ...args]));
 

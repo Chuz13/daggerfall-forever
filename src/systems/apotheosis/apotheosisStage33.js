@@ -10,6 +10,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 import { computeEntityMods, registerEntityFold } from '../entityMods.js';
 import { liveStat, maxFatigue } from '../statMods.js';
 import { isAscendedGod } from './apotheosisLive.js';
+import { addApotheosisFaith } from './apotheosisStage2.js';
 import {
   PANTHEON_DEITIES,
   TAMRIEL_REGION_COUNT,
@@ -369,9 +370,13 @@ export function desecrateRoadsideShrine(entity, {
   cult.desecratedShrines[shrineId] = now;
 
   let ascended = isAscendedGod(entity);
+  let actualFaithGained = 0;
   if (ascended) {
     ensurePantheonState(entity, { nowMinutes: now });
-    entity.apotheosis.faith = (entity.apotheosis.faith || 0) + faithGain;
+    actualFaithGained = addApotheosisFaith(entity, faithGain, {
+      reason: 'roadside_desecrate',
+      nowMinutes: now,
+    }).added;
     changeDeityRelation(entity, targetGodId, ROADSIDE_DESECRATE_RELATION_PENALTY, { propagate: false });
     shiftRegionInfluence(entity, reg, targetGodId, -infShift);
     shiftRegionInfluence(entity, reg, 'player', infShift);
@@ -399,7 +404,7 @@ export function desecrateRoadsideShrine(entity, {
     godName: deity?.name ?? targetGodId,
     isWild: !!isWild,
     multiplier: mult,
-    faithGained: ascended ? faithGain : 0,
+    faithGained: actualFaithGained,
     relationPenalty: ascended ? ROADSIDE_DESECRATE_RELATION_PENALTY : 0,
     influenceShift: ascended ? infShift : 0,
     spawnChance,
@@ -559,11 +564,14 @@ export function notifyCultPetitionProgress(entity, eventKind, {
   if (!matched) return { completed: false };
 
   const mult = (pet.type === 'desecrate_shrine' && isWild) ? ROADSIDE_WILD_REWARD_MULT : 1;
-  const faithGained = pet.rewardFaith * mult;
+  const faithRes = addApotheosisFaith(entity, pet.rewardFaith * mult, {
+    reason: 'cult_petition',
+    nowMinutes,
+    force: true,
+  });
+  const faithGained = faithRes.requested;
   const goldGained = pet.rewardGold * mult;
   const infGained = Number((pet.rewardInfluence * mult).toFixed(1));
-
-  entity.apotheosis.faith = (entity.apotheosis.faith || 0) + faithGained;
   entity.goldPieces = (Math.max(0, Math.trunc(Number(entity.goldPieces) || 0))) + goldGained;
   ensurePantheonState(entity, { nowMinutes });
   shiftRegionInfluence(entity, influenceRegion, 'player', infGained);
