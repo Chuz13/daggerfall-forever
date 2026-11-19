@@ -6,7 +6,7 @@ Daggerfall Forever (DFF) includes a **native JavaScript & JSON modding system** 
 
 ## What Native DFF Mods Can Do
 
-Native mods live in the `mods/` directory and are built from plain JSON files and standard ES JavaScript (`plugin.js`):
+Native mods live in `<userData>/Mods/<modId>/` in the packaged desktop app (or `mods/` in source checkouts) and are built from plain JSON files and standard ES JavaScript (`plugin.js`). On desktop launch, the 8 bundled example mods are automatically seeded into `<userData>/Mods/` without overwriting any user edits:
 
 * **Data-Driven JSON Overrides (`data` in `manifest.json`):**
   * `combat` (`combat.json`) - Tune armor-class fatigue multipliers (`heavyArmorFatigueMultiplier`, `mediumArmorFatigueMultiplier`, `lightArmorFatigueMultiplier`).

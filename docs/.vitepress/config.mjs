@@ -8,6 +8,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Apotheosis', link: '/apotheosis/' },
       { text: 'Living Tamriel', link: '/living-tamriel/' },
       { text: 'Necromancy', link: '/necromancy/' },
       { text: 'Features & Settings', link: '/features/global-changes' },
@@ -19,6 +20,14 @@ export default defineConfig({
         text: 'Overview',
         items: [
           { text: 'Welcome & Project Overview', link: '/' }
+        ]
+      },
+      {
+        text: 'Apotheosis: Path of CHIM',
+        items: [
+          { text: 'Overview, Fate Weight & Ascension', link: '/apotheosis/' },
+          { text: 'Faith, Portfolios & Scroll of Aurbis', link: '/apotheosis/faith-and-aurbis' },
+          { text: 'Pantheon 4X, Cults, Shrines & Wars', link: '/apotheosis/pantheon-cult-wars' }
         ]
       },
       {
@@ -51,7 +60,8 @@ export default defineConfig({
       }
     ],
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/Chuz13/daggerfall-forever' }
+      { icon: 'github', link: 'https://github.com/Chuz13/daggerfall-forever' },
+      { icon: 'discord', link: 'https://discord.gg/HVGrJFmYa' }
     ],
     search: {
       provider: 'local'

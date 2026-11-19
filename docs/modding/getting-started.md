@@ -1,6 +1,6 @@
 # How to Start Modding
 
-Creating a native DFF mod requires only a text editor. Every mod lives in its own subfolder inside the game's `mods/` directory (for example, `mods/my-first-mod/`).
+Creating a native DFF mod requires only a text editor. In the packaged desktop app, mods live in `<userData>/Mods/<modId>/` (and the 8 bundled examples are seeded there automatically on launch without overwriting existing folders); in source checkouts, they reside under `mods/` (for example, `mods/my-first-mod/`).
 
 ---
 

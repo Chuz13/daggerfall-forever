@@ -1,6 +1,6 @@
 # Settings Added Outside the DFF Tab
 
-While major experimental frameworks (**Living Tamriel** and **Dark Arts & Necromancy**) live under the bottom **DFF** tab in the Enhanced Settings menu, many DFF features and granular toggles are placed directly in their natural vanilla/DFO categories.
+While major frameworks (**Living Tamriel**, **Dark Arts & Necromancy**, and **Apotheosis: Path of CHIM**) live under the bottom **DFF** tab in the Enhanced Settings menu, many DFF features and granular toggles are placed directly in their natural vanilla/DFO categories or the Profile / Look selector.
 
 ---
 
@@ -49,6 +49,14 @@ While major experimental frameworks (**Living Tamriel** and **Dark Arts & Necrom
 | :--- | :--- | :---: | :--- |
 | **Status bars display** | `port:hudVitalsMode` (`hudVitalsMode`) | `Percentage` | 3-tier selector (`Percentage` \| `Current / Max` \| `Combo`) for Health, Magicka, and Fatigue on the enhanced HUD. |
 | **Renown bar** | `port:showRenownBar` (`showRenownBar`) | `Off` | Shows or hides the Renown level and progress bar beneath the HUD vitals. |
+
+---
+
+## Profile / Look Window (`skinCard.js`)
+
+| Setting | Key / Mod Setting | Default | Effect |
+| :--- | :--- | :---: | :--- |
+| **Look → Paperdoll** | `eye-of-the-beholder` → `Graphics.Paperdoll` | `Off` | Added alongside `Skins` and `Layered Gearing (WIP)` in the top-right Profile / Look card. Draws the player on foot in 3rd person as a static cropped 2D character-sheet paperdoll and automatically disables `mwPlayerBody`. |
 
 ---
 

@@ -16,14 +16,16 @@
 
 ## What Players Should Expect
 
-### 1. Regional Crises & 39-Event Matrix
-* **39 dynamic encounters** spanning 11 categories: `WAR` (5), `FAMINE` (5), `PLAGUE` (4), `OCCULT` (4), `CRIME` (4), `FAITH` (4), `POLITICS` (3), `COMMERCE` (2), `HOLIDAY` (4), `ARCANE` (1), and `MUNDANE` (3).
+### 1. Regional Crises & 41-Event Matrix
+* **41 dynamic encounters** spanning 11 categories: `WAR` (5), `FAMINE` (5), `PLAGUE` (5, including `EVT_PLAGUE_RAT_SWARM` swarms), `OCCULT` (5, including `EVT_WITCH_COVEN_ASSAULT`), `CRIME` (4), `FAITH` (4), `POLITICS` (3), `COMMERCE` (2), `HOLIDAY` (4), `ARCANE` (1), and `MUNDANE` (3).
+* **Climate/Region & Level-Gated Attacker Pools:** Encounter monsters scale dynamically with player level and regional climate (`isSouthernDesertRegion`) - e.g. Sabertooth Tigers / Giant Scorpions in southern deserts vs. Grizzly Bears / Wereboars / Giants elsewhere, and escalating undead/occult/Daedra tiers at levels `6+`, `11+`, and `14+`.
+* **12 Thematic Prop Sets & Destructible Props:** Urban skirmishes spawn themed 3D/flat props (`MILITARY_BARRICADE`, `PRISONER_CAGE`, `GRANARY_MARKET`, `CAULDRON_STATION`, `PLAGUE_PYRE`, `WATER_WELL_SITE`, `MONUMENT_STATUE`, `OCCULT_RITUAL`, `CRIME_HEIST`, `FARM_HOMESTEAD`, `GRAVEYARD_CRYPT`, `TEMPLE_SANCTUARY`) plus solid tent/pavilion colliders (`41606`/`41607`). Siding with attackers in events like `EVT_NEW_RULER_STATUE_UNVEILING` or `EVT_PLAGUE_WATER_WELL_SCARE` physically topples or smashes those scene props.
 * Encounters match your location type, active regional crises, and settlement prosperity (`LOW`, `MID`, `HIGH` based on building quality).
 * **4-Stance Choices & Typed Rolls:** Every crisis event offers 4 stances - side with defenders, side with attackers, stay neutral, or resolve peacefully via gold or skill checks (`Etiquette`, `Streetwise`, `Orcish`, `Mercantile`, `Restoration`, `Stealth`, `Medical`, `Thaumaturgy`, `Daedric`) with 5 outcome degrees (`TRIUMPH` to `CRITICAL_FAILURE`). Outcomes nudge vanilla faction power and crisis endurance.
-* **Ambient NPC Pleas:** Citizens may approach you with crisis-driven requests (`PLAGUE_CURE`, `FAMINE_BREAD`, `WAR_REFUGEE`, `ESCORT_REQUEST`) at `10%` (Light), `25%` (Mid), or `40%` (High) base chance.
+* **10 Ambient NPC Pleas & Peacetime Town Roulette:** Citizens may approach you with **4 crisis pleas** (`PLAGUE_CURE`, `FAMINE_BREAD`, `WAR_REFUGEE`, `ESCORT_REQUEST` at `10%`/`25%`/`40%` base chance) or **6 grounded peace pleas** (`DRUNKEN_BRAWLER`, `BROKEN_CART_MERCHANT`, `STRAY_HOUND_HANDLER`, `STREET_PREACHER`, `ACCUSED_URCHIN`, `BOASTFUL_DUELIST`). In peacetime towns, encounters roll `65%` Grounded Plea / `35%` Mundane Skirmish (crisis towns roll `80%` crisis / `20%` mundane; plague quarantines roll `40%` tent / `60%` plague skirmish). Rudely provoking a peace plea turns the NPC hostile with scale-based street backup (`1` Low / `1–2` Mid / `2–3` High).
 
 ### 2. Urban Skirmishes & Quarantine Gates
-* During `WAR.MID`, `CIVIL_STRIFE.MID`, or active regional crises, contained street clashes break out between `SkirmishLaw` and `SkirmishRebels` (max 1 per town scene, `10m` doorway clearance, isolated teams so stray hits do not falsely trigger player crimes).
+* During `WAR.MID`, `CIVIL_STRIFE.MID`, or active regional crises, contained street clashes break out between `SkirmishLaw` and `SkirmishRebels` (max 1 per town scene, `10m` doorway clearance). Combatants spawn neutral to the player while fighting each other until you choose a stance; critical diplomatic failure turns both sides hostile (`both_hostile`, yield disabled), and surviving combatants automatically calm down (`calmUrbanSurvivors`) once one side is defeated.
 * During severe plague outbreaks (`PLAGUE.MID`), city gates can be barred around the clock with outside relief tents.
 
 ### 3. Road Checkpoints & Travel Interruptions
@@ -53,9 +55,9 @@
 
 | System | Cooldown / Duration |
 | :--- | :--- |
-| Town / Location Events & Skirmishes | `4320` min (`3` in-game days) |
+| Town / Location Events & Skirmishes | Configurable: `2h` (`120m`) / `8h` (`480m`) / `24h` (`1440m`) / `3d` (`4320m`, default) |
 | Travel Interruptions | `360` min (`6` in-game hours) |
-| Ambient NPC Pleas | `720` min (`12` in-game hours) |
+| Ambient NPC Pleas | `90` min (`1.5` in-game hours) |
 | Checkpoint Transit Pass | `1440` min (`24` in-game hours) |
 | Recruited Adventurer Companion | `1440` min (`24` in-game hours) |
 | Adventurer-Cleared Dungeon | `3–5` in-game days |
@@ -85,11 +87,12 @@ All UI settings are located in **Settings → DFF → Living Tamriel (Experiment
 | **Dungeon Mob Traits** (`livingDungeonMobTraits`) | `Mid (2)` | Grants dungeon monsters and class enemies level-scaled combat traits and shields. |
 | **Reputation Consequences** (`livingReputationConsequences`) | `High (3)` | Scales dynamic regional reputation reactions across prices, taverns, courts, temples, checkpoints, and nemesis pools (takes effect immediately). |
 
-### Scale & Loot Policy Controls
+### Scale, Cooldown & Loot Policy Controls
 
 | Setting | Options | Default | Effect |
 | :--- | :--- | :---: | :--- |
 | **Encounter Scale** (`livingEncounterScale`) | `Low (x1)` \| `Mid (x2)` \| `High (x4)` | `Low (1)` | Multiplies squad sizes, packs, and skirmish armies. |
+| **Settlement event cooldown** (`livingLocationCooldown`) | `2 Hours` \| `8 Hours` \| `24 Hours` \| `3 Days` | `3 Days (4320m)` | Sets minimum in-game cooldown between Living Tamriel events/skirmishes in the same settlement (takes effect immediately). |
 | **Urban Skirmish Loot** (`livingUrbanLootMode`) | `Zero-Loot` \| `Supplies & Gold` \| `Full Loot` | `Zero-Loot` | Controls corpse loot on urban skirmish fighters (economy guard by default). |
 | **Wilderness Loot** (`livingWildernessLootMode`) | `Full Loot` \| `Supplies Only` | `Full Loot` | Controls loot dropped by bandit camps, marauders, and checkpoints. |
 | **Adventurer Corpse Loot** (`livingAdventurerLootMode`) | `Empty` \| `Supplies` \| `Standard` \| `Full Gear` | `Full Gear` | Controls equipment dropped by defeated adventurers (takes effect immediately). |

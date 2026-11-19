@@ -1,6 +1,6 @@
 # Example Mods Walkthrough
 
-Daggerfall Forever ships with **8 example mods** in `mods/examples/`. They demonstrate both pure JSON data overrides and scripted `plugin.js` gameplay systems.
+Daggerfall Forever ships with **8 example mods** in `mods/examples/` (automatically seeded into `<userData>/Mods/` in the packaged desktop app without overwriting existing folders). They demonstrate both pure JSON data overrides and scripted `plugin.js` gameplay systems.
 
 ---
 
@@ -46,11 +46,11 @@ Daggerfall Forever ships with **8 example mods** in `mods/examples/`. They demon
 
 ## 6. `duelists-flow` (Combo System + Perk + Localization)
 * **Files:** `manifest.json`, `plugin.js`
-* **What it does:** Adds a rhythmic combat combo system. Consecutive landed hits within `6000 ms` build a combo streak:
+* **What it does:** Adds a rhythmic combat combo system (active immediately whenever the mod is enabled). Consecutive landed hits within `6000 ms` build a combo streak:
   * **3 hits (Flow State):** Restores `+12 FP`.
   * **5 hits (Deadly Precision):** Restores `+5 HP`, `+25 FP`.
   * **7+ hits (odd streaks, Master Duelist):** Restores `+10 HP` and `+35 FP`.
-  * **10 hits (Duelist's Trance):** Unlocks the **Duelist's Trance** perk (`+5%` hit chance and halved combo-break fatigue penalty).
+  * **10 hits (Duelist's Trance):** Permanently unlocks the **Duelist's Trance** perk (`+5%` hit chance and halved combo-break fatigue penalty).
   * **Missed swing (with streak >= 2):** Breaks flow and drains `10 FP` (`5 FP` with Duelist's Trance).
 * **How it works:** Keeps ephemeral `currentStreak` in memory (avoiding save bloat), persists `bestStreak` in `api.storage`, uses `api.ui.showMidScreen` for the live combo counter, and localizes all messages via `api.ui.t`.
 
