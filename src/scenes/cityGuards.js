@@ -739,6 +739,23 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     return null;
   }
 
+  /** Witness check across ALL pool NPCs (guards and civilians) within 77.5m, 95-deg cone (or 12m/idle for guards) and clear LOS. */
+  function anyoneSeesPlayer({ playerFeet, pool = [], nearRange = 12 }) {
+    for (const p of pool) {
+      if (!p?.pos) continue;
+      const toPlayer = [playerFeet[0] - p.pos[0], playerFeet[1] - p.pos[1], playerFeet[2] - p.pos[2]];
+      const dist = Math.hypot(...toPlayer);
+      if (dist > GUARD_NPC_SPAWN_RANGE) continue;
+      const isCloseOrIdleGuard = !!p.guard && (dist <= nearRange || p.person?.state === 'idle');
+      if (!isCloseOrIdleGuard && angleDeg(toPlayer, [Math.sin(p.fwdYaw), 0, Math.cos(p.fwdYaw)]) > GUARD_SEEN_ANGLE) continue;
+      const eye = [p.pos[0], p.pos[1] + 0.7, p.pos[2]];
+      const dir = [toPlayer[0] / (dist || 1), (toPlayer[1] + 0.6) / (dist || 1), toPlayer[2] / (dist || 1)];
+      const hit = collider.raycast(eye, dir, dist);
+      if ((!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist, true) < dist - 1e-3)) return p;
+    }
+    return null;
+  }
+
   /** DISC19-F: THE WATCH DEFENDS THE TOWN (systems/town/townWatch.js
    *  decides when; this is the arrival). The crime response's own two
    *  arms, with the defenders minted as the player's allies and sent at
@@ -1961,7 +1978,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     g.corpseDisabled = true;
     g.corpseDestroyed = true;
   }
-  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, frighten, guardSeesPlayer, guardSpotsPlayerNear, update, offsetAll, groundMoved, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, drawBodies, drawVeiledBodies, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), physicalCorpses: () => physicalCorpseSources(guards, 'guardCorpse', corpseLens), snapshotWorld, restoreWorld, removeGuard, removeCorpse, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab; PI1: physicalCorpses, the bodies whose items stand round them (scenes/physicalItemsLayer.js)
+  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, frighten, guardSeesPlayer, guardSpotsPlayerNear, anyoneSeesPlayer, update, offsetAll, groundMoved, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, drawBodies, drawVeiledBodies, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), physicalCorpses: () => physicalCorpseSources(guards, 'guardCorpse', corpseLens), snapshotWorld, restoreWorld, removeGuard, removeCorpse, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab; PI1: physicalCorpses, the bodies whose items stand round them (scenes/physicalItemsLayer.js)
     /** RR2: PlayerEntity.SpawnCityGuard(position, direction) (PlayerEntity.cs:678-694) for a caller
      *  outside the watch's own call - the ONE watchman minted where a walker stood, facing their
      *  way, hostile to the player. Resolves to the guard record (or null when the world moved on). */

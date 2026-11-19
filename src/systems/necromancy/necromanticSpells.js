@@ -12,6 +12,7 @@ import { spawnMinion, allSpawnedMinions, detonateMinion } from './minionControll
 import { skillValue, SKILLS } from '../skills.js';
 import { liveStat } from '../statMods.js';
 import { NecroConfig, CORPSE_REQ_MODES } from './necroConfig.js';
+import { breakMortalDisguise } from './lichdomStatus.js';
 
 export const UNDEAD_LADDER = Object.freeze([
   'skeleton',
@@ -81,6 +82,32 @@ export const NECRO_SPELL_KEYS = Object.freeze({
   DISGUISE: '54,255',
   SUTURE_CADAVER: '55,255',
 });
+
+export const NON_DISGUISE_NECRO_INDEXES = Object.freeze(
+  new Set([-47, -48, -49, -50, -51, -52, -53, -55, -56, -57, -58]),
+);
+export const NON_DISGUISE_NECRO_EFFECT_TYPES = Object.freeze(new Set([47, 48, 49, 50, 51, 52, 53, 55]));
+
+/**
+ * Returns true if the spell is a necromantic spell (innate, grimoire, ritual, or custom Spell Maker)
+ * other than Mortal Disguise itself.
+ * @param {object} spell
+ * @returns {boolean}
+ */
+export function isNonDisguiseNecroSpell(spell) {
+  if (!spell) return false;
+  if (spell.index === -54) return false;
+  const effects = Array.isArray(spell.effects) ? spell.effects : [];
+  if (effects.some((e) => e && NON_DISGUISE_NECRO_EFFECT_TYPES.has(e.type))) return true;
+  if (NON_DISGUISE_NECRO_INDEXES.has(spell.index)) return true;
+  const hasDisguiseOnly = effects.length > 0 && effects.every((e) => !e || e.type <= -1 || e.type === 54);
+  if (hasDisguiseOnly) return false;
+  return (
+    spell.necro === true ||
+    spell.tag === 'некро' ||
+    (Array.isArray(spell.tags) && (spell.tags.includes('некро') || spell.tags.includes('necro')))
+  );
+}
 
 export const UNDEAD_CONTROL_MAGNITUDE_TIERS = Object.freeze({
   skeleton: 10,
@@ -576,6 +603,7 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
       position: spawnPos,
       masterEntity: casterEntity,
     });
+    breakMortalDisguise(casterEntity, { say: opts?.say ?? opts?.sinks?.say });
     return { success: true, minion };
   }
 
@@ -694,6 +722,8 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
     }
   }
 
+  breakMortalDisguise(casterEntity, { say: opts?.say ?? opts?.sinks?.say });
+
   return {
     success: true,
     minion,
@@ -801,6 +831,8 @@ export function castCorpseExplosion(caster, targetCorpse, options = {}) {
     }
   }
 
+  breakMortalDisguise(casterEntity, { say: opts?.say ?? opts?.sinks?.say });
+
   return {
     success: true,
     hitCount,
@@ -860,6 +892,8 @@ export function castLifeTap(caster, target, amount = 30) {
     }
   }
 
+  breakMortalDisguise(casterEntity);
+
   return {
     success: true,
     drained,
@@ -909,6 +943,10 @@ export function castBoneArmor(caster, duration = 15, pool = 50) {
       roundsRemaining: duration,
       ended: false,
     });
+  }
+
+  if (duration > 0 && pool > 0) {
+    breakMortalDisguise(entity);
   }
 
   return {
@@ -1042,6 +1080,7 @@ export function castControlUndead(
     const existing = allSpawnedMinions().find((m) => m.id === target.controlledMinionId);
     if (existing) {
       existing.roundsRemaining = rounds;
+      breakMortalDisguise(casterEntity);
       return { success: true, minion: existing, refreshed: true };
     }
   }
@@ -1082,6 +1121,8 @@ export function castControlUndead(
     target.sceneBody.ai.secondaryTarget = null;
     target.sceneBody.ai.giveUpTimer = 0;
   }
+
+  breakMortalDisguise(casterEntity);
 
   return {
     success: true,
@@ -1171,6 +1212,8 @@ export function castSutureCadaver(caster, targetCorpse = null, options = {}) {
     health: maxHealth,
     maxHealth,
   });
+
+  breakMortalDisguise(casterEntity, { say: opts?.say ?? opts?.sinks?.say });
 
   return {
     success: true,

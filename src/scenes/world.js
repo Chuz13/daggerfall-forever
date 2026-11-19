@@ -772,6 +772,7 @@ import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js'
 import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush, generatePurifierParty, HUNTER_TYPES } from '../systems/necromancy/witchHunters.js';
 import { getTaintTier } from '../systems/necromancy/necroTaint.js';
 import { NecroConfig } from '../systems/necromancy/necroConfig.js';
+import { reportCorpseHarvestCrime } from '../systems/necromancy/cityLaw.js';
 import { registerConsoleSceneContext } from '../systems/consoleCommands.js';
 import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength, sendRevenantAway, forgetSwornMember, swornFightStep, swornFightWon, devotedWithYou } from '../systems/revenant/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
 import { registerCompanionCount, registerCompanionRoster, companionsWithYou, COMPANION_SLOTS } from '../systems/companionSlots.js';   // COMPANION-SLOTS: the crew's hands ashore counted with the sworn
@@ -11248,6 +11249,27 @@ export async function bootWorld(canvas, renderer, params, status) {
     getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
     openUndeadCommandMenu,
     applyUndeadCommand,
+    reportHarvestCrime: (entity = playerEntity) => {
+      const mode = modes?.mode ?? 'exterior';
+      const isInsideDungeon = mode === 'dungeon';
+      const isInsideBuilding = mode === 'interior';
+      const isInsideSettlement = mode === 'exterior' && _isPlayerInTownStrict();
+      const feet = walkMode && playerSpawned ? player.pos : cam.pos;
+      const hasWitness = isInsideBuilding
+        ? !!modes?.isInteriorCrimeEligible?.()
+        : isInsideSettlement && (
+            !!cityGuards.anyoneSeesPlayer?.({ playerFeet: feet, pool: _guardPool() }) ||
+            !!cityGuards.anyWatchStanding?.()
+          );
+      return reportCorpseHarvestCrime(entity, {
+        isInsideSettlement,
+        isInsideBuilding,
+        isInsideDungeon,
+        hasWitness,
+        spawnWitnessGuards: () => _spawnGuards(false),
+        say: (msg) => townTalk?.say?.(msg, 5),
+      });
+    },
     advanceMinutes: (n) => {
       setSyntheticTimeIncrease(true);
       playerTicker.advance(n);

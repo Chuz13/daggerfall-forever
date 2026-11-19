@@ -13573,6 +13573,13 @@ export function createWorldModes(host) {
      *  spawn and its (empty) conversion walk and falls to the ring
      *  fallback over THIS interior's collider, while the witness arm
      *  correctly finds nobody to see the crime. */
+    isInteriorCrimeEligible() {
+      if (mode !== 'interior' || !interiorCtx || !interiorGuards) return false;
+      const b = interiorBuilding;
+      return !!b && (!!b.insideOpenShop
+        || b.buildingType === BUILDING_TYPES.Tavern
+        || isResidence(b.buildingType));
+    },
     spawnCityGuardsInside(immediate) {
       if (mode !== 'interior' || !interiorCtx || !interiorGuards) return false;
       const b = interiorBuilding;

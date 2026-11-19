@@ -1256,11 +1256,12 @@ export function enchantmentMagicRound(entity, round, { nowMinutes = 0, ctx = nul
  *  piece's other powers keep their rolls and state (a busted Shield stays busted), and its 6-hour clock stands. */
 function concealBack(entity, item) {
   for (const a of entity.activeEffects) {
-    if (a.heldItem !== item || !a.ended || !NORMAL_POWER_CONCEALMENTS.includes(a.kind)) continue;
+    if (a.heldItem !== item || !a.ended || (!NORMAL_POWER_CONCEALMENTS.includes(a.kind) && a.kind !== 'disguise')) continue;
     a.endedRounds = (a.endedRounds ?? 0) + 1;
     if (a.endedRounds >= WORN_CONCEAL_BACK_ROUNDS) {
       a.ended = false;
       delete a.endedRounds;
+      if (a.kind === 'disguise') delete item._disguiseBroken;
     }
   }
 }
@@ -1372,6 +1373,7 @@ setEnchantmentHooks({
   // -> :586). nowMinutes is the ctx clock seam (ctx.now) - an
   // unmounted host equips at minute 0, the headless charter.
   onItemEquipped: (entity, item) => {
+    if (item && item._disguiseBroken) delete item._disguiseBroken;
     if (!isEnchantedItem(item)) return;
     const nowMinutes = mergeCtx(null)?.now?.() ?? 0;
     // HELD-REWEAR: decided ONCE for the piece, before its first held power restamps the clock - an item with two
@@ -1380,6 +1382,7 @@ setEnchantmentHooks({
     doItemEnchantmentPayloads(PAYLOAD.Equipped | PAYLOAD.Held, item, { entity, nowMinutes, ctx });
   },
   onItemUnequipped: (entity, item) => {
+    if (item && item._disguiseBroken) delete item._disguiseBroken;
     if (!isEnchantedItem(item)) return;
     doItemEnchantmentPayloads(PAYLOAD.Unequipped, item, { entity });
   },

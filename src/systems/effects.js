@@ -48,9 +48,9 @@ import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify match
 import { breakNormalPowerConcealment, handleAttackFromSource } from './concealment.js';
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
-import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor, castControlUndead, castSutureCadaver } from './necromancy/necromanticSpells.js';
+import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor, castControlUndead, castSutureCadaver, isNonDisguiseNecroSpell } from './necromancy/necromanticSpells.js';
 import { performArchLichdomRitual, performLichdomRitual } from './necromancy/lichdomRitual.js';
-import { lichdomMagicRound } from './necromancy/lichdomStatus.js';
+import { lichdomMagicRound, breakMortalDisguise } from './necromancy/lichdomStatus.js';
 import { mitigateShadowDamage } from './apotheosis/apotheosisLive.js';
 import { SKILLS } from './skills.js';
 import { corpsesNear } from './necromancy/corpseRegistry.js';
@@ -1158,11 +1158,19 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       if (target?.noInstakill || target?.divineChampion) {
         const maxHp = target?.maxHealth || left || 100;
         const capped = Math.max(1, Math.min(left, Math.round(maxHp * 0.1)));
-        if (capped > 0 && sinks.hurt) { out.damage += capped; sinks.hurt(capped, { whole: false }); }
+        if (capped > 0 && sinks.hurt) {
+          out.damage += capped;
+          sinks.hurt(capped, { whole: false });
+          if (isNonDisguiseNecroSpell(spell)) breakMortalDisguise(caster?.entity, { say: caster?.sinks?.say ?? sinks?.say });
+        }
         continue;
       }
       out.disintegrated = (out.disintegrated ?? 0) + 1;
-      if (left > 0 && sinks.hurt) { out.damage += left; sinks.hurt(left, { whole: true }); }   // AUDIT PSCALE1 DOORS-1: a Disintegrate is a kill - no fighters' toughness divides it
+      if (left > 0 && sinks.hurt) {
+        out.damage += left;
+        sinks.hurt(left, { whole: true });   // AUDIT PSCALE1 DOORS-1: a Disintegrate is a kill - no fighters' toughness divides it
+        if (isNonDisguiseNecroSpell(spell)) breakMortalDisguise(caster?.entity, { say: caster?.sinks?.say ?? sinks?.say });
+      }
       continue;
     }
     if (isFortifyAttribute(e)) {
@@ -1374,11 +1382,14 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       if (!chanceOk) out.chanceFailed = (out.chanceFailed ?? 0) + 1;   // "Spell effect failed."/"Save versus spell made."
       if (rounds > 0) {
         const inc = findInc((a) => a.kind === 'paralyze');
-        if (inc) renewRounds(inc, rounds - 1);
-        else if (chanceOk) {
+        if (inc) {
+          renewRounds(inc, rounds - 1);
+          if (isNonDisguiseNecroSpell(spell)) breakMortalDisguise(caster?.entity, { say: caster?.sinks?.say ?? sinks?.say });
+        } else if (chanceOk) {
           if (!assignSave || savingThrow(spell.element, EFFECT_FLAGS.Paralysis | flag, target, 0, rolls) !== 0) {
             pushActive(target, { kind: 'paralyze', roundsRemaining: rounds }, sinks, rolls);
             out.paralyzed = (out.paralyzed ?? 0) + 1;   // "You are paralyzed." rides this (player hosts, once per instance)
+            if (isNonDisguiseNecroSpell(spell)) breakMortalDisguise(caster?.entity, { say: caster?.sinks?.say ?? sinks?.say });
           } else {
             out.saved = (out.saved ?? 0) + 1;           // "Save versus spell made."
           }
@@ -1443,6 +1454,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       if (!dice100(chanceValue(e, casterLevel), rolls())) { out.chanceFailed = (out.chanceFailed ?? 0) + 1; continue; }
       if (ctx.animateDead) {
         ctx.animateDead(e, target);
+        breakMortalDisguise(caster?.entity ?? target, { say: sinks?.say });
       } else {
         const res = castAnimateDead({
           casterEntity: caster?.entity ?? target,
@@ -1514,6 +1526,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
               caster.entity.currentHealth = Math.min(maxHp, caster.entity.currentHealth + n);
             }
           }
+          breakMortalDisguise(caster?.entity, { say: caster?.sinks?.say ?? sinks?.say });
         }
       }
       pushInstantMarker(target, 'lifeTap', e);
@@ -1530,6 +1543,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         continue;
       }
       if (res?.success && res.message) {
+        breakMortalDisguise(actualCaster, { say: sinks?.say });
         sinks?.say?.(res.message);
       } else if (res && !res.success && res.reason) {
         sinks?.say?.(res.reason);
@@ -1548,6 +1562,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         continue;
       }
       if (res?.success && res.message) {
+        breakMortalDisguise(actualCaster, { say: sinks?.say });
         sinks?.say?.(res.message);
       } else if (res && !res.success && res.reason) {
         sinks?.say?.(res.reason);
@@ -1999,6 +2014,9 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
           // PlayerEntityBehaviour`.
           const msg = BUFF_START_TEXT[kind];
           if (msg) sinks?.say?.(msg);
+        }
+        if (kind !== 'disguise' && isNonDisguiseNecroSpell(spell)) {
+          breakMortalDisguise(caster?.entity ?? target, { say: caster?.sinks?.say ?? sinks?.say });
         }
         out.buffs = (out.buffs ?? 0) + 1;
       }

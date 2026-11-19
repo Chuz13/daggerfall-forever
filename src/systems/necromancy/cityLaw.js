@@ -7,7 +7,9 @@
 //    for disturbing the honored dead.
 
 import { CRIMES } from '../crimes.js';
-import { setCrimeCommitted } from '../court.js';
+import { setCrimeCommitted, REPUTATION_LOSS_PER_CRIME } from '../court.js';
+import { racialSuppressCrime } from '../lycanthropy.js';
+import { t } from '../textManager.js';
 import { isLich, isAnyLich, isPlayerDisguised } from './lichdomStatus.js';
 import { allSpawnedMinions, MINION_STANCES } from './minionController.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
@@ -128,3 +130,54 @@ export function checkSettlementInfraction(
 }
 
 export const checkCityLawViolation = (opts) => checkSettlementInfraction(opts.playerEntity, opts);
+
+/**
+ * Evaluates and commits a vanilla Assault crime when harvesting corpse remains
+ * in a settlement or inhabited building in view of a witness.
+ * Never downgrades a heavier active crime (e.g. Murder or Treason).
+ * @param {object} playerEntity
+ * @param {object} [options]
+ * @returns {{ crimeCommitted: boolean, crime: number }}
+ */
+export function reportCorpseHarvestCrime(
+  playerEntity,
+  {
+    isInsideSettlement = false,
+    isInsideBuilding = false,
+    isInsideDungeon = false,
+    hasWitness = false,
+    spawnWitnessGuards = null,
+    say = null,
+  } = {},
+) {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY || !playerEntity) {
+    return { crimeCommitted: false, crime: CRIMES.None };
+  }
+  if (NecroConfig.socialLaw === SOCIAL_LAW_MODES.OFF) {
+    return { crimeCommitted: false, crime: CRIMES.None };
+  }
+  if (isInsideDungeon || (!isInsideSettlement && !isInsideBuilding)) {
+    return { crimeCommitted: false, crime: CRIMES.None };
+  }
+  if (!hasWitness || racialSuppressCrime(playerEntity)) {
+    return { crimeCommitted: false, crime: CRIMES.None };
+  }
+
+  const harvestCrime = CRIMES.Assault;
+  const currentCrime = Number(playerEntity.crimeCommitted) || 0;
+  const currentWeight = REPUTATION_LOSS_PER_CRIME[currentCrime] ?? 0;
+  const newWeight = REPUTATION_LOSS_PER_CRIME[harvestCrime] ?? 0;
+
+  if (!currentCrime || newWeight > currentWeight) {
+    setCrimeCommitted(playerEntity, harvestCrime);
+  }
+
+  if (typeof spawnWitnessGuards === 'function') {
+    spawnWitnessGuards();
+  }
+  if (typeof say === 'function') {
+    say(t('necro.harvest.crimeWitnessed', 'Someone witnessed your desecration of the dead! The watch has been alerted!'));
+  }
+
+  return { crimeCommitted: true, crime: playerEntity.crimeCommitted || harvestCrime };
+}

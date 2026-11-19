@@ -17,6 +17,7 @@ import { SKILLS } from '../skills.js';
 import { WEAPON_MATERIALS } from '../../characters/weapons.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { registerBlowTakenMod } from '../blowTaken.js';
+import { t } from '../textManager.js';
 import { lockLichTaint } from './necroTaint.js';
 import { lichParalyzingTouchSpell, mortalDisguiseSpell, fingerOfDeathSpell } from './necromanticSpells.js';
 
@@ -87,6 +88,7 @@ function findRacialOverrideEntry(entity, targetRacial) {
       (a) =>
         a &&
         !a.ended &&
+        !a.instant &&
         ((a.kind === 'racialOverride' && a.racial === targetRacial) ||
           a.kind === targetRacial ||
           a.racial === targetRacial),
@@ -161,6 +163,7 @@ export function isPlayerDisguised(entity) {
         (it) =>
           it &&
           it.equipSlot != null &&
+          !it._disguiseBroken &&
           (it.disguiseEnchant ||
             (Array.isArray(it.enchantments) && it.enchantments.some((e) => e && Number(e.param) === -54)))
       )
@@ -169,6 +172,62 @@ export function isPlayerDisguised(entity) {
     }
   }
   return false;
+}
+
+/**
+ * Strips any active Mortal Disguise (spell buff, hood/flag, or equipped disguise enchantment)
+ * when casting forbidden necromantic magic, immediately exposing Lichdom and Necro Taint.
+ * @param {object} entity
+ * @param {object} [options]
+ * @param {Function|null} [options.say]
+ * @returns {boolean} True if an active disguise was broken
+ */
+export function breakMortalDisguise(entity, { say = null } = {}) {
+  if (!entity) return false;
+  if (Array.isArray(entity.activeEffects)) {
+    for (const a of entity.activeEffects) {
+      if (a && a.heldItem && a.ended && (a.kind === 'disguise' || a.key === '54,255')) {
+        a.endedRounds = 0;
+      }
+    }
+  }
+  if (!isPlayerDisguised(entity)) return false;
+
+  entity.isDisguised = false;
+  entity.isHooded = false;
+
+  if (Array.isArray(entity.activeEffects)) {
+    for (const a of entity.activeEffects) {
+      if (a && !a.ended && (a.kind === 'disguise' || a.key === '54,255') && a.heldItem) {
+        a.roundsRemaining = 0;
+        a.ended = true;
+        a.endedRounds = 0;
+      }
+    }
+    entity.activeEffects = entity.activeEffects.filter(
+      (a) => !a || a.heldItem || (a.kind !== 'disguise' && a.key !== '54,255'),
+    );
+  }
+
+  if (Array.isArray(entity.items)) {
+    for (const it of entity.items) {
+      if (
+        it &&
+        it.equipSlot != null &&
+        (it.disguiseEnchant ||
+          (Array.isArray(it.enchantments) && it.enchantments.some((e) => e && Number(e.param) === -54)))
+      ) {
+        it._disguiseBroken = true;
+      }
+    }
+  }
+
+  lichdomMagicRound(entity);
+  const notify = typeof say === 'function' ? say : globalThis.__sceneContext?.say;
+  if (typeof notify === 'function') {
+    notify(t('necro.disguise.broken', 'Dark magic shatters your mortal disguise!'));
+  }
+  return true;
 }
 
 /**

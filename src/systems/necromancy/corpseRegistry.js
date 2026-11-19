@@ -350,6 +350,7 @@ export function harvestAllFromCorpse(corpseOrId, playerEntity) {
   }
 
   const yields = rollRes.yields;
+  globalThis.__sceneContext?.reportHarvestCrime?.(playerEntity);
   if (itemsAdded.length === 0) {
     return {
       success: true,
