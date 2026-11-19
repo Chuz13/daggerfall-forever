@@ -70,19 +70,39 @@ registerBlowTakenMod('lichArrowMitigation', (_attacker, target, _weapon, info) =
   return 1;
 });
 
+function findRacialOverrideEntry(entity, targetRacial) {
+  if (!entity) return null;
+  const o = entity.racialOverride;
+  if (o === targetRacial) return { kind: 'racialOverride', racial: targetRacial, ended: false };
+  if (
+    o &&
+    (o.kind === 'racialOverride' || o.kind === targetRacial) &&
+    (o.racial === targetRacial || o.kind === targetRacial) &&
+    !o.ended
+  ) {
+    return o;
+  }
+  if (Array.isArray(entity.activeEffects)) {
+    const found = entity.activeEffects.find(
+      (a) =>
+        a &&
+        !a.ended &&
+        ((a.kind === 'racialOverride' && a.racial === targetRacial) ||
+          a.kind === targetRacial ||
+          a.racial === targetRacial),
+    );
+    if (found) return found;
+  }
+  return null;
+}
+
 /**
  * Returns true if the entity is currently a Lich with an active racialOverride.
  * @param {object} entity
  * @returns {object|null}
  */
 export function liveLichdom(entity) {
-  if (!entity || !entity.racialOverride) return null;
-  const o = entity.racialOverride;
-  if (o === 'lichdom') return { kind: 'racialOverride', racial: 'lichdom', ended: false };
-  if (o.kind === 'racialOverride' && o.racial === 'lichdom' && !o.ended) {
-    return o;
-  }
-  return null;
+  return findRacialOverrideEntry(entity, 'lichdom');
 }
 
 /**
@@ -91,13 +111,7 @@ export function liveLichdom(entity) {
  * @returns {object|null}
  */
 export function liveAncientLichdom(entity) {
-  if (!entity || !entity.racialOverride) return null;
-  const o = entity.racialOverride;
-  if (o === 'ancient_lichdom') return { kind: 'racialOverride', racial: 'ancient_lichdom', ended: false };
-  if (o.kind === 'racialOverride' && o.racial === 'ancient_lichdom' && !o.ended) {
-    return o;
-  }
-  return null;
+  return findRacialOverrideEntry(entity, 'ancient_lichdom');
 }
 
 /**
@@ -203,8 +217,10 @@ export function grantAncientLichInnateSpells(entity) {
  */
 export function lichHpOf(entity) {
   if (!entity) return 0;
-  if (isAncientLich(entity)) return entity.racialOverride?.hpBonus ?? ANCIENT_LICH_HP_BONUS;
-  if (isLich(entity)) return entity.racialOverride?.hpBonus ?? LICH_HP_BONUS;
+  const anc = liveAncientLichdom(entity);
+  if (anc) return anc.hpBonus ?? ANCIENT_LICH_HP_BONUS;
+  const lich = liveLichdom(entity);
+  if (lich) return lich.hpBonus ?? LICH_HP_BONUS;
   return 0;
 }
 

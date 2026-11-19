@@ -145,6 +145,27 @@ export function setSpireHp(entity, hp) {
 }
 
 /**
+ * The entity's maximum health without the online/Firmament layer (`renownHp`) or Spire Stoneskin (`spireHp`),
+ * preserving the lycanthrope's limiter and any permanent offline bonuses (Lichdom, Apotheosis, Perks) on the live getter.
+ * @param {any} entity
+ */
+export function offlineBaseMaxHealth(entity) {
+  if (!entity) return 0;
+  const hp = renownHpOf(entity);
+  const spire = spireHpOf(entity);
+  const raw = Number.isFinite(entity.rawMaxHealth)
+    ? entity.rawMaxHealth
+    : Math.max(0, (entity.maxHealth ?? 0) - hp - spire);
+  const lim = entity.maxHealthLimiter;
+  const own = lim >= 1 && lim < raw ? lim : raw;
+  const hasLiveGetter = Boolean(Object.getOwnPropertyDescriptor(entity, 'maxHealth')?.get);
+  if (hasLiveGetter) {
+    return Math.max(0, (entity.maxHealth ?? 0) - hp - spire);
+  }
+  return own;
+}
+
+/**
  * The vitals as they would stand WITHOUT the layer - what a save keeps: `{ health, magicka, maxMagicka }` (the save's
  * maximum health is already `rawMaxHealth`, which the layer never enters). With no layer on, the entity's own values.
  * @param {any} entity
@@ -154,10 +175,7 @@ export function offlineVitals(entity) {
     mp = onlineMpOf(entity); // EG15: and the folds' magicka (the Battlemage's Bearing)
   const out = { health: entity?.health, magicka: entity?.magicka, maxMagicka: entity?.maxMagicka };
   if (hp) {
-    // the offline maximum is the stored one under the limiter, exactly as the accessor reads it with no layer
-    const raw = Number.isFinite(entity.rawMaxHealth) ? entity.rawMaxHealth : Math.max(0, entity.maxHealth - hp);
-    const lim = entity.maxHealthLimiter;
-    const off = lim >= 1 && lim < raw ? lim : raw;
+    const off = offlineBaseMaxHealth(entity);
     out.health = keepFraction(entity.health, entity.maxHealth, off);
   }
   if (mp) {

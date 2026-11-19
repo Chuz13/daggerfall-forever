@@ -50,7 +50,9 @@ import { dateFromClassicMinutes, dateTimeString, dayOfMonth, monthName, seasonNa
 import { setWeather, setDivineWeatherOverride, currentWeather } from './weather/weatherSim.js';
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
-import { defineLiveMaxMagicka } from './chargen.js';
+import { defineLiveMaxMagicka, defineLiveMaxHealth } from './chargen.js';
+import { evenHpFloor } from './levelEven.js';
+import { refreshOnlineLayer, keepFraction } from './renownLayer.js';
 import { seedTestAscensionSpellsword } from './testRoom.js';
 import {
   animateDeadSpell,
@@ -1219,7 +1221,21 @@ function handleLevelCommand(args = []) {
   if (!args || !args.length) return 'Usage: set_level <level>';
   const lvl = parseInt(args[0], 10);
   if (Number.isNaN(lvl) || lvl < 1) return 'Usage: set_level <level>';
+  const oldMax = Number(playerEntity.maxHealth) || 0;
+  const oldHp = Number(playerEntity.health) || 0;
   playerEntity.level = lvl;
+  const floor = evenHpFloor(playerEntity, playerEntity.stats?.endurance ?? 50);
+  if (floor > 0) {
+    defineLiveMaxHealth(playerEntity);
+    playerEntity.maxHealth = floor;
+    if ('rawMaxHealth' in playerEntity) playerEntity.rawMaxHealth = floor;
+  }
+  refreshOnlineLayer(playerEntity);
+  computeEntityMods(playerEntity);
+  if (floor > 0 && Number.isFinite(playerEntity.maxHealth) && playerEntity.maxHealth > 0) {
+    playerEntity.health =
+      oldMax > 0 && oldHp > 0 ? keepFraction(oldHp, oldMax, playerEntity.maxHealth) : playerEntity.maxHealth;
+  }
   surfacePlayer?.();
   return `Player level set to ${lvl}.`;
 }
@@ -2977,9 +2993,12 @@ function applyApotheosisDebugSet(entity, metricRaw, valRaw) {
       }
     }
   } else if (metric === 'maxhp' || metric === 'hp') {
+    defineLiveMaxHealth(entity);
     entity.maxHealth = val;
     if ('rawMaxHealth' in entity) entity.rawMaxHealth = val;
-    entity.currentHealth = Math.max(Number(entity.currentHealth ?? 0), Number(entity.maxHealth ?? val));
+    refreshOnlineLayer(entity);
+    entity.health = Math.max(Number(entity.health ?? 0), Number(entity.maxHealth ?? val));
+    if ('currentHealth' in entity) entity.currentHealth = entity.health;
   } else if (metric === 'renown') {
     const lvl = Math.max(1, val);
     const charId = characterIdOf(entity);

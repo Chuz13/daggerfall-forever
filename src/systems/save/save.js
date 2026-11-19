@@ -73,12 +73,57 @@ import { isOnlinePage } from '../online/onlineLane.js';   // ONLINE-DEATH-FIX: t
 import { STREAMING_TERRAIN_SCALE, GROUND_FRAME_LAW } from '../../world/terrain/terrainSampler.js';   // TERRAIN-SCALE1: the scale every saved exterior height stands on; BAY-LEFT-GROUND: and its frame's law
 import { reviveForPlay } from '../deathRespawn.js';   // ONLINE-DEATH-FIX: the SAME half-health an online respawn leaves
 import { setLightSource } from '../lightSource.js';   // DISC7: the light in hand's one door
-import { renownHpOf, onlineMpOf, offlineVitals } from '../renownLayer.js';   // RENOWN1: the online layer never reaches a save (EG15: nor the folds' magicka)
+import {
+  renownHpOf,
+  onlineMpOf,
+  offlineVitals,
+  offlineBaseMaxHealth,
+  keepFraction,
+  setRenownLayer,
+  setOnlineLayerExtra,
+} from '../renownLayer.js';   // RENOWN1: the online layer never reaches a save (EG15: nor the folds' magicka)
 import { stashedItemLists } from '../../net/realm/realmGoldLaw.js';   // AUDIT PRE-MERGE 0929 D3: every list of the character's own things a save carries
 import { DEPOSIT_MAX, depositOrderOk } from '../../net/bagLaw.js';   // AUDIT2 BAG1: a deposit's stamp, kept to a deposit's bounds
 import { dragonKeepSaved, dragonKeepRestored } from '../dragon/dragonKeep.js';   // DRAGON5b: the tamed dragon's keep, saved with the character
 import { resetBlowEffects } from '../blowEffects.js';   // AUDIT TELL L2: a load forgets the last game's landings
 import { syncNecroTaintFromEntity } from '../necromancy/necroTaint.js';
+import { lichHpOf } from '../necromancy/lichdomStatus.js';
+import { apotheosisHpOf } from '../apotheosis/apotheosisLive.js';
+import { getPerkHealthBonus } from '../perks/perkRegistry.js';
+import { offlineFirmamentHpOfSnap, OFFLINE_FIRMAMENT_VENDOR } from '../offlineFirmament.js';
+import { evenHpOf } from '../levelEven.js';
+
+/**
+ * Computes the effective offline base max health (`offMax`, without Renown/Firmament layer),
+ * the migrated un-layered health (`offHealth`), and the full display vitals (`{ health, maxHealth }`)
+ * for a save snapshot `snap` (used by Continue/Load/Save cards and legacy save migration).
+ * @param {any} snap
+ */
+export function savedVitalsOf(snap) {
+  if (!snap || typeof snap !== 'object') return { health: 0, maxHealth: 0, offHealth: 0, offMax: 0 };
+  const raw = Number.isFinite(snap.maxHealth) ? snap.maxHealth : 0;
+  const lim = snap.maxHealthLimiter;
+  const own = lim >= 1 && lim < raw ? lim : raw;
+  const bonusHp = lichHpOf(snap) + apotheosisHpOf(snap) + getPerkHealthBonus(snap);
+  const offMax = own + bonusHp;
+  let offHealth = Number.isFinite(snap.health) ? snap.health : offMax;
+  // Auto-migrate saves written before offlineVitals accounted for Lichdom/Apotheosis/Perk bonuses:
+  // those saves compressed `snap.health` into [1..own] instead of [1..offMax] whenever a Renown/level-even layer was active.
+  if (
+    bonusHp > 0 &&
+    snap.vitalBaseMax == null &&
+    offHealth > 0 &&
+    offHealth <= own &&
+    (snap.modData?.[OFFLINE_FIRMAMENT_VENDOR] != null ||
+      evenHpOf({ career: snap.career, level: snap.level, rawMaxHealth: raw }, snap.stats?.endurance ?? NaN) > 0)
+  ) {
+    offHealth = keepFraction(offHealth, own, offMax);
+  }
+  const layerHp = offlineFirmamentHpOfSnap(snap);
+  const maxHealth = offMax + layerHp;
+  const health = layerHp > 0 ? keepFraction(offHealth, offMax, maxHealth) : offHealth;
+  return { health, maxHealth, offHealth, offMax };
+}
 
 /** One membership book, rows copied (GuildMembership_v1's shape). */
 const copyMembershipBook = (book) => Object.fromEntries(
@@ -354,6 +399,10 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // while online (systems/renownLayer.js); a save keeps the vitals as they would stand without it, each at the same
   // fraction of its maximum, so a save written online is the one the character would have written offline.
   if (renownHpOf(entity) || onlineMpOf(entity)) Object.assign(snap, offlineVitals(entity));   // EG15: and the Battlemage's Bearing, a set's magicka (at Renown 1, with no layer)
+  const offBaseMax = offlineBaseMaxHealth(entity);
+  const rawMax = Number.isFinite(snap.maxHealth) ? snap.maxHealth : 0;
+  const ownMax = entity.maxHealthLimiter >= 1 && entity.maxHealthLimiter < rawMax ? entity.maxHealthLimiter : rawMax;
+  if (offBaseMax > ownMax) snap.vitalBaseMax = offBaseMax;
   snap.stats = { ...entity.stats };
   // SURV1: the needs record (survival/needs.js) - its markers are classic
   // minutes and its counters plain numbers; the note throttles are not
@@ -860,6 +909,9 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // number, orphaning every maxMagickaModifier producer. Idempotent.
   defineLiveMaxMagicka(entity);
   defineLiveMaxHealth(entity);   // DISC10-E L4: the same law for MaxHealth - the setter below writes the RAW value
+  setOnlineLayerExtra(entity, null);
+  setRenownLayer(entity, null);
+  entity.spireHp = 0;
   for (const k of ENTITY_FIELDS) entity[k] = snap[k];
   if (snap.NecroGrimoireRead || snap.necroGrimoireRead) {
     entity.NecroGrimoireRead = true;
@@ -1113,6 +1165,12 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
       ? Math.max(0, Math.min(100, snap.necroTaint))
       : 0;
   syncNecroTaintFromEntity(entity, Math.floor((snap.classicMinutes ?? 0) / 1440));
+  if (snap.vitalBaseMax == null && Number.isFinite(entity.health) && entity.health > 0) {
+    const { offHealth, offMax } = savedVitalsOf(snap);
+    if (offHealth > entity.health && offMax > (snap.maxHealth ?? 0)) {
+      entity.health = offHealth;
+    }
+  }
   // AUDIT CLAWS A2: and the beast-form flag, the curse entry's mirror (lycanthropy.js writes it from `isTransformed` at
   // each change and each round) - a load onto the same entity left the last game's: a man loaded over a transformed
   // werewolf kept it (the round returns at once for a character with no curse), and a transformed save on a fresh page

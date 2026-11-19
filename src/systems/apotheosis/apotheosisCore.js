@@ -1733,6 +1733,7 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
     return { ok: false, error: t('apotheosis.err.trialIncomplete', 'Complete the Ascension trial before choosing a Portfolio.'), state };
   }
   const resolvedMinutes = resolveApotheosisNowMinutes(entity, nowMinutes);
+  const wasAscended = isAscendedGod(entity);
   const switching = Boolean(state.ascended && state.portfolio && state.portfolio !== portfolioId);
   if (switching && !free) {
     const cd = getPortfolioSwitchCooldownInfo(entity, resolvedMinutes);
@@ -1786,6 +1787,17 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
     applyPantheonPortfolioSwitch(entity, prevPortfolio, portfolioId, { free, nowMinutes: resolvedMinutes });
   }
   computeEntityMods(entity);
+  if (!wasAscended) {
+    if (Object.getOwnPropertyDescriptor(entity, 'maxHealth')?.get && Number.isFinite(entity.health)) {
+      entity.health = entity.maxHealth;
+    }
+    if (Object.getOwnPropertyDescriptor(entity, 'maxMagicka')?.get && Number.isFinite(entity.magicka)) {
+      entity.magicka = entity.maxMagicka;
+    }
+    if (Number.isFinite(entity.maxFatigue) && entity.maxFatigue > 0 && Number.isFinite(entity.fatigue)) {
+      entity.fatigue = entity.maxFatigue;
+    }
+  }
   const def = APOTHEOSIS_PORTFOLIOS.find((p) => p.id === portfolioId);
   return {
     ok: true,

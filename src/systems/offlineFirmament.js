@@ -32,6 +32,9 @@ import {
   unpackTree,
   packTree,
   treeFault,
+  treeStats,
+  statDef,
+  pctOf,
   FIRM_RESPEC_GOLD,
   REFUND_FREE_BELOW_RENOWN,
   REFUND_SILVER_PER_STAR,
@@ -48,9 +51,11 @@ import {
   renownXpFor,
   renownKillXp,
   renownQuestXp,
+  renownBonus,
 } from '../net/renown.js';
 import { renownFoeLevel } from '../net/renownTracker.js';
 import { setRenownLayer } from './renownLayer.js';
+import { evenHpOf } from './levelEven.js';
 import { computeEntityMods } from './entityMods.js';
 import { announceRenownRise } from '../ui/levelUp/levelNotice.js';
 import { setHudRenown } from '../ui/hud/hudRenown.js';
@@ -291,11 +296,9 @@ export function initOfflineRenown({ playerEntity, firmBook, say = null }) {
 
   const renown = Math.max(1, renownForXp(_activeRecord.xp));
   _activeRecord.renown = renown;
-  setRenownLayer(playerEntity, renown);
-  if (_activeRecord.tree) {
-    setFirmamentTree(unpackTree(_activeRecord.tree));
-  }
   setFirmamentOffline(true);
+  setFirmamentTree(_activeRecord.tree ? unpackTree(_activeRecord.tree) : null);
+  setRenownLayer(playerEntity, renown);
   computeEntityMods(playerEntity);
 
   // Setup HUD Renown bar
@@ -422,13 +425,10 @@ registerModSaveData(OFFLINE_FIRMAMENT_VENDOR, {
       saveOfflineRecord(_activeCharId, _activeRecord);
     }
     if (_activePlayerEntity) {
-      setRenownLayer(_activePlayerEntity, renown);
-      if (tree) {
-        setFirmamentTree(unpackTree(tree));
-      }
-      if (isOfflineFirmamentActive()) {
-        setFirmamentOffline(true);
-      }
+      const active = isOfflineFirmamentActive();
+      setFirmamentOffline(active);
+      setFirmamentTree(tree ? unpackTree(tree) : null);
+      setRenownLayer(_activePlayerEntity, active ? renown : null);
       computeEntityMods(_activePlayerEntity);
     }
     _activeFirmBook?.read?.().catch(() => {});
@@ -451,6 +451,48 @@ registerModSaveData(OFFLINE_FIRMAMENT_VENDOR, {
     _activeFirmBook?.read?.().catch(() => {});
   },
 });
+
+/**
+ * Computes the offline Firmament & Renown health layer (`renownHp`) for a raw save snapshot `snap`,
+ * mirroring `firmamentLayer` + `setRenownLayer` when Offline Firmament is active.
+ * @param {any} snap
+ * @returns {number}
+ */
+export function offlineFirmamentHpOfSnap(snap) {
+  if (!snap || typeof snap !== 'object' || !isOfflineFirmamentActive()) return 0;
+  const modRec = snap.modData?.[OFFLINE_FIRMAMENT_VENDOR];
+  const rec =
+    modRec && typeof modRec === 'object'
+      ? modRec
+      : typeof snap.characterId === 'string' && snap.characterId
+        ? loadOfflineRecord(snap.characterId)
+        : null;
+  const xp = Number.isFinite(rec?.xp) && rec.xp >= 0 ? Math.trunc(rec.xp) : 0;
+  const renown = Math.max(1, renownForXp(xp));
+  const r = renown > 1 ? renownBonus(renown) : { hp: 0, mp: 0 };
+  const raw = Number.isFinite(snap.maxHealth) ? snap.maxHealth : 0;
+  let starHp = 0;
+  let starEnd = 0;
+  if (typeof rec?.tree === 'string' && rec.tree) {
+    const unpacked = unpackTree(rec.tree);
+    if (unpacked?.start) {
+      const st = treeStats(unpacked);
+      const cap = (key, v) => {
+        const d = statDef(key);
+        return d ? Math.max(d.min, Math.min(d.max, v)) : v;
+      };
+      starEnd = cap('endurance', (st.endurance ?? 0) + pctOf(snap.stats?.endurance, st['pct.endurance'] ?? 0));
+      const floored =
+        raw + evenHpOf({ career: snap.career, level: snap.level, rawMaxHealth: raw }, (snap.stats?.endurance ?? NaN) + starEnd);
+      starHp = cap('hp', (st.hp ?? 0) + pctOf(floored, st.hpPct ?? 0));
+    }
+  }
+  const even = evenHpOf(
+    { career: snap.career, level: snap.level, rawMaxHealth: raw },
+    (snap.stats?.endurance ?? NaN) + starEnd,
+  );
+  return r.hp + starHp + even;
+}
 
 /** Tests only reset seam. */
 export function _resetOfflineFirmamentForTests() {

@@ -122,6 +122,7 @@ import {
   effectiveSettings, setValue, saveSettings, resetToDefaults, tierOf, DEFAULTS, defaultOf,
 } from '../../systems/settings/settings.js';
 import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../../systems/save/saveSlots.js';
+import { savedVitalsOf } from '../../systems/save/save.js';
 import { offlineCopyOf, onlineCopyOf } from '../../systems/offlineCopy.js';   // AUDIT LIVED1 E/G: the doors between the lanes
 import { sharedClassicMinutes } from '../../net/wire.js';   // AUDIT LIVED1 G: the shared clock's minute a character joins at
 import { SKY_SEGMENTS, skyClassicMinutes, wallMsForSkyMinutes } from '../../net/skyLaw.js';   // TIME4: the sky's day, said at the door
@@ -589,6 +590,7 @@ const outfitOf = (items) => { try { return Array.isArray(items) ? outfitOfItems(
 function saveOf(entry) {
   const snap = entry.snap;
   const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;   // AUDIT LIVED1 E (S5/U4's card; AUDIT LIVED1b T13 corrected the cite): a card is a LOCAL slot's, and a local slot plays offline on its one clock - the date it loads at, as the classic window and the cloud cards say
+  const vitals = Number.isFinite(snap.maxHealth) ? savedVitalsOf(snap) : { health: snap.health, maxHealth: snap.maxHealth };
   return {
     key: entry.key,
     saveName: entry.info?.saveName ?? QUICK_SAVE_NAME,
@@ -606,7 +608,7 @@ function saveOf(entry) {
     outfit: outfitOf(snap.items),   // PROFILE-SLOTS: the armour the profile's sprite wears in Layered Gearing
     career: snap.career?.name ?? null,
     level: snap.level ?? null,
-    health: snap.health, maxHealth: snap.maxHealth,
+    health: vitals.health, maxHealth: vitals.maxHealth,
     gold: snap.goldPieces ?? null,
     when: date ? dateString(date) : null,
     hour: date ? `${String(date.hour).padStart(2, '0')}:${String(date.minute).padStart(2, '0')}` : null,
@@ -946,12 +948,13 @@ function savedGame() {
   if (!entry) return null;
   const snap = entry.snap;
   const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;   // AUDIT LIVED1 E (S5/U4's card; AUDIT LIVED1b T13 corrected the cite): a card is a LOCAL slot's, and a local slot plays offline on its one clock - the date it loads at, as the classic window and the cloud cards say
+  const vitals = Number.isFinite(snap.maxHealth) ? savedVitalsOf(snap) : { health: snap.health, maxHealth: snap.maxHealth };
   return {
     key: entry.key,
     name: snap.name || t('menu.save.unnamed', 'Unnamed'),
     career: snap.career?.name ?? null,
     level: snap.level ?? null,
-    health: snap.health, maxHealth: snap.maxHealth,
+    health: vitals.health, maxHealth: vitals.maxHealth,
     // AUDIT 58: THE PURSE IS A COUNTER, NOT AN ITEM. E4 moved gold onto
     // GoldPieces (`data.playerEntity.goldPieces = entity.GoldPieces`,
     // SerializablePlayer.cs:133 - systems/save/save.js's snapshotPlayer
