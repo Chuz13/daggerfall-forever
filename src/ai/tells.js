@@ -325,6 +325,7 @@ export function blowCooldown(ent = null, roll = Math.random()) {
   return (
     (lo + (hi - lo) * roll) *
     (rank > 0 ? 1 - TELL.COOLDOWN_RANK * rank : 1) *
-    (ent?.revenant?.p2?.cooldown > 0 ? ent.revenant.p2.cooldown : 1)
-  ); // Phase two's x0.7
+    (ent?.revenant?.p2?.cooldown > 0 ? ent.revenant.p2.cooldown : 1) *
+    (ent?.shadowBoss ? 1 / 3 : 1)
+  ); // Phase two's x0.7; Shadow Boss x3 frequency (1/3 cooldown)
 }

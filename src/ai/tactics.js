@@ -617,7 +617,7 @@ export function tacticsStep(ai, dx, dz) {
     s.hp.push([now, v.health]);
     while (s.hp.length && now - s.hp[0][0] > TACT.HURT_WINDOW) s.hp.shift();
     const share = v.health / v.maxHealth;
-    if (!s.fled && share < TACT.FLEE_SHARE && isCoward(v.mobileType) && ai.predictedTargetPos) {
+    if (!v.fearless && !v.shadowBoss && !s.fled && share < TACT.FLEE_SHARE && isCoward(v.mobileType) && ai.predictedTargetPos) {
       s.fled = true;
       const from = ai.predictedTargetPos;
       releaseTactics(ai);
@@ -627,6 +627,8 @@ export function tacticsStep(ai, dx, dz) {
       return true;
     }
     if (
+      !v.fearless &&
+      !v.shadowBoss &&
       s.hp.length > 1 &&
       (s.hp[0][1] - v.health) / v.maxHealth >= TACT.HURT_SHARE &&
       s.state !== 'backoff' &&
@@ -735,7 +737,7 @@ export function tacticsStep(ai, dx, dz) {
       now >= (s.sigReady ?? 0) &&
       !windupNear(_me.feet, now, ai) &&
       signatureReaches(ai, ent, 'pyre', dist, false, 0, 0) &&
-      Math.random() < BLOW_CHANCE
+      Math.random() < Math.min(1, BLOW_CHANCE * (ent?.shadowBoss ? 3 : 1))
     ) {
       beginWindup(ai, s, ent, 'pyre', _me.feet[0] - ai.feet[0], _me.feet[2] - ai.feet[2], now, 0, sig);
       return windupTurn(ai, s, now, skipped);
@@ -790,7 +792,7 @@ export function tacticsStep(ai, dx, dz) {
       now >= (s.sigReady ?? 0) &&
       !windupNear(tf, now, ai) &&
       signatureReaches(ai, ent, sig.kind, dist, near, tdx, tdz) &&
-      Math.random() < BLOW_CHANCE
+      Math.random() < Math.min(1, BLOW_CHANCE * (ent?.shadowBoss ? 3 : 1))
     ) {
       beginWindup(ai, s, ent, sig.kind, tdx, tdz, now, 0, sig);
       return windupTurn(ai, s, now, skipped);
@@ -800,7 +802,8 @@ export function tacticsStep(ai, dx, dz) {
     if (
       shapes.length &&
       !windupNear(tf, now, ai) &&
-      ((!near && ent?.revenant?.edge?.closes === true) || Math.random() < BLOW_CHANCE)
+      ((!near && ent?.revenant?.edge?.closes === true) ||
+        Math.random() < Math.min(1, BLOW_CHANCE * (ent?.shadowBoss ? 3 : 1)))
     ) {
       beginWindup(ai, s, ent, shapes[Math.floor(Math.random() * shapes.length)], tdx, tdz, now);
     }
