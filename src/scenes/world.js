@@ -19388,7 +19388,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // CRUX1: the quest videos' one chain - see the playVideo hook below.
   // Hold the host frame synchronously per queued video (matching infection videos in shared.js)
   // so world/dungeon/exterior loops, HUD, and LT overlays stay paused across the entire chain.
-  const _questVideoQueue = makeVideoQueue(async (name) => {
+  const _questVideos = makeVideoQueue(async (name) => {
     try {
       const { playVideo } = await import('../ui/videoPlayer.js');
       const played = await playVideo(renderer.canvas, renderer, await getBytes(name), { endOnAnyKey: false });
@@ -19396,11 +19396,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     } catch (e) {
       console.warn(`[quest] ${name} unavailable - skipping the video:`, e?.message ?? e);
     }
-  });
-  const _questVideos = (name) => {
-    const releaseFrame = holdFrame();
-    return _questVideoQueue(name).finally(releaseFrame);
-  };
+  }, { hold: holdFrame });
   const questAudioSource = new QuestAudioSource(audio);
   // RAID-ASHORE (scenes/raidAshore.js): a voyage's raid thrown back where I stand - its crew and last raiders withdrawn
   // from the street's pool and, below deck, the room's (Warm Ashes' Leave Ship asks it; the quest's end sweeps again)

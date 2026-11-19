@@ -270,6 +270,32 @@ export class VideoPlayer {
 
 const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 const LIGHT = UP_Y;
+const VID_PLAYING_CLASS = 'vid-playing';
+const VID_STYLE_ID = 'df-vid-playing-style';
+let _activeDomVideos = 0;
+
+/** Hide DOM overlays above the canvas while a full-screen VID plays. */
+function setVideoOverlayClass(on) {
+  if (typeof document === 'undefined' || !document.body) return;
+  if (on) {
+    _activeDomVideos++;
+    if (
+      typeof document.getElementById === 'function'
+      && typeof document.createElement === 'function'
+      && !document.getElementById(VID_STYLE_ID)
+      && document.head
+    ) {
+      const style = document.createElement('style');
+      style.id = VID_STYLE_ID;
+      style.textContent = `body.${VID_PLAYING_CLASS} > :not(#c):not(#crash) { visibility: hidden !important; pointer-events: none !important; }`;
+      document.head.appendChild(style);
+    }
+    document.body.classList?.add(VID_PLAYING_CLASS);
+  } else {
+    _activeDomVideos = Math.max(0, _activeDomVideos - 1);
+    if (_activeDomVideos === 0) document.body.classList?.remove(VID_PLAYING_CLASS);
+  }
+}
 
 /** Any-key watch for playVideo. Returns its own detach. */
 function defaultListen(onAnyKey) {
@@ -321,6 +347,7 @@ export function playVideo(
     // one undecodable VID would silence the game for good.
     music.setMuted(true); // DaggerfallSongPlayer.cs:356-362
     muteAmbientForVideo(); // AmbientEffectsPlayer.cs:536-549
+    setVideoOverlayClass(true);
 
     let anyKey = false;
     let backDown = false; // F151: GetBackButtonDown, its own disjunct
@@ -336,6 +363,7 @@ export function playVideo(
       // (:134 any key / back button, :150 end of file). Here it heads
       // finish(), which is the one door all three exits take: end of
       // file, any key/back, and the AUDIT 19 error boundary.
+      setVideoOverlayClass(false);
       music.setMuted(false); // DaggerfallSongPlayer.cs:364-369
       unmuteAmbientForVideo(); // AmbientEffectsPlayer.cs:551-554
       detach();

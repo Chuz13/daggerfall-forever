@@ -117,6 +117,7 @@ import { messageBox } from '../systems/notify.js';   // ENH-NOTICE3: the one doo
 
 import { getBytes, forgetBytes, storedMusicNames, loadMusicFile, registerTextureStore, registerMorrowindData } from './dataSource.js';   // M-EXT/M-TEX: the player's own packs
 import { landServedBytes } from '../world/land/landLayer.js';   // FOUNDATION F4: the land as data
+import { makeVideoQueue } from '../systems/quest/videoQueue.js';
 
 
 /** The data seam every scene uses - delegates to the ARENA2 data
@@ -2309,6 +2310,73 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
     },
     hourNow: () => Math.floor((skyMinutes() % MINUTES_PER_DAY) / 60),   // TIME1: the hour of the sky
   });
+}
+
+// DaggerfallStartNewGameWizard.cs:33-35, 588-615: the three story cinematics
+// played in order at the start of a new campaign. Names are assembled from
+// stems (like PlayVideo.cs's template in systems/quest/actions.js) so the
+// browser IndexedDB diet (dataSource.js KEEP) stays untouched while desktop
+// reads ARENA2 directly from disk.
+export const NEW_GAME_CINEMATICS = Object.freeze(
+  ['ANIM0000', 'ANIM0011', 'DAG2'].map((stem) => `${stem}.VID`),
+);
+
+/**
+ * Play the three new-game campaign cinematics in order (`endOnAnyKey: true`,
+ * holding the host frame across the whole chain) and invoke `onDone` once
+ * finished, skipped, or failed (`NEVER TRAPS`). Skipped immediately when
+ * `?novideo` or `?shot` is active so probes and automated runs are unaffected.
+ */
+export function runAfterNewGameCinematics(
+  renderer,
+  params,
+  onDone,
+  {
+    cinematics = NEW_GAME_CINEMATICS,
+    load = async (name) => {
+      const [{ playVideo }, { getBytes }] = await Promise.all([
+        import('../ui/videoPlayer.js'),
+        import('./dataSource.js'),
+      ]);
+      return { playVideo, bytes: await getBytes(name) };
+    },
+  } = {},
+) {
+  if (params?.has?.('novideo') || params?.has?.('shot') || !renderer?.canvas) {
+    onDone?.();
+    return Promise.resolve();
+  }
+  const releaseFrame = holdFrame();
+  return (async () => {
+    try {
+      for (const name of cinematics) {
+        try {
+          const { playVideo, bytes } = await load(name);
+          await playVideo(renderer.canvas, renderer, bytes, { endOnAnyKey: true });
+        } catch (e) {
+          console.warn(`[newgame] ${name} unavailable - skipping cinematic:`, e?.message ?? e);
+        }
+      }
+    } finally {
+      releaseFrame();
+      onDone?.();
+    }
+  })();
+}
+
+/** CRUX1 / QV1: shared quest-video queue holding the host frame per queued clip. */
+export function createQuestVideoQueue(renderer) {
+  return makeVideoQueue(async (name) => {
+    try {
+      const [{ playVideo }, { getBytes }] = await Promise.all([
+        import('../ui/videoPlayer.js'),
+        import('./dataSource.js'),
+      ]);
+      await playVideo(renderer.canvas, renderer, await getBytes(name), { endOnAnyKey: false });
+    } catch (e) {
+      console.warn(`[quest] ${name} unavailable - skipping the video:`, e?.message ?? e);
+    }
+  }, { hold: holdFrame });
 }
 
 /** I3 - the pause window's EXIT door, and the death seam's last line.
