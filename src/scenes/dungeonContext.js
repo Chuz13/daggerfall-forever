@@ -291,6 +291,7 @@ import {
   pickZeroStoneSpot,
   createDirenniInteriorReinforcer,
   spawnShadowOfTheAgent,
+  rescueShadowFromVoid,
   APOTHEOSIS_ZERO_STONE_KEY,
   APOTHEOSIS_ORRERY_EXIT_KEY,
 } from '../systems/apotheosis/apotheosisStage1.js';
@@ -7841,11 +7842,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           void spawnShadowOfTheAgent({ spawnLooseFoe, playerEntity, spawnPos: sp.boss, say: (l) => hudText.add(l) })
             .then((f) => { _apoShadowFoe = f; });
         }
-        if (_apoShadowFoe && !_apoShadowDefeated && (_apoShadowFoe.dead || (_apoShadowFoe.entity?.health ?? 0) <= 0)) {
-          _apoShadowDefeated = true;
-          completeApotheosisQuestline(playerEntity);
-          triggerApotheosisScreenFlash(0.85);
-          hudText.add(t('apotheosis.shadow.defeated', 'The Shadow of the Agent dissolves into golden light! Step into the Ascension Conduit or open the Apotheosis menu to claim your Divine Portfolio.'));
+        if (_apoShadowFoe && !_apoShadowDefeated) {
+          if (_apoShadowFoe.dead || (_apoShadowFoe.entity?.health ?? 0) <= 0) {
+            _apoShadowDefeated = true;
+            completeApotheosisQuestline(playerEntity);
+            triggerApotheosisScreenFlash(0.85);
+            hudText.add(t('apotheosis.shadow.defeated', 'The Shadow of the Agent dissolves into golden light! Step into the Ascension Conduit or open the Apotheosis menu to claim your Divine Portfolio.'));
+          } else {
+            const sp = apotheosisOrrerySpawnPoints();
+            rescueShadowFromVoid(_apoShadowFoe, sp.center, lastPlayerFeet);
+          }
         }
       }
     }

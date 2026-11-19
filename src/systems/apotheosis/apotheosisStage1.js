@@ -868,3 +868,53 @@ export async function spawnShadowOfTheAgent({
   ));
   return f;
 }
+
+export const SHADOW_VOID_FALL_OFFSET_M = 10;
+const SHADOW_GIVE_UP_TICKS = 200;
+
+/**
+ * If the Shadow of the Agent falls 10m+ below the Orrery floor, warps it back to
+ * the arena center with all health/state intact and re-arms pursuit immediately.
+ */
+export function rescueShadowFromVoid(shadowFoe, centerPos, playerFeet = null) {
+  const ai = shadowFoe?.ai;
+  if (!ai?.feet || !centerPos || shadowFoe.dead || (shadowFoe.entity?.health ?? 0) <= 0) return false;
+  const floorY = centerPos[1];
+  if (Number.isFinite(ai.feet[1]) && ai.feet[1] > floorY - SHADOW_VOID_FALL_OFFSET_M) return false;
+  const [cx, cy, cz] = centerPos;
+  ai.feet[0] = cx;
+  ai.feet[1] = cy;
+  ai.feet[2] = cz;
+  ai.velY = 0;
+  ai.knockbackSpeed = 0;
+  ai.knockbackDir = null;
+  ai.hurtKnock = false;
+  ai.fleeLeft = 0;
+  ai.fleeFrom = null;
+  ai._tacDir = null;
+  ai._tacBlocked = false;
+  ai.checkingClockwise = false;
+  ai.checkingClockwiseTimer = 0;
+  ai.didClockwiseCheck = false;
+  ai.lastTimeWasStuck = -Infinity;
+  ai._detourRetryAt = 0;
+  ai.detourDestination = [cx, cy, cz];
+  ai.giveUpTimer = Math.max(ai.giveUpTimer ?? 0, SHADOW_GIVE_UP_TICKS);
+  ai.isHostile = true;
+  if (playerFeet && Number.isFinite(playerFeet[0]) && Number.isFinite(playerFeet[2])) {
+    ai.destination = [playerFeet[0], playerFeet[1], playerFeet[2]];
+    ai.lastKnownTargetPos = [playerFeet[0], playerFeet[1], playerFeet[2]];
+    ai.predictedTargetPos = [playerFeet[0], playerFeet[1], playerFeet[2]];
+    ai.detected = true;
+    ai.inSight = true;
+    ai.yaw = Math.atan2(playerFeet[0] - cx, playerFeet[2] - cz);
+  } else {
+    ai.destination = [cx, cy, cz];
+  }
+  if (ai._tac && (ai._tac.state === 'windup' || ai._tac.state === 'dash' || ai._tac.state === 'chain' || ai._tac.state === 'backoff')) {
+    ai._tac.state = 'engage';
+    ai._tac.blow = null;
+    ai._tac.dash = null;
+  }
+  return true;
+}
