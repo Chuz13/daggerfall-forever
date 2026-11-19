@@ -13,7 +13,7 @@
 
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { LOCATION_TYPES } from '../../formats/mapsFile.js';
-import { REGION_NAMES, BAY_REGION_COUNT } from '../../formats/mapsTables.js';
+import { REGION_NAMES, BAY_REGION_COUNT, REGION_RACES, CLIMATES } from '../../formats/mapsTables.js';
 import { getLocalizedRegionName, t } from '../textManager.js';
 import { LIVING_WORDS } from './livingWords.js';
 import { BORDER_REGIONS } from '../faction/factionRelations.js';
@@ -21,12 +21,9 @@ import { SKILLS } from '../skills.js';
 import { REGION_FLAGS } from '../region/regionConditions.js';
 import {
   CRISIS_TYPE,
-  CRISIS_PHASE,
-  getRegionState,
   getActiveCrises,
   getBoundRegionConditions,
 } from './regionState.js';
-import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import {
   LIVING_ROLL_DEGREE,
   resolveLivingRoll,
@@ -39,6 +36,22 @@ export const PROSPERITY_TIER = Object.freeze({
   LOW: 'LOW',
   MID: 'MID',
   HIGH: 'HIGH',
+});
+
+/** Thematic prop sets used by URBAN_SKIRMISH scenes. */
+export const SKIRMISH_PROP_THEME = Object.freeze({
+  MILITARY_BARRICADE: 'MILITARY_BARRICADE',
+  PRISONER_CAGE: 'PRISONER_CAGE',
+  GRANARY_MARKET: 'GRANARY_MARKET',
+  CAULDRON_STATION: 'CAULDRON_STATION',
+  PLAGUE_PYRE: 'PLAGUE_PYRE',
+  WATER_WELL_SITE: 'WATER_WELL_SITE',
+  MONUMENT_STATUE: 'MONUMENT_STATUE',
+  OCCULT_RITUAL: 'OCCULT_RITUAL',
+  CRIME_HEIST: 'CRIME_HEIST',
+  FARM_HOMESTEAD: 'FARM_HOMESTEAD',
+  GRAVEYARD_CRYPT: 'GRAVEYARD_CRYPT',
+  TEMPLE_SANCTUARY: 'TEMPLE_SANCTUARY',
 });
 
 /**
@@ -99,7 +112,7 @@ export function getEventDisplayName(event) {
 }
 
 /**
- * The 39 Core Living Tamriel Crisis & Exploration Encounters.
+ * The 41 Core Living Tamriel Crisis & Exploration Encounters.
  */
 export const CRISIS_EVENTS = Object.freeze([
   // ── 1. WAR & MARTIAL CONFLICTS (5) ──────────────────────────────────────────
@@ -107,6 +120,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_WAR_INTERPROVINCIAL',
     name: 'Interprovincial Skirmish',
     category: 'WAR',
+    propTheme: SKIRMISH_PROP_THEME.MILITARY_BARRICADE,
     crisisTypes: [CRISIS_TYPE.WAR],
     regionFlags: [REGION_FLAGS.WarBeginning, REGION_FLAGS.WarOngoing, REGION_FLAGS.WarLost],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet, LOCATION_TYPES.DungeonKeep],
@@ -129,6 +143,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_WAR_ORSINIUM_RAID',
     name: 'Orsinium Orcish Raid',
     category: 'WAR',
+    propTheme: SKIRMISH_PROP_THEME.MILITARY_BARRICADE,
     crisisTypes: [CRISIS_TYPE.WAR],
     regionFlags: [REGION_FLAGS.WarBeginning, REGION_FLAGS.WarOngoing],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet, LOCATION_TYPES.HomeFarms],
@@ -151,6 +166,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_WAR_PRISONER_EXECUTION',
     name: 'Prisoner of War Execution',
     category: 'WAR',
+    propTheme: SKIRMISH_PROP_THEME.PRISONER_CAGE,
     crisisTypes: [CRISIS_TYPE.WAR],
     regionFlags: [REGION_FLAGS.WarOngoing, REGION_FLAGS.WarWon, REGION_FLAGS.WarLost],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.HomeFarms, LOCATION_TYPES.Tavern],
@@ -173,13 +189,14 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_WAR_DESERTERS_SHAKEDOWN',
     name: 'Deserters Shakedown',
     category: 'WAR',
+    propTheme: SKIRMISH_PROP_THEME.FARM_HOMESTEAD,
     crisisTypes: [CRISIS_TYPE.WAR, CRISIS_TYPE.FAMINE],
     regionFlags: [REGION_FLAGS.WarWon, REGION_FLAGS.WarLost, REGION_FLAGS.FamineBeginning, REGION_FLAGS.BadHarvest],
     locationTypes: [LOCATION_TYPES.HomeFarms, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet],
     baseDefenders: 2,
     baseAttackers: 3,
     defendersPool: [MOBILE_TYPES.Ranger, MOBILE_TYPES.Warrior],
-    attackersPool: [MOBILE_TYPES.Barbarian, MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
+    attackersPool: [MOBILE_TYPES.Barbarian, MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer],
     getFactionNames: () => ({ f1: 'Local Millers & Farmers', f2: 'Armed Deserters' }),
     getChoices: (f1, f2) => [
       { text: t('living.choice.EVT_WAR_DESERTERS_SHAKEDOWN.1', '1. Defend the farmers and drive off the looters'), stance: 'defenders', goldReward: 50, repF1: 6, xp: 80 },
@@ -192,6 +209,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_WAR_RECRUITMENT_PRESSGANG',
     name: 'Forced Conscription Pressgang',
     category: 'WAR',
+    propTheme: SKIRMISH_PROP_THEME.MILITARY_BARRICADE,
     crisisTypes: [CRISIS_TYPE.WAR],
     regionFlags: [REGION_FLAGS.WarBeginning, REGION_FLAGS.WarOngoing],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet],
@@ -213,6 +231,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_FAMINE_BARN_RAID',
     name: 'Famine Bread Riot',
     category: 'FAMINE',
+    propTheme: SKIRMISH_PROP_THEME.GRANARY_MARKET,
     crisisTypes: [CRISIS_TYPE.FAMINE],
     regionFlags: [REGION_FLAGS.FamineBeginning, REGION_FLAGS.FamineOngoing, REGION_FLAGS.BadHarvest],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.HomeFarms],
@@ -232,6 +251,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_FAMINE_PREDATOR_INVASION',
     name: 'Starving Predators Attack',
     category: 'FAMINE',
+    propTheme: SKIRMISH_PROP_THEME.FARM_HOMESTEAD,
     crisisTypes: [CRISIS_TYPE.FAMINE],
     regionFlags: [REGION_FLAGS.FamineOngoing, REGION_FLAGS.FamineEnding, REGION_FLAGS.BadHarvest],
     locationTypes: [LOCATION_TYPES.HomeFarms, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet],
@@ -251,13 +271,14 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_FAMINE_RELIEF_CARAVAN',
     name: 'Relief Caravan Ambush',
     category: 'FAMINE',
+    propTheme: SKIRMISH_PROP_THEME.GRANARY_MARKET,
     crisisTypes: [CRISIS_TYPE.FAMINE],
     regionFlags: [REGION_FLAGS.FamineOngoing, REGION_FLAGS.FamineEnding],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.Tavern],
     baseDefenders: 2,
     baseAttackers: 3,
-    defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior, MOBILE_TYPES.Spellsword],
-    attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief, MOBILE_TYPES.Nightblade],
+    defendersPool: [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior, MOBILE_TYPES.Spellsword, MOBILE_TYPES.Archer],
+    attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Thief, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Archer],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Crown'} Relief Escort`, f2: 'Grain Raiders' }),
     getChoices: (f1, f2) => [
       { text: t('living.choice.EVT_FAMINE_RELIEF_CARAVAN.1', '1. Defend the royal relief wagon from raiders'), stance: 'defenders', goldReward: 180, repF1: 8, repF2: -8, xp: 110 },
@@ -270,6 +291,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_FAMINE_SOUP_KITCHEN_SPOILAGE',
     name: 'Spoiled Monastery Soup',
     category: 'FAMINE',
+    propTheme: SKIRMISH_PROP_THEME.CAULDRON_STATION,
     crisisTypes: [CRISIS_TYPE.FAMINE],
     regionFlags: [REGION_FLAGS.FamineBeginning, REGION_FLAGS.FamineOngoing],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.ReligionTemple],
@@ -289,6 +311,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_FAMINE_RATION_SCAM',
     name: 'Rotten Provisions Speculator',
     category: 'FAMINE',
+    propTheme: SKIRMISH_PROP_THEME.GRANARY_MARKET,
     crisisTypes: [CRISIS_TYPE.FAMINE],
     regionFlags: [REGION_FLAGS.FamineOngoing, REGION_FLAGS.PricesHigh],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
@@ -305,17 +328,18 @@ export const CRISIS_EVENTS = Object.freeze([
     ],
   },
 
-  // ── 3. PLAGUE & CONTAGION (4) ───────────────────────────────────────────────
+  // ── 3. PLAGUE & CONTAGION (5) ───────────────────────────────────────────────
   {
     id: 'EVT_PLAGUE_QUARANTINE_CLASH',
     name: 'Quarantine Breach at Gate',
     category: 'PLAGUE',
+    propTheme: SKIRMISH_PROP_THEME.PLAGUE_PYRE,
     crisisTypes: [CRISIS_TYPE.PLAGUE],
     regionFlags: [REGION_FLAGS.PlagueBeginning, REGION_FLAGS.PlagueOngoing, REGION_FLAGS.PlagueEnding],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 3,
-    defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Knight],
+    defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Knight, MOBILE_TYPES.Archer],
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Barbarian, MOBILE_TYPES.Warrior],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Town'} Cordons`, f2: 'Infected Refugees' }),
     getChoices: (f1, f2) => [
@@ -329,6 +353,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_PLAGUE_PYRE_DESECRATION',
     name: 'Plague Pyres and Risen Dead',
     category: 'PLAGUE',
+    propTheme: SKIRMISH_PROP_THEME.PLAGUE_PYRE,
     crisisTypes: [CRISIS_TYPE.PLAGUE],
     regionFlags: [REGION_FLAGS.PlagueOngoing, REGION_FLAGS.PlagueEnding],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.Graveyard],
@@ -348,6 +373,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_PLAGUE_WATER_WELL_SCARE',
     name: 'Poisoned Well Panic',
     category: 'PLAGUE',
+    propTheme: SKIRMISH_PROP_THEME.WATER_WELL_SITE,
     crisisTypes: [CRISIS_TYPE.PLAGUE],
     regionFlags: [REGION_FLAGS.PlagueBeginning, REGION_FLAGS.PlagueOngoing],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet],
@@ -367,6 +393,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_PLAGUE_QUACK_MIRACLE_CURE',
     name: 'Quack Healer with Fake Cure',
     category: 'PLAGUE',
+    propTheme: SKIRMISH_PROP_THEME.CAULDRON_STATION,
     crisisTypes: [CRISIS_TYPE.PLAGUE],
     regionFlags: [REGION_FLAGS.PlagueOngoing, REGION_FLAGS.PlagueEnding, REGION_FLAGS.PricesHigh],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
@@ -382,12 +409,34 @@ export const CRISIS_EVENTS = Object.freeze([
       { text: t('living.choice.EVT_PLAGUE_QUACK_MIRACLE_CURE.4', '4. Publicly expose the fake remedy with medicine (Medical)'), stance: 'peace', skillCheck: { skill: SKILLS.Medical, target: 45 }, repF1: 8, repF2: 4, xp: 120 },
     ],
   },
+  {
+    id: 'EVT_PLAGUE_RAT_SWARM',
+    name: 'Plague Rat Swarm',
+    category: 'PLAGUE',
+    propTheme: SKIRMISH_PROP_THEME.PLAGUE_PYRE,
+    swarmAttackers: true,
+    crisisTypes: [CRISIS_TYPE.PLAGUE],
+    regionFlags: [REGION_FLAGS.PlagueBeginning, REGION_FLAGS.PlagueOngoing],
+    locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet, LOCATION_TYPES.HomeFarms],
+    baseDefenders: 2,
+    baseAttackers: 5,
+    defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Monk, MOBILE_TYPES.Healer],
+    attackersPool: [MOBILE_TYPES.Rat, MOBILE_TYPES.GiantBat],
+    getFactionNames: () => ({ f1: 'City Watch & Healers', f2: 'Plague Rat Swarm' }),
+    getChoices: () => [
+      { text: t('living.choice.EVT_PLAGUE_RAT_SWARM.1', '1. Fight alongside the watch and exterminate the rats'), stance: 'defenders', goldReward: 100, repF1: 6, xp: 100 },
+      { text: t('living.choice.EVT_PLAGUE_RAT_SWARM.2', '2. Plunder abandoned stalls while the guards fight'), stance: 'attackers', goldReward: 80, repF1: -8, bountyHostile: true },
+      { text: t('living.choice.EVT_PLAGUE_RAT_SWARM.3', '3. Do not intervene in the rat swarm'), stance: 'neutral' },
+      { text: t('living.choice.EVT_PLAGUE_RAT_SWARM.4', '4. Drive the swarm off with alchemical smoke and lime (Medical)'), stance: 'peace', skillCheck: { skill: SKILLS.Medical, target: 40 }, repF1: 10, xp: 130 },
+    ],
+  },
 
-  // ── 4. WITCH HUNTS & OCCULT (4) ────────────────────────────────────────────
+  // ── 4. WITCH HUNTS & OCCULT (5) ────────────────────────────────────────────
   {
     id: 'EVT_WITCH_HUNT_SIEGE',
     name: 'Inquisition Siege of Witch Coven',
     category: 'OCCULT',
+    propTheme: SKIRMISH_PROP_THEME.OCCULT_RITUAL,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.WitchBurnings],
     locationTypes: [LOCATION_TYPES.Coven, LOCATION_TYPES.TownVillage, LOCATION_TYPES.DungeonRuin],
@@ -407,6 +456,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_WITCH_ENTHRALLED_AMBUSH',
     name: 'Enthralled Coven Guards Ambush',
     category: 'OCCULT',
+    propTheme: SKIRMISH_PROP_THEME.OCCULT_RITUAL,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.WitchBurnings, REGION_FLAGS.ScaryHoliday, REGION_FLAGS.MadWizardNearby],
     locationTypes: [LOCATION_TYPES.TownHamlet, LOCATION_TYPES.HomeFarms, LOCATION_TYPES.Coven],
@@ -426,6 +476,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_WITCH_HERBALIST_SHAKEDOWN',
     name: 'Witch Hunters Harassing Herbalist',
     category: 'OCCULT',
+    propTheme: SKIRMISH_PROP_THEME.OCCULT_RITUAL,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.WitchBurnings],
     locationTypes: [LOCATION_TYPES.TownVillage, LOCATION_TYPES.HomeFarms, LOCATION_TYPES.TownHamlet],
@@ -445,9 +496,10 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_WITCH_DAEDRA_PACT_SIGHTING',
     name: 'Secret Night Daedra Summoning',
     category: 'OCCULT',
+    propTheme: SKIRMISH_PROP_THEME.OCCULT_RITUAL,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.WitchBurnings, REGION_FLAGS.ScaryHoliday, REGION_FLAGS.MadWizardNearby, REGION_FLAGS.MadWizardDies],
-    locationTypes: [LOCATION_TYPES.Graveyard, LOCATION_TYPES.DungeonRuin, LOCATION_TYPES.Coven],
+    locationTypes: [LOCATION_TYPES.Graveyard, LOCATION_TYPES.DungeonRuin, LOCATION_TYPES.Coven, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet],
     baseDefenders: 2,
     baseAttackers: 2,
     defendersPool: [MOBILE_TYPES.Mage, MOBILE_TYPES.Sorcerer],
@@ -460,18 +512,39 @@ export const CRISIS_EVENTS = Object.freeze([
       { text: t('living.choice.EVT_WITCH_DAEDRA_PACT_SIGHTING.4', '4. Banish the summoned Daedra and seal the rift (Daedric)'), stance: 'peace', skillCheck: { skill: SKILLS.Daedric, target: 40 }, repF1: 8, xp: 140 },
     ],
   },
+  {
+    id: 'EVT_WITCH_COVEN_ASSAULT',
+    name: 'Witch Coven Assault',
+    category: 'OCCULT',
+    propTheme: SKIRMISH_PROP_THEME.OCCULT_RITUAL,
+    crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
+    regionFlags: [REGION_FLAGS.WitchBurnings],
+    locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet, LOCATION_TYPES.HomeFarms],
+    baseDefenders: 2,
+    baseAttackers: 3,
+    defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Monk, MOBILE_TYPES.Archer],
+    attackersPool: [MOBILE_TYPES.Sorcerer, MOBILE_TYPES.Mage, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Imp, MOBILE_TYPES.Spider],
+    getFactionNames: () => ({ f1: 'Witch Hunters & Watch', f2: 'Avenging Coven & Familiars' }),
+    getChoices: () => [
+      { text: t('living.choice.EVT_WITCH_COVEN_ASSAULT.1', '1. Repel the coven assault alongside the city watch'), stance: 'defenders', goldReward: 180, repF1: 8, repF2: -15, xp: 130 },
+      { text: t('living.choice.EVT_WITCH_COVEN_ASSAULT.2', '2. Strike at the witch hunters alongside the coven'), stance: 'attackers', goldReward: 150, repF1: -12, repF2: 10, xp: 100, bountyHostile: true },
+      { text: t('living.choice.EVT_WITCH_COVEN_ASSAULT.3', '3. Do not intervene in the coven assault'), stance: 'neutral' },
+      { text: t('living.choice.EVT_WITCH_COVEN_ASSAULT.4', '4. Break the summoning anchor to banish their familiars (Thaumaturgy)'), stance: 'peace', skillCheck: { skill: SKILLS.Thaumaturgy, target: 50 }, repF1: 8, xp: 150 },
+    ],
+  },
 
   // ── 5. CRIME WAVE & UNDERWORLD (4) ──────────────────────────────────────────
   {
     id: 'EVT_CRIME_DAYLIGHT_HEIST',
     name: 'Daylight Moneylender Heist',
     category: 'CRIME',
+    propTheme: SKIRMISH_PROP_THEME.CRIME_HEIST,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.TGMInJail, REGION_FLAGS.TGMSetFree, REGION_FLAGS.NewTGM],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 3,
-    defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Warrior],
+    defendersPool: [MOBILE_TYPES.Knight_CityWatch, MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer],
     attackersPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Burglar, MOBILE_TYPES.Rogue],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Town'} Watch`, f2: 'Thieves Guild Heist Crew' }),
     getChoices: (f1, f2) => [
@@ -485,6 +558,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_CRIME_BROTHERHOOD_CONTRACT',
     name: 'Dark Brotherhood Street Contract',
     category: 'CRIME',
+    propTheme: SKIRMISH_PROP_THEME.CRIME_HEIST,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.TGMExecuted, REGION_FLAGS.NewTGM],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.Tavern],
@@ -504,6 +578,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_CRIME_PICKPOCKET_CHASE',
     name: 'Bazaar Pickpocket Chase',
     category: 'CRIME',
+    propTheme: SKIRMISH_PROP_THEME.CRIME_HEIST,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.PricesHigh, REGION_FLAGS.TGMSetFree],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
@@ -523,6 +598,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_CRIME_GAMBLING_DEN_BUST',
     name: 'Watch Raid on Gambling Den',
     category: 'CRIME',
+    propTheme: SKIRMISH_PROP_THEME.CRIME_HEIST,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.CrimeWave, REGION_FLAGS.TGMInJail, REGION_FLAGS.TGMExecuted],
     locationTypes: [LOCATION_TYPES.Tavern, LOCATION_TYPES.TownCity],
@@ -544,9 +620,10 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_TEMPLE_PURGE_SIEGE',
     name: 'Cult Purge: Shrine Siege',
     category: 'FAITH',
+    propTheme: SKIRMISH_PROP_THEME.TEMPLE_SANCTUARY,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.PersecutedTemple],
-    locationTypes: [LOCATION_TYPES.ReligionTemple, LOCATION_TYPES.ReligionCult],
+    locationTypes: [LOCATION_TYPES.ReligionTemple, LOCATION_TYPES.ReligionCult, LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 3,
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Healer, MOBILE_TYPES.Spellsword],
@@ -563,9 +640,10 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_TEMPLE_CLERGY_STANDOFF',
     name: 'Clergy Standoff over Relic',
     category: 'FAITH',
+    propTheme: SKIRMISH_PROP_THEME.TEMPLE_SANCTUARY,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.PersecutedTemple, REGION_FLAGS.HolyHoliday],
-    locationTypes: [LOCATION_TYPES.ReligionTemple, LOCATION_TYPES.ReligionCult, LOCATION_TYPES.TownHamlet],
+    locationTypes: [LOCATION_TYPES.ReligionTemple, LOCATION_TYPES.ReligionCult, LOCATION_TYPES.TownHamlet, LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 2,
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Knight],
@@ -582,9 +660,10 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_TEMPLE_HERETIC_GRAFFITI',
     name: 'Heretic Desecration of Temple Gates',
     category: 'FAITH',
+    propTheme: SKIRMISH_PROP_THEME.TEMPLE_SANCTUARY,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.PersecutedTemple, REGION_FLAGS.CrimeWave],
-    locationTypes: [LOCATION_TYPES.ReligionTemple],
+    locationTypes: [LOCATION_TYPES.ReligionTemple, LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 2,
     baseAttackers: 2,
     defendersPool: [MOBILE_TYPES.Monk, MOBILE_TYPES.Knight_CityWatch],
@@ -601,6 +680,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_TEMPLE_ALMS_DISPUTE',
     name: 'Beggars Brawl over Temple Alms',
     category: 'FAITH',
+    propTheme: SKIRMISH_PROP_THEME.TEMPLE_SANCTUARY,
     crisisTypes: [CRISIS_TYPE.FAMINE, CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.PersecutedTemple, REGION_FLAGS.FamineOngoing],
     locationTypes: [LOCATION_TYPES.ReligionTemple, LOCATION_TYPES.TownCity],
@@ -622,6 +702,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_NEW_RULER_CORONATION',
     name: 'New Ruler Coronation and Rebels',
     category: 'POLITICS',
+    propTheme: SKIRMISH_PROP_THEME.MONUMENT_STATUE,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.NewRuler],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.DungeonKeep],
@@ -641,6 +722,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_NEW_RULER_STATUE_UNVEILING',
     name: 'Toppling of Former Lord\'s Statue',
     category: 'POLITICS',
+    propTheme: SKIRMISH_PROP_THEME.MONUMENT_STATUE,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.NewRuler],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
@@ -660,6 +742,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_NEW_RULER_OATH_CEREMONY',
     name: 'Citadel Vassal Oath Ceremony',
     category: 'POLITICS',
+    propTheme: SKIRMISH_PROP_THEME.MONUMENT_STATUE,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.NewRuler],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.DungeonKeep],
@@ -681,6 +764,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_PRICES_TAX_REVOLT',
     name: 'Market Square Tax Revolt',
     category: 'COMMERCE',
+    propTheme: SKIRMISH_PROP_THEME.CRIME_HEIST,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.PricesHigh],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
@@ -700,6 +784,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_PRICES_PRICE_GOUGING_INSPECTION',
     name: 'Price-Gouging Shop Inspection',
     category: 'COMMERCE',
+    propTheme: SKIRMISH_PROP_THEME.CRIME_HEIST,
     crisisTypes: [CRISIS_TYPE.CIVIL_STRIFE],
     regionFlags: [REGION_FLAGS.PricesHigh],
     locationTypes: [LOCATION_TYPES.TownCity],
@@ -721,6 +806,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_HOLIDAY_TOWN_BRAWL',
     name: 'Holiday Tavern Brawl',
     category: 'HOLIDAY',
+    propTheme: SKIRMISH_PROP_THEME.CAULDRON_STATION,
     crisisTypes: [],
     regionFlags: [REGION_FLAGS.HappyHoliday, REGION_FLAGS.WarWon, REGION_FLAGS.PricesLow],
     locationTypes: [LOCATION_TYPES.Tavern, LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
@@ -740,6 +826,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_HOLIDAY_CARNIVAL_MASQUERADE',
     name: 'Carnival Masquerade Turmoil',
     category: 'HOLIDAY',
+    propTheme: SKIRMISH_PROP_THEME.CRIME_HEIST,
     crisisTypes: [],
     regionFlags: [REGION_FLAGS.HappyHoliday, REGION_FLAGS.HolyHoliday, REGION_FLAGS.WarWon, REGION_FLAGS.PricesLow],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
@@ -759,6 +846,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_SCARY_NIGHT_HORROR',
     name: 'Scary Night Horror Incursion',
     category: 'HOLIDAY',
+    propTheme: SKIRMISH_PROP_THEME.GRAVEYARD_CRYPT,
     crisisTypes: [],
     regionFlags: [REGION_FLAGS.ScaryHoliday],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.Graveyard],
@@ -778,6 +866,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_HOLY_DAY_FANATICS',
     name: 'Holy Day Procession Attack',
     category: 'HOLIDAY',
+    propTheme: SKIRMISH_PROP_THEME.TEMPLE_SANCTUARY,
     crisisTypes: [],
     regionFlags: [REGION_FLAGS.HolyHoliday],
     locationTypes: [LOCATION_TYPES.ReligionTemple, LOCATION_TYPES.TownCity],
@@ -799,6 +888,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_MAD_WIZARD_RAMPAGE',
     name: 'Mad Wizard and Summoned Elementals',
     category: 'ARCANE',
+    propTheme: SKIRMISH_PROP_THEME.OCCULT_RITUAL,
     crisisTypes: [],
     regionFlags: [REGION_FLAGS.MadWizardNearby, REGION_FLAGS.MadWizardDies],
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.DungeonRuin],
@@ -820,6 +910,7 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_FARM_RUNAWAY_CATTLE',
     name: 'Enraged Beast on the Farmstead',
     category: 'MUNDANE',
+    propTheme: SKIRMISH_PROP_THEME.FARM_HOMESTEAD,
     crisisTypes: [],
     regionFlags: [REGION_FLAGS.BadHarvest],
     locationTypes: [LOCATION_TYPES.HomeFarms, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet],
@@ -839,9 +930,10 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_GRAVEYARD_WEEPING_MOURNER',
     name: 'Robbery of Grieving Mourner at Grave',
     category: 'MUNDANE',
+    propTheme: SKIRMISH_PROP_THEME.GRAVEYARD_CRYPT,
     crisisTypes: [],
     regionFlags: [REGION_FLAGS.MadWizardDies, REGION_FLAGS.WarLost],
-    locationTypes: [LOCATION_TYPES.Graveyard, LOCATION_TYPES.TownHamlet],
+    locationTypes: [LOCATION_TYPES.Graveyard, LOCATION_TYPES.TownHamlet, LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 1,
     baseAttackers: 2,
     defendersPool: [MOBILE_TYPES.Healer],
@@ -858,9 +950,10 @@ export const CRISIS_EVENTS = Object.freeze([
     id: 'EVT_TAVERN_CHESS_WAGER',
     name: 'Tavern Chess Wager and War Dispute',
     category: 'MUNDANE',
+    propTheme: SKIRMISH_PROP_THEME.CAULDRON_STATION,
     crisisTypes: [],
     regionFlags: [REGION_FLAGS.PricesLow, REGION_FLAGS.WarWon],
-    locationTypes: [LOCATION_TYPES.Tavern],
+    locationTypes: [LOCATION_TYPES.Tavern, LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage],
     baseDefenders: 1,
     baseAttackers: 1,
     defendersPool: [MOBILE_TYPES.Warrior],
@@ -876,15 +969,88 @@ export const CRISIS_EVENTS = Object.freeze([
 ]);
 
 /**
- * Matches an encounter from the 39 matrix based on location, regional condition flags,
- * active Living Tamriel crises, and prosperity.
- *
- * @param {Object} params
- * @param {number} params.regionIndex
- * @param {number} params.locationType
- * @param {any} [params.dfLocation=null]
- * @param {any} [params.playerEntity=null]
- * @param {() => number} [params.rng=Math.random]
+ * Checks whether a region/climate belongs to southern desert/subtropical territory.
+ * @param {number} regionIndex
+ * @param {number|null} [climateIndex=null]
+ * @returns {boolean}
+ */
+export function isSouthernDesertRegion(regionIndex, climateIndex = null) {
+  if (Number.isFinite(climateIndex)) {
+    return (
+      climateIndex === CLIMATES.Desert ||
+      climateIndex === CLIMATES.Desert2 ||
+      climateIndex === CLIMATES.Subtropical
+    );
+  }
+  const race = REGION_RACES[regionIndex];
+  return race === 1 || race === 6;
+}
+
+/**
+ * Resolves the concrete attacker mob pool for an event using climate/region and level gating.
+ * Filters out high-level or metal-immune monsters below appropriate player levels.
+ * @param {any} event
+ * @param {{ regionIndex?: number, climateIndex?: number|null, playerLevel?: number }} [opts]
+ * @returns {number[]}
+ */
+export function resolveEventAttackersPool(
+  event,
+  { regionIndex = 0, climateIndex = null, playerLevel = 1 } = {},
+) {
+  const base = Array.isArray(event?.attackersPool) ? [...event.attackersPool] : [];
+  const lvl = Math.max(1, Number(playerLevel) || 1);
+  const id = event?.id;
+
+  if (id === 'EVT_FAMINE_PREDATOR_INVASION' || id === 'EVT_FARM_RUNAWAY_CATTLE') {
+    const southern = isSouthernDesertRegion(regionIndex, climateIndex);
+    const pool = southern
+      ? [MOBILE_TYPES.SabertoothTiger, MOBILE_TYPES.Spider, MOBILE_TYPES.Centaur]
+      : [MOBILE_TYPES.GrizzlyBear, MOBILE_TYPES.Spider, MOBILE_TYPES.Centaur];
+    if (lvl >= 6) {
+      pool.push(southern ? MOBILE_TYPES.GiantScorpion : MOBILE_TYPES.Wereboar, MOBILE_TYPES.Giant);
+    }
+    return pool;
+  }
+
+  if (id === 'EVT_PLAGUE_PYRE_DESECRATION' || id === 'EVT_SCARY_NIGHT_HORROR') {
+    const pool = [MOBILE_TYPES.SkeletalWarrior, MOBILE_TYPES.Zombie];
+    if (id === 'EVT_PLAGUE_PYRE_DESECRATION') pool.push(MOBILE_TYPES.Rat);
+    if (lvl >= 6) pool.push(MOBILE_TYPES.Ghost, MOBILE_TYPES.Mummy);
+    if (lvl >= 11) pool.push(MOBILE_TYPES.Wraith, MOBILE_TYPES.FleshAtronach);
+    if (lvl >= 14) pool.push(MOBILE_TYPES.Vampire);
+    return pool;
+  }
+
+  if (id === 'EVT_WITCH_HUNT_SIEGE' || id === 'EVT_WITCH_COVEN_ASSAULT' || id === 'EVT_WITCH_ENTHRALLED_AMBUSH') {
+    const pool =
+      id === 'EVT_WITCH_ENTHRALLED_AMBUSH'
+        ? [MOBILE_TYPES.Spellsword, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Spriggan, MOBILE_TYPES.Spider]
+        : [MOBILE_TYPES.Mage, MOBILE_TYPES.Sorcerer, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Spriggan, MOBILE_TYPES.Spider, MOBILE_TYPES.Imp];
+    if (lvl >= 6) pool.push(MOBILE_TYPES.Harpy, MOBILE_TYPES.Werewolf);
+    if (lvl >= 11) pool.push(MOBILE_TYPES.Gargoyle);
+    return pool;
+  }
+
+  if (id === 'EVT_WITCH_DAEDRA_PACT_SIGHTING') {
+    const pool = [MOBILE_TYPES.Imp, MOBILE_TYPES.Sorcerer];
+    if (lvl >= 11) pool.push(MOBILE_TYPES.FireDaedra, MOBILE_TYPES.FrostDaedra, MOBILE_TYPES.Daedroth);
+    if (lvl >= 14) pool.push(MOBILE_TYPES.DaedraSeducer);
+    return pool;
+  }
+
+  if (id === 'EVT_MAD_WIZARD_RAMPAGE') {
+    const pool = [MOBILE_TYPES.Mage, MOBILE_TYPES.Imp, MOBILE_TYPES.FireAtronach, MOBILE_TYPES.IronAtronach];
+    if (lvl >= 11) pool.push(MOBILE_TYPES.IceAtronach, MOBILE_TYPES.FleshAtronach, MOBILE_TYPES.Gargoyle);
+    return pool;
+  }
+
+  return base;
+}
+
+/**
+ * Matches an encounter from the 41-event matrix based on location,
+ * regional conditions, active crises, and prosperity.
+ * @param {{ regionIndex: number, locationType: number, dfLocation?: any, playerEntity?: any, rng?: () => number, allowMundaneOnly?: boolean, forcedEventId?: string|null }} params
  * @returns {any | null} Matched event definition
  */
 export function matchLivingCrisisEvent({
@@ -893,14 +1059,22 @@ export function matchLivingCrisisEvent({
   dfLocation = null,
   playerEntity = null,
   rng = Math.random,
+  allowMundaneOnly = false,
+  forcedEventId = null,
 }) {
-  const regState = getRegionState(regionIndex);
+  if (forcedEventId) {
+    const exact = CRISIS_EVENTS.find((e) => e.id === forcedEventId);
+    if (exact) return exact;
+  }
+
   const activeCrises = getActiveCrises(regionIndex);
   const condRecord = playerEntity?.regionConditions?.[regionIndex] ?? getBoundRegionConditions()?.[regionIndex];
   const condFlags = condRecord?.flags ?? [];
 
   const flagCandidates = [];
-  const candidates = [];
+  const crisisCandidates = [];
+  const mundaneCandidates = [];
+  const holidayFlagCandidates = [];
 
   for (let i = 0; i < CRISIS_EVENTS.length; i++) {
     const evt = CRISIS_EVENTS[i];
@@ -920,6 +1094,14 @@ export function matchLivingCrisisEvent({
         }
       }
     }
+
+    if (evt.category === 'MUNDANE') {
+      mundaneCandidates.push(evt);
+    }
+    if (evt.category === 'HOLIDAY' && matchesFlag) {
+      holidayFlagCandidates.push(evt);
+    }
+
     if (matchesFlag) {
       flagCandidates.push(evt);
     }
@@ -935,24 +1117,27 @@ export function matchLivingCrisisEvent({
       }
     }
 
-    // 4. Mundane category events (can appear anytime if no crisis is strict)
-    if (evt.category === 'MUNDANE' && !matchesCrisis) {
-      matchesCrisis = rng() < 0.35; // 35% chance to consider mundane encounters
-    }
-
-    if (matchesCrisis) {
-      candidates.push(evt);
+    if (matchesCrisis && evt.category !== 'MUNDANE') {
+      crisisCandidates.push(evt);
     }
   }
 
-  const pool = flagCandidates.length > 0 ? flagCandidates : candidates;
-  if (pool.length === 0) {
-    // Fallback: interprovincial war or daylight crime if conditions are loose
-    return CRISIS_EVENTS[0];
+  if (allowMundaneOnly) {
+    const peacePool = [...mundaneCandidates, ...holidayFlagCandidates];
+    const pool = peacePool.length > 0 ? peacePool : CRISIS_EVENTS.filter((e) => e.category === 'MUNDANE');
+    return pool[Math.floor(rng() * pool.length)];
   }
 
-  const pickIdx = Math.floor(rng() * pool.length);
-  return pool[pickIdx];
+  const primaryCrisisPool = flagCandidates.length > 0 ? flagCandidates : crisisCandidates;
+  if (primaryCrisisPool.length > 0) {
+    return primaryCrisisPool[Math.floor(rng() * primaryCrisisPool.length)];
+  }
+
+  if (mundaneCandidates.length > 0) {
+    return mundaneCandidates[Math.floor(rng() * mundaneCandidates.length)];
+  }
+
+  return CRISIS_EVENTS[0];
 }
 
 /**

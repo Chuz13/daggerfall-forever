@@ -492,6 +492,7 @@ export const CATEGORIES = Object.freeze([
       'feat:lt-urban-loot',
       'feat:lt-wilderness-loot',
       'feat:lt-adventurer-loot',
+      'feat:lt-location-cooldown',
     ]),
     sec('apotheosis', () => t('settings.sec.apotheosis', 'Apotheosis: Path of CHIM'), [
       'port:apotheosisShowTracker',

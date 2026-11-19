@@ -16,7 +16,9 @@ import {
   matchLivingCrisisEvent,
   calculateLocationProsperity,
   getEnemyProvinceName,
+  resolveEventAttackersPool,
   PROSPERITY_TIER,
+  SKIRMISH_PROP_THEME,
 } from './crisisRegistry.js';
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { snapPropToGround } from './campInjector.js';
@@ -65,20 +67,9 @@ export function shouldSpawnUrbanSkirmish({
 }
 
 /**
- * Plans a compact, FPS-safe skirmish roster and prop placements based on
- * the 39-event matrix, location prosperity, and density settings.
- *
- * @param {Object} params
- * @param {number} params.centerX World X of the town square/skirmish site
- * @param {number} params.centerZ World Z of the town square/skirmish site
- * @param {Array<{ x: number, z: number }>} [params.doorwayPositions=[]] Known building door locations
- * @param {(x: number, z: number) => number} [params.heightSampler] Terrain height query
- * @param {() => number} [params.rng=Math.random]
- * @param {number} [params.regionIndex=0]
- * @param {number} [params.locationType=0]
- * @param {any} [params.dfLocation=null]
- * @param {any} [params.playerEntity=null]
- * @returns {{ guards: Array<{dx:number, dz:number, team:string, mobileType?:number}>, rebels: Array<{dx:number, dz:number, team:string, mobileType?:number}>, props: Array<{id:string, x:number, z:number, y:number}>, civiliansShouldPanic: boolean, event?: any, faction1Name?: string, faction2Name?: string } | null}
+ * Plans a compact, FPS-safe skirmish roster and prop placements from the event matrix.
+ * @param {{ centerX: number, centerZ: number, doorwayPositions?: Array<{x:number,z:number}>, heightSampler?: (x:number,z:number)=>number, rng?: ()=>number, regionIndex?: number, locationType?: number, dfLocation?: any, playerEntity?: any, climateIndex?: number|null, allowMundaneOnly?: boolean, forcedEventId?: string|null }} params
+ * @returns {{ guards: Array<{dx:number, dz:number, team:string, mobileType?:number}>, rebels: Array<{dx:number, dz:number, team:string, mobileType?:number}>, props: Array<{id:string, x:number, z:number, y:number}>, propTheme: string, civiliansShouldPanic: boolean, event?: any, faction1Name?: string, faction2Name?: string } | null}
  */
 export function planUrbanSkirmish({
   centerX,
@@ -90,6 +81,9 @@ export function planUrbanSkirmish({
   locationType = 0,
   dfLocation = null,
   playerEntity = null,
+  climateIndex = null,
+  allowMundaneOnly = false,
+  forcedEventId = null,
 }) {
   // 1. Verify slope of the skirmish center (must be relatively flat and valid to avoid floating props)
   const yCenter = heightSampler(centerX, centerZ);
@@ -118,11 +112,15 @@ export function planUrbanSkirmish({
     dfLocation,
     playerEntity,
     rng,
+    allowMundaneOnly,
+    forcedEventId,
   });
 
   const prosperity = calculateLocationProsperity(dfLocation);
   const scale = getLivingEncounterScale();
   const isSingleDefender = Boolean(event && event.baseDefenders === 1);
+  const isSingleAttacker = Boolean(event && event.baseAttackers === 1);
+  const isSwarmAttackers = Boolean(event && event.swarmAttackers);
 
   // Scaled ranges for defenders and attackers based on encounter scale
   let defMin = 1;
@@ -131,20 +129,20 @@ export function planUrbanSkirmish({
   let atkMax = 3;
 
   if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
-    defMin = isSingleDefender ? 1 : 1;
+    defMin = 1;
     defMax = isSingleDefender ? 1 : 2;
-    atkMin = 2;
-    atkMax = 3;
+    atkMin = isSingleAttacker ? 1 : (isSwarmAttackers ? 5 : 2);
+    atkMax = isSingleAttacker ? 1 : (isSwarmAttackers ? 7 : 3);
   } else if (scale === LIVING_ENCOUNTER_SCALE.MID) {
     defMin = isSingleDefender ? 1 : 3;
     defMax = isSingleDefender ? 1 : 5;
-    atkMin = 4;
-    atkMax = 7;
+    atkMin = isSingleAttacker ? 1 : (isSwarmAttackers ? 8 : 4);
+    atkMax = isSingleAttacker ? 1 : (isSwarmAttackers ? 12 : 7);
   } else if (scale === LIVING_ENCOUNTER_SCALE.HIGH) {
     defMin = isSingleDefender ? 1 : 6;
     defMax = isSingleDefender ? 1 : 9;
-    atkMin = 8;
-    atkMax = 14;
+    atkMin = isSingleAttacker ? 1 : (isSwarmAttackers ? 13 : 8);
+    atkMax = isSingleAttacker ? 1 : (isSwarmAttackers ? 18 : 14);
   }
 
   let guardCount = rollEncounterRange(defMin, defMax, rng);
@@ -182,17 +180,32 @@ export function planUrbanSkirmish({
     });
   }
 
-  // Generate rebel/attacker positions in compact multi-rank formations
-  const atkPool = event?.attackersPool?.length ? event.attackersPool : [MOBILE_TYPES.Rogue, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Warrior];
+  // Generate rebel/attacker positions in compact multi-rank or tight swarm formations
+  const resolvedPool = event
+    ? resolveEventAttackersPool(event, {
+      regionIndex,
+      climateIndex,
+      playerLevel: Number(playerEntity?.level ?? 1),
+    })
+    : [];
+  const atkPool = resolvedPool.length ? resolvedPool : [MOBILE_TYPES.Rogue, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Warrior];
   const rebels = [];
   const baseAtkAngle = Math.PI * 0.25;
   for (let i = 0; i < rebelCount; i++) {
-    const rank = Math.floor(i / 5);
-    const inRankIdx = i % 5;
-    const rankTotal = Math.min(5, rebelCount - rank * 5);
-    const spread = Math.PI * 0.45;
-    const angle = baseAtkAngle + (rankTotal > 1 ? (inRankIdx / (rankTotal - 1) - 0.5) * spread : 0);
-    const dist = 2.4 + rank * 1.4 + (i % 2 === 0 ? -0.2 : 0.2);
+    let angle;
+    let dist;
+    if (isSwarmAttackers) {
+      const spread = Math.PI * 0.85;
+      angle = baseAtkAngle + (rebelCount > 1 ? (i / (rebelCount - 1) - 0.5) * spread : 0);
+      dist = 1.6 + (i % 3) * 0.9;
+    } else {
+      const rank = Math.floor(i / 5);
+      const inRankIdx = i % 5;
+      const rankTotal = Math.min(5, rebelCount - rank * 5);
+      const spread = Math.PI * 0.45;
+      angle = baseAtkAngle + (rankTotal > 1 ? (inRankIdx / (rankTotal - 1) - 0.5) * spread : 0);
+      dist = 2.4 + rank * 1.4 + (i % 2 === 0 ? -0.2 : 0.2);
+    }
     let rx = Math.cos(angle) * dist;
     let rz = Math.sin(angle) * dist;
     const yAt = heightSampler(centerX + rx, centerZ + rz);
@@ -225,6 +238,7 @@ export function planUrbanSkirmish({
     guards,
     rebels,
     props: propList,
+    propTheme: event?.propTheme ?? SKIRMISH_PROP_THEME.MILITARY_BARRICADE,
     civiliansShouldPanic: true,
   };
 }

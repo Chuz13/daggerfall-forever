@@ -184,12 +184,30 @@ export const LIVING_WORDS = Object.freeze({
     t('living.plea.war', 'The village was put to the torch by marauders! Please, help us with passage far from this bloodshed!'),
   pleaEscort: () =>
     t('living.plea.escort', 'The roads crawl with bandits. Might an able blade walk with me to the next crossroads?'),
+  pleaDrunkenBrawler: () =>
+    t('living.plea.drunk', 'Hey, traveler! My coin purse is bone dry and this ale mug is empty. Buy a round before I get grumpy?'),
+  pleaBrokenCart: () =>
+    t('living.plea.cart', 'Blasted cobblestones snapped my wagon axle clean in two! Lend 30 gold for a smith, and I will repay your kindness.'),
+  pleaStrayHound: () =>
+    t('living.plea.hound', 'Please, my hunting hound caught an iron snare on the road! Spare a healing draught or coin to bind his wounds.'),
+  pleaStreetPreacher: () =>
+    t('living.plea.preacher', 'Give alms for Stendarr\'s shrine, friend! Spare 20 gold for the chapel poor, and receive a full blessing of vigor.'),
+  pleaAccusedUrchin: () =>
+    t('living.plea.urchin', 'Hold! That baker wants my hide over a stolen loaf. Pay off the 25 gold debt before his thugs catch me!'),
+  pleaBoastfulDuelist: () =>
+    t('living.plea.duelist', 'Seek a wager with a true blade? Put up 25 gold for a duel purse, or admit you are outmatched.'),
   pleaHelped: () =>
     t('living.plea.helped', 'Blessings of the Divines upon you! Tamriel still knows true virtue.'),
   pleaParted: () =>
     t('living.plea.parted', 'May Stendarr watch over your journey nonetheless.'),
   pleaRebuffed: () =>
     t('living.plea.rebuffed', 'Curse your cold heart! May misfortune dog your footsteps!'),
+  pleaProvokedSay: () =>
+    t('living.plea.provokedSay', 'You dare insult me to my face?! Draw steel, then!'),
+  pleaMerchantPotionSay: () =>
+    t('living.plea.merchantPotionSay', 'Thank the Divines! Take this healing draught from my stores for your trouble.'),
+  pleaPreacherBlessSay: () =>
+    t('living.plea.preacherBlessSay', 'Stendarr\'s light warms your bones. Your wounds and weariness fade away!'),
 
   // Wandering Road & Wilderness Adventurers (Non-Seeking)
   roadAdvTraveling: (name) =>
@@ -306,14 +324,38 @@ export const LIVING_WORDS = Object.freeze({
     if (type === 'PLAGUE_CURE') return LIVING_WORDS.pleaPlague();
     if (type === 'FAMINE_BREAD') return LIVING_WORDS.pleaFamine();
     if (type === 'WAR_REFUGEE') return LIVING_WORDS.pleaWar();
+    if (type === 'DRUNKEN_BRAWLER') return LIVING_WORDS.pleaDrunkenBrawler();
+    if (type === 'BROKEN_CART_MERCHANT') return LIVING_WORDS.pleaBrokenCart();
+    if (type === 'STRAY_HOUND_HANDLER') return LIVING_WORDS.pleaStrayHound();
+    if (type === 'STREET_PREACHER') return LIVING_WORDS.pleaStreetPreacher();
+    if (type === 'ACCUSED_URCHIN') return LIVING_WORDS.pleaAccusedUrchin();
+    if (type === 'BOASTFUL_DUELIST') return LIVING_WORDS.pleaBoastfulDuelist();
     return LIVING_WORDS.pleaEscort();
   },
   pleaOptionHelp: (gold = 25) =>
     t('living.plea.optHelp', 'Offer assistance and alms (-{gold}g, +Reputation)', { gold }),
+  pleaOptionHelpFor: (type, gold = 25) => {
+    if (type === 'DRUNKEN_BRAWLER') return t('living.plea.optHelp.drunk', 'Buy the brawler a round (-{gold}g, +Reputation)', { gold });
+    if (type === 'BROKEN_CART_MERCHANT') return t('living.plea.optHelp.cart', 'Fund the wagon repair (-{gold}g, +Rep, +Potion)', { gold });
+    if (type === 'STRAY_HOUND_HANDLER') return t('living.plea.optHelp.hound', 'Treat the injured hound (-{gold}g or Potion, +Rep)', { gold });
+    if (type === 'STREET_PREACHER') return t('living.plea.optHelp.preacher', 'Donate to the chapel poor (-{gold}g, Full Heal & Rep)', { gold });
+    if (type === 'ACCUSED_URCHIN') return t('living.plea.optHelp.urchin', 'Pay the shopkeeper debt (-{gold}g, +Rep, +Skill)', { gold });
+    if (type === 'BOASTFUL_DUELIST') return t('living.plea.optHelp.duelist', 'Praise his blade and back his wager (-{gold}g, +Rep, +Skill)', { gold });
+    return LIVING_WORDS.pleaOptionHelp(gold);
+  },
   pleaOptionPolite: () =>
     t('living.plea.optPolite', 'Politely decline assistance (Etiquette + Personality + Luck roll)'),
   pleaOptionRude: () =>
     t('living.plea.optRude', 'Bruskly brush them off (Risk provoking confrontation)'),
+  pleaOptionProvokeFor: (type) => {
+    if (type === 'DRUNKEN_BRAWLER') return t('living.plea.optRude.drunk', 'Shove him aside and insult his drinking (+Fight)');
+    if (type === 'BROKEN_CART_MERCHANT') return t('living.plea.optRude.cart', 'Kick his crates and demand a road toll (+Fight)');
+    if (type === 'STRAY_HOUND_HANDLER') return t('living.plea.optRude.hound', 'Threaten to put the hound down yourself (+Fight)');
+    if (type === 'STREET_PREACHER') return t('living.plea.optRude.preacher', 'Mock his sermons and kick the alms bowl (+Fight)');
+    if (type === 'ACCUSED_URCHIN') return t('living.plea.optRude.urchin', 'Shakedown the thief and call him a rat (+Fight)');
+    if (type === 'BOASTFUL_DUELIST') return t('living.plea.optRude.duelist', 'Call his armor a rusted bucket (+Fight)');
+    return LIVING_WORDS.pleaOptionRude();
+  },
   pleaOutcome: (outcome) => {
     if (outcome === 'HELPED') return LIVING_WORDS.pleaHelped();
     if (outcome === 'PARTED_PEACEFULLY') return LIVING_WORDS.pleaParted();
@@ -409,6 +451,10 @@ export const LIVING_WORDS = Object.freeze({
     t('living.event.joinedRebels', 'You joined the Insurgents! Overthrow the guards! (-15 Regional Rep)'),
   eventChosenChaos: () =>
     t('living.event.chosenChaos', 'You choose Chaos! Both sides remain neutral to you unless struck, and crossfire is not a crime.'),
+  skirmishStatueToppled: () =>
+    t('living.urban.statueToppled', 'With a thunderous crash, the ruler statue topples and shatters on the cobbles!'),
+  skirmishWellSmashed: () =>
+    t('living.urban.wellSmashed', 'The panicked mob tears down the stone wellhead in a hail of splinters!'),
 
   // Speaker Titles & Dialogues
   speakerTitle: (type) => {
@@ -416,7 +462,13 @@ export const LIVING_WORDS = Object.freeze({
     if (type === 'PLAGUE_CURE') return t('living.speaker.afflicted', 'Afflicted Villager');
     if (type === 'FAMINE_BREAD') return t('living.speaker.refugee', 'Starving Refugee');
     if (type === 'WAR_REFUGEE') return t('living.speaker.displaced', 'Displaced Citizen');
-    if (type === 'ESCORT') return t('living.speaker.stranded', 'Stranded Traveller');
+    if (type === 'ESCORT' || type === 'ESCORT_REQUEST') return t('living.speaker.stranded', 'Stranded Traveller');
+    if (type === 'DRUNKEN_BRAWLER') return t('living.speaker.drunk', 'Rowdy Drunkard');
+    if (type === 'BROKEN_CART_MERCHANT') return t('living.speaker.cartMerchant', 'Stranded Merchant');
+    if (type === 'STRAY_HOUND_HANDLER') return t('living.speaker.houndHandler', 'Huntsman');
+    if (type === 'STREET_PREACHER') return t('living.speaker.preacher', 'Street Preacher');
+    if (type === 'ACCUSED_URCHIN') return t('living.speaker.urchin', 'Cornered Pickpocket');
+    if (type === 'BOASTFUL_DUELIST') return t('living.speaker.duelist', 'Boastful Duelist');
     return t('living.speaker.traveller', 'Traveller');
   },
   contractTarget: (type) => {

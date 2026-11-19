@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CATEGORIES, whereIs } from '../../src/ui/settings/settingsMap.js';
-import { FEATURES, featureForControl } from '../../src/systems/features.js';
-import { LivingTamrielConfig, PRESENCE, resetLivingConfig } from '../../src/systems/living/livingConfig.js';
+import { FEATURES, featureForControl, checkFeature } from '../../src/systems/features.js';
+import { LivingTamrielConfig, LIVING_LOCATION_COOLDOWN, PRESENCE, resetLivingConfig } from '../../src/systems/living/livingConfig.js';
 import { getPref, setPref } from '../../src/systems/uiPrefs.js';
 
 const rd = (relPath) => readFileSync(new URL('../../' + relPath, import.meta.url), 'utf8');
@@ -40,6 +40,7 @@ test('LT-07: Living Tamriel is a section in DFF settings tab at bottom', () => {
     'feat:lt-urban-loot',
     'feat:lt-wilderness-loot',
     'feat:lt-adventurer-loot',
+    'feat:lt-location-cooldown',
   ];
 
   for (const featId of expectedFeatures) {
@@ -170,10 +171,42 @@ test('LT-07: Localization keys for all living settings are registered in en and 
     'features.livingAdventurerLoot.supplies',
     'features.livingAdventurerLoot.standard',
     'features.livingAdventurerLoot.full',
+    'features.ltLocationCooldown.title',
+    'features.ltLocationCooldown.note',
+    'features.ltLocationCooldown.2h',
+    'features.ltLocationCooldown.8h',
+    'features.ltLocationCooldown.24h',
+    'features.ltLocationCooldown.3d',
   ];
 
   for (const k of requiredKeys) {
     assert.match(enCsv, new RegExp(`^${k.replace(/\./g, '\\.')},`, 'm'), `${k} missing in en catalog`);
     assert.match(ruCsv, new RegExp(`^${k.replace(/\./g, '\\.')},`, 'm'), `${k} missing in ru catalog`);
   }
+});
+
+test('Settlement event cooldown defaults to 3 days and persists valid tiers', () => {
+  const row = FEATURES.find((f) => f.id === 'lt-location-cooldown');
+  assert.ok(row && row.note.length <= 450);
+  assert.deepEqual(checkFeature(row), []);
+
+  resetLivingConfig();
+  assert.equal(LivingTamrielConfig.locationCooldownMinutes, LIVING_LOCATION_COOLDOWN.DAYS_3);
+  assert.equal(LivingTamrielConfig.locationCooldownMinutes, 4320);
+
+  LivingTamrielConfig.locationCooldownMinutes = 120;
+  assert.equal(getPref('livingLocationCooldown'), 120);
+  assert.equal(LivingTamrielConfig.locationCooldownMinutes, LIVING_LOCATION_COOLDOWN.HOURS_2);
+
+  LivingTamrielConfig.locationCooldownMinutes = '8h';
+  assert.equal(LivingTamrielConfig.locationCooldownMinutes, LIVING_LOCATION_COOLDOWN.HOURS_8);
+
+  LivingTamrielConfig.locationCooldownMinutes = '24h';
+  assert.equal(LivingTamrielConfig.locationCooldownMinutes, LIVING_LOCATION_COOLDOWN.HOURS_24);
+
+  setPref('livingLocationCooldown', '3d');
+  assert.equal(LivingTamrielConfig.locationCooldownMinutes, 4320);
+
+  resetLivingConfig();
+  assert.equal(LivingTamrielConfig.locationCooldownMinutes, 4320);
 });

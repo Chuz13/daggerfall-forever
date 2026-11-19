@@ -55,6 +55,29 @@ export const LIVING_ADVENTURER_LOOT = Object.freeze({
   FULL: 'full',       // 100% droppable loot (worn gear, artifacts, gold)
 });
 
+/** Cooldown options (in game minutes) shared across all settlement events. */
+export const LIVING_LOCATION_COOLDOWN = Object.freeze({
+  HOURS_2: 120,
+  HOURS_8: 480,
+  HOURS_24: 1440,
+  DAYS_3: 4320,
+});
+
+function parseLocationCooldown(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    const n = Math.round(v);
+    if (n === 120 || n === 480 || n === 1440 || n === 4320) return n;
+  }
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === '120' || s === '2h') return LIVING_LOCATION_COOLDOWN.HOURS_2;
+    if (s === '480' || s === '8h') return LIVING_LOCATION_COOLDOWN.HOURS_8;
+    if (s === '1440' || s === '24h' || s === '1d') return LIVING_LOCATION_COOLDOWN.HOURS_24;
+    if (s === '4320' || s === '72h' || s === '3d') return LIVING_LOCATION_COOLDOWN.DAYS_3;
+  }
+  return null;
+}
+
 function parseTierValue(v) {
   if (Number.isInteger(v)) return v;
   if (typeof v === 'string') {
@@ -194,6 +217,14 @@ export const LivingTamrielConfig = {
     setPref('livingAdventurerLootMode', String(v).toLowerCase());
   },
 
+  // Settlement event cooldown in game minutes (120 = 2h, 480 = 8h, 1440 = 24h, 4320 = 3d)
+  get locationCooldownMinutes() {
+    return parseLocationCooldown(getPref('livingLocationCooldown')) ?? LIVING_LOCATION_COOLDOWN.DAYS_3;
+  },
+  set locationCooldownMinutes(v) {
+    setPref('livingLocationCooldown', parseLocationCooldown(v) ?? LIVING_LOCATION_COOLDOWN.DAYS_3);
+  },
+
   // Tunables & Thresholds
   adventurerPoolPerRegion: 13,      // Default 13, configurable up to 30 for stress-tests
   navalSpawnDistanceMeters: 250,    // Spawn radius for naval encounters (200-300m)
@@ -223,6 +254,14 @@ export function getLivingEncounterScale() {
   if (v === LIVING_ENCOUNTER_SCALE.MID || v === 'mid' || v === 2) return LIVING_ENCOUNTER_SCALE.MID;
   if (v === LIVING_ENCOUNTER_SCALE.HIGH || v === 'high' || v === 4) return LIVING_ENCOUNTER_SCALE.HIGH;
   return LIVING_ENCOUNTER_SCALE.LOW;
+}
+
+/**
+ * Helper returning the configured settlement event cooldown in game minutes.
+ * @returns {number}
+ */
+export function getLivingLocationCooldownMinutes() {
+  return LivingTamrielConfig.locationCooldownMinutes;
 }
 
 /**
@@ -261,6 +300,7 @@ export function resetLivingConfig() {
   setPref('livingUrbanLootMode', LIVING_URBAN_LOOT.ZERO);
   setPref('livingWildernessLootMode', LIVING_WILDERNESS_LOOT.FULL);
   setPref('livingAdventurerLootMode', LIVING_ADVENTURER_LOOT.FULL);
+  setPref('livingLocationCooldown', LIVING_LOCATION_COOLDOWN.DAYS_3);
 
   LivingTamrielConfig.adventurerPoolPerRegion = 13;
   LivingTamrielConfig.navalSpawnDistanceMeters = 250;

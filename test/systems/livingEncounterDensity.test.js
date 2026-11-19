@@ -4,19 +4,25 @@ import assert from 'node:assert/strict';
 import {
   LivingTamrielConfig,
   LIVING_ENCOUNTER_SCALE,
+  LIVING_LOCATION_COOLDOWN,
   LIVING_URBAN_LOOT,
   LIVING_WILDERNESS_LOOT,
+  PRESENCE,
   getLivingEncounterScale,
   resetLivingConfig,
 } from '../../src/systems/living/livingConfig.js';
 import { planUrbanSkirmish } from '../../src/systems/living/urbanDirector.js';
 import {
+  createLivingSceneHost,
   buildLivingSiteBlueprint,
   rollLivingChunkCampRoster,
   rollLivingWildernessEncounter,
   executeLivingConsoleCommand,
+  locationEventCooldowns,
   LIVING_SITE_KINDS,
 } from '../../src/systems/living/livingWorldSpawner.js';
+import { setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from '../../src/systems/living/regionState.js';
+import { restoreLivingSaveData } from '../../src/systems/living/livingDirector.js';
 import { createNemesisHunter, NEMESIS_ARCHETYPES } from '../../src/systems/living/nemesisHost.js';
 import { ROAD_ADVENTURER_SITUATION } from '../../src/systems/living/adventurerSim.js';
 
@@ -50,6 +56,7 @@ test('LT-Density: Encounter scale and loot modes configuration', () => {
 
 test('LT-Density: Urban skirmish ranges scale across Low, Mid, and High', () => {
   const flatSampler = () => 10.0;
+  setRegionCrisis(17, CRISIS_TYPE.WAR, CRISIS_PHASE.MID);
 
   // LOW scale (x1)
   LivingTamrielConfig.encounterScale = LIVING_ENCOUNTER_SCALE.LOW;
@@ -58,6 +65,7 @@ test('LT-Density: Urban skirmish ranges scale across Low, Mid, and High', () => 
       centerX: 100,
       centerZ: 200,
       heightSampler: flatSampler,
+      regionIndex: 17,
     });
     assert.ok(plan);
     assert.ok(plan.guards.length >= 1 && plan.guards.length <= 2, `Expected 1..2 guards, got ${plan.guards.length}`);
@@ -71,6 +79,7 @@ test('LT-Density: Urban skirmish ranges scale across Low, Mid, and High', () => 
       centerX: 100,
       centerZ: 200,
       heightSampler: flatSampler,
+      regionIndex: 17,
     });
     assert.ok(plan);
     assert.ok(plan.guards.length >= 3 && plan.guards.length <= 6, `Expected 3..6 guards on MID, got ${plan.guards.length}`);
@@ -84,12 +93,14 @@ test('LT-Density: Urban skirmish ranges scale across Low, Mid, and High', () => 
       centerX: 100,
       centerZ: 200,
       heightSampler: flatSampler,
+      regionIndex: 17,
     });
     assert.ok(plan);
     assert.ok(plan.guards.length >= 6 && plan.guards.length <= 10, `Expected 6..10 guards on HIGH, got ${plan.guards.length}`);
     assert.ok(plan.rebels.length >= 8 && plan.rebels.length <= 14, `Expected 8..14 rebels on HIGH, got ${plan.rebels.length}`);
   }
 
+  setRegionCrisis(17, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
   resetLivingConfig();
 });
 
@@ -185,5 +196,89 @@ test('LT-Density: Console commands /living scale and /living loot', () => {
   assert.match(outLoot, /SUPPLIES/);
   assert.equal(LivingTamrielConfig.urbanLootMode, LIVING_URBAN_LOOT.SUPPLIES);
 
+  resetLivingConfig();
+});
+
+test('Settlement event cooldown setting, 40/60 quarantine split, and 65/35 peace roulette govern town spawns', () => {
+  restoreLivingSaveData(null);
+  resetLivingConfig();
+  locationEventCooldowns.clear();
+
+  let nowClock = 1000;
+  let seqIdx = 0;
+  let rngValues = [0.1, 0.1, 0.1, 0.1, 0.1];
+  const makeHost = () =>
+    createLivingSceneHost({
+      ready: () => true,
+      feet: () => [0, 0, 0],
+      heightAt: () => 0,
+      regionIndex: () => 17,
+      inLocationRect: () => true,
+      onRoad: () => true,
+      clock: () => nowClock,
+      locationRecord: () => ({ name: 'Daggerfall', locationType: 0, mapTableData: { mapId: 990101 } }),
+      playerEntity: () => ({ level: 8, goldPieces: 200 }),
+      spawn: async () => ({ entity: { team: 'Neutral', items: [] }, ai: { isHostile: false } }),
+      inPool: () => true,
+      remove: () => {},
+      say: () => {},
+      rng: () => {
+        const val = rngValues[seqIdx % rngValues.length];
+        seqIdx++;
+        return val;
+      },
+    });
+
+  // 1. Configurable settlement cooldown: 2h allows re-trigger after 120m while blocking at 60m
+  LivingTamrielConfig.urban = PRESENCE.HIGH;
+  LivingTamrielConfig.locationCooldownMinutes = LIVING_LOCATION_COOLDOWN.HOURS_2;
+  setRegionCrisis(17, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
+  const host = makeHost();
+
+  rngValues = [0.2, 0.2, 0.1, 0.2, 0.2];
+  seqIdx = 0;
+  host.frame(2.0);
+  assert.equal(host.shown()?.kind, LIVING_SITE_KINDS.PLEA_ENCOUNTER);
+  host.clear();
+
+  // Blocked at 60 min (< 120 min)
+  nowClock = 1060;
+  host.frame(2.0);
+  assert.equal(host.shown(), null);
+
+  // Allowed at 125 min (>= 120 min) -> Priority 3 angle consumes first rng, then >= 0.65 hits mundane skirmish
+  nowClock = 1125;
+  rngValues = [0.1, 0.85, 0.2, 0.2, 0.2];
+  seqIdx = 0;
+  host.frame(2.0);
+  assert.equal(host.shown()?.kind, LIVING_SITE_KINDS.URBAN_SKIRMISH);
+  host.clear();
+
+  // 3-day cooldown (4320) blocks after 1440 min and allows after 4325 min
+  LivingTamrielConfig.locationCooldownMinutes = LIVING_LOCATION_COOLDOWN.DAYS_3;
+  nowClock = 1125 + 1440;
+  host.frame(2.0);
+  assert.equal(host.shown(), null);
+
+  nowClock = 1125 + 4325;
+  // Plague 40/60 split: < 0.40 -> QUARANTINE_TENT
+  setRegionCrisis(17, CRISIS_TYPE.PLAGUE, CRISIS_PHASE.MID);
+  LivingTamrielConfig.quarantine = PRESENCE.HIGH;
+  rngValues = [0.2, 0.1, 0.1, 0.1];
+  seqIdx = 0;
+  host.frame(2.0);
+  assert.equal(host.shown()?.kind, LIVING_SITE_KINDS.QUARANTINE_TENT);
+  host.clear();
+
+  // Plague >= 0.40 falls through to Plague URBAN_SKIRMISH
+  locationEventCooldowns.clear();
+  rngValues = [0.6, 0.1, 0.1, 0.1];
+  seqIdx = 0;
+  host.frame(2.0);
+  assert.equal(host.shown()?.kind, LIVING_SITE_KINDS.URBAN_SKIRMISH);
+
+  host.clear();
+  locationEventCooldowns.clear();
+  setRegionCrisis(17, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
   resetLivingConfig();
 });
