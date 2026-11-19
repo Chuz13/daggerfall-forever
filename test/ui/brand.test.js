@@ -524,10 +524,21 @@ test('FORK-TASK2: FORK_FLAGS.TEXT_BRAND_MARK hides the DFO image mark in the mai
   assert.equal(imageMark.alt, NAME);
 });
 
-test('FORK-TASK-LAUNCHER-BRAND: launcher renders text brand mark and removes external website/discord links', () => {
+test('FORK-TASK-LAUNCHER-BRAND: launcher renders text brand mark and exposes Daggerfall Forever Documentation and Discord links', async () => {
   const html = read('app/launcher/index.html');
   assert.ok(html.includes(`<h1 class="wordmark"><span class="brand-text">${NAME}</span></h1>`));
+  assert.match(html, /<nav class="links caps" aria-label="Links">[\s\S]*?<button class="link" type="button" data-open="docs">Documentation<\/button>[\s\S]*?<button class="link" type="button" data-open="discord">Discord<\/button>[\s\S]*?<\/nav>/);
   assert.doesNotMatch(html, /data-open="site"/);
-  assert.doesNotMatch(html, /data-open="discord"/);
   assert.doesNotMatch(html, /daggerfalljs\.dev/);
+  const main = read('app/main.cjs');
+  const linksStart = main.indexOf('const LAUNCHER_LINKS = Object.freeze({');
+  const linksBlock = main.slice(linksStart, main.indexOf('});', linksStart) + 3);
+  assert.match(linksBlock, /docs:\s*'https:\/\/chuz13\.github\.io\/daggerfall-forever\/',/);
+  assert.match(linksBlock, /discord:\s*'https:\/\/discord\.gg\/cNKbHmS2k',/);
+  assert.doesNotMatch(linksBlock, /daggerfalljs\.dev|jM2JdwSM8w/);
+  const { bootLauncher } = await import('../launcherDom.mjs');
+  const p = bootLauncher();
+  p.doc.querySelector('[data-open="docs"]').click();
+  p.doc.querySelector('[data-open="discord"]').click();
+  assert.deepEqual(p.sent, [['open', 'docs'], ['open', 'discord']]);
 });
