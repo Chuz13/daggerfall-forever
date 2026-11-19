@@ -95,7 +95,7 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
 22. **Classic Entity & Monster AI**: `src/ai/` implements Daggerfall's classic enemy behavior tables, aggression checks, patrol routines, and combat maneuvers alongside DFU enhancements.
 23. **Classic Quest Engine**: `src/systems/quests/` and `vendor/dfu-quests/` decode and execute Bethesda's classic QBN/QRC quest scripts, maintaining compatibility with vanilla quests and custom DFU additions.
 24. **Daggerfall Character & Combat Math**: Authentic skill progression, attribute calculations, armor penetration, hit checks, and fatigue depletion are centralized in `src/characters/` and `src/combat/`.
-25. **Automated Probe Harness (Playwright)**: Standalone test pages (`cards.html`, `chargen.html`, `enhanced.html`, `delve.html`) pair with headless probes in `tools/*Probe.mjs` for visual regression and gameplay subsystem auditing.
+25. **Automated Probe Harness (Playwright)**: Standalone test pages (`cards.html`, `chargen.html`, `enhanced.html`, `delve.html`) pair with headless probes in `tools/*Probe.mjs` for visual regression and gameplay subsystem auditing. Live-world E2E probes reuse `tools/lib/liveE2e.mjs` (requiring `ARENA2_PATH=<dir>` in the shell environment; e.g. `tools/saveVitalsProbe.mjs` / `npm run savevitals`) to drive real browser clicks against `/play/?world`.
 26. **Fork Auto-Updater**: `app/lib/autoUpdate.cjs` and `app/lib/updateCheck.cjs` connect directly to GitHub releases for `Chuz13/daggerfall-forever`, supporting background downloads and safe self-swapping on restart.
 
 ---

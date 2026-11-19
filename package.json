@@ -49,6 +49,7 @@
     "load": "node tools/loadHarness.mjs",
     "acctcard": "node tools/accountCardProbe.mjs",
     "savetile": "node tools/saveTileProbe.mjs",
+    "savevitals": "node tools/saveVitalsProbe.mjs",
     "chargenphone": "node tools/chargenPhoneProbe.mjs",
     "gunsfx": "node tools/gunSfx.mjs && node tools/gunSfxInstall.mjs",
     "gunart": "node tools/gunPaperdoll.mjs",
