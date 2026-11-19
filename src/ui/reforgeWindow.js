@@ -766,6 +766,7 @@ export function mountReforgeWindow(host, deps) {
       row.dataset.set = s.set;
       const text = el('div', 'broker-offer-body');
       text.append(el('span', 'broker-set', s.pieces.map((p) => (p.found ? p.name : '?')).join(' · ')));
+      if (s.hint) text.append(el('span', 'broker-set', s.hint));
       row.append(text);
       list.append(row);
     }

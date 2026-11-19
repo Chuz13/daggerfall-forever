@@ -60,6 +60,7 @@ import { computeEntityMods } from './entityMods.js';
 import { announceRenownRise } from '../ui/levelUp/levelNotice.js';
 import { setHudRenown } from '../ui/hud/hudRenown.js';
 import { registerModSaveData } from './modSaveData.js';
+import { setSigilOfflineAwake, setSigilOfflineRenown } from './sigil/sigil.js';
 
 export const OFFLINE_FIRMAMENT_VENDOR = 'firmament';
 export const OFFLINE_FIRM_STORAGE_PREFIX = 'firm1.offline.';
@@ -82,6 +83,15 @@ export function offlineQuestXp(characterLevel, renown = null) {
 /** Whether the Firmament is enabled in offline play (fork flag + settings preference). */
 export function isOfflineFirmamentActive() {
   return !!FORK_FLAGS.ENABLE_OFFLINE_FIRMAMENT && getPref('offlineFirmament') !== false;
+}
+
+function syncOfflineSigils(renown) {
+  if (isOfflineFirmamentActive()) {
+    setSigilOfflineAwake(true);
+    setSigilOfflineRenown(Math.max(1, renown || 1));
+  } else {
+    setSigilOfflineAwake(false);
+  }
 }
 
 /**
@@ -298,6 +308,7 @@ export function initOfflineRenown({ playerEntity, firmBook, say = null }) {
   _activeRecord.renown = renown;
   setFirmamentOffline(true);
   setFirmamentTree(_activeRecord.tree ? unpackTree(_activeRecord.tree) : null);
+  syncOfflineSigils(renown);
   setRenownLayer(playerEntity, renown);
   computeEntityMods(playerEntity);
 
@@ -334,6 +345,7 @@ export function setOfflineFirmamentRenown(entity, targetLevel = 50, { resetTree 
     said: renown,
   };
   saveOfflineRecord(charId, _activeRecord);
+  syncOfflineSigils(renown);
   if (_activePlayerEntity) {
     setRenownLayer(_activePlayerEntity, renown);
   }
@@ -348,6 +360,11 @@ export function setOfflineFirmamentRenown(entity, targetLevel = 50, { resetTree 
   }
   _activeFirmBook?.read?.().catch(() => {});
   return { renown, xp, stars: starsFor(renown) };
+}
+
+/** Set offline Renown level directly without resetting the constellation tree. */
+export function setOfflineRenownLevel(targetLevel, entity = _activePlayerEntity) {
+  return setOfflineFirmamentRenown(entity, targetLevel, { resetTree: false });
 }
 
 /**
@@ -369,6 +386,7 @@ export function addOfflineRenownXp(amount) {
 
   if (newLevel > oldLevel) {
     const starsGained = starsFor(newLevel) - starsFor(oldLevel);
+    syncOfflineSigils(newLevel);
     announceRenownRise(newLevel, {
       stars: starsGained,
       say: _sayNotice,
@@ -383,26 +401,28 @@ export function addOfflineRenownXp(amount) {
   return amount;
 }
 
-/** Handle an offline foe death. */
+/** Handle an offline foe death. Returns Renown XP earned (0 if none). */
 export function onOfflineFoeKilled(foe) {
-  if (!isOfflineFirmamentActive() || !_activeRecord || !_activePlayerEntity) return;
+  if (!isOfflineFirmamentActive() || !_activeRecord || !_activePlayerEntity) return 0;
   const foeLevel = renownFoeLevel(foe);
   const currentRenown = _activeRecord.renown;
   const xp = offlineKillXp(foeLevel, currentRenown);
   if (xp > 0) {
     addOfflineRenownXp(xp);
   }
+  return xp;
 }
 
-/** Handle an offline quest completion. */
+/** Handle an offline quest completion. Returns Renown XP earned (0 if none). */
 export function onOfflineQuestEnded(playerEntity) {
-  if (!isOfflineFirmamentActive() || !_activeRecord) return;
+  if (!isOfflineFirmamentActive() || !_activeRecord) return 0;
   const charLevel = playerEntity?.level ?? 1;
   const currentRenown = _activeRecord.renown;
   const xp = offlineQuestXp(charLevel, currentRenown);
   if (xp > 0) {
     addOfflineRenownXp(xp);
   }
+  return xp;
 }
 
 // Register with DFU save manager
@@ -428,6 +448,7 @@ registerModSaveData(OFFLINE_FIRMAMENT_VENDOR, {
       const active = isOfflineFirmamentActive();
       setFirmamentOffline(active);
       setFirmamentTree(tree ? unpackTree(tree) : null);
+      syncOfflineSigils(renown);
       setRenownLayer(_activePlayerEntity, active ? renown : null);
       computeEntityMods(_activePlayerEntity);
     }
@@ -444,6 +465,7 @@ registerModSaveData(OFFLINE_FIRMAMENT_VENDOR, {
     if (isOfflineFirmamentActive()) {
       setFirmamentOffline(true);
     }
+    syncOfflineSigils(1);
     if (_activePlayerEntity) {
       setRenownLayer(_activePlayerEntity, 1);
       computeEntityMods(_activePlayerEntity);
@@ -501,4 +523,5 @@ export function _resetOfflineFirmamentForTests() {
   _activePlayerEntity = null;
   _activeFirmBook = null;
   _sayNotice = null;
+  setSigilOfflineAwake(false);
 }

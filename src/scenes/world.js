@@ -473,6 +473,12 @@ import { egRecapsKept } from '../ui/eliteGates/egHud.js';   // AUDIT EG V (c, L7
 import { registerEgFind, egFindThrow, egFindPlace } from '../systems/eliteGates/egFind.js';   // EG-E3: the dungeon's find; AUDIT RPT1026 K1: where it stands, the visit with the tier
 import { setSetPowersAllies, setSpireRecovery, spireRedoubtTaken } from '../systems/sigil/sigilSetPowers.js';   // EG15: the Reprieve's allies, the death saves held to a Redoubt in a breach
 import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, stonesText, brokerOwedDoor, brokerOwedText, emberHands } from '../systems/sigil/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks   // BROKER-RID (AUDIT FB1024): her two sales by their request ids, an unheard one owed and settled at her next open
+import {
+  offlinePanoplyRows, buyOfflinePanoply, starglassCount, spendableStarglassIn,
+  tradeableAethericsIn, exchangeStarglassForEmbers, exchangeStarglassForWitchPiece,
+  exchangeAethericForEmbers, exchangeEmberForPellets,
+} from '../systems/sigil/offlineBroker.js';
+import { rollOfflinePreApotheosisSpoils } from '../systems/offlineRelicLoot.js';
 import { drawGateBanner } from '../ui/gate/gateBanner.js';
 import { drawGateGround } from '../ui/gate/gateGroundView.js';   // WB9d: his ground's rim and warning - hidden with a held frame (the court draws it); SD15: and the Hour's
 import { drawGateDamageChart } from '../ui/gate/gateDamageChart.js';   // GATE-UX: the kill's damage chart (the court draws it - scenes/gate/gateCourt.js); a held frame hides it with the rest
@@ -885,7 +891,7 @@ import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, prebuildArmsForSave } from '../combat/weapon/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
 import { weaponPoseOf, applyWeaponPose, playerMeleeCanHit, registerPlayerSwingListener } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
 import { ArrowFlight, playerArrowHitFoe, shaftOnRelayBody } from '../combat/arrowFlight.js';   // C13: visible exterior arrows; AUDIT 39 (#64): and the shaft that LANDS
-import { addItem, addGoldPieces, isGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';
+import { addItem, addGoldPieces, isGoldPieces, spendAmmoFor, carriedWeight, registerTakeListener } from '../systems/inventory.js';
 import { guildCardRoll, guildNameOfFaction } from '../systems/card/cardSources.js';   // CARDS9: a guild quest's card
 import { mintIliacCard, iliacCardName } from '../systems/iliac/iliacItems.js';   // CARDS9: the card minted, and named as it is said
 import { storesIn, spendStore, mintStores } from '../systems/naval/navalStores.js';
@@ -9659,6 +9665,15 @@ export async function bootWorld(canvas, renderer, params, status) {
       addPileLootExtras(items, key, undefined, { level: playerEntity.level });   // THE MERGE (REALM P0.4): a hold is a pile - online, the level's gold divided back
       rollLootRarity(items, pileSource(tier), { luck: liveStat(playerEntity, 'luck') });   // LR1: every list a host mints, at its source
       stampWonWeapons(items, 1);   // NAV-D: a hold taken online - SIGIL1's sigils rolled at the mint, as a found pile's
+      if (!isOnlinePage() && !_onlineWorldSession()) {
+        for (const extra of rollOfflinePreApotheosisSpoils({
+          source: 'sea',
+          level: playerEntity?.level ?? 1,
+          tier,
+        })) {
+          addItem(items, extra);
+        }
+      }
       return items;
     },
     get online() {
@@ -20746,7 +20761,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       say: (t) => townTalk?.say?.(t),
     });
     setRenownKillHandler((foe) => {
-      onOfflineFoeKilled(foe);
+      const xp = onOfflineFoeKilled(foe);
+      if (xp > 0) sigilDrinks(xp);
     });
     const paid = new Set();
     renownQuestEnded = (q) => {
@@ -20754,9 +20770,20 @@ export async function bootWorld(canvas, renderer, params, status) {
       const key = String(q.uid ?? q.questName ?? '');
       if (!key || paid.has(key)) return;
       paid.add(key);
-      onOfflineQuestEnded(playerEntity);
+      const xp = onOfflineQuestEnded(playerEntity);
+      if (xp > 0) sigilDrinks(xp);
     };
   }
+  registerTakeListener('breachBook', (item) => {
+    if (!playerEntity || _onlineWorldSession()) return;
+    const book = breachBookFor(item);
+    if (book) {
+      playerEntity.items = playerEntity.items || [];
+      addItem(playerEntity.items, book);
+      townTalk?.say?.(BREACH_BOOK_TEXT);
+      surfacePlayer();
+    }
+  });
   // ACC4 (Mac: "time played to the icon profile"): THE WORLD IS WHERE
   // TIME IS PLAYED, so the clock starts here and not at the menu - once,
   // because bootWorld runs once per page. Online or not: a signed-in
@@ -25201,6 +25228,109 @@ export async function bootWorld(canvas, renderer, params, status) {
       wearer: playerEntity, nameOf: (item) => itemLongName(item),
       insignia: insigniaRows, insigniaLoad, buyInsignia: insigniaBuy, wearInsignia: insigniaWear, insigniaBusy: () => _insignia.busy,   // WB9g
       panoply: _accountEg ? panoplyDeps : null,   // EG-E1: THE BATTLEMAGE'S PANOPLY, once a week (online)
+    });
+    if (win) townTalk.showOverlay(win);
+  };
+  const covenBrokerBuy = (offer) => {
+    playerEntity.items = playerEntity.items || [];
+    const sale = makeBrokerSale(offer, {
+      items: playerEntity.items,
+      day: brokerDay(_brokerNow()),
+      canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
+    });
+    if (!sale.ok) return sale.reason === 'heavy' ? { ...sale, text: cannotCarryText() } : sale;
+    audio.playOneShot(SOUND.GoldPieces, 1);
+    surfacePlayer();
+    return sale;
+  };
+  const offlinePanoplyDeps = {
+    offline: true,
+    sub: t('broker.panoply.offlineSub', 'Pick any piece.'),
+    rows: () => offlinePanoplyRows(brokerDay(_brokerNow())),
+    busy: () => false,
+    buy: async (id) => {
+      playerEntity.items = playerEntity.items || [];
+      const r = buyOfflinePanoply(id, {
+        items: playerEntity.items,
+        day: brokerDay(_brokerNow()),
+        canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
+      });
+      if (!r.ok) {
+        if (r.reason === 'heavy') return { ok: false, text: cannotCarryText() };
+        if (r.reason === 'stones') return { ok: false, text: `You need ${stonesText(EG_SINK_EMBERS)}.` };
+        if (r.reason === 'bought') return { ok: false, text: t('broker.panoply.boughtToday', 'Bought today.') };
+        return { ok: false, text: 'The Broker will not sell that.' };
+      }
+      audio.playOneShot(SOUND.GoldPieces, 1);
+      surfacePlayer();
+      return { ok: true, text: `Bought: ${PANOPLY_NAMES[id] ?? r.item?.name ?? id}, for ${stonesText(EG_SINK_EMBERS)}.` };
+    },
+  };
+  const offlineCovenExchangeDeps = {
+    starglassCount: () => starglassCount(spendableStarglassIn(playerEntity.items ?? [])),
+    aetherics: () => tradeableAethericsIn(playerEntity.items ?? []),
+    glassToEmbers: () => {
+      playerEntity.items = playerEntity.items || [];
+      const r = exchangeStarglassForEmbers({
+        items: playerEntity.items,
+        canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
+      });
+      if (!r.ok) return r.reason === 'heavy' ? { ...r, text: cannotCarryText() } : r;
+      audio.playOneShot(SOUND.GoldPieces, 1);
+      surfacePlayer();
+      return r;
+    },
+    glassToWitch: () => {
+      playerEntity.items = playerEntity.items || [];
+      const r = exchangeStarglassForWitchPiece({
+        items: playerEntity.items,
+        canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
+      });
+      if (!r.ok) return r.reason === 'heavy' ? { ...r, text: cannotCarryText() } : r;
+      audio.playOneShot(SOUND.GoldPieces, 1);
+      surfacePlayer();
+      return r;
+    },
+    emberToPellets: () => {
+      playerEntity.items = playerEntity.items || [];
+      const r = exchangeEmberForPellets({
+        items: playerEntity.items,
+        canCarry: (item, rest) => planTake(item, { bag: rest, entity: playerEntity, dryRun: true }).ok,
+      });
+      if (!r.ok) return r.reason === 'heavy' ? { ...r, text: cannotCarryText() } : r;
+      audio.playOneShot(SOUND.GoldPieces, 1);
+      surfacePlayer();
+      return r;
+    },
+    tradeAetheric: (item) => {
+      playerEntity.items = playerEntity.items || [];
+      const r = exchangeAethericForEmbers(item, { items: playerEntity.items });
+      if (r.ok) {
+        audio.playOneShot(SOUND.GoldPieces, 1);
+        surfacePlayer();
+      }
+      return r;
+    },
+  };
+  const openCovenBroker = () => {
+    const onl = _onlineWorldSession();
+    const win = createBrokerOverlay({
+      stock: brokerStockNow,
+      day: () => brokerDay(_brokerNow()),
+      now: _brokerNow,
+      items: () => spendableStonesIn(playerEntity.items ?? []),
+      locked: () => stoneCount(lockedStonesIn(playerEntity.items ?? [])),
+      bought: () => brokerBought(brokerDay(_brokerNow())),
+      buy: covenBrokerBuy,
+      wearer: playerEntity,
+      nameOf: (item) => itemLongName(item),
+      insignia: onl ? insigniaRows : null,
+      insigniaLoad: onl ? insigniaLoad : null,
+      buyInsignia: onl ? insigniaBuy : null,
+      wearInsignia: onl ? insigniaWear : null,
+      insigniaBusy: () => _insignia.busy,
+      panoply: _accountEg ? panoplyDeps : offlinePanoplyDeps,
+      covenExchange: offlineCovenExchangeDeps,
     });
     if (win) townTalk.showOverlay(win);
   };
@@ -29793,6 +29923,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the instance, the duel's law while my bout stands, and where the way out of the instance lands (before the
     // Herald, facing the market)
     arenaHerald: () => arenaHerald(),
+    openCovenBroker: () => { openCovenBroker(); return true; },
     arenaRecruiter: (role) => arenaGate.recruiter(role),   // ARENA3: the Red and Blue Banners' recruiters
     arenaBookmaker: () => arenaGate.bookmaker(),   // ARENA3: the bookmaker's stall
     makeArenaWindow: (page) => arenaGate.windowOverlay(arenaOnline?.inSession?.() ? 'bouts' : page),   // ARENA3: the Arena window for another mode's slot (an interior's, a dungeon's); ARENA6: in a private session, its card's page
@@ -30216,6 +30347,30 @@ export async function bootWorld(canvas, renderer, params, status) {
       return playerTicker.classicMinutes;
     },
     getActiveFamily: () => legacyHost?.family ?? null,
+    openCovenBroker: () => { openCovenBroker(); return true; },
+    teleportToCoven: async () => {
+      const curPx = playerTravelPixel();
+      const curRegion = (() => { try { return maps.getRegionIndexAt(curPx.x, curPx.y); } catch { return -1; } })();
+      let best = null;
+      let bestScore = Infinity;
+      for (const [key, loc] of locationIndex.entries()) {
+        if (loc?.mapTableData?.locationType !== LOCATION_TYPES.Coven) continue;
+        const [px, py] = key.split(',').map(Number);
+        if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+        const sameReg = loc.regionIndex === curRegion ? 0 : 10_000_000;
+        const dist = (px - curPx.x) ** 2 + (py - curPx.y) ** 2;
+        const score = sameReg + dist;
+        if (score < bestScore) {
+          bestScore = score;
+          best = { px, py, name: loc.name || 'Witches Coven', region: REGION_NAMES[loc.regionIndex] ?? String(loc.regionIndex) };
+        }
+      }
+      if (!best) return null;
+      hudFade.smashHUDToBlack();
+      const ok = await teleportTo({ pixel: { x: best.px, y: best.py }, name: best.name }, { zoneFree: true });
+      if (!ok) hudFade.clearFade();
+      return ok ? best : null;
+    },
     triggerWildernessEncounter: (kind) => triggerWildernessEncounter(kind),
     triggerCrimeResponse: () => {
       const feet = walkMode && playerSpawned ? player.pos : cam.pos;

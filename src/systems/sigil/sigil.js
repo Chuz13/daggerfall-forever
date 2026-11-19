@@ -200,6 +200,7 @@ export function rollSigil(tier, party, rolls = Math.random) {
 // Set by the world host (scenes/world.js): `online` for a session that plays online (a weapon won then is won
 // online), the Renown the page knows (renownAdopt - the token's word and the service's since). Never saved.
 let _online = false;
+let _offlineAwake = false;
 let _renown = null;
 /** SET2's DUEL WORD (the host's - scenes/world.js duelFrame): the player stands in a duel - or, AUDIT 625 P2, in a bout
  *  between players on a relay's sand, where the opponent is a Daedra Lord's stand-in for the formulas and no player, so
@@ -213,13 +214,24 @@ export const sigilDueling = () => _dueling;
 /** The host's word: this session plays online (stamps are minted) or not. */
 export function setSigilOnline(on) {
   _online = !!on;
-  if (!_online) _renown = null;
+  if (!_online && !_offlineAwake) _renown = null;
 }
-/** The host's word: the Renown the wielder has, null while unknown. Offline it is always null. */
+/** DFF offline firmament word: sigils and sets wake offline using offline Firmament Renown without enabling online loot scaling. */
+export function setSigilOfflineAwake(on) {
+  _offlineAwake = !!on;
+  if (!_online && !_offlineAwake) _renown = null;
+}
+/** The host's word: the Renown the wielder has, null while unknown. */
 export function setSigilRenown(level) {
   _renown = _online && Number.isSafeInteger(level) && level >= 1 ? level : null;
 }
+/** Set active sigil Renown for offline Firmament mode when offline sigils are awake. */
+export function setSigilOfflineRenown(level) {
+  _renown = (_online || _offlineAwake) && Number.isSafeInteger(level) && level >= 1 ? level : null;
+}
 export const sigilOnline = () => _online;
+export const sigilActive = () => _online || (_offlineAwake && _renown != null);
+export const sigilOfflineAwake = () => !_online && _offlineAwake && _renown != null;
 export const sigilRenown = () => _renown;
 /** RENOWN-GATE (2026-10-12, the owner: "gate elite/revenant spawns behind renown level"; asked, offline "Unchanged
  *  offline"): DOES THE PAGE'S RENOWN OPEN WHAT WAITS FOR RENOWN `min`? Offline always - Renown is online's own and
@@ -366,6 +378,7 @@ export function sigilProgressText(v) {
 /** Tests only: forget the session and every weapon's carried fraction. */
 export function _resetSigilForTests() {
   _online = false;
+  _offlineAwake = false;
   _renown = null;
   _dueling = false;
   _carry = new WeakMap();

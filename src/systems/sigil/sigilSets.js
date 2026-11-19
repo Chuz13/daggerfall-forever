@@ -54,7 +54,7 @@ import {
   sigilParty,
   drinkSigil,
   sigilRiseLine,
-  sigilOnline,
+  sigilActive,
   sigilLines,
   sigilHasBlow,
   setSigilDueling,
@@ -978,9 +978,9 @@ export function setPlacesWorn(entity, id) {
     out[SET_BODY_SLOTS.length + 1] = true;
   return out;
 }
-/** Why every set sleeps now, or null while they wake: 'offline', 'renown' (online, my Renown not yet known), 'duel'. */
+/** Why every set sleeps now, or null while they wake: 'offline', 'renown' (my Renown not yet known), 'duel'. */
 export const setsSleep = () =>
-  !sigilOnline() ? 'offline' : sigilRenown() == null ? 'renown' : sigilDueling() ? 'duel' : null;
+  !sigilActive() ? 'offline' : sigilRenown() == null ? 'renown' : sigilDueling() ? 'duel' : null;
 
 /**
  * THE VIEW OF A SET PIECE'S SET for a wearer (the player by default): the set (`name`, `prince`, `role`, `colour`,

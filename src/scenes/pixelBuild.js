@@ -1411,21 +1411,36 @@ export function createPixelBuild(host) {
     // (StaticNPC.cs:185-194); loadFlats never throws and is warmed with
     // the scene, so this is a coalesced wait. The list rides the pixel,
     // so destroyPixel takes it away with everything else.
+    if (dfLocation?.mapTableData?.locationType === LOCATION_TYPES.Coven && pixelNpcFlats.length > 0 && !pixelNpcFlats.some((f) => f.sigilBroker)) {
+      const anchor = pixelNpcFlats[0];
+      const seducerTex = await getTexture(284).catch(() => null);
+      pixelNpcFlats.push({
+        ...anchor,
+        archive: seducerTex ? 284 : 179,
+        record: seducerTex ? 0 : 2,
+        x: anchor.x + 2.0,
+        y: anchor.y,
+        z: anchor.z,
+        factionID: 0,
+        flags: 0,
+        sigilBroker: true,
+      });
+    }
     await pipeline.loadFlats();
     const pixelNpcs = [];
     for (const flat of pixelNpcFlats) {
       // NUDE-FLATS: the picture (and so the box) is the clothed stand-in's
       // while Show Nudity is off - a coven's witches; the identity stays born.
-      const [drawArchive, drawRecord] = drawnFlat(flat.archive, flat.record);
+      const [drawArchive, drawRecord] = flat.sigilBroker ? [flat.archive, flat.record] : drawnFlat(flat.archive, flat.record);
       const t = await getTexture(drawArchive);
       if (!t || drawRecord >= t.recordCount) continue;
       const size = billboardSize(t, drawRecord);
-      const pn = exteriorNpcRecord(flat, pipeline.flatsFile()?.getFlatData(flat.archive, flat.record) ?? null);
+      const pn = exteriorNpcRecord(flat, flat.sigilBroker ? null : (pipeline.flatsFile()?.getFlatData(flat.archive, flat.record) ?? null));
       // E3: `active` is the GameObject's own state (the away arm's
       // SetActive(false)) and `questBehaviour` the component
       // SetupIndividualStaticNPC attaches; both are what the interior
       // host's people carry, so the click seam reads one shape.
-      pixelNpcs.push({ ...pn, drawArchive, drawRecord, width: size.w, height: size.h, active: true, questBehaviour: null, host: null, witch: flat.witch ?? null, ...(flat.witch ? { _mwLook: null } : {}) });   // WITCH1: a Wyrd Sister marked - and her own picture, never a Morrowind commoner's look (scenes/world.js streetLook)
+      pixelNpcs.push({ ...pn, drawArchive, drawRecord, width: size.w, height: size.h, active: true, questBehaviour: null, host: null, witch: flat.witch ?? null, sigilBroker: !!flat.sigilBroker, ...((flat.witch || flat.sigilBroker) ? { _mwLook: null } : {}) });   // WITCH1: a Wyrd Sister marked - and her own picture, never a Morrowind commoner's look (scenes/world.js streetLook)
       // The extent still belongs to the pixel's culling box even though
       // the billboard is batched later (a pixel whose only content near
       // an edge is a street NPC must not cull itself away).

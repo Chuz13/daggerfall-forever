@@ -343,6 +343,7 @@ import { createPopulationLane } from '../characters/npcBodies.js'; import { pers
 import { raiseEnemyDeath, playRareDrop, pileBody, sayEnemyDied, corpseEntityName, mintCorpseMarker, corpseTextureOf } from './corpseMarker.js';
 import { createDungeonCorpsePrefabs } from './corpsePrefabHost.js';   // DEX5 / AUDIT DEX D11: a mod's corpse prefab - the dungeon's reach   // UL1: OnEnemyDeath; LR3: the drop chime; LOOT-STACK: a body as the loot window's tab; LOOT7-CHECK DUNGEON-DIED: the kill notice; L10N3e: a body's name as shown
 import { egFindStruck, egFindKill } from '../systems/eliteGates/egFind.js';   // EG-E3: the dungeon's find - a joiner's kill, asked by the joiner; PARTY-LOOT: a room's body's kill
+import { rollOfflinePreApotheosisSpoils } from '../systems/offlineRelicLoot.js';
 import { rollCorpseKit, capFoeLoot, summonedWord, summonedRecord, markSummoned } from '../systems/foeLootCap.js';   // KIT-ROLL: a foe's kit, laddered at its death by every body door; AUDIT 625 L5: a copy's cap; RPT1026-PROGRESS: and a summon's puppet bare on every machine
 import { dropFoeCard } from '../systems/card/cardSources.js';   // AUDIT CARDS-6 A3: a joiner's copy of a body draws for its own card
 import { FOE_LEVEL_MAX, CELL_LOOSE_PUPPETS, sharedClassicMinutes, hitClassField, hitClassOf } from '../net/wire.js';   // TELL8: a blow's class on a hit   // SEARCH1: a room's search stamp, read as the world minute it was searched at   // AUDIT RENOWN1 GAME-3: the stream's bound on a class foe's level; SUMMON-SYNC: an owner's loose stands a reader stands, the cell's allowance
@@ -4262,6 +4263,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         const items = onlineRoom() ? [] : rollPileItems();
         if (_wildDungeon && !onlineRoom()) wildPileMore(items, rollPileItems, _wildRing);   // WILD1: the open zone's ring - its share of a second roll
         if (!onlineRoom()) seaPileMore(items, dfLocation);   // SEA-SET: an isle's ruin of the deep - the Tidemail's share, last
+        if (!isOnlinePage() && !onlineRoom()) {
+          for (const extra of rollOfflinePreApotheosisSpoils({
+            source: 'pile',
+            level: effectiveLevel(playerEntity),
+            dungeonType: dfLocation?.mapTableData?.dungeonType,
+            eliteDungeon: !!dfLocation?.elite,
+          })) {
+            addItem(items, extra);
+          }
+        }
         const stopKey = isRandom ? `${bi}:${m.position}` : null;   // LW14: a company's stop
         if (stopKey && _deepCleared.has(stopKey)) items.length = 0;   // LW14: a pile a company passed, picked over
         lootPiles.push({ pos: [m.x + b.originX, m.y, m.z + b.originZ], record, items, isFixed, batch: null });
@@ -6598,7 +6609,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         continue;
       }
       _lootSeen.delete(canon); _lootAt.delete(canon);
-      if (canon.startsWith('loot:')) { const i = Number(canon.slice(5)); const p = lootPiles[i]; if (p && Array.isArray(p.items) && p.items.length === 0) { p.items = rollPileItems(); if (_wildDungeon) wildPileMore(p.items, rollPileItems, _wildRing); seaPileMore(p.items, dfLocation); settleLootFlat(i); } }   // AUDIT WORLD7/8 C4: a pile the room EMPTIED - one with a remainder keeps it, as the apply's skip keeps the local list
+      if (canon.startsWith('loot:')) { const i = Number(canon.slice(5)); const p = lootPiles[i]; if (p && Array.isArray(p.items) && p.items.length === 0) { p.items = rollPileItems(); if (_wildDungeon) wildPileMore(p.items, rollPileItems, _wildRing); seaPileMore(p.items, dfLocation); if (!isOnlinePage()) { for (const extra of rollOfflinePreApotheosisSpoils({ source: 'pile', level: effectiveLevel(playerEntity), dungeonType: dfLocation?.mapTableData?.dungeonType, eliteDungeon: !!dfLocation?.elite })) addItem(p.items, extra); } settleLootFlat(i); } }   // AUDIT WORLD7/8 C4: a pile the room EMPTIED - one with a remainder keeps it, as the apply's skip keeps the local list
     }
     mintUnbornRoom(nowSeconds * 1000);   // PARTY-LOOT: every room container standing here with no terms gets them (on the sweep's own clock)
   }
@@ -7263,6 +7274,21 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       playRareDrop(audio, foe.ai.feet, foe.entity.items);   // LR3: the chime for a Rare or better on the body
       if (!_roomBody) stampWonWeapons(foe.entity.items, _sharedFoe(foe) ? fightN(foe) : 1);   // SIGIL1: the body's Magic+ weapons won online may carry a sigil; a bigger fight, better odds
       if (!_roomBody) raiseEnemyDeath(foe.entity, { luck: liveStat(playerEntity, 'luck'), by: foe._killedBy ?? null, feet: foe.ai?.feet ?? foe.pos, mobileType: foe.mobileType }); else egFindKill(foe.entity, foe._killedBy ?? null).catch(() => {});   // EG-E3: the striker the foes stream names (a joiner's kill is the joiner's find) - a room's body raises its death in the room's base, which the find never answers, so its kill asks here (PARTY-LOOT; systems/eliteGates/egFind.js); UL1: OnEnemyDeath (EnemyDeath.cs:139) - the kill, not the load's rewind. AUDIT VC6: the player's luck, which SURV2's food rolls against - this host keeps no loot stream of its own, so the roll stays Math.random as its spawn loot's is
+      if (!isOnlinePage() && !_roomBody && !foe.entity?.summoned && !foe.allied && foe.entity?.team !== 'PlayerAlly' && foe.entity?.mobileTeam !== 'PlayerAlly') {
+        const offlineExtras = rollOfflinePreApotheosisSpoils({
+          source: 'foe',
+          level: effectiveLevel(playerEntity),
+          dungeonType: dfLocation?.mapTableData?.dungeonType,
+          mobileType: foe.mobileType,
+          entity: foe.entity,
+          eliteDungeon: !!dfLocation?.elite,
+        });
+        if (offlineExtras.length) {
+          foe.entity.items ??= [];
+          for (const extra of offlineExtras) addItem(foe.entity.items, extra);
+          playRareDrop(audio, foe.ai.feet, offlineExtras);
+        }
+      }
       return;
     }
     // C15 knockback (WeaponManager.WeaponDamage): WEAPON hits carry

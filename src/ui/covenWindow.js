@@ -33,7 +33,8 @@
 // (:84, :90, :96, :102) are now the table's answers. The correction
 // the flag was hiding: Summon was on S, and the table says D.
 
-import { loadImg, nativeMetrics, drawImg, shadowText } from './native/nativePanel.js';
+import { loadImg, nativeMetrics, drawImg, drawRect, shadowText } from './native/nativePanel.js';
+import { t } from '../systems/textManager.js';
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { audio } from '../systems/audio.js'; // F141: the ButtonClick roster
 import { SOUND } from '../systems/soundClips.js';
@@ -66,6 +67,7 @@ export const COVEN_RECTS = Object.freeze({
   quest: [5, 23, 120, 7],
   exit: [44, 33, 43, 15],
 });
+export const COVEN_BROKER_RECT = Object.freeze([0, COVEN_PANEL_H + 3, COVEN_PANEL_W, 13]);
 
 let _art = null;
 /** BOX1: the test seam every other art-gated window carries. */
@@ -161,6 +163,12 @@ export class CovenWindow {
       this._close();
       return;
     }
+    if (this.hooks.onBroker && code === 'KeyB') {
+      audio.playOneShot(SOUND.ButtonClick, 1);
+      this._close();
+      this.hooks.onBroker();
+      return;
+    }
     // D1: the four Hotkeys, from the table, in DFU's button ADD order.
     // Each fires the SAME handler its click does, sound and all.
     switch (firstHotkey(COVEN_BUTTONS, code, e)) {
@@ -221,6 +229,12 @@ export class CovenWindow {
       this._close();
       return true;
     }
+    if (this.hooks.onBroker && inRect(COVEN_BROKER_RECT, vx, vy)) {
+      audio.playOneShot(SOUND.ButtonClick, 1);
+      this._close();
+      this.hooks.onBroker();
+      return true;
+    }
     return false;
   }
 
@@ -234,6 +248,14 @@ export class CovenWindow {
     // visible behind the panel (the AUDIT 26 F136 law).
     drawScreenDimBackdrop(renderer, canvas);
     drawImg(renderer, _art.base, m, COVEN_PANEL_X, COVEN_PANEL_Y);
+    if (this.hooks.onBroker && !this.top) {
+      const [bx, by, bw, bh] = COVEN_BROKER_RECT;
+      drawRect(renderer, m, COVEN_PANEL_X + bx, COVEN_PANEL_Y + by, bw, bh, [0.1, 0.08, 0.06, 0.92]);
+      shadowText(renderer, font, t('coven.sigilBrokerClassic', 'Sigil Broker [B]'), m, COVEN_PANEL_X + bx, COVEN_PANEL_Y + by + 3, {
+        align: 'center',
+        w: bw,
+      });
+    }
     const top = this.top;
     if (noticeFrame(this, top && top.buttons !== 'YesNo' ? latchBoxRows(top, this.hooks.rows) : null)) {
       this._box = null;

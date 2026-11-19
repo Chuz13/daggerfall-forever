@@ -62,6 +62,9 @@ import { isEquipped, equipTableOf } from '../equip.js';
 import { itemIsIdentified } from '../tradeModes.js';
 import { totalGoldAmount, deductGold } from '../court.js';
 import { shardsHeld, spendShards } from '../reforge.js';
+import { sigilOfflineAwake } from '../sigil/sigil.js';
+import { t } from '../textManager.js';
+import { setRelicCodexBridge } from '../offlineRelicLoot.js';
 
 // ── the record ──────────────────────────────────────────────────────
 /** `{ legendary: { id: day }, aetheric: { id: day }, gilded: { id: day } }` - what this character has found, and the
@@ -162,6 +165,7 @@ registerTakeListener(CODEX, (item) => {
 registerMagicRoundHook(CODEX, (entity) => {
   if (entity?.isPlayer) sweepCodex(entity);
 });
+setRelicCodexBridge({ foundDay, noteFind });
 
 // ── the page ────────────────────────────────────────────────────────
 /** Where a family's records are said to be. */
@@ -175,14 +179,53 @@ export const FAMILY_HINT = Object.freeze({
   rogue: 'Said to pass among thieves and assassins',
   warrior: 'Said to be borne by warriors and knights',
 });
+const OFFLINE_SET_HINT_DEFAULTS = Object.freeze({
+  ruhn: 'Drops in Volcanic Caves, Desecrated Temples, and from Daedra or high undead (Lv 12+).',
+  panoply: 'Drops in Volcanic Caves, Desecrated Temples, or bought for Embers at Coven Sigil Brokers.',
+  wyrd: "Drops in Witches' Covens or woven from Starfall Glass at Coven Sigil Brokers (Lv 12+).",
+  starspun: "Drops in Witches' Covens or woven from Starfall Glass at Coven Sigil Brokers (Lv 12+).",
+  numidium: 'Drops in Dwemer Laboratories, Mines, and from Dwarven constructs (Lv 12+).',
+  orcsbane: 'Drops in Orc Strongholds and from Orc elites (Lv 12+).',
+  oath: 'Drops in Human Strongholds, Ruined Castles, and from knightly foes (Lv 12+).',
+  thieftaker: 'Drops in Prisons, Barbarian Strongholds, and from rogues or assassins (Lv 12+).',
+  coilscale: 'Drops in Natural Caves, sea holds, and from Dreugh or Lamia (Lv 12+).',
+  eltheric: 'Drops in Natural Caves, Prisons, and sea holds (Lv 12+).',
+});
+
+const OFFLINE_GILDED_HINT_DEFAULTS = Object.freeze({
+  'the-hourlock': 'Rare boss trophy in Dwemer Laboratories and Mines (Lv 16+).',
+  'the-dragonfire-oath': "Rare trophy from Daedra Lords, Dragon's Dens, and Desecrated Temples (Lv 16+).",
+  'the-sunken-sovereign': 'Rare plunder in Sea Holds, Prisons, Natural Caves, and Sea Monsters (Lv 16+).',
+  'volendrungs-echo': 'Rare boss trophy in Dwemer Laboratories, Mines, and Dwarven constructs (Lv 16+).',
+  'the-ketchmasters-word': 'Rare pirate plunder in Sea Holds, Prisons, and Natural Caves (Lv 16+).',
+});
+
+/** Offline in-game discovery hint for an Aetheric set ID. */
+export function aethericSetHint(set) {
+  const def = OFFLINE_SET_HINT_DEFAULTS[set];
+  return def ? t(`codex.setHint.${set}`, def) : '';
+}
+
+function offlineLegendaryHint(id) {
+  if (id === 'the-last-lock') {
+    return t('codex.legendary.lastLockOffline', 'Rare Dwarven gun from Laboratories, Mines, Constructs, and Sea Holds (Lv 10+).');
+  }
+  if (id === 'resonant-maul') {
+    return t('codex.legendary.resonantMaulOffline', 'Rare boss trophy in Dwemer Laboratories, Mines, and Dwarven constructs (Lv 16+).');
+  }
+  return null;
+}
+
 /** The codex's Legendary rows, the table's order: `{ id, name, group, found, day, hint, power }` - a found record's
  *  name and power, an unfound one's name withheld ("A Legendary of the weapons") and its hint. AUDIT LOOT F8: EVERY
  *  record the tables hold - the thirty and a registered one (the Thunderlock's Last Lock), whose find the codex already
  *  took and said - a record of no family saying its own `hint`. */
 export function codexRows() {
+  const offlineAwake = sigilOfflineAwake();
   return allLegendaries().map((r) => {
     const day = foundDay('legendary', r.id);
     const p = powerOf(r.id);
+    const offHint = offlineAwake ? offlineLegendaryHint(r.id) : null;
     return {
       id: r.id,
       kind: 'legendary',
@@ -190,21 +233,22 @@ export function codexRows() {
       group: r.group,
       found: day != null,
       day,
-      hint: FAMILY_HINT[foundAmong(r.id)] ?? r.hint ?? '',
+      hint: offHint ?? FAMILY_HINT[foundAmong(r.id)] ?? r.hint ?? '',
       power: day != null ? p : null,
       lore: day != null ? r.lore : null,
     };
   });
 }
-/** The Aetheric sets' rows: `{ set, pieces: [{ id, name, found, day }] }`, in the records' order. */
+/** The Aetheric sets' rows: `{ set, pieces: [{ id, name, found, day }], hint }`, in the records' order. */
 export function codexSets() {
+  const offlineAwake = sigilOfflineAwake();
   const sets = new Map();
   for (const r of AETHERIC_RECORDS) {
     if (!sets.has(r.set)) sets.set(r.set, []);
     const day = foundDay('aetheric', r.id);
     sets.get(r.set).push({ id: r.id, name: day != null ? r.name : null, found: day != null, day });
   }
-  return [...sets].map(([set, pieces]) => ({ set, pieces }));
+  return [...sets].map(([set, pieces]) => ({ set, pieces, hint: offlineAwake ? aethericSetHint(set) : '' }));
 }
 /** GILDED1: where a Gilded record is said to be - the Hourlock's, the Brass Remnant's spoils (systems/superDungeon/sdSpoils.js). GILDED2:
  *  a record that says its own (`hint` - the gate's Warden's, the Old Coil's) is said by it. */
@@ -212,9 +256,11 @@ export const GILDED_HINT = 'Said to lie in the brass of the Hour, once in a long
 /** GILDED1: the Gilded rows, the records' order: `{ id, kind, name, group, found, day, hint, power, lore }` - as a
  *  Legendary's row is, a found one whole and an unfound one by its hint alone. */
 export function codexGilded() {
+  const offlineAwake = sigilOfflineAwake();
   return GILDED_RECORDS.map((r) => {
     const day = foundDay('gilded', r.id),
       found = day != null;
+    const offDef = offlineAwake ? OFFLINE_GILDED_HINT_DEFAULTS[r.id] : null;
     return {
       id: r.id,
       kind: 'gilded',
@@ -222,7 +268,7 @@ export function codexGilded() {
       group: r.group,
       found,
       day,
-      hint: r.hint ?? GILDED_HINT,
+      hint: offDef ? t(`codex.gilded.${r.id}`, offDef) : (r.hint ?? GILDED_HINT),
       power: found ? r.power : null,
       lore: found ? r.lore : null,
     };

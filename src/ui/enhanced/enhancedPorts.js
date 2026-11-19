@@ -13,6 +13,7 @@
 
 import { isEnhancedPlus } from '../../systems/uiSkin.js';   // PLUS1: the ported windows are Enhanced Plus's
 import { isOnlinePage } from '../../systems/online/onlineLane.js';   // EMPIRE-BANK
+import { t } from '../../systems/textManager.js';
 import { EMPIRE_BANK_OF } from '../../world/buildingNames.js';
 import { portWindow, centreOf } from './enhancedPort.js';
 import { itemIconUrl, itemName, spellIconUrl, paintFrame } from './enhancedArt.js';
@@ -78,6 +79,7 @@ const coven = {
         { label: 'Talk', act: press(COVEN_RECTS.talk) },
         { label: 'Summon daedra', act: press(COVEN_RECTS.summon), primary: true },
         { label: 'Quest', act: press(COVEN_RECTS.quest) },
+        ...(w.hooks.onBroker ? [{ label: t('coven.sigilBroker', 'Sigil Broker'), act: () => { w._close(); w.hooks.onBroker(); } }] : []),
       ] }],
       foot: [{ label: 'Exit', act: press(COVEN_RECTS.exit) }],
     };

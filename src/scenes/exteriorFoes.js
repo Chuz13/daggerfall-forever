@@ -95,6 +95,7 @@ import { reportPlayerKill, killFxOf } from '../systems/playerKills.js';   // SET
 import { peerEffectWorn } from '../net/peer/peerEffects.js';   // STOREFRONT: a peer's spared revenant rises through its owner's portal skin
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, foeFightersUpTo, takeWholeBlow, PARTY_ME } from '../systems/party/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { stampWonWeapons, lootRarityOn } from '../systems/loot/lootRarity.js';   // SIGIL1: a body's weapons won online; BAL3: the ladder's switch, the wilds' threat's
+import { rollOfflinePreApotheosisSpoils } from '../systems/offlineRelicLoot.js';
 import { corpseName, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js'; import { questFoeSubs } from '../systems/quest/questFoeLine.js';   // QUEST-FOE-LINE: a quest's foe says whose it is; WORLD-HOVER: "<who> (dead)", the mod's own word (.cs:526); H2: and a LIVE one's, when it is not hostile (.cs:304-312)
 import { enemyDisplayName } from '../characters/enemy/enemyBasics.js';   // the port's own name, the index law in one place (a LIVE one's fallback)
 import { bloodCentre } from './hitEffects.js';   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
@@ -1145,6 +1146,18 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       rollCorpseKit(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a plain foe's kit, worn by nobody now, on its ladder - before the sigils and the chime read the body
       stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds
       raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck'), feet: f.ai?.feet ?? f.pos, mobileType: f.mobileType });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
+      if (!isOnlinePage() && !f.puppet && !f.entity?.summoned && !f.allied && f.entity?.team !== 'PlayerAlly') {
+        const offlineExtras = rollOfflinePreApotheosisSpoils({
+          source: 'foe',
+          level: playerEntity?.level ?? 1,
+          mobileType: f.mobileType,
+          entity: f.entity,
+        }, rolls);
+        if (offlineExtras.length) {
+          f.entity.items ??= [];
+          for (const extra of offlineExtras) addItem(f.entity.items, extra);
+        }
+      }
       // AUDIT 24 (wave 38): EnemyDeath.CompleteDeath, through the one
       // home. This pool minted the marker inline at f.ai.feet - so a
       // flying encounter foe left its corpse hanging in the air where
