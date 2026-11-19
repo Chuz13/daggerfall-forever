@@ -4215,6 +4215,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     freeLodgedFeet: (feet, opts) => (collider ? freeLodgedFeet(collider, feet, opts) : false),
         playerEntity,
         nowMinutes: skyMinutes(),
+        climateIndex: (() => {
+          const px = playerTravelPixel();
+          return px && maps?.getClimateIndex ? maps.getClimateIndex(px.x, px.y) : null;
+        })(),
         sceneHost: livingSceneHostOf(),
         triggerEncounter: (kind) => triggerWildernessEncounter(kind),
       }),

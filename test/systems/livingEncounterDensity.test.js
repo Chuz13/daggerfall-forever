@@ -282,3 +282,45 @@ test('Settlement event cooldown setting, 40/60 quarantine split, and 65/35 peace
   setRegionCrisis(17, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
   resetLivingConfig();
 });
+
+test('Console /living spawn urban, plea aliases, and /living cooldown commands', () => {
+  resetLivingConfig();
+  locationEventCooldowns.clear();
+
+  let lastSite = null;
+  const ctx = {
+    regionIndex: 17,
+    playerFeet: [100, 0, 200],
+    heightAt: () => 0,
+    playerEntity: { level: 6, goldPieces: 200 },
+    nowMinutes: 1500,
+    climateIndex: 231,
+    sceneHost: { standBlueprint: (bp) => { lastSite = bp; } },
+  };
+
+  const outRat = executeLivingConsoleCommand(['spawn', 'urban', 'EVT_PLAGUE_RAT_SWARM'], ctx);
+  assert.match(outRat, /URBAN_SKIRMISH \[EVT_PLAGUE_RAT_SWARM/);
+  assert.equal(lastSite?.meta?.event?.id, 'EVT_PLAGUE_RAT_SWARM');
+
+  const outDrunk = executeLivingConsoleCommand(['spawn', 'plea', 'drunk'], ctx);
+  assert.match(outDrunk, /PLEA_ENCOUNTER \[DRUNKEN_BRAWLER\]/);
+  assert.equal(lastSite?.meta?.plea?.type, 'DRUNKEN_BRAWLER');
+
+  const outCart = executeLivingConsoleCommand(['spawn', 'plea', 'cart'], ctx);
+  assert.match(outCart, /PLEA_ENCOUNTER \[BROKEN_CART_MERCHANT\]/);
+  assert.equal(lastSite?.meta?.plea?.type, 'BROKEN_CART_MERCHANT');
+
+  const outCd = executeLivingConsoleCommand(['cooldown', '2h'], ctx);
+  assert.match(outCd, /120m/);
+  assert.equal(LivingTamrielConfig.locationCooldownMinutes, LIVING_LOCATION_COOLDOWN.HOURS_2);
+
+  locationEventCooldowns.set('test_map', 1000);
+  const outClear = executeLivingConsoleCommand(['cooldown', 'clear'], ctx);
+  assert.match(outClear, /Cleared/);
+  assert.equal(locationEventCooldowns.size, 0);
+
+  const outStatus = executeLivingConsoleCommand(['status'], ctx);
+  assert.match(outStatus, /cooldown=120m/);
+
+  resetLivingConfig();
+});

@@ -3089,19 +3089,12 @@ export function createLivingSceneHost(deps) {
               const score = checkRes.rollResult?.totalScore ?? 50;
               const dc = checkRes.rollResult?.targetScore ?? c.skillCheck?.target ?? 50;
               if (!checkRes.passed) {
-                s.skirmishStance = 'chaos';
                 if (checkRes.hostileToPlayer) {
-                  for (const f of s.foes) {
-                    if (f?.ai) {
-                      f.ai.isHostile = true;
-                      f.ai.detected = true;
-                      const player = deps.playerEntity();
-                      f.ai.target = player;
-                      f.ai.targetSenses = player;
-                    }
-                  }
+                  s.skirmishStance = 'both_hostile';
+                  retargetSkirmishFoes(s);
                   deps.say(LIVING_WORDS.rollCriticalFailure(score, dc), 5);
                 } else {
+                  s.skirmishStance = 'chaos';
                   retargetSkirmishFoes(s);
                   deps.say(LIVING_WORDS.rollFailure(score, dc), 5);
                 }
@@ -3639,7 +3632,7 @@ export function createLivingSceneHost(deps) {
             if (a.suppressInfighting || a.role === 'bandit_camp') {
               rec.entity.suppressInfighting = true;
             }
-            if (blueprint.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
+            if (blueprint.kind === LIVING_SITE_KINDS.WAR_SKIRMISH || blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
               rec.entity.skirmishNeutralToPlayer = true;
               rec.entity.skirmishForceInfighting = true;
             }
@@ -4123,18 +4116,44 @@ export function createLivingSceneHost(deps) {
           }
           retargetSkirmishFoes(stood);
           if (stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
+            const guards = stood.foes.filter((f) => f?.livingRole === 'skirmish_guard');
             const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
-            if (rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r))) {
-              stood.orderRestored = true;
-              const regIdx = deps.regionIndex();
-              const contractRes = completeRegionalCrisisContract(regIdx, deps.playerEntity());
-              if (contractRes) {
-                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                deps.say(contractRes.message, 6);
-              } else {
-                onContractCompleted(regIdx);
-                deps.say(LIVING_WORDS.urbanOrderRestored(), 5);
+            const guardsDead = guards.length > 0 && guards.every((g) => g.dead || !deps.inPool(g));
+            const rebelsDead = rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r));
+            const calmUrbanSurvivors = (list) => {
+              for (const u of list) {
+                if (!u || u.dead) continue;
+                if (u.entity) {
+                  u.entity.skirmishNeutralToPlayer = true;
+                  u.entity.skirmishForceInfighting = false;
+                }
+                if (u.ai) {
+                  u.ai.isHostile = false;
+                  u.ai.detected = false;
+                  u.ai.target = null;
+                  u.ai.secondaryTarget = null;
+                  u.ai.targetSenses = null;
+                  u.ai.idle = true;
+                }
               }
+            };
+            if (rebelsDead) {
+              stood.orderRestored = true;
+              calmUrbanSurvivors(guards);
+              if (stood.skirmishStance !== 'rebels' && stood.skirmishStance !== 'chaos') {
+                const regIdx = deps.regionIndex();
+                const contractRes = completeRegionalCrisisContract(regIdx, deps.playerEntity());
+                if (contractRes) {
+                  deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                  deps.say(contractRes.message, 6);
+                } else {
+                  onContractCompleted(regIdx);
+                  deps.say(LIVING_WORDS.urbanOrderRestored(), 5);
+                }
+              }
+            } else if (guardsDead) {
+              stood.orderRestored = true;
+              calmUrbanSurvivors(rebels);
             }
           } else {
             const warDesc = stood.blueprint.meta?.warDesc;
@@ -4314,7 +4333,7 @@ export function createLivingSceneHost(deps) {
         return false;
       }
       if (stood?.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
-        if (stood.skirmishStance === 'chaos' || stood.skirmishStance === 'rebels') {
+        if (stood.skirmishStance === 'chaos' || stood.skirmishStance === 'rebels' || stood.skirmishStance === 'both_hostile') {
           return false;
         }
       }
@@ -4787,7 +4806,7 @@ export function executeLivingConsoleCommand(args, ctx) {
     return (
       `[Living Tamriel] Region ${regIdx} (${regState.regionName}): crises=[${crisisStr}], ` +
       `tension=${regState.tension.toFixed(1)}, ` +
-      `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}`
+      `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}, cooldown=${getLivingLocationCooldownMinutes()}m`
     );
   }
 
@@ -4801,6 +4820,18 @@ export function executeLivingConsoleCommand(args, ctx) {
     const cur = getLivingEncounterScale();
     const name = cur === LIVING_ENCOUNTER_SCALE.LOW ? 'LOW (x1)' : (cur === LIVING_ENCOUNTER_SCALE.HIGH ? 'HIGH (x4)' : 'MID (x2)');
     return `[Living Tamriel] Encounter mass scale: ${name} (multiplier: ${cur}x).`;
+  }
+
+  if (sub === 'cooldown') {
+    const val = cleanArgs[1]?.toLowerCase();
+    if (val === 'clear' || val === 'reset') {
+      locationEventCooldowns.clear();
+      return `[Living Tamriel] Cleared all settlement event cooldown timers (setting: ${getLivingLocationCooldownMinutes()}m).`;
+    }
+    if (val) {
+      LivingTamrielConfig.locationCooldownMinutes = cleanArgs[1];
+    }
+    return `[Living Tamriel] Settlement event cooldown: ${getLivingLocationCooldownMinutes()}m (active location timers: ${locationEventCooldowns.size}).`;
   }
 
   if (sub === 'loot') {
@@ -4958,6 +4989,7 @@ export function executeLivingConsoleCommand(args, ctx) {
       caravan: LIVING_SITE_KINDS.TRAVELER_REST,
       quarantine: LIVING_SITE_KINDS.QUARANTINE_TENT,
       quarantine_tent: LIVING_SITE_KINDS.QUARANTINE_TENT,
+      urban: LIVING_SITE_KINDS.URBAN_SKIRMISH,
       urban_skirmish: LIVING_SITE_KINDS.URBAN_SKIRMISH,
       skirmish: LIVING_SITE_KINDS.URBAN_SKIRMISH,
       nemesis_ambush: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
@@ -4971,6 +5003,18 @@ export function executeLivingConsoleCommand(args, ctx) {
       naval_squadron: LIVING_SITE_KINDS.NAVAL_SQUADRON,
       naval: LIVING_SITE_KINDS.NAVAL_SQUADRON,
     };
+    const pleaAliasMap = {
+      drunk: PLEA_TYPE.DRUNKEN_BRAWLER,
+      cart: PLEA_TYPE.BROKEN_CART_MERCHANT,
+      hound: PLEA_TYPE.STRAY_HOUND_HANDLER,
+      preacher: PLEA_TYPE.STREET_PREACHER,
+      urchin: PLEA_TYPE.ACCUSED_URCHIN,
+      duelist: PLEA_TYPE.BOASTFUL_DUELIST,
+      plague: PLEA_TYPE.PLAGUE_CURE,
+      famine: PLEA_TYPE.FAMINE_BREAD,
+      refugee: PLEA_TYPE.WAR_REFUGEE,
+      escort: PLEA_TYPE.ESCORT_REQUEST,
+    };
     const rawKind = String(cleanArgs[1] ?? 'checkpoint').toLowerCase();
     const mapped = aliasMap[rawKind] || rawKind.toUpperCase();
     const validKind = Object.values(LIVING_SITE_KINDS).includes(/** @type {any} */ (mapped))
@@ -4981,8 +5025,12 @@ export function executeLivingConsoleCommand(args, ctx) {
     }
     const feet = ctx?.playerFeet ?? [0, 0, 0];
     const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
-    const safe = findSafeSiteCenter(ctx, feet, 14, Math.PI * 0.25, 4.0);
-    const rawDetail = cleanArgs[2] ? String(cleanArgs[2]).trim().toUpperCase() : null;
+    const spawnDist = validKind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ? 8 : 14;
+    const safe = findSafeSiteCenter(ctx, feet, spawnDist, Math.PI * 0.25, 4.0);
+    const rawDetail = cleanArgs[2] ? String(cleanArgs[2]).trim() : null;
+    const resolvedPlea = rawDetail
+      ? (pleaAliasMap[rawDetail.toLowerCase()] ?? rawDetail.toUpperCase())
+      : null;
     const bp = buildLivingSiteBlueprint({
       kind: validKind,
       centerX: safe.x,
@@ -4992,14 +5040,21 @@ export function executeLivingConsoleCommand(args, ctx) {
       playerEntity: ctx?.playerEntity ?? null,
       nowMinutes: ctx?.nowMinutes ?? 0,
       onRoad: true,
-      forcedEventId: validKind === LIVING_SITE_KINDS.URBAN_SKIRMISH ? rawDetail : null,
-      forcedPleaType: validKind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ? rawDetail : null,
+      climateIndex: ctx?.climateIndex ?? null,
+      forcedEventId: validKind === LIVING_SITE_KINDS.URBAN_SKIRMISH && rawDetail ? rawDetail.toUpperCase() : null,
+      forcedPleaType: validKind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ? resolvedPlea : null,
     });
     if (!bp) {
       return `[Living Tamriel] Could not spawn ${validKind} at current spot (terrain steep or not streamed).`;
     }
     ctx?.sceneHost?.standBlueprint?.(bp);
-    return `[Living Tamriel] Spawned ${validKind} (${bp.meshes.length} meshes, ${bp.flats.length} flats, ${bp.actors.length} actors).`;
+    let detailTag = '';
+    if (validKind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
+      detailTag = ` [${bp.meta?.event?.id ?? 'default'} / ${bp.meta?.propTheme ?? 'default'}]`;
+    } else if (validKind === LIVING_SITE_KINDS.PLEA_ENCOUNTER) {
+      detailTag = ` [${bp.meta?.plea?.type ?? 'default'}]`;
+    }
+    return `[Living Tamriel] Spawned ${validKind}${detailTag} (${bp.meshes.length} meshes, ${bp.flats.length} flats, ${bp.actors.length} actors).`;
   }
 
   if (sub === 'encounter') {
@@ -5050,6 +5105,6 @@ export function executeLivingConsoleCommand(args, ctx) {
     return `[Living Roll: ${res.formulaId}] Skill=${res.skill}, Stat=${res.stat}, Luck=${res.luck}, d100=${res.roll} -> Total=${res.totalScore} vs Target=${res.targetScore} (Margin=${res.margin >= 0 ? '+' : ''}${res.margin}) => ${res.degree}`;
   }
 
-  return 'Usage: /living <status | traits [0..3|off|light|mid|high] | crisis <TYPE> [PHASE] | [site] spawn <KIND> | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | roll [Skill] [DC] [Formula] | formulas | quest>';
+  return 'Usage: /living <status | cooldown [2h|8h|24h|3d|clear] | scale [low|mid|high] | loot [zero|supplies|full] | traits [0..3|off|light|mid|high] | crisis <TYPE> [PHASE] | [site] spawn <KIND> [DETAIL] | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | roll [Skill] [DC] [Formula] | formulas | quest>';
 }
 
