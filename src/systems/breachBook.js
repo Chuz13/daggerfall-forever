@@ -34,4 +34,11 @@ registerModSaveData(BREACH_BOOK_SAVE_VENDOR, {
   restoreSaveData: (r) => {
     _given = r?.given === true;
   },
+  newGame: () => {
+    _given = false;
+  },
 });
+
+export function _resetBreachBookForTests() {
+  _given = false;
+}

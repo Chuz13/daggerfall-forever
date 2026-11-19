@@ -54078,5 +54078,215 @@
   "en": "83c6a3eab9ec",
   "tr": "53807276fa2c",
   "by": "claude-in-session"
+ },
+ "broker.npc.name": {
+  "en": "aa440653bcfd",
+  "tr": "b88327695683",
+  "by": "claude-in-session"
+ },
+ "broker.needMore": {
+  "en": "2ac92bb92097",
+  "tr": "2f0a1c0dce5d",
+  "by": "claude-in-session"
+ },
+ "broker.panoply.offlineSub": {
+  "en": "8b787b3e7a2a",
+  "tr": "4634b57e46b3",
+  "by": "claude-in-session"
+ },
+ "broker.panoply.offlineCard": {
+  "en": "ede53f30a05e",
+  "tr": "166373add183",
+  "by": "claude-in-session"
+ },
+ "broker.panoply.boughtToday": {
+  "en": "912ef3c18e3b",
+  "tr": "aa0b54248cc0",
+  "by": "claude-in-session"
+ },
+ "broker.coven.head": {
+  "en": "cd3f72d4784e",
+  "tr": "99cb7c7e2680",
+  "by": "claude-in-session"
+ },
+ "broker.coven.sub": {
+  "en": "a0afaac953d0",
+  "tr": "540dea3b5205",
+  "by": "claude-in-session"
+ },
+ "broker.coven.glassEmbers": {
+  "en": "00a872167a3f",
+  "tr": "10774e09bf57",
+  "by": "claude-in-session"
+ },
+ "broker.coven.glassEmbersSub": {
+  "en": "c686d054d713",
+  "tr": "f2b2fc09ad5e",
+  "by": "claude-in-session"
+ },
+ "broker.coven.glassPrice": {
+  "en": "2cd56448e33e",
+  "tr": "798a1d91a228",
+  "by": "claude-in-session"
+ },
+ "broker.coven.tradeBtn": {
+  "en": "b0811e470d6b",
+  "tr": "d7f1f768481c",
+  "by": "claude-in-session"
+ },
+ "broker.coven.glassWitch": {
+  "en": "c8249965c177",
+  "tr": "98d2db53db5f",
+  "by": "claude-in-session"
+ },
+ "broker.coven.glassWitchSub": {
+  "en": "23388be55434",
+  "tr": "e0d10b7f3f88",
+  "by": "claude-in-session"
+ },
+ "broker.coven.emberPellets": {
+  "en": "e7b61e0abfe0",
+  "tr": "50dfaaae9372",
+  "by": "claude-in-session"
+ },
+ "broker.coven.emberPelletsSub": {
+  "en": "7b3106c49e6d",
+  "tr": "068589601b0f",
+  "by": "claude-in-session"
+ },
+ "broker.coven.buyBtn": {
+  "en": "7ceca51fcafe",
+  "tr": "6f2a161fa205",
+  "by": "claude-in-session"
+ },
+ "broker.coven.aethericSub": {
+  "en": "56c9e5a1903f",
+  "tr": "1a21c5aedd60",
+  "by": "claude-in-session"
+ },
+ "broker.coven.confirmBtn": {
+  "en": "04a212215ef9",
+  "tr": "468266d639b5",
+  "by": "claude-in-session"
+ },
+ "broker.coven.confirmPrompt": {
+  "en": "8ae8eeb38068",
+  "tr": "fa8a3ea00902",
+  "by": "claude-in-session"
+ },
+ "broker.coven.gotEmbers": {
+  "en": "80d79bbec0ca",
+  "tr": "13de04e726fa",
+  "by": "claude-in-session"
+ },
+ "broker.coven.gotWitchPiece": {
+  "en": "0f49ced8f0a8",
+  "tr": "809a0a21a595",
+  "by": "claude-in-session"
+ },
+ "broker.coven.tradedAetheric": {
+  "en": "b491198a6626",
+  "tr": "0821bd0f33d3",
+  "by": "claude-in-session"
+ },
+ "broker.coven.gotPellets": {
+  "en": "039cbf1a95d0",
+  "tr": "4892b9c08c9c",
+  "by": "claude-in-session"
+ },
+ "coven.sigilBroker": {
+  "en": "aa440653bcfd",
+  "tr": "b88327695683",
+  "by": "claude-in-session"
+ },
+ "coven.sigilBrokerClassic": {
+  "en": "b21672ea51a4",
+  "tr": "08e3bdb10520",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.ruhn": {
+  "en": "b6ab2b3ef1df",
+  "tr": "860826485b80",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.panoply": {
+  "en": "6be3df410b7b",
+  "tr": "03c56de0866f",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.wyrd": {
+  "en": "53f16240bdbf",
+  "tr": "4405d953f8bc",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.starspun": {
+  "en": "53f16240bdbf",
+  "tr": "4405d953f8bc",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.numidium": {
+  "en": "20784b685952",
+  "tr": "7c6847a4ef92",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.orcsbane": {
+  "en": "3f32caf03f9f",
+  "tr": "9579b267815e",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.oath": {
+  "en": "8f6d1180d358",
+  "tr": "ff538db61822",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.thieftaker": {
+  "en": "5bd36e98c59b",
+  "tr": "7f489fa3d620",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.coilscale": {
+  "en": "601556c57d18",
+  "tr": "d84a6029d7c4",
+  "by": "claude-in-session"
+ },
+ "codex.setHint.eltheric": {
+  "en": "68d5d74a0756",
+  "tr": "0ef100ae6f9f",
+  "by": "claude-in-session"
+ },
+ "codex.gilded.the-hourlock": {
+  "en": "7a5339d7e38d",
+  "tr": "e4d9debe59b5",
+  "by": "claude-in-session"
+ },
+ "codex.gilded.the-dragonfire-oath": {
+  "en": "d250c512f882",
+  "tr": "5ba105f04b5c",
+  "by": "claude-in-session"
+ },
+ "codex.gilded.the-sunken-sovereign": {
+  "en": "419d382f763c",
+  "tr": "c47be0157b4a",
+  "by": "claude-in-session"
+ },
+ "codex.gilded.volendrungs-echo": {
+  "en": "f3c3ba6f4939",
+  "tr": "2bee79f737f3",
+  "by": "claude-in-session"
+ },
+ "codex.gilded.the-ketchmasters-word": {
+  "en": "25575faa59ce",
+  "tr": "403d7c294177",
+  "by": "claude-in-session"
+ },
+ "codex.legendary.lastLockOffline": {
+  "en": "023fcf689b51",
+  "tr": "23c6026d51c7",
+  "by": "claude-in-session"
+ },
+ "codex.legendary.resonantMaulOffline": {
+  "en": "f3c3ba6f4939",
+  "tr": "b48043cf2be8",
+  "by": "claude-in-session"
  }
 }

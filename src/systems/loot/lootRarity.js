@@ -84,7 +84,7 @@ import { SKILL_NAMES, SKILL_COUNT, SKILLS, MAGIC_SKILLS } from '../skills.js';
 import { weaponSkillUsed } from '../../characters/weapons.js';   // LOOT1: a weapon's skill affix leans to the skill that swings it
 import { ENCHANTMENT_TYPES } from '../../formats/magicDef.js';
 import { enchantmentName, enchantmentParamName } from '../enchantmentCatalogue.js';
-import { rollSigil, sigilOnline, SIGIL_BANDS } from '../sigil/sigil.js';   // SIGIL1: a weapon won online may carry a sigil
+import { rollSigil, sigilActive, SIGIL_BANDS } from '../sigil/sigil.js';   // SIGIL1: a weapon won online or offline (when Renown awake) may carry a sigil
 import { SLOT_RULES, WEAPON_HANDS } from '../../characters/equipRules.js';   // LOOT14: a garment's slot - the feet lean to the feet's skills; GEM1: a weapon's hands, its sockets
 import { THUNDERLOCK_TEMPLATE } from '../../characters/thunderlockIds.js';   // GEM1: the Thunderlock holds a two-hander's sockets - a leaf with no imports
 import { dressClassOf } from '../clothingStanding.js';   // LOOT14: a garment's standing leans to its dress
@@ -2310,7 +2310,7 @@ export function rollCorpseLoot(entity, basics, { rolls = Math.random, luck = 50,
  *  piece of ARMOUR and every SHIELD rolls a set sigil by the same chance law (systems/sigil/sigilSets.js rollSetSigil),
  *  under the same nevers: a quest's item, an artifact, a piece that already carries one. */
 export function stampWonWeapons(items, fighters = 1, { rolls = Math.random } = {}) {
-  if (!sigilOnline() || !lootRarityOn() || !Array.isArray(items)) return 0;
+  if (!sigilActive() || !lootRarityOn() || !Array.isArray(items)) return 0;
   let n = 0;
   const fresh = [];
   for (const it of items) {

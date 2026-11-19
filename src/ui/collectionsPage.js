@@ -268,6 +268,7 @@ function drawCodexPart(detail, rerender, { el, divider }) {
       if (i) p.append(el('span', null, ' · '));
       p.append(el('span', x.found ? null : 'unfound', x.found ? x.name : '?'));
     });
+    if (s.hint) p.append(el('div', 'codex-hint', s.hint));
     detail.append(p);
   }
 }

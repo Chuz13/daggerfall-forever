@@ -278,8 +278,9 @@ const armoryKept = () =>
  *   insignia?: (() => Array<{ id: string, kind: string, key: string, price: number, name: string, owned: boolean, worn: boolean }>) | null,
  *   insigniaLoad?: (() => Promise<void>) | null, buyInsignia?: ((row: any) => Promise<{ ok: boolean, text?: string|null }>) | null,
  *   wearInsignia?: ((row: any) => Promise<{ ok: boolean, text?: string|null }>) | null, insigniaBusy?: (() => boolean) | null, preview?: ((canvas: HTMLCanvasElement, aura: string|null, kit?: string|null) => Promise<{ stop: () => void }|null>) | null,
- *   panoply?: { rows: () => Array<{ id: string, name: string, kind?: string, bought: boolean, spent: boolean }>,
+ *   panoply?: { offline?: boolean, sub?: string | null, rows: () => Array<{ id: string, name: string, kind?: string, bought: boolean, spent: boolean }>,
  *     buy: (id: string) => Promise<{ ok: boolean, text?: string|null }>, load?: (() => Promise<void>) | null, busy?: (() => boolean) | null } | null,
+ *   covenExchange?: { starglassCount?: () => number, aetherics?: () => any[], glassToEmbers?: () => any, glassToWitch?: () => any, emberToPellets?: () => any, tradeAetheric?: (item: any) => any } | null,
  * }} deps
  *   WB9g: `insignia` the Broker's insignia as the account holds them (net/insignia.js - the host's rows, the service's word),
  *   `insigniaLoad` asked once as the window opens (the account's wardrobe), `buyInsignia` and `wearInsignia` the account's
@@ -303,6 +304,7 @@ export function mountBrokerWindow(host, deps) {
    *  whose sale is in flight; a Panoply sale holds every other sale, as an insignia's does (AUDIT WB9 F2) */
   let pickedPan = null,
     pendingPan = null;
+  let confirmTradeItem = null;
   const outer = deps;
   deps = { ...outer, insigniaBusy: () => !!outer.insigniaBusy?.() || pendingPan !== null || !!outer.panoply?.busy?.() };
   /** The last press's word, and whether it was a sale (a refusal is read in the refusal's colour). */
@@ -533,7 +535,7 @@ export function mountBrokerWindow(host, deps) {
       head.setAttribute('role', 'presentation');
       head.append(
         el('span', 'broker-insignia-title', PANOPLY_HEAD),
-        el('span', 'broker-set', `${stonesText(EG_SINK_EMBERS)}. ${PANOPLY_SUB}`),
+        el('span', 'broker-set', `${stonesText(EG_SINK_EMBERS)}. ${deps.panoply?.sub ?? PANOPLY_SUB}`),
       );
       list.append(head);
       const have = brokerOfferState(null, state).have,
@@ -547,7 +549,7 @@ export function mountBrokerWindow(host, deps) {
         row.setAttribute('aria-pressed', panPick?.id === p.id ? 'true' : 'false');
         row.setAttribute(
           'aria-label',
-          `${p.name}, ${stonesText(EG_SINK_EMBERS)}${p.bought ? ', bought this week' : ''}`,
+          `${p.name}, ${stonesText(EG_SINK_EMBERS)}${p.bought ? (deps.panoply?.offline ? ', bought today' : ', bought this week') : ''}`,
         );
         // the piece's kind in its tile, as a ware with no picture is drawn (its records are the host's, never this window's)
         const frame = el('span', 'broker-frame');
@@ -568,7 +570,7 @@ export function mountBrokerWindow(host, deps) {
         const price = el('span', 'broker-price', p.bought ? 'Bought' : stonesText(EG_SINK_EMBERS));
         const btn = el('button', 'act broker-buy', panoplyLabel(p, { have, pending: pendingPan === p.id }));
         btn.setAttribute('type', 'button');
-        const why = panoplyWhy(p, have);
+        const why = deps.panoply?.offline && p.bought ? t('broker.panoply.boughtToday', 'Bought today.') : panoplyWhy(p, have);
         if (why || busy) btn.setAttribute('disabled', '');
         if (why) btn.setAttribute('title', why);
         btn.onclick = (e) => {
@@ -603,6 +605,141 @@ export function mountBrokerWindow(host, deps) {
           pickedInsig = null;
           render({ reveal: true });
         });
+        list.append(row);
+      }
+    }
+    // DFF COVEN EXCHANGE: offline Starfall Glass -> Embers / Witch Set, Ember -> Dwemer Pellets, Duplicate Aetheric -> Embers
+    const cx = deps.covenExchange;
+    if (cx) {
+      const glassHave = Number(cx.starglassCount?.() ?? 0);
+      const embersHave = brokerOfferState(null, state).have;
+      const busyCx = !!pendingInsig || pendingPan !== null || !!deps.insigniaBusy?.();
+      const cxHead = el('li', 'broker-insignia-head');
+      cxHead.setAttribute('role', 'presentation');
+      cxHead.append(
+        el('span', 'broker-insignia-title', t('broker.coven.head', 'Coven Exchange')),
+        el('span', 'broker-set', t('broker.coven.sub', 'Starfall Glass: {n}', { n: glassHave })),
+      );
+      list.append(cxHead);
+
+      const addExchangeRow = ({ code, titleText, subText, priceText, needCount, haveCount, btnText, act }) => {
+        const row = el('li', `broker-offer${haveCount >= needCount ? '' : ' no-stones'}`);
+        const frame = el('span', 'broker-frame');
+        frame.append(el('span', 'tile', code));
+        const textEl = el('div', 'broker-offer-body');
+        textEl.append(el('span', 'broker-name', titleText), el('span', 'broker-set', subText));
+        const priceEl = el('span', 'broker-price', priceText);
+        const canAct = haveCount >= needCount && !busyCx;
+        const label =
+          haveCount >= needCount
+            ? btnText
+            : t('broker.needMore', 'Need {n} more', { n: needCount - haveCount });
+        const btn = el('button', 'act broker-buy', label);
+        btn.setAttribute('type', 'button');
+        if (busyCx) btn.setAttribute('disabled', '');
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          if (busyCx) return;
+          confirmTradeItem = null;
+          const done = act();
+          note = done?.ok
+            ? { ok: true, text: done.text ?? '' }
+            : { ok: false, text: done?.text ?? BROKER_REFUSALS[done?.reason] ?? 'The Broker refuses.' };
+          render();
+        };
+        if (!canAct && !busyCx) {
+          refusePress(btn, subText, refused);
+        }
+        row.append(frame, textEl, priceEl, btn);
+        list.append(row);
+      };
+
+      if (cx.glassToEmbers) {
+        addExchangeRow({
+          code: 'SG',
+          titleText: t('broker.coven.glassEmbers', 'Offer Starfall Glass'),
+          subText: t('broker.coven.glassEmbersSub', '1 Starfall Glass → 2 Deadlands Embers'),
+          priceText: t('broker.coven.glassPrice', '{n} Starfall Glass', { n: 1 }),
+          needCount: 1,
+          haveCount: glassHave,
+          btnText: t('broker.coven.tradeBtn', 'Trade'),
+          act: () => cx.glassToEmbers(),
+        });
+      }
+      if (cx.glassToWitch) {
+        addExchangeRow({
+          code: 'WY',
+          titleText: t('broker.coven.glassWitch', 'Weave of the Coven'),
+          subText: t('broker.coven.glassWitchSub', "5 Starfall Glass → Unfound Wyrd / Starspun piece"),
+          priceText: t('broker.coven.glassPrice', '{n} Starfall Glass', { n: 5 }),
+          needCount: 5,
+          haveCount: glassHave,
+          btnText: t('broker.coven.tradeBtn', 'Trade'),
+          act: () => cx.glassToWitch(),
+        });
+      }
+      if (cx.emberToPellets) {
+        addExchangeRow({
+          code: 'DP',
+          titleText: t('broker.coven.emberPellets', 'Dwemer Foundry Shot'),
+          subText: t('broker.coven.emberPelletsSub', '1 Deadlands Ember → 25 Dwemer Pellets'),
+          priceText: stonesText(1),
+          needCount: 1,
+          haveCount: embersHave,
+          btnText: t('broker.coven.buyBtn', 'Buy'),
+          act: () => cx.emberToPellets(),
+        });
+      }
+      const tradeables = cx.aetherics?.() ?? [];
+      for (const item of tradeables) {
+        const row = el('li', 'broker-offer');
+        row.dataset.rarity = 'aetheric';
+        const frame = el('span', 'broker-frame');
+        frame.dataset.rarity = 'aetheric';
+        const tile = el('span', 'tile');
+        const pic = picture?.(item) ?? null;
+        if (pic && typeof pic === 'object') tile.append(fittedImg(pic));
+        else if (pic) {
+          const img = el('img');
+          img.setAttribute('src', pic);
+          img.setAttribute('alt', '');
+          tile.append(img);
+        } else tile.textContent = 'AE';
+        frame.append(tile);
+        const textEl = el('div', 'broker-offer-body');
+        textEl.append(
+          el('span', 'broker-name', nameOf(item)),
+          el('span', 'broker-set', t('broker.coven.aethericSub', 'Trade Aetheric duplicate for 4 Embers')),
+        );
+        const priceEl = el('span', 'broker-price', `+${stonesText(4)}`);
+        const armed = confirmTradeItem === item;
+        const btn = el(
+          'button',
+          'act broker-buy',
+          armed ? t('broker.coven.confirmBtn', 'Confirm') : t('broker.coven.tradeBtn', 'Trade'),
+        );
+        btn.setAttribute('type', 'button');
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          if (confirmTradeItem !== item) {
+            confirmTradeItem = item;
+            note = {
+              ok: true,
+              text: t('broker.coven.confirmPrompt', 'Click Confirm to trade {name} for 4 Deadlands Embers.', {
+                name: nameOf(item),
+              }),
+            };
+            render();
+            return;
+          }
+          confirmTradeItem = null;
+          const done = cx.tradeAetheric(item);
+          note = done?.ok
+            ? { ok: true, text: done.text ?? '' }
+            : { ok: false, text: done?.text ?? 'Cannot trade that piece.' };
+          render();
+        };
+        row.append(frame, textEl, priceEl, btn);
         list.append(row);
       }
     }
@@ -643,17 +780,19 @@ export function mountBrokerWindow(host, deps) {
       card.append(
         el('h3', null, panPick.name),
         el('p', 'insignia-what', PANOPLY_CARD[0]),
-        el('p', 'insignia-kept', PANOPLY_CARD[1]),
+        el('p', 'insignia-kept', deps.panoply?.offline ? t('broker.panoply.offlineCard', 'Available at Coven Sigil Brokers. One of each piece per day, of your choosing.') : PANOPLY_CARD[1]),
       );
       card.append(
         el(
           'p',
           'boundline',
-          panPick.bought
-            ? 'Bought this week.'
-            : panPick.spent
-              ? "This week's piece is bought. Come back next week."
-              : `${stonesText(EG_SINK_EMBERS)}. One a week.`,
+          deps.panoply?.offline
+            ? (panPick.bought ? t('broker.panoply.boughtToday', 'Bought today.') : `${stonesText(EG_SINK_EMBERS)}.`)
+            : panPick.bought
+              ? 'Bought this week.'
+              : panPick.spent
+                ? "This week's piece is bought. Come back next week."
+                : `${stonesText(EG_SINK_EMBERS)}. One a week.`,
         ),
       );
       body.append(card);

@@ -151,7 +151,7 @@ import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { MATERIAL_NAMES } from './mods/modDataSync.js';
 import { computeEntityMods } from './entityMods.js';
 import { SKILLS } from './skills.js';
-import { getActiveRecord as getActiveFirmRecord, saveOfflineRecord as saveFirmRecord, addOfflineRenownXp } from './offlineFirmament.js';
+import { getActiveRecord as getActiveFirmRecord, saveOfflineRecord as saveFirmRecord, addOfflineRenownXp, setOfflineRenownLevel } from './offlineFirmament.js';
 import { renownForXp, renownXpFor, renownProgress } from '../net/renown.js';
 import { setFirmamentTree } from './firmamentLive.js';
 import { characterIdOf } from './characterId.js';
@@ -212,6 +212,23 @@ import { clearRegionalCheckpointPass } from './living/roadCheckpointHost.js';
 import { SOCIAL_GROUPS } from '../formats/factionFile.js';
 import { changeReputation } from './faction/factionRep.js';
 import { markStolen } from './stolenGoods.js';
+import { equipTableOf } from './equip.js';
+import { EQUIP_SLOTS } from '../characters/paperdoll/paperdoll.js';
+import { itemLongName } from './item/itemInfo.js';
+import { sigilActive, sigilRenown } from './sigil/sigil.js';
+import { drinkWorn, wornSets } from './sigil/sigilSets.js';
+import { AETHERIC_RECORDS, mintAetheric } from './aetheric.js';
+import { GILDED_RECORDS, mintGilded } from './gilded.js';
+import { mintResonantMaul } from './pass/resonantMaul.js';
+import { EG_LORD_ARMS, egLordArm } from './eliteGates/egLordArms.js';
+import { BOSS_CARDS } from './bossCards.js';
+import { mintIliacCard, giveBinderGift } from './iliac/iliacItems.js';
+import { sigilStone, isSigilStone } from './gate/gateSpoils.js';
+import { starglass, isStarglass } from './starfall/starglass.js';
+import { createPellets, PELLET_TEMPLATE } from './thunderlock.js';
+import { breachBookFor, BREACH_BOOK_TEXT } from './breachBook.js';
+import { DUNGEON_TYPES } from '../formats/mapsFile.js';
+import { rollOfflinePreApotheosisSpoils, mintOfflineGun, noteRelicFind } from './offlineRelicLoot.js';
 
 let _sceneContext = null;
 /** Register active scene debug context (player control, enemy pools, travel). */
@@ -1485,8 +1502,19 @@ function handleFirmamentCommand(args = []) {
       `Renown XP: ${rec?.xp ?? 0} (${prog.into}/${prog.need})`,
       `Stars Total: ${stars}`,
       `Craft Points: ${craft}`,
+      `Sigils Active: ${sigilActive()} (Renown ${sigilRenown() ?? 'none'})`,
       `Active Tree Perks: ${rec?.tree ? 'Configured' : 'Empty'}`,
     ].join('\n');
+  }
+  if (sub === 'setrenown') {
+    const lvl = parseInt(args[1], 10);
+    if (Number.isNaN(lvl) || lvl < 1 || lvl > 50) return 'Usage: firmament setrenown <1..50>';
+    const updated = setOfflineRenownLevel(lvl, playerEntity);
+    if (playerEntity) {
+      computeEntityMods(playerEntity);
+      surfacePlayer();
+    }
+    return `Offline Firmament Renown set to ${updated.renown} (XP ${updated.xp}). Sigils active: ${sigilActive()} (Renown ${sigilRenown() ?? 'none'}).`;
   }
   if (sub === 'addstars') {
     const count = parseInt(args[1], 10);
@@ -1513,10 +1541,234 @@ function handleFirmamentCommand(args = []) {
     saveFirmRecord(null, rec);
     return 'Firmament constellation passive tree has been reset (full respec).';
   }
-  return 'Usage: firmament <status | addstars <n> | addpoints <n> | addxp <n> | reset>';
+  return 'Usage: firmament <status | setrenown <1..50> | addstars <n> | addpoints <n> | addxp <n> | reset>';
 }
-registerCommand('firmament', 'Manage offline Firmament stars and Renown: firmament <status|addstars|addpoints|addxp|reset>', 'firmament <status|addstars <n>|addpoints <n>|addxp <n>|reset>', handleFirmamentCommand);
-registerCommand('firm', 'Manage offline Firmament stars and Renown: firm <status|addstars|addpoints|addxp|reset>', 'firm <subcommand>', handleFirmamentCommand);
+registerCommand('firmament', 'Manage offline Firmament stars and Renown: firmament <status|setrenown|addstars|addpoints|addxp|reset>', 'firmament <status|setrenown <1..50>|addstars <n>|addpoints <n>|addxp <n>|reset>', handleFirmamentCommand);
+registerCommand('firm', 'Manage offline Firmament stars and Renown: firm <status|setrenown|addstars|addpoints|addxp|reset>', 'firm <subcommand>', handleFirmamentCommand);
+
+const RELIC_ZONE_MAP = Object.freeze({
+  coven: DUNGEON_TYPES.Coven,
+  lab: DUNGEON_TYPES.Laboratory,
+  laboratory: DUNGEON_TYPES.Laboratory,
+  mine: DUNGEON_TYPES.Mine,
+  orc: DUNGEON_TYPES.OrcStronghold,
+  human: DUNGEON_TYPES.HumanStronghold,
+  prison: DUNGEON_TYPES.Prison,
+  castle: DUNGEON_TYPES.RuinedCastle,
+  volcanic: DUNGEON_TYPES.VolcanicCaves,
+  temple: DUNGEON_TYPES.DesecratedTemple,
+  dragon: DUNGEON_TYPES.DragonsDen,
+  cave: DUNGEON_TYPES.NaturalCave,
+  crypt: DUNGEON_TYPES.Crypt,
+  vampire: DUNGEON_TYPES.VampireHaunt,
+  barbarian: DUNGEON_TYPES.BarbarianStronghold,
+});
+
+const AETHERIC_SET_IDS = [...new Set(AETHERIC_RECORDS.map((r) => r.set))];
+
+function countStackInItems(items, pred) {
+  let total = 0;
+  for (const it of items ?? []) {
+    if (pred(it)) total += Math.max(1, it.stackCount ?? 1);
+  }
+  return total;
+}
+
+function grantRelicItem(item, messages) {
+  if (!playerEntity || !item) return;
+  playerEntity.items = playerEntity.items || [];
+  addItem(playerEntity.items, item);
+  noteRelicFind(item, { quiet: true });
+  const book = breachBookFor(item);
+  if (book) {
+    addItem(playerEntity.items, book);
+    messages.push(BREACH_BOOK_TEXT);
+  }
+}
+
+function handleRelicRollCommand(args = []) {
+  const zoneKey = String(args[0] || '').toLowerCase();
+  if (!zoneKey || (zoneKey !== 'sea' && !(zoneKey in RELIC_ZONE_MAP))) {
+    return `Usage: relic roll <${Object.keys(RELIC_ZONE_MAP).join('|')}|sea> [level] [count] [give]`;
+  }
+  const lvlArg = parseInt(args[1], 10);
+  const cntArg = parseInt(args[2], 10);
+  const level = Number.isFinite(lvlArg) && lvlArg >= 1 ? lvlArg : (playerEntity?.level || 16);
+  const count = Number.isFinite(cntArg) && cntArg >= 1 ? Math.min(200, cntArg) : 20;
+  const give = args.some((a) => String(a).toLowerCase() === 'give');
+  const all = [];
+  for (let i = 0; i < count; i++) {
+    if (zoneKey === 'sea') {
+      all.push(...rollOfflinePreApotheosisSpoils({ source: 'sea', level, tier: 10 }));
+    } else {
+      const dungeonType = RELIC_ZONE_MAP[zoneKey];
+      all.push(...rollOfflinePreApotheosisSpoils({ source: 'foe', level, dungeonType, titled: true, eliteDungeon: true }));
+      all.push(...rollOfflinePreApotheosisSpoils({ source: 'pile', level, dungeonType, eliteDungeon: true }));
+    }
+  }
+  if (!all.length) return `Rolled ${count}x in "${zoneKey}" at Lv ${level}: no offline relics dropped (check Loot Rarity setting).`;
+  const counts = new Map();
+  const extraMsgs = [];
+  for (const it of all) {
+    const label = it.name || it.id || String(it.templateIndex);
+    const qty = Math.max(1, it.stackCount ?? 1);
+    counts.set(label, (counts.get(label) ?? 0) + qty);
+    if (give && playerEntity) {
+      if (it.card) giveBinderGift(playerEntity);
+      grantRelicItem(it, extraMsgs);
+    }
+  }
+  if (give && playerEntity) surfacePlayer();
+  const summary = [...counts.entries()].map(([k, v]) => `${k} x${v}`).join(', ');
+  const tail = give ? ' -> added to inventory.' : ' (pass "give" to loot them)';
+  const notes = extraMsgs.length ? `\n${extraMsgs.join('\n')}` : '';
+  return `Rolled ${count}x in "${zoneKey}" at Lv ${level}: ${all.length} drops [${summary}]${tail}${notes}`;
+}
+
+function handleRelicCommand(args = []) {
+  const sub = String(args[0] || 'status').toLowerCase();
+  if (sub === 'status') {
+    const items = playerEntity?.items ?? [];
+    const worn = playerEntity ? [...wornSets(playerEntity).entries()] : [];
+    const setsText = worn.length
+      ? worn.map(([id, s]) => `${id} (${s.worn}/9, ${s.stageName})`).join(', ')
+      : 'none';
+    const embers = countStackInItems(items, isSigilStone);
+    const glass = countStackInItems(items, isStarglass);
+    const pellets = countStackInItems(items, (it) => it?.group === 'Weapons' && it.templateIndex === PELLET_TEMPLATE);
+    return [
+      `<b>Offline Relic & Sigil Status:</b>`,
+      `Sigils Active: ${sigilActive()} | Renown: ${sigilRenown() ?? 'none'}`,
+      `Worn Sets: ${setsText}`,
+      `Embers (570): ${embers} | Starfall Glass (576): ${glass} | Dwemer Pellets (561): ${pellets}`,
+    ].join('\n');
+  }
+  if (sub === 'broker') {
+    if (!getDebugSceneContext()?.openCovenBroker) return 'Coven Sigil Broker is unavailable outside world scene.';
+    getDebugSceneContext().openCovenBroker();
+    return 'Opened Coven Sigil Broker window.';
+  }
+  if (sub === 'tp_coven' || sub === 'coven') {
+    const ctx = getDebugSceneContext();
+    if (!ctx?.teleportToCoven) return 'teleportToCoven unavailable outside world scene.';
+    return ctx.teleportToCoven().then((dest) =>
+      dest ? `Teleported to ${dest.name} (${dest.region}) at pixel ${dest.px},${dest.py}.` : 'No Witches Coven found on map.',
+    );
+  }
+  if (sub === 'roll') return handleRelicRollCommand(args.slice(1));
+  if (!playerEntity) return 'No player entity found.';
+  const msgs = [];
+  if (sub === 'embers') {
+    const n = Math.max(1, parseInt(args[1], 10) || 10);
+    grantRelicItem(Object.assign(sigilStone(), { stackCount: n }), msgs);
+    surfacePlayer();
+    return [`Added ${n} Deadlands Embers (570).`, ...msgs].join('\n');
+  }
+  if (sub === 'starglass' || sub === 'glass') {
+    const n = Math.max(1, parseInt(args[1], 10) || 5);
+    grantRelicItem(starglass(n), msgs);
+    surfacePlayer();
+    return `Added ${n} Starfall Glass (576).`;
+  }
+  if (sub === 'pellets') {
+    const n = Math.max(1, parseInt(args[1], 10) || 50);
+    grantRelicItem(createPellets(n), msgs);
+    surfacePlayer();
+    return `Added ${n} Dwemer Pellets (561).`;
+  }
+  if (sub === 'set') {
+    const q = String(args[1] || 'list').toLowerCase();
+    const id = q === 'list' ? null : (AETHERIC_SET_IDS.find((s) => s === q) ?? AETHERIC_SET_IDS.find((s) => s.includes(q)));
+    if (!id) return `Aetheric Sets: ${AETHERIC_SET_IDS.join(', ')}\nUsage: relic set <setId> [count]`;
+    const recs = AETHERIC_RECORDS.filter((r) => r.set === id);
+    const lim = Math.max(1, Math.min(recs.length, parseInt(args[2], 10) || recs.length));
+    for (let i = 0; i < lim; i++) grantRelicItem(mintAetheric(recs[i], { party: 1 }), msgs);
+    surfacePlayer();
+    return `Added ${lim}/${recs.length} pieces of "${id}".`;
+  }
+  if (sub === 'gilded') {
+    const q = String(args[1] || 'all').toLowerCase();
+    const list = q === 'all' ? GILDED_RECORDS : GILDED_RECORDS.filter((r) => r.id === q || r.id.includes(q));
+    if (!list.length) return `Gilded IDs: ${GILDED_RECORDS.map((r) => r.id).join(', ')}`;
+    for (const r of list) {
+      grantRelicItem(mintGilded(r), msgs);
+      if (r.id === 'volendrungs-echo' || r.id === 'the-ketchmasters-word') grantRelicItem(createPellets(24), msgs);
+    }
+    surfacePlayer();
+    return `Added ${list.length} Gilded weapon(s): ${list.map((r) => r.name).join(', ')}.`;
+  }
+  if (sub === 'gun') {
+    const q = String(args[1] || '').toLowerCase();
+    const kind = q === 'pistolet' ? 'pistolet' : q === 'lastlock' || q === 'the-last-lock' ? 'lastlock' : q === 'thunderlock' ? 'thunderlock' : null;
+    if (!kind) return 'Usage: relic gun <thunderlock|pistolet|lastlock>';
+    const gun = mintOfflineGun(kind);
+    grantRelicItem(gun, msgs);
+    grantRelicItem(createPellets(48), msgs);
+    surfacePlayer();
+    return `Added ${itemLongName(gun)} + 48 Dwemer Pellets (561).`;
+  }
+  if (sub === 'lord') {
+    const q = String(args[1] || '').toLowerCase();
+    const lv = playerEntity.level || 16;
+    if (q === 'maul') {
+      const m = mintResonantMaul();
+      grantRelicItem(m, msgs);
+      surfacePlayer();
+      return `Added ${itemLongName(m)}.`;
+    }
+    if (q === 'all') {
+      const m = mintResonantMaul();
+      grantRelicItem(m, msgs);
+      const keys = Object.keys(EG_LORD_ARMS);
+      for (const k of keys) grantRelicItem(egLordArm(k, lv, Math.random), msgs);
+      surfacePlayer();
+      return `Added The Resonant Maul + all ${keys.length} Battlespire Lord legendaries.`;
+    }
+    if (q && EG_LORD_ARMS[q]) {
+      const arm = egLordArm(q, lv, Math.random);
+      grantRelicItem(arm, msgs);
+      surfacePlayer();
+      return `Added ${itemLongName(arm)}.`;
+    }
+    return `Usage: relic lord <maul|all|${Object.keys(EG_LORD_ARMS).join('|')}>`;
+  }
+  if (sub === 'card') {
+    const q = String(args[1] || '').toLowerCase();
+    giveBinderGift(playerEntity);
+    if (q === 'all') {
+      const keys = Object.keys(BOSS_CARDS);
+      for (const k of keys) grantRelicItem(mintIliacCard(BOSS_CARDS[k]), msgs);
+      surfacePlayer();
+      return `Added all ${keys.length} Boss Cards + Card Binder.`;
+    }
+    if (q && BOSS_CARDS[q]) {
+      grantRelicItem(mintIliacCard(BOSS_CARDS[q]), msgs);
+      surfacePlayer();
+      return `Added Boss Card "${q}" (${BOSS_CARDS[q]}).`;
+    }
+    return `Usage: relic card <all|${Object.keys(BOSS_CARDS).join('|')}>`;
+  }
+  if (sub === 'drink') {
+    const xp = parseInt(args[1], 10);
+    if (Number.isNaN(xp) || xp < 1) return 'Usage: relic drink <xp>';
+    const slots = playerEntity.equip ? equipTableOf(playerEntity) : null;
+    const held = slots?.[EQUIP_SLOTS.RightHand] ?? slots?.[EQUIP_SLOTS.LeftHand] ?? null;
+    const drank = drinkWorn(playerEntity, held, xp, itemLongName);
+    if (drank.rose) computeEntityMods(playerEntity);
+    surfacePlayer();
+    return drank.lines.length
+      ? `Worn sigils/sets drank ${xp} XP:\n${drank.lines.join('\n')}`
+      : `Worn sigils/sets drank ${xp} XP (no rank-up yet; check Sigils Active & worn items).`;
+  }
+  return 'Usage: relic <status|embers|starglass|pellets|set|gilded|gun|lord|card|drink|broker|tp_coven|roll>';
+}
+registerCommand(
+  'relic',
+  'QA offline pre-Apotheosis relics & sigils: relic <status|embers|starglass|pellets|set|gilded|gun|lord|card|drink|broker|tp_coven|roll>',
+  'relic <subcommand>',
+  handleRelicCommand,
+);
+registerCommand('relics', 'Alias for relic command', 'relics <subcommand>', handleRelicCommand);
 
 function handleHousingCommand(args = []) {
   const sub = String(args[0] || 'list').toLowerCase();
@@ -3000,13 +3252,8 @@ function applyApotheosisDebugSet(entity, metricRaw, valRaw) {
     entity.health = Math.max(Number(entity.health ?? 0), Number(entity.maxHealth ?? val));
     if ('currentHealth' in entity) entity.currentHealth = entity.health;
   } else if (metric === 'renown') {
-    const lvl = Math.max(1, val);
-    const charId = characterIdOf(entity);
-    const rec = getActiveFirmRecord(charId) ?? { xp: 0, renown: 1, tree: '', said: 1 };
-    rec.xp = renownXpFor(lvl);
-    rec.renown = renownForXp(rec.xp);
-    rec.said = rec.renown;
-    saveFirmRecord(charId, rec);
+    const lvl = Math.max(1, Math.min(50, Math.trunc(val)));
+    setOfflineRenownLevel(lvl, entity);
     computeEntityMods(entity);
   } else if (metric === 'stars') {
     if (val <= 0) setFirmamentTree(null);
