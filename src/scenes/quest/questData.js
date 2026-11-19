@@ -33,6 +33,8 @@ const modQuestFiles = {
   ...import.meta.glob('../../systems/questlines/quests/*.txt', { query: '?raw', import: 'default' }),
   // START1: the starts' own quests (systems/starts/starts.js), the port's scripts on DFU's machine
   ...import.meta.glob('../../systems/starts/quests/*.txt', { query: '?raw', import: 'default' }),
+  // APOTHEO: Apotheosis endgame quest script on QuestMachine (systems/apotheosis/apotheosisQuest.js)
+  ...import.meta.glob('../../systems/apotheosis/quests/*.txt', { query: '?raw', import: 'default' }),
 };
 
 const stripBom = (s) => s.replace(/^﻿/, '');

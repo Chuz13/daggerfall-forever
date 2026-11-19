@@ -655,7 +655,7 @@ test('Localization: all 26 locales have all Apotheosis keys with valid CSV and m
 
   const enRows = parseStringTableCsv(readFileSync(new URL('../../locales/en/Port_Strings.csv', import.meta.url), 'utf8'));
   const enApo = new Map(enRows.filter(([k]) => isApoKey(k)));
-  assert.equal(enApo.size, 817, 'expected 817 Apotheosis/Settings/Pause keys in English table');
+  assert.equal(enApo.size, 835, 'expected 835 Apotheosis/Settings/Pause keys in English table');
   for (const oldKey of obsoleteKeys) {
     assert.equal(enApo.has(oldKey), false, `en still has obsolete key ${oldKey}`);
   }

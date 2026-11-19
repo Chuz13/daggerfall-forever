@@ -5,6 +5,7 @@
 // quest a player can be given to exactly one family's sheet.
 
 import { START_QUESTS } from '../starts/starts.js'; // START1: the starts' quests, filed with the main quest
+import { APOTHEOSIS_QUEST_NAMES } from '../apotheosis/apotheosisQuestIds.js'; // APOTHEO: Apotheosis main-quest journal entry
 
 /** The families, in the order the waves write them. */
 export const QL_FAMILY_NAMES = Object.freeze([
@@ -64,5 +65,5 @@ export const UNLISTED_FAMILY = Object.freeze({
     'Z0C00Y00',
   ]),
   Vampires: Object.freeze(['$CUREVAM', '$CUREWER']),
-  MainQuest: Object.freeze([...START_QUESTS]),
+  MainQuest: Object.freeze([...START_QUESTS, ...APOTHEOSIS_QUEST_NAMES]),
 });

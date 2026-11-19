@@ -53213,5 +53213,95 @@
   "en": "422eac97f5da",
   "tr": "8018e3d08b56",
   "by": "claude-in-session"
+ },
+ "apotheosis.quest.title": {
+  "en": "9821b43fea63",
+  "tr": "286cef7f28e6",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.log.artifacts": {
+  "en": "3684068a5de6",
+  "tr": "f544aec54aee",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.log.mantella": {
+  "en": "c379f6baeb77",
+  "tr": "d1a08c9f91b6",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.log.siege": {
+  "en": "72cb706a8821",
+  "tr": "925777802792",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.log.interior": {
+  "en": "9ffa3c6c9902",
+  "tr": "1f8778181bec",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.log.shadow": {
+  "en": "ced1053eaa07",
+  "tr": "4288c7236c62",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.log.portfolio": {
+  "en": "5b99f23d87d6",
+  "tr": "e7e4592cef11",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.log.ascended": {
+  "en": "a021bf6cd9c4",
+  "tr": "0492dea0fc7c",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.obj.reachTower": {
+  "en": "3137dcca114a",
+  "tr": "4d29f34aaa55",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.obj.breakSiege": {
+  "en": "f07dc51a77e3",
+  "tr": "b28101c1d4bc",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.obj.zeroStone": {
+  "en": "9c8a041af7f3",
+  "tr": "322e2bc34551",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.obj.shadow": {
+  "en": "9e89ae627805",
+  "tr": "0d6394db7811",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.obj.portfolio": {
+  "en": "5ff9d1cb39db",
+  "tr": "0db825858498",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.out.ascended": {
+  "en": "c633cf3177ab",
+  "tr": "228db395805f",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.out.failed": {
+  "en": "914cb1c529c1",
+  "tr": "f551c8571d92",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.mark.zeroStone": {
+  "en": "e9c2fd917246",
+  "tr": "d856a5d51b47",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.mark.shadow": {
+  "en": "8457762c1a80",
+  "tr": "59f5aada7b67",
+  "by": "claude-in-session"
+ },
+ "apotheosis.quest.mark.conduit": {
+  "en": "9c9aefe0b534",
+  "tr": "f4b4297b4ff7",
+  "by": "claude-in-session"
  }
 }

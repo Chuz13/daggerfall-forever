@@ -90,6 +90,7 @@ import { questTracker, followOn } from '../../ui/quest/questTracker.js';   // GU
 import { createQuestlines } from '../../systems/questlines/qlLayer.js';   // QL1: the questlines' layer over this machine (bible/06-Systems/Questlines-Arc.md)
 import { questlineActionTemplates } from '../../systems/questlines/qlActions.js';   // QL4: ask, outcome, ql act, ql paid, ql name - registered here, every host's machine
 import { BAY_START_QUEST, isStartQuestName } from '../../systems/starts/starts.js';   // START1: the quest a new character starts in the Iliac Bay
+import { apotheosisActionTemplates, syncApotheosisQuests } from '../../systems/apotheosis/apotheosisQuest.js';
 import { setActSink } from '../../systems/questlines/qlActs.js';   // QL11: the features' acts, heard by this bridge's layer
 import { questlineService, serviceReady } from './questlineHost.js';   // QL12: the endgame lines' claims - the account service's door, online alone
 import { TITLE_TEXT } from '../../ui/playerBadge.js';   // QL12: a line's title, in the badge's own words
@@ -501,6 +502,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   // host's machine has them before a save or a script that says them is read (a first-match scan; none of DFU's claims
   // these lines - test/systems/questlines/ql4_actions.test.js).
   for (const template of questlineActionTemplates()) machine.registerAction(template);
+  for (const template of apotheosisActionTemplates()) machine.registerAction(template);
   // MACRO-ONE: this machine's hooks are the page's GameManager for every
   // macro walk that is not handed a context of its own (questMacros.js
   // setMacroWorld) - one registration, every window, every host.
@@ -654,7 +656,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   // only what changed - and the look answers the host's own two questions
   // (`ctx.questWhere`: is a place on the player's map, which place is the
   // player in - GUIDE2's gates), so the card can say "(you are here)".
-  let newsWarned = false, lookedLast = false, textHour = null;
+  let newsWarned = false, lookedLast = false, textHour = null, textRev = null;
   const warnNewsOnce = (err) => {
     if (newsWarned) return;
     newsWarned = true;
@@ -684,6 +686,8 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     // TIME3: on either clock's hour - a clock's days run on the character's, %di and the dates on the sky's
     const hour = `${Math.floor((ctx.classicSeconds?.() ?? 0) / 3600)}|${Math.floor((ctx.skySeconds?.() ?? 0) / 3600)}`;
     if (textHour !== hour) { if (textHour != null) lens.rereadText(); textHour = hour; }
+    const rev = textRevision();
+    if (textRev !== rev) { if (textRev != null) lens.rereadText(); textRev = rev; }
     // AUDIT GUIDE L4: the look AND its listeners: a face that throws costs the news, never the frame
     try {
       const seen = lens.look(ctx.questWhere ?? {});
@@ -744,10 +748,11 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       // (frozen: no time counts while one is away), for the journal's Abandoned list and its Reclaim
       const shelved = [];
       const unlogged = [];   // QL2: stamped quests whose objectives stand before their first journal entry; ABANDON-ALWAYS: and any holding its questor's door
+      const questDisplayName = (q) => localizedQuestDisplayName(q.questName) || q.displayName || null;
       for (const q of machine.quests.values()) {
         if (q.questComplete) {
           notebook?.unhideQuest?.(q.uid);   // JOURNAL-CLEAN: an ended quest is no longer hidden (one that filed no entry never reached addFinishedQuest's drop)
-          ended.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', success: !!q.questSuccess, ql: questlines.rowOf(q, quietText) });   // QL1: its outcome
+          ended.push({ id: String(q.uid), name: questDisplayName(q), questName: q.questName || '', success: !!q.questSuccess, ql: questlines.rowOf(q, quietText) });   // QL1: its outcome
           continue;
         }
         const les = q.getLogMessages();
@@ -761,7 +766,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
           // UI-8 had kept Abandon off a row with no entry because a quest set aside so was no row at all)
           const ql = questlines.rowOf(q, quietText);
           if (!ql?.objectives?.length && !holdsQuestorDoor(q)) continue;
-          const row = { id: String(q.uid), name: q.displayName || null, questName: q.questName || '', ql };
+          const row = { id: String(q.uid), name: questDisplayName(q), questName: q.questName || '', ql };
           if (isShelved(q)) shelved.push({ ...row, clockSeconds: null, clocks: [], messages: [], steps: [] });
           else unlogged.push(row);
           continue;
@@ -803,7 +808,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
           const told = clocks.filter((c) => named.has(c.name)).map((c) => c.seconds);
           if (told.length) clockSeconds = Math.min(...told);
         }
-        (isShelved(q) ? shelved : active).push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', clockSeconds, clocks, messages, steps, ql: questlines.rowOf(q, quietText) });   // QL1: its objectives, choices and outcome - null for DFU's quest
+        (isShelved(q) ? shelved : active).push({ id: String(q.uid), name: questDisplayName(q), questName: q.questName || '', clockSeconds, clocks, messages, steps, ql: questlines.rowOf(q, quietText) });   // QL1: its objectives, choices and outcome - null for DFU's quest
       }
       // JOURNAL-CLEAN: `hidden` is the uids the player hid from the journal. The rows stay in `active` - the lens,
       // the tracker and the marks read this walk and a hidden quest still runs - and the journal's rail
@@ -1081,6 +1086,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       notebook?.pruneHiddenQuests?.([...machine.quests.values()].filter((q) => !q.questComplete).map((q) => q.uid));
       questLists.oneTimeQuestsAccepted = data.oneTimeQuestsAccepted ? [...data.oneTimeQuestsAccepted] : null;
       questlines.restore(data.questlines);   // QL3: an older envelope carries none - nothing waits
+      syncApotheosisQuests(machine, machine.deps.playerEntity ?? null);
       lens.reset();   // GUIDE1: a loaded game is not news
       questTracker.forget();   // GUIDE4: ...nor what the last game's card followed (the tracked quest is the save's own record)
       questHerald.clear();   // AUDIT GUIDE O2: ...nor the last game's news - a notice standing over the loaded game could merge a same-uid quest's news under its verdict

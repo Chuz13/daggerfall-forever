@@ -160,6 +160,8 @@ import {
   queryPantheonChronicle,
   getAlliedGodChampionBonus,
 } from './apotheosisStage3.js';
+import { isApotheosisQuestName } from './apotheosisQuestIds.js';
+import { notifyApotheosisQuestSync } from './apotheosisQuest.js';
 
 export {
   CULT_FOUND_FAITH_COST,
@@ -542,6 +544,7 @@ export function defaultApotheosisState() {
     lastPortfolioSwitchMinutes: null,
     pantheon: null,
     cult: null,
+    journalAscendedSynced: false,
   };
 }
 
@@ -668,6 +671,7 @@ export function ensureApotheosisState(entity) {
       : null,
     pantheon: prev.pantheon && typeof prev.pantheon === 'object' ? prev.pantheon : null,
     cult: prev.cult && typeof prev.cult === 'object' ? prev.cult : null,
+    journalAscendedSynced: !!prev.journalAscendedSynced,
   };
   return entity.apotheosis;
 }
@@ -705,6 +709,7 @@ export function recordNemesisDefeated(entity, count = 1) {
 /** Increments playerEntity.questsCompleted when a quest completes successfully. */
 export function recordQuestCompleted(entity, quest = null) {
   if (!entity || typeof entity !== 'object') return 0;
+  if (quest && isApotheosisQuestName(quest.questName)) return entity.questsCompleted ?? 0;
   if (quest && quest.questSuccess !== true) return entity.questsCompleted ?? 0;
   ensureApotheosisState(entity);
   entity.questsCompleted += 1;
@@ -1523,6 +1528,7 @@ export function startApotheosisQuestline(entity, { source, sacrificedSubTypes = 
   state.towerSiegeCleared = false;
   state.shadowDefeated = false;
   computeEntityMods(entity);
+  notifyApotheosisQuestSync(entity);
   return {
     ok: true,
     stage: state.stage,
@@ -1557,6 +1563,7 @@ export function advanceApotheosisQuestStep(entity, nextStep, { siegeWave = null 
     state.stage = APOTHEOSIS_STAGES.QUESTLINE_ACTIVE;
     state.stormActive = !state.shadowDefeated;
   }
+  notifyApotheosisQuestSync(entity);
   return { ok: true, questStep: state.questStep, stage: state.stage, state };
 }
 
@@ -1576,6 +1583,7 @@ export function completeApotheosisQuestline(entity) {
     state.stage = APOTHEOSIS_STAGES.AWAITING_PORTFOLIO;
   }
   computeEntityMods(entity);
+  notifyApotheosisQuestSync(entity);
   return {
     ok: true,
     stage: state.stage,
@@ -1788,6 +1796,7 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   }
   computeEntityMods(entity);
   if (!wasAscended) {
+    notifyApotheosisQuestSync(entity);
     if (Object.getOwnPropertyDescriptor(entity, 'maxHealth')?.get && Number.isFinite(entity.health)) {
       entity.health = entity.maxHealth;
     }
@@ -1825,6 +1834,7 @@ export function resetApotheosisForDebug(entity) {
   entity._inMantellanCrux = false;
   entity.apotheosis = defaultApotheosisState();
   computeEntityMods(entity);
+  notifyApotheosisQuestSync(entity);
   return entity.apotheosis;
 }
 
