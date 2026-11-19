@@ -30,6 +30,8 @@ import { starsFor } from '../../src/net/firmament/firmamentLaw.js';
 import { getPref, setPref } from '../../src/systems/uiPrefs.js';
 import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
 import { playerEntity } from '../../src/characters/playerEntity.js';
+import { ENCHANTMENT_TYPES } from '../../src/formats/magicDef.js';
+import { isImmuneToParalysis, isEntityImmuneToParalysis } from '../../src/systems/effects.js';
 import { isAscendedGod, apotheosisHpOf } from '../../src/systems/apotheosis/apotheosisLive.js';
 import { hasHorse, TRANSPORT_HORSE_TEMPLATE } from '../../src/systems/inventorySession.js';
 import { positionPlayerToLocation, EXTRA_DISTANCE } from '../../src/world/locationEntrance.js';
@@ -432,6 +434,14 @@ test('TEST_ASCENSION: Level 35 Spellsword test room outdoors at Direnni Tower wi
     for (const id of ['eye-of-magnus', 'amulet-of-the-nine', 'ring-of-artaeum', 'archmages-loop', 'duelists-vambrace', 'mark-of-the-hist']) {
       assert.ok(equippedIds.has(id), `Legendary jewelry equipped: ${id}`);
     }
+    const freeActionBracelet = slots[EQUIP_SLOTS.Bracelet0];
+    assert.equal(freeActionBracelet?.name, 'Bracelet of Free Action');
+    assert.ok(
+      freeActionBracelet?.enchantments?.some((e) => e.type === ENCHANTMENT_TYPES.CastWhenHeld && e.param === 10),
+      'Bracelet of Free Action carries CastWhenHeld Free Action (#10)',
+    );
+    assert.equal(isImmuneToParalysis(entity), true, 'held Free Action grants permanent paralysis immunity');
+    assert.equal(isEntityImmuneToParalysis(entity), true, 'entity paralysis immunity gate active');
     const packGatecleaver = entity.items.find((it) => it.aetheric === 'ruhn-gatecleaver');
     assert.ok(packGatecleaver, "Ruhn's Gatecleaver is in pack");
     assert.ok(!equippedIds.has('ruhn-gatecleaver'), "Ruhn's Gatecleaver left unequipped so shield + longsword stay active");
@@ -463,6 +473,7 @@ test('console commands apo spellsword / spellsword / apo_ready seed Ascension Sp
     items: Array.isArray(playerEntity.items) ? [...playerEntity.items] : undefined,
     equip: playerEntity.equip,
     spells: Array.isArray(playerEntity.spells) ? [...playerEntity.spells] : undefined,
+    activeEffects: Array.isArray(playerEntity.activeEffects) ? [...playerEntity.activeEffects] : undefined,
     goldPieces: playerEntity.goldPieces,
     maxHealth: playerEntity.maxHealth,
     rawMaxHealth: playerEntity.rawMaxHealth,
@@ -482,6 +493,7 @@ test('console commands apo spellsword / spellsword / apo_ready seed Ascension Sp
     assert.equal(playerEntity.level, 35);
     assert.equal(playerEntity.career?.name, 'Spellsword');
     assert.ok(carriedWeight(playerEntity) < entityMaxEncumbrance(playerEntity));
+    assert.equal(isImmuneToParalysis(playerEntity), true);
 
     const out2 = await executeConsoleCommand('spellsword', []);
     assert.match(String(out2), /Spellsword L35 seeded/);

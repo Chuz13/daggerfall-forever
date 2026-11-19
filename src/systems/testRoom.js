@@ -50,6 +50,8 @@ import { resurrectionSpell } from './resurrect.js';   // RESURRECT1: the sorcere
 import { applyHeadlessChargen } from './chargenSession.js';
 import { addItem, carriedWeight } from './inventory.js';
 import { equipItem, unequipSlot, equipTableOf, EQUIP_SLOTS } from './equip.js';
+import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';
+import { assignHeldSpell } from './enchantments.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { mintCondition, templateByIndex, itemBaseValue, setItemFields } from './item/itemTemplates.js';   // MAC-N1: SetItem's name + value, the one export
 import { WEAPONS_ENUM, ARMOR_ENUM, createWeapon, ARROW_TEMPLATE } from '../combat/enemyEquipment.js';
@@ -710,8 +712,11 @@ export function seedTestAscensionSpellsword(entity, { spellsByIndex = null } = {
     [44, () => buildCustomSpell({ name: 'Chameleon', element: 4, rangeType: 0, icon: 0, index: -1007, slots: [slot(23, 0, { durationBase: 8, durationMod: 2, durationPerLevel: 1 })] })],
     [37, () => buildCustomSpell({ name: 'Slowfalling', element: 4, rangeType: 0, icon: 0, index: -1008, slots: [slot(25, 255, { durationBase: 8, durationMod: 2, durationPerLevel: 1 })] })],
   ];
+  let freeActionRecord = null;
   for (const [id, fallback] of standardKit) {
-    pushSpell(spellsByIndex?.get?.(id) ?? spellRecordOfIndex(id) ?? fallback());
+    const rec = spellsByIndex?.get?.(id) ?? spellRecordOfIndex(id) ?? fallback();
+    if (id === 10) freeActionRecord = rec;
+    pushSpell(rec);
   }
 
   const slots = equipTableOf(entity);
@@ -759,6 +764,21 @@ export function seedTestAscensionSpellsword(entity, { spellsByIndex = null } = {
     ['mark-of-the-hist', 137],
   ]) {
     addLegendary(id, mintPlain('Jewellery', templateIndex), { equip: true });
+  }
+
+  const freeActionBracelet = mintPlain('Jewellery', 136);
+  freeActionBracelet.name = 'Bracelet of Free Action';
+  freeActionBracelet.enchantments = [{ type: ENCHANTMENT_TYPES.CastWhenHeld, param: 10 }];
+  freeActionBracelet.maxCondition = 10000;
+  freeActionBracelet.currentCondition = 10000;
+  freeActionBracelet.isIdentified = true;
+  addItem(entity.items, freeActionBracelet);
+  equipItem(entity, freeActionBracelet);
+  if (
+    freeActionRecord &&
+    !entity.activeEffects?.some((a) => a?.kind === 'freeAction' && a?.heldItem === freeActionBracelet && !a?.ended)
+  ) {
+    assignHeldSpell(freeActionRecord, entity, freeActionBracelet, { recast: true });
   }
 
   const female = entity.gender === 'female';
