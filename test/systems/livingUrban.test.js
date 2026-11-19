@@ -13,6 +13,7 @@ import {
 } from '../../src/systems/living/urbanDirector.js';
 
 import { setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from '../../src/systems/living/regionState.js';
+import { SKILLS } from '../../src/systems/skills.js';
 import {
   LivingTamrielConfig,
   LIVING_ENCOUNTER_SCALE,
@@ -293,6 +294,119 @@ test('Urban skirmish single attacker, rat swarm clustering, all 12 prop themes, 
   assert.equal(wellSite.blueprint.flats.some((fl) => fl.destructible), false);
 
   host.clear();
+  resetLivingConfig();
+});
+
+test('Urban skirmish persists both_hostile after crit fail and calms winning rebel allies after guard defeat', async () => {
+  restoreLivingSaveData(null);
+  resetLivingConfig();
+  LivingTamrielConfig.urban = PRESENCE.HIGH;
+  LivingTamrielConfig.encounterScale = LIVING_ENCOUNTER_SCALE.LOW;
+  setRegionCrisis(17, CRISIS_TYPE.WAR, CRISIS_PHASE.MID);
+
+  const spawned = [];
+  let choiceSpec = null;
+  const weakPlayer = {
+    level: 5,
+    goldPieces: 100,
+    skills: { [SKILLS.Thaumaturgy]: 1, [SKILLS.Etiquette]: 1 },
+    stats: { Intelligence: 1, Personality: 1, Willpower: 1, Agility: 1, Luck: 1 },
+    legalRep: {},
+    regionalReputations: {},
+  };
+  const host = createLivingSceneHost({
+    ready: () => true,
+    feet: () => [0, 0, 0],
+    heightAt: () => 0,
+    regionIndex: () => 17,
+    inLocationRect: () => true,
+    onRoad: () => true,
+    clock: () => 1000,
+    playerEntity: () => weakPlayer,
+    spawn: async (_mob, feet, opts) => {
+      const rec = { dead: false, feet, allied: !!opts.allied, entity: { team: opts.team, items: [] }, ai: { isHostile: false, detected: false, target: null } };
+      spawned.push(rec);
+      return rec;
+    },
+    inPool: (r) => !r.dead && spawned.includes(r),
+    remove: () => {},
+    say: () => {},
+    openChoice: (spec) => { choiceSpec = spec; },
+    rng: () => 0.001,
+  });
+
+  // 1. Critical failure sets both_hostile and persists across subsequent frames
+  const witchBp = buildLivingSiteBlueprint({
+    kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+    centerX: 4,
+    centerZ: 0,
+    heightAt: () => 0,
+    regionIndex: 17,
+    locationType: 0,
+    playerEntity: weakPlayer,
+    forcedEventId: 'EVT_WITCH_COVEN_ASSAULT',
+    rng: () => 0.001,
+  });
+  const site1 = host.standBlueprint(witchBp);
+  await Promise.resolve();
+  await Promise.resolve();
+
+  const guard0 = spawned.find((f) => f.livingRole === 'skirmish_guard');
+  assert.ok(guard0);
+  assert.equal(guard0.entity.skirmishNeutralToPlayer, true);
+  assert.equal(guard0.entity.skirmishForceInfighting, true);
+
+  host.frame(1.5);
+  assert.ok(choiceSpec && choiceSpec.options.length === 4);
+  choiceSpec.options[3].action(); // Choice 4: Thaumaturgy check fails critically with 0.001 roll + skill 1
+  assert.equal(site1.skirmishStance, 'both_hostile');
+
+  host.frame(1.5);
+  assert.equal(site1.skirmishStance, 'both_hostile');
+  assert.equal(guard0.entity.team, 'PlayerEnemy');
+  assert.equal(guard0.entity.skirmishNeutralToPlayer, false);
+  assert.equal(guard0.ai.target, weakPlayer);
+  assert.equal(host.isCriminalTarget(guard0), false);
+
+  // 2. Siding with rebels and defeating all guards sets orderRestored and calms surviving rebels
+  host.clear();
+  spawned.length = 0;
+  choiceSpec = null;
+
+  const warBp = buildLivingSiteBlueprint({
+    kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+    centerX: 4,
+    centerZ: 0,
+    heightAt: () => 0,
+    regionIndex: 17,
+    locationType: 0,
+    playerEntity: weakPlayer,
+    forcedEventId: 'EVT_WAR_GARRISON_REVOLT',
+    rng: () => 0.2,
+  });
+  const site2 = host.standBlueprint(warBp);
+  await Promise.resolve();
+  await Promise.resolve();
+
+  host.frame(1.5);
+  assert.ok(choiceSpec && choiceSpec.options.length >= 2);
+  choiceSpec.options[1].action(); // Choice 2: side with attackers (rebels)
+  assert.equal(site2.skirmishStance, 'rebels');
+
+  for (const g of spawned.filter((f) => f.livingRole === 'skirmish_guard')) {
+    g.dead = true;
+  }
+  host.frame(1.5);
+  assert.equal(site2.orderRestored, true);
+  const liveRebels = spawned.filter((f) => f.livingRole === 'skirmish_rebel' && !f.dead);
+  assert.ok(liveRebels.length > 0);
+  for (const r of liveRebels) {
+    assert.equal(r.entity.skirmishForceInfighting, false);
+    assert.equal(r.ai.isHostile, false);
+  }
+
+  host.clear();
+  setRegionCrisis(17, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
   resetLivingConfig();
 });
 
