@@ -244,7 +244,7 @@ import { startInfection, liveInfection } from '../systems/infection.js';   // V1
 import { diseaseCount } from '../systems/diseases.js';
 import { MINUTES_PER_DAY } from '../systems/gameDate.js';
 import { spellRecordOfIndex } from '../systems/loot/loot.js';   // QG1: CastSpellDo's classic-record read (the G4 registry) - world.js:"import { FOUND_NOTHING_VALUABLE_TEXT_ID }"'s import
-import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, parkourDeps, createDetectFeed, foeNearbyRecord, lootNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost, liveCastEngine } from './shared.js';   // AUDIT 58 (f2/hosts): the live enchant pool, its sinks router and the membership question
+import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, parkourDeps, createDetectFeed, foeNearbyRecord, lootNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost, liveCastEngine, runAfterNewGameCinematics, createQuestVideoQueue } from './shared.js';   // AUDIT 58 (f2/hosts): the live enchant pool, its sinks router and the membership question
 import {
   WEATHER_TYPES, fogForWeather, skyOffsetForWeather, weatherSunlightScale,
   weatherRng, fogFactor, precipitationForWeather, isDryFall,
@@ -1692,7 +1692,9 @@ export async function bootExterior(canvas, renderer, params, status) {
           preloadPaperDollArt({ renderer, fetchBytes, palette, getTexture },
             { race: r.race, gender: r.gender, faceIndex: r.faceIndex });
           surfacePlayer();
-          questInitAtGameStart();   // QX1: OnStartGame for the new character
+          runAfterNewGameCinematics(renderer, params, () => {
+            questInitAtGameStart();   // QX1: OnStartGame for the new character
+          });
         },
       }));
     }).catch((e) => console.warn('[chargen] CLASS*.CFG unavailable; the interim entity stands in', e));
@@ -4255,6 +4257,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       onButton: (b) => { respond(b); return []; },
     }),
     showChoice: choiceDoor(showQuestBox),   // QL4: the questlines' `ask` (questBridge.js choiceBoxes, through choiceDoor - HOST-SPLIT)
+    playVideo: createQuestVideoQueue(renderer),
     // E6: PlaySound's busy skip over the ONE source (PlaySound.cs:110-116).
     // AUDIT 58: the table id goes through the ID door, as
     // PlaySound.cs:74-75 does at create - the four-hosts twin of the

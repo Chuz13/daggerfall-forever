@@ -15,17 +15,20 @@
 // `play(name)` is the host's own async door; the queue owns nothing
 // but the order.
 
-/** @param {(name: string) => Promise<unknown>} play */
-export function makeVideoQueue(play) {
+/** @param {(name: string) => Promise<unknown>} play
+ *  @param {{ hold?: (() => () => void) | null }} [opts] */
+export function makeVideoQueue(play, { hold = null } = {}) {
   let chain = Promise.resolve();
   let depth = 0;
   const queue = (name) => {
     depth++;
+    const release = hold?.();
     const turn = chain
       .then(() => play(name))
       .catch(() => undefined)
       .finally(() => {
         depth--;
+        release?.();
       });
     chain = turn;
     return turn;

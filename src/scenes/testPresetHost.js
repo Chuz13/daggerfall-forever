@@ -6,7 +6,7 @@ import { applyHeadlessChargen, createChargenFlow, createChargenWindow, finishCha
 import { applyTestCharacter, seedTestAscensionSpellsword, seedTestGod, seedTestLoot, seedTestMount } from '../systems/testRoom.js';
 import { autoBuildArms, buildArmsFor } from '../combat/weapon/weaponRig.js';
 import { enumerateSaves } from '../systems/save/saveSlots.js';
-import { exitToTitleMenu, fetchBytes } from './shared.js';
+import { exitToTitleMenu, fetchBytes, runAfterNewGameCinematics } from './shared.js';
 import { loadSearch } from '../systems/legacy/places.js';
 import { morrowindDataCount } from './dataSource.js';
 import { newestSaveOf } from '../systems/legacy/store.js';
@@ -126,10 +126,12 @@ export function createTestPreset(boot) {
           preloadPaperDollArt({ renderer, fetchBytes, palette, getTexture },
             { race: r.race, gender: r.gender, faceIndex: r.faceIndex });
           surfacePlayer();
-          questInitAtGameStart(r.startKey);   // Q4-v: OnStartGame for the new character - START2: where their story begins
-          autoBuildArms(playerEntity);   // MWA1: the new character's arms - race, sex and face are known now
-          boot.legacyHost?.onCharacterMade(r.legacyModel ?? null);   // LEGACY1: the family founded at the character's birth (D9), its model the question's answer
-          if (realmNew) starts.settled.then(realmBirth).catch((e) => { console.error('[realm] the birth failed', e); realmLost('server'); });   // REALM P1.3: born online - START2: where the story begins
+          runAfterNewGameCinematics(renderer, params, () => {
+            questInitAtGameStart(r.startKey);   // Q4-v: OnStartGame for the new character - START2: where their story begins
+            autoBuildArms(playerEntity);   // MWA1: the new character's arms - race, sex and face are known now
+            boot.legacyHost?.onCharacterMade(r.legacyModel ?? null);   // LEGACY1: the family founded at the character's birth (D9), its model the question's answer
+            if (realmNew) starts.settled.then(realmBirth).catch((e) => { console.error('[realm] the birth failed', e); realmLost('server'); });   // REALM P1.3: born online - START2: where the story begins
+          });
         },
       }));
     }).catch((e) => console.warn('[chargen] CLASS*.CFG unavailable; the interim entity stands in', e));
