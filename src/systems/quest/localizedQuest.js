@@ -16,6 +16,7 @@ import {
   localeTable,
   tryGetLocalizedText,
   runtimeCollectionName,
+  BASE_LOCALE,
   currentLocale,
   textRevision,
   TextCollections,
@@ -140,13 +141,50 @@ export function parseLocalizedQuestText(questName) {
   return entry;
 }
 
+const _portQuests = new Map();
+
+/** Registers localized displayName / message / questline sheet providers for a port-authored quest. */
+export function registerPortQuestLocalization(questName, provider) {
+  _portQuests.set(questKey(questName), provider);
+}
+
 /** GetLocalizedQuestDisplayName (QuestMachine.cs:1604-1617): the -LOC file's DisplayName, or '' where there is none. */
-export const localizedQuestDisplayName = (questName) => parseLocalizedQuestText(questName)?.displayName ?? '';
+export const localizedQuestDisplayName = (questName) => {
+  const fromPack = parseLocalizedQuestText(questName)?.displayName ?? '';
+  if (fromPack) return fromPack;
+  if (currentLocale() !== BASE_LOCALE) {
+    return _portQuests.get(questKey(questName))?.displayName?.() ?? '';
+  }
+  return '';
+};
 
 /** GetMessage's lookup (Quest.cs:676-682): the translation's lines for `questName`'s message `id` - its Internal_Quests
  *  entry, split at '\n' - or null where the table has none. */
 export function localizedQuestMessage(questName, id) {
   parseLocalizedQuestText(questName);
   const v = tryGetLocalizedText(TextCollections.TextQuests, `${questKey(questName)}.${id}`);
-  return v === undefined ? null : String(v).split('\n');
+  if (v !== undefined) return String(v).split('\n');
+  if (currentLocale() !== BASE_LOCALE) {
+    const lines = _portQuests.get(questKey(questName))?.message?.(Number(id));
+    if (Array.isArray(lines)) return lines;
+  }
+  return null;
+}
+
+/** Lookup for questline sheet lines (`QL.<key>` in TextQuests packs, or a port-authored quest provider). */
+export function localizedQuestSheetText(key) {
+  if (!key) return undefined;
+  const fromPack = tryGetLocalizedText(TextCollections.TextQuests, `QL.${key}`);
+  if (typeof fromPack === 'string' && fromPack.trim()) return fromPack;
+  if (currentLocale() !== BASE_LOCALE) {
+    const s = String(key);
+    const dot = s.indexOf('.');
+    if (dot > 0) {
+      const qk = questKey(s.slice(0, dot));
+      const rest = s.slice(dot + 1);
+      const fromPort = _portQuests.get(qk)?.sheet?.(rest);
+      if (typeof fromPort === 'string' && fromPort.trim()) return fromPort;
+    }
+  }
+  return fromPack;
 }

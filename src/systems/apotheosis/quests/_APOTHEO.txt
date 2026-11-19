@@ -1,0 +1,93 @@
+-- Apotheosis main-quest journal script on QuestMachine (`src/systems/apotheosis/apotheosisQuest.js`).
+-- Tracks the endgame ascension arc from the Dragon Break and the siege of Direnni Tower through
+-- the Zero Stone, the Clockwork Sanctum duel with the Shadow of the Agent, and Divine Portfolio selection.
+Quest: _APOTHEO
+DisplayName: Apotheosis - Path of CHIM
+
+QRC:
+
+QuestLogEntry:  [1010]
+%qdt:
+ Your shattering of thirteen Daedric
+ artifacts has provoked a Dragon Break.
+ __tower_ in ____tower_ is besieged by the
+ forces of the Tower. Travel to __tower_
+ and shatter the siege.
+
+Message:  1011
+%qdt:
+ Your usurpation of the Mantella has
+ provoked a Dragon Break. __tower_ in
+ ____tower_ is besieged by the forces of
+ the Tower. Travel to __tower_ and shatter
+ the siege.
+
+Message:  1012
+%qdt:
+ Thirteen waves of defenders surround
+ __tower_ in ____tower_. Break the siege
+ and defeat the Aspect of the Tower to
+ unseal the gates.
+
+Message:  1013
+%qdt:
+ The Aspect of the Tower has fallen and the
+ seals of __tower_ are open. Enter
+ __tower_ and descend to the Zero Stone
+ within.
+
+Message:  1014
+%qdt:
+ You have passed through the Zero Stone into
+ the Clockwork Sanctum. Confront and defeat
+ the Shadow of the Agent to claim sovereign
+ divinity.
+
+Message:  1015
+%qdt:
+ The Shadow of the Agent has fallen. Step
+ into the Ascension Conduit or open the
+ Apotheosis menu to choose your Divine
+ Portfolio.
+
+Message:  1016
+%qdt:
+ You have ascended beyond the Wheel and
+ claimed your Divine Portfolio. Your name is
+ written into the Dream.
+
+QBN:
+Place _tower_ permanent DirenniTowerEntry
+
+--	Quest start-up:
+	reveal _tower_
+
+_from_artifacts_ task:
+	apotheosis source artifacts
+	log 1010 step 0
+
+_from_mantella_ task:
+	apotheosis source mantella
+	log 1011 step 0
+
+_siege_ task:
+	apotheosis at siege
+	log 1012 step 1
+
+_interior_ task:
+	apotheosis at interior
+	log 1013 step 2
+
+_shadow_ task:
+	apotheosis at shadow
+	log 1014 step 3
+
+_portfolio_ task:
+	apotheosis at portfolio
+	log 1015 step 4
+
+_ascended_ task:
+	apotheosis at ascended
+	log 1016 step 5
+	ql paid
+	end quest

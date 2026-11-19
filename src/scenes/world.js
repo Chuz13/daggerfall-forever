@@ -442,6 +442,7 @@ import {
   pickNextApotheosisStormWeather,
   pickNextApotheosisStormMinutes,
 } from '../systems/apotheosis/apotheosisStage1.js';
+import { setApotheosisQuestHost, syncApotheosisQuests } from '../systems/apotheosis/apotheosisQuest.js';
 import { SdSkyRenderer, SD_SKY_STEPS } from '../render/superDungeon/sdSky.js';   // SD5b: the Hour's sky
 import { SdArenaGlowRenderer, sdArenaGlowAt, sdHourClockOf } from '../render/superDungeon/sdArenaGlow.js';   // SD-LOOK S7: the arena's floor reads the clock, and the sky's word for the fight
 import { SdStompWallRenderer, sdStompWalls, sdStompWallRecords, SD_HOLD_WALL, sdHomeBeacon } from '../render/superDungeon/sdStompWall.js';   // SD-LOOK S7: the Stomp's wall, the hold's curtain
@@ -19868,6 +19869,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   setCrimeGuildQuestHost({
     startQuest: (name, factionId) => questBridge.machine.startQuestByName(name, factionId),
   });
+  setApotheosisQuestHost({
+    getMachine: () => questBridge.machine,
+    getPlayer: () => playerEntity,
+  });
+  syncApotheosisQuests(questBridge.machine, playerEntity);
   // The clock the tally stamps its three-day letter from - the same
   // classic minute every other dated law in this host reads.
   setCrimeGuildClock(() => Math.floor(playerTicker.ownMinutes));

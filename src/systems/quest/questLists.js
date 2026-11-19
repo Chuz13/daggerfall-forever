@@ -32,6 +32,7 @@ import { Table } from './table.js';
 import { intTryParse } from './parseUtils.js';
 import { GUILD_GROUPS, SOCIAL_GROUPS } from '../../formats/factionFile.js';
 import { isStartQuestName } from '../starts/starts.js'; // START1: a start's quest is the main quest's prologue
+import { isApotheosisQuestName } from '../apotheosis/apotheosisQuestIds.js'; // APOTHEO: Apotheosis main-quest journal entry
 
 /** QuestListsManager.MembershipStatus - char-backed, the table's
  *  membership column verbatim. */
@@ -57,7 +58,7 @@ export const MEMBERSHIP_STATUS = Object.freeze({
  *  and a start's quest (systems/starts/starts.js), the story's prologue -
  *  its commission is the character's own, never a party's. */
 export const isMainQuestName = (questName) =>
-  /^S0000/.test(questName ?? '') || questName === '_BRISIEN' || isStartQuestName(questName);
+  /^S0000/.test(questName ?? '') || questName === '_BRISIEN' || isStartQuestName(questName) || isApotheosisQuestName(questName);
 
 const INIT_AT_GAME_START = 'InitAtGameStart';
 

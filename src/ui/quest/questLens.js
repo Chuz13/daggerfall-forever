@@ -51,7 +51,8 @@ import { SITE_TYPES } from '../../systems/quest/place.js';
 import { getSeed, setSeed } from '../../formats/dfRandom.js';
 import { REGION_NAMES, patchRegionIndex } from '../../formats/mapsFile.js';
 import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS } from './questRail.js';
-import { localizedText, formatText, tryGetLocalizedText, TextCollections, t } from '../../systems/textManager.js'; // L10N3d: locationInRegionProvince, read in the player's language; QL1: a sheet's line in a pack's words
+import { localizedText, formatText, t } from '../../systems/textManager.js'; // L10N3d: locationInRegionProvince, read in the player's language; QL1: a sheet's line in a pack's words
+import { localizedQuestSheetText } from '../../systems/quest/localizedQuest.js'; // QL1 / APOTHEO: sheet line in -LOC packs or port quests
 
 /** GetLastPlaceMentionedInMessage (DaggerfallQuestJournalWindow.cs:
  *  470-485): the LAST Place resource any macro in the message names.
@@ -165,7 +166,7 @@ function quietly(quest, fn) {
  * A line that does not expand reads as written.
  */
 export function quietText(quest, text, key = null) {
-  const own = key ? tryGetLocalizedText(TextCollections.TextQuests, `QL.${key}`) : undefined;
+  const own = key ? localizedQuestSheetText(key) : undefined;
   const raw = typeof own === 'string' && own.trim() ? own : String(text ?? '');
   if (!quest) return raw;
   try {

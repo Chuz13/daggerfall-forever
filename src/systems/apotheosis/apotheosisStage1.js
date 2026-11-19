@@ -183,7 +183,9 @@ export function isDirenniHardModeActive(dfLocation, playerEntity) {
   if (!isDirenniTowerLocation(dfLocation) || !playerEntity) return false;
   const state = ensureApotheosisState(playerEntity);
   return state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE
-    && state.questStep === APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR;
+    && !state.shadowDefeated
+    && (state.questStep === APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR
+      || state.questStep === APOTHEOSIS_QUEST_STEPS.SHADOW_DUEL);
 }
 
 /**
@@ -367,6 +369,7 @@ export function createDirenniSiegeController({
   function syncPlayerProgress(w) {
     const state = ensureApotheosisState(playerEntity);
     state.siegeWave = w;
+    state.towerSiegeWave = w;
   }
 
   function clearTelegraphs() {

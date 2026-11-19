@@ -14,6 +14,7 @@ import { applyForageFix } from '../src/systems/foraging/foragingLaw.js';
 import { questActionsExtensionTemplates } from '../src/systems/quest/questActionsExtension.js';
 import { questlineActionTemplates } from '../src/systems/questlines/qlActions.js';
 import { questlineLines } from '../src/systems/questlines/qlPatches.js';
+import { apotheosisActionTemplates } from '../src/systems/apotheosis/apotheosisQuest.js';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(p, 'utf8').replace(/^﻿/, '');
@@ -26,6 +27,7 @@ export const QUEST_DIRS = Object.freeze([
   ['foraging', 'vendor/foraging/Quests'],
   ['questlines', 'src/systems/questlines/quests'],
   ['starts', 'src/systems/starts/quests'],   // START1: the starts' own quests (systems/starts/starts.js)
+  ['apotheosis', 'src/systems/apotheosis/quests'],   // APOTHEO: Apotheosis main-quest journal script
 ]);
 
 /** Every quest file the pack holds: upper-case name -> { name, dir, path }. A mod's quest of a DFU name is the mod's. */
@@ -79,6 +81,7 @@ export function packMachine(over = {}) {
   const m = new QuestMachine({ nowSeconds: () => 0, getQuestSourceLines: (n, on) => questSource(n, on ?? true), ...over });   // AUDIT QUESTLINES BRANCH-12: the seam's second word, as questData.js reads it
   for (const t of questActionsExtensionTemplates()) m.registerAction(t);
   for (const t of questlineActionTemplates()) m.registerAction(t);
+  for (const t of apotheosisActionTemplates()) m.registerAction(t);
   return m;
 }
 

@@ -124,10 +124,12 @@ import { applyFog, DUNGEON_FOG } from '../render/underwaterFog.js';
 import { gateArenaLocation, gateArenaBlocks, isGateArena, slabMatrix, courtLightsNear, withCourtLights, courtDoorAabb, planOfDay, COURT_FOG } from '../world/gate/gateArena.js';   // WB3b: the Burning Court - a level made in code on this host's dungeon arm
 import {
   isSdRealm, sdRealmLocation, sdRealmBlocks, buildRealmModel, realmColliderTris, realmLightsWith, realmLighting, SD_REALM_ARCHIVE, SD_REALM_FOG,
-  isApotheosisOrrery, apotheosisOrreryLocation, apotheosisOrreryBlocks, buildApotheosisOrreryModel, apotheosisOrreryColliderTris, apotheosisOrreryLightsWith, apotheosisOrreryArena,
+  isApotheosisOrrery, apotheosisOrreryLocation, apotheosisOrreryBlocks, buildApotheosisOrreryModel, apotheosisOrreryColliderTris, apotheosisOrreryLightsWith, apotheosisOrreryArena, apotheosisOrrerySpawnPoints,
 } from '../world/superDungeon/sdRealm.js';   // SD5a: the Shattered Hour, a made level as the court is
 import { advanceApotheosisQuestStep, APOTHEOSIS_QUEST_STEPS } from '../systems/apotheosis/apotheosisCore.js';
 import { APOTHEOSIS_ZERO_STONE_KEY, APOTHEOSIS_ORRERY_EXIT_KEY } from '../systems/apotheosis/apotheosisStage1.js';
+import { isApotheosisQuestName } from '../systems/apotheosis/apotheosisQuestIds.js';
+import { buildApotheosisDungeonMarks } from '../systems/apotheosis/apotheosisQuest.js';
 import { realmArt } from '../world/superDungeon/sdRealmArt.js';   // SD5a: its art, made in code
 import { isEgHall, egHallLocation, egHallBlocks, egLightsWith, egHallLighting, egHallFog, egHallGrade } from '../world/eliteGates/egHall.js';   // EG-PLAY: an Elite Breach's circle, a made level as the Hour is
 import { egRoomKey } from '../net/eliteGates/egLaw.js';   // EG-PLAY: its room, its halls, its words
@@ -3020,12 +3022,20 @@ export function createWorldModes(host) {
   /** GUIDE8 (the delve arc, systems/quest/questGuidance.js): THE EXACT TIER'S MARKS, underground - the stands and the quest
    *  foes this dungeon holds, named as the plaque names an item, and which of them the tracker's quest owns. Null under
    *  any other tier, so the context draws none. */
+  const apotheosisDungeonMarksHere = () => buildApotheosisDungeonMarks({
+    state: playerEntity?.apotheosis ?? null,
+    inOrrery: isApotheosisOrrery(dungeonLoc),
+    zeroStonePos: dungeonCtx?.zeroStonePos?.() ?? null,
+    foes: dungeonCtx?.foes ?? [],
+    orreryCenter: apotheosisOrrerySpawnPoints().center,
+    followed: isApotheosisQuestName(questTracker.tracked()?.questName),
+  });
   const dungeonQuestMarksHere = () => (guidanceTier() !== 'exact' ? null : dungeonQuestMarks({
     stands: dungeonQuestFlats, foes: dungeonCtx?.foes ?? [], boxOf: questStandBox, followedId: questTracker.tracked()?.id ?? null,
     people: dungeonCtx?.people ?? [], behaviourOf: (f) => dungeonCtx?.questFoeBehaviour?.(f) ?? f.questBehaviour ?? null,   // AUDIT DELVE E6: a party mate's quest foe, the dungeon's own quest people
     itemName: (st) => dungeonQuestFlatName(`questflat:${dungeonQuestFlats.indexOf(st)}`)?.title ?? null,   // the plaque's own word for it
     foeName: (f) => enemyDisplayName(f.mobileType),
-  }));
+  }).concat(apotheosisDungeonMarksHere()));
   /** GUIDE8's Exact tier (AUDIT DELVE, the open item closed): INSIDE A BUILDING TOO - the interior's quest stands
    *  (`questFlats`), the quest foes its pool stands and the people of the building a quest has taken, on the held map's
    *  interior sheet and the compass; a stand's item named by the interior plaque's own word (its namer's questflat arm). */
