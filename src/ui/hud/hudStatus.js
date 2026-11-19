@@ -95,7 +95,7 @@ export const STAT_NAME_GAP = 8;
  * from shapes and outlined by a machine, then looked at (tools/uiStatusProbe.mjs draws them all).
  */
 export const STATUS_GLYPHS = Object.freeze({
-  // ROAD-BLESSING (Stage 3.3): golden radiant shrine star
+  // Golden radiant shrine star
   blessing: Object.freeze({
     pal: { g: '#f2c85b', y: '#fff6b8', a: '#b58024' },
     rows: [
@@ -674,7 +674,7 @@ export function needGlyph(chip) {
 /**
  * The widget's tiles, in the order the foot row read them: the spells (mine, then others'), the set powers, the
  * poisons and diseases, the needs.
- * @param {{ spells?: any[], powers?: any[], afflictions?: any[], needs?: any[], rested?: { minutes: number }|null, zone?: { name: string, foot?: string|null }|null, rules?: { level: string, name: string, foot?: string|null }|null, mentor?: { name: string, foot?: string|null }|null }} lists - `spells` ui/enhanced/enhancedHud.js
+ * @param {{ spells?: any[], powers?: any[], afflictions?: any[], needs?: any[], rested?: { minutes: number }|null, zone?: { name: string, foot?: string|null }|null, rules?: { level: string, name: string, foot?: string|null }|null, mentor?: { name: string, foot?: string|null }|null, blessing?: any }} lists - `spells` ui/enhanced/enhancedHud.js
  *   effectRows, `powers` the host's set chips (systems/sigil/sigilSetPowers.js setHudChips), `afflictions` afflictionRows,
  *   `needs` survivalHudChips, `rested` REST1's night interval (its real minutes left), `zone` WILD1's open zone (its
  *   tile first), `rules` EVENT-RULES' made level (ui/hud/statusTips.js madeRulesTile - first), `mentor` MENTOR2's

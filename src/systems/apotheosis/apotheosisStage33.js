@@ -170,15 +170,12 @@ export function tickRoadBlessingFatigue(entity, deltaMinutes = 0, nowMinutes = 0
   return 0;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. ROADSIDE SHRINES (Suburban exits & Ephemeral Wild Road Shrines)
-// ─────────────────────────────────────────────────────────────────────────────
+// Roadside Shrines (suburban exits and wild road shrines)
 
 /**
  * Picks a deterministic patron deity for a Roadside Shrine node.
- * Rule (Balance Step 1): if `isSettlementWithoutTemple && exitIndex === 0`,
- * guarantees the region's Aedra patron (`resolveRegionPatronDeityId`).
- * Otherwise picks weighted by `getRegionInfluence(entity, regionIndex)`.
+ * Guarantees the region's Aedra patron when `isSettlementWithoutTemple && exitIndex === 0`;
+ * otherwise weights selection by `getRegionInfluence(entity, regionIndex)`.
  */
 export function pickRoadsideShrineGod(entity, {
   shrineId = 'roadside:default',

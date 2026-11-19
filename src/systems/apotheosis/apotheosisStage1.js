@@ -213,8 +213,8 @@ export function applyDirenniForcedTraits(entity, roll = Math.random) {
 
 /**
  * Handles touching/activating the Mantella inside the Mantellan Crux.
- * Returns `true` if handled asynchronously via modal choice (caller skips vanilla globalVar 36),
- * or `false` if vanilla ending proceeds immediately.
+ * Returns `true` if handled asynchronously via modal choice, or `false` if vanilla ending proceeds.
+ * @param {Record<string, any>} [opts]
  */
 export function handleMantellaCruxTouch({
   dfLocation,
@@ -335,6 +335,7 @@ export function direnniSiegeWaveMobs(wave) {
 /**
  * Exterior 13-wave siege & Wave 13 3-phase Aspect of the Tower boss controller.
  * Keeps no corpse spam/credit if abandoned (`removeFoe` despawn on retreat/mode switch).
+ * @param {Record<string, any>} [opts]
  */
 export function createDirenniSiegeController({
   playerEntity,
@@ -521,7 +522,6 @@ export function createDirenniSiegeController({
     active = false;
     clearTelegraphs();
     advanceApotheosisQuestStep(playerEntity, APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR, {
-      towerSiegeCleared: true,
       siegeWave: DIRENNI_SIEGE_TOTAL_WAVES,
     });
     triggerApotheosisScreenFlash(0.65);
@@ -731,6 +731,7 @@ export function pickZeroStoneSpot(startPos, enemies = [], collider = null) {
 
 /**
  * Periodic interior reinforcement spawner scoped exclusively to Direnni Hard-Mode.
+ * @param {Record<string, any>} [opts]
  */
 export function createDirenniInteriorReinforcer({
   isActive,
@@ -839,6 +840,7 @@ export function pickShadowMobileType(playerEntity) {
 
 /**
  * Spawns and monitors the Shadow of the Agent in the Cut Clockwork Orrery.
+ * @param {Record<string, any>} [opts]
  */
 export async function spawnShadowOfTheAgent({
   spawnLooseFoe,

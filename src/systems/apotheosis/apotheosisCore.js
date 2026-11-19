@@ -1,14 +1,6 @@
 // @ts-check
-// ═══════════════════════════════════════════════════════════════════════════════
-// APOTHEOSIS: PATH OF CHIM (Stage 0 - Fate Weight, Artifact Sacrifice, Portfolios)
-//
-// Evaluates the 24 triggers of Fate Weight directly from live playerEntity state
-// and runtime singletons (no shadow state; save-free evaluation with gentle
-// retro-estimation for older saves), tracks the 4 missing progression counters
-// (totalKills, booksRead, nemesesDefeated, questsCompleted), validates the
-// mutual-exclusion Artifact Sacrifice route (13 distinct unequipped artifacts),
-// enters the shared Apotheosis Questline seam, and stores Ascension + Portfolio.
-// ═══════════════════════════════════════════════════════════════════════════════
+// Apotheosis Stage 0: Fate Weight evaluation, progression counters, Artifact
+// Sacrifice validation, shared questline seam, Ascension state, and Portfolios.
 
 import { t } from '../textManager.js';
 import { setSkyMinutesOverride } from '../worldTick.js';
@@ -754,7 +746,8 @@ export function artifactSubTypeOf(item) {
     if (idx >= 0 && idx < TOTAL_CANONICAL_ARTIFACTS) return idx;
   }
   const legacy = legacyGetArtifactSubType(item.shortName ?? item.name);
-  if (legacy >= 0 && legacy < TOTAL_CANONICAL_ARTIFACTS) return legacy;
+  const legacyNum = typeof legacy === 'number' ? legacy : Number(legacy);
+  if (Number.isInteger(legacyNum) && legacyNum >= 0 && legacyNum < TOTAL_CANONICAL_ARTIFACTS) return legacyNum;
   const fallback = Number(item.enchantments?.[0]?.enchantParam);
   if (Number.isInteger(fallback) && fallback >= 0 && fallback < TOTAL_CANONICAL_ARTIFACTS) return fallback;
   return -1;
@@ -858,7 +851,7 @@ export function mintCanonicalArtifact(subType, { gender = 'male' } = {}) {
   const templateIndex = GROUP_TEMPLATE_INDICES[groupName]?.[rec.index] ?? 0;
   const tex = artifactTextureIndices(idx, gender);
   const nameEntry = [...ARTIFACT_SUB_TYPE_NAMES].find(([, v]) => v === idx)?.[0] ?? `Artifact_${idx}`;
-  const cleanName = canonicalArtifactName(idx) || nameEntry.replaceAll('_', ' ');
+  const cleanName = canonicalArtifactName(idx) || String(nameEntry).replaceAll('_', ' ');
   return {
     group: groupName,
     templateIndex,
@@ -922,7 +915,7 @@ function collectAllBookItemsCount(entity) {
   }
   try {
     for (const h of allOfflineHomes()) {
-      for (const list of [h?.chests, h?.decor]) {
+      for (const list of [/** @type {any} */ (h)?.chests, h?.decor]) {
         if (!Array.isArray(list)) continue;
         for (const entry of list) {
           if (entry?.group === 'Books' && Number.isInteger(entry.message)) {
@@ -1504,6 +1497,8 @@ export function evaluateMantellaFork(entity) {
 /**
  * Shared entry point for the Apotheosis Ascension questline (`artifacts` or `mantella` route).
  * Stage 1 opens the Dragon Break storm worldwide and directs the player to Direnni Tower.
+ * @param {any} entity
+ * @param {{ source?: string | null, sacrificedSubTypes?: number[] }} [opts]
  */
 export function startApotheosisQuestline(entity, { source, sacrificedSubTypes = [] } = {}) {
   const state = ensureApotheosisState(entity);

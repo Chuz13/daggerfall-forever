@@ -11,14 +11,12 @@
 // that stands alone) - and by neither the torch nor the charge. So a boarding's hands took the player's arrows, spells,
 // torch and charge, and a blow turned them on the player (enemyTargets.js resetAllyTeamOnPlayerAttack).
 //
-// A SHIPMATE is an ally of the player's standing on a ship's deck (`deckBoat` - the world's deck registry, DECK-WALK: a
-// boarding's hands, the crew standing to repel boarders) - or, in a room, another player's (`shipmate`: the owner's foes
-// frame names its crew, scenes/exteriorFoes.js `cw`, and the reader stands them as its allies too, as RAID2 stands a
-// watchman the owner names): every door passes them by, and their own blasts and shafts pass by the player and each
-// other (hostMagic.js). A summoned daedra or a quest's companion keeps DFU's own friendly fire.
+// A SHIPMATE is an ally standing on a deck (`deckBoat`, the world's deck registry) or marked `shipmate`
+// (owner foes frame names its crew in `scenes/exteriorFoes.js`, RAID2 stands named watchmen): every door
+// passes them by, and their own blasts/shafts pass by player and allies (`hostMagic.js`). Summoned daedra
+// and quest companions keep DFU friendly fire.
 
-/** Whether `t` (a pool's foe) is a shipmate or spared ally: a crewmate on a deck, a unit marked `shipmate`, a cult
- *  siege defender, or a Living Tamriel / Apotheosis skirmish ally fighting on the player's side. */
+/** Whether `t` (a pool's foe) is a shipmate or spared ally. */
 export const isShipmate = (t) =>
   !!t &&
   (t.deckBoat != null ||

@@ -617,16 +617,12 @@ export function enforceGodWarTruce(entity, warId, { nowMinutes = 0, force = fals
   return { ok: true, endedWar: war, regionsCleared: war.regions.length, message: msg };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. DAILY SIMULATION TICK (SIEGES + INTER-DEITY WARS)
-// ─────────────────────────────────────────────────────────────────────────────
+// Daily simulation tick (sieges and inter-deity wars)
 
 /**
- * Runs daily Stage 3.4 simulation (invoked inside `tickPantheonDay`):
- *  - Expires overdue sieges as sacrificed/fallen sanctums;
- *  - Triggers new temple/sanctuary sieges from warring deities;
- *  - Shifts regional influence in active Inter-Deity Religious Wars;
- *  - Ignites new Inter-Deity Religious Wars when mutual standing falls below -75.
+ * Runs daily Stage 3.4 simulation inside `tickPantheonDay`:
+ * expires overdue sieges, starts new temple/sanctuary sieges, shifts influence
+ * in active wars, and ignites new wars when mutual standing drops below -75.
  */
 export function tickStage34Daily(entity, simMin = 0, simDay = 0, rng = Math.random, tierOverride = null) {
   if (!entity || !isAscendedGod(entity)) return { expiredSieges: 0, startedSieges: 0, startedWars: 0 };
@@ -1152,7 +1148,7 @@ export function resolveWarSkirmishPacify(
         }
       }
       if (isAscendedGod(entity)) {
-        addApotheosisFaith(entity, 100, { source: 'skirmish_war_ended', nowMinutes: now });
+        addApotheosisFaith(entity, 100, { reason: 'skirmish_war_ended', nowMinutes: now });
         shiftRegionInfluence(entity, reg, 'player', 3);
       } else {
         entity.goldPieces = Math.max(0, (Number(entity.goldPieces) || 0) + 250);

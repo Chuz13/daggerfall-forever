@@ -265,11 +265,10 @@ export function createSanctuaryInteriorEntry(site, {
   return { hit, entries: [hit], building };
 }
 
-/**
- * Spawns Cult Guardians inside a Temple (if owner is War/Hostile) or Daedric Sanctuary
- * (`2` normal, `4` if Hatch Alarm was triggered) and marks `clearSiteGuardians` once slain.
- * Enforces a 3-day respawn cooldown (`CULT_GUARDIAN_RESPAWN_COOLDOWN_MINUTES`) and applies
- * a small once-per-day trespass relation penalty (`-5`) inside hostile/war sanctuaries.
+/** Spawns Cult Guardians inside a Temple or Daedric Sanctuary.
+ * @param {any} entity @param {any} building @param {any} mapId
+ * @param {any} interiorFoes @param {any} ctx
+ * @param {{ say?: (...args: any[]) => any, nowMinutes?: number, forceSpawn?: boolean }} [opts]
  */
 export function spawnCultInteriorGuardians(entity, building, mapId, interiorFoes, ctx, { say = () => {}, nowMinutes = 0, forceSpawn = false } = {}) {
   if (!entity || !building || !interiorFoes?.spawnFoe || !ctx) return [];
@@ -413,8 +412,10 @@ export function spawnCultInteriorGuardians(entity, building, mapId, interiorFoes
 }
 
 /**
- * Interactive 4-method Hatch Unlock & Gatekeeper modal when activating a locked Daedric hatch in 3D.
- * Forced intrusion provokes Holy War (-35 Relation); alarms spawn Guardians in the street and stay outside.
+ * Interactive Hatch Unlock modal when activating a locked Daedric hatch in 3D.
+ * @param {any} entity
+ * @param {any} site
+ * @param {{ showOverlay?: (...args: any[]) => any, say?: (...args: any[]) => any, onEnterSanctuary?: (...args: any[]) => any, onAlarmTriggered?: ((...args: any[]) => any) | null, worldMinutes?: number }} [opts]
  */
 export function openSanctuaryHatchModal(entity, site, {
   showOverlay,
@@ -711,10 +712,10 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
             () => {
               const r = initiateForceConsecrationAssault(entity, site.siteKey, { nowMinutes: worldMinutes });
               if (!r.ok) {
-                say(r.reason);
+                say('reason' in r ? r.reason : '');
                 return;
               }
-              if (r.completedImmediately) {
+              if ('completedImmediately' in r && r.completedImmediately) {
                 say(t('apotheosis.cult.consecrateDone', 'Altar consecrated to your Cult!'));
                 return;
               }
@@ -1159,6 +1160,7 @@ export function createApotheosisCultHost(deps = {}) {
       rec.lootDropped = true;
       rec._suppressLoot = false;
       if (rec.entity) {
+        /** @type {any[]} */
         const supplies = [goldStack(15 + Math.floor(Math.random() * 25))];
         if (Math.random() > 0.35) {
           const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
@@ -1565,7 +1567,7 @@ export function createApotheosisCultHost(deps = {}) {
     if (typeof placeFeet === 'function') {
       const anchor = resolveSiegeAnchor(site);
       const lookYaw = Math.atan2(anchor.normal[0], anchor.normal[1]);
-      const playerSpawnPt = spawnSiegePoint(anchor.pos, anchor.normal, 1.0, 0);
+      const playerSpawnPt = spawnSiegePoint(/** @type {[number, number, number]} */ (anchor.pos), /** @type {[number, number]} */ (anchor.normal), 1.0, 0);
       placeFeet([playerSpawnPt[0], playerSpawnPt[1] + 0.15, playerSpawnPt[2]], lookYaw);
     } else {
       const tpKind = site.kind === 'temple' ? 'temple' : (site.isPlayerFounded ? 'player' : 'daedra');
@@ -2019,8 +2021,9 @@ export function interiorCultAltarTargets(ctx, entity, building, mapId, renderer 
       ctx._cultAltarState = stateRec;
 
       if (!useModelStyle) {
-        const archive = playerStyle ? playerStyle.archive : deityFlat.archive;
-        const record = playerStyle ? playerStyle.record : deityFlat.record;
+        const flatStyle = playerStyle && playerStyle.kind === 'flat' ? playerStyle : null;
+        const archive = flatStyle ? flatStyle.archive : deityFlat.archive;
+        const record = flatStyle ? flatStyle.record : deityFlat.record;
         if (pipeline.getTexture && renderer.createBillboardBatch) {
           Promise.resolve(pipeline.getTexture(archive)).then((tex) => {
             if (ctx._cultAltarState !== stateRec || !tex || tex.recordCount <= 0) return;

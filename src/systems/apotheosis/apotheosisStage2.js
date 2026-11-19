@@ -1,17 +1,6 @@
 // @ts-check
-// ═══════════════════════════════════════════════════════════════════════════════
-// APOTHEOSIS STAGE 2: FAITH ECONOMY, PORTFOLIO HOOKS & SCROLL OF AURBIS
-//
-// Manages:
-//   - Dynamic Faith capacity (`getFaithMax`, base 1000 -> scalable by Cult in Stage 3)
-//   - Flat daily Mythic Decay (-15 Faith/day when idle) + lawful Order stewardship
-//   - Portfolio Faith generation (War, Magic without enchanted weapon kill abuse,
-//     Shadows stealth/theft/lockpicking, Order bounties/temples/knightly quests/donations)
-//   - Witness alignment reactions (+Faith for portfolio-aligned public miracles,
-//     -Faith for portfolio-opposed public miracles)
-//   - Scroll of Aurbis whitelist, strict cheat/stat blacklist, item gold pricing,
-//     live cost estimation, and command execution.
-// ═══════════════════════════════════════════════════════════════════════════════
+// Apotheosis Stage 2: dynamic Faith capacity, Mythic Decay, Portfolio Faith
+// hooks, witness alignment bonuses, and Scroll of Aurbis miracles.
 
 import { t } from '../textManager.js';
 import { getPref } from '../uiPrefs.js';
@@ -80,24 +69,27 @@ for (const [groupName, indices] of Object.entries(GROUP_TEMPLATE_INDICES || {}))
   for (const idx of indices) TEMPLATE_TO_GROUP.set(idx, groupName);
 }
 
-const MATERIAL_NAME_TO_INDEX = new Map([
-  ['iron', 0],
-  ['steel', 1],
-  ['silver', 2],
-  ['elven', 3],
-  ['dwarven', 4],
-  ['dwemer', 4],
-  ['mithril', 5],
-  ['adamant', 6],
-  ['adamantium', 6],
-  ['ebony', 7],
-  ['orcish', 8],
-  ['orc', 8],
-  ['daedric', 9],
-  ['daedra', 9],
-  ['leather', 'leather'],
-  ['chain', 'chain'],
-]);
+/** @type {Map<string, number | string>} */
+const MATERIAL_NAME_TO_INDEX = new Map(
+  /** @type {Array<[string, number | string]>} */ ([
+    ['iron', 0],
+    ['steel', 1],
+    ['silver', 2],
+    ['elven', 3],
+    ['dwarven', 4],
+    ['dwemer', 4],
+    ['mithril', 5],
+    ['adamant', 6],
+    ['adamantium', 6],
+    ['ebony', 7],
+    ['orcish', 8],
+    ['orc', 8],
+    ['daedric', 9],
+    ['daedra', 9],
+    ['leather', 'leather'],
+    ['chain', 'chain'],
+  ]),
+);
 
 const MATERIAL_MULT_TABLE = Object.freeze([1, 2, 4, 8, 16, 32, 64, 128, 256, 512]);
 
@@ -133,8 +125,6 @@ const MID_TIER_MOBS = new Set([
   MOBILE_TYPES.Gargoyle,
   MOBILE_TYPES.Wraith,
   MOBILE_TYPES.Ghost,
-  MOBILE_TYPES.FrostGolem,
-  MOBILE_TYPES.IceGolem,
   MOBILE_TYPES.Lamia,
   MOBILE_TYPES.Centaur,
   MOBILE_TYPES.Werewolf,
@@ -723,7 +713,7 @@ export function applyApotheosisChampionStrength(entity, champRecord, { fresh = t
   entity.name = champRecord.title || champRecord.name;
 }
 
-/** @type {Array<object>} */
+/** @type {Array<Record<string, any>>} */
 const _activeChampions = [];
 let _championIdCounter = 1;
 let _championExpiredHook = null;
@@ -1312,7 +1302,8 @@ function estimateAddItemPricing(args = []) {
     }
   }
   if (tokens.length > 1 && /^\d+$/.test(tokens[tokens.length - 1])) {
-    count = Math.max(1, Math.min(999, parseInt(tokens[tokens.length - 1], 10) || 1));
+    const MAX_AURBIS_ITEM_COUNT = 999;
+    count = Math.max(1, Math.min(MAX_AURBIS_ITEM_COUNT, parseInt(tokens[tokens.length - 1], 10) || 1));
     tokens.pop();
   }
 

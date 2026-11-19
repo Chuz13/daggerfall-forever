@@ -1,12 +1,7 @@
 // @ts-check
-// ═══════════════════════════════════════════════════════════════════════════════
-// APOTHEOSIS: PATH OF CHIM (Cycle-Free Live Combat, Vitals & Rebirth Primitives)
-//
-// Intentionally imports ONLY pure leaf modules (skills.js, statMods.js) so that
-// chargen.js, combat/formulas.js, systems/effects.js, and playerEntity.js can
-// all consume ascended-god vitals, portfolio buffs, shadow boss damage
-// mitigation, and divine rebirth without introducing circular ESM dependencies.
-// ═══════════════════════════════════════════════════════════════════════════════
+// Apotheosis cycle-free live combat, vitals, and rebirth primitives.
+// Imports only leaf modules (`skills.js`, `statMods.js`) so chargen, formulas,
+// effects, and playerEntity consume god vitals and rebirth without ESM cycles.
 
 import { SKILLS, realSkillValue } from '../skills.js';
 import { FATIGUE_MULTIPLIER } from '../statMods.js';
@@ -128,7 +123,8 @@ export function notifyApotheosisEvent(eventName, payload = {}) {
   }
 }
 
-/** Registers runtime bridges from consoleCommands/scenes without introducing ESM import cycles. */
+/** Registers runtime bridges from consoleCommands/scenes without introducing ESM import cycles.
+ * @param {Record<string, any>} [patch] */
 export function registerAurbisRuntime(patch = {}) {
   if (!patch || typeof patch !== 'object') return;
   if (typeof patch.executeCommand === 'function') _aurbisRuntime.executeCommand = patch.executeCommand;
@@ -311,7 +307,7 @@ export function setApotheosisRebirthFailedHook(fn) {
 }
 
 /** Triggers the golden-white full-screen flash overlay on divine rebirth. */
-export function triggerApotheosisScreenFlash() {
+export function triggerApotheosisScreenFlash(_intensity = 1) {
   _screenFlash.active = true;
   _screenFlash.elapsed = 0;
   _screenFlash.alpha = 1;

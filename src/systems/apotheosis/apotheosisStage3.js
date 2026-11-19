@@ -1,18 +1,7 @@
 // @ts-check
-// ═══════════════════════════════════════════════════════════════════════════════
-// APOTHEOSIS STAGE 3 (MILESTONE 3.1): PANTHEON 8+8, 71-REGION DOMINION & 4X DIPLOMACY
-//
-// Provides:
-//   - Expandable 8 Aedra + 8 Daedra Pantheon registry (`registerPantheonDeity`)
-//   - Upstart initial standings (Portfolio, Temple rank/rep, shattered artifacts,
-//     Lich/Vampire/Lycanthrope curses) + 30-day Grace Period with x2 offense penalty
-//   - Ally/Enemy relation propagation & Portfolio realignment apostate penalties
-//   - 71-Region Tamriel divine influence shares (62 Iliac Bay + 9 Tamriel provinces)
-//   - Reactive regional shifts from all 26 vanilla World Sim `REGION_FLAGS`
-//   - Daily Pantheon AI turns (1 global move per deity per tick) + searchable Chronicle
-//   - Diplomatic Decrees (Offering, Pact, Alliance, Sow Discord, Holy War, Dynamic Truce)
-//   - Targeted Divine Geopolitics (`igniteRegionWar`, `enforceRegionPeace`)
-// ═══════════════════════════════════════════════════════════════════════════════
+// Apotheosis Stage 3: expandable 8+8 Pantheon, 71-region influence, diplomacy,
+// initial standings, 30-day Grace Period, reactive REGION_FLAGS shifts,
+// daily Pantheon AI turns, Chronicle, decrees, and regional war/peace triggers.
 
 import { t, getLocalizedRegionName } from '../textManager.js';
 import {

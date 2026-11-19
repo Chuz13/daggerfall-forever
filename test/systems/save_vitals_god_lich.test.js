@@ -171,7 +171,7 @@ test('Case 1 (SAVE2 replica): Level 25 Ascended God card shows full 1150+ maxHea
 });
 
 test('Case 2 (SAVE3 & SAVE5 replicas): injured Ascended God and Ascended God + Ancient Lich compute card vitals and load proportionally', () => {
-  // SAVE3: injured Ascended God (27 / 55 in legacy snapshot ≈ 49.09%)
+  // Injured Ascended God (27 / 55 in legacy snapshot ≈ 49.09%)
   const snap3 = makeLegacySaveSnap({ health: 27, maxHealth: 55, xp: 93137, renown: 21 });
   const card3 = savedVitalsOf(snap3);
   assert.ok(card3.maxHealth > 1100);
@@ -191,7 +191,7 @@ test('Case 2 (SAVE3 & SAVE5 replicas): injured Ascended God and Ascended God + A
     `SAVE3 loaded HP ${playerEntity.health}/${playerEntity.maxHealth} should preserve ~49% health`,
   );
 
-  // SAVE5: Ascended God + Ancient Lich (+250 HP inside snap.activeEffects), 35 / 55 ≈ 63.6%
+  // Ascended God + Ancient Lich (+250 HP inside snap.activeEffects), 35 / 55 ≈ 63.6%
   resetPlayerForTest();
   _resetFirmamentLiveForTests();
   _resetOfflineFirmamentForTests();

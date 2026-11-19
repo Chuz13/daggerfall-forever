@@ -10,13 +10,10 @@
 // each fighting the other for the frame. A queue on one promise chain
 // is the stack's order without the stack: a play waits for the one
 // before it, and a play that fails (a missing ANIM - the door never
-// traps) releases the next rather than holding the chain.
-//
-// `play(name)` is the host's own async door; the queue owns nothing
-// but the order.
+// traps) releases the next cleanly. `play(name)` is the host's async
+// door; the queue owns only the order.
 
-/** @param {(name: string) => Promise<unknown>} play
- *  @param {{ hold?: (() => () => void) | null }} [opts] */
+/** @param {(name: string) => Promise<unknown>} play @param {{ hold?: (() => () => void) | null }} [opts] */
 export function makeVideoQueue(play, { hold = null } = {}) {
   let chain = Promise.resolve();
   let depth = 0;

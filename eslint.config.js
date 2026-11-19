@@ -134,5 +134,5 @@ export default [
     rules: { 'max-statements-per-line': ['error', { max: 1 }] },
   },
   // generated and gitignored trees the lint paths above reach into
-  { ignores: ['app/release/**', 'tools/parity/dfu/**', 'tools/parity/cs/api/**', 'tools/parity/out/**'] },
+  { ignores: ['app/dist/**', 'app/release/**', 'tools/parity/dfu/**', 'tools/parity/cs/api/**', 'tools/parity/out/**'] },
 ];

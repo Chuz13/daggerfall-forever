@@ -1,13 +1,7 @@
 // @ts-check
-// ═══════════════════════════════════════════════════════════════════════════════
-// APOTHEOSIS PANE (Pause › Apotheosis tab + Interactive Artifact Sacrifice Picker)
-//
-// Renders inside the standard Pause journal window (.px-journal / .px-qrail / .px-qdetail).
-// Sub-sections:
-//   - Overview (Ascension status, questline notification, active Portfolio, Fate Weight bar, Artifact Sacrifice launch)
-//   - Fate Weight categories: CHIM & Mind / Blood & Crucible / Dominion & World (toggled by `apotheosisShowTracker`)
-//   - Divine Portfolio (4 domains + free domain switching once Ascended)
-// ═══════════════════════════════════════════════════════════════════════════════
+// Apotheosis Pause tab and interactive Artifact Sacrifice picker.
+// Renders inside the standard Pause journal window: Overview, Fate Weight tracker,
+// Divine Portfolio domains, Scroll of Aurbis, Pantheon, and Cult sections.
 
 import { playerEntity } from '../characters/playerEntity.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
@@ -406,7 +400,7 @@ function renderPickerModal(root, repaint, entity) {
     if (res.ok) {
       pickerOpen = false;
       selectedItems = [];
-      setFeedback(res.notice, false);
+      setFeedback('notice' in res ? res.notice : '', false);
     } else {
       setFeedback(res.error, true);
     }

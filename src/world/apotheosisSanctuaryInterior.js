@@ -1,13 +1,7 @@
 // @ts-check
-// ═══════════════════════════════════════════════════════════════════════════════
-// APOTHEOSIS STAGE 3 (MILESTONE 3.2): SUBTERRANEAN SANCTUARY INTERIORS & HATCHES
-//
-// Builds 3 windowless underground sanctuary layouts using the kit-based
-// `fabricInteriorPlan` / `fabricInteriorRecord` builder with 100% blind perimeter
-// walls (zero window models), an Altar dais (`41020`), brazier lights, and
-// spawn nodes, plus deterministic collision-free street hatch placement
-// using authentic ARCH3D subterranean models (`43600`, `43603`).
-// ═══════════════════════════════════════════════════════════════════════════════
+// Apotheosis Stage 3.2: subterranean Sanctuary layouts and hatch placement.
+// Builds 3 windowless sanctuary interiors via `fabricInteriorPlan` / `fabricInteriorRecord`
+// with blind perimeter walls, altar dais (41020), braziers, spawn nodes, and hatches.
 
 import {
   FABRIC_SIDES,
@@ -142,7 +136,7 @@ export function buildSanctuaryPlan(site) {
   const cells = spec.cells.map(([i, j]) => [i, j]);
   const blind = buildAllBlindEdges(cells);
   const plan = fabricInteriorPlan({
-    key,
+    key: 0,
     pool: spec.fabricPool,
     cells,
     blind,
@@ -264,14 +258,11 @@ export function buildSanctuaryBlock(site) {
 }
 
 /**
- * Picks a deterministic outdoor town position `[x, y, z, yaw]` for an underground
- * sanctuary hatch, clear of building boxes, roads/paths (`isRoadFn`), and the centre square.
+ * Picks a deterministic `[x, y, z, yaw]` for an underground sanctuary hatch, clear of buildings, roads, and center square.
  * @param {Map<any, any> | null} frames
  * @param {{ minX?: number, maxX?: number, minZ?: number, maxZ?: number } | null} [locationRect]
  * @param {(x: number, z: number) => number} [heightAtFn]
- * @param {string} [seedKey]
- * @param {number} [variant] - 0 for city's Daedric hatch, 1 for player-founded hatch
- * @param {((x: number, z: number) => boolean) | null} [isRoadFn] - returns true if `(x, z)` is on a road/path tile
+ * @param {string} [seedKey] - base seed key, @param {number} [variant] - hatch variant, @param {((x: number, z: number) => boolean) | null} [isRoadFn]
  */
 export function pickSanctuaryHatchPosition(
   frames,

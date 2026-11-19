@@ -63,10 +63,6 @@ function pickRoadsideDeityFoe(godId, idx = 0) {
   return pool[idx % pool.length];
 }
 
-/**
- * Creates the exterior Roadside Shrines host.
- * @param {object} deps
- */
 function pickRoadShoulderOffset(p, tx, tz, seed = 0, fallbackDx = 1, fallbackDz = 0) {
   const dirs = [];
   if (p?.tilemapBytes || p?.paths) {
@@ -96,6 +92,10 @@ function pickRoadShoulderOffset(p, tx, tz, seed = 0, fallbackDx = 1, fallbackDz 
   return [(chosen[0] / len) * dist, (chosen[1] / len) * dist];
 }
 
+/**
+ * Creates the exterior Roadside Shrines host.
+ * @param {Record<string, any>} [deps]
+ */
 export function createApotheosisRoadShrinesHost({
   built,
   renderer,

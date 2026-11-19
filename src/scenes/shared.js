@@ -2364,7 +2364,7 @@ export function runAfterNewGameCinematics(
   })();
 }
 
-/** CRUX1 / QV1: shared quest-video queue holding the host frame per queued clip. */
+/** Shared quest-video queue holding the host frame per queued clip. */
 export function createQuestVideoQueue(renderer) {
   return makeVideoQueue(async (name) => {
     try {

@@ -3097,7 +3097,11 @@ async function handleApotheosisCommand(args = []) {
     }
     const days = Math.max(1, Math.min(365, parseInt(args[1] ?? '1', 10) || 1));
     let nowMin = 0;
-    try { nowMin = worldMinutes() || 0; } catch { nowMin = 0; }
+    try {
+      nowMin = worldMinutes() || 0;
+    } catch {
+      nowMin = 0;
+    }
     const res = tickApotheosisMythicDecay(playerEntity, nowMin, { daysOverride: days });
     return `[Apotheosis] Mythic Decay (${days} day(s)): decayedDays=${res.decayedDays}, faithLost=${res.faithLost}, orderBonus=${res.orderBonus}, faith=${res.faithBefore}->${res.faithAfter}/${getFaithMax(playerEntity)}.`;
   }
@@ -3112,9 +3116,10 @@ async function handleApotheosisCommand(args = []) {
       st.debugWitnessCount = null;
       return 'Cleared debug witness override (using live scene witness count).';
     }
+    const MAX_DEBUG_WITNESS_COUNT = 999;
     const n = parseInt(raw, 10);
     if (!Number.isFinite(n) || n < 0) return 'Usage: apo witness [count | clear]';
-    st.debugWitnessCount = Math.min(999, n);
+    st.debugWitnessCount = Math.min(MAX_DEBUG_WITNESS_COUNT, n);
     return `Set debug witness override to ${st.debugWitnessCount}.`;
   }
   if (sub === 'aurbis') {

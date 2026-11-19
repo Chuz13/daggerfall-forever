@@ -677,7 +677,7 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
         setFeedback,
         onRun: () => {
           const r = initiateForceConsecrationAssault(entity, site.siteKey, { nowMinutes: nowMin });
-          setFeedback(r.ok ? t('apotheosis.cult.consecrateDone', 'Altar consecrated to your Cult!') : r.reason, !r.ok);
+          setFeedback(r.ok ? t('apotheosis.cult.consecrateDone', 'Altar consecrated to your Cult!') : ('reason' in r ? r.reason : ''), !r.ok);
           repaint();
         },
       }),
