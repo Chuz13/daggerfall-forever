@@ -251,7 +251,8 @@ export class EnemyCaster {
       // DFU turns to face and still stands off (:603-604).
       if (!idle || !withinYaw(ai.yaw, dx, dz, SPELL_YAW_DEG)) continue;
       if (ai._tacShoot === false) continue;   // TACT2: no ranged token - it waits its turn (unset with the switch off)
-      if (this.rolls() >= RANGED_SPELL_CHANCE) continue;
+      const castChance = ent?.shadowBoss ? Math.min(1, RANGED_SPELL_CHANCE * 3) : RANGED_SPELL_CHANCE;
+      if (this.rolls() >= castChance) continue;
       decision = { spell: this.selectedSpell, touch: false };
       ai._tacShot = (ai._tacShot ?? 0) + 1;   // AUDIT TACT A2: a ranged spell spends the ranged token as a shot does
     }

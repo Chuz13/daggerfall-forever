@@ -1642,6 +1642,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!puppet && e.level == null) applyProgressionScalingTo(entity, basics, { ally: !!e.allied });   // SOFTCAP1: tougher high-tier foes against skills past 100 (a puppet is its owner's build); ARENA2: never a bout fighter (the ladder is a fixed mountain)
       else if (puppet && e.level == null) applyProgressionScalingTo(entity, basics, { puppet: true, ally: !!e.allied });   // AUDIT BAL: a puppet stands at this place too - its blows on me as on its owner (BAL3)
       if (_wildDungeon && !e.allied) applyWildFoe(entity, { ring: _wildRing });   // WILD1: a dungeon of the open zone - four times its health and its blows, over an elite's (every client builds the room's foes alike, so the maximum agrees)
+      if (e.shadowBoss) entity.shadowBoss = true;
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
       recordEntityPlacement(entity, { pos, team: entity.team, allied: !!e.allied, eliteFoe: entity.eliteFoe, puppet });
@@ -1738,6 +1739,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!puppet && e.level == null) applyProgressionScalingTo(entity, basics, { ally: !!e.allied });   // SOFTCAP1: tougher high-tier foes against skills past 100 (a puppet is its owner's build); ARENA2: never a bout fighter
       else if (puppet && e.level == null) applyProgressionScalingTo(entity, basics, { puppet: true, ally: !!e.allied });   // AUDIT BAL: a puppet stands at this place too - its blows on me as on its owner (BAL3)
       if (_wildDungeon && !e.allied) applyWildFoe(entity, { ring: _wildRing });   // WILD1: a dungeon of the open zone - four times its health and its blows, over an elite's (every client builds the room's foes alike, so the maximum agrees)
+      if (e.shadowBoss) entity.shadowBoss = true;
       applySpawnAlliance(entity, e);   // MT-ii / AUDIT OH-F C4
       entity._feudPlace = 'dungeon';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
       recordEntityPlacement(entity, { pos, team: entity.team, allied: !!e.allied, eliteFoe: entity.eliteFoe, puppet });
@@ -1890,12 +1892,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  Entity.Team from that copy, so BOTH per-instance fields turn and
    *  the shared frozen basics row does not - getting that wrong would
    *  ally every foe of the type. */
-  async function spawnLooseFoe(mobileType, position, { gender = null, yawRad = null, allied = false, questSpawn = false, loadID = null, level = null, bout = null, eliteFoe = false, revenant = null, lairStand = false, turned = false, delve = false } = {}) {   // RVN7d: a revenant (its record), found in its lair; DLV3: an encounter's foe asks its own kind online
+  async function spawnLooseFoe(mobileType, position, { gender = null, yawRad = null, allied = false, questSpawn = false, loadID = null, level = null, bout = null, eliteFoe = false, revenant = null, lairStand = false, turned = false, delve = false, shadowBoss = false } = {}) {   // RVN7d: a revenant (its record), found in its lair; DLV3: an encounter's foe asks its own kind online
     // AUDIT OH-F C3/C4: the alliance and the quest mark ride the build's record - DFU sets both before OnEnemySpawn
     // is raised (GameObjectHelper.cs:1286-1294's QuestSpawn, SetupDemoEnemy.cs:85-86's team), and a rebuild keeps them
     // ARENA2: a bout fighter (scenes/arena/arenaBouts.js) at its tier's `level`, carrying its `bout` from its first frame -
     // no loot (nobody dies on the sand to drop it), and never the room's (the instance is one player's)
-    const e = { mobileType, gender, x: position[0], y: position[1], z: position[2], spawnDistanceType: 0, ...(allied ? { allied: true } : {}), ...(questSpawn ? { questSpawn: true } : {}), ...(loadID != null ? { loadID } : {}), ...(Number.isFinite(level) ? { level } : {}), ...(eliteFoe ? { eliteFoe: true } : {}), ...(revenant ? { revenant, lairStand: !!lairStand, ...(turned ? { turned: true } : {}) } : {}) };   // RVN11c: a betrayer turned where it stood   // SEARCH1: a searched grave's elite - applyEliteScaling and grantEliteLoot read the record's mark; RVN7d: a revenant's record
+    const e = { mobileType, gender, x: position[0], y: position[1], z: position[2], spawnDistanceType: 0, ...(allied ? { allied: true } : {}), ...(questSpawn ? { questSpawn: true } : {}), ...(loadID != null ? { loadID } : {}), ...(Number.isFinite(level) ? { level } : {}), ...(eliteFoe ? { eliteFoe: true } : {}), ...(shadowBoss ? { shadowBoss: true } : {}), ...(revenant ? { revenant, lairStand: !!lairStand, ...(turned ? { turned: true } : {}) } : {}) };   // RVN11c: a betrayer turned where it stood   // SEARCH1: a searched grave's elite - applyEliteScaling and grantEliteLoot read the record's mark; RVN7d: a revenant's record
     // GRANT4 (Spawn-Grants section 14): a stand that rides the room's own lane stands on its grant - asked before the build,
     // and while the law enforces, none stands without one (a bout is the instance's own, and rides nothing)
     const ask = bout ? null : grants?.()?.memberFor(grantKindOf({ allied, questBehaviour: questSpawn, revenant, delve, loose: true })) ?? null, granted = ask ? await ask : null, gm = granted && 'gr' in granted ? granted : null;

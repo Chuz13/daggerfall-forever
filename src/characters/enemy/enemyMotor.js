@@ -1708,6 +1708,7 @@ export class EnemyAI {
    * a special foe running for its life outruns a running player, systems/revenant/revenant.js REVENANT_FLEE_PACE).
    */
   flee(fromFeet, seconds, pace = 1) {
+    if (this.vitals?.()?.fearless || this.vitals?.()?.shadowBoss) return;
     breakWindup(this);   // AUDIT TELL B1: a routed foe's wind-up goes with its fight
     this.fleeFrom = [fromFeet[0], fromFeet[1], fromFeet[2]];
     this.fleeLeft = seconds;

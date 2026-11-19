@@ -785,6 +785,7 @@ export function configureShadowEntity(shadowEntity, playerEntity) {
   if (!shadowEntity || !playerEntity) return shadowEntity;
   shadowEntity.name = t('apotheosis.shadow.name', 'Shadow of the Agent');
   shadowEntity.shadowBoss = true;
+  shadowEntity.fearless = true;
   shadowEntity.divineChampion = true;
   shadowEntity.noInstakill = true;
   shadowEntity.noLootDrop = true;
@@ -792,9 +793,9 @@ export function configureShadowEntity(shadowEntity, playerEntity) {
   shadowEntity.level = Math.max(15, effectiveLevel(playerEntity));
   shadowEntity.maxHealth = Math.max(1200, Math.round((playerEntity.maxHealth || 250) * 5.2));
   shadowEntity.health = shadowEntity.maxHealth;
-  shadowEntity.maxMagicka = Math.max(400, playerEntity.maxMagicka || 200);
+  shadowEntity.maxMagicka = Math.max(800, shadowEntity.maxMagicka || 0, playerEntity.maxMagicka || 400);
   shadowEntity.magicka = shadowEntity.maxMagicka;
-  shadowEntity.damageScale = Math.max(shadowEntity.damageScale ?? 1, 1.75);
+  shadowEntity.damageScale = Math.max(shadowEntity.damageScale ?? 1, 1.75) * 3;
 
   if (shadowEntity.stats && playerEntity.stats) {
     for (const key of Object.keys(shadowEntity.stats)) {
@@ -854,6 +855,7 @@ export async function spawnShadowOfTheAgent({
     yawRad: 0,
     feetGiven: true,
     level: Math.max(15, effectiveLevel(playerEntity)),
+    shadowBoss: true,
   });
   if (!f?.entity) return null;
   configureShadowEntity(f.entity, playerEntity);

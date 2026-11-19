@@ -124,7 +124,7 @@ import { applyFog, DUNGEON_FOG } from '../render/underwaterFog.js';
 import { gateArenaLocation, gateArenaBlocks, isGateArena, slabMatrix, courtLightsNear, withCourtLights, courtDoorAabb, planOfDay, COURT_FOG } from '../world/gate/gateArena.js';   // WB3b: the Burning Court - a level made in code on this host's dungeon arm
 import {
   isSdRealm, sdRealmLocation, sdRealmBlocks, buildRealmModel, realmColliderTris, realmLightsWith, realmLighting, SD_REALM_ARCHIVE, SD_REALM_FOG,
-  isApotheosisOrrery, apotheosisOrreryLocation, apotheosisOrreryBlocks, buildApotheosisOrreryModel, apotheosisOrreryColliderTris, apotheosisOrreryLightsWith, apotheosisOrreryArena, apotheosisOrrerySpawnPoints,
+  isApotheosisOrrery, apotheosisOrreryLocation, apotheosisOrreryBlocks, buildApotheosisOrreryModel, apotheosisOrreryColliderTris, apotheosisOrreryLightsWith, apotheosisOrrerySpawnPoints,
 } from '../world/superDungeon/sdRealm.js';   // SD5a: the Shattered Hour, a made level as the court is
 import { advanceApotheosisQuestStep, APOTHEOSIS_QUEST_STEPS } from '../systems/apotheosis/apotheosisCore.js';
 import { APOTHEOSIS_ZERO_STONE_KEY, APOTHEOSIS_ORRERY_EXIT_KEY } from '../systems/apotheosis/apotheosisStage1.js';
@@ -184,7 +184,7 @@ import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the b
 import { calculateCastCost } from '../systems/spellcost.js';   // M2
 import { SOUND, swingSoundFor } from '../systems/soundClips.js';   // AUDIT 23: the bow loose + no-enemy swing sounds
 import { fetchBytes, applyMotorEffectFlags, applyFallLanding } from './shared.js';
-import { setDeathPresenter, setAvoidDeathHook, hurtPlayer } from '../characters/playerEntity.js';   // AUDIT 21 hosts F6; AUDIT 23 C5 fatal collapse
+import { setDeathPresenter, setAvoidDeathHook, hurtPlayer, forcePlayerDeath } from '../characters/playerEntity.js';   // AUDIT 21 hosts F6; AUDIT 23 C5 fatal collapse
 import { DeathScreen } from '../ui/deathScreen.js';   // AUDIT 21 hosts F6: dying in a building
 import { partyCompassPoints } from '../ui/partyMapMarks.js';   // COMPASS-PARTY
 import { loadHud, drawHud } from '../ui/hud/hud.js';   // AUDIT 21 hosts F7: the HUD vanished inside buildings
@@ -10692,11 +10692,10 @@ export function createWorldModes(host) {
         down: crouchHeld || held(keys, 'FloatDown'),
         crouch: crouchPress,
       }, cam.yaw, cam.pitch);
-      if (mode === 'dungeon' && isApotheosisOrrery(dungeonLoc)) {
-        const clamped = apotheosisOrreryArena().clamp(player.pos, 0.45);
-        if (clamped) {
-          player.pos[0] = clamped[0];
-          player.pos[2] = clamped[2];
+      if (mode === 'dungeon' && isApotheosisOrrery(dungeonLoc) && playerEntity.health > 0) {
+        const floorY = apotheosisOrrerySpawnPoints().center[1];
+        if (player.pos[1] <= floorY - 10) {
+          forcePlayerDeath(playerEntity);
         }
       }
       // DW-D: OutdoorSwimMovementController runs wherever the motor swims (IsAnySwimming is LevitateMotor.IsSwimming

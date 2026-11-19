@@ -24,6 +24,7 @@ const VAMPIRE_ANCIENT_SPELLS = Object.freeze([0x08, 0x32]);
 const DAEDRA_LORD_SPELLS = Object.freeze([0x08, 0x0a, 0x0e, 0x3c, 0x43]);
 const LICH_SPELLS = Object.freeze([0x08, 0x0a, 0x0e, 0x22, 0x3c]);
 const ANCIENT_LICH_SPELLS = Object.freeze([0x08, 0x0a, 0x0e, 0x1d, 0x1f, 0x22, 0x3c]);
+export const SHADOW_BOSS_SPELLS = Object.freeze([0x08, 0x0a, 0x0e, 0x19, 0x3c]);
 
 /** MonsterCareers id -> spell list (SetEnemyCareer's assignment
  *  chain, all thirteen casters). */
@@ -119,6 +120,7 @@ export function enemySpellIndices(entity, level = entity?.level) {
     const book = fn(entity, level);
     if (book) return book;
   }
+  if (entity.shadowBoss) return SHADOW_BOSS_SPELLS;
   if (!entity.isClass) return MONSTER_SPELL_LISTS[entity.careerIndex] ?? [];
   if (!entity.basics?.castsMagic) return [];
   return ENEMY_CLASS_SPELLS[Math.min(6, Math.trunc(level / 3))] ?? [];

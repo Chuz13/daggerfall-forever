@@ -109,6 +109,10 @@ import { snapshotDiscovery, restoreDiscovery } from '../../src/systems/discovery
 import { createQuestBridge } from '../../src/scenes/quest/questBridge.js';
 import { QUESTLINES_PREF } from '../../src/systems/questlines/qlLaw.js';
 import { questSource, loadTables as loadPackTables } from '../qlSources.mjs';
+import { readFileSync } from 'node:fs';
+import { SHADOW_BOSS_SPELLS, enemySpellIndices } from '../../src/systems/enemySpells.js';
+import { blowCooldown } from '../../src/ai/tells.js';
+import { EnemyAI } from '../../src/characters/enemy/enemyMotor.js';
 
 function makeActor(id = 'hero_st1') {
   const e = {
@@ -1010,4 +1014,37 @@ test('Stage 1 story-flow: handleMantellaCruxTouch invokes onVanillaConfirm for a
     setMantellanCruxPresenceChecker(null);
   }
   assert.equal(canStartApotheosisViaArtifacts(cruxRitualHero).eligible, true);
+});
+
+test('Shadow Boss enhancements (fearless, 3x damage, 3x special frequency, AoE spells) and Orrery Kill-Z void drop', () => {
+  const hero = makeActor('shadow_buffs');
+  const shadowEnt = { stats: { strength: 50, intelligence: 50, willpower: 50 }, equipTable: new Array(30).fill(null) };
+  configureShadowEntity(shadowEnt, hero);
+
+  assert.equal(shadowEnt.shadowBoss, true);
+  assert.equal(shadowEnt.fearless, true);
+  assert.ok(shadowEnt.damageScale >= 5.25, `expected damageScale >= 5.25 (3x of 1.75), got ${shadowEnt.damageScale}`);
+  assert.ok(shadowEnt.maxMagicka >= 800);
+
+  // AoE combat spells granted even when Shadow spawns as non-caster Knight archetype
+  const spells = enemySpellIndices({ shadowBoss: true, isClass: true, basics: { castsMagic: false } });
+  assert.deepEqual(spells, SHADOW_BOSS_SPELLS);
+  assert.ok(spells.includes(0x08), 'Fireball included in Shadow spell list');
+  assert.ok(spells.includes(0x0e), 'Ice Storm included in Shadow spell list');
+
+  // Special attack cooldown is 3x shorter (1/3) for Shadow
+  const normalCd = blowCooldown({ bossTraits: [] }, 0.5);
+  const shadowCd = blowCooldown({ bossTraits: [], shadowBoss: true }, 0.5);
+  assert.ok(Math.abs(shadowCd - normalCd / 3) < 1e-6);
+
+  // EnemyAI.flee is completely ignored for shadowBoss / fearless
+  const fakeAi = new EnemyAI(null, [0, 0, 0], 0, { vitals: () => ({ shadowBoss: true, fearless: true }) });
+  fakeAi.flee([5, 0, 5], 8, 1);
+  assert.equal(fakeAi.fleeLeft, 0);
+
+  // WorldModes removed the broken apotheosisOrreryArena().clamp() call and kills player on -10m fall
+  const wm = readFileSync(new URL('../../src/scenes/worldModes.js', import.meta.url), 'utf8');
+  assert.equal(/apotheosisOrreryArena\(\)\.clamp/.test(wm), false);
+  assert.match(wm, /player\.pos\[1\] <= floorY - 10/);
+  assert.match(wm, /forcePlayerDeath\(playerEntity\)/);
 });
