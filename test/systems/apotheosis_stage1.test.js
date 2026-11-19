@@ -61,6 +61,7 @@ import {
   describeShadowResistances,
   pickShadowMobileType,
   spawnShadowOfTheAgent,
+  rescueShadowFromVoid,
   APOTHEOSIS_STORM_WEATHER_INTERVAL_SEC,
   APOTHEOSIS_STORM_WEATHERS,
   APOTHEOSIS_STORM_TIME_SPAN_MINUTES,
@@ -1047,4 +1048,31 @@ test('Shadow Boss enhancements (fearless, 3x damage, 3x special frequency, AoE s
   assert.equal(/apotheosisOrreryArena\(\)\.clamp/.test(wm), false);
   assert.match(wm, /player\.pos\[1\] <= floorY - 10/);
   assert.match(wm, /forcePlayerDeath\(playerEntity\)/);
+
+  // Shadow void rescue teleports fallen Shadow to arena center preserving HP and re-arming pursuit
+  const pts = apotheosisOrrerySpawnPoints();
+  const fallenShadow = {
+    dead: false,
+    entity: { health: 412, maxHealth: 1200, shadowBoss: true },
+    ai: {
+      feet: [pts.center[0] + 40, pts.center[1] - 11, pts.center[2]],
+      velY: -22,
+      knockbackSpeed: 15,
+      knockbackDir: [1, 0, 0],
+      hurtKnock: true,
+      detected: false,
+      inSight: false,
+      giveUpTimer: 0,
+      destination: [0, -50, 0],
+      _tac: { state: 'dash', blow: { x: 1 }, dash: { t: 1 } },
+    },
+  };
+  assert.equal(rescueShadowFromVoid(fallenShadow, pts.center, pts.player), true);
+  assert.deepEqual(fallenShadow.ai.feet, pts.center);
+  assert.equal(fallenShadow.entity.health, 412);
+  assert.equal(fallenShadow.ai.velY, 0);
+  assert.equal(fallenShadow.ai.knockbackSpeed, 0);
+  assert.equal(fallenShadow.ai.detected, true);
+  assert.equal(fallenShadow.ai.inSight, true);
+  assert.equal(fallenShadow.ai._tac.state, 'engage');
 });
