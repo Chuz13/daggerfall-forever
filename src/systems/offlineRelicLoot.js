@@ -36,15 +36,25 @@ import { applyRarity, legendaryById, lootRarityOn, stampWonWeapons, corpseSource
 import { ENEMY_BASICS } from '../characters/enemy/enemyBasics.js';
 import { registerLootSupply, titledFoe } from './foeLootCap.js';
 
+/** @type {(kind: string, id: string) => number | null} */
 let _foundDay = () => null;
+/** @type {(item: any, opts?: any) => boolean} */
 let _noteFind = () => false;
 
-/** Registered by lootCodex.js so roll/console paths stay acyclic from worldTick.js. */
+/**
+ * Registered by lootCodex.js so roll/console paths stay acyclic from worldTick.js.
+ * @param {{ foundDay?: (kind: string, id: string) => number | null, noteFind?: (item: any, opts?: any) => boolean }} [bridge]
+ */
 export function setRelicCodexBridge({ foundDay, noteFind } = {}) {
   if (typeof foundDay === 'function') _foundDay = foundDay;
   if (typeof noteFind === 'function') _noteFind = noteFind;
 }
 
+/**
+ * Forward a found relic item to the registered Codex tracker.
+ * @param {any} item
+ * @param {any} [opts]
+ */
 export const noteRelicFind = (item, opts) => _noteFind(item, opts);
 
 // Ensure rare offline currencies / ammo are never pruned by capFoeLoot's 3-item plain-foe limit.
