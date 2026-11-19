@@ -24,7 +24,16 @@ import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
 import { equipAdventurerEntity } from './adventurerGear.js';
-import { LivingTamrielConfig, PRESENCE, getLivingEncounterScale, rollEncounterRange, LIVING_ENCOUNTER_SCALE, LIVING_URBAN_LOOT, LIVING_WILDERNESS_LOOT } from './livingConfig.js';
+import {
+  LivingTamrielConfig,
+  PRESENCE,
+  getLivingEncounterScale,
+  getLivingLocationCooldownMinutes,
+  rollEncounterRange,
+  LIVING_ENCOUNTER_SCALE,
+  LIVING_URBAN_LOOT,
+  LIVING_WILDERNESS_LOOT,
+} from './livingConfig.js';
 import {
   getRegionState,
   isRegionInQuarantine,
@@ -53,7 +62,7 @@ import {
   isSkirmishBlowCriminal,
   SKIRMISH_TEAMS,
 } from './urbanDirector.js';
-import { resolveCrisisChoiceCheck, getEventDisplayName } from './crisisRegistry.js';
+import { resolveCrisisChoiceCheck, getEventDisplayName, SKIRMISH_PROP_THEME } from './crisisRegistry.js';
 import {
   LIVING_ROLL_DEGREE,
   LIVING_FORMULAS,
@@ -107,7 +116,8 @@ import {
 import { addApotheosisFaith } from '../apotheosis/apotheosisStage2.js';
 import { shiftRegionInfluence } from '../apotheosis/apotheosisStage3.js';
 import { isAscendedGod } from '../apotheosis/apotheosisLive.js';
-import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME } from './pleaHost.js';
+import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME, PLEA_TYPE } from './pleaHost.js';
+import { SKILLS, tallySkill } from '../skills.js';
 import {
   ensureAdventurerPool,
   getAdventurerSimRegistry,
@@ -160,22 +170,55 @@ export function adjustPlayerRegionalRep(player, regIdx, delta) {
 
 /** Existing ARCH3D.BSA 3D model IDs used for Living Tamriel props. */
 export const LIVING_MODELS = Object.freeze({
-  TENT: 41606,      // Standard wilderness camp tent
-  PAVILION: 41607,  // Command / Quarantine relief pavilion tent
-  CANOPY: 41610,    // Large open merchant canopy
-  WAGON: 41214,     // Wooden merchant/supply wagon
-  CRATES: 41834,    // Supply crate stack / barricade
-  BOXES: 41832,     // Medical / provision boxes
-  BANNER: 42560,    // Military checkpoint standard / banner
+  TENT: 41606,          // Standard wilderness camp tent
+  PAVILION: 41607,      // Command / Quarantine relief pavilion tent
+  CANOPY: 41610,        // Large open merchant canopy
+  WAGON: 41214,         // Wooden merchant/supply wagon
+  CRATES: 41834,        // Supply crate stack / barricade
+  BOXES: 41832,         // Medical / provision boxes
+  BANNER: 42560,        // Military checkpoint standard / banner
+  CHEST: 41811,         // Strongbox / merchant treasury chest
+  STATUE: 62323,        // Heroic sovereign statue monument
+  OBELISK: 62328,       // Dark stone obelisk
+  CAGE: 74229,          // Iron prisoner / inquisitor cage
+  COFFIN: 74071,        // Open wooden/stone coffin
+  CASKET: 74069,        // Stone cemetery casket
+  WELL_PEDESTAL: 74086, // Carved stone wellhead pedestal
+  ALTAR: 74091,         // Grand temple altar pedestal
+  ARCH: 62317,          // Marble monument arch
 });
 
 /** Existing TEXTURE.xxx billboard flats used for Living Tamriel props. */
 export const LIVING_FLATS = Object.freeze({
   CAMPFIRE: Object.freeze({ archive: 210, record: 1, lightRadius: 14 }),
+  SKULL_CANDLE: Object.freeze({ archive: 210, record: 2, lightRadius: 6 }),
+  CANDELABRA: Object.freeze({ archive: 210, record: 5, lightRadius: 8 }),
+  SKULL_TORCH: Object.freeze({ archive: 210, record: 6, lightRadius: 10 }),
   BRAZIER: Object.freeze({ archive: 210, record: 17, lightRadius: 12 }),
+  BRAZIER_TALL: Object.freeze({ archive: 210, record: 20, lightRadius: 12 }),
+  LANTERN: Object.freeze({ archive: 210, record: 22, lightRadius: 10 }),
   HORSE: Object.freeze({ archive: 201, record: 0, lightRadius: 0 }),
+  COW: Object.freeze({ archive: 201, record: 3, lightRadius: 0 }),
+  CALF: Object.freeze({ archive: 201, record: 4, lightRadius: 0 }),
+  DOG: Object.freeze({ archive: 201, record: 9, lightRadius: 0 }),
   SACKS: Object.freeze({ archive: 205, record: 0, lightRadius: 0 }),
+  GRAIN_SACK: Object.freeze({ archive: 205, record: 17, lightRadius: 0 }),
+  BASKET: Object.freeze({ archive: 205, record: 22, lightRadius: 0 }),
+  BARREL: Object.freeze({ archive: 205, record: 24, lightRadius: 0 }),
+  BUCKET: Object.freeze({ archive: 205, record: 30, lightRadius: 0 }),
   WEAPON_RACK: Object.freeze({ archive: 207, record: 14, lightRadius: 0 }),
+  CAULDRON: Object.freeze({ archive: 218, record: 0, lightRadius: 0 }),
+  TREASURE_PILE: Object.freeze({ archive: 216, record: 0, lightRadius: 0 }),
+  REMAINS_BODY: Object.freeze({ archive: 254, record: 56, lightRadius: 0 }),
+  REMAINS_SKULL: Object.freeze({ archive: 100, record: 9, lightRadius: 0 }),
+  REMAINS_BONES: Object.freeze({ archive: 100, record: 10, lightRadius: 0 }),
+  RITUAL_BRAZIER: Object.freeze({ archive: 98, record: 0, lightRadius: 10 }),
+  DAEDRIC_IDOL: Object.freeze({ archive: 202, record: 1, lightRadius: 0 }),
+  KNIGHT_STATUE_FLAT: Object.freeze({ archive: 202, record: 5, lightRadius: 0 }),
+  DIVINE_STATUE: Object.freeze({ archive: 97, record: 3, lightRadius: 0 }),
+  CAPTIVE_FLAT: Object.freeze({ archive: 357, record: 6, lightRadius: 0 }),
+  PRISONER_FLAT: Object.freeze({ archive: 184, record: 31, lightRadius: 0 }),
+  MERCHANT_FLAT: Object.freeze({ archive: 182, record: 0, lightRadius: 0 }),
 });
 
 /** Maps class names used in Living Tamriel records to canonical MOBILE_TYPES IDs. */
@@ -686,6 +729,182 @@ export function findSafeSiteCenter(deps, originFeet, preferredDist = 16, preferr
   };
 }
 
+const PLEA_SCENE_TABLE = Object.freeze({
+  [PLEA_TYPE.DRUNKEN_BRAWLER]: {
+    mobileType: MOBILE_TYPES.Barbarian,
+    name: 'Rowdy Drunkard',
+    backupPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Barbarian],
+    meshes: [],
+    flats: [[LIVING_FLATS.BARREL, -1.0, -0.5], [LIVING_FLATS.CAMPFIRE, 1.1, 0.4]],
+  },
+  [PLEA_TYPE.BROKEN_CART_MERCHANT]: {
+    mobileType: MOBILE_TYPES.Bard,
+    name: 'Stranded Merchant',
+    backupPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer],
+    meshes: [[LIVING_MODELS.WAGON, -2.0, -1.2, -30], [LIVING_MODELS.CRATES, 1.6, -1.0, 20]],
+    flats: [[LIVING_FLATS.HORSE, -3.2, 0.5], [LIVING_FLATS.GRAIN_SACK, 0.9, 0.8]],
+  },
+  [PLEA_TYPE.STRAY_HOUND_HANDLER]: {
+    mobileType: MOBILE_TYPES.Ranger,
+    name: 'Huntsman',
+    backupPool: [MOBILE_TYPES.GrizzlyBear, MOBILE_TYPES.Ranger],
+    meshes: [],
+    flats: [[LIVING_FLATS.DOG, 1.0, -0.4], [LIVING_FLATS.SACKS, -1.0, -0.5], [LIVING_FLATS.WEAPON_RACK, 1.4, 0.8]],
+  },
+  [PLEA_TYPE.STREET_PREACHER]: {
+    mobileType: MOBILE_TYPES.Monk,
+    name: 'Street Preacher',
+    backupPool: [MOBILE_TYPES.Spellsword, MOBILE_TYPES.Monk],
+    meshes: [],
+    flats: [[LIVING_FLATS.KNIGHT_STATUE_FLAT, -1.2, -0.6], [LIVING_FLATS.BRAZIER_TALL, 1.1, -0.5]],
+  },
+  [PLEA_TYPE.ACCUSED_URCHIN]: {
+    mobileType: MOBILE_TYPES.Thief,
+    name: 'Cornered Pickpocket',
+    backupPool: [MOBILE_TYPES.Thief, MOBILE_TYPES.Burglar, MOBILE_TYPES.Rogue],
+    meshes: [[LIVING_MODELS.BOXES, -1.5, -0.8, 15]],
+    flats: [[LIVING_FLATS.GRAIN_SACK, 1.0, -0.4], [LIVING_FLATS.LANTERN, -0.8, 0.8]],
+  },
+  [PLEA_TYPE.BOASTFUL_DUELIST]: {
+    mobileType: MOBILE_TYPES.Knight,
+    name: 'Boastful Duelist',
+    backupPool: [MOBILE_TYPES.Warrior, MOBILE_TYPES.Knight],
+    meshes: [[LIVING_MODELS.BANNER, -1.6, -1.0, 0]],
+    flats: [[LIVING_FLATS.WEAPON_RACK, 1.2, -0.5]],
+  },
+  [PLEA_TYPE.PLAGUE_CURE]: {
+    mobileType: MOBILE_TYPES.Healer,
+    name: 'Plague-Stricken Citizen',
+    backupPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
+    meshes: [],
+    flats: [[LIVING_FLATS.SACKS, -1.0, -0.5]],
+  },
+  [PLEA_TYPE.FAMINE_BREAD]: {
+    mobileType: MOBILE_TYPES.Monk,
+    name: 'Starving Townsfolk',
+    backupPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
+    meshes: [],
+    flats: [[LIVING_FLATS.SACKS, -1.0, -0.5]],
+  },
+  [PLEA_TYPE.WAR_REFUGEE]: {
+    mobileType: MOBILE_TYPES.Bard,
+    name: 'Displaced Refugee',
+    backupPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
+    meshes: [],
+    flats: [[LIVING_FLATS.SACKS, -1.0, -0.5]],
+  },
+  [PLEA_TYPE.ESCORT_REQUEST]: {
+    mobileType: MOBILE_TYPES.Ranger,
+    name: 'Anxious Wayfarer',
+    backupPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
+    meshes: [],
+    flats: [[LIVING_FLATS.SACKS, -1.0, -0.5]],
+  },
+});
+
+function buildPleaSceneConfig(pleaType, centerX, centerZ, snapY) {
+  const cfg = PLEA_SCENE_TABLE[pleaType] ?? PLEA_SCENE_TABLE[PLEA_TYPE.ESCORT_REQUEST];
+  const meshes = cfg.meshes.map(([modelId, dx, dz, yawDeg]) => ({
+    modelId,
+    feet: [centerX + dx, snapY(centerX + dx, centerZ + dz, 0), centerZ + dz],
+    yawDeg,
+  }));
+  const flats = cfg.flats.map(([flatDef, dx, dz]) => ({
+    ...flatDef,
+    feet: [centerX + dx, snapY(centerX + dx, centerZ + dz), centerZ + dz],
+  }));
+  return { mobileType: cfg.mobileType, name: cfg.name, backupPool: cfg.backupPool, meshes, flats };
+}
+
+function buildSkirmishThemeProps(theme, eventId, planProps, centerX, centerZ, y0, snapY) {
+  const p0 = planProps?.[0] ?? { x: centerX - 0.5, z: centerZ - 1.5, y: y0 };
+  const p1 = planProps?.[1] ?? { x: centerX + 0.8, z: centerZ + 1.2, y: y0 };
+  const m = (modelId, p, yawDeg, destructible = false) => ({
+    modelId,
+    feet: [p.x, p.y, p.z],
+    yawDeg,
+    ...(destructible ? { destructible: true } : {}),
+  });
+  const f = (flatDef, dx, dz, destructible = false) => ({
+    ...flatDef,
+    feet: [centerX + dx, snapY(centerX + dx, centerZ + dz), centerZ + dz],
+    ...(destructible ? { destructible: true } : {}),
+  });
+
+  if (theme === SKIRMISH_PROP_THEME.PRISONER_CAGE) {
+    return {
+      meshes: [m(LIVING_MODELS.CAGE, p0, 0), m(LIVING_MODELS.BANNER, p1, 30)],
+      flats: [f(LIVING_FLATS.CAPTIVE_FLAT, 0.2, 0.2), f(LIVING_FLATS.PRISONER_FLAT, -1.2, 0.6), f(LIVING_FLATS.WEAPON_RACK, 1.5, -0.5)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.GRANARY_MARKET) {
+    return {
+      meshes: [m(LIVING_MODELS.CANOPY, p0, 10), m(LIVING_MODELS.WAGON, p1, -45)],
+      flats: [f(LIVING_FLATS.GRAIN_SACK, -0.8, 0.5), f(LIVING_FLATS.SACKS, 0.8, -0.4), f(LIVING_FLATS.BARREL, 1.4, 0.6), f(LIVING_FLATS.MERCHANT_FLAT, -0.2, -1.2)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.CAULDRON_STATION) {
+    return {
+      meshes: [m(LIVING_MODELS.CANOPY, p0, 0), m(LIVING_MODELS.BOXES, p1, 25)],
+      flats: [f(LIVING_FLATS.CAULDRON, 0, 0.2), f(LIVING_FLATS.CAMPFIRE, 0.8, -0.4), f(LIVING_FLATS.BASKET, -0.9, 0.6)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.PLAGUE_PYRE) {
+    return {
+      meshes: [m(LIVING_MODELS.COFFIN, p0, 20), m(LIVING_MODELS.CRATES, p1, -30)],
+      flats: [f(LIVING_FLATS.CAMPFIRE, 0, 0), f(LIVING_FLATS.REMAINS_BODY, -0.8, 0.7), f(LIVING_FLATS.REMAINS_BONES, 0.9, -0.5)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.WATER_WELL_SITE) {
+    const canSmashWell = eventId === 'EVT_PLAGUE_WATER_WELL_SCARE';
+    return {
+      meshes: [m(LIVING_MODELS.WELL_PEDESTAL, p0, 0, canSmashWell), m(LIVING_MODELS.CRATES, p1, 40)],
+      flats: [f(LIVING_FLATS.BUCKET, -0.6, -0.6, canSmashWell), f(LIVING_FLATS.BUCKET, 0.6, -0.8, canSmashWell), f(LIVING_FLATS.BARREL, 1.2, 0.5), f(LIVING_FLATS.BRAZIER, -1.3, 0.4)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.MONUMENT_STATUE) {
+    const canToppleStatue = eventId === 'EVT_NEW_RULER_STATUE_UNVEILING';
+    return {
+      meshes: [m(LIVING_MODELS.STATUE, p0, 0, canToppleStatue), m(LIVING_MODELS.BANNER, p1, -20)],
+      flats: [f(LIVING_FLATS.BRAZIER_TALL, -1.1, 0.5), f(LIVING_FLATS.BRAZIER_TALL, 1.1, 0.5)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.OCCULT_RITUAL) {
+    return {
+      meshes: [m(LIVING_MODELS.OBELISK, p0, 0), m(LIVING_MODELS.CAGE, p1, 25)],
+      flats: [f(LIVING_FLATS.RITUAL_BRAZIER, 0, 0), f(LIVING_FLATS.SKULL_TORCH, -1.2, 0.4), f(LIVING_FLATS.SKULL_TORCH, 1.2, -0.4), f(LIVING_FLATS.DAEDRIC_IDOL, 0.4, 1.1)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.CRIME_HEIST) {
+    return {
+      meshes: [m(LIVING_MODELS.CHEST, p0, 15), m(LIVING_MODELS.BOXES, p1, -30)],
+      flats: [f(LIVING_FLATS.TREASURE_PILE, 0.4, 0.2), f(LIVING_FLATS.SACKS, -0.7, -0.5), f(LIVING_FLATS.LANTERN, 1.1, -0.6)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.FARM_HOMESTEAD) {
+    return {
+      meshes: [m(LIVING_MODELS.WAGON, p0, -35), m(LIVING_MODELS.CRATES, p1, 20)],
+      flats: [f(LIVING_FLATS.COW, -1.4, 0.6), f(LIVING_FLATS.CALF, -0.6, 1.2), f(LIVING_FLATS.DOG, 1.1, 0.4), f(LIVING_FLATS.GRAIN_SACK, 0.5, -0.9)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.GRAVEYARD_CRYPT) {
+    return {
+      meshes: [m(LIVING_MODELS.CASKET, p0, 10), m(LIVING_MODELS.COFFIN, p1, -25)],
+      flats: [f(LIVING_FLATS.REMAINS_BODY, 0.2, 0.6), f(LIVING_FLATS.REMAINS_SKULL, -0.9, -0.5), f(LIVING_FLATS.SKULL_CANDLE, 0.8, -0.6)],
+    };
+  }
+  if (theme === SKIRMISH_PROP_THEME.TEMPLE_SANCTUARY) {
+    return {
+      meshes: [m(LIVING_MODELS.ALTAR, p0, 0), m(LIVING_MODELS.ARCH, p1, 0)],
+      flats: [f(LIVING_FLATS.DIVINE_STATUE, 0, -0.8), f(LIVING_FLATS.CANDELABRA, -1.0, 0.4), f(LIVING_FLATS.CANDELABRA, 1.0, 0.4)],
+    };
+  }
+  return {
+    meshes: [m(LIVING_MODELS.BANNER, p0, 15), m(LIVING_MODELS.CRATES, p1, -35)],
+    flats: [f(LIVING_FLATS.WEAPON_RACK, 1.4, -0.8), f(LIVING_FLATS.BRAZIER, 0, 0)],
+  };
+}
+
 /**
  * Creates a site blueprint (3D meshes, billboard flats, point lights, and actor spawns)
  * snapped to the terrain at `(centerX, centerZ)`.
@@ -717,6 +936,11 @@ export function buildLivingSiteBlueprint({
   dfLocation = null,
   locationType = 0,
   warDesc = null,
+  climateIndex = null,
+  allowMundaneOnly = false,
+  forcedEventId = null,
+  plea: passedPlea = null,
+  forcedPleaType = null,
 }) {
   const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
   const h0 = typeof heightAt === 'function' ? heightAt(centerX, centerZ) : 0;
@@ -952,39 +1176,28 @@ export function buildLivingSiteBlueprint({
       },
     );
   } else if (kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER) {
-    const pleaCheck = evaluatePleaEncounter({ regionIndex, nowMinutes, playerEntity, rng: () => 0.05 });
-    const plea = pleaCheck.plea ?? {
-      type: 'ESCORT_REQUEST',
-      requiredGold: 25,
-      messageKey: 'living.plea.escort',
-    };
-    meta = { ...meta, plea };
-
-    flats.push({
-      ...LIVING_FLATS.SACKS,
-      feet: [centerX - 1.0, snapPropToGround(heightAt, centerX - 1.0, centerZ - 0.5), centerZ - 0.5],
-    });
-
-    const supplicantType =
-      plea.type === 'PLAGUE_CURE'
-        ? MOBILE_TYPES.Healer
-        : plea.type === 'FAMINE_BREAD'
-          ? MOBILE_TYPES.Monk
-          : plea.type === 'WAR_REFUGEE'
-            ? MOBILE_TYPES.Bard
-            : MOBILE_TYPES.Ranger;
-    const supplicantName =
-      plea.type === 'PLAGUE_CURE'
-        ? 'Plague-Stricken Citizen'
-        : plea.type === 'FAMINE_BREAD'
-          ? 'Starving Townsfolk'
-          : plea.type === 'WAR_REFUGEE'
-            ? 'Displaced Refugee'
-            : 'Anxious Wayfarer';
+    const plea =
+      passedPlea ??
+      evaluatePleaEncounter({
+        regionIndex,
+        nowMinutes,
+        playerEntity,
+        rng,
+        force: true,
+        forcedPleaType,
+      }).plea ?? {
+        type: PLEA_TYPE.ESCORT_REQUEST,
+        requiredGold: 25,
+        messageKey: 'living.plea.escort',
+      };
+    const sceneCfg = buildPleaSceneConfig(plea.type, centerX, centerZ, snapY);
+    meta = { ...meta, plea, pleaBackupPool: sceneCfg.backupPool };
+    meshes.push(...sceneCfg.meshes);
+    flats.push(...sceneCfg.flats);
 
     actors.push({
-      mobileType: supplicantType,
-      name: supplicantName,
+      mobileType: sceneCfg.mobileType,
+      name: sceneCfg.name,
       level: Math.max(1, playerLevel - 1),
       feet: [centerX, y0, centerZ],
       yaw: Math.PI,
@@ -1005,20 +1218,26 @@ export function buildLivingSiteBlueprint({
       locationType,
       dfLocation,
       playerEntity,
+      climateIndex,
+      allowMundaneOnly,
+      forcedEventId,
     });
     if (!plan) return null;
     meta.event = plan.event;
     meta.faction1Name = plan.faction1Name;
     meta.faction2Name = plan.faction2Name;
-    meshes.push(
-      { modelId: LIVING_MODELS.CRATES, feet: [plan.props[0].x, plan.props[0].y, plan.props[0].z], yawDeg: 35 },
+    meta.propTheme = plan.propTheme;
+    const themedProps = buildSkirmishThemeProps(
+      plan.propTheme,
+      plan.event?.id,
+      plan.props,
+      centerX,
+      centerZ,
+      y0,
+      snapY,
     );
-    if (plan.props[1]) {
-      meshes.push(
-        { modelId: LIVING_MODELS.WAGON, feet: [plan.props[1].x, plan.props[1].y, plan.props[1].z], yawDeg: -50 },
-      );
-    }
-    flats.push({ ...LIVING_FLATS.BRAZIER, feet: [centerX, y0, centerZ] });
+    meshes.push(...themedProps.meshes);
+    flats.push(...themedProps.flats);
 
     for (let i = 0; i < plan.guards.length; i++) {
       const g = plan.guards[i];
@@ -1038,6 +1257,10 @@ export function buildLivingSiteBlueprint({
         factionSide: 'guards',
       });
     }
+    const isSwarm = Boolean(plan.event?.swarmAttackers);
+    const attackerLevel = isSwarm
+      ? Math.max(1, Math.floor(playerLevel * 0.5))
+      : Math.max(3, playerLevel);
     for (let i = 0; i < plan.rebels.length; i++) {
       const rb = plan.rebels[i];
       const rx = centerX + rb.dx;
@@ -1045,7 +1268,7 @@ export function buildLivingSiteBlueprint({
       actors.push({
         mobileType: rb.mobileType ?? MOBILE_TYPES.Rogue,
         name: `${plan.faction2Name ?? 'Rebel'} Fighter`,
-        level: Math.max(3, playerLevel),
+        level: attackerLevel,
         feet: [rx, snapY(rx, rz), rz],
         yaw: Math.PI,
         allied: false,
@@ -1554,24 +1777,92 @@ export function createLivingSceneHost(deps) {
     }
   }
 
+  /** @type {Map<number, number>} modelId -> cached minY in local mesh space */
+  const modelMinYCache = new Map();
+
   function getCpuModel(modelId) {
     return deps.meshes?.cpuModels?.get?.(modelId) ?? gpuModels.get(modelId)?.cpu ?? null;
   }
 
+  function meshGroundOffsetY(modelId) {
+    if (modelMinYCache.has(modelId)) {
+      const cached = modelMinYCache.get(modelId);
+      return Number.isFinite(cached) && cached < 0 ? -cached : 0;
+    }
+    const entry = gpuModels.get(modelId);
+    const gpuMinY = entry?.gpu?.bounds?.min?.[1];
+    if (Number.isFinite(gpuMinY)) {
+      modelMinYCache.set(modelId, gpuMinY);
+      return gpuMinY < 0 ? -gpuMinY : 0;
+    }
+    const cpu = getCpuModel(modelId);
+    if (cpu?.positions?.length >= 3) {
+      let minY = Infinity;
+      for (let i = 1; i < cpu.positions.length; i += 3) {
+        if (cpu.positions[i] < minY) minY = cpu.positions[i];
+      }
+      if (Number.isFinite(minY)) {
+        modelMinYCache.set(modelId, minY);
+        return minY < 0 ? -minY : 0;
+      }
+    }
+    return 0;
+  }
+
+  function clearSiteColliders(site) {
+    if (!site || !deps.collider?.removeBucket) return;
+    const count = Math.max(site._colliderCount || 0, site.blueprint?.meshes?.length || 0);
+    for (let i = 0; i < count; i++) {
+      try {
+        deps.collider.removeBucket(`${site.campId}_mesh_${i}`);
+      } catch (_e) {}
+    }
+    site._colliderCount = 0;
+  }
+
   function syncSiteColliders(site) {
     if (!site?.blueprint?.meshes || !deps.collider?.addMesh) return;
+    clearSiteColliders(site);
     for (let i = 0; i < site.blueprint.meshes.length; i++) {
       const m = site.blueprint.meshes[i];
       const cpu = getCpuModel(m.modelId);
       if (cpu?.positions && cpu.indices) {
         const bKey = `${site.campId}_mesh_${i}`;
+        const yLift = meshGroundOffsetY(m.modelId);
         try {
-          deps.collider.removeBucket?.(bKey);
-          const mat = trs(m.feet[0], m.feet[1], m.feet[2], 0, m.yawDeg, 0);
+          const mat = trs(m.feet[0], m.feet[1] + yLift, m.feet[2], 0, m.yawDeg, 0);
           deps.collider.addMesh(bKey, cpu.positions, cpu.indices, mat);
         } catch (_e) {}
       }
     }
+    site._colliderCount = site.blueprint.meshes.length;
+  }
+
+  function destroySiteDestructibles(site) {
+    if (!site?.blueprint) return false;
+    const prevMeshes = site.blueprint.meshes?.length ?? 0;
+    const prevFlats = site.blueprint.flats?.length ?? 0;
+    clearSiteColliders(site);
+    if (Array.isArray(site.blueprint.meshes)) {
+      site.blueprint.meshes = site.blueprint.meshes.filter((m) => !m.destructible);
+    }
+    if (Array.isArray(site.blueprint.flats)) {
+      site.blueprint.flats = site.blueprint.flats.filter((fl) => !fl.destructible);
+    }
+    if (site.batches?.length && deps.renderer?.destroyBillboardBatch) {
+      for (const b of site.batches) {
+        try {
+          deps.renderer.destroyBillboardBatch(b);
+        } catch (_e) {}
+      }
+    }
+    site.batches = [];
+    site._batchesDirty = true;
+    syncSiteColliders(site);
+    return (
+      (site.blueprint.meshes?.length ?? 0) < prevMeshes ||
+      (site.blueprint.flats?.length ?? 0) < prevFlats
+    );
   }
 
   function ensureModel(modelId) {
@@ -1609,6 +1900,7 @@ export function createLivingSceneHost(deps) {
         for (let i = 0; i < count; i++) deps.uploadRecordFrame?.(archive, record, i);
         const sz = tex.getSize?.(record) ?? { width: 1.2, height: 1.2 };
         flatSizes.set(key, { w: sz.width * GLOBAL_SCALE, h: sz.height * GLOBAL_SCALE });
+        if (stood) stood._batchesDirty = true;
       })
       .catch(() => {})
       .finally(() => {
@@ -1620,13 +1912,7 @@ export function createLivingSceneHost(deps) {
     const s = stood;
     if (!s) return;
     stood = null;
-    if (deps.collider?.removeBucket && s.blueprint?.meshes) {
-      for (let i = 0; i < s.blueprint.meshes.length; i++) {
-        try {
-          deps.collider.removeBucket(`${s.campId}_mesh_${i}`);
-        } catch (_e) {}
-      }
-    }
+    clearSiteColliders(s);
     for (const f of s.foes) {
       if (!f?.dead && deps.inPool(f)) {
         try {
@@ -2311,10 +2597,31 @@ export function createLivingSceneHost(deps) {
       const contractOffer = !getActiveCrisisContract(regIdx)
         ? offerRegionalCrisisContract(regIdx, Number(player?.level ?? 1))
         : null;
+      const markPleaHostile = (rec) => {
+        if (!rec) return;
+        rec.allied = false;
+        rec.shipmate = false;
+        if (rec.entity) {
+          rec.entity.team = 'PlayerEnemy';
+          rec.entity.mobileTeam = 'PlayerEnemy';
+          rec.entity.suppressInfighting = true;
+          rec.entity.skirmishNeutralToPlayer = false;
+          rec.entity.skirmishForceInfighting = false;
+        }
+        if (rec.ai) {
+          rec.ai.isHostile = true;
+          rec.ai.detected = true;
+          rec.ai.idle = false;
+          const targetPlayer = deps.playerEntity();
+          rec.ai.target = targetPlayer;
+          rec.ai.targetSenses = targetPlayer;
+        }
+      };
+
       const pleaOptions = [
         {
           code: 'Digit1',
-          label: `1. ${LIVING_WORDS.pleaOptionHelp(reqGold)}`,
+          label: `1. ${s.kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ? LIVING_WORDS.pleaOptionHelpFor(plea.type, reqGold) : LIVING_WORDS.pleaOptionHelp(reqGold)}`,
           action: () => {
             const haveGold = Number(player?.goldPieces ?? 0);
             const res = resolvePleaResponse({
@@ -2329,8 +2636,27 @@ export function createLivingSceneHost(deps) {
             if (res.outcome === PLEA_OUTCOME.HELPED && player) {
               player.goldPieces = Math.max(0, haveGold - res.goldSpent);
               deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+              if (res.grantHealingPotion && Array.isArray(player.items)) {
+                const healRec = POTION_RECIPES.find((r) => r.name === 'healing');
+                if (healRec) {
+                  addItem(player.items, makePotion(potionRecipeKey(healRec.ingredients)));
+                }
+              }
+              if (res.bonusXp > 0) {
+                tallySkill(
+                  player,
+                  plea.type === PLEA_TYPE.ACCUSED_URCHIN ? SKILLS.Streetwise : SKILLS.Etiquette,
+                  2,
+                );
+              }
             }
-            deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+            if (res.grantHealingPotion && res.outcome === PLEA_OUTCOME.HELPED) {
+              deps.say(LIVING_WORDS.pleaMerchantPotionSay(), 5);
+            } else if (res.fullRestore && res.outcome === PLEA_OUTCOME.HELPED) {
+              deps.say(LIVING_WORDS.pleaPreacherBlessSay(), 5);
+            } else {
+              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+            }
           },
         },
         {
@@ -2350,7 +2676,7 @@ export function createLivingSceneHost(deps) {
         },
         {
           code: 'Digit3',
-          label: `3. ${LIVING_WORDS.pleaOptionRude()}`,
+          label: `3. ${s.kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ? LIVING_WORDS.pleaOptionProvokeFor(plea.type) : LIVING_WORDS.pleaOptionRude()}`,
           action: () => {
             const res = resolvePleaResponse({
               plea,
@@ -2360,8 +2686,56 @@ export function createLivingSceneHost(deps) {
               nowMinutes: nowMin,
               rng,
             });
-            if (res.spawnMugger) {
-              const scale = getLivingEncounterScale();
+            const scale = getLivingEncounterScale();
+            if (s.kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER && res.provoked) {
+              s.hostile = true;
+              for (const existingFoe of s.foes) {
+                markPleaHostile(existingFoe);
+              }
+              if (res.spawnBackup) {
+                const backupPool = s.blueprint.meta?.pleaBackupPool ?? [MOBILE_TYPES.Warrior];
+                const backupCount =
+                  scale === LIVING_ENCOUNTER_SCALE.LOW
+                    ? 1
+                    : scale === LIVING_ENCOUNTER_SCALE.MID
+                      ? rollEncounterRange(1, 2, rng)
+                      : rollEncounterRange(2, 3, rng);
+                for (let m = 0; m < backupCount; m++) {
+                  const angle = (m / Math.max(1, backupCount)) * Math.PI * 2;
+                  const dist = 2.0 + (m % 2) * 1.1;
+                  const mx = s.blueprint.center[0] + Math.cos(angle) * dist;
+                  const mz = s.blueprint.center[2] + Math.sin(angle) * dist;
+                  const my = snapPropToGround(deps.heightAt, mx, mz);
+                  const mobType = backupPool[m % backupPool.length];
+                  Promise.resolve(
+                    deps.spawn(mobType, [mx, my, mz], {
+                      yaw: Math.atan2(s.blueprint.center[0] - mx, s.blueprint.center[2] - mz),
+                      level: Math.max(1, Number(player?.level ?? 1)),
+                      allied: false,
+                      loose: true,
+                      transient: true,
+                      managed: true,
+                    }),
+                  )
+                    .then((rec) => {
+                      if (!rec) return;
+                      if (stood !== s) {
+                        if (deps.inPool(rec)) deps.remove(rec);
+                        return;
+                      }
+                      rec.livingSiteKind = LIVING_SITE_KINDS.PLEA_ENCOUNTER;
+                      if (rec.entity) {
+                        rec.entity.name = 'Street Companion';
+                      }
+                      markPleaHostile(rec);
+                      s.foes.push(rec);
+                    })
+                    .catch(() => {});
+                }
+              }
+              deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
+              deps.say(LIVING_WORDS.pleaProvokedSay(), 5);
+            } else if (res.spawnMugger) {
               let muggerCount = 1;
               if (scale === LIVING_ENCOUNTER_SCALE.LOW) muggerCount = 1;
               else if (scale === LIVING_ENCOUNTER_SCALE.MID) muggerCount = rollEncounterRange(2, 3, rng);
@@ -2397,8 +2771,10 @@ export function createLivingSceneHost(deps) {
                   })
                   .catch(() => {});
               }
+              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
+            } else {
+              deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
             }
-            deps.say(LIVING_WORDS.pleaOutcome(res.outcome), 5);
           },
         },
       ];
@@ -2445,18 +2821,9 @@ export function createLivingSceneHost(deps) {
           },
         });
       }
-      let speakerTitle = LIVING_WORDS.speakerTitle('DEFAULT');
-      if (s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT) {
-        speakerTitle = LIVING_WORDS.speakerTitle('HEALER');
-      } else if (plea.type === 'PLAGUE_CURE') {
-        speakerTitle = LIVING_WORDS.speakerTitle('PLAGUE_CURE');
-      } else if (plea.type === 'FAMINE_BREAD') {
-        speakerTitle = LIVING_WORDS.speakerTitle('FAMINE_BREAD');
-      } else if (plea.type === 'WAR_REFUGEE') {
-        speakerTitle = LIVING_WORDS.speakerTitle('WAR_REFUGEE');
-      } else if (plea.type === 'ESCORT') {
-        speakerTitle = LIVING_WORDS.speakerTitle('ESCORT');
-      }
+      const speakerTitle = LIVING_WORDS.speakerTitle(
+        s.kind === LIVING_SITE_KINDS.QUARANTINE_TENT ? 'HEALER' : plea.type,
+      );
       const promptLines = [`${speakerTitle}: "${LIVING_WORDS.pleaPrompt(plea.type, reqGold)}"`];
       if (reliefInfo) {
         promptLines.unshift(LIVING_WORDS.quarantineReliefTent());
@@ -2828,7 +3195,17 @@ export function createLivingSceneHost(deps) {
                 playerEntity: player,
                 rolls: rng,
               });
-              deps.say(LIVING_WORDS.eventJoinedF2(f2Name), 5);
+              if (evt?.id === 'EVT_NEW_RULER_STATUE_UNVEILING') {
+                destroySiteDestructibles(s);
+                deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
+                deps.say(LIVING_WORDS.skirmishStatueToppled(), 5);
+              } else if (evt?.id === 'EVT_PLAGUE_WATER_WELL_SCARE') {
+                destroySiteDestructibles(s);
+                deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
+                deps.say(LIVING_WORDS.skirmishWellSmashed(), 5);
+              } else {
+                deps.say(LIVING_WORDS.eventJoinedF2(f2Name), 5);
+              }
             } else if (
               c.stance === 'peace' ||
               c.stance === 'bribe' ||
@@ -3165,6 +3542,8 @@ export function createLivingSceneHost(deps) {
       blueprint,
       foes: /** @type {any[]} */ ([]),
       batches: /** @type {any[]} */ ([]),
+      _batchesDirty: true,
+      _colliderCount: 0,
       navalSquadron: null,
       skirmishStance: blueprint.meta?.skirmishStance ?? null,
       _lastSyncedPlayerStance: blueprint.meta?.warDesc?.playerStance ?? null,
@@ -3342,6 +3721,39 @@ export function createLivingSceneHost(deps) {
     return site;
   }
 
+  function tryStandUrbanSkirmish({ dist, angle, nowMin, locKey, regIdx, loc, feet, player, allowMundaneOnly = false }) {
+    const safe = findSafeSiteCenter(deps, feet, dist, angle, 4.0);
+    if (!safe.suitable) return false;
+    const bp = buildLivingSiteBlueprint({
+      kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+      centerX: safe.x,
+      centerZ: safe.z,
+      heightAt: deps.heightAt,
+      regionIndex: regIdx,
+      playerEntity: player,
+      nowMinutes: nowMin,
+      dfLocation: loc,
+      locationType: loc?.mapTableData?.locationType ?? 0,
+      climateIndex: deps.climateIndex?.() ?? null,
+      allowMundaneOnly,
+      rng,
+    });
+    if (!bp || bp.actors.length === 0) return false;
+    lastSkirmishRegion = regIdx;
+    locationEventCooldowns.set(locKey, nowMin);
+    lastSpawnMinute = nowMin;
+    standSite(bp);
+    const alertText = bp.meta?.event
+      ? LIVING_WORDS.skirmishAlert(
+        getEventDisplayName(bp.meta.event),
+        bp.meta.faction1Name ?? LIVING_WORDS.factionDefendersGeneric(),
+        bp.meta.faction2Name ?? LIVING_WORDS.factionAttackersGeneric(),
+      )
+      : LIVING_WORDS.urbanSkirmishAlert();
+    deps.say(alertText, 5);
+    return true;
+  }
+
   function pickAndStandNextSite(feet, nowMin) {
     const regIdx = deps.regionIndex();
     const inTown = deps.inLocationRect();
@@ -3356,11 +3768,11 @@ export function createLivingSceneHost(deps) {
       : (loc?.name ? `${regIdx}:${loc.name}` : (pPixel ? `${regIdx}:${pPixel.x},${pPixel.y}` : `${regIdx}:${Math.round(feet[0] / 100)}:${Math.round(feet[2] / 100)}`));
     if (inTown) {
       const lastEventTime = locationEventCooldowns.get(locKey) ?? -999999;
-      const canEventHere = (nowMin - lastEventTime) >= LOCATION_EVENT_COOLDOWN_MINUTES;
+      const canEventHere = (nowMin - lastEventTime) >= getLivingLocationCooldownMinutes();
       if (!canEventHere) return;
 
-      // 1. Priority 1: Plague Quarantine Relief Tent (if region is in active plague quarantine)
-      if (isRegionInQuarantine(regIdx)) {
+      // 1. Priority 1: Plague Quarantine Relief Tent (40% tent, 60% fallthrough to plague skirmish)
+      if (isRegionInQuarantine(regIdx) && rng() < 0.40) {
         const qAngle = rng() * Math.PI * 2;
         const safe = findSafeSiteCenter(deps, feet, 16, qAngle, 4.0);
         if (safe.suitable) {
@@ -3384,38 +3796,11 @@ export function createLivingSceneHost(deps) {
         }
       }
 
-      // 2. Priority 2: Urban Skirmish during regional crisis or civil strife
+      // 2. Priority 2: Urban Skirmish during regional crisis or civil strife (80% crisis / 20% mundane)
       if (shouldSpawnUrbanSkirmish({ regionIndex: regIdx, isInsideBuilding: false, existingActiveSkirmishes: 0, playerEntity: player })) {
-        const angle = rng() * Math.PI * 2;
-        const safe = findSafeSiteCenter(deps, feet, 28, angle, 4.0);
-        if (safe.suitable) {
-          lastSkirmishRegion = regIdx;
-          const bp = buildLivingSiteBlueprint({
-            kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
-            centerX: safe.x,
-            centerZ: safe.z,
-            heightAt: deps.heightAt,
-            regionIndex: regIdx,
-            playerEntity: player,
-            nowMinutes: nowMin,
-            dfLocation: loc,
-            locationType: loc?.mapTableData?.locationType ?? 0,
-            rng,
-          });
-          if (bp.actors.length > 0) {
-            locationEventCooldowns.set(locKey, nowMin);
-            lastSpawnMinute = nowMin;
-            standSite(bp);
-            const alertText = bp.meta?.event
-              ? LIVING_WORDS.skirmishAlert(
-                  getEventDisplayName(bp.meta.event),
-                  bp.meta.faction1Name ?? LIVING_WORDS.factionDefendersGeneric(),
-                  bp.meta.faction2Name ?? LIVING_WORDS.factionAttackersGeneric()
-                )
-              : LIVING_WORDS.urbanSkirmishAlert();
-            deps.say(alertText, 5);
-            return;
-          }
+        const allowMundaneOnly = rng() >= 0.80;
+        if (tryStandUrbanSkirmish({ dist: 28, angle: rng() * Math.PI * 2, nowMin, locKey, regIdx, loc, feet, player, allowMundaneOnly })) {
+          return;
         }
       }
 
@@ -3454,30 +3839,37 @@ export function createLivingSceneHost(deps) {
         }
       }
 
-      // 4. Priority 4: Plea Encounter (supplicant seeking aid)
-      const pleaEval = evaluatePleaEncounter({
-        regionIndex: regIdx,
-        nowMinutes: nowMin,
-        playerEntity: player,
-        rng,
-      });
-      if (pleaEval.shouldPlea) {
-        const safe = findSafeSiteCenter(deps, feet, 10, angle, 3.0);
-        if (safe.suitable) {
-          locationEventCooldowns.set(locKey, nowMin);
-          lastSpawnMinute = nowMin;
-          standSite(
-            buildLivingSiteBlueprint({
-              kind: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
-              centerX: safe.x,
-              centerZ: safe.z,
-              heightAt: deps.heightAt,
-              regionIndex: regIdx,
-              playerEntity: player,
-              nowMinutes: nowMin,
-              rng,
-            }),
-          );
+      // 4. Priority 4: Peace-time town roulette (65% Grounded Plea / 35% Mundane Skirmish)
+      if (Number(LivingTamrielConfig.urban) > PRESENCE.OFF) {
+        if (rng() < 0.65) {
+          const pleaEval = evaluatePleaEncounter({
+            regionIndex: regIdx,
+            nowMinutes: nowMin,
+            playerEntity: player,
+            rng,
+          });
+          if (pleaEval.shouldPlea && pleaEval.plea) {
+            const safe = findSafeSiteCenter(deps, feet, 10, angle, 3.0);
+            if (safe.suitable) {
+              locationEventCooldowns.set(locKey, nowMin);
+              lastSpawnMinute = nowMin;
+              standSite(
+                buildLivingSiteBlueprint({
+                  kind: LIVING_SITE_KINDS.PLEA_ENCOUNTER,
+                  centerX: safe.x,
+                  centerZ: safe.z,
+                  heightAt: deps.heightAt,
+                  regionIndex: regIdx,
+                  playerEntity: player,
+                  nowMinutes: nowMin,
+                  plea: pleaEval.plea,
+                  rng,
+                }),
+              );
+            }
+          }
+        } else {
+          tryStandUrbanSkirmish({ dist: 24, angle, nowMin, locKey, regIdx, loc, feet, player, allowMundaneOnly: true });
         }
       }
       return;
@@ -3918,6 +4310,9 @@ export function createLivingSceneHost(deps) {
       if (stood?.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
         return false;
       }
+      if (stood?.kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER && stood.hostile) {
+        return false;
+      }
       if (stood?.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH) {
         if (stood.skirmishStance === 'chaos' || stood.skirmishStance === 'rebels') {
           return false;
@@ -3940,7 +4335,8 @@ export function createLivingSceneHost(deps) {
       for (const m of stood.blueprint.meshes) {
         const entry = gpuModels.get(m.modelId);
         if (!entry?.gpu) continue;
-        const mat = trs(m.feet[0], m.feet[1], m.feet[2], 0, m.yawDeg, 0);
+        const yLift = meshGroundOffsetY(m.modelId);
+        const mat = trs(m.feet[0], m.feet[1] + yLift, m.feet[2], 0, m.yawDeg, 0);
         if (drawSeen(renderer, cull, cull ? sphereAabb(entry.gpu.bounds, mat) : null, entry.gpu, mat, texRemap)) {
           drawn++;
         }
@@ -3953,7 +4349,15 @@ export function createLivingSceneHost(deps) {
      */
     batches() {
       if (!stood || !deps.renderer?.createBillboardBatch) return [];
-      if (!stood.batches.length && stood.blueprint.flats.length) {
+      if (stood._batchesDirty || (!stood.batches.length && stood.blueprint.flats.length)) {
+        if (stood.batches.length && deps.renderer?.destroyBillboardBatch) {
+          for (const b of stood.batches) {
+            try {
+              deps.renderer.destroyBillboardBatch(b);
+            } catch (_e) {}
+          }
+          stood.batches = [];
+        }
         for (const fl of stood.blueprint.flats) {
           const sz = flatSizes.get(`${fl.archive}:${fl.record}`);
           if (!sz) continue;
@@ -3963,6 +4367,7 @@ export function createLivingSceneHost(deps) {
             stood.batches.push(b);
           }
         }
+        stood._batchesDirty = false;
       }
       return stood.batches;
     },
@@ -4018,7 +4423,13 @@ export function createLivingSceneHost(deps) {
           } catch (_e) {}
         }
         stood.batches = [];
+        stood._batchesDirty = true;
       }
+    },
+
+    /** Removes destructible props and colliders from the active site. */
+    destroyDestructibles() {
+      return stood ? destroySiteDestructibles(stood) : false;
     },
 
     /**
@@ -4571,6 +4982,7 @@ export function executeLivingConsoleCommand(args, ctx) {
     const feet = ctx?.playerFeet ?? [0, 0, 0];
     const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
     const safe = findSafeSiteCenter(ctx, feet, 14, Math.PI * 0.25, 4.0);
+    const rawDetail = cleanArgs[2] ? String(cleanArgs[2]).trim().toUpperCase() : null;
     const bp = buildLivingSiteBlueprint({
       kind: validKind,
       centerX: safe.x,
@@ -4580,7 +4992,12 @@ export function executeLivingConsoleCommand(args, ctx) {
       playerEntity: ctx?.playerEntity ?? null,
       nowMinutes: ctx?.nowMinutes ?? 0,
       onRoad: true,
+      forcedEventId: validKind === LIVING_SITE_KINDS.URBAN_SKIRMISH ? rawDetail : null,
+      forcedPleaType: validKind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ? rawDetail : null,
     });
+    if (!bp) {
+      return `[Living Tamriel] Could not spawn ${validKind} at current spot (terrain steep or not streamed).`;
+    }
     ctx?.sceneHost?.standBlueprint?.(bp);
     return `[Living Tamriel] Spawned ${validKind} (${bp.meshes.length} meshes, ${bp.flats.length} flats, ${bp.actors.length} actors).`;
   }

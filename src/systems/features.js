@@ -192,6 +192,13 @@ const LT_ADVENTURER_LOOT_TIERS = Object.freeze([
   tier('full', () => t('features.livingAdventurerLoot.full', 'Full Gear')),
 ]);
 
+const LT_LOCATION_COOLDOWN_TIERS = Object.freeze([
+  tier(120, () => t('features.ltLocationCooldown.2h', '2 Hours')),
+  tier(480, () => t('features.ltLocationCooldown.8h', '8 Hours')),
+  tier(1440, () => t('features.ltLocationCooldown.24h', '24 Hours')),
+  tier(4320, () => t('features.ltLocationCooldown.3d', '3 Days')),
+]);
+
 /** FT14 (2026-09-15) - WHAT A MOD'S TILE SHOWS, AND WHAT IT DOES NOT.
  *
  *  The eight vendored mods carried 125 settings keys between them when
@@ -2177,6 +2184,15 @@ export const FEATURES = Object.freeze([
     get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'livingAdventurerLootMode', initial: 'full', online: 'player', tiers: LT_ADVENTURER_LOOT_TIERS }),
+  }),
+  Object.freeze({
+    id: 'lt-location-cooldown',
+    group: 'world',
+    get title() { return t('features.ltLocationCooldown.title', 'Settlement event cooldown'); },
+    get note() { return t('features.ltLocationCooldown.note', 'Sets how long a town waits after a street skirmish, quarantine tent, rival ambush, or citizen plea before another can start there.'); },
+    get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'livingLocationCooldown', initial: 4320, online: 'player', tiers: LT_LOCATION_COOLDOWN_TIERS }),
   }),
 ]);
 

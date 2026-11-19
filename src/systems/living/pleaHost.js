@@ -19,6 +19,35 @@ export const PLEA_TYPE = Object.freeze({
   FAMINE_BREAD: 'FAMINE_BREAD',       // Begging for grain/bread or coins during famine
   WAR_REFUGEE: 'WAR_REFUGEE',         // Displaced refugees asking for transit fare
   ESCORT_REQUEST: 'ESCORT_REQUEST',   // Traveler requesting protection along dangerous road
+  DRUNKEN_BRAWLER: 'DRUNKEN_BRAWLER', // Tavern/street drunk looking for coin or a fight
+  BROKEN_CART_MERCHANT: 'BROKEN_CART_MERCHANT', // Merchant with broken cart axle
+  STRAY_HOUND_HANDLER: 'STRAY_HOUND_HANDLER',   // Ranger tending an injured hound
+  STREET_PREACHER: 'STREET_PREACHER',           // Alms-seeking street monk
+  ACCUSED_URCHIN: 'ACCUSED_URCHIN',             // Cornered pickpocket fleeing debt
+  BOASTFUL_DUELIST: 'BOASTFUL_DUELIST',         // Proud knight seeking duelists
+});
+
+export const PEACE_PLEA_TYPES = Object.freeze([
+  PLEA_TYPE.DRUNKEN_BRAWLER,
+  PLEA_TYPE.BROKEN_CART_MERCHANT,
+  PLEA_TYPE.STRAY_HOUND_HANDLER,
+  PLEA_TYPE.STREET_PREACHER,
+  PLEA_TYPE.ACCUSED_URCHIN,
+  PLEA_TYPE.BOASTFUL_DUELIST,
+  PLEA_TYPE.ESCORT_REQUEST,
+]);
+
+export const PLEA_GOLD_COSTS = Object.freeze({
+  [PLEA_TYPE.PLAGUE_CURE]: 35,
+  [PLEA_TYPE.FAMINE_BREAD]: 15,
+  [PLEA_TYPE.WAR_REFUGEE]: 50,
+  [PLEA_TYPE.ESCORT_REQUEST]: 25,
+  [PLEA_TYPE.DRUNKEN_BRAWLER]: 15,
+  [PLEA_TYPE.BROKEN_CART_MERCHANT]: 30,
+  [PLEA_TYPE.STRAY_HOUND_HANDLER]: 20,
+  [PLEA_TYPE.STREET_PREACHER]: 20,
+  [PLEA_TYPE.ACCUSED_URCHIN]: 25,
+  [PLEA_TYPE.BOASTFUL_DUELIST]: 25,
 });
 
 export const PLEA_OUTCOME = Object.freeze({
@@ -28,16 +57,24 @@ export const PLEA_OUTCOME = Object.freeze({
   INSUFFICIENT_FUNDS: 'INSUFFICIENT_FUNDS', // Attempted to help without required gold
 });
 
-export const PLEA_COOLDOWN_MINUTES = 720; // 12 in-game hours between ambient pleas
+export const PLEA_COOLDOWN_MINUTES = 90; // 1.5 in-game hours between ambient pleas
+
+function messageKeyForPlea(type) {
+  if (type === PLEA_TYPE.PLAGUE_CURE) return 'living.plea.plague';
+  if (type === PLEA_TYPE.FAMINE_BREAD) return 'living.plea.famine';
+  if (type === PLEA_TYPE.WAR_REFUGEE) return 'living.plea.war';
+  if (type === PLEA_TYPE.DRUNKEN_BRAWLER) return 'living.plea.drunk';
+  if (type === PLEA_TYPE.BROKEN_CART_MERCHANT) return 'living.plea.cart';
+  if (type === PLEA_TYPE.STRAY_HOUND_HANDLER) return 'living.plea.hound';
+  if (type === PLEA_TYPE.STREET_PREACHER) return 'living.plea.preacher';
+  if (type === PLEA_TYPE.ACCUSED_URCHIN) return 'living.plea.urchin';
+  if (type === PLEA_TYPE.BOASTFUL_DUELIST) return 'living.plea.duelist';
+  return 'living.plea.escort';
+}
 
 /**
  * Checks whether an ambient NPC plea should emerge for the player.
- *
- * @param {Object} params
- * @param {number} params.regionIndex Current region index (0..70)
- * @param {number} params.nowMinutes Current game clock minute
- * @param {any} [params.playerEntity]
- * @param {() => number} [params.rng]
+ * @param {{ regionIndex: number, nowMinutes: number, playerEntity?: any, rng?: () => number, force?: boolean, forcedPleaType?: string|null }} params
  * @returns {{ shouldPlea: boolean, plea: { type: string, requiredGold: number, messageKey: string }|null }}
  */
 export function evaluatePleaEncounter({
@@ -45,9 +82,11 @@ export function evaluatePleaEncounter({
   nowMinutes,
   playerEntity = null,
   rng = Math.random,
+  force = false,
+  forcedPleaType = null,
 }) {
   const tier = Number(LivingTamrielConfig.urban ?? LivingTamrielConfig.wilderness);
-  if (tier === PRESENCE.OFF) {
+  if (!force && tier === PRESENCE.OFF) {
     return { shouldPlea: false, plea: null };
   }
 
@@ -56,61 +95,50 @@ export function evaluatePleaEncounter({
     root.subsystems.pleas = { lastPleaMinute: -999999 };
   }
 
-  // 1. Cooldown check (12 game hours)
+  // 1. Cooldown check (90 game minutes)
   const lastMinute = Number(root.subsystems.pleas.lastPleaMinute) || -999999;
-  if (nowMinutes - lastMinute < PLEA_COOLDOWN_MINUTES) {
+  if (!force && nowMinutes - lastMinute < PLEA_COOLDOWN_MINUTES) {
     return { shouldPlea: false, plea: null };
   }
 
   // 2. Base chance by presence tier (LIGHT: 10%, MID: 25%, HIGH: 40%)
   const baseChance = tier === PRESENCE.LIGHT ? 10 : tier === PRESENCE.HIGH ? 40 : 25;
-  if (rng() * 100 > baseChance) {
+  if (!force && rng() * 100 > baseChance) {
     return { shouldPlea: false, plea: null };
   }
 
-  // 3. Determine plea type based on regional crisis
+  // 3. Determine plea type based on explicit override, crisis, or grounded peace pool
   const regState = getRegionState(regionIndex);
   /** @type {string} */
   let type = PLEA_TYPE.ESCORT_REQUEST;
-  let requiredGold = 25;
-  let messageKey = 'living.plea.escort';
 
-  if (regState?.crisis === CRISIS_TYPE.PLAGUE) {
+  if (forcedPleaType && Object.values(PLEA_TYPE).includes(/** @type {any} */ (forcedPleaType))) {
+    type = forcedPleaType;
+  } else if (regState?.crisis === CRISIS_TYPE.PLAGUE) {
     type = PLEA_TYPE.PLAGUE_CURE;
-    requiredGold = 35;
-    messageKey = 'living.plea.plague';
   } else if (regState?.crisis === CRISIS_TYPE.FAMINE) {
     type = PLEA_TYPE.FAMINE_BREAD;
-    requiredGold = 15;
-    messageKey = 'living.plea.famine';
   } else if (regState?.crisis === CRISIS_TYPE.WAR || regState?.crisis === CRISIS_TYPE.CIVIL_STRIFE) {
     type = PLEA_TYPE.WAR_REFUGEE;
-    requiredGold = 50;
-    messageKey = 'living.plea.war';
+  } else {
+    const idx = Math.floor(rng() * PEACE_PLEA_TYPES.length) % PEACE_PLEA_TYPES.length;
+    type = PEACE_PLEA_TYPES[idx];
   }
 
   return {
     shouldPlea: true,
     plea: {
       type,
-      requiredGold,
-      messageKey,
+      requiredGold: PLEA_GOLD_COSTS[type] ?? 25,
+      messageKey: messageKeyForPlea(type),
     },
   };
 }
 
 /**
  * Resolves the player's response to an ambient NPC plea.
- *
- * @param {Object} params
- * @param {Object} params.plea The active plea record
- * @param {any} params.playerEntity
- * @param {number} params.regionIndex
- * @param {'HELP'|'REFUSE_POLITE'|'REFUSE_RUDE'} params.response
- * @param {number} [params.goldOffered=0]
- * @param {number} [params.nowMinutes=0]
- * @param {() => number} [params.rng=Math.random]
- * @returns {{ outcome: string, messageKey: string, repDelta: number, goldSpent: number, potionUsed?: boolean, blessed?: boolean, spawnMugger?: boolean }}
+ * @param {{ plea: any, playerEntity: any, regionIndex: number, response: 'HELP'|'REFUSE_POLITE'|'REFUSE_RUDE', goldOffered?: number, nowMinutes?: number, rng?: () => number }} params
+ * @returns {{ outcome: string, messageKey: string, repDelta: number, goldSpent: number, potionUsed?: boolean, blessed?: boolean, spawnMugger?: boolean, provoked?: boolean, spawnBackup?: boolean, grantHealingPotion?: boolean, fullRestore?: boolean, bonusXp?: number, degree?: string, rollResult?: any }}
  */
 export function resolvePleaResponse({
   plea,
@@ -125,10 +153,16 @@ export function resolvePleaResponse({
   if (!root.subsystems.pleas) {
     root.subsystems.pleas = { lastPleaMinute: -999999 };
   }
+  const isGroundedPeaceScene =
+    PEACE_PLEA_TYPES.includes(/** @type {any} */ (plea?.type)) &&
+    plea?.type !== PLEA_TYPE.ESCORT_REQUEST;
 
   if (response === 'HELP') {
     let potionUsed = false;
-    if (plea.type === PLEA_TYPE.PLAGUE_CURE && Array.isArray(playerEntity?.items)) {
+    if (
+      (plea.type === PLEA_TYPE.PLAGUE_CURE || plea.type === PLEA_TYPE.STRAY_HOUND_HANDLER) &&
+      Array.isArray(playerEntity?.items)
+    ) {
       const pIdx = playerEntity.items.findIndex(
         (it) => it && (it.group === 'Potions' || /potion|cure|heal|remedy|elixir/i.test(String(it.shortName || it.name || ''))),
       );
@@ -147,8 +181,21 @@ export function resolvePleaResponse({
         potionUsed: false,
         blessed: false,
         spawnMugger: false,
+        provoked: false,
+        spawnBackup: false,
       };
     }
+
+    const repGain =
+      plea.type === PLEA_TYPE.BROKEN_CART_MERCHANT ||
+      plea.type === PLEA_TYPE.STRAY_HOUND_HANDLER ||
+      plea.type === PLEA_TYPE.BOASTFUL_DUELIST
+        ? 4
+        : 3;
+    const fullRestore = plea.type === PLEA_TYPE.STREET_PREACHER;
+    const grantHealingPotion = plea.type === PLEA_TYPE.BROKEN_CART_MERCHANT;
+    const bonusXp =
+      plea.type === PLEA_TYPE.ACCUSED_URCHIN || plea.type === PLEA_TYPE.BOASTFUL_DUELIST ? 60 : 0;
 
     // Award regional reputation, lower regional tension, and bless player vitals
     root.subsystems.pleas.lastPleaMinute = nowMinutes;
@@ -156,7 +203,7 @@ export function resolvePleaResponse({
       const currentRep = Number(
         playerEntity.legalRep?.[regionIndex] ?? playerEntity.regionalReputations?.[regionIndex] ?? 0,
       );
-      const nextRep = Math.max(-100, Math.min(100, currentRep + 3));
+      const nextRep = Math.max(-100, Math.min(100, currentRep + repGain));
       if (!playerEntity.legalRep || typeof playerEntity.legalRep !== 'object') {
         playerEntity.legalRep = {};
       }
@@ -165,11 +212,26 @@ export function resolvePleaResponse({
         playerEntity.regionalReputations = {};
       }
       playerEntity.regionalReputations[regionIndex] = nextRep;
-      if (typeof playerEntity.health === 'number' && typeof playerEntity.maxHealth === 'number') {
-        playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + 15);
-      }
-      if (typeof playerEntity.currentHealth === 'number' && typeof playerEntity.maxHealth === 'number') {
-        playerEntity.currentHealth = Math.min(playerEntity.maxHealth, playerEntity.currentHealth + 15);
+      if (fullRestore) {
+        if (typeof playerEntity.maxHealth === 'number') {
+          playerEntity.health = playerEntity.maxHealth;
+          if (typeof playerEntity.currentHealth === 'number') {
+            playerEntity.currentHealth = playerEntity.maxHealth;
+          }
+        }
+        if (typeof playerEntity.maxFatigue === 'number') {
+          playerEntity.fatigue = playerEntity.maxFatigue;
+        }
+      } else {
+        if (typeof playerEntity.health === 'number' && typeof playerEntity.maxHealth === 'number') {
+          playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + 15);
+        }
+        if (typeof playerEntity.currentHealth === 'number' && typeof playerEntity.maxHealth === 'number') {
+          playerEntity.currentHealth = Math.min(playerEntity.maxHealth, playerEntity.currentHealth + 15);
+        }
+        if (plea.type === PLEA_TYPE.STRAY_HOUND_HANDLER && typeof playerEntity.maxFatigue === 'number') {
+          playerEntity.fatigue = Math.min(playerEntity.maxFatigue, Number(playerEntity.fatigue ?? 0) + 50);
+        }
       }
     }
     const regState = getRegionState(regionIndex);
@@ -180,11 +242,16 @@ export function resolvePleaResponse({
     return {
       outcome: PLEA_OUTCOME.HELPED,
       messageKey: 'living.plea.helped',
-      repDelta: 3,
+      repDelta: repGain,
       goldSpent: potionUsed ? 0 : plea.requiredGold,
       potionUsed,
       blessed: true,
       spawnMugger: false,
+      provoked: false,
+      spawnBackup: false,
+      grantHealingPotion,
+      fullRestore,
+      bonusXp,
     };
   }
 
@@ -211,6 +278,8 @@ export function resolvePleaResponse({
         potionUsed: false,
         blessed: false,
         spawnMugger: false,
+        provoked: false,
+        spawnBackup: false,
       };
     }
 
@@ -224,6 +293,8 @@ export function resolvePleaResponse({
       potionUsed: false,
       blessed: false,
       spawnMugger: false,
+      provoked: false,
+      spawnBackup: false,
     };
   }
 
@@ -243,7 +314,7 @@ export function resolvePleaResponse({
     }
     playerEntity.regionalReputations[regionIndex] = nextRep;
   }
-  const spawnMugger = rng() < 0.40;
+  const spawnMugger = !isGroundedPeaceScene && rng() < 0.40;
   return {
     outcome: PLEA_OUTCOME.REBUFFED,
     messageKey: 'living.plea.rebuffed',
@@ -252,5 +323,7 @@ export function resolvePleaResponse({
     potionUsed: false,
     blessed: false,
     spawnMugger,
+    provoked: true,
+    spawnBackup: isGroundedPeaceScene,
   };
 }

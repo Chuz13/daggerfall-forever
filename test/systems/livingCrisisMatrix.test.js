@@ -4,12 +4,16 @@ import assert from 'node:assert/strict';
 
 import {
   CRISIS_EVENTS,
+  SKIRMISH_PROP_THEME,
   calculateLocationProsperity,
   getEnemyProvinceName,
+  isSouthernDesertRegion,
   matchLivingCrisisEvent,
   resolveCrisisChoiceCheck,
+  resolveEventAttackersPool,
   PROSPERITY_TIER,
 } from '../../src/systems/living/crisisRegistry.js';
+import { CLIMATES } from '../../src/formats/mapsTables.js';
 import {
   LIVING_ROLL_DEGREE,
   LIVING_FORMULAS,
@@ -44,14 +48,16 @@ import { THE_THIEVES_GUILD } from '../../src/systems/faction/factionRep.js';
 import { LivingTamrielConfig, PRESENCE } from '../../src/systems/living/livingConfig.js';
 import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
 
-test('LT-39-Matrix: Exactly 39 crisis and exploration encounters defined with valid pools', () => {
-  assert.equal(CRISIS_EVENTS.length, 39, 'Must define exactly 39 core events');
+test('LT-39-Matrix: Exactly 41 crisis and exploration encounters defined with valid pools', () => {
+  assert.equal(CRISIS_EVENTS.length, 41, 'Must define exactly 41 core events');
 
   const validMobileIds = new Set(Object.values(MOBILE_TYPES));
+  const validThemes = new Set(Object.values(SKIRMISH_PROP_THEME));
 
   for (const evt of CRISIS_EVENTS) {
     assert.ok(evt.id, 'Event must have an ID');
     assert.ok(evt.name, `Event ${evt.id} must have a name`);
+    assert.ok(validThemes.has(evt.propTheme), `Event ${evt.id} must carry a valid propTheme`);
     assert.ok(Array.isArray(evt.defendersPool) && evt.defendersPool.length > 0, `Event ${evt.id} defenders pool`);
     assert.ok(Array.isArray(evt.attackersPool) && evt.attackersPool.length > 0, `Event ${evt.id} attackers pool`);
 
@@ -429,4 +435,69 @@ test('LT-Vanilla-Bridge: Extended vanilla simulation handles BadHarvest ruler ga
   // MadWizardNearby in Region 3 transitioned to MadWizardDies!
   assert.equal(rc[3].flags[REGION_FLAGS.MadWizardNearby], false);
   assert.equal(rc[3].flags[REGION_FLAGS.MadWizardDies], true);
+});
+
+test('Matrix expansion covers rat swarm, witch coven, desert/level pools, mundane matching, and widened towns', () => {
+  setRegionCrisis(17, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
+
+  const ratSwarm = CRISIS_EVENTS.find((e) => e.id === 'EVT_PLAGUE_RAT_SWARM');
+  const witchCoven = CRISIS_EVENTS.find((e) => e.id === 'EVT_WITCH_COVEN_ASSAULT');
+  assert.ok(ratSwarm && ratSwarm.swarmAttackers === true && ratSwarm.category === CRISIS_TYPE.PLAGUE);
+  assert.ok(witchCoven && witchCoven.propTheme === SKIRMISH_PROP_THEME.OCCULT_RITUAL);
+
+  // Forced event matching and mundane peace matching
+  const forcedWitch = matchLivingCrisisEvent({ regionIndex: 17, locationType: 0, forcedEventId: 'EVT_WITCH_COVEN_ASSAULT' });
+  assert.equal(forcedWitch?.id, 'EVT_WITCH_COVEN_ASSAULT');
+
+  const mundaneInTown = matchLivingCrisisEvent({
+    regionIndex: 17,
+    locationType: 0,
+    allowMundaneOnly: true,
+    rng: () => 0.1,
+  });
+  assert.ok(mundaneInTown && (mundaneInTown.category === 'MUNDANE' || mundaneInTown.conditionFlag));
+
+  // Widened town-eligible events match directly inside TownHamlet (2) / TownVillage (1)
+  const widenedIds = [
+    ['EVT_TAVERN_CHESS_WAGER', 2],
+    ['EVT_TEMPLE_PURGE_SIEGE', 2],
+    ['EVT_TEMPLE_CLERGY_STANDOFF', 2],
+    ['EVT_TEMPLE_HERETIC_GRAFFITI', 2],
+    ['EVT_WITCH_DAEDRA_PACT_SIGHTING', 1],
+    ['EVT_GRAVEYARD_WEEPING_MOURNER', 2],
+  ];
+  for (const [id, locType] of widenedIds) {
+    const ev = CRISIS_EVENTS.find((e) => e.id === id);
+    assert.ok(ev && ev.locationTypes.includes(locType), `${id} should include locationType ${locType}`);
+  }
+
+  // Southern desert vs northern climate/region detection and level gating
+  assert.equal(isSouthernDesertRegion(0, CLIMATES.Desert), true);
+  assert.equal(isSouthernDesertRegion(17, CLIMATES.Woodlands), false);
+  assert.equal(isSouthernDesertRegion(0, null), true); // Alik'r Desert (Redguard)
+
+  const predEvt = CRISIS_EVENTS.find((e) => e.id === 'EVT_FAMINE_PREDATOR_INVASION');
+  const desertLow = resolveEventAttackersPool(predEvt, { regionIndex: 0, climateIndex: CLIMATES.Desert, playerLevel: 1 });
+  assert.ok(desertLow.includes(MOBILE_TYPES.Spider) && desertLow.includes(MOBILE_TYPES.Centaur));
+  assert.equal(desertLow.includes(MOBILE_TYPES.GiantScorpion), false);
+  assert.equal(desertLow.includes(MOBILE_TYPES.Giant), false);
+
+  const desertHigh = resolveEventAttackersPool(predEvt, { regionIndex: 0, climateIndex: CLIMATES.Desert, playerLevel: 6 });
+  assert.equal(desertHigh.includes(MOBILE_TYPES.GiantScorpion), true);
+  assert.equal(desertHigh.includes(MOBILE_TYPES.Giant), true);
+
+  const northHigh = resolveEventAttackersPool(predEvt, { regionIndex: 17, climateIndex: CLIMATES.Woodlands, playerLevel: 6 });
+  assert.equal(northHigh.includes(MOBILE_TYPES.GiantScorpion), false);
+  assert.equal(northHigh.includes(MOBILE_TYPES.Wereboar), true);
+  assert.equal(northHigh.includes(MOBILE_TYPES.Giant), true);
+
+  const horrorEvt = CRISIS_EVENTS.find((e) => e.id === 'EVT_SCARY_NIGHT_HORROR');
+  assert.equal(resolveEventAttackersPool(horrorEvt, { playerLevel: 1 }).includes(MOBILE_TYPES.Ghost), false);
+  assert.equal(resolveEventAttackersPool(horrorEvt, { playerLevel: 6 }).includes(MOBILE_TYPES.Mummy), true);
+  assert.equal(resolveEventAttackersPool(horrorEvt, { playerLevel: 11 }).includes(MOBILE_TYPES.Wraith), true);
+  assert.equal(resolveEventAttackersPool(horrorEvt, { playerLevel: 14 }).includes(MOBILE_TYPES.Vampire), true);
+
+  assert.equal(resolveEventAttackersPool(witchCoven, { playerLevel: 1 }).includes(MOBILE_TYPES.Harpy), false);
+  assert.equal(resolveEventAttackersPool(witchCoven, { playerLevel: 6 }).includes(MOBILE_TYPES.Harpy), true);
+  assert.equal(resolveEventAttackersPool(witchCoven, { playerLevel: 11 }).includes(MOBILE_TYPES.Gargoyle), true);
 });
