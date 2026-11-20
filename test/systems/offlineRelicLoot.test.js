@@ -424,10 +424,11 @@ test('8. QA Console Commands: firmament setrenown + relic subcommands operate cl
   assert.match(await executeConsoleCommand('relic', ['lord', 'colossus']), /Added The Engine's Heart/i);
   assert.match(await executeConsoleCommand('relic', ['card', 'gate']), /Added Boss Card "gate"/i);
 
-  // Equip a wyrd piece and test relic drink
+  // Equip a wyrd piece and test relic status + relic drink
   const wyrdPiece = playerEntity.items.find((it) => it.sigil?.set === 'wyrd');
   assert.ok(wyrdPiece);
   equipItem(playerEntity, wyrdPiece);
+  assert.match(await executeConsoleCommand('relic', ['status']), /Worn Sets: wyrd \(1\/9, /i);
   assert.match(await executeConsoleCommand('relic', ['drink', '6000']), /drank 6000 XP/i);
   assert.ok(wyrdPiece.sigil.xp >= 6000);
 

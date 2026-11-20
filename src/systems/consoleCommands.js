@@ -1629,9 +1629,9 @@ function handleRelicCommand(args = []) {
   const sub = String(args[0] || 'status').toLowerCase();
   if (sub === 'status') {
     const items = playerEntity?.items ?? [];
-    const worn = playerEntity ? [...wornSets(playerEntity).entries()] : [];
+    const worn = playerEntity ? wornSets(playerEntity) : [];
     const setsText = worn.length
-      ? worn.map(([id, s]) => `${id} (${s.worn}/9, ${s.stageName})`).join(', ')
+      ? worn.map((s) => `${s.id} (${s.count}/9, ${s.stageName})`).join(', ')
       : 'none';
     const embers = countStackInItems(items, isSigilStone);
     const glass = countStackInItems(items, isStarglass);
