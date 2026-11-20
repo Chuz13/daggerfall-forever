@@ -195,7 +195,46 @@ test('Urban skirmish single attacker, rat swarm clustering, all 12 prop themes, 
     });
     assert.ok(bp, `Failed to build blueprint for theme ${theme} (${sampleEvt.id})`);
     assert.ok(bp.meshes.length <= URBAN_PROP_LIMIT, `Theme ${theme} exceeded mesh cap: ${bp.meshes.length}`);
+    if (bp.meshes.length === 2) {
+      const meshGap = Math.hypot(bp.meshes[0].feet[0] - bp.meshes[1].feet[0], bp.meshes[0].feet[2] - bp.meshes[1].feet[2]);
+      assert.ok(meshGap >= 2.2, `Theme ${theme} meshes overlap (${meshGap.toFixed(2)}m)`);
+    }
+    for (const mProp of bp.meshes) {
+      for (const flProp of bp.flats) {
+        const gap = Math.hypot(mProp.feet[0] - flProp.feet[0], mProp.feet[2] - flProp.feet[2]);
+        assert.ok(gap >= 1.1, `Theme ${theme} flat (${flProp.archive}:${flProp.record}) intersects mesh (${gap.toFixed(2)}m)`);
+      }
+    }
   }
+
+  // 3b. Rat swarm keeps only crate mesh; Witch coven separates cage & Daedric idol >= 1.9m
+  const ratBp = buildLivingSiteBlueprint({
+    kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+    centerX: 0,
+    centerZ: 0,
+    heightAt: () => 0,
+    regionIndex: 17,
+    locationType: 0,
+    forcedEventId: 'EVT_PLAGUE_RAT_SWARM',
+    rng: () => 0.3,
+  });
+  assert.equal(ratBp.meshes.length, 1);
+  assert.equal(ratBp.meshes[0].modelId, 41834);
+
+  const witchBp = buildLivingSiteBlueprint({
+    kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+    centerX: 0,
+    centerZ: 0,
+    heightAt: () => 0,
+    regionIndex: 17,
+    locationType: 0,
+    forcedEventId: 'EVT_WITCH_COVEN_ASSAULT',
+    rng: () => 0.3,
+  });
+  const cageMesh = witchBp.meshes.find((mProp) => mProp.modelId === 74229);
+  const idolFlat = witchBp.flats.find((flProp) => flProp.archive === 202 && flProp.record === 1);
+  assert.ok(cageMesh && idolFlat);
+  assert.ok(Math.hypot(cageMesh.feet[0] - idolFlat.feet[0], cageMesh.feet[2] - idolFlat.feet[2]) >= 1.9);
 
   // 4. Mesh grounding lifts negative minY meshes and destroyDestructibles removes statue & well
   const removedBuckets = [];
