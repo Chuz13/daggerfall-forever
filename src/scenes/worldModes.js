@@ -7233,7 +7233,7 @@ export function createWorldModes(host) {
       // WD3 (AUDIT WD3 G1): only a PERSON's flat carries the trigger collider the ray meets (DaggerfallBillboard: a
       // FlatTypes.NPC archive, RDBLayout.IsNPCFlat - the same law the dungeons keep). A town mod's lamps, food and
       // animals carry faction ids too (43,181 flats), and are scenery: never talked to, stolen from or named
-      if (pn.textureArchive != null && !isNpcFlat(pn.textureArchive)) return;
+      if (pn.textureArchive != null && !pn.sigilBroker && !isNpcFlat(pn.textureArchive)) return;
       targets.push({ key: `person:${i}`, aabb: personAabb(pn), distance: STATIC_NPC_ACTIVATION_DISTANCE });
     });
     // BOUNTY-BOARDS: physical bounty and notice boards in town streets

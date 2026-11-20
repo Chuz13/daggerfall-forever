@@ -25329,7 +25329,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       buyInsignia: onl ? insigniaBuy : null,
       wearInsignia: onl ? insigniaWear : null,
       insigniaBusy: () => _insignia.busy,
-      panoply: _accountEg ? panoplyDeps : offlinePanoplyDeps,
+      panoply: onl && _accountEg ? panoplyDeps : offlinePanoplyDeps,
       covenExchange: offlineCovenExchangeDeps,
     });
     if (win) townTalk.showOverlay(win);

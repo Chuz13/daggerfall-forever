@@ -1413,11 +1413,10 @@ export function createPixelBuild(host) {
     // so destroyPixel takes it away with everything else.
     if (dfLocation?.mapTableData?.locationType === LOCATION_TYPES.Coven && pixelNpcFlats.length > 0 && !pixelNpcFlats.some((f) => f.sigilBroker)) {
       const anchor = pixelNpcFlats[0];
-      const seducerTex = await getTexture(284).catch(() => null);
       pixelNpcFlats.push({
         ...anchor,
-        archive: seducerTex ? 284 : 179,
-        record: seducerTex ? 0 : 2,
+        archive: 179,
+        record: 2,
         x: anchor.x + 2.0,
         y: anchor.y,
         z: anchor.z,
