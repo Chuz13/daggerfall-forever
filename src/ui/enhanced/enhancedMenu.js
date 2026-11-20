@@ -3370,6 +3370,14 @@ function portRowsGame({ pause = false } = {}) {
     t('features.offlineFirmament.note', 'Enables the Firmament constellation passive tree and Renown progression while playing offline.')));
   rows.push(prefRow('offlineProfessions', t('features.offlineProfessions.title', 'Professions & Gathering (Offline)'),
     t('features.offlineProfessions.note', 'Enables gathering nodes (mining, herbs, logging, hunting, fishing) and crafting professions offline.')));
+  rows.push(choiceRow('offlineStarfall', t('features.offlineStarfall.title', 'Starfall (Offline)'),
+    t('features.offlineStarfall.note', 'Allows fallen stars, coven defense encounters, and Morwen\'s questline to occur near you in offline play.'),
+    [
+      ['off', t('features.offlineStarfall.off', 'Off')],
+      ['rare', t('features.offlineStarfall.rare', 'Rare')],
+      ['normal', t('features.offlineStarfall.normal', 'Normal')],
+      ['frequent', t('features.offlineStarfall.frequent', 'Frequent')],
+    ]));
   rows.push(prefRow('offlineHousing', t('features.offlineHousing.title', 'Player Housing (Offline)'),
     t('features.offlineHousing.note', 'Buy and sell homes at the front door across all towns and hamlets, as in online DFO. Off restores classic bank housing.')));
   rows.push(prefRow('unifiedBank', t('features.unifiedBank.title', 'Unified Bank'),

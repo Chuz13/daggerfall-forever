@@ -91,7 +91,13 @@ import { createQuestlines } from '../../systems/questlines/qlLayer.js';   // QL1
 import { questlineActionTemplates } from '../../systems/questlines/qlActions.js';   // QL4: ask, outcome, ql act, ql paid, ql name - registered here, every host's machine
 import { BAY_START_QUEST, isStartQuestName } from '../../systems/starts/starts.js';   // START1: the quest a new character starts in the Iliac Bay
 import { apotheosisActionTemplates, syncApotheosisQuests } from '../../systems/apotheosis/apotheosisQuest.js';
-import { setActSink } from '../../systems/questlines/qlActs.js';   // QL11: the features' acts, heard by this bridge's layer
+import { setActSink, noteAct } from '../../systems/questlines/qlActs.js';   // QL11: the features' acts, heard by this bridge's layer
+import {
+  isOfflineStarfallActive,
+  getOfflineStarfallState,
+  clearPendingAutoLine,
+  OFFLINE_STARFALL_MIN_LEVEL,
+} from '../../systems/starfall/offlineStarfall.js';
 import { questlineService, serviceReady } from './questlineHost.js';   // QL12: the endgame lines' claims - the account service's door, online alone
 import { TITLE_TEXT } from '../../ui/playerBadge.js';   // QL12: a line's title, in the badge's own words
 import { announceHonour } from '../../ui/lootBanner.js';   // AUDIT QUESTLINES SERVICE-7: a line's title, the house's HONOUR-BANNER
@@ -1046,6 +1052,46 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
 
     onExteriorTransition() { machine.notifyExteriorTransition(); },
     onInitWorld() { machine.notifyInitWorld(); },
+
+    /** Auto-start Morwen's line on first held star at Lv 6+ and note star-held acts. */
+    onOfflineStarHeld({ heart = false, autoStartNow = false } = {}) {
+      if (!isOfflineStarfallActive()) return false;
+      const runner = questlines?.runner;
+      if (autoStartNow && runner && !runner.lineState('thirteenthFrostfall')) {
+        const q = runner.offerQuest('thirteenthFrostfall');
+        const res = runner.takeLine('thirteenthFrostfall', q ? { quest: q } : undefined);
+        if (res?.ok) clearPendingAutoLine();
+      }
+      noteAct('star-held');
+      if (heart) noteAct('heart-star-held');
+      return true;
+    },
+    /** Check if a pending auto-start line can now begin after levelling up to Lv 6+. */
+    checkPendingOfflineStarfall() {
+      if (!isOfflineStarfallActive() || !getOfflineStarfallState().pendingAutoLine) return false;
+      if ((ctx.playerEntity?.level ?? 1) < OFFLINE_STARFALL_MIN_LEVEL) return false;
+      const runner = questlines?.runner;
+      if (!runner || runner.lineState('thirteenthFrostfall')) {
+        clearPendingAutoLine();
+        return false;
+      }
+      const q = runner.offerQuest('thirteenthFrostfall');
+      const res = runner.takeLine('thirteenthFrostfall', q ? { quest: q } : undefined);
+      if (!res?.ok) return false;
+      clearPendingAutoLine();
+      noteAct('star-held');
+      return true;
+    },
+    /** True when QLTF03 is running and its optional Heart-Star objective is not yet done. */
+    qltf03NeedsHeart() {
+      for (const q of machine.quests.values()) {
+        if (q.questName === 'QLTF03' && !q.questComplete && !q.questTombstoned && q.shelvedAt == null) {
+          const heartTask = q.tasks?.get?.('_heart_');
+          return !heartTask?.triggered;
+        }
+      }
+      return false;
+    },
 
     /** The save envelope: the machine's shape + the notebook's + the
      *  one-time list (C# carries the last two on SerializablePlayer -

@@ -221,6 +221,7 @@ export const ONLINE_PLAYERS_OWN_PREFS = [
   'chatLfg', // CHAT-TRADE: whether THIS player listens to the Trade and LFG channels - their tabs, nothing the room agrees on
   'standingAll', // EVERY-STANDING: whether THIS player's Standing page lists every faction's number - a page they read, nothing the room agrees on
   'offlineFirmament', // OFFLINE-FIRMAMENT: whether THIS player enables offline Firmament in single-player
+  'offlineStarfall', // whether this player enables offline Starfall in single-player
   'offlineHousing', // OFFLINE-HOUSING: whether offline player housing is enabled
   'unifiedBank', // UNIFIED-BANK: whether bank accounts are unified across regions
   'city247', // CITY-247: whether 24/7 city infrastructure is enabled

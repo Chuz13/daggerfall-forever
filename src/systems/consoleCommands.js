@@ -1858,6 +1858,45 @@ function handleProfCommand(args = []) {
   return 'Usage: prof <list | set <name> <level> | addxp <name> <amount>>';
 }
 registerCommand('prof', 'Manage offline crafting and gathering professions: prof <list|set|addxp>', 'prof <list|set <name> <level>|addxp <name> <amount>>', handleProfCommand);
+
+registerCommand(
+  'starfall',
+  'Offline Starfall testing: starfall <status|spawn [heart] [fallen]|clear>',
+  'starfall <status | spawn [heart] [fallen] | clear>',
+  (args = [], ctx = null) => {
+    const sub = String(args[0] || 'status').toLowerCase();
+    if (sub === 'spawn') {
+      if (!ctx?.spawnStarfall) return 'Offline Starfall host is unavailable in this scene.';
+      const flags = args.slice(1).map((a) => String(a).toLowerCase());
+      const heart = flags.includes('heart');
+      const startFallen = flags.includes('fallen') || !flags.includes('omen');
+      const rec = ctx.spawnStarfall({ heart, startFallen });
+      if (!rec) return 'Could not find a suitable wilderness pixel near you (or scan still warming).';
+      return `Spawned ${rec.heart ? 'Heart-Star' : 'Fallen Star'} #${rec.n} (${rec.stage}) near ${rec.near} at (${rec.px}, ${rec.py}).`;
+    }
+    if (sub === 'clear') {
+      if (!ctx?.clearStarfall) return 'Offline Starfall host is unavailable in this scene.';
+      ctx.clearStarfall();
+      return 'Cleared active offline star.';
+    }
+    if (sub === 'status') {
+      const st = ctx?.starfallStatus?.();
+      if (!st) return 'Offline Starfall host is unavailable in this scene.';
+      const a = st.active;
+      const lines = [
+        `<b>Offline Starfall Status:</b>`,
+        `Stars Held: ${st.starsHeld} | Since Heart-Star: ${st.sinceHeart} | Starwarden: ${st.starwardenEarned ? 'YES' : 'NO'} | Pending QLTF01: ${st.pendingAutoLine ? 'YES' : 'NO'}`,
+      ];
+      if (!a) lines.push('Active Star: none');
+      else {
+        lines.push(`Active Star #${a.n} (${a.heart ? 'Heart-Star' : 'Star'}): stage=${a.stage}, near=${a.near} (${a.px},${a.py}), elapsed=${Math.round((a.activeElapsedMs || 0) / 1000)}s`);
+        if (a.led) lines.push(`Ledger: phase=${a.led.p}, wave=${a.led.w}, kills=${a.led.kn}/${a.led.wz}, light=${a.led.lt}/100`);
+      }
+      return lines.join('\n');
+    }
+    return 'Usage: starfall <status | spawn [heart] [fallen] | clear>';
+  },
+);
 registerCommand('profession', 'Manage offline professions: profession <list|set|addxp>', 'profession <subcommand>', handleProfCommand);
 
 registerCommand(

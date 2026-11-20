@@ -59,7 +59,7 @@ import { QUEST_MARK_CSS, QUEST_MARK_LIFT } from '../quest/questMarks.js'; // GUI
 import { wheelPath } from '../carriageWheel.js'; // OW-HUBS: a carriage town's wheel beside its mark
 import { paintVendorMark } from '../vendor/vendorMapMark.js'; // HOME-VENDOR: the trader's waypoint's coin
 import { seatMapMark, SEAT_RING_SIEGE } from '../../net/townSeatLaw.js'; // SEAT1a: how a seat is marked - its ring, a crown, a second ring; SEAT1c: held, Contested, a siege week
-import { STAR_VIOLET_CSS } from '../starfall/starMapMark.js'; // STAR6: a fallen star's violet
+import { STAR_VIOLET_CSS, STAR_MAP_INK, STAR_HELD_MAP_INK } from '../starfall/starMapMark.js'; // STAR6: a fallen star's violet
 import { FISSURE_BRASS_CSS, FISSURE_AETHER_CSS } from '../fissureMapMark.js'; // STOREFRONT: a Brass Fissure's brass and its crack's blue
 
 // ── THE INK (skin): the pen and its washes ───────────────────────────────────────────────
@@ -1420,6 +1420,9 @@ export function paintInkOverlay(ctx, view, opts) {
   for (const m of opts.raids ?? []) if (visible(m.x, m.y)) paintRaidMark(ctx, view, m, pulse);
   // STAR6: the night's fallen stars, beside the raids - none ever falls in a town
   for (const m of opts.stars ?? []) if (visible(m.x, m.y)) paintStarMark(ctx, view, m, pulse);
+  // Local search rings for nearby offline stars
+  for (const r of opts.starRings ?? [])
+    if (r && visible(r.cx, r.cy, r.r + 2)) paintGateRing(ctx, view, r, pulse, r.phase === 'held' ? STAR_HELD_MAP_INK : STAR_MAP_INK);
   // STOREFRONT: the season's Brass Fissures, beside the stars - the Heart Fissures larger, ringed
   for (const m of opts.fissures ?? []) if (visible(m.x, m.y)) paintFissureMark(ctx, view, m, pulse);
   // GUIDE5: where the quests point, over the raids and under the party - the diamond above its place, the followed
