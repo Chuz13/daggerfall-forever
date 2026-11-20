@@ -505,6 +505,7 @@ export class RestSession {
     // wakeUp` at the moment EndRest runs rather than at the moment the
     // hours ran out. Narrow, and one line to be exact about.
     if (this.mode === 'loiter') return this._finish(REST_TEXT.loiterDone);
+    if (this.mode === 'short') return this._finish(REST_TEXT.wakeUp);
     if (this.mode === 'full' && this.deps.fullyHealed?.()) return this._finish(REST_TEXT.healed);
     return this._finish(REST_TEXT.wakeUp);
   }
@@ -738,6 +739,9 @@ export class RestSession {
         if (--this.hoursRemaining < 1) done = REST_TEXT.wakeUp;
       } else if (this.mode === 'full') {
         if (this.deps.tickVitals()) done = REST_TEXT.healed;
+      } else if (this.mode === 'short') {
+        this.deps.tickShortVitals?.();
+        if (--this.hoursRemaining < 1) done = REST_TEXT.wakeUp;
       } else {
         if (--this.hoursRemaining < 1) done = REST_TEXT.loiterDone;
       }

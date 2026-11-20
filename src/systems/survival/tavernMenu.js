@@ -43,7 +43,7 @@
 // row under the drinks header, the fountain's own law at the price of
 // the list's cheapest soft drink (`innWaterPrice`, `tavernWater`),
 // refused in `tavernOrder` with the rest.
-import { NEED, heartyMeal } from './needs.js'; // HEARTY-MEAL: a tavern meal's Well Fed hold
+import { NEED, heartyMeal, DRINK_BUFF_MINUTES, DRINK_CATEGORIES, drinkCategoryFor } from './needs.js'; // HEARTY-MEAL: a tavern meal's Well Fed hold; drink categories
 import { HARD_RULES } from './difficulty.js';
 import { isWaterskin, waterIn, WATERSKIN_CAPACITY_KG } from './food.js';
 import { drinkAtSource } from './items.js'; // INN-WATER: the fountain's own law, filled at the bar
@@ -510,11 +510,25 @@ export function tavernWater(entity, now) {
  *  - and a soft one "refreshes you", five fatigue. The result carries them (`fatigue`, `magicka`), and the windows
  *  give them to the body after the quarter hour (tavernRefresh). */
 export const SOFT_DRINK_FATIGUE = 5;
-export function tavernDrink(s, strength, { endurance = 50, rules = HARD_RULES } = {}) {
+export { DRINK_BUFF_MINUTES, DRINK_CATEGORIES, drinkCategoryFor };
+
+export function tavernDrink(s, strength, { endurance = 50, rules = HARD_RULES, now = null, name = '' } = {}) {
   s.thirst = 0;
   s.drunk = (s.drunk ?? 0) + (strength | 0);
   if (s.drunk > endurance && (rules ?? HARD_RULES).blackout)
     return { text: TAVERN_MENU_TEXT.blackout, blackout: true, minutes: DRINK_MINUTES };
+  const catId = drinkCategoryFor(name, strength);
+  const cat = DRINK_CATEGORIES[catId];
+  if ((rules ?? HARD_RULES).boons) {
+    const tempBonus = catId === 'wine' && /mulled/i.test(name) ? 10 : cat.tempBonus;
+    s.drinkBuff = {
+      cat: catId,
+      until: Number.isFinite(now) ? now + DRINK_BUFF_MINUTES : null,
+      duration: DRINK_BUFF_MINUTES,
+      tempBonus,
+    };
+    if (cat.sleepRelief > 0) s.sleepDebt = Math.max(0, (s.sleepDebt ?? 0) - cat.sleepRelief);
+  }
   if (s.drunk > endurance / 2)
     return {
       text: s.drunk > endurance - 10 ? TAVERN_MENU_TEXT.veryDrunk : TAVERN_MENU_TEXT.gettingDrunk,

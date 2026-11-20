@@ -109,12 +109,12 @@ test('SURV-TIERS: one key, four tiers - the row, the table and the shelf agree; 
   // AUDIT SURV-TIERS: each segment writes its tier's STORED value (Off the old switch's own false), in the table's order
   assert.deepEqual(c.tiers.map(([v]) => v), SURVIVAL_TIER_IDS.map((t) => SURVIVAL_STORED[t]), 'the bar\'s segments write the table\'s stored values');
   assert.deepEqual(c.tiers.map(([v]) => tierOfStored(v)), [...SURVIVAL_TIER_IDS], '...which read back as the tiers, in order');
-  assert.deepEqual(c.tiers.map(([, label]) => label), ['Off', 'Boons', 'Casual', 'Hard']);   // PIN MOVED (SURV-BOONS): the fourth tier, the gentlest first after Off
+  assert.deepEqual(c.tiers.map(([, label]) => label), ['Off', 'Boons', 'Casual', 'Standard', 'Veteran', 'Hard']);
   // AUDIT SURV-TIERS: the note is two sentences, as FT15's title asks (FT15 itself counts only characters)
   assert.equal(row.note.split(/(?<=[.!?])\s+(?=[A-Z\u2018\u201c"'(])/).length, 2, `the note is two sentences: ${row.note}`);
   assert.equal(c.tiers[0][0], false, 'Off is stored as the switch always stored it');
-  assert.equal(new Set(c.tiers.map(([v]) => String(v))).size, 4, 'the bar matches a stored value by its string - four distinct strings');   // PIN MOVED (SURV-BOONS)
-  assert.equal(c.initial, SURVIVAL_STORED[SURVIVAL_DEFAULT]); assert.ok(SURVIVAL_DEFAULT === 'boons' || SURVIVAL_DEFAULT === 'casual');   // PIN MOVED (BOONS-DEFAULT, 2026-10-13, Mac: "make boons the default")
+  assert.equal(new Set(c.tiers.map(([v]) => String(v))).size, 6, 'the bar matches a stored value by its string - six distinct strings');
+  assert.equal(c.initial, SURVIVAL_STORED[SURVIVAL_DEFAULT]); assert.ok(SURVIVAL_DEFAULT === 'veteran' || SURVIVAL_DEFAULT === 'boons' || SURVIVAL_DEFAULT === 'casual');
   assert.equal(FEATURE_PREF_DEFAULTS.survival, SURVIVAL_DEFAULT, 'the shelf takes its default from the row (RF4)');
   assert.deepEqual(Object.keys(SURVIVAL_RULES), SURVIVAL_TIER_IDS.filter((t) => t !== SURVIVAL_OFF), 'every tier but Off has rules');
   // online: the player's, by name - "still let it be able to be turned off for online"
@@ -151,6 +151,7 @@ test('SURV-TIERS: the switch - on is anything but Off; the live rules are the ti
   const menu = read('src/ui/enhanced/enhancedMenu.js');
   assert.match(menu, /const fallback = Math\.max\(0, c\.tiers\.findIndex\(\(\[v\]\) => String\(v\) === String\(c\.default \?\? c\.initial\)\)\);/, 'the bar\'s own fallback is the row\'s default');
   _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual');
 });
 
 test('SURV-TIERS: the shelf - Off is the old switch\'s own false, so a shelf written before the tiers needs nothing and an older build still reads it; a value that names no tier is dropped at the load', () => {
@@ -184,6 +185,7 @@ test('SURV-TIERS: the shelf - Off is the old switch\'s own false, so a shelf wri
   } finally {
     if (had) globalThis.localStorage = saved; else delete globalThis.localStorage;
     _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual');
   }
   assert.match(read('src/systems/uiPrefs.js'), /if \(p\.survival !== undefined && !isStoredTier\(p\.survival\)\) _prefs\.survival = PREF_DEFAULTS\.survival;/);
 });
@@ -435,7 +437,8 @@ test('SURV-TIERS: the rest - a Casual rough night is DFU\'s whole hour with one 
     assert.equal(drains(log) > 0, charged, `${rules.id}: eight hours asleep in a blizzard ${charged ? 'are charged' : 'charge nothing'}`);
   }
   // composed: the place is still where you sleep; the tier prices it
-  _resetForTests(); setWorldMinutes(6000);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setPref(SURVIVAL_PREF, 'casual'); setWorldMinutes(6000);
   const said = [];
   const e = sleeper();
   const d = createRestDeps(e, { advanceMinutes: () => {}, endLines: () => [], say: (l) => said.push(l), restKind: () => 'rough', day: () => false, inside: () => true });
@@ -482,12 +485,14 @@ test('SURV-TIERS: the rest - a Casual rough night is DFU\'s whole hour with one 
   const bounded = (vals) => { let i = 0; return () => { if (++i > 1000) throw new Error('asked without end'); return vals[(i - 1) % vals.length]; }; };
   assert.equal(intermittentEnemySpawn({ ...ctx, restAsks: Infinity }, bounded([0.9])), null, 'Infinity is one ask, and it ends');
   assert.equal(intermittentEnemySpawn({ ...ctx, restAsks: '2' }, seq([0.9, 0.0, 0.5])), null, 'a string is no count');
-  _resetForTests(); setWorldMinutes(0);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setWorldMinutes(0);
 });
 
 test('SURV-TIERS: the gate stands only in Hard - Casual sleeps in a deadly cold on bare ground; Off has no gate at all', () => {
   clearPreventRestConditions();
   _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual');
   const p = body(); p.survival = newSurvival(0); p.survival.felt = -100;
   installSurvivalGate(registerPreventRestCondition, () => p, () => ({ byFire: false, insideBuilding: false }));
   assert.equal(survivalGateOn(), false); assert.equal(getPreventedRestMessage(), null, 'Casual: the sleep is never refused');
@@ -521,7 +526,8 @@ test('SURV-TIERS: the meal - Casual makes no sickness roll at all (Hard\'s lucky
   // AUDIT SURV-TIERS: and through the WHOLE use ladder, as the pack calls it - with the arc Off a leftover meal was
   // Hard's roll (the law's default for no rules), so the classic game could give a disease. Off eats as Casual does.
   for (const [tier, sickens] of [[false, false], ['casual', false], ['hard', true]]) {
-    _resetForTests(); setPref(SURVIVAL_PREF, tier);
+    _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setPref(SURVIVAL_PREF, tier);
     const eater = body({ skillUses: [] }); eater.items = [createSurvivalItem(TEMPLATE.RawMeat)];
     Object.assign(survivalOf(eater, 5000), { lastAte: 0 });
     let rolled = 0;
@@ -531,6 +537,7 @@ test('SURV-TIERS: the meal - Casual makes no sickness roll at all (Hard\'s lucky
     assert.equal(rolled > 0, sickens, `${tier}: ${sickens ? 'a roll made' : 'no roll made'}`);
   }
   _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual');
 });
 
 test('SURV-TIERS: the tavern - the house asks after the gold and before the coin: Casual\'s barkeep will not pour the drink that would take the night, nor the kitchen sell a meal a full stomach would waste; Hard pours, charges and wastes as the mod does', () => {
@@ -566,7 +573,8 @@ test('SURV-TIERS: the tavern - the house asks after the gold and before the coin
   // the classic window, end to end
   const tavern = (entity, passed) => new TavernWindow({ entity, ...tavernHooks(passed), onTalk: () => {}, onClose: () => {} });
   const pick = (w, at) => { w._food(); const i = typeof at === 'number' ? at : w.flow.top.picker.findIndex((t) => at.test(t)); assert.ok(i >= 0, String(at)); return w.flow.top.onPick(i); };
-  _resetForTests();   // Casual, the default
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual');   // Casual, the default
   {
     const entity = guest(); const passed = []; const w = tavern(entity, passed);
     assert.equal(pick(w, /Rye Liquor/)[0].rows[0].text, TAVERN_MENU_TEXT.cutOff);
@@ -588,6 +596,7 @@ test('SURV-TIERS: the tavern - the house asks after the gold and before the coin
     assert.ok(entity.goldPieces < 100); assert.deepEqual(passed, [MEAL_MINUTES]);
   }
   _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual');
   // both windows: the gold, then the house, then the coin
   for (const [file, fn] of [['src/ui/tavernWindow.js', '_survivalFood()'], ['src/ui/enhanced/enhancedTavern.js', 'function pickSurvival(']]) {
     const src = read(file); const at = src.indexOf(fn);
@@ -600,7 +609,8 @@ test('SURV-TIERS: the tavern - the house asks after the gold and before the coin
 
 test('SURV-TIERS: the enhanced tavern, driven - the same refusals before the coin as the classic window, and the menu stays up for what the house will serve', () => {
   const run = (tier, pickName, extra = {}) => {
-    _resetForTests(); if (tier !== undefined) setPref(SURVIVAL_PREF, tier);
+    _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); if (tier !== undefined) setPref(SURVIVAL_PREF, tier);
     const hadLoc = Object.hasOwn(globalThis, 'location'), loc = globalThis.location;
     globalThis.location = { search: '?skin=classic' };   // the CARD arm: the said line lands in the document (AUDIT ENH-NOTICE3 B19)
     try {
@@ -621,16 +631,17 @@ test('SURV-TIERS: the enhanced tavern, driven - the same refusals before the coi
     } finally {
       if (hadLoc) globalThis.location = loc; else delete globalThis.location;
       _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual');
     }
   };
-  const c = run(undefined, 'Rye Liquor');
+  const c = run('casual', 'Rye Liquor');
   assert.deepEqual([c.gold, c.passed, c.drunk], [100, [], 45], 'Casual: refused before the coin - nothing charged, no time, nothing poured');
   assert.ok(c.said.includes(TAVERN_MENU_TEXT.cutOff), 'and the barkeep says why');
   assert.equal(c.menuUp, true, 'the menu stays up - a lighter drink still serves');
   const h = run('hard', 'Rye Liquor');
   assert.ok(h.gold < 100 && h.passed.length === 2, `Hard: poured, and the night taken (${JSON.stringify(h.passed)})`);
   const mealName = tavernMenu({ climateIndex: 232, quality: 10, hour: 23 }).rows[TAVERN_MEAL].name;
-  const full = run(undefined, mealName, { survival: { ...newSurvival(TAVERN_NOW), lastAte: TAVERN_NOW - 10 } });
+  const full = run('casual', mealName, { survival: { ...newSurvival(TAVERN_NOW), lastAte: TAVERN_NOW - 10 } });
   assert.deepEqual([full.gold, full.passed], [100, []], 'Casual: a full stomach buys nothing');
   assert.ok(full.said.includes(TAVERN_MENU_TEXT.fullForMeal), 'and hears why');
   const hardFull = run('hard', mealName, { survival: { ...newSurvival(TAVERN_NOW), lastAte: TAVERN_NOW - 10 } });
@@ -643,10 +654,12 @@ test('SURV-TIERS: composed - the feed hands the live tier\'s rules, and a Casual
     stats: { ...STATS }, skills: 20, career: {}, skillUses: { [SKILLS.Medical]: 0 }, activeEffects: [], items: [],
     equip: { slots: new Array(27).fill(null) },
   });
-  _resetForTests(); clearPreventRestConditions();
+  _resetForTests();
+  clearPreventRestConditions();
   assert.equal(survivalFeed(tickerPlayer(), BLIZZARD).deps.rules, SURVIVAL_RULES[SURVIVAL_DEFAULT], 'the default tier rides the feed');   // PIN MOVED (BOONS-DEFAULT)
   const run = (tier) => {
-    _resetForTests(); setPref(SURVIVAL_PREF, tier); setWorldMinutes(3 * 1440 + 2 * 60);
+    _resetForTests();
+    setPref(SURVIVAL_PREF, tier); setWorldMinutes(3 * 1440 + 2 * 60);
     const p = tickerPlayer();
     createPlayerTicker(p, { say: () => {}, isInside: () => false, survivalEnv: () => BLIZZARD }).advance(600);
     clearPreventRestConditions();
@@ -659,9 +672,11 @@ test('SURV-TIERS: composed - the feed hands the live tier\'s rules, and a Casual
   assert.ok(h.health < 40, 'Hard: it did');
   assert.ok(Object.values(h.activeEffects.find((a) => a.kind === 'survival')?.statMods ?? {}).some((v) => v < 0), 'Hard: and the cold cost attributes');   // AUDIT SURV-TIERS (the third pass): the title's half the pin had not asserted
   assert.equal(survivalFeed(tickerPlayer(), BLIZZARD).deps.rules, HARD);
-  _resetForTests(); setPref(SURVIVAL_PREF, false);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setPref(SURVIVAL_PREF, false);
   assert.equal(survivalFeed(tickerPlayer(), BLIZZARD), null, 'Off feeds nothing');
-  _resetForTests(); setWorldMinutes(0);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setWorldMinutes(0);
   // the composition points hand the tier - by source
   assert.match(read('src/systems/survival/env.js'), /const deps = \{ worn: entity\.equip\?\.slots \?\? null, ctx: survivalCtx\(entity, full\), rules \};/);
   assert.match(read('src/scenes/shared.js'), /stiffen\(entity, ownMinutes\(\), REST_KIND\.Rough, _rules\)/);   // LIVED1: the body's morning, on its own clock
@@ -745,7 +760,8 @@ test('AUDIT SURV-TIERS: Off\'s minutes are nobody\'s needs - a short Off span is
   const ENV = { ...INDOORS };
   const walker = () => ({ ...body(), isPlayer: true, name: 'P', level: 3, magicka: 10, maxMagicka: 20, skills: [20], career: {}, skillUses: new Array(35).fill(0), spells: [], equip: { slots: new Array(27).fill(null) }, chargenDone: true });
   for (const tier of ['casual', 'hard']) {
-    _resetForTests(); setPref(SURVIVAL_PREF, tier); setWorldMinutes(50 * 1440 + 12 * 60);
+    _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setPref(SURVIVAL_PREF, tier); setWorldMinutes(50 * 1440 + 12 * 60);
     const e = walker(); e.items = [createSurvivalItem(TEMPLATE.Bread)];
     const t = createPlayerTicker(e, { say: () => {}, isInside: () => true, survivalEnv: () => ENV });
     t.tick(25);
@@ -765,14 +781,16 @@ test('AUDIT SURV-TIERS: Off\'s minutes are nobody\'s needs - a short Off span is
     assert.equal(e.survival.offFor, undefined, `${tier}: the Off span ends when the arc is on again`);
   }
   // a host with NO reader while the arc is ON is not Off: its minutes keep WORLD5's clocks (the timestamps run)
-  _resetForTests(); setWorldMinutes(90 * 1440);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setWorldMinutes(90 * 1440);
   const nr = walker(); Object.assign(survivalOf(nr, 90 * 1440), { lastAte: 90 * 1440 - 100, lastMinute: 90 * 1440 });
   createPlayerTicker(nr, { say: () => {}, isInside: () => true, survivalEnv: () => null }).advance(480);
   assert.equal(hungerMinutes(nr.survival, Math.floor(worldMinutes())), 100 + 480, 'eight hours with no reader, the arc on: eight hours hungrier');
   // WORLD5: an online load within the day - alignSurvival keeps the markers and the world tick moves the entity's
   // clock to now, so the absence is a gap the arc was ON for; it is charged, as it always was ("an hour away keeps its
   // hunger"). The first cut inferred Off from ANY gap and forgave it in every tier.
-  _resetForTests(); setPref(SURVIVAL_PREF, 'hard');
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setPref(SURVIVAL_PREF, 'hard');
   const S = 100 * 1440 + 8 * 60;
   const e = walker(); e.lastGameMinutes = S;
   e.survival = { ...newSurvival(S), lastAte: S - 300, awakeSince: S - 900, lastMinute: S };
@@ -814,7 +832,8 @@ test('AUDIT SURV-TIERS (the second pass): the loan is never more than the pool i
   survivalMinute(e, now, INDOORS, minuteDeps(e, [], CASUAL));
   assert.deepEqual({ ...s.borrowed }, { hunger: 150 + DRAIN.starving, thirst: 50 + DRAIN.dehydrated }, 'four hundred owed on a pool two hundred short: each cut by half, then the minute\'s own charges');
   // through a real night: DFU's hour refills the pool while the need is unmet, and the loan follows it down
-  _resetForTests(); setWorldMinutes(now);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setWorldMinutes(now);
   const sl = { ...sleeper(), fatigue: 3000, items: [], raceId: RACES.Breton };
   Object.assign(survivalOf(sl, now), { lastAte: now - 1500, borrowed: { hunger: 3000 } });
   const d = createRestDeps(sl, { advanceMinutes: () => {}, restKind: () => 'bed', day: () => false, inside: () => true });
@@ -823,7 +842,8 @@ test('AUDIT SURV-TIERS (the second pass): the loan is never more than the pool i
   d.setResting(false);
   const pool = (sl.stats.strength + sl.stats.endurance) * 64;
   assert.ok(Object.values(sl.survival.borrowed ?? {}).reduce((a, b) => a + b, 0) <= pool - sl.fatigue, 'after the night the loan is no more than the pool is short');
-  _resetForTests(); setWorldMinutes(0);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setWorldMinutes(0);
 });
 
 test('AUDIT SURV-TIERS (the second pass): in Casual a lit fire answers the cold - no charge beside it and the cold\'s loan repaid, in a snowstorm too; Hard\'s fire is its fifteen degrees, as it was', () => {
@@ -876,7 +896,8 @@ test('AUDIT SURV-TIERS (the second pass): the needs\' drain is capped where the 
 test('AUDIT SURV-TIERS (the second pass): a tent used from the WAGON leaves the wagon - both inventory windows hand the list it came from and every host places off it (one tent had pitched from the wagon and packed into the pack, a new tent a time)', async () => {
   const { NativeInventoryWindow } = await import('../../../src/ui/native/nativeInventory.js');
   const { createCamps } = await import('../../../src/scenes/camps.js');
-  _resetForTests(); setWorldMinutes(100);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setWorldMinutes(100);
   const entity = { isPlayer: true, items: [], wagonItems: [createSurvivalItem(TEMPLATE.CampingEquipment)], activeEffects: [], stats: { luck: 50 }, spells: [] };
   let menu = null;
   const pool = createCamps({ entity, camera: () => ({ feet: [0, 0, 0], yaw: 0 }), collider: () => ({ surfaceHit: () => ({ dist: 0.5 }) }), place: () => ({}), say: () => {}, selfId: () => 'me', showOverlay: (w) => { menu = w; } });
@@ -894,7 +915,8 @@ test('AUDIT SURV-TIERS (the second pass): a tent used from the WAGON leaves the 
     assert.match(read(f), /placeCamp: \(item, list\) => camps\.placeItem\(item, list \?\? playerEntity\.items \?\? \[\]\),/, `${f}: off the list the item was used from`);
   }
   assert.match(read('src/ui/enhanced/enhancedInventory.js'), /place\(act\.item, collection\);/, 'the enhanced window hands its list too');
-  _resetForTests(); setWorldMinutes(0);
+  _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setWorldMinutes(0);
 });
 
 test('AUDIT SURV-TIERS (the second pass): a party rest mirrored in a DUNGEON pays its night - the mirror runs on the outer host\'s ticker while its window holds the dungeon\'s frame, and that ticker now reads the dungeon\'s needs while the player rests (it read none: the follower woke Exhausted)', () => {
@@ -905,7 +927,8 @@ test('AUDIT SURV-TIERS (the second pass): a party rest mirrored in a DUNGEON pay
   assert.match(read('src/scenes/dungeonContext.js'), /\n {4}survivalEnvNow, {3}\/\/ AUDIT SURV-TIERS/, 'the dungeon hands its reader out');
   // ...and what it buys, through the real ticker and the real rest deps: an Exhausted follower mirrors a leader's bed
   for (const tier of ['casual', 'hard']) {
-    _resetForTests(); setPref(SURVIVAL_PREF, tier);
+    _resetForTests();
+  setPref(SURVIVAL_PREF, 'casual'); setPref(SURVIVAL_PREF, tier);
     const T0 = 60 * 1440 + 22 * 60; setWorldMinutes(T0);
     const e = { ...sleeper(), health: 30, fatigue: 6400, raceId: RACES.Breton, items: [], skills: [20], skillUses: new Array(35).fill(0), equip: { slots: new Array(27).fill(null) } };
     const dungeonEnv = () => ({ ...INDOORS, insideBuilding: false, insideDungeon: true, resting: !!e.isResting, sleeping: e.isResting && !e.isLoitering ? (e.restKind ?? 'rough') : null });

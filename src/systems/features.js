@@ -1926,10 +1926,9 @@ export const FEATURES = Object.freeze([
     group: 'character',
     get title() { return t('features.mod.title', '{title} by {author}', { title: 'Climates & Calories', author: 'Ralzar' }); },   // AUDIT SURV E: the author's name, as every mod row carries it
     get note() { return t('features.mod.climatesCalories.note', 'Hunger, thirst, sleep and the weather come into play: eat, drink, dress for the climate and rest by a '
-      + 'campfire or in a bed. On Boons neglect costs nothing, and staying fed, watered and rested in a bed or by '
-      + 'a fire gives bonuses; on Casual, unmet needs only drain some stamina (never more than half) and it '
-      + 'comes back once you’ve seen to them; on Hard they cost attributes and health and can make you sick; '
-      + 'Off is the classic game.'); },
+      + 'campfire or in a bed. On Boons neglect costs nothing and tending earns bonuses; on Casual unmet needs drain up to half stamina and repay; '
+      + 'on Standard needs tick slower with mild penalties, stamina repayment and boons; on Veteran survival is stern with boons, soft rust and non-fatal cold/thirst; '
+      + 'on Hard they cost full attributes and health and can kill; Off is the classic game.'); },
     get effect() { return t('features.mod.climatesCalories.effect', 'Takes effect at once. Online, each player picks their own.'); },
     kinds: Object.freeze(['mod', 'enhanced', 'classic']),   // AUDIT SURV E: a mod row, under the MOD AUTHORED filter
     // MODS-ONLINE-3 (2026-09-22, Mac): THIS IS A MOD ROW AND IT IS THE
@@ -1972,10 +1971,23 @@ export const FEATURES = Object.freeze([
     // TEMP-UI (2026-10-12, the owner: "add a temperature widget to the UI"): THE TEMPERATURE PLATE IS A PART - shown by
     // default beside the compass (ui/enhanced/enhancedHud.js), a picture with no gameplay in it, so each player's own online.
     control: Object.freeze({
-      store: 'prefs', key: 'survival', initial: 'casual', online: 'player',   // BOONS-DEFAULT: difficulty.js SURVIVAL_DEFAULT
-      tiers: Object.freeze([tier(false, OFF), tier('boons', () => t('features.mod.climatesCalories.boons', 'Boons')), tier('casual', () => t('features.mod.climatesCalories.casual', 'Casual')), tier('hard', () => t('features.mod.climatesCalories.hard', 'Hard'))]),
-      also: Object.freeze([Object.freeze({ store: 'prefs', key: 'survivalTempHud', initial: true, online: 'player' })]),
-      parts: Object.freeze([Object.freeze({ key: 'survivalTempHud', get label() { return t('features.mod.climatesCalories.tempHud', 'Temperature on the HUD'); } })]),
+      store: 'prefs', key: 'survival', initial: 'veteran', online: 'player',
+      tiers: Object.freeze([
+        tier(false, OFF),
+        tier('boons', () => t('features.mod.climatesCalories.boons', 'Boons')),
+        tier('casual', () => t('features.mod.climatesCalories.casual', 'Casual')),
+        tier('standard', () => t('features.mod.climatesCalories.standard', 'Standard')),
+        tier('veteran', () => t('features.mod.climatesCalories.veteran', 'Veteran')),
+        tier('hard', () => t('features.mod.climatesCalories.hard', 'Hard')),
+      ]),
+      also: Object.freeze([
+        Object.freeze({ store: 'prefs', key: 'survivalTempHud', initial: true, online: 'player' }),
+        Object.freeze({ store: 'prefs', key: 'survivalNoWildRoughRest', initial: false, online: 'player' }),
+      ]),
+      parts: Object.freeze([
+        Object.freeze({ key: 'survivalTempHud', get label() { return t('features.mod.climatesCalories.tempHud', 'Temperature on the HUD'); } }),
+        Object.freeze({ key: 'survivalNoWildRoughRest', get label() { return t('features.mod.climatesCalories.noWildSleep', 'No wilderness sleep without camp'); } }),
+      ]),
     }),
   }),
   // NAV (2026-09-28, Mac: "proper naval combat with a huge reference to assassins creed black flag ... directly integrate

@@ -13,10 +13,14 @@ import { SKILLS } from '../skills.js';
 import { resolveLivingRoll, resolveLivingSurrender } from './livingRolls.js';
 
 export const TRAVEL_EVENT_TYPE = Object.freeze({
-  PEACEFUL_CARAVAN: 'PEACEFUL_CARAVAN', // 40% Friendly merchants, pilgrims, bards
-  ROAD_DILEMMA: 'ROAD_DILEMMA',         // 30% Broken cart, distressed travelers asking for aid
-  AMBUSH: 'AMBUSH',                     // 30% Bandits, deserters, wilderness beasts
+  PEACEFUL_CARAVAN: 'PEACEFUL_CARAVAN', // Friendly merchants, pilgrims, bards
+  ROAD_DILEMMA: 'ROAD_DILEMMA',         // Broken cart, distressed travelers asking for aid
+  AMBUSH: 'AMBUSH',                     // Bandits, deserters
+  WILD_BEASTS: 'WILD_BEASTS',           // Climate wildlife pack
+  WEATHER_HAZARD: 'WEATHER_HAZARD',     // Storm / blizzard / sandstorm on the road or at sea
 });
+
+export const TRAVEL_INTERRUPT_COOLDOWN_MINUTES = 720; // 12 game hours
 
 /**
  * Calculates whether a fast travel segment should be intercepted.
@@ -39,11 +43,19 @@ export function evaluateTravelInterruption({
   regionIndex,
   playerLuck = 50,
   nowMinutes = 0,
+  tripMinutes = 60,
+  sleepModeInn = true,
+  speedCautious = true,
+  sailing = false,
+  maxInterrupts = 1,
   rng = Math.random,
 }) {
   const tier = Number(LivingTamrielConfig.travelInterruption);
   if (tier === PRESENCE.OFF) {
-    return { shouldInterrupt: false, eventType: null, reason: 'Travel interruption disabled' };
+    return { shouldInterrupt: false, eventType: null, reason: 'Travel interruption disabled', rolls: 0 };
+  }
+  if (tripMinutes < 180) {
+    return { shouldInterrupt: false, eventType: null, reason: 'Short journey', rolls: 0 };
   }
 
   const root = getLivingDirectorState();
@@ -51,42 +63,63 @@ export function evaluateTravelInterruption({
     root.subsystems.travel = { lastInterruptMinute: -999999 };
   }
 
-  // 1. Cooldown Failsafe Check (48 game hours)
+  // 1. Cooldown Failsafe Check (12 game hours)
   const lastMinute = Number(root.subsystems.travel.lastInterruptMinute) || -999999;
-  const cooldown = LivingTamrielConfig.travelInterruptionCooldownMinutes || 2880;
+  const cooldown = Math.min(
+    TRAVEL_INTERRUPT_COOLDOWN_MINUTES,
+    Number(LivingTamrielConfig.travelInterruptionCooldownMinutes) || TRAVEL_INTERRUPT_COOLDOWN_MINUTES,
+  );
   if (nowMinutes - lastMinute < cooldown) {
-    return { shouldInterrupt: false, eventType: null, reason: 'Travel interruption on cooldown' };
+    return { shouldInterrupt: false, eventType: null, reason: 'Travel interruption on cooldown', rolls: 0 };
   }
 
-  // 2. Base Danger by Presence Tier (LIGHT: 5%, MID: 12%, HIGH: 22%)
+  // 2. Danger scaled by duration, camp-out vs inns, and reckless vs cautious
   const baseDanger = tier === PRESENCE.LIGHT ? 5 : tier === PRESENCE.HIGH ? 22 : 12;
   const regState = getRegionState(regionIndex);
   const tensionModifier = Math.floor((regState?.tension ?? 10) / 5);
   const luckReduction = Math.floor(playerLuck / 10);
+  const tripDays = Math.max(1, tripMinutes / 1440);
+  const campMod = sleepModeInn ? 0 : 8;
+  const paceMod = speedCautious ? 0 : 6;
 
-  const netChance = Math.max(3, baseDanger + tensionModifier - luckReduction);
-  const roll = rng() * 100;
+  const netChance = Math.max(4, Math.min(65, baseDanger + tensionModifier + campMod + paceMod - luckReduction));
+  const numRolls = Math.max(1, Math.min(maxInterrupts, Math.ceil(tripDays / 2)));
 
-  if (roll >= netChance) {
-    return { shouldInterrupt: false, eventType: null, reason: 'Journey proceeded safely' };
+  let triggered = false;
+  for (let i = 0; i < numRolls; i++) {
+    if (rng() * 100 < netChance) {
+      triggered = true;
+      break;
+    }
+  }
+
+  if (!triggered) {
+    return { shouldInterrupt: false, eventType: null, reason: 'Journey proceeded safely', rolls: numRolls };
   }
 
   // Interruption occurs: Record timestamp
   root.subsystems.travel.lastInterruptMinute = nowMinutes;
 
-  // 3. Roll event distribution: 40% peaceful / 30% dilemma / 30% ambush
+  // 3. Roll event distribution (sea vs land)
   const subRoll = rng();
   /** @type {string} */
   let eventType = TRAVEL_EVENT_TYPE.PEACEFUL_CARAVAN;
-  if (subRoll >= 0.70) {
+  if (sailing) {
+    eventType = TRAVEL_EVENT_TYPE.WEATHER_HAZARD;
+  } else if (subRoll >= 0.84) {
+    eventType = TRAVEL_EVENT_TYPE.WEATHER_HAZARD;
+  } else if (subRoll >= 0.68) {
+    eventType = TRAVEL_EVENT_TYPE.WILD_BEASTS;
+  } else if (subRoll >= 0.48) {
     eventType = TRAVEL_EVENT_TYPE.AMBUSH;
-  } else if (subRoll >= 0.40) {
+  } else if (subRoll >= 0.26) {
     eventType = TRAVEL_EVENT_TYPE.ROAD_DILEMMA;
   }
 
   return {
     shouldInterrupt: true,
     eventType,
+    rolls: numRolls,
     reason: `Journey interrupted by ${eventType}`,
   };
 }

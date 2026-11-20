@@ -337,7 +337,7 @@ function pickSurvival(row, now) {
       ? tavernEat(s, now, row.worth)
       : row.kind === 'water'
         ? tavernWater(h.entity, now)
-        : tavernDrink(s, row.strength, { endurance, rules });
+        : tavernDrink(s, row.strength, { endurance, rules, now, name: row.name });
   h.advanceMinutes?.(r.minutes);
   h.entity.lastTimePlayerAteOrDrankAtTavern = now;
   tavernRefresh(h.entity, r); // AUDIT C&C I6: the drink's fatigue and magicka, after its quarter hour

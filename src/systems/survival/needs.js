@@ -115,6 +115,73 @@ export const BOON = Object.freeze({
   rested: Object.freeze({ intelligence: 5, willpower: 5 }),
   thriving: Object.freeze({ luck: 5 }),
 });
+export const DRINK_BUFF_MINUTES = 180;
+export const DRINK_CATEGORIES = Object.freeze({
+  milk_juice: Object.freeze({
+    id: 'milk_juice',
+    label: 'Nourishing',
+    stats: Object.freeze({ endurance: 4 }),
+    thirstScale: 0.7,
+    tempBonus: 0,
+    sleepRelief: 0,
+    staminaRegenBonus: 0,
+  }),
+  tea_coffee: Object.freeze({
+    id: 'tea_coffee',
+    label: 'Invigorating',
+    stats: Object.freeze({ intelligence: 4, willpower: 4 }),
+    thirstScale: 1,
+    tempBonus: 0,
+    sleepRelief: 1.5,
+    staminaRegenBonus: 0,
+  }),
+  light_alcohol: Object.freeze({
+    id: 'light_alcohol',
+    label: 'Hearty Brew',
+    stats: Object.freeze({ strength: 4, personality: 3 }),
+    thirstScale: 1,
+    tempBonus: 0,
+    sleepRelief: 0,
+    staminaRegenBonus: 0.1,
+  }),
+  wine: Object.freeze({
+    id: 'wine',
+    label: 'Fine Wine',
+    stats: Object.freeze({ personality: 5, luck: 3 }),
+    thirstScale: 1,
+    tempBonus: 0,
+    sleepRelief: 0,
+    staminaRegenBonus: 0,
+  }),
+  spirits: Object.freeze({
+    id: 'spirits',
+    label: 'Firewater',
+    stats: Object.freeze({ strength: 6 }),
+    thirstScale: 1,
+    tempBonus: 15,
+    sleepRelief: 0,
+    staminaRegenBonus: 0,
+  }),
+});
+
+/** Map any tavern drink to one of the 5 shared categories (no per-drink unique buffs). */
+export function drinkCategoryFor(name = '', strength = 0) {
+  const n = String(name).toLowerCase();
+  if ((strength | 0) <= 0) {
+    if (n.includes('tea') || n.includes('coffee')) return 'tea_coffee';
+    return 'milk_juice';
+  }
+  if ((strength | 0) >= 25 || /moonshine|liquor|mazte|flin|brandy|rum|grog|rye/.test(n)) return 'spirits';
+  if (n.includes('wine') || n.includes('port')) return 'wine';
+  return 'light_alcohol';
+}
+
+export function activeDrinkBuff(s, now) {
+  const b = s?.drinkBuff;
+  if (!b || !DRINK_CATEGORIES[b.cat]) return null;
+  if (b.until != null && !(Number.isFinite(now) ? b.until > now : b.until > (s?.lastMinute ?? 0))) return null;
+  return b;
+}
 export const BOON_IDS = Object.freeze(['fed', 'quenched', 'rested', 'thriving', 'hearth']);
 /** AUDIT SURV-BOONS C4: the boons a line is said for as they are earned - not the hearth, which every brazier in a street
  *  or a tavern raised on the way past (eleven lines an hour beside a row of them, at a full pool): its tile says it. */
@@ -202,8 +269,10 @@ export const SURVIVAL_TEXT = Object.freeze({
  *  the record's wetness, a drink to hand, and the wardrobe's warmth, weatherproofing and degrees (`mods`, the entity's
  *  folded channels by default - LOOT14/LOOT15). TEMP-UI: ONE CONSTRUCTION SEAM - the minute law and the pack's live
  *  reading (env.js feltNow) build it here, so the reading the pack shows is the one the next minute charges. */
-export function feltCtx(entity, s, base = null, mods = entity?._mods) {
-  return { ...(base ?? {}), wet: s?.wet ?? 0, hasWater: !!findDrink(entity?.items ?? []), ...wardrobeCtx(mods) };
+export function feltCtx(entity, s, base = null, mods = entity?._mods, now = s?.lastMinute ?? 0) {
+  const db = activeDrinkBuff(s, now);
+  const drinkWarmth = db ? (db.tempBonus ?? DRINK_CATEGORIES[db.cat]?.tempBonus ?? 0) : 0;
+  return { ...(base ?? {}), wet: s?.wet ?? 0, hasWater: !!findDrink(entity?.items ?? []), drinkWarmth, ...wardrobeCtx(mods) };
 }
 /** AUDIT SURV-TIERS (the second pass): whether a lit fire answers the cold - in a tier whose `fireWarms` says so (Casual,
  *  Boons), beside a fire, on a reading under nought. AUDIT C&C S9: ONE LAW - the minute law writes it on the record
@@ -307,28 +376,32 @@ export function survivalBoons(s, now, { vampire = false, lich = false, hearth = 
 
 export function survivalStatMods(s, temp, now, { endurance = 50, rules = HARD_RULES, vampire = false, beast = false } = {}) {
   const lich = arguments[3]?.lich ?? false;
+  const r = rules ?? HARD_RULES;
   const mods = {};
   const sub = (keys, n) => { if (n > 0) for (const k of keys) mods[k] = (mods[k] ?? 0) - n; };
   const ALL = ['strength', 'intelligence', 'willpower', 'agility', 'endurance', 'personality', 'speed'];
-  if ((rules ?? HARD_RULES).attributes) {   // AUDIT SURV-TIERS: null is no rules too, as in every other law
-    // AUDIT SURV-TIERS (the third pass): a VAMPIRE has no need for food, drink or sleep (the minute law calls them
-    // fed and freezes the thirst and the debt; the page says so) - and these read the frozen markers, so a Hard
-    // vampire lost two from every attribute but luck a day to a hunger it cannot have, down to twenty. Since SURV1.
-    const starve = vampire || beast || lich ? 0 : starvingDays(hungerMinutes(s, now));   // AUDIT C&C N4: the beast is fed, as the mod's
-    if (starve > 0) sub(ALL, Math.min(20, starve * 2));
-    if (!lich && temp && temp.abs > NEED.EXPOSURE_AT) sub(ALL, Math.trunc(Math.min(s.exposure, temp.abs - NEED.EXPOSURE_AT) / 4));
-    if (!vampire && !beast && !lich && s.thirst >= NEED.DEHYDRATED) sub(ALL, Math.trunc((s.thirst - 90) / 10));
-    const sleep = vampire || lich || wakingHeld(s, now) ? 'rested' : sleepStage(s.sleepDebt);   // REST6: the salts hold the penalties
-    if (sleep === 'tired') sub(ALL, 2); else if (sleep === 'drowsy') sub(ALL, 5); else if (sleep === 'exhausted') sub(ALL, 10);
-    if (Number.isFinite(s.stiffUntil) && now < s.stiffUntil) sub(['speed', 'agility'], STIFF_PENALTY);   // SURV4: the rough night's morning
+  if (r.attributes) {
+    const scale = r.attrScale ?? 1;
+    const cap = r.attrCap ?? 20;
+    const expAt = r.exposureAt ?? NEED.EXPOSURE_AT;
+    const sc = (n) => (n > 0 ? Math.max(1, Math.round(n * scale)) : 0);
+    const starve = vampire || beast || lich ? 0 : starvingDays(hungerMinutes(s, now));
+    if (starve > 0) sub(ALL, Math.min(cap, sc(starve * 2)));
+    if (!lich && temp && temp.abs > expAt) sub(ALL, Math.min(cap, sc(Math.trunc(Math.min(s.exposure, temp.abs - expAt) / 4))));
+    if (!vampire && !beast && !lich && s.thirst >= NEED.DEHYDRATED) sub(ALL, Math.min(cap, sc(Math.trunc((s.thirst - 90) / 10))));
+    const sleep = vampire || lich || wakingHeld(s, now) ? 'rested' : sleepStage(s.sleepDebt);
+    if (sleep === 'tired') sub(ALL, sc(2)); else if (sleep === 'drowsy') sub(ALL, sc(5)); else if (sleep === 'exhausted') sub(ALL, sc(10));
+    if (Number.isFinite(s.stiffUntil) && now < s.stiffUntil) sub(['speed', 'agility'], r.stiffPenalty ?? STIFF_PENALTY);
   }
-  // SURV-BOONS: the boons the minute granted (the record's `boons`, written by the law before this is read), in a tier
-  // that rewards - the hearth is stamina, not an attribute, and has no row here
-  if ((rules ?? HARD_RULES).boons) for (const id of s.boons ?? []) for (const [k, n] of Object.entries(BOON[id] ?? {})) mods[k] = (mods[k] ?? 0) + n;
+  if (r.boons) {
+    for (const id of s.boons ?? []) for (const [k, n] of Object.entries(BOON[id] ?? {})) mods[k] = (mods[k] ?? 0) + n;
+    const db = activeDrinkBuff(s, now);
+    if (db) for (const [k, n] of Object.entries(DRINK_CATEGORIES[db.cat]?.stats ?? {})) mods[k] = (mods[k] ?? 0) + n;
+  }
   if (s.drunk > endurance / 2) {
     const d = Math.trunc((s.drunk - endurance / 2) / 10);
     sub(['agility', 'intelligence', 'willpower', 'speed'], d);
-    mods.personality = (mods.personality ?? 0) + Math.min(5, d + 1);   // the drink makes you a little friendlier (AUDIT SURV A: +1..+5 rising with the drink, never the +20 that paid for itself)
+    mods.personality = (mods.personality ?? 0) + Math.min(5, d + 1);
   }
   return mods;
 }
@@ -468,7 +541,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   const rules = deps.rules ?? HARD_RULES;   // AUDIT SURV-TIERS: null is no rules too - survivalRules() answers null for Off
   const say = sinks.say ?? deps.say ?? null;
   const items = entity.items ?? [];
-  const ctx = feltCtx(entity, s, deps.ctx);   // LOOT14/LOOT15: the wardrobe's warmth, weatherproofing and degrees
+  const ctx = feltCtx(entity, s, deps.ctx, entity?._mods, now);   // LOOT14/LOOT15: the wardrobe's warmth, weatherproofing and degrees
   const temp = feltTemperature(env, worn, ctx);
   const resting = !!env.resting;
   const sleeping = env.sleeping ?? null;
@@ -523,7 +596,20 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   if (!repays && s.borrowed) { delete s.borrowed; delete s.loanPool; }
   // SURV-BOONS: and a tier that does not reward carries no boon - the bank and the last minute's grant go, with the
   // lines that said them, so a return to Boons says each again as it is earned
-  if (!rules.boons && ('boons' in s || 'wellRested' in s)) { delete s.boons; delete s.wellRested; for (const id of BOON_IDS) delete s.notes[`boon:${id}`]; }
+  if (!rules.boons && ('boons' in s || 'wellRested' in s || 'drinkBuff' in s || '_heartyBonus' in s)) {
+    delete s.boons;
+    delete s.wellRested;
+    delete s.drinkBuff;
+    delete s._heartyBonus;
+    for (const id of BOON_IDS) delete s.notes[`boon:${id}`];
+  }
+  if (rules.boons && s.drinkBuff) {
+    if (s.drinkBuff.until == null) s.drinkBuff.until = now + (s.drinkBuff.duration ?? DRINK_BUFF_MINUTES);
+    if (!activeDrinkBuff(s, now)) delete s.drinkBuff;
+  }
+  const pace = rules.needPace ?? 1;
+  const activeDrink = rules.boons ? activeDrinkBuff(s, now) : null;
+  const drinkCat = activeDrink ? DRINK_CATEGORIES[activeDrink.cat] : null;
   // AUDIT SURV-TIERS (the second pass): A LOAN IS NEVER MORE THAN THE POOL IS SHORT. A bed, a potion, the fed
   // hour or the collapse's hour refills the pool without meeting the need - and the loan stayed owed, so the meal
   // after paid it AGAIN: a player who slept starving banked a pool of stamina a day and ate it mid-fight. Whatever
@@ -549,11 +635,16 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   // HEARTY-MEAL: a tavern meal's hold - the stomach stays full and the cup stays full while it lasts
   const hearty = heartyMealHeld(s, now);
   if (hearty) { s.lastAte = Math.max(s.lastAte ?? now, now - 10); s.thirst = 0; }
+  if (rules.boons && hearty && rules.heartyFatigueBonus > 0) s._heartyBonus = rules.heartyFatigueBonus;
+  else if ('_heartyBonus' in s) delete s._heartyBonus;
   // HUNGER: the marker stands; the tallies move.
+  if (pace < 1 && !vampire && !beast && !lich && !hearty && Number.isFinite(s.lastAte)) s.lastAte += 1 - pace;
   const hunger = hungerMinutes(s, now);
   const hungerNow = vampire || beast || lich ? 'fed' : hungerStage(hunger);   // AUDIT C&C N4: the beast's too, as the mod's
   let refunded = 0;   // AUDIT SURV-TIERS (the third pass): the fed hour's refund is a refill the loan is settled by (loanPool)
-  if (hungerNow === 'fed' && !vampire && !lich) { s.fed += 1; if (s.fed >= WELL_FED_MINUTES) { s.fed = 0; sinks.restoreFatigue?.(DRAIN.wellFed); refunded = DRAIN.wellFed; } }
+  const fedTarget = rules.fedRegenMinutes ?? WELL_FED_MINUTES;
+  const fedAmt = rules.fedRegenAmount ? rules.fedRegenAmount * FATIGUE_MULTIPLIER : DRAIN.wellFed;
+  if (hungerNow === 'fed' && !vampire && !lich) { s.fed += 1; if (s.fed >= fedTarget) { s.fed = 0; sinks.restoreFatigue?.(fedAmt); refunded = fedAmt; } }
   // RATIONS-HUNGRY (2026-10-03, Mac: "With C&C let it auto consume any rations in inventory when hungry"): a sack in
   // the pack is eaten as the player turns Hungry, not left until they starve - the Hungry line never said over food
   if (AUTO_EAT_STAGES.includes(hungerNow) && autoEat && !lich) {
@@ -569,7 +660,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   if (!vampire && !beast && !lich) {   // AUDIT C&C N4: the beast drinks as it hunts - the mod's thirst line skips its form
     // AUDIT C&C N8: the base rate in the cold too - a body loses water in any weather, as the mod's rises at its least
     // (`Math.Max(totalTemp - 10, 1)`); a floor meant to halve it there sat over a factor never under one, and is gone
-    const rate = hearty ? 0 : THIRST_PER_MINUTE * (1 + Math.max(0, temp.felt - 10) / 10);   // HEARTY-MEAL: no thirst while the meal holds
+    const rate = hearty ? 0 : THIRST_PER_MINUTE * (1 + Math.max(0, temp.felt - 10) / 10) * pace * (drinkCat?.thirstScale ?? 1);   // HEARTY-MEAL: no thirst while the meal holds
     s.thirst = Math.min(NEED.THIRST_MAX, s.thirst + rate);
     if (autoDrink && s.thirst >= NEED.THIRSTY) drinkWater(entity, now, say);   // AUDIT SURV E: at the stage, so the chip never blinks with a skin in the pack
     const thirstNow = thirstStage(s.thirst);
@@ -623,7 +714,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
     // dehydration is the stamina above and nothing more.
     if (rules.health && s.thirst >= NEED.THIRST_HARM && !sleeping && !resting && now % HARM_EVERY_MINUTES === 0) {
       const bite = Math.max(1, Math.trunc((s.thirst - NEED.THIRST_HARM + 10) / 10));
-      if (!replay && !landing) sinks.hurt?.(bite);
+      if (rules.health === true && !replay && !landing) sinks.hurt?.(bite);
       else if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(Math.min(bite, (entity.health ?? 0) - HEALTH_FLOOR));
     }
   }
@@ -635,7 +726,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
     if (sleeping) {
       paySleep(s, sleeping, 1, now, rules);
     } else if (awakeHours(s, now) > NEED.AWAKE_FREE_HOURS) {
-      s.sleepDebt = Math.min(NEED.SLEEP_DEBT_MAX, s.sleepDebt + 1 / 60);
+      s.sleepDebt = Math.min(NEED.SLEEP_DEBT_MAX, s.sleepDebt + (1 / 60) * pace);
     }
     const sleepNow = sleepStage(s.sleepDebt);
     stageNote(s, 'sleep', sleepNow === 'rested' ? null : sleepNow, say, SURVIVAL_TEXT[sleepNow], replay, now);
@@ -652,9 +743,11 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   // (Hard, whose gate refuses the worst of it). Casual has no gate, so a Casual rest in a blizzard charged the band
   // faster than DFU's hour restored it: the sleeper woke more tired than they lay down, and a rest until healed
   // never ended. In Casual a rest is a rest.
+  const expAt = rules.exposureAt ?? NEED.EXPOSURE_AT;
+  const dmgAt = rules.damageAt ?? NEED.DAMAGE_AT;
   const abs = lich ? 0 : temp.abs;
   if (lich) { s.exposure = 0; }
-  else if (abs > NEED.EXPOSURE_AT) s.exposure = Math.min(s.exposure + 1, 600); else s.exposure = Math.max(0, s.exposure - 2);
+  else if (abs > expAt) s.exposure = Math.min(s.exposure + 1, 600); else s.exposure = Math.max(0, s.exposure - 2);
   const harmTick = now % HARM_EVERY_MINUTES === 0;
   const hurtFloored = (n) => { if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(n); };
   // AUDIT SURV-TIERS (the second pass): and in a tier whose `fireWarms` says so (Casual), a lit fire answers the cold
@@ -669,9 +762,9 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
     // had - a REPLAYED minute (a jump) and the one a jump lands in wound to the floor and no further (AUDIT TEMP-UI E6),
     // and the first minute lived after may finish them. A cautious fast travel through a summer desert healed the traveller whole and then replayed the
     // trip's heat as waking minutes: dead on arrival, in Hard, since SURV1.
-    if (rules.health && abs > NEED.DAMAGE_AT && !sleeping && harmTick) {
+    if (rules.health && abs > dmgAt && !sleeping && harmTick) {
       const bite = Math.max(1, Math.trunc((abs - 40) / 10));
-      if (!replay && !landing) sinks.hurt?.(bite);
+      if (rules.health === true && !replay && !landing) sinks.hurt?.(bite);
       else if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(Math.min(bite, (entity.health ?? 0) - HEALTH_FLOOR));
     }
   }
@@ -712,7 +805,9 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   // RUST: a wet metal piece loses a point on a 5% minute - in a tier that rusts (Hard; Casual takes no item's condition).
   // AUDIT C&C I2: and only where the mod rolls it - its ArmorDmg is in the arm "If not camping, bed sleeping or
   // traveling": never at rest and never under a roof. A sleeper in a tent in the rain rusted all night.
-  if (rules.rust && !resting && !env.insideBuilding && s.wet > NEED.WET_DAMP && worn && rolls() < 0.05) {
+  const rustWetMin = rules.rustWetMin ?? NEED.WET_DAMP;
+  const rustChance = rules.rustChance ?? 0.05;
+  if (rules.rust && !resting && !env.insideBuilding && s.wet >= rustWetMin && worn && rolls() < rustChance) {
     const metal = [18, 23, 12, 13, 15, 26, 20].map((k) => worn[k]).filter((i) => i && i.group === 'Armor' && ((i.material ?? 0) & 0x0f00) !== 0);
     if (metal.length) {
       const piece = metal[Math.floor(rolls() * metal.length)];
@@ -925,6 +1020,7 @@ export function pauseSurvival(entity, from, to) {
   if (Number.isFinite(s.lastAte)) s.lastAte += span;
   if (Number.isFinite(s.awakeSince)) s.awakeSince += span;
   if (Number.isFinite(s.mealUntil)) s.mealUntil += span;   // HEARTY-MEAL: the meal's hold is a need's marker too
+  if (s.drinkBuff && Number.isFinite(s.drinkBuff.until)) s.drinkBuff.until += span;
   s.lastMinute = Math.floor(to);
   // AUDIT SURV-BOONS A9/B9: and Off carries no boon - a tier that does not reward keeps neither the bank nor the grant
   if ('boons' in s || 'wellRested' in s) { delete s.boons; delete s.wellRested; for (const id of BOON_IDS) delete s.notes?.[`boon:${id}`]; }
@@ -949,6 +1045,20 @@ export function clearSurvivalMods(entity) {
   if (!entity?.activeEffects?.some((a) => a && a.kind === 'survival')) return false;
   applySurvivalMods(entity, {});
   return true;
+}
+
+/** Fast travel with inns (`sleepModeInn`): food, water, sleep and warmth are tended along the road. */
+export function alignInnTravel(entity, now) {
+  const s = survivalOf(entity, now);
+  s.lastAte = now - 10;
+  s.thirst = 0;
+  s.sleepDebt = 0;
+  s.awakeSince = now;
+  s.wet = 0;
+  s.exposure = 0;
+  s.lastMinute = now;
+  if (s.borrowed) { delete s.borrowed; delete s.loanPool; }
+  return s;
 }
 
 /** WORLD5's law for these markers: a save (or a player) arriving from

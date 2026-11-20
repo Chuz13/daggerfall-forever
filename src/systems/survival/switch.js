@@ -22,11 +22,13 @@ import { SURVIVAL_OFF, tierOfStored, rulesForTier } from './difficulty.js';
 import { isOnlinePage } from '../online/onlineLane.js'; // CORPSE-FOOD: a leaf too - it imports nothing
 
 export const SURVIVAL_PREF = 'survival';
-/** 'off', 'boons', 'casual' or 'hard' (SURV-BOONS). */
+export const SURVIVAL_NO_WILD_SLEEP_PREF = 'survivalNoWildRoughRest';
+/** 'off', 'boons', 'casual', 'standard', 'veteran' or 'hard'. */
 export const survivalTier = () => tierOfStored(getPref(SURVIVAL_PREF));
 export const survivalOn = () => survivalTier() !== SURVIVAL_OFF;
 /** The live tier's rules (difficulty.js SURVIVAL_RULES), or null when the arc is off. */
 export const survivalRules = () => rulesForTier(survivalTier());
+export const noWildRoughRestOn = () => !!getPref(SURVIVAL_NO_WILD_SLEEP_PREF);
 /**
  * CORPSE-FOOD (2026-09-23, Mac: "It needs to be accessible with people with it on"). ONLINE, A BODY'S FOOD IS THE
  * ROOM'S. A corpse is minted by whoever raises the death - the foe's owner in a cell, the host in a dungeon - and

@@ -105,8 +105,8 @@
 
 export const SURVIVAL_OFF = 'off';
 /** The tiers in the Features bar's order. */
-export const SURVIVAL_TIER_IDS = Object.freeze([SURVIVAL_OFF, 'boons', 'casual', 'hard']);   // SURV-BOONS: the gentlest first after Off
-export const SURVIVAL_DEFAULT = 'casual';   // BOONS-DEFAULT (2026-10-13, Mac: "make boons the default") - Casual until then
+export const SURVIVAL_TIER_IDS = Object.freeze([SURVIVAL_OFF, 'boons', 'casual', 'standard', 'veteran', 'hard']);
+export const SURVIVAL_DEFAULT = 'veteran';
 
 /** AUDIT SURV-TIERS: what each tier is STORED as on the prefs shelf -
  *  the values the Features row's segments write (systems/features.js
@@ -116,7 +116,14 @@ export const SURVIVAL_DEFAULT = 'casual';   // BOONS-DEFAULT (2026-10-13, Mac: "
  *  tiers - an older desktop install reading the same file - still reads
  *  a player's Off as off. Casual and Hard are stored by name, and the
  *  default is never stored at all (uiPrefs.js PREF1). */
-export const SURVIVAL_STORED = Object.freeze({ off: false, boons: 'boons', casual: 'casual', hard: 'hard' });
+export const SURVIVAL_STORED = Object.freeze({
+  off: false,
+  boons: 'boons',
+  casual: 'casual',
+  standard: 'standard',
+  veteran: 'veteran',
+  hard: 'hard',
+});
 const TIER_OF_STORED = new Map(Object.entries(SURVIVAL_STORED).map(([tier, v]) => [v, tier]));
 /** Whether a stored value names a tier. */
 export const isStoredTier = (v) => TIER_OF_STORED.has(v);
@@ -141,59 +148,137 @@ export const SURVIVAL_RULES = deepFreeze({
   boons: {
     id: 'boons',
     stamina: { floor: 1, hotFrom: 51, coldFrom: -31, bareFeet: false, duringRest: false, repaid: true, fireWarms: true },
+    needPace: 1,
     attributes: false,
+    attrScale: 1,
+    attrCap: 20,
     health: false,
     rust: false,
+    rustChance: 0,
+    rustWetMin: 999,
     sickness: false,
     roughRest: { recovery: 1, encounters: 1, stiffHours: 0 },
+    stiffPenalty: 0,
     roughSleepFloor: null,
     restGate: false,
     blackout: false,
     wastedMeal: false,
-    boons: true,         // a need met earns its boon (needs.js survivalBoons)
+    boons: true,
+    fedRegenMinutes: 60,
+    fedRegenAmount: 1,
+    heartyFatigueBonus: 0,
+    heartyRestHp: 0,
+    exposureAt: 30,
+    damageAt: 50,
+    maxTravelInterrupts: 1,
   },
   casual: {
     id: 'casual',
-    /** The needs' stamina: `floor` is the share of the pool they may not
-     *  take; the heat and the cold charge at a felt temperature of
-     *  `hotFrom` or more, or `coldFrom` or less - here the edges of the
-     *  red words (temperature.js temperatureWord: scorching past 50,
-     *  freezing past -30); `bareFeet` is the barefoot tax; `duringRest`
-     *  whether the heat and the cold still charge a rest away from a fire
-     *  (the other needs never do); `repaid` whether what a need took comes
-     *  back when the need is met (needs.js, the record's `borrowed`);
-     *  `fireWarms` whether a lit fire answers the cold outright - AUDIT
-     *  SURV-TIERS, the second pass: its fifteen degrees alone left a camper
-     *  in a snowstorm Deadly cold, charged and never repaid, beside the
-     *  very fire the rules send them to. */
     stamina: { floor: 0.5, hotFrom: 51, coldFrom: -31, bareFeet: false, duringRest: false, repaid: true, fireWarms: true },
-    attributes: false,   // starving, exposure, dehydration, lost sleep and the stiff morning lower the attributes
-    health: false,       // dehydration, exposure, and bare skin in the cold or the sun wound
-    rust: false,         // wet metal armour loses condition
-    sickness: false,     // raw or spoiled food risks a disease
-    /** The window's rest on bare ground (rest.js REST_KIND.Rough): the
-     *  share of DFU's hour it pays, the encounter asks a minute, the
-     *  stiff hours after. A bed and a camp cost the same in every tier. */
+    needPace: 1,
+    attributes: false,
+    attrScale: 1,
+    attrCap: 20,
+    health: false,
+    rust: false,
+    rustChance: 0,
+    rustWetMin: 999,
+    sickness: false,
     roughRest: { recovery: 1, encounters: 1, stiffHours: 0 },
-    roughSleepFloor: null,   // the sleep-debt stage a rough night cannot pay below (needs.js)
-    restGate: false,     // too cold without a fire, or too hot, refuses the sleep
-    blackout: false,     // drinking past the endurance passes the night on the tavern floor
-    wastedMeal: false,   // a meal bought on a full stomach is charged, takes its half hour and goes to waste
-    boons: false,        // SURV-BOONS: a need met earns a bonus - Boons alone
+    stiffPenalty: 0,
+    roughSleepFloor: null,
+    restGate: false,
+    blackout: false,
+    wastedMeal: false,
+    boons: false,
+    fedRegenMinutes: 60,
+    fedRegenAmount: 1,
+    heartyFatigueBonus: 0,
+    heartyRestHp: 0,
+    exposureAt: 30,
+    damageAt: 50,
+    maxTravelInterrupts: 1,
+  },
+  standard: {
+    id: 'standard',
+    stamina: { floor: 0.25, hotFrom: 31, coldFrom: -26, bareFeet: false, duringRest: false, repaid: true, fireWarms: true },
+    needPace: 0.65,
+    attributes: true,
+    attrScale: 0.5,
+    attrCap: 10,
+    health: false,
+    rust: true,
+    rustChance: 0.015,
+    rustWetMin: 100,
+    sickness: true,
+    roughRest: { recovery: 0.75, encounters: 1.5, stiffHours: 2 },
+    stiffPenalty: 3,
+    roughSleepFloor: 'tired',
+    restGate: true,
+    blackout: true,
+    wastedMeal: false,
+    boons: true,
+    fedRegenMinutes: 30,
+    fedRegenAmount: 2,
+    heartyFatigueBonus: 0.15,
+    heartyRestHp: 2,
+    exposureAt: 35,
+    damageAt: 55,
+    maxTravelInterrupts: 1,
+  },
+  veteran: {
+    id: 'veteran',
+    stamina: { floor: 0.1, hotFrom: 25, coldFrom: -23, bareFeet: true, duringRest: true, repaid: false, fireWarms: true },
+    needPace: 0.85,
+    attributes: true,
+    attrScale: 0.75,
+    attrCap: 15,
+    health: 'floor',
+    rust: true,
+    rustChance: 0.03,
+    rustWetMin: 30,
+    sickness: true,
+    roughRest: { recovery: 0.6, encounters: 1.75, stiffHours: 3 },
+    stiffPenalty: 4,
+    roughSleepFloor: 'tired',
+    restGate: true,
+    blackout: true,
+    wastedMeal: true,
+    boons: true,
+    fedRegenMinutes: 30,
+    fedRegenAmount: 2,
+    heartyFatigueBonus: 0.1,
+    heartyRestHp: 2,
+    exposureAt: 32,
+    damageAt: 52,
+    maxTravelInterrupts: 3,
   },
   hard: {
     id: 'hard',
     stamina: { floor: 0, hotFrom: 20, coldFrom: -20, bareFeet: true, duringRest: true, repaid: false, fireWarms: false },
+    needPace: 1,
     attributes: true,
+    attrScale: 1,
+    attrCap: 20,
     health: true,
     rust: true,
+    rustChance: 0.05,
+    rustWetMin: 5,
     sickness: true,
     roughRest: { recovery: 0.5, encounters: 2, stiffHours: 4 },
+    stiffPenalty: 5,
     roughSleepFloor: 'tired',
     restGate: true,
     blackout: true,
     wastedMeal: true,
     boons: false,
+    fedRegenMinutes: 60,
+    fedRegenAmount: 1,
+    heartyFatigueBonus: 0,
+    heartyRestHp: 0,
+    exposureAt: 30,
+    damageAt: 50,
+    maxTravelInterrupts: 3,
   },
 });
 
