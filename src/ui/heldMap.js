@@ -756,6 +756,9 @@ export class HeldMapWindow {
     // STAR6: the night's fallen stars (the host's `stars`, on the same poll) - each its card, the raids' reader's
     this._stars = [];
     this._starsKey = '';
+    // Local search rings for nearby offline stars
+    this._starRings = [];
+    this._starRingsKey = '';
     this._fissures = [];   // STOREFRONT: the season's Brass Fissures
     this._fissuresKey = '';
     // GUIDE5: where the quests point (the host's `quests`, on the same poll) - each place the player's map holds
@@ -1490,6 +1493,7 @@ export class HeldMapWindow {
           pois: this._pois,   // POI-2
           raids: this._raids,   // EVENT-TIP: the towns under attack
           stars: this._stars,   // STAR6: the night's fallen stars
+          starRings: this._starRings,   // local search rings
           fissures: this._fissures,   // STOREFRONT: the season's Brass Fissures
           quests: this._quests,   // GUIDE5: where the quests point
           vendor: this._vendor,   // HOME-VENDOR: the trader's waypoint
@@ -2323,6 +2327,10 @@ export class HeldMapWindow {
     const stars = readRaidMarksIn(this.deps.stars, sheet);
     const starsKey = raidMarksKey(stars);
     if (starsKey !== this._starsKey) { this._starsKey = starsKey; this._stars = stars; gateMoved = true; this._dirty = true; }
+    // Local search rings for nearby offline stars
+    const starRings = readGateMarks(this.deps.starRings, sheet);
+    const starRingsKey = gateMarksKey(starRings);
+    if (starRingsKey !== this._starRingsKey) { this._starRingsKey = starRingsKey; this._starRings = starRings; gateMoved = true; this._dirty = true; }
     // STOREFRONT: and the season's Brass Fissures - a stage turning, the day's gate beside one while the map stands open
     const fissures = readFissureMarksIn(this.deps.fissures, sheet);
     const fissuresKey = fissureMarksKey(fissures);   // AUDIT-STOREFRONT II (lane D 3): kept for the list it was read as
@@ -2375,7 +2383,7 @@ export class HeldMapWindow {
     if (!leg) return;
     leg.innerHTML = '';
     const trav = this._trav.filter((t) => playersOnMaps() && playerShown(t));   // OW-WHO; MAP-PLAYERS: the legend speaks for the players the sheet draws
-    if (!this._party.length && !this._gate && !this._gates.length && !this._serpent && !this._sds?.length && !this._arch && !this._ketches.length && !this._bounties.length && !this._revenants.length && !this._raids.length && !this._stars.length && !this._fissures.length && !trav.length && !this._quests.length && !this._pois.length && !this._witnessed.length && !this._vendor && !this._lodes.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._gates.length && !this._serpent && !this._sds?.length && !this._arch && !this._ketches.length && !this._bounties.length && !this._revenants.length && !this._raids.length && !this._stars.length && !this._starRings.length && !this._fissures.length && !trav.length && !this._quests.length && !this._pois.length && !this._witnessed.length && !this._vendor && !this._lodes.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
@@ -2450,7 +2458,7 @@ export class HeldMapWindow {
       dot.style.background = RAID_MARK_CSS;
       leg.append(dot, el('span', 'hmlegtext', RAID_LEGEND_TEXT));
     }
-    if (this._stars.length) {   // STAR6: and a fallen star
+    if (this._stars.length || this._starRings.length) {   // STAR6: and a fallen star
       const dot = el('span', 'hmlegdot');
       dot.style.background = STAR_VIOLET_CSS;
       leg.append(dot, el('span', 'hmlegtext', STAR_CARD_TEXT.legend()));
@@ -2858,7 +2866,7 @@ export class HeldMapWindow {
     const [mx, my] = toMap(this._view, sx, sy);
     // AUDIT SD III (T7): a ring answers all it is drawn over - at a far zoom the paper draws it larger than its reach
     const least = GATE_RING_MIN_PX / this._view.scale;
-    for (const g of [this._gate, ...this._gates, this._serpent, ...(this._sds ?? []), this._arch, ...this._ketches]) if (g && Math.hypot(mx - g.cx, my - g.cy) <= Math.max(g.r, least)) return g;   // WW5: every lane's Hollow   // EG-F: and my company's arch   // SERPENT1: the sea serpent's ring answers as the gate's does (SD2c: and the Super dungeon's)
+    for (const g of [this._gate, ...this._gates, this._serpent, ...(this._sds ?? []), this._arch, ...this._ketches, ...this._starRings]) if (g && Math.hypot(mx - g.cx, my - g.cy) <= Math.max(g.r, least)) return g;   // WW5: every lane's Hollow   // EG-F: and my company's arch   // SERPENT1: the sea serpent's ring answers as the gate's does (SD2c: and the Super dungeon's)
     return null;
   }
 
@@ -2869,7 +2877,7 @@ export class HeldMapWindow {
     let best = null, bestD = Infinity;
     if (m) { const [x, y] = toPaper(this._view, m.x, m.y); bestD = (x - sx) * (x - sx) + (y - sy) * (y - sy); }
     const scale = this._view.scale;
-    for (const g of [this._gate, ...this._gates, this._serpent, ...(this._sds ?? []), this._arch, ...this._ketches]) {   // WW5: every lane's Hollow   // EG-F: and my company's arch; WW2: and the gates past the Bay; KETCH: and the Sky-Ketch
+    for (const g of [this._gate, ...this._gates, this._serpent, ...(this._sds ?? []), this._arch, ...this._ketches, ...this._starRings]) {   // WW5: every lane's Hollow   // EG-F: and my company's arch; WW2: and the gates past the Bay; KETCH: and the Sky-Ketch
       if (!g) continue;
       const [x, y] = toPaper(this._view, g.cx, g.cy), d = (x - sx) * (x - sx) + (y - sy) * (y - sy);
       const r = Math.max(GATE_RING_MIN_PX, g.r * scale);

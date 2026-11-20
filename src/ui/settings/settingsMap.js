@@ -187,6 +187,7 @@ export const CATEGORIES = Object.freeze([
       'feat:mod-oblivion-remaster-leveling',
       'port:offlineFirmament',
       'port:offlineProfessions',
+      'port:offlineStarfall',
       'feat:mod-project-legacy',
       'feat:offline-respawn',
       'feat:mod-climates-calories',

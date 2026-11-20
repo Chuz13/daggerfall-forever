@@ -1146,7 +1146,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       rollCorpseKit(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a plain foe's kit, worn by nobody now, on its ladder - before the sigils and the chime read the body
       stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds
       raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck'), feet: f.ai?.feet ?? f.pos, mobileType: f.mobileType });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
-      if (!isOnlinePage() && !f.puppet && !f.entity?.summoned && !f.allied && f.entity?.team !== 'PlayerAlly') {
+      if (!isOnlinePage() && !f.puppet && !f.entity?.summoned && !f.allied && f.entity?.team !== 'PlayerAlly' && !f.starSite) {
         const offlineExtras = rollOfflinePreApotheosisSpoils({
           source: 'foe',
           level: playerEntity?.level ?? 1,

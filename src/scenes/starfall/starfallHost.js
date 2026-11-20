@@ -50,6 +50,7 @@ import {
   STAR_ACCOUNTS_MAX,
   STAR_BLOWS_WIRE_MAX,
   STAR_FOE_HEALTH,
+  starLedgerState,
 } from '../../net/starfall/starfallLaw.js';
 import { worldRoom } from '../../net/wire.js';
 import { storedSession } from '../../net/accountClient.js';
@@ -89,8 +90,9 @@ import {
   STAR_SHAKE_M,
   STAR_RESAY_MS,
   STAR_WARN_MS,
+  starPhaseLine,
 } from '../../systems/starfall/starfallClient.js';
-import { STAR_REGION_TEXT, STAR_AT_TEXT } from '../../systems/starfall/starWords.js';
+import { STAR_REGION_TEXT, STAR_AT_TEXT, STAR_CARD_TEXT } from '../../systems/starfall/starWords.js';
 import { playStarSound, starHeardAfterMs } from '../../systems/starfall/starSounds.js';
 import { starSiteId, isStarSite } from '../../world/worldOfDaggerfall/wodShared.js';
 import { buildStarModel, rimAt, STAR_BARE_R, STAR_STONE_H, STAR_RIM_H } from '../../world/starfall/starModel.js';
@@ -133,6 +135,36 @@ import { audio as defaultAudio } from '../../systems/audio.js';
 import { betterAmbience } from '../../systems/betterAmbience.js';
 import { trs } from '../../world/mat4.js';
 import { setEventGround } from '../../systems/eventGround.js'; // RPT1026-EVENTS GATE-WAY: a fallen star's heart an event's ground
+import { adoptLight } from '../../render/lightId.js';
+import { tellTaken } from '../../systems/inventory.js';
+import { addOfflineRenownXp } from '../../systems/offlineFirmament.js';
+import { renownRaidXp } from '../../net/renown.js';
+import { insideGateRing } from '../../systems/gate/gateOmen.js';
+import { MINUTES_PER_DAY } from '../../systems/gameDate.js';
+import { STAR_SPOILS_TEXT } from '../../systems/starfall/starSpoils.js';
+import { offlineStarSpoilsList } from '../../systems/starfall/offlineStarfallLoot.js';
+import {
+  isOfflineStarfallActive,
+  shouldRollStarToday,
+  spawnOfflineStar,
+  offlineStarSiteOf,
+  stepOfflineStarClock,
+  stepOfflineLedger,
+  recordOfflineStarHeld,
+  offlineStarRumor,
+  offlineStarBoardNote,
+  compassDirOf,
+  getOfflineStarfallState,
+  OFFLINE_STAR_SKY_PX,
+  OFFLINE_STAR_COMPASS_M,
+  OFFLINE_OMEN_MS,
+  OFFLINE_STREAK_MS,
+  OFFLINE_LIFE_MS,
+  OFFLINE_FOE_HEALTH,
+  OFFLINE_SAY_M,
+  OFFLINE_LEASH_M,
+  OFFLINE_STAR_TEXT,
+} from '../../systems/starfall/offlineStarfall.js';
 
 /** The crater and its stone are built for a player this near (beyond it the beacon and the sky alone). */
 export const STAR_BUILD_M = 1500;
@@ -239,6 +271,7 @@ function blowStore(storage) {
  * @param {any} host
  */
 export function createStarfallHost(host) {
+  const isOffline = !!host.offline;
   const renderer = host.renderer ?? null;
   const collider = () => host.collider ?? null;
   const now = () => Date.now() + (host._sharedOffsetMs ?? 0);
@@ -341,11 +374,12 @@ export function createStarfallHost(host) {
     trackerUp = false;
   const thunders = []; // [{ due, key, clip, volume }] - the landing's cues, each heard its distance late
   const glow = { x: 0, y: 0, z: 0, range: STAR_GLOW_RANGE },
-    glowList = Object.freeze([glow]);
+    glowList = [glow];
   const flashLight = { x: 0, y: 0, z: 0, range: STAR_FLASH_LIGHT_M, color: STAR_FALL_COLOR };
   const sky = { beacons: [], glows: [], trails: [], rings: [] };
   const clears = { at: -Infinity, key: '', list: NONE }; // STAR-CLEAR: the stars' clearings last answered (starClears), when, and what named them
   const T3 = [0, 0, 0];
+  let _lastFrameMs = Date.now();
 
   // ── the sky's pass ──
   function ensurePass() {
@@ -373,7 +407,7 @@ export function createStarfallHost(host) {
       { start: () => startPrograms(renderer.gl, STARFALL_PROGRAMS), run: ensurePass, need: () => !pass && !passTried },
     ]); // a step that finds it built builds nothing (ensurePass)
   }
-  if (starfallStands(now())) warmPass();
+  if (!isOffline && starfallStands(now())) warmPass();
 
   // ── the night's stars ──
   function sitesOf(n) {
@@ -791,9 +825,10 @@ export function createStarfallHost(host) {
   function toughen(f) {
     const e = f.entity;
     if (!e) return;
-    e.maxHealth = Math.max(1, Math.round((e.maxHealth ?? 1) * STAR_FOE_HEALTH));
+    const mult = isOffline ? OFFLINE_FOE_HEALTH : STAR_FOE_HEALTH;
+    e.maxHealth = Math.max(1, Math.round((e.maxHealth ?? 1) * mult));
     e.health = e.maxHealth;
-    e.healthMult = (e.healthMult ?? 1) * STAR_FOE_HEALTH;
+    e.healthMult = (e.healthMult ?? 1) * mult;
   }
   /** Stand `careers` at `places` ([dx, dz, yaw] from the heart, or from `about`) under `site`: placed, in no save, never an
    *  elite of its own (the master alone is). Each foe landed is made the star's (`made`). AUDIT STARFALL C7: never past
@@ -1043,12 +1078,76 @@ export function createStarfallHost(host) {
     if (!Number.isFinite(S.awayAt)) S.awayAt = t;
     return t - S.awayAt >= STAR_ORPHAN_MS;
   }
+  function grantOfflineRewards(active, S) {
+    if (!active || active.awarded) return;
+    const level = Math.max(1, Math.floor(playerEntity?.level ?? 1));
+    const seed = ((active.n * 2654435761) ^ (active.k + 1)) >>> 0;
+    const spoilsList = offlineStarSpoilsList({ seed, level, heart: !!active.heart });
+    for (const entry of spoilsList) {
+      host.takeSpoil?.(entry);
+      if (entry.kind === 'item' && entry.item) tellTaken(entry.item);
+    }
+    setMidScreenText(STAR_SPOILS_TEXT.granted(), 4);
+    const baseXp = renownRaidXp(host.renownLevel?.() ?? 1);
+    const gained = addOfflineRenownXp(baseXp);
+    if (gained > 0) {
+      host.sigilDrinks?.(gained);
+      host.chatNotice?.(OFFLINE_STAR_TEXT.renown(gained));
+    }
+    const { autoStartNow } = recordOfflineStarHeld(active, level);
+    if (S?.key) held.set(S.key, { top: [], c: 1, at: offlineClockOf(active) });
+    host.onOfflineStarHeld?.({ heart: !!active.heart, autoStartNow });
+  }
+
+  function offlineClockOf(active) {
+    if (!active) return now();
+    const T = starTimes(active.n, active.k);
+    const el = Math.max(0, active.activeElapsedMs || 0);
+    if (active.stage === 'omen') return T.omenAt + Math.min(1, el / OFFLINE_OMEN_MS) * (T.streakAt - T.omenAt);
+    if (active.stage === 'streak') return T.streakAt + Math.min(1, el / OFFLINE_STREAK_MS) * (T.fallAt - T.streakAt);
+    if (active.stage === 'fallen') {
+      const leftMs = Math.max(0, OFFLINE_LIFE_MS - el);
+      return T.endAt - leftMs;
+    }
+    if (active.stage === 'after') return T.endAt + el;
+    return T.goneAt;
+  }
+
   function defend(S, t, d) {
     const L = ledgers.get(S.key) ?? null;
     if (foes && d <= STAR_HUD_M) tend(S);
     const over = held.has(S.key) || L?.p === P_HELD || L?.p === P_LOST || S.phase !== 'fallen';
     if (over) {
       if (S.own) dropDefense(S);
+      return;
+    }
+    if (isOffline) {
+      const active = getOfflineStarfallState().active;
+      if (!active) return;
+      const inSay = d <= OFFLINE_SAY_M;
+      const inLeash = d <= OFFLINE_LEASH_M;
+      if (foes && S.known && (inSay || (S.own && inLeash))) {
+        S.awayAt = NaN;
+        owner(S, L);
+      } else if (S.own && leashSlipped(S, t, inLeash)) {
+        dropDefense(S);
+      }
+      let wordIn = null;
+      if (inLeash) {
+        blowsOf(S);
+        wordIn = starWordOf(
+          S.site,
+          { struck: S.struck, own: S.own, kw: S.stoodWave, kn: S.kn, wc: S.wc, hb: S.hb, mf: S.mf },
+          playerEntity.level ?? 1,
+        );
+      }
+      const { st, heldJustNow } = stepOfflineLedger(active, wordIn, inLeash);
+      if (st) {
+        const was = ledgers.get(S.key) ?? null;
+        ledgers.set(S.key, st);
+        if (was) ledgerSaid(S, st, was);
+      }
+      if (heldJustNow) grantOfflineRewards(active, S);
       return;
     }
     const s = session();
@@ -1106,20 +1205,25 @@ export function createStarfallHost(host) {
   function moments(S, t, f) {
     const T = starTimes(S.site.n, S.site.k);
     const d = f ? dist2(S.heart, f[0], f[2]) : Infinity;
-    if (S.phase === 'omen' && inRegion(S)) {
-      sayOnce(
-        S,
-        'omen',
-        S.heartStar
+    const allowOmen = isOffline ? true : inRegion(S);
+    if (S.phase === 'omen' && allowOmen) {
+      let msg;
+      if (isOffline) {
+        const px = host.playerPixel?.() ?? { x: S.site.px, y: S.site.py };
+        const dir = compassDirOf(px.x, px.y, S.site.px, S.site.py);
+        msg = OFFLINE_STAR_TEXT.omenNear(dir, S.site.town?.name ?? null);
+      } else {
+        msg = S.heartStar
           ? STAR_REGION_TEXT.omenHeart(S.site.near, covenWitches(S.site.coven))
-          : STAR_REGION_TEXT.omen(S.site.near, covenWitches(S.site.coven)),
-      );
+          : STAR_REGION_TEXT.omen(S.site.near, covenWitches(S.site.coven));
+      }
+      sayOnce(S, 'omen', msg);
       if (!S.said.has('omenSound')) {
         S.said.add('omenSound');
         playStarSound(audio, 'omen');
       }
     }
-    if (S.phase === 'streak' && inRegion(S) && !S.said.has('fallSound')) {
+    if (S.phase === 'streak' && allowOmen && !S.said.has('fallSound')) {
       S.said.add('fallSound');
       playStarSound(audio, 'fall', null, 0.5 + 0.5 * Math.max(0, 1 - d / 8000));
     }
@@ -1127,7 +1231,7 @@ export function createStarfallHost(host) {
       S.impactAt = T.fallAt;
       if (t - T.fallAt < 4000) {
         // the landing seen as it happens (a page opened later finds it standing)
-        if (inRegion(S)) sayOnce(S, 'fell', STAR_REGION_TEXT.fell(S.site.near));
+        if (allowOmen) sayOnce(S, 'fell', STAR_REGION_TEXT.fell(S.site.near));
         // AUDIT STARFALL R7: the stone's strike heard its distance late, as the thunder is - never with the flash
         if (d <= 2000) thunders.push({ due: T.fallAt + starHeardAfterMs(d), key: S.key, clip: null, volume: 1 });
         const th = thunderOf(d);
@@ -1238,25 +1342,66 @@ export function createStarfallHost(host) {
     /** The frame's work (frame's, inside its catch). */
     step() {
       frameN++;
+      const wallMs = Date.now();
+      const dtMs = host.gamePaused?.() ? 0 : Math.max(0, Math.min(250, wallMs - _lastFrameMs));
+      _lastFrameMs = wallMs;
       const t = now();
-      if (!starfallStands(t)) {
+      if (isOffline) {
+        if (!isOfflineStarfallActive()) {
+          this.destroyScene();
+          return null;
+        }
+        const st = getOfflineStarfallState();
+        const px = host.playerPixel?.() ?? { x: 0, y: 0 };
+        const classicMin = host.classicMinutes?.() ?? 0;
+        const day = Math.floor(classicMin / MINUTES_PER_DAY);
+        if (!st.active && shouldRollStarToday(day)) {
+          const sc = scan();
+          if (sc) {
+            spawnOfflineStar({
+              scan: sc,
+              playerPx: px.x,
+              playerPy: px.y,
+              playerRegion: regionAt(),
+              classicMinutes: classicMin,
+              qltf03NeedsHeart: !!host.qltf03NeedsHeart?.(),
+              avoid: host.avoidSites?.() ?? [],
+            });
+          } else warmScan();
+        }
+        if (st.active) {
+          stepOfflineStarClock(st.active, dtMs, classicMin, px.x, px.y, { indoors: !!host.isIndoors?.() });
+        }
+      } else if (!starfallStands(t)) {
         this.destroyAll();
         return null;
       }
       const f = feet();
       const seen = new Set();
-      for (const site of nightSites(t)) {
-        const phase = starClockPhase(site.n, site.k, t);
+      const activeOff = isOffline ? getOfflineStarfallState().active : null;
+      const sitesList = isOffline
+        ? activeOff && activeOff.stage !== 'gone'
+          ? [offlineStarSiteOf(activeOff)]
+          : NONE
+        : nightSites(t);
+      const effT = isOffline && activeOff ? offlineClockOf(activeOff) : t;
+      for (const site of sitesList) {
+        if (!site) continue;
+        const phase = isOffline ? activeOff.stage : starClockPhase(site.n, site.k, t);
         const key = starHeldKey(site.n, site.k, site.px, site.py);
         if (phase === 'none' || phase === 'gone') continue;
         seen.add(key);
         const S = stars.get(key) ?? enter(site);
+        if (isOffline && activeOff?.led && !ledgers.has(key)) {
+          ledgers.set(key, starLedgerState(activeOff.led, 'offline'));
+          if (activeOff.awarded) held.set(key, { top: [], c: 1, at: effT });
+        }
         S.phase = phase;
         placeOf(S);
         S.ward.ai.feet[0] = S.heart[0];
         S.ward.ai.feet[1] = S.heart[1];
         S.ward.ai.feet[2] = S.heart[2];
-        moments(S, t, f);
+        moments(S, effT, f);
         const d = f ? dist2(S.heart, f[0], f[2]) : Infinity;
         if ((phase === 'fallen' || phase === 'after') && d <= STAR_BUILD_M && S.known) {
           ground(S);
@@ -1267,20 +1412,20 @@ export function createStarfallHost(host) {
           ensureMesh(S);
         } else if (S.mesh && d > STAR_BUILD_M * 1.2) dropMesh(S);
         if (S.mesh) place(S);
-        if (phase === 'fallen' || S.own) defend(S, t, d);
+        if (phase === 'fallen' || S.own) defend(S, effT, d);
       }
       for (const S of [...stars.values()]) if (!seen.has(S.key)) leave(S);
       // the landing's cues as each reaches this player - AUDIT STARFALL R7: from where its star's heart stands NOW (a
       // floating origin's recentre between the landing and its thunder moves it), in the order they come due
       for (let i = 0; i < thunders.length;) {
         const th = thunders[i];
-        if (th.due > t) {
+        if (th.due > effT) {
           i++;
           continue;
         }
         thunders.splice(i, 1);
         const at = stars.get(th.key)?.heart;
-        if (t - th.due >= 1000 || !f || !at) continue;
+        if (effT - th.due >= 1000 || !f || !at) continue;
         if (!th.clip) {
           playStarSound(audio, 'impact', at);
           continue;
@@ -1302,11 +1447,11 @@ export function createStarfallHost(host) {
       if (near) {
         const L = ledgers.get(near.key) ?? null,
           M = starMasterOf(L?.b ?? 1, near.site.k, near.site.coven);
-        drawStarTracker(starTrackerModel(near.site, L, t, M.name(), held.has(near.key)), { hidden });
+        drawStarTracker(starTrackerModel(near.site, L, effT, M.name(), held.has(near.key)), { hidden });
         trackerUp = true;
         const m = near.masterFoe;
         const bar =
-          m && (!m.dead || t - near.fellAt < 4000)
+          m && (!m.dead || effT - near.fellAt < 4000)
             ? starBarModel(
                 {
                   name: M.name(),
@@ -1318,7 +1463,7 @@ export function createStarfallHost(host) {
                   defenders: L?.nd ?? 0,
                   fellAt: m.dead ? near.fellAt : null,
                 },
-                t,
+                effT,
               )
             : null;
         if (bar || barUp) {
@@ -1434,18 +1579,25 @@ export function createStarfallHost(host) {
       const near = this.nearest();
       const f = feet();
       if (!near || !f || dist2(near.heart, f[0], f[2]) > STAR_GLOW_REACH_M || looks(near).lost) return NONE;
-      glow.x = near.heart[0];
-      glow.y = near.heart[1] + STAR_STONE_H * 0.6;
-      glow.z = near.heart[2];
+      const lx = near.heart[0],
+        ly = near.heart[1] + STAR_STONE_H * 0.6,
+        lz = near.heart[2];
+      if (!Number.isFinite(lx) || !Number.isFinite(ly) || !Number.isFinite(lz)) return NONE;
+      glow.x = lx;
+      glow.y = ly;
+      glow.z = lz;
+      adoptLight(glow, near);
       return glowList;
     },
     /** The landing's flash, while it burns near (the frame's one flash light - renderer.setFlashLight), or null. */
     flash() {
-      const t = now(),
+      const activeOff = isOffline ? getOfflineStarfallState().active : null;
+      const t = isOffline && activeOff ? offlineClockOf(activeOff) : now(),
         f = feet();
       for (const S of stars.values()) {
         const since = t - starTimes(S.site.n, S.site.k).fallAt;
         if (since >= 0 && since < STAR_FLASH_MS && f && dist2(S.heart, f[0], f[2]) <= STAR_FLASH_LIGHT_M * 4) {
+          if (!Number.isFinite(S.heart[0]) || !Number.isFinite(S.heart[1]) || !Number.isFinite(S.heart[2])) continue;
           flashLight.x = S.heart[0];
           flashLight.y = S.heart[1] + 20;
           flashLight.z = S.heart[2];
@@ -1465,28 +1617,73 @@ export function createStarfallHost(host) {
     /** What the sky's pass is handed for an eye this frame - `{ beacons, glows, trails, rings }`, its lists filled in place
      *  (drawSky's, and the tests'). */
     skyLists(eye) {
-      const t = now();
+      const activeOff = isOffline ? getOfflineStarfallState().active : null;
+      const t = isOffline && activeOff ? offlineClockOf(activeOff) : now();
       sky.beacons.length = 0;
       sky.glows.length = 0;
       sky.trails.length = 0;
       sky.rings.length = 0;
-      for (const S of stars.values()) skyOf(S, t, eye);
+      const px = isOffline ? (host.playerPixel?.() ?? null) : null;
+      for (const S of stars.values()) {
+        if (isOffline && px && Math.max(Math.abs(S.site.px - px.x), Math.abs(S.site.py - px.y)) > OFFLINE_STAR_SKY_PX)
+          continue;
+        skyOf(S, t, eye);
+      }
       return sky;
     },
-    /** The map's cards for the night's stars (ui/eventMapMarks.js's shape). */
+    /** The map's cards for the night's stars (ui/eventMapMarks.js's shape). Offline uses search rings instead. */
     mapMarks() {
+      if (isOffline) return NONE;
       return starfallStands(now()) ? starMapMarks(nightSites(now()), now(), { held, led: ledgers, localTime }) : NONE;
     },
-    /** The compass's mark: the nearest star of the night in this player's region, from its omen until it is gone - the
-     *  scene's [x, z] - or null. */
+    /** Local search rings for nearby offline stars. */
+    mapRings() {
+      if (!isOffline || !isOfflineStarfallActive()) return NONE;
+      const active = getOfflineStarfallState().active;
+      if (!active || active.stage === 'gone') return NONE;
+      const px = host.playerPixel?.();
+      if (px && Math.max(Math.abs(active.px - px.x), Math.abs(active.py - px.y)) > OFFLINE_STAR_SKY_PX) return NONE;
+      const site = offlineStarSiteOf(active);
+      if (!site?.ring) return NONE;
+      const L = active.led;
+      const heldNow = !!active.awarded || L?.p === P_HELD;
+      const phaseText = heldNow
+        ? STAR_CARD_TEXT.held()
+        : L?.p === P_LOST
+          ? STAR_CARD_TEXT.lost()
+          : active.stage === 'omen'
+            ? STAR_CARD_TEXT.falling()
+            : starPhaseLine(L, L ? starMasterOf(L.b, site.k, site.coven).name() : '');
+      return [
+        {
+          day: active.n,
+          cx: site.ring.cx,
+          cy: site.ring.cy,
+          r: site.ring.r,
+          label: OFFLINE_STAR_TEXT.ringLabel(!!active.heart, phaseText),
+          phase: heldNow ? 'held' : active.stage,
+          tip: {
+            title: STAR_CARD_TEXT.name(!!active.heart),
+            lines: [STAR_CARD_TEXT.near(site.near), covenWitches(site.coven), phaseText],
+          },
+        },
+      ];
+    },
+    /** The compass's mark: in online, nearest in region; in offline, only inside search ring or <= 2.5 km. */
     compassMark() {
       const f = feet();
       if (!f) return null;
       let best = null,
         bd = Infinity;
+      const px = isOffline ? host.playerPixel?.() : null;
       for (const S of stars.values()) {
-        if (!inRegion(S) || S.phase === 'none' || S.phase === 'gone') continue;
+        if (S.phase === 'none' || S.phase === 'gone') continue;
+        if (!isOffline && !inRegion(S)) continue;
         const d = dist2(S.heart, f[0], f[2]);
+        if (isOffline) {
+          const inRing = px && S.site.ring ? insideGateRing(S.site.ring, px.x, px.y, 1) : false;
+          if (!inRing && d > OFFLINE_STAR_COMPASS_M) continue;
+        }
         if (d < bd) {
           bd = d;
           best = S;
@@ -1562,8 +1759,8 @@ export function createStarfallHost(host) {
         heart: [...S.heart],
         said: [...S.said],
       })),
-    /** Everything let go (a load, a mode change, the event's end). */
-    destroyAll() {
+    /** Release scene meshes, colliders, and spawned foes without clearing persistent offline star state. */
+    destroyScene() {
       for (const S of [...stars.values()]) leave(S);
       if (trackerUp) {
         destroyStarTracker();
@@ -1575,6 +1772,52 @@ export function createStarfallHost(host) {
       }
       thunders.length = 0;
     },
+    /** Everything let go (a load, a mode change, the event's end). */
+    destroyAll() {
+      this.destroyScene();
+    },
+    /** Advance offline clock while indoors/waiting so Fast Travel / Rest transitions still fire. */
+    bgStep(dtMs) {
+      if (!isOffline || !isOfflineStarfallActive()) return;
+      const st = getOfflineStarfallState();
+      if (!st.active) return;
+      const px = host.playerPixel?.() ?? { x: 0, y: 0 };
+      const classicMin = host.classicMinutes?.() ?? 0;
+      const prevStage = st.active.stage;
+      const nextStage = stepOfflineStarClock(st.active, dtMs, classicMin, px.x, px.y, { indoors: true });
+      if (prevStage !== 'fallen' && nextStage === 'fallen') {
+        if (Math.max(Math.abs(st.active.px - px.x), Math.abs(st.active.py - px.y)) <= OFFLINE_STAR_SKY_PX) {
+          host.chatNotice?.(OFFLINE_STAR_TEXT.fellIndoors(st.active.town?.name ?? null));
+        }
+      }
+    },
+    /** Console & debug helpers for offline Starfall testing. */
+    spawnDebugStar({ heart = false, startFallen = false } = {}) {
+      if (!isOffline) return null;
+      const sc = scan();
+      if (!sc) return null;
+      this.destroyScene();
+      const px = host.playerPixel?.() ?? { x: 0, y: 0 };
+      const classicMin = host.classicMinutes?.() ?? 0;
+      return spawnOfflineStar({
+        scan: sc,
+        playerPx: px.x,
+        playerPy: px.y,
+        playerRegion: regionAt(),
+        classicMinutes: classicMin,
+        forceHeart: !!heart,
+        startFallen: !!startFallen,
+      });
+    },
+    clearDebugStar() {
+      this.destroyScene();
+      if (isOffline) getOfflineStarfallState().active = null;
+    },
+    debugStatus() {
+      return isOffline ? getOfflineStarfallState() : null;
+    },
+    rumor: (px, py) => (isOffline && isOfflineStarfallActive() ? offlineStarRumor(px, py) : null),
+    boardNote: (px, py) => (isOffline && isOfflineStarfallActive() ? offlineStarBoardNote(px, py) : null),
     /** STAR7: the spoils' crash door at a character's stand-up, and the realm save's two hooks (scenes/starfall/starRewards.js). */
     recoverSpoils: (who, inSave = null) => rewards.recover(who, inSave),
     spoilsHeld: (who) => rewards.held(who),

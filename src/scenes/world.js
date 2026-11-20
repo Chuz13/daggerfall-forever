@@ -921,7 +921,7 @@ import { ownNameAsAt } from '../systems/ownGlyphs.js';   // NAME-AS: when this d
 import { INSIGNIA, insigniaRefusal } from '../net/insignia.js';   // WB9g
 import { createFirmamentBook, setFirmamentBook } from '../net/firmament/firmamentBook.js';   // FIRM1: the Firmament - this device's tree and purses
 import { setFirmamentTree, setFirmamentOnline, setFirmamentOffline } from '../systems/firmamentLive.js';   // FIRM1: the tree in force, online alone
-import { isOfflineFirmamentActive, createOfflineFirmamentBook, initOfflineRenown, onOfflineFoeKilled, onOfflineQuestEnded } from '../systems/offlineFirmament.js';
+import { isOfflineFirmamentActive, createOfflineFirmamentBook, initOfflineRenown, onOfflineFoeKilled, onOfflineQuestEnded, getActiveOfflineRecord } from '../systems/offlineFirmament.js';
 import { recordQuestCompleted } from '../systems/apotheosis/apotheosisCore.js';
 import { isOfflineProfessionsActive, createOfflineProfBook } from '../systems/offlineProfessions.js';
 import { starsFor } from '../net/firmament/firmamentLaw.js';   // FIRM1: the Stars a Renown level brings, said with it
@@ -14480,7 +14480,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     portHost?.destroyAll();   // SHIPYARDS: and the shipyards and lighthouses, the same
     wardenShows?.destroyAll();   // WARDEN1: and a throw in flight - its team set down where it landed
     riteHost?.destroyAll();   // WB12d: and the faithful's circle - its faithful went with the live pools; it stands again the next frame
-    starfall?.destroyAll();   // STAR4: and the Starfall's stars - its coven went with the live pools; they stand again the next frame
+    starfall?.destroyScene?.() ?? starfall?.destroyAll();   // STAR4: and the Starfall's stars - its coven went with the live pools; they stand again the next frame
     passSeason?.destroyAll();   // STOREFRONT: and the season's fissures and their constructs, the same
     csaReanchor(state.initOffset);   // FIELD-CSA1: and every placed boat with it
     // AUDIT ENVIRONS I2: AND THE SNOW, THE WIND AND THE HAZE, by the same move. Each keeps scene places a recentre
@@ -17385,6 +17385,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       serpent: () => serpentOmen?.mapMark() ?? null,   // SERPENT1: the sea serpent's ring, in the sea's colours - the held map alone draws it
       sd: () => sdHost?.mapMarks() ?? null,   // SD2c: a found Super dungeon's ring, in its omen's brass - the held map alone draws it; WW5: every lane's
       stars: () => starfall?.mapMarks() ?? [],   // STAR6: the night's fallen stars, each its card
+      starRings: () => starfall?.mapRings?.() ?? [],   // local search rings for nearby offline stars
       fissures: () => passSeason?.mapMarks() ?? [],   // STOREFRONT: the season's Brass Fissures, each its card
       arch: () => egClient?.archMapMark() ?? null,   // EG-F: my company's Elite arch while it stands, in its gold - the held map alone draws it
       ketch: () => ketch?.mapMarks() ?? [],   // KETCH: the Sky-Ketch over Daggerfall while she is in its sky - the held map alone draws it; KETCH-EVERYWHERE: every station's
@@ -19301,7 +19302,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // quest topic mark its dialog-linked resources. Unset, every %hnt
     // answer printed its macros raw; it is the mill's seam, one home.
     expandQuestTokens,
-    getNewsOrRumors: (session) => sdHost?.rumor(rumorHere(), session) ?? revenantRumor(rumorHere(), session) ?? rumorMill.getNewsOrRumors(session),   // RVN7b (bible/12-Enhanced-AI/Feud-Arc.md 18.2): a revenant's lair near, the news may be of it; SD2c: a Super dungeon by this city first - the taverns' word of it
+    getNewsOrRumors: (session) => { const rh = rumorHere(); return sdHost?.rumor(rh, session) ?? revenantRumor(rh, session) ?? (rh ? starfall?.rumor?.(rh.px, rh.py) : null) ?? rumorMill.getNewsOrRumors(session); },   // RVN7b (bible/12-Enhanced-AI/Feud-Arc.md 18.2): a revenant's lair near, the news may be of it; SD2c: a Super dungeon by this city first - the taverns' word of it
     isPlayerInside: () => (modes?.mode ?? 'exterior') !== 'exterior',
     /** ROAD-B B4: GameManager.IsPlayerInsideCastle (GameManager.cs:420-423)
      *  is PlayerEnterExit.IsPlayerInsideDungeonCastle and nothing else, and
@@ -24581,7 +24582,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     // STAR7: the rewards' (scenes/starfall/starRewards.js) - the pack's door, the relay's clock, the silver, the Renown
     takeSpoil, relayNowS, marksBook, renownXpAdopt, renownAdopt, renownRose, get renownSaid() { return renownSaid; },
   };
-  const starfall = FORK_FLAGS.ENABLE_ONLINE_PLAY && params.has('online') ? createStarfallHost(_eventHostDeps) : null;
+  const starfall = FORK_FLAGS.ENABLE_ONLINE_PLAY && params.has('online')
+    ? createStarfallHost(_eventHostDeps)
+    : !params.has('online') && FORK_FLAGS.ENABLE_OFFLINE_STARFALL
+      ? createStarfallHost({
+          ..._eventHostDeps,
+          offline: true,
+          classicMinutes: () => playerTicker.classicMinutes,
+          playerPixel: () => playerTravelPixel(),
+          renownLevel: () => getActiveOfflineRecord()?.renown ?? 1,
+          sigilDrinks: (xp) => sigilDrinks?.(xp),
+          onOfflineStarHeld: (o) => questBridge?.onOfflineStarHeld?.(o),
+          qltf03NeedsHeart: () => questBridge?.qltf03NeedsHeart?.() ?? false,
+          isIndoors: () => _mode() !== 'exterior',
+        })
+      : null;
   // STOREFRONT (bible/06-Systems/Battle-Pass.md section 6): THE SEASON IN THE WORLD - the Battle Pass bound, the hourly
   // tremor, the Brass Fissures and their constructs, the Brass Colossus and its Resonant Maul (scenes/seasonHost.js)
   const passSeason = FORK_FLAGS.ENABLE_ONLINE_PLAY && params.has('online') ? createSeasonHost(_eventHostDeps) : null;
@@ -27539,7 +27554,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       || !!travelOptions?.isTravelActive || !!arenaBouts.bout() || !!csaAboard.aboard || !!csaRuntime?.state?.CurrentBoat,   // the journey bar, the versus bar, the helm stand there
     panelLines: (mapId) => townEcon.panelLinesAt(mapId),
     unseen: (mapId) => (noticeBook?.open === true ? noticeBook.unseen(mapId) : 0),
-    news: () => rumorMill.getNewsOrRumorsForBulletinBoard(),
+    news: () => {
+      const list = rumorMill.getNewsOrRumorsForBulletinBoard();
+      const px = playerTravelPixel();
+      const note = px ? starfall?.boardNote?.(px.x, px.y) : null;
+      return note ? [`${note.title}: ${note.text}`, ...(Array.isArray(list) ? list : [])] : list;
+    },
     openNotice: (town, rumour) => openNoticeBoard(town, rumour),
     showBox: (w) => townTalk.showOverlay(w),
     bounty: () => !!bountyHost,
@@ -30372,6 +30392,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       return ok ? best : null;
     },
     triggerWildernessEncounter: (kind) => triggerWildernessEncounter(kind),
+    spawnStarfall: (opts) => starfall?.spawnDebugStar?.(opts) ?? null,
+    clearStarfall: () => starfall?.clearDebugStar?.(),
+    starfallStatus: () => starfall?.debugStatus?.() ?? null,
     triggerCrimeResponse: () => {
       const feet = walkMode && playerSpawned ? player.pos : cam.pos;
       cityGuards.makeNpcGuardsIntoEnemies({ pool: _guardPool(), playerFeet: [...feet] }).catch((e) => console.error('[guards]', e));
@@ -33091,6 +33114,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // this frame's tick queues goes out on the next frame, in every mode.
     questSyncTick();
     townPanel.frame();   // NOTICE-PANEL: above the modal gate as the quest sync is - a town's buildings are the town too
+    if (_mode() !== 'exterior') starfall?.bgStep?.((gamePaused() ? 0 : dt) * 1000);
+    questBridge?.checkPendingOfflineStarfall?.();
     // AUDIT 66 F11: the torch sweep runs HERE, above the modal
     // return, because that is where the transition is. It used to sit
     // with the tick at the foot of the exterior frame - which this

@@ -49,6 +49,7 @@ import { KINGS_GAMBIT_KEY } from '../features.js';
 import { modSetting } from '../modSettings.js';
 import { revenantHeld } from '../revenant/revenant.js';
 import { starfallRuns } from '../../net/starfall/starfallLaw.js'; // STAR8: the Witches' Festival's stars falling
+import { isOfflineStarfallActive, markOfflineStarwardenEarned } from '../starfall/offlineStarfall.js';
 
 /** AUDIT QUESTLINES ACTS-2, LINES-3, LINES-6: WHAT A STEP'S DEED NEEDS, read where the game reads it - Loot rarity's own
  *  switch (a socket, a reforge refuse 'off' without it), The King's Gambit's (no table offers the game), the sea's
@@ -70,7 +71,7 @@ export const NEED_CHECKS = Object.freeze({
       }
     })(),
   renown: () => !revenantHeld(),
-  starfall: (/** @type {number} */ nowMs) => starfallRuns(nowMs),
+  starfall: (/** @type {number} */ nowMs, isOffline = false) => starfallRuns(nowMs) || (isOffline && isOfflineStarfallActive()),
 });
 
 /** The game seconds a line waits between one step's end and the next step's start - an hour of the character's time,
@@ -149,14 +150,17 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
   const now = () => ctx.nowSeconds?.() ?? 0;
   /** A registered account signed in: never a guest's (AUDIT QUESTLINES LINES-2). */
   const registered = () => !!service && !service.guest?.();
+  const isOfflineStarfallLine = (l) => l?.id === 'thirteenthFrostfall' && !online() && isOfflineStarfallActive();
   const need = (n) => {
     try {
-      return !!NEED_CHECKS[n]?.(nowMs());
+      return !!NEED_CHECKS[n]?.(nowMs(), !online());
     } catch {
       return false;
     }
   };
   const probe = { level, online, registered, need, lineDone: (id) => !!lines[id]?.done };
+  const probeFor = (l) =>
+    isOfflineStarfallLine(l) ? { ...probe, online: () => true, registered: () => true } : probe;
 
   /** The step's quest on the machine (by name) - running, or scheduled for the next tick - or null. */
   const runningStep = (questName) => {
@@ -274,9 +278,10 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
   function waitingWords(l, rec) {
     if (rec.done) return null;
     const o = l.opens;
+    const offStar = isOfflineStarfallLine(l);
     // UI-7: a line begun continues where it can - never "Opens" again
-    if (o.online && !online()) return t('ql.line.continuesOnline', 'Continues online.');
-    if (o.account && !registered()) return t('ql.line.continuesAccount', 'Continues with a registered account.');
+    if (!offStar && o.online && !online()) return t('ql.line.continuesOnline', 'Continues online.');
+    if (!offStar && o.account && !registered()) return t('ql.line.continuesAccount', 'Continues with a registered account.');
     if (unmetNeeds(l, rec.step, probe).length) return opensWords({ ...l, opens: {} }, probe, rec.step);
     return rec.stalled ? t('ql.line.stalled', 'Its next step could not begin here: it will be offered again.') : null;
   }
@@ -357,8 +362,9 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
         if (rec.done || rec.wait > s) continue;
         const stepQuest = runningStep(l.steps[rec.step]?.quest);
         if (stepQuest) keepSeason(l, rec, stepQuest); // AUDIT STAR8 S2: online or not
-        if (l.opens.online && !online()) continue; // an endgame line waits, offline, where it stood
-        if (l.opens.account && !registered()) continue; // LINES-2: and a guest's page, where it stood
+        const offStar = isOfflineStarfallLine(l);
+        if (!offStar && l.opens.online && !online()) continue; // an endgame line waits, offline, where it stood
+        if (!offStar && l.opens.account && !registered()) continue; // LINES-2: and a guest's page, where it stood
         startStep(l, rec);
       }
       const ms = nowMs();
@@ -396,6 +402,10 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
       }
       rec.retry = false;
       rec.outcomes[at.index] = { id: outcome?.id ?? 'done', text: ctx.outcomeText?.(quest) ?? null };
+      if (isOfflineStarfallLine(at.line) && at.index === 2) {
+        markOfflineStarwardenEarned();
+        ctx.onHonour?.({ line: at.line.id, title: 'starwarden', key: false, keys: null, keyHeld: false });
+      }
       queueClaim(at.line.id, at.index, 'end', outcome?.id ?? null);
       rec.step++;
       rec.wait = now() + STEP_GAP_S;
@@ -435,7 +445,7 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
         return r?.ok ? { ok: true, line: id, reclaimed: true } : { ok: false, line: id, reason: r?.reason ?? 'begun' };
       }
       if (rec) return { ok: false, line: id, reason: 'begun' };
-      if (!lineOpens(l, probe)) return { ok: false, line: id, reason: 'closed' };
+      if (!lineOpens(l, probeFor(l))) return { ok: false, line: id, reason: 'closed' };
       const first = l.steps[0].quest;
       // LINES-18: a copy of the first step already running (a party's shared copy) is the step - adopted, never a second
       // started beside it; one set aside comes back with the take
@@ -467,7 +477,7 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
      *  not on offer or a step that will not parse here. DaggerfallQuestOfferWindow's GetQuest, for a line. */
     offerQuest(id) {
       const l = lineById(id);
-      if (!l || !questlinesOn() || lines[id] || !lineOpens(l, probe)) return null;
+      if (!l || !questlinesOn() || lines[id] || !lineOpens(l, probeFor(l))) return null;
       const source = machine.deps?.getQuestSourceLines?.(l.steps[0].quest);
       return source ? (machine.parseQuestForLists?.(source, 0) ?? null) : null;
     },
@@ -476,7 +486,9 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
      *  in the journal. */
     onOffer(id) {
       const l = lineById(id);
-      return !!l && questlinesOn() && (lines[id] ? !!firstShelved(l, lines[id]) : lineOpens(l, probe));
+      if (!l || !questlinesOn()) return false;
+      if (isOfflineStarfallLine(l) && !lines[id]) return false; // auto-starts on first held star
+      return lines[id] ? !!firstShelved(l, lines[id]) : lineOpens(l, probe);
     },
 
     /** QL-OFFERED: the first step the player set aside, when its line is on offer again for it - the quest a take
@@ -502,8 +514,9 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
       // QL-OFFERED (UI-Calm's law, a page with nothing to take is never drawn): a line not begun is drawn only while it is
       // on offer - its gate holding (online, the account, the level, the line before, its season, its first step's needs);
       // a locked line is no row. AUDIT QUESTLINES UI-14: one begun shows offline, "Continues online"
-      return QL_LINES.filter((l) => lines[l.id] || lineOpens(l, probe)).map((l) => {
+      return QL_LINES.filter((l) => lines[l.id] || (!isOfflineStarfallLine(l) && lineOpens(l, probe))).map((l) => {
         const rec = lines[l.id];
+        const offStar = isOfflineStarfallLine(l);
         const stepQuest = rec && !rec.done ? runningStep(l.steps[rec.step]?.quest) : null;
         const shelved = stepQuest?.shelvedAt != null;
         const running = !!stepQuest && !shelved;
@@ -526,9 +539,9 @@ export function createLineRunner({ machine, ctx = {}, service = null, nowMs = ()
             quest: s.quest,
             title: s.title(),
             state,
-            witnessed: !!witnessOf(l, i),
-            seen: said === 'witnessed',
-            unseen: state === 'done' && !!witnessOf(l, i) && said !== 'witnessed',
+            witnessed: !offStar && !!witnessOf(l, i),
+            seen: !offStar && said === 'witnessed',
+            unseen: !offStar && state === 'done' && !!witnessOf(l, i) && said !== 'witnessed',
             outcome: rec?.outcomes?.[i]?.text ?? null,
             refused,
           };

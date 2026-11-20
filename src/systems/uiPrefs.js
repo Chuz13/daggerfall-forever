@@ -72,6 +72,8 @@ export const PREF_DEFAULTS = Object.freeze({
   offlineFirmament: true,
   // OFFLINE-PROFESSIONS: whether gathering nodes and crafting professions are active in offline single-player.
   offlineProfessions: true,
+  // Frequency of offline Starfall world encounters ('off' | 'rare' | 'normal' | 'frequent').
+  offlineStarfall: 'normal',
   // APOTHEOSIS: whether the Fate Weight progress & trigger categories are shown in the Pause › Apotheosis tab,
   // plus Stage 3 difficulty/economy tuning (hostility, faith gain/decay multipliers, and pantheon AI activity).
   apotheosisShowTracker: true,

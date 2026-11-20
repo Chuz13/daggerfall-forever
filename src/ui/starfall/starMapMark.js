@@ -11,3 +11,7 @@
 export const STAR_VIOLET_CSS = '#b9a2ff';
 /** A star held: the beacon turned gold. */
 export const STAR_GOLD_CSS = '#f0c96a';
+/** Search ring ink on the held map and dot colour on the classic map. */
+export const STAR_MAP_INK = Object.freeze({ ring: STAR_VIOLET_CSS, fill: 'rgba(185, 162, 255, 0.14)' });
+export const STAR_HELD_MAP_INK = Object.freeze({ ring: STAR_GOLD_CSS, fill: 'rgba(240, 201, 106, 0.14)' });
+export const STAR_DOT_RGB = Object.freeze([185, 162, 255]);

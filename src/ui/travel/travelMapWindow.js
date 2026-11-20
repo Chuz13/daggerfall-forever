@@ -109,7 +109,8 @@ import {
 import { DOT_SCALE } from './travelPathsOverlay.js';
 import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../../systems/travel/travelOptionsText.js';
 import { readPartyMarks, partyMarksKey, PARTY_DOT_RGB, PARTY_OFFLINE_DOT_RGB } from '../partyMapMarks.js';   // SOC6: the party's marks, the one reading both maps share
-import { readGateMark, gateRingKey, gateRingTexels, GATE_DOT_RGB } from '../gate/gateMapMark.js';   // WB1: the Oblivion Gate's ring, on the open province's page
+import { readGateMark, readGateMarks, gateMarksKey, gateRingKey, gateRingTexels, GATE_DOT_RGB } from '../gate/gateMapMark.js';   // WB1: the Oblivion Gate's ring, on the open province's page
+import { STAR_DOT_RGB } from '../starfall/starMapMark.js';
 import { readBountyMarks, bountyMarksKey, bountyRingTexels, BOUNTY_DOT_RGB, REVENANT_DOT_RGB, REVENANT_LEGEND_TEXT } from '../bounty/bountyMapMark.js';   // BOUNTY1: held bounties' black circles on the region page
 import { LODE_DOT_RGB, LODE_LEGEND_TEXT } from '../lodeMapMark.js';   // MINE-PERKS: a Motherlode Sense's Motherlodes, the same circle in aqua
 import { POI_DOT_RGB, POI_MARKS_MAX, poiLegendText } from '../poi/poiMapMark.js';   // POI-2: the approved POIs, the same circle in violet
@@ -846,6 +847,12 @@ export class TravelMapWindow {
       const gatePx = packRGBA(GATE_DOT_RGB[0], GATE_DOT_RGB[1], GATE_DOT_RGB[2], 255);
       for (const [x, y] of gateRingTexels(gate, originX, originY, width, height)) plot(x, y, gatePx);
     }
+    const starRings = readGateMarks(this.deps.starRings, { x0: 0, y0: 0, w: MAP_WIDTH, h: MAP_HEIGHT });
+    this._starRingsKey = gateMarksKey(starRings);
+    if (starRings.length) {
+      const starPx = packRGBA(STAR_DOT_RGB[0], STAR_DOT_RGB[1], STAR_DOT_RGB[2], 255);
+      for (const sr of starRings) for (const [x, y] of gateRingTexels(sr, originX, originY, width, height)) plot(x, y, starPx);
+    }
     // BOUNTY1: each held bounty's black circle, under the party as the gate's ring is
     const bounties = readBountyMarks(this.deps.bounties, { width: MAP_WIDTH, height: MAP_HEIGHT });
     this._bountiesKey = bountyMarksKey(bounties);
@@ -967,6 +974,7 @@ export class TravelMapWindow {
     if (!this.regionSelected) return false;
     if (partyMarksKey(readPartyMarks(this.deps.party, { width: MAP_WIDTH, height: MAP_HEIGHT })) === this._partyKey
       && gateRingKey(readGateMark(this.deps.gate, { width: MAP_WIDTH, height: MAP_HEIGHT })) === this._gateKey
+      && gateMarksKey(readGateMarks(this.deps.starRings, { x0: 0, y0: 0, w: MAP_WIDTH, h: MAP_HEIGHT })) === (this._starRingsKey ?? '')
       && bountyMarksKey(readBountyMarks(this.deps.bounties, { width: MAP_WIDTH, height: MAP_HEIGHT })) === (this._bountiesKey ?? '')
       && bountyMarksKey(readBountyMarks(this.deps.lodes, { width: MAP_WIDTH, height: MAP_HEIGHT }, LODE_LEGEND_TEXT)) === (this._lodesKey ?? '')   // MINE-PERKS: or a Motherlode Sense's Motherlode rose, went or was spent
       && bountyMarksKey(readBountyMarks(this.deps.pois, { width: MAP_WIDTH, height: MAP_HEIGHT }, poiLegendText(), POI_MARKS_MAX)) === (this._poisKey ?? '')   // POI-2: or a POI was approved, moved or retired
