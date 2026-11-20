@@ -569,7 +569,8 @@ import { createTownScratch, createPersonTextureKeys } from './townScratch.js';  
 import { createDroppedTorches } from './droppedTorches.js';
 import { createCamps } from './camps.js';   // SURV3: the camps this host stands - the tent and the fire
 import { drinkAtSource, DRY_SOURCE_TEXT } from '../systems/survival/items.js';   // SURV3: the mod's water sources under the one ray
-import { survivalOn } from '../systems/survival/switch.js';   // HT1: Handheld Torches' dropped lights, thrown torches and burning foes   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
+import { survivalOn, survivalRules } from '../systems/survival/switch.js';   // HT1: Handheld Torches' dropped lights, thrown torches and burning foes   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
+import { alignInnTravel } from '../systems/survival/needs.js';
 import { createCityGuards } from './cityGuards.js';   // G1
 import { createArrestFlow } from './arrestFlow.js';
 import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, payUndoable, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
@@ -15676,6 +15677,11 @@ export async function bootWorld(canvas, renderer, params, status) {
             regionIndex: regIdx,
             playerLuck,
             nowMinutes: worldMinutes(),
+            tripMinutes: computed.minutes,
+            sleepModeInn: !!opts.sleepModeInn,
+            speedCautious: !!opts.speedCautious,
+            sailing: sailingNow || midOcean,
+            maxInterrupts: survivalRules()?.maxTravelInterrupts ?? 1,
           });
           if (interruption.shouldInterrupt) {
             interruptedEventType = interruption.eventType;
@@ -15688,6 +15694,10 @@ export async function bootWorld(canvas, renderer, params, status) {
               townTalk.say(LIVING_WORDS.travelDilemma());
             } else if (interruption.eventType === TRAVEL_EVENT_TYPE.AMBUSH) {
               townTalk.say(LIVING_WORDS.travelAmbush());
+            } else if (interruption.eventType === TRAVEL_EVENT_TYPE.WILD_BEASTS) {
+              townTalk.say(t('survival.travel.wildBeasts', 'Wild beasts stalk your path!'));
+            } else if (interruption.eventType === TRAVEL_EVENT_TYPE.WEATHER_HAZARD) {
+              townTalk.say(t('survival.travel.weatherHazard', 'Fierce weather blocks the road ahead!'));
             }
           } else if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.witchHunters !== 'off') {
             const tripHours = Math.max(1, (computed?.minutes ?? 60) / 60);
@@ -15770,6 +15780,47 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (interruptedEventType === 'witch_hunter_ambush') {
           const party = generatePurifierParty(getTaintTier(playerEntity) || 'tainted');
           spawnPurifiers(party);
+        } else if (interruptedEventType === TRAVEL_EVENT_TYPE.WILD_BEASTS) {
+          triggerWildernessEncounter('wildlife');
+        } else if (interruptedEventType === TRAVEL_EVENT_TYPE.WEATHER_HAZARD) {
+          const hasCamp = (playerEntity?.items ?? []).some((i) => i?.templateIndex === 530 || i?.templateIndex === 541);
+          townTalk.showOverlay(new ChoiceWindow({
+            lines: [
+              t('survival.travel.weatherChoiceTitle', 'A sudden storm lashes the region.'),
+              hasCamp
+                ? t('survival.travel.weatherHasCamp', 'You have camping gear to shelter safely, or you can push through.')
+                : t('survival.travel.weatherNoCamp', 'You have no shelter. Waiting will chill you; pushing through will soak and tire you.'),
+            ],
+            options: [
+              {
+                code: 'wait',
+                label: t('survival.travel.weatherWait', 'Wait out the storm (4h)'),
+                action: () => {
+                  setSyntheticTimeIncrease(true);
+                  playerTicker.advance(240);
+                  if (!hasCamp && playerEntity?.survival) {
+                    playerEntity.survival.wet = Math.min(300, (playerEntity.survival.wet ?? 0) + 40);
+                  }
+                  townTalk.say(hasCamp
+                    ? t('survival.travel.weatherWaitSafe', 'You wait out the worst of the storm in camp.')
+                    : t('survival.travel.weatherWaitCold', 'You huddle against the storm until it passes.'));
+                },
+              },
+              {
+                code: 'push',
+                label: t('survival.travel.weatherPush', 'Push through the storm'),
+                action: () => {
+                  setSyntheticTimeIncrease(true);
+                  playerTicker.advance(120);
+                  if (playerEntity?.survival) {
+                    playerEntity.survival.wet = Math.min(300, (playerEntity.survival.wet ?? 0) + 120);
+                  }
+                  playerEntity.fatigue = Math.max(0, (playerEntity.fatigue ?? 0) - 640);
+                  townTalk.say(t('survival.travel.weatherPushDone', 'You battle through the gale, soaked and winded.'));
+                },
+              },
+            ],
+          }));
         } else if (interruptedEventType !== 'war_skirmish') {
           const pf = walkMode && playerSpawned ? player.feetAt() : cam.pos;
           const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
@@ -15822,7 +15873,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       // journey on it (the rounds under the synthetic shield, the diseases and the incubations, the needs, the
       // calendar's own arms), exactly as offline. [SUPERSEDES WORLD5's "no jump, no catch-up window" for the
       // character: only the world's half stands still.] The arrival clamp below stays the world's sky's.
-      setSyntheticTimeIncrease(true); playerTicker.advance(computed.minutes);
+      setSyntheticTimeIncrease(true); playerTicker.advance(interruptedEventType ? travelMinutes : computed.minutes);
+      if (opts.sleepModeInn && survivalOn()) alignInnTravel(playerEntity, Math.floor(ownMinutes()));
       if (upkeepWagonWent) upkeep.journey(travelDays(computed.minutes));   // WAGONS4: the road's days on the wagon that went - never to breaking (a journey always arrives)
       // W1 review: DFU fast travel never fires the respawner's direct
       // re-roll - TeleportToCoordinates raises OnInitWorld, whose

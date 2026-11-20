@@ -50,7 +50,7 @@ function releaseLock() {
   } catch { /* a browser that refuses is a browser with no lock to drop */ }
 }
 
-const MODE_LABEL = { loiter: 'Loitering', timed: 'Resting', full: 'Resting Until Healed' };
+const MODE_LABEL = { loiter: 'Loitering', timed: 'Resting', full: 'Resting Until Healed', short: 'Short Rest (2h)' };
 
 /**
  * Builds the enhanced rest overlay. `deps` is RestSession's own hook bag
@@ -136,7 +136,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   // TEXT.RSC 26, and an empty field started an hour's rest where classic returns to the selection page. The refusal
   // is a page of its own whose OK goes back to selection, as classic's does: a retry is a fresh While/Loiter press.
   /** LOITER-ANYWHERE: from the act (its refusal or its channel) to the loiter prompt. */
-  const toLoiter = () => { overlay._loiterOffer = true; deps.camp?.settle?.(); overlay.state = 'hours'; overlay.mode = 'loiter'; overlay._hoursValue = PROMPT_INITIAL; render(); };
+  const toLoiter = () => { overlay._loiterOffer = true; deps.camp?.settle?.(); overlay.state = 'hours'; overlay.mode = 'loiter'; overlay._hoursValue = String(loiterLimitHours()); render(); };
   /** LOITER-ANYWHERE: where a prompt goes BACK to - the selection card offline; online (no selection card: its Rest
    *  buttons would start a rest with no fire or bed) the act's refusal again, Loiter still offered, or out. */
   const home = () => {
@@ -285,7 +285,8 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     const btn = (label, onClick) => { const b = el('button', 'act', label); b.onclick = onClick; acts.append(b); };
     btn('Rest for a While', () => continueRest('while', false));
     btn('Rest Until Healed', () => continueRest('healed', false));
-    btn('Loiter', () => { overlay.state = 'hours'; overlay.mode = 'loiter'; overlay._hoursValue = PROMPT_INITIAL; render(); });
+    btn('Short Rest (2h)', () => startFixed('short', 2));
+    btn('Loiter', () => { overlay.state = 'hours'; overlay.mode = 'loiter'; overlay._hoursValue = String(loiterLimitHours()); render(); });
     btn('Cancel', () => close());
     c.append(acts);
     return c;
@@ -348,7 +349,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     back.onclick = () => home();
     acts.append(start, back);
     c.append(acts);
-    requestAnimationFrame(() => input.focus());
+    requestAnimationFrame(() => { input.focus(); input.select?.(); });
     return c;
   }
 
@@ -428,8 +429,13 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     _restingRefs.fill.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`;
     _restingRefs.vitalsLine.textContent = vit ? `Health ${vit.health}/${vit.maxHealth}  Fatigue ${vit.fatigue}  Magicka ${vit.magicka}` : '';
     if (vit && isEnhancedPlus()) _restingRefs.vitalsLine.replaceChildren(...plusVitals(vit));   // PLUS6: the same three numbers as three readouts under Plus
-    const wm = deps.sharedMinutes?.();   // null offline: no line, DFU's screen
-    _restingRefs.clockLine.textContent = Number.isFinite(wm) ? restClockLine(wm, { loiter: overlay.mode === 'loiter' }) : '';   // AUDIT LIVED1 O
+    const wm = deps.sharedMinutes?.();
+    const nm = deps.nowMinutes?.();
+    _restingRefs.clockLine.textContent = Number.isFinite(wm)
+      ? restClockLine(wm, { loiter: overlay.mode === 'loiter', ownClock: true })
+      : Number.isFinite(nm)
+        ? restClockLine(nm, { loiter: overlay.mode === 'loiter', ownClock: false })
+        : '';
   }
 
   /** PLUS6: the resting line's three numbers, one readout each. */

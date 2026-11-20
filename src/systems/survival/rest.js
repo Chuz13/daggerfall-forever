@@ -56,6 +56,7 @@ export const REST_TEXT_SURVIVAL = Object.freeze({
   sleptPoorly: 'You slept poorly on the bare ground.',
   tooCold: 'It is too cold to sleep here. Find a fire or shelter.',
   tooHot: 'It is too hot to sleep here.',
+  noWildSleep: 'You cannot sleep in the wilderness without a tent or campfire.',
 });
 
 /** The kind of the rest about to start: a bed, a house or a ship sleep; a lit fire near sleeps; the rest is rough. */
@@ -95,14 +96,22 @@ export function restHour(entity, kind, tick, carry = { health: 0, fatigue: 0, ma
   const c = restCost(kind, rules);
   const h0 = entity.health ?? 0, f0 = entity.fatigue ?? 0, m0 = entity.magicka ?? 0;
   const healed = !!tick();
-  if (c.recovery >= 1) return healed;
+  const r = rules ?? HARD_RULES;
+  const heartyHp = r.boons && (r.heartyRestHp ?? 0) > 0 && Number.isFinite(entity?.survival?.mealUntil)
+    && entity.survival.mealUntil > (entity.survival.lastMinute ?? 0)
+    ? r.heartyRestHp
+    : 0;
+  if (c.recovery >= 1) {
+    if (heartyHp > 0 && (entity.maxHealth ?? 0) > 0) entity.health = Math.min(entity.maxHealth, (entity.health ?? 0) + heartyHp);
+    return healed;
+  }
   const h1 = entity.health ?? 0, f1 = entity.fatigue ?? 0, m1 = entity.magicka ?? 0;
   const rawH = (h1 - h0) * c.recovery + carry.health;
   const rawF = (f1 - f0) * c.recovery + carry.fatigue;
   const rawM = (m1 - m0) * c.recovery + carry.magicka;
   const gainH = Math.trunc(rawH), gainF = Math.trunc(rawF), gainM = Math.trunc(rawM);
   carry.health = rawH - gainH; carry.fatigue = rawF - gainF; carry.magicka = rawM - gainM;
-  entity.health = h0 + gainH;
+  entity.health = Math.min(entity.maxHealth ?? Infinity, h0 + gainH + heartyHp);
   entity.fatigue = f0 + gainF;
   entity.magicka = m0 + gainM;
   return healed && entity.health === h1 && entity.fatigue === f1 && entity.magicka === m1;
@@ -119,22 +128,27 @@ export function stiffen(entity, now, kind = REST_KIND.Rough, rules = HARD_RULES)
 }
 export const isStiff = (s, now) => Number.isFinite(s?.stiffUntil) && now < s.stiffUntil;
 
-/** The prevent-rest gate: too cold without a fire or a roof, too hot anywhere. Null when the sleep may start. */
-export function restBlock({ tempWord = 'comfortable', byFire = false, insideBuilding = false } = {}) {
+/** The prevent-rest gate: too cold without a fire or a roof, too hot anywhere, or wilderness sleep without camp when toggled. Null when the sleep may start. */
+export function restBlock({
+  tempWord = 'comfortable',
+  byFire = false,
+  insideBuilding = false,
+  insideDungeon = false,
+  inTown = false,
+  bed = false,
+  houseOwned = false,
+  ship = false,
+  noWildSleep = false,
+} = {}) {
   if ((tempWord === 'freezing' || tempWord === 'deadly cold') && !byFire && !insideBuilding) return REST_TEXT_SURVIVAL.tooCold;
   if (tempWord === 'scorching') return REST_TEXT_SURVIVAL.tooHot;
+  if (noWildSleep && !insideBuilding && !insideDungeon && !inTown && !byFire && !bed && !houseOwned && !ship) {
+    return REST_TEXT_SURVIVAL.noWildSleep;
+  }
   return null;
 }
-/**
- * RegisterPreventRestCondition's pair for the gate: the handler reads
- * the host's env each poll and the message is the FIRST block's word
- * - DFU's seam takes one message per handler, so the cold and the
- * heat are two handlers. `register(handler, message)` is
- * restSession.js's own.
- */
+
 export function installSurvivalRestGate(readEnv, register, { enabled = () => true } = {}) {
-  // AUDIT SURV B/C: a reader that answers null is a host that does not own the mode (the world's under a dungeon,
-  // the interior's outdoors) - it says nothing, so the seam's first true answer is always the live host's
   const block = () => {
     const e = readEnv?.();
     if (!e || !enabled()) return null;
@@ -142,7 +156,9 @@ export function installSurvivalRestGate(readEnv, register, { enabled = () => tru
   };
   const cold = () => block() === REST_TEXT_SURVIVAL.tooCold;
   const hot = () => block() === REST_TEXT_SURVIVAL.tooHot;
+  const wild = () => block() === REST_TEXT_SURVIVAL.noWildSleep;
   register(cold, REST_TEXT_SURVIVAL.tooCold);
   register(hot, REST_TEXT_SURVIVAL.tooHot);
-  return [cold, hot];
+  register(wild, REST_TEXT_SURVIVAL.noWildSleep);
+  return [cold, hot, wild];
 }

@@ -558,6 +558,8 @@ export function feltTemperature(env = {}, worn = null, ctx = {}) {
     heatLess = Math.max(0, Number(ctx.heatDegrees) || 0);
   if (felt < 0) felt = Math.min(felt + coldLess, 0);
   else if (felt > 0) felt = Math.max(felt - heatLess, 0);
+  const drinkWarm = Math.max(0, Number(ctx.drinkWarmth) || 0);
+  if (felt < 0 && drinkWarm > 0) felt = Math.min(felt + drinkWarm, 0);
   if (ctx.lich) felt = 0;
   return {
     natural,

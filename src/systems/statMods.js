@@ -200,7 +200,8 @@ export const FATIGUE_MULTIPLIER = 64;
 export function maxFatigue(entity) {
   const apo = entity?.apotheosis;
   const godBonus = (apo && (apo.ascended === true || apo.stage === 'ascended')) ? 500 * FATIGUE_MULTIPLIER : 0;
-  return (liveStat(entity, 'strength') + liveStat(entity, 'endurance')) * FATIGUE_MULTIPLIER + godBonus;
+  const hearty = entity?.survival?._heartyBonus > 0 ? entity.survival._heartyBonus : 0;
+  return Math.trunc((liveStat(entity, 'strength') + liveStat(entity, 'endurance')) * FATIGUE_MULTIPLIER * (1 + hearty)) + godBonus;
 }
 /** DaggerfallEntity.SetFatigue's clamp, the one every fatigue write takes: [0, MaxFatigue]. AUDIT C&C N5: the hosts'
  *  drains clamped at nought alone, so a pool a lapsed boon or a Fortify's end had left over its new ceiling (8,320 in

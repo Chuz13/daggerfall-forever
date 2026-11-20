@@ -108,7 +108,7 @@ test('SURV5: the strip and the page - one chip a felt need, nothing while every 
   assert.deepEqual(survivalHudChips(e, 800).map((c) => `${c.key}:${c.text}:${c.level}`),
     ['hunger:Hungry:warn', 'thirst:Parched:danger', 'sleep:Tired:warn', 'wet:Wet:warn', 'temp:Freezing:danger', 'stiff:Stiff:warn', 'drunk:Very drunk:danger']);
   assert.equal(HUD_NEED_WORDS.hunger.starving, 'Starving');   // PIN MOVED (AUDIT C&C S5): the table is words; the level is the tier's (needLevel)
-  assert.equal(needLevel('hunger', 'starving'), 'warn', 'Starving costs nothing in the default tier - Boons since BOONS-DEFAULT');   // PIN MOVED
+  assert.equal(needLevel('hunger', 'starving'), 'danger', 'Starving costs in the default tier (Veteran)');   // PIN MOVED
   assert.equal(needLevel('hunger', 'starving', { rules: SURVIVAL_RULES.casual }), 'danger', 'and costs in Casual');
   assert.deepEqual(survivalStatusLines(e, 800, { endurance: 50 }), [
     STATUS_TEXT.hunger.hungry, STATUS_TEXT.thirst.parched, STATUS_TEXT.sleep.tired, STATUS_TEXT.wet.wet, 'You feel freezing.',

@@ -20,6 +20,8 @@ import {
   warmedByFire,
   wakingHeld,
   heartyMealLeft,
+  activeDrinkBuff,
+  DRINK_CATEGORIES,
 } from './needs.js'; // HEARTY-MEAL: the tavern meal's hold
 import { t } from '../textManager.js'; // L10N4: the Well Fed tile's word in the player's language
 import { STAT_KEYS_ORDER } from '../statMods.js'; // AUDIT SURV-BOONS C11: the attributes, named as the sheet names them
@@ -200,6 +202,12 @@ export function survivalHudChips(entity, now, { vampire = false, endurance = 50,
   if (tier.boons) {
     if (drunk) out.push(drunk);
     if (mealChip) out.push(mealChip);
+    const db = activeDrinkBuff(s, now);
+    if (db) {
+      const cat = DRINK_CATEGORIES[db.cat];
+      const left = db.until != null ? Math.max(1, Math.ceil((db.until - now) / 60)) : Math.ceil((db.duration ?? 180) / 60);
+      out.push({ key: 'boon:drink', text: cat?.label ?? 'Refreshed', level: 'boon', glyph: 'thirst', foot: `${left}h` });
+    }
     for (const id of Array.isArray(s.boons) ? s.boons : []) {
       const w = HUD_BOON_WORDS[id];
       if (!w || (mealChip && id === 'fed')) continue;

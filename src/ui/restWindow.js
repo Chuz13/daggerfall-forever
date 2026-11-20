@@ -169,9 +169,10 @@ export const restArtLoaded = () => !!_art;
 /** LOITER-ANYWHERE: what an act's refusal adds - Loiter in its place (3, or the RestLoiter binding). */
 export const LOITER_OFFER_LINE = '3 - Loiter instead';
 
-export function restClockLine(worldMinutes, { loiter = false } = {}) {
+export function restClockLine(worldMinutes, { loiter = false, ownClock = true } = {}) {
   const d = dateFromClassicMinutes(worldMinutes);
   const two = (n) => String(n).padStart(2, '0');
+  if (!ownClock) return `Current time ${two(d.hour)}:${two(d.minute)}`;
   return `World time ${two(d.hour)}:${two(d.minute)} - you ${loiter ? 'wait' : 'rest'} on your own clock`;   // AUDIT LIVED1 S (U8): a loiter waits
 }
 
@@ -637,7 +638,8 @@ export class RestWindow {
       // Loiter :695, Stop :711
       if (action === 'char:1' || hot('RestForAWhile')) { audio.playOneShot(SOUND.ButtonClick, 1); this._restButton('while', false); }
       else if (action === 'char:2' || hot('RestUntilHealed')) { audio.playOneShot(SOUND.ButtonClick, 1); this._restButton('healed', false); }
-      else if (action === 'char:3' || hot('RestLoiter')) { audio.playOneShot(SOUND.ButtonClick, 1); this.state = 'hours'; this.mode = 'loiter'; this.value = PROMPT_INITIAL; this.notice = null; }
+      else if (action === 'char:3' || hot('RestLoiter')) { audio.playOneShot(SOUND.ButtonClick, 1); this.state = 'hours'; this.mode = 'loiter'; this.value = String(loiterLimitHours()); this._prefilled = true; this.notice = null; }
+      else if (action === 'char:4') { audio.playOneShot(SOUND.ButtonClick, 1); this._start('short', 2); }
       return;
     }
     // hours entry: digits, backspace, confirm
@@ -686,7 +688,10 @@ export class RestWindow {
       return;
     }
     const m = /^char:(\d)$/.exec(action);
-    if (m && this.value.length < PROMPT_MAX_CHARS) this.value += m[1];
+    if (m && this.value.length < PROMPT_MAX_CHARS) {
+      if (this._prefilled) { this.value = m[1]; this._prefilled = false; }
+      else this.value += m[1];
+    }
   }
 
   /** `uiManager.TopWindow != this` (TickRest :364/:399) asked from the
@@ -701,7 +706,7 @@ export class RestWindow {
   _loiter() {
     this._loiterOffer = true;
     this.deps.camp?.settle?.();   // CAMP-ROLL: a loiter is no night - the camp's roll is no longer mine to make
-    this.state = 'hours'; this.mode = 'loiter'; this.value = PROMPT_INITIAL; this.notice = null;
+    this.state = 'hours'; this.mode = 'loiter'; this.value = String(loiterLimitHours()); this._prefilled = true; this.notice = null;
   }
 
   /** Where a prompt goes BACK to: classic's selection page offline; online (REST1's act - there is no selection page
@@ -873,6 +878,10 @@ export class RestWindow {
     // character's own clock - and the window's line is its one reader.)
     const shared = this.deps.sharedMinutes?.();
     if (Number.isFinite(shared)) st.worldMinutes = shared;
+    else {
+      const nowM = this.deps.nowMinutes?.();
+      if (Number.isFinite(nowM)) st.currentMinutes = nowM;
+    }
     return st;
   }
 
@@ -881,10 +890,11 @@ export class RestWindow {
     const v = this.deps.vitals?.() ?? null;
     const st = this.status();
     const lines = [
-      this.mode === 'loiter' ? 'Loitering...' : 'Resting...',
+      this.mode === 'loiter' ? 'Loitering...' : this.mode === 'short' ? 'Short Rest...' : 'Resting...',
       `${st.texture === 'hoursPast' ? 'Hours passed' : 'Hours remaining'}: ${st.hours}`,
     ];
-    if (Number.isFinite(st.worldMinutes)) lines.push(restClockLine(st.worldMinutes, { loiter: this.mode === 'loiter' }));
+    if (Number.isFinite(st.worldMinutes)) lines.push(restClockLine(st.worldMinutes, { loiter: this.mode === 'loiter', ownClock: true }));
+    else if (Number.isFinite(st.currentMinutes)) lines.push(restClockLine(st.currentMinutes, { loiter: this.mode === 'loiter', ownClock: false }));
     if (v) lines.push(`Health ${v.health}/${v.maxHealth}  Fatigue ${v.fatigue}  Magicka ${v.magicka}`);
     lines.push('', 'Esc - stop');
     return lines;
@@ -940,7 +950,9 @@ export class RestWindow {
     }
     // OL2: the world's clock, under the vitals, while the shared clock stands (RESTX2: the pace half is gone)
     if (Number.isFinite(st.worldMinutes)) {
-      shadowText(renderer, font, restClockLine(st.worldMinutes, { loiter: this.mode === 'loiter' }), m, 0, REST_PANEL_Y + REST_COUNTER_RECT[3] + 18, { align: 'center', w: NATIVE_W });
+      shadowText(renderer, font, restClockLine(st.worldMinutes, { loiter: this.mode === 'loiter', ownClock: true }), m, 0, REST_PANEL_Y + REST_COUNTER_RECT[3] + 18, { align: 'center', w: NATIVE_W });
+    } else if (Number.isFinite(st.currentMinutes)) {
+      shadowText(renderer, font, restClockLine(st.currentMinutes, { loiter: this.mode === 'loiter', ownClock: false }), m, 0, REST_PANEL_Y + REST_COUNTER_RECT[3] + 18, { align: 'center', w: NATIVE_W });
     }
     return true;
   }

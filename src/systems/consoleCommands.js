@@ -228,6 +228,9 @@ import { starglass, isStarglass } from './starfall/starglass.js';
 import { createPellets, PELLET_TEMPLATE } from './thunderlock.js';
 import { breachBookFor, BREACH_BOOK_TEXT } from './breachBook.js';
 import { DUNGEON_TYPES } from '../formats/mapsFile.js';
+import { SURVIVAL_STORED, SURVIVAL_TIER_IDS } from './survival/difficulty.js';
+import { SURVIVAL_PREF, SURVIVAL_NO_WILD_SLEEP_PREF, survivalTier, noWildRoughRestOn } from './survival/switch.js';
+import { survivalOf, heartyMeal, DRINK_CATEGORIES, DRINK_BUFF_MINUTES, activeDrinkBuff } from './survival/needs.js';
 import { rollOfflinePreApotheosisSpoils, mintOfflineGun, noteRelicFind } from './offlineRelicLoot.js';
 
 let _sceneContext = null;
@@ -4095,6 +4098,61 @@ export function executeConsoleLine(input) {
   consoleInputHistory.addNewInputEntry(input);
   return answer;
 }
+
+registerCommand(
+  'survival',
+  'Inspect or test Climates & Calories tiers, needs, and buffs',
+  'survival <status | tier <id> | wildsleep <on|off> | need <hunger|thirst|sleep|wet|drunk> <val> | drink <cat> | hearty>',
+  (args) => {
+    const sub = String(args?.[0] ?? 'status').toLowerCase();
+    const now = Math.floor(worldMinutes());
+    const s = survivalOf(playerEntity, now);
+    if (sub === 'status') {
+      const db = activeDrinkBuff(s, now);
+      return [
+        `Tier: ${survivalTier()} | NoWildSleep: ${noWildRoughRestOn()}`,
+        `HungerMin: ${Math.max(0, now - (s.lastAte ?? now))} | Thirst: ${Math.round(s.thirst ?? 0)} | SleepDebt: ${(s.sleepDebt ?? 0).toFixed(2)}h | Wet: ${Math.round(s.wet ?? 0)} | Drunk: ${s.drunk ?? 0}`,
+        `HeartyLeft: ${Math.max(0, (s.mealUntil ?? 0) - now)}m (_heartyBonus=${s._heartyBonus ?? 0}) | DrinkBuff: ${db ? `${db.cat} (${Math.max(0, (db.until ?? now) - now)}m)` : 'none'}`,
+        `Boons: ${(s.boons ?? []).join(', ') || 'none'} | Felt: ${s.felt ?? 'n/a'}`,
+      ].join('\n');
+    }
+    if (sub === 'tier') {
+      const id = String(args?.[1] ?? '').toLowerCase();
+      if (!SURVIVAL_TIER_IDS.includes(id)) return `Valid tiers: ${SURVIVAL_TIER_IDS.join(', ')}`;
+      setPref(SURVIVAL_PREF, SURVIVAL_STORED[id]);
+      return `Survival tier set to ${id}.`;
+    }
+    if (sub === 'wildsleep') {
+      const v = String(args?.[1] ?? '').toLowerCase();
+      if (v !== 'on' && v !== 'off') return 'Usage: survival wildsleep <on|off>';
+      setPref(SURVIVAL_NO_WILD_SLEEP_PREF, v === 'on');
+      return `No wilderness sleep without camp: ${v}.`;
+    }
+    if (sub === 'need') {
+      const which = String(args?.[1] ?? '').toLowerCase();
+      const val = Number(args?.[2]);
+      if (!Number.isFinite(val)) return 'Usage: survival need <hunger|thirst|sleep|wet|drunk> <val>';
+      if (which === 'hunger') s.lastAte = now - Math.max(0, val);
+      else if (which === 'thirst') s.thirst = Math.max(0, val);
+      else if (which === 'sleep') s.sleepDebt = Math.max(0, val);
+      else if (which === 'wet') s.wet = Math.max(0, val);
+      else if (which === 'drunk') s.drunk = Math.max(0, val);
+      else return 'Usage: survival need <hunger|thirst|sleep|wet|drunk> <val>';
+      return `Set ${which} = ${val}.`;
+    }
+    if (sub === 'drink') {
+      const cat = String(args?.[1] ?? '').toLowerCase();
+      if (!DRINK_CATEGORIES[cat]) return `Valid categories: ${Object.keys(DRINK_CATEGORIES).join(', ')}`;
+      s.drinkBuff = { cat, until: now + DRINK_BUFF_MINUTES, duration: DRINK_BUFF_MINUTES, tempBonus: DRINK_CATEGORIES[cat].tempBonus };
+      return `Applied drink category buff: ${cat} (${DRINK_BUFF_MINUTES}m).`;
+    }
+    if (sub === 'hearty') {
+      heartyMeal(s, now);
+      return 'Applied Hearty Meal (6h Well Fed).';
+    }
+    return 'Usage: survival <status | tier <id> | wildsleep <on|off> | need <hunger|thirst|sleep|wet|drunk> <val> | drink <cat> | hearty>';
+  },
+);
 
 /** THE PORT'S DOOR (the departure above). ConsoleUI.ToggleConsole
  *  refuses to open at all when `LypyL_GameConsole` is off (:51-53), so

@@ -2752,8 +2752,13 @@ export function createRestDeps(entity, opts = {}) {
       const healed = restHour(entity, _kind, () => restVitals(entity, { day: day(), inside: inside() }), _roughCarry, _rules);   // SURV-TIERS: the tier's rough price
       return healed;
     },
+    tickShortVitals: () => {
+      entity.fatigue = Math.min(maxFatigue(entity), (entity.fatigue ?? 0) + fatigueRecoveryRate(maxFatigue(entity)));
+      entity.magicka = Math.min(entity.maxMagicka ?? Infinity, (entity.magicka ?? 0) + spellPointRecoveryRate(entity));
+    },
     fullyHealed: () => restFullyHealed(entity),
     sharedMinutes: () => (sharedClockOn() ? skyMinutes() : null),   // OL2: the window's world-clock line online (TIME3: the session's quest gate, RESTX2's, is gone) - LIVED1: the rest's own hours are the character's; TIME1: the world time it says is the sky's
+    nowMinutes: () => worldMinutes(),
     dead: () => entity.health <= 0,
     vitals: () => ({
       health: entity.health, maxHealth: entity.maxHealth,

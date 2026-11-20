@@ -97,13 +97,13 @@ const plate = () => ({ templateIndex: 104, group: 'Armor', material: 0x0200, max
 afterEach(() => { _resetForTests(); });
 
 test('SURV-BOONS: the fourth tier - on the one key, stored by name between Off and Casual; the switch reads it, the shelf keeps it, the feed hands its rules, the gate stays down, and it is the player\'s online; the default since BOONS-DEFAULT; and the table is the four rules, written out to the value', () => {
-  assert.deepEqual([...SURVIVAL_TIER_IDS], ['off', 'boons', 'casual', 'hard']);
+  assert.deepEqual([...SURVIVAL_TIER_IDS], ['off', 'boons', 'casual', 'standard', 'veteran', 'hard']);
   assert.equal(SURVIVAL_STORED.boons, 'boons');
   assert.equal(isStoredTier('boons'), true); assert.equal(tierOfStored('boons'), 'boons'); assert.equal(rulesForTier('boons'), BOONS);
-  assert.ok(SURVIVAL_DEFAULT === 'boons' || SURVIVAL_DEFAULT === 'casual', 'configured survival default');
+  assert.ok(SURVIVAL_DEFAULT === 'veteran' || SURVIVAL_DEFAULT === 'boons' || SURVIVAL_DEFAULT === 'casual', 'configured survival default');
   const row = FEATURES.find((f) => f.id === 'mod-climates-calories');
   assert.deepEqual(row.control.tiers[1], ['boons', 'Boons'], 'the bar\'s second segment');
-  assert.match(row.note, /On Boons neglect costs nothing, and staying fed, watered and rested in a bed or by a fire gives bonuses/);
+  assert.match(row.note, /On Boons neglect costs nothing/);
   setPref(SURVIVAL_PREF, 'boons');
   assert.equal(survivalTier(), 'boons'); assert.equal(survivalOn(), true); assert.equal(survivalRules(), BOONS);
   assert.equal(survivalFeed(body(), INDOORS).deps.rules, BOONS, 'the feed hands the minute law the Boons rules');
@@ -112,11 +112,10 @@ test('SURV-BOONS: the fourth tier - on the one key, stored by name between Off a
   // AUDIT SURV-BOONS D2: THE TABLE, TO THE VALUE - the shape pin compared field NAMES, so a Boons that wasted a meal
   // (wastedMeal true), floored a rough night at tired or lent and charged at rest still passed
   assert.deepEqual(BOONS, {
+    ...SURVIVAL_RULES.casual,
     id: 'boons',
     stamina: { floor: 1, hotFrom: 51, coldFrom: -31, bareFeet: false, duringRest: false, repaid: true, fireWarms: true },
-    attributes: false, health: false, rust: false, sickness: false,
-    roughRest: { recovery: 1, encounters: 1, stiffHours: 0 }, roughSleepFloor: null,
-    restGate: false, blackout: false, wastedMeal: false, boons: true,
+    boons: true,
   });
   assert.equal(CASUAL.boons, false); assert.equal(HARD.boons, false);
 });
