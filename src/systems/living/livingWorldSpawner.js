@@ -835,7 +835,7 @@ function buildSkirmishThemeProps(theme, eventId, planProps, centerX, centerZ, y0
   if (eventId === 'EVT_PLAGUE_RAT_SWARM') {
     return {
       meshes: [m(LIVING_MODELS.CRATES, pt(-0.6, 0.6), 20)],
-      flats: [f(LIVING_FLATS.CAMPFIRE, 0.7, -0.5), f(LIVING_FLATS.REMAINS_BODY, -1.6, -0.4), f(LIVING_FLATS.REMAINS_BONES, 0.4, 1.3)],
+      flats: [f(LIVING_FLATS.CAMPFIRE, 1.4, -1.0), f(LIVING_FLATS.REMAINS_BODY, -1.6, -0.4), f(LIVING_FLATS.REMAINS_BONES, 0.4, 1.3)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.PRISONER_CAGE) {
