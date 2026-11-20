@@ -517,9 +517,27 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
       foeRecord,
       rng: () => 0.1,
     });
-    // Option 2: Appeal to Etiquette -> becomes PlayerAlly in the dungeon
+    // Option 2: Propose peaceful parley -> settles peace WITHOUT free PlayerAlly recruitment
     delverSpec.options[1].action();
-    assert.equal(foeRecord.entity.team, 'PlayerAlly', 'convinced dungeon rival should join PlayerAlly team');
+    assert.notEqual(foeRecord.entity.team, 'PlayerAlly', 'Etiquette no longer recruits dungeon rival for free');
+    assert.equal(foeRecord.ai.isHostile, false);
+    // Option 5: Paid hire joins PlayerAlly when player can afford the daily fee
+    assert.equal(delverSpec.options.length, 5, 'non-cutthroat dungeon rival offers paid hire as option 5');
+    const paidHirePlayer = { ...player, goldPieces: 5000, items: [] };
+    const paidSpec = buildDungeonAdventurerChoiceSpec({
+      adv: activeHit.adv,
+      intercepted: null,
+      locationId: 8004,
+      regionIndex: 17,
+      playerEntity: paidHirePlayer,
+      foeRecord,
+      nowMinutes: 600,
+      rng: () => 0.1,
+    });
+    paidSpec.options[4].action();
+    assert.equal(foeRecord.entity.team, 'PlayerAlly', 'paid dungeon hire joins PlayerAlly team');
+    assert.equal(foeRecord.livingRole, 'recruited_companion');
+    dismissAdventurerCompanion();
 
     // 4. In-Dungeon Intercepted Quest Rival -> Buyout reclaims quest trophy into player.items!
     const reg = getAdventurerSimRegistry();
@@ -583,7 +601,8 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
       maxHealth: 100,
       fatigue: 30,
       maxFatigue: 100,
-      goldPieces: 500,
+      goldPieces: 5000,
+      items: [],
       skills: { Etiquette: 75, Streetwise: 80 },
       stats: { Personality: 70, Luck: 65, Strength: 65, Agility: 65 },
       regionalReputations: { 17: 0 },
@@ -679,10 +698,15 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     host.frame(1.1);
     assert.ok(choiceSpec, 'Approaching wandering adventurer opens 5-option ChoiceWindow');
     assert.equal(choiceSpec.options.length, 5);
-    // Option 2: Recruit ally
-    choiceSpec.options[1].action();
+    // Option 2: Opens 1/3/7d hire submenu -> selecting Option 1 hires companion
+    const mainSpec = choiceSpec;
+    choiceSpec = null;
+    mainSpec.options[1].action();
+    assert.ok(choiceSpec && choiceSpec.options.length === 4, 'Hire opens 1/3/7d/Cancel submenu');
+    choiceSpec.options[0].action();
     const stoodAdv = spawnedFoes.find((f) => f.livingRole === 'recruited_companion' || f.livingRole === 'wandering_adventurer');
     assert.equal(stoodAdv.entity.team, 'PlayerAlly', 'recruited road adventurer joins PlayerAlly');
+    assert.equal(stoodAdv.livingRole, 'recruited_companion');
 
     // 4. Stealth-detected BANDIT_CAMP ambush ChoiceWindow
     choiceSpec = null;

@@ -9479,9 +9479,124 @@
     "tr": "9f150298ccd3",
     "by": "claude-in-session"
   },
+  "broker.coven.aethericSub": {
+    "en": "56c9e5a1903f",
+    "tr": "9f6441a42e55",
+    "by": "claude-in-session"
+  },
+  "broker.coven.buyBtn": {
+    "en": "7ceca51fcafe",
+    "tr": "f8aad3ba6fc8",
+    "by": "claude-in-session"
+  },
+  "broker.coven.confirmBtn": {
+    "en": "04a212215ef9",
+    "tr": "81b4b67ff827",
+    "by": "claude-in-session"
+  },
+  "broker.coven.confirmPrompt": {
+    "en": "8ae8eeb38068",
+    "tr": "51a9e64e6b33",
+    "by": "claude-in-session"
+  },
+  "broker.coven.emberPellets": {
+    "en": "e7b61e0abfe0",
+    "tr": "d66931a2647d",
+    "by": "claude-in-session"
+  },
+  "broker.coven.emberPelletsSub": {
+    "en": "7b3106c49e6d",
+    "tr": "bb2911d5dd8d",
+    "by": "claude-in-session"
+  },
+  "broker.coven.glassEmbers": {
+    "en": "00a872167a3f",
+    "tr": "8dfefeb39139",
+    "by": "claude-in-session"
+  },
+  "broker.coven.glassEmbersSub": {
+    "en": "c686d054d713",
+    "tr": "be0276d3b3db",
+    "by": "claude-in-session"
+  },
+  "broker.coven.glassPrice": {
+    "en": "2cd56448e33e",
+    "tr": "fd17afd0b611",
+    "by": "claude-in-session"
+  },
+  "broker.coven.glassWitch": {
+    "en": "c8249965c177",
+    "tr": "7853ea80c64d",
+    "by": "claude-in-session"
+  },
+  "broker.coven.glassWitchSub": {
+    "en": "23388be55434",
+    "tr": "93868ea9ec70",
+    "by": "claude-in-session"
+  },
+  "broker.coven.gotEmbers": {
+    "en": "80d79bbec0ca",
+    "tr": "e8ac689a2a3c",
+    "by": "claude-in-session"
+  },
+  "broker.coven.gotPellets": {
+    "en": "039cbf1a95d0",
+    "tr": "cb0939644d7e",
+    "by": "claude-in-session"
+  },
+  "broker.coven.gotWitchPiece": {
+    "en": "0f49ced8f0a8",
+    "tr": "486ad03cd148",
+    "by": "claude-in-session"
+  },
+  "broker.coven.head": {
+    "en": "cd3f72d4784e",
+    "tr": "43cae8778614",
+    "by": "claude-in-session"
+  },
+  "broker.coven.sub": {
+    "en": "a0afaac953d0",
+    "tr": "b87d1dfc0ac5",
+    "by": "claude-in-session"
+  },
+  "broker.coven.tradeBtn": {
+    "en": "b0811e470d6b",
+    "tr": "82d4e43df65d",
+    "by": "claude-in-session"
+  },
+  "broker.coven.tradedAetheric": {
+    "en": "b491198a6626",
+    "tr": "e534809d6a93",
+    "by": "claude-in-session"
+  },
+  "broker.needMore": {
+    "en": "2ac92bb92097",
+    "tr": "4b538b12f523",
+    "by": "claude-in-session"
+  },
+  "broker.npc.name": {
+    "en": "aa440653bcfd",
+    "tr": "48f4639c81b3",
+    "by": "claude-in-session"
+  },
   "broker.owed": {
     "en": "d66d34978dca",
     "tr": "1c95bdb8ab09",
+    "by": "claude-in-session"
+  },
+  "broker.panoply.boughtToday": {
+    "en": "912ef3c18e3b",
+    "tr": "ffcb76307261",
+    "by": "claude-in-session"
+  },
+  "broker.panoply.offlineCard": {
+    "en": "ede53f30a05e",
+    "tr": "615894b8f84b",
+    "by": "claude-in-session"
+  },
+  "broker.panoply.offlineSub": {
+    "en": "8b787b3e7a2a",
+    "tr": "ed26cc1d7ef6",
     "by": "claude-in-session"
   },
   "cabin.refusal.enemies": {
@@ -13409,6 +13524,91 @@
     "tr": "12f6ab24432b",
     "by": "claude-in-session"
   },
+  "codex.gilded.the-dragonfire-oath": {
+    "en": "d250c512f882",
+    "tr": "4f5c6fdbd819",
+    "by": "claude-in-session"
+  },
+  "codex.gilded.the-hourlock": {
+    "en": "7a5339d7e38d",
+    "tr": "1378e5277576",
+    "by": "claude-in-session"
+  },
+  "codex.gilded.the-ketchmasters-word": {
+    "en": "25575faa59ce",
+    "tr": "0f00d04ddac1",
+    "by": "claude-in-session"
+  },
+  "codex.gilded.the-sunken-sovereign": {
+    "en": "419d382f763c",
+    "tr": "bff35d02475c",
+    "by": "claude-in-session"
+  },
+  "codex.gilded.volendrungs-echo": {
+    "en": "f3c3ba6f4939",
+    "tr": "c10161a8e47d",
+    "by": "claude-in-session"
+  },
+  "codex.legendary.lastLockOffline": {
+    "en": "023fcf689b51",
+    "tr": "51ff05e114f2",
+    "by": "claude-in-session"
+  },
+  "codex.legendary.resonantMaulOffline": {
+    "en": "f3c3ba6f4939",
+    "tr": "5c7d01e9b0a1",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.coilscale": {
+    "en": "601556c57d18",
+    "tr": "b798570d853d",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.eltheric": {
+    "en": "68d5d74a0756",
+    "tr": "022bfd498b17",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.numidium": {
+    "en": "20784b685952",
+    "tr": "43ffe3f9772b",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.oath": {
+    "en": "8f6d1180d358",
+    "tr": "4916d532c93c",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.orcsbane": {
+    "en": "3f32caf03f9f",
+    "tr": "d24a84df283e",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.panoply": {
+    "en": "6be3df410b7b",
+    "tr": "6ae48bc2819e",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.ruhn": {
+    "en": "b6ab2b3ef1df",
+    "tr": "a39cac5ee42f",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.starspun": {
+    "en": "53f16240bdbf",
+    "tr": "07ac46132de0",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.thieftaker": {
+    "en": "5bd36e98c59b",
+    "tr": "8e03c20f59d8",
+    "by": "claude-in-session"
+  },
+  "codex.setHint.wyrd": {
+    "en": "53f16240bdbf",
+    "tr": "07ac46132de0",
+    "by": "claude-in-session"
+  },
   "coll.acct.busy": {
     "en": "814382fe816b",
     "tr": "be1a14a42fa2",
@@ -14523,6 +14723,16 @@
     "en": "da81415276c9",
     "tr": "4bdd5b38779e",
     "by": "human"
+  },
+  "coven.sigilBroker": {
+    "en": "aa440653bcfd",
+    "tr": "48f4639c81b3",
+    "by": "claude-in-session"
+  },
+  "coven.sigilBrokerClassic": {
+    "en": "b21672ea51a4",
+    "tr": "f0ff9863d0bc",
+    "by": "claude-in-session"
   },
   "credits.ambientText.terms": {
     "en": "9a9906c28b67",
@@ -18304,15 +18514,30 @@
     "tr": "36dc8fb06f6d",
     "by": "claude-in-session"
   },
+  "features.mod.climatesCalories.noWildSleep": {
+    "en": "76eb686e46f0",
+    "tr": "efc8b3863798",
+    "by": "cc-intermediate-tiers"
+  },
   "features.mod.climatesCalories.note": {
     "en": "1758b7b21262",
     "tr": "1758b7b21262",
+    "by": "cc-intermediate-tiers"
+  },
+  "features.mod.climatesCalories.standard": {
+    "en": "ef6691545d2c",
+    "tr": "51db4780cd4e",
     "by": "cc-intermediate-tiers"
   },
   "features.mod.climatesCalories.tempHud": {
     "en": "d29177d0448a",
     "tr": "0527b564e278",
     "by": "claude-in-session"
+  },
+  "features.mod.climatesCalories.veteran": {
+    "en": "abcf0f136c1e",
+    "tr": "900b605b9aad",
+    "by": "cc-intermediate-tiers"
   },
   "features.mod.diverseWeapons.effect": {
     "en": "ed8af2774307",
@@ -25540,14 +25765,19 @@
     "by": "human"
   },
   "living.adventurer.optEtiquette": {
-    "en": "650442a2eb5b",
-    "tr": "bdcd66c34b26",
-    "by": "human"
+    "en": "5b24f9894037",
+    "tr": "0793954e705f",
+    "by": "claude-in-session"
   },
   "living.adventurer.optIntimidate": {
     "en": "c1fa9a77c095",
     "tr": "1ed5013df819",
     "by": "human"
+  },
+  "living.adventurer.peaceParted": {
+    "en": "44903a9bfadd",
+    "tr": "8452d5ba7374",
+    "by": "claude-in-session"
   },
   "living.adventurer.questIntercepted": {
     "en": "2df59725ffcb",
@@ -27194,10 +27424,45 @@
     "tr": "646874f7a9f1",
     "by": "claude-in-session"
   },
+  "living.roadAdv.compDismiss": {
+    "en": "f5ab7a6d0ad3",
+    "tr": "cd9b1c1e2f97",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.compDismissed": {
+    "en": "91f5430a5610",
+    "tr": "fc6f9044b60b",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.compExtend": {
+    "en": "de76b4e71aed",
+    "tr": "360e0d772eca",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.compExtended": {
+    "en": "362302b37588",
+    "tr": "3c1c734ba121",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.compFallen": {
+    "en": "e3a1a2efda9a",
+    "tr": "d3e90b6c5ef1",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.compMaxDays": {
+    "en": "b46e83c2db82",
+    "tr": "a11cc067b806",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.compStatus": {
+    "en": "426e51869b6b",
+    "tr": "dd9860306170",
+    "by": "claude-in-session"
+  },
   "living.roadAdv.contractExpired": {
-    "en": "3a1fe82f492e",
-    "tr": "c4dfe87e76dd",
-    "by": "human"
+    "en": "974053d54f87",
+    "tr": "3fbcaabc69dc",
+    "by": "claude-in-session"
   },
   "living.roadAdv.declined": {
     "en": "aa0f5dac977e",
@@ -27214,6 +27479,26 @@
     "tr": "d6b03e6462f7",
     "by": "claude-in-session"
   },
+  "living.roadAdv.hireDays": {
+    "en": "c33820881422",
+    "tr": "3e3496b097f1",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.hireTagFestival": {
+    "en": "8a72c0a1da75",
+    "tr": "82f83f9f0f45",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.hireTagWartime": {
+    "en": "f755fd934c48",
+    "tr": "ef8203ed1eb6",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.hireTitle": {
+    "en": "7d958f534b07",
+    "tr": "e8217cc885d2",
+    "by": "claude-in-session"
+  },
   "living.roadAdv.intelShared": {
     "en": "fab0c2a8dc8d",
     "tr": "fab0c2a8dc8d",
@@ -27223,6 +27508,11 @@
     "en": "c8c903d07d85",
     "tr": "700c2799a876",
     "by": "human"
+  },
+  "living.roadAdv.optCancel": {
+    "en": "77dfd2135f4d",
+    "tr": "c111e0ab9ddb",
+    "by": "claude-in-session"
   },
   "living.roadAdv.optionExtort": {
     "en": "e2261bb3d707",
@@ -27235,9 +27525,9 @@
     "by": "claude-in-session"
   },
   "living.roadAdv.optionRecruit": {
-    "en": "8767545035da",
-    "tr": "71fc8d2505c6",
-    "by": "human"
+    "en": "a92e81bd532b",
+    "tr": "b6474fac6538",
+    "by": "claude-in-session"
   },
   "living.roadAdv.optionSpar": {
     "en": "7de69e411868",
@@ -27252,6 +27542,16 @@
   "living.roadAdv.recruited": {
     "en": "ebe621d771f1",
     "tr": "ebe621d771f1",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.replaceConfirm": {
+    "en": "07df1b5cb0cb",
+    "tr": "df05863ffc8b",
+    "by": "claude-in-session"
+  },
+  "living.roadAdv.replaceWarn": {
+    "en": "9f23749a4401",
+    "tr": "dc64f840d5d6",
     "by": "claude-in-session"
   },
   "living.roadAdv.skirmish": {
@@ -53074,6 +53374,56 @@
     "tr": "5b0e7ccb086e",
     "by": "human"
   },
+  "survival.travel.weatherChoiceTitle": {
+    "en": "7ee14b369a90",
+    "tr": "7ee14b369a90",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.weatherHasCamp": {
+    "en": "32b4398f969c",
+    "tr": "32b4398f969c",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.weatherHazard": {
+    "en": "6d82bda49a83",
+    "tr": "6d82bda49a83",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.weatherNoCamp": {
+    "en": "690ecea779d0",
+    "tr": "690ecea779d0",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.weatherPush": {
+    "en": "d708532edf2c",
+    "tr": "d708532edf2c",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.weatherPushDone": {
+    "en": "516241e3a542",
+    "tr": "516241e3a542",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.weatherWait": {
+    "en": "aee645d2899b",
+    "tr": "aee645d2899b",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.weatherWaitCold": {
+    "en": "3edaa35e05bf",
+    "tr": "3edaa35e05bf",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.weatherWaitSafe": {
+    "en": "a6aad5ff380d",
+    "tr": "a6aad5ff380d",
+    "by": "cc-intermediate-tiers"
+  },
+  "survival.travel.wildBeasts": {
+    "en": "06a84d13abc8",
+    "tr": "06a84d13abc8",
+    "by": "cc-intermediate-tiers"
+  },
   "technique.noSignature": {
     "en": "512147f4746c",
     "tr": "0a51ed26ed78",
@@ -54078,280 +54428,5 @@
     "en": "83c6a3eab9ec",
     "tr": "907b9c99128b",
     "by": "claude-in-session"
-  },
-  "broker.npc.name": {
-    "en": "aa440653bcfd",
-    "tr": "48f4639c81b3",
-    "by": "claude-in-session"
-  },
-  "broker.needMore": {
-    "en": "2ac92bb92097",
-    "tr": "4b538b12f523",
-    "by": "claude-in-session"
-  },
-  "broker.panoply.offlineSub": {
-    "en": "8b787b3e7a2a",
-    "tr": "ed26cc1d7ef6",
-    "by": "claude-in-session"
-  },
-  "broker.panoply.offlineCard": {
-    "en": "ede53f30a05e",
-    "tr": "615894b8f84b",
-    "by": "claude-in-session"
-  },
-  "broker.panoply.boughtToday": {
-    "en": "912ef3c18e3b",
-    "tr": "ffcb76307261",
-    "by": "claude-in-session"
-  },
-  "broker.coven.head": {
-    "en": "cd3f72d4784e",
-    "tr": "43cae8778614",
-    "by": "claude-in-session"
-  },
-  "broker.coven.sub": {
-    "en": "a0afaac953d0",
-    "tr": "b87d1dfc0ac5",
-    "by": "claude-in-session"
-  },
-  "broker.coven.glassEmbers": {
-    "en": "00a872167a3f",
-    "tr": "8dfefeb39139",
-    "by": "claude-in-session"
-  },
-  "broker.coven.glassEmbersSub": {
-    "en": "c686d054d713",
-    "tr": "be0276d3b3db",
-    "by": "claude-in-session"
-  },
-  "broker.coven.glassPrice": {
-    "en": "2cd56448e33e",
-    "tr": "fd17afd0b611",
-    "by": "claude-in-session"
-  },
-  "broker.coven.tradeBtn": {
-    "en": "b0811e470d6b",
-    "tr": "82d4e43df65d",
-    "by": "claude-in-session"
-  },
-  "broker.coven.glassWitch": {
-    "en": "c8249965c177",
-    "tr": "7853ea80c64d",
-    "by": "claude-in-session"
-  },
-  "broker.coven.glassWitchSub": {
-    "en": "23388be55434",
-    "tr": "93868ea9ec70",
-    "by": "claude-in-session"
-  },
-  "broker.coven.emberPellets": {
-    "en": "e7b61e0abfe0",
-    "tr": "d66931a2647d",
-    "by": "claude-in-session"
-  },
-  "broker.coven.emberPelletsSub": {
-    "en": "7b3106c49e6d",
-    "tr": "bb2911d5dd8d",
-    "by": "claude-in-session"
-  },
-  "broker.coven.buyBtn": {
-    "en": "7ceca51fcafe",
-    "tr": "f8aad3ba6fc8",
-    "by": "claude-in-session"
-  },
-  "broker.coven.aethericSub": {
-    "en": "56c9e5a1903f",
-    "tr": "9f6441a42e55",
-    "by": "claude-in-session"
-  },
-  "broker.coven.confirmBtn": {
-    "en": "04a212215ef9",
-    "tr": "81b4b67ff827",
-    "by": "claude-in-session"
-  },
-  "broker.coven.confirmPrompt": {
-    "en": "8ae8eeb38068",
-    "tr": "51a9e64e6b33",
-    "by": "claude-in-session"
-  },
-  "broker.coven.gotEmbers": {
-    "en": "80d79bbec0ca",
-    "tr": "e8ac689a2a3c",
-    "by": "claude-in-session"
-  },
-  "broker.coven.gotWitchPiece": {
-    "en": "0f49ced8f0a8",
-    "tr": "486ad03cd148",
-    "by": "claude-in-session"
-  },
-  "broker.coven.tradedAetheric": {
-    "en": "b491198a6626",
-    "tr": "e534809d6a93",
-    "by": "claude-in-session"
-  },
-  "broker.coven.gotPellets": {
-    "en": "039cbf1a95d0",
-    "tr": "cb0939644d7e",
-    "by": "claude-in-session"
-  },
-  "coven.sigilBroker": {
-    "en": "aa440653bcfd",
-    "tr": "48f4639c81b3",
-    "by": "claude-in-session"
-  },
-  "coven.sigilBrokerClassic": {
-    "en": "b21672ea51a4",
-    "tr": "f0ff9863d0bc",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.ruhn": {
-    "en": "b6ab2b3ef1df",
-    "tr": "a39cac5ee42f",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.panoply": {
-    "en": "6be3df410b7b",
-    "tr": "6ae48bc2819e",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.wyrd": {
-    "en": "53f16240bdbf",
-    "tr": "07ac46132de0",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.starspun": {
-    "en": "53f16240bdbf",
-    "tr": "07ac46132de0",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.numidium": {
-    "en": "20784b685952",
-    "tr": "43ffe3f9772b",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.orcsbane": {
-    "en": "3f32caf03f9f",
-    "tr": "d24a84df283e",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.oath": {
-    "en": "8f6d1180d358",
-    "tr": "4916d532c93c",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.thieftaker": {
-    "en": "5bd36e98c59b",
-    "tr": "8e03c20f59d8",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.coilscale": {
-    "en": "601556c57d18",
-    "tr": "b798570d853d",
-    "by": "claude-in-session"
-  },
-  "codex.setHint.eltheric": {
-    "en": "68d5d74a0756",
-    "tr": "022bfd498b17",
-    "by": "claude-in-session"
-  },
-  "codex.gilded.the-hourlock": {
-    "en": "7a5339d7e38d",
-    "tr": "1378e5277576",
-    "by": "claude-in-session"
-  },
-  "codex.gilded.the-dragonfire-oath": {
-    "en": "d250c512f882",
-    "tr": "4f5c6fdbd819",
-    "by": "claude-in-session"
-  },
-  "codex.gilded.the-sunken-sovereign": {
-    "en": "419d382f763c",
-    "tr": "bff35d02475c",
-    "by": "claude-in-session"
-  },
-  "codex.gilded.volendrungs-echo": {
-    "en": "f3c3ba6f4939",
-    "tr": "c10161a8e47d",
-    "by": "claude-in-session"
-  },
-  "codex.gilded.the-ketchmasters-word": {
-    "en": "25575faa59ce",
-    "tr": "0f00d04ddac1",
-    "by": "claude-in-session"
-  },
-  "codex.legendary.lastLockOffline": {
-    "en": "023fcf689b51",
-    "tr": "51ff05e114f2",
-    "by": "claude-in-session"
-  },
-  "codex.legendary.resonantMaulOffline": {
-    "en": "f3c3ba6f4939",
-    "tr": "5c7d01e9b0a1",
-    "by": "claude-in-session"
-  },
-  "features.mod.climatesCalories.standard": {
-    "en": "ef6691545d2c",
-    "tr": "51db4780cd4e",
-    "by": "cc-intermediate-tiers"
-  },
-  "features.mod.climatesCalories.veteran": {
-    "en": "abcf0f136c1e",
-    "tr": "900b605b9aad",
-    "by": "cc-intermediate-tiers"
-  },
-  "features.mod.climatesCalories.noWildSleep": {
-    "en": "76eb686e46f0",
-    "tr": "efc8b3863798",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.wildBeasts": {
-    "en": "06a84d13abc8",
-    "tr": "06a84d13abc8",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherHazard": {
-    "en": "6d82bda49a83",
-    "tr": "6d82bda49a83",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherChoiceTitle": {
-    "en": "7ee14b369a90",
-    "tr": "7ee14b369a90",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherHasCamp": {
-    "en": "32b4398f969c",
-    "tr": "32b4398f969c",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherNoCamp": {
-    "en": "690ecea779d0",
-    "tr": "690ecea779d0",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherWait": {
-    "en": "aee645d2899b",
-    "tr": "aee645d2899b",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherPush": {
-    "en": "d708532edf2c",
-    "tr": "d708532edf2c",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherWaitSafe": {
-    "en": "a6aad5ff380d",
-    "tr": "a6aad5ff380d",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherWaitCold": {
-    "en": "3edaa35e05bf",
-    "tr": "3edaa35e05bf",
-    "by": "cc-intermediate-tiers"
-  },
-  "survival.travel.weatherPushDone": {
-    "en": "516241e3a542",
-    "tr": "516241e3a542",
-    "by": "cc-intermediate-tiers"
   }
 }

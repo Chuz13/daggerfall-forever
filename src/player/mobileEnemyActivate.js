@@ -162,6 +162,7 @@ export function activateMobileEnemy(
     mode !== 'info' &&
     openLiving &&
     ((foe.living?.res && foe.shipmate === true) ||
+      foe.livingRole === 'recruited_companion' ||
       foe.livingRole === 'traveler' ||
       foe.livingRole === 'traveler_guard' ||
       foe.entity?.name === 'Wayfaring Merchant')

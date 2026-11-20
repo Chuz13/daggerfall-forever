@@ -20,11 +20,15 @@ import { getLivingDirectorState } from './livingDirector.js';
 import { getRegionState } from './regionState.js';
 import { LEVEL_CAP } from '../levelCap.js';
 import { isMainStoryDungeon } from '../../world/dungeon/dungeonTextures.js';
-import { SKILLS, skillValue } from '../skills.js';
+import { SKILLS, skillValue, tallySkill } from '../skills.js';
 import { dice100 } from '../../combat/formulas.js';
 import { mintCondition, setItemFields } from '../item/itemTemplates.js';
 import { addItem } from '../inventory.js';
 import { GEM_IDS } from '../loot/gemGrades.js';
+import { calculateTradePrice, ONLINE_HAGGLE_MAX } from '../shopStock.js';
+import { totalGoldAmount, deductGold } from '../court.js';
+import { getHolidayId, HOLIDAYS } from '../holidays.js';
+import { getRegionEconomyMultipliers } from './regionEconomy.js';
 import {
   resolveLivingRoll,
   computeRoleplayBribeMultiplier,
@@ -391,6 +395,32 @@ export function setAdventurerLevel(identifier, newLevel) {
   if (!found) return null;
   found.level = level;
   found.gearTier = Math.min(9, Math.floor(level / 5) + 1);
+  return found;
+}
+
+/**
+ * Sets a virtual adventurer's personality trait (updates haggle quality & behavior).
+ * @param {string|number} identifier Name substring or ID
+ * @param {string} newTrait One of ADVENTURER_TRAITS
+ * @returns {any|null}
+ */
+export function setAdventurerTrait(identifier, newTrait) {
+  const trait = String(newTrait || '').trim().toUpperCase();
+  if (!ADVENTURER_TRAITS.includes(trait)) return null;
+  ensureAdventurerPool();
+  const reg = getAdventurerSimRegistry();
+  const pool = reg.pool || [];
+  let found = null;
+  if (Number.isFinite(Number(identifier))) {
+    const idNum = Number(identifier);
+    found = pool.find((a) => a.id === idNum) || pool[idNum];
+  }
+  if (!found && typeof identifier === 'string') {
+    const q = identifier.toLowerCase();
+    found = pool.find((a) => a.name.toLowerCase().includes(q));
+  }
+  if (!found) return null;
+  found.trait = trait;
   return found;
 }
 
@@ -1099,6 +1129,92 @@ export function getRoadAdventurerAmbientShare(tier = Number(LivingTamrielConfig.
   return 0.25; // HIGH
 }
 
+export const ADVENTURER_HIRE_GOLD_PER_LEVEL_PER_DAY = 200;
+export const COMPANION_CONTRACT_OPTIONS_DAYS = Object.freeze([1, 3, 7]);
+export const MAX_COMPANION_CONTRACT_DAYS = 14;
+export const ADVENTURER_TRAIT_HAGGLE_QUALITY = Object.freeze({
+  HONORABLE: 16,
+  CAUTIOUS: 16,
+  DUELIST: 18,
+  MERCENARY: 20,
+  ARROGANT: 20,
+  ENVIOUS: 20,
+  CUTTHROAT: 20,
+});
+
+/**
+ * Returns the merchant haggle quality tier (16..20) associated with an adventurer's trait.
+ * @param {string} [trait]
+ * @returns {number}
+ */
+export function getAdventurerHaggleQuality(trait) {
+  return ADVENTURER_TRAIT_HAGGLE_QUALITY[trait] ?? 18;
+}
+
+/**
+ * Calculates adventurer companion hiring cost (200g/level/day base)
+ * with wartime demand, Merchants Festival discount, haggling, RCF and taint.
+ * @param {any} adv
+ * @param {any} [playerEntity=null]
+ * @param {{ days?: number, regionIndex?: number, nowMinutes?: number }} [opts]
+ */
+export function calculateAdventurerHireQuote(
+  adv,
+  playerEntity = null,
+  { days = 1, regionIndex = 0, nowMinutes = 0 } = {},
+) {
+  const advLevel = Math.max(1, Math.trunc(Number(adv?.level ?? 1)));
+  const safeDays = Math.max(1, Math.min(MAX_COMPANION_CONTRACT_DAYS, Math.trunc(Number(days) || 1)));
+  const baseDaily = ADVENTURER_HIRE_GOLD_PER_LEVEL_PER_DAY * advLevel;
+  const baseCost = baseDaily * safeDays;
+
+  const econ = getRegionEconomyMultipliers(Number.isFinite(regionIndex) ? regionIndex : 0);
+  const warFactor = Number.isFinite(econ?.weaponsArmor) && econ.weaponsArmor > 0 ? econ.weaponsArmor : 1.0;
+  const isWartime = warFactor > 1.001;
+  let preHaggle = Math.max(1, Math.round(baseCost * warFactor));
+
+  const safeMinutes = Number.isFinite(nowMinutes) ? nowMinutes : 0;
+  const holidayId = getHolidayId(safeMinutes, Number.isFinite(regionIndex) ? regionIndex : 0);
+  const isMerchantsFestival = holidayId === HOLIDAYS.Merchants_Festival;
+  if (isMerchantsFestival) {
+    preHaggle = Math.max(1, Math.trunc(preHaggle / 2));
+  }
+
+  const rawMerc = readPlayerSkill(playerEntity, SKILLS.Mercantile, 0);
+  const rawPers = readPlayerStat(playerEntity, 'personality', 50);
+  // Offline MERC-CAP guard: keep haggle inputs within 0..100 so buffs past 200 never yield negative/zero prices.
+  const mercantile = Math.max(0, Math.min(ONLINE_HAGGLE_MAX, Number.isFinite(rawMerc) ? rawMerc : 0));
+  const personality = Math.max(0, Math.min(ONLINE_HAGGLE_MAX, Number.isFinite(rawPers) ? rawPers : 50));
+  const quality = getAdventurerHaggleQuality(adv?.trait);
+
+  const haggled = calculateTradePrice(
+    preHaggle,
+    quality,
+    { mercantile, personality, entity: playerEntity ?? {} },
+    false,
+    { online: false },
+  );
+  const totalCost = Math.max(safeDays, Number.isFinite(haggled) ? haggled : preHaggle);
+  const dailyCost = Math.max(1, Math.round(totalCost / safeDays));
+  const discountPct = baseCost > 0 ? Math.round((1 - totalCost / baseCost) * 100) : 0;
+
+  return {
+    days: safeDays,
+    advLevel,
+    quality,
+    baseDaily,
+    baseCost,
+    dailyCost,
+    totalCost,
+    discountPct,
+    warFactor,
+    isWartime,
+    isMerchantsFestival,
+    mercantile,
+    personality,
+  };
+}
+
 /**
  * Picks a non-seeking adventurer from the regional pool and determines what they
  * are currently doing in the wilderness or on the road.
@@ -1108,12 +1224,14 @@ export function getRoadAdventurerAmbientShare(tier = Number(LivingTamrielConfig.
  * @param {boolean} [params.onRoad=true]
  * @param {boolean} [params.isDay=true]
  * @param {any} [params.playerEntity=null]
+ * @param {number} [params.nowMinutes=0]
  * @param {() => number} [params.rng=Math.random]
  * @returns {{
  *   adv: any,
  *   displayName: string,
  *   situation: string,
  *   hireCost: number,
+ *   hireQuote: ReturnType<typeof calculateAdventurerHireQuote>,
  *   tension: { attitude: string, tensionScore: number, challengeType: string, wagerGold: number }
  * } | null}
  */
@@ -1122,6 +1240,7 @@ export function pickWanderingAdventurerEncounter({
   onRoad = true,
   isDay = true,
   playerEntity = null,
+  nowMinutes = 0,
   rng = Math.random,
 } = {}) {
   const tier = Number(LivingTamrielConfig.roadAdventurers);
@@ -1172,13 +1291,15 @@ export function pickWanderingAdventurerEncounter({
   }
 
   const tension = evaluateAdventurerTension(adv, playerEntity);
-  const hireCost = Math.max(30, (adv.level || 1) * 15);
+  const hireQuote = calculateAdventurerHireQuote(adv, playerEntity, { days: 1, regionIndex, nowMinutes });
+  const hireCost = hireQuote.totalCost;
 
   return {
     adv,
     displayName: getAdventurerDisplayName(adv),
     situation,
     hireCost,
+    hireQuote,
     tension,
   };
 }
@@ -1192,17 +1313,10 @@ export function pickWanderingAdventurerEncounter({
  * @param {any} params.playerEntity
  * @param {'SHARE_INTEL'|'RECRUIT_ALLY'|'WAGER_SPAR'|'EXTORT_SPOILS'|'LEAVE'} params.action
  * @param {number} [params.regionIndex=0]
+ * @param {number} [params.nowMinutes=0]
+ * @param {number} [params.days=1]
  * @param {() => number} [params.rng=Math.random]
- * @returns {{
- *   outcome: string,
- *   goldDelta: number,
- *   repDelta: number,
- *   healed: boolean,
- *   allied: boolean,
- *   hostile: boolean,
- *   spoilsItem: boolean,
- *   messageKey: string
- * }}
+ * @returns {any}
  */
 export function resolveWanderingAdventurerInteraction({
   adv,
@@ -1211,11 +1325,10 @@ export function resolveWanderingAdventurerInteraction({
   action,
   regionIndex = 0,
   nowMinutes = 0,
+  days = 1,
   rng = Math.random,
 }) {
-  const playerLuck = Number(playerEntity?.stats?.Luck ?? playerEntity?.stats?.luck ?? 50);
   const advLevel = Math.max(1, Number(adv?.level ?? 1));
-  const hireCost = Math.max(30, advLevel * 15);
   const wagerGold = Math.max(25, advLevel * 15);
 
   const applyRep = (delta) => {
@@ -1283,10 +1396,31 @@ export function resolveWanderingAdventurerInteraction({
   }
 
   if (action === 'RECRUIT_ALLY') {
-    const hireCost = Math.max(25, advLevel * 20);
-    const haveGold = Number(playerEntity?.goldPieces ?? 0);
+    const quote = calculateAdventurerHireQuote(adv, playerEntity, { days, regionIndex, nowMinutes });
+    const existing = getActiveAdventurerCompanion(nowMinutes);
+    const sameCompanion = Boolean(existing && adv?.id != null && String(existing.id) === String(adv.id));
+    if (sameCompanion) {
+      const remMin = getCompanionRemainingMinutes(existing, nowMinutes);
+      if (remMin + quote.days * COMPANION_DURATION_MINUTES > MAX_COMPANION_CONTRACT_DAYS * COMPANION_DURATION_MINUTES) {
+        return {
+          outcome: WANDERING_OUTCOME.DECLINED,
+          goldDelta: 0,
+          repDelta: 0,
+          healed: false,
+          allied: false,
+          hostile: false,
+          spoilsItem: false,
+          maxDuration: true,
+          maxDays: MAX_COMPANION_CONTRACT_DAYS,
+          hireCost: quote.totalCost,
+          quote,
+          messageKey: 'living.roadAdv.compMaxDays',
+        };
+      }
+    }
 
-    if (haveGold < hireCost) {
+    const haveGold = playerEntity ? totalGoldAmount(playerEntity) : 0;
+    if (haveGold < quote.totalCost) {
       return {
         outcome: WANDERING_OUTCOME.DECLINED,
         goldDelta: 0,
@@ -1296,19 +1430,34 @@ export function resolveWanderingAdventurerInteraction({
         hostile: false,
         spoilsItem: false,
         goldShortage: true,
-        hireCost,
+        hireCost: quote.totalCost,
+        quote,
         messageKey: 'living.roadAdv.noGold',
       };
     }
 
     if (playerEntity) {
-      playerEntity.goldPieces = Math.max(0, haveGold - hireCost);
+      deductGold(playerEntity, quote.totalCost);
+      if (Array.isArray(playerEntity.skillUses)) {
+        tallySkill(playerEntity, SKILLS.Mercantile, 1);
+      }
     }
-    recruitAdventurerCompanion(adv, nowMinutes);
+
+    let companion;
+    if (sameCompanion && existing) {
+      existing.expiresAtMinutes += quote.days * COMPANION_DURATION_MINUTES;
+      companion = existing;
+    } else {
+      companion = recruitAdventurerCompanion(adv, nowMinutes, quote.days);
+    }
+
     return {
       outcome: WANDERING_OUTCOME.RECRUITED_ALLY,
-      goldDelta: -hireCost,
-      hireCost,
+      goldDelta: -quote.totalCost,
+      hireCost: quote.totalCost,
+      quote,
+      companion,
+      days: quote.days,
       repDelta: 1,
       healed: false,
       allied: true,
@@ -1433,32 +1582,37 @@ export function resolveWanderingAdventurerInteraction({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PERSISTENT RECRUITED ADVENTURER COMPANION (24 In-Game Hours)
+// PERSISTENT RECRUITED ADVENTURER COMPANION (Multi-Day Contracts)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const COMPANION_DURATION_MINUTES = 1440; // 24 in-game hours
 
 /**
- * Recruits an adventurer as a persistent companion for 24 in-game hours,
+ * Recruits an adventurer as a persistent companion for `days` in-game days,
  * persisted in the LivingDirector save state across map pixels and into dungeons.
  *
  * @param {any} adv
  * @param {number} [nowMinutes=0]
- * @returns {{ id: number|string, name: string, displayName: string, className: string, level: number, trait: string, recruitedAtMinutes: number, expiresAtMinutes: number }}
+ * @param {number} [days=1]
+ * @returns {{ id: number|string, name: string, displayName: string, className: string, level: number, gearTier: number, trait: string, recruitedAtMinutes: number, expiresAtMinutes: number }}
  */
-export function recruitAdventurerCompanion(adv, nowMinutes = 0) {
+export function recruitAdventurerCompanion(adv, nowMinutes = 0, days = 1) {
   const reg = getAdventurerSimRegistry();
   const fallbackNow = Number(getLivingDirectorState()?.lastWorldTickMinute) || 0;
   const now = Number.isFinite(nowMinutes) && nowMinutes > 0 ? nowMinutes : fallbackNow;
+  const safeDays = Math.max(1, Math.min(MAX_COMPANION_CONTRACT_DAYS, Math.trunc(Number(days) || 1)));
+  const level = Math.max(1, Number(adv?.level ?? 5));
+  const gearTier = Math.max(1, Math.min(9, Math.trunc(Number(adv?.gearTier) || (Math.floor(level / 5) + 1))));
   const companion = {
     id: adv?.id ?? 950,
     name: adv?.name || 'Kaelen',
     displayName: getAdventurerDisplayName(adv),
     className: adv?.className || 'Ranger',
-    level: Math.max(1, Number(adv?.level ?? 5)),
+    level,
+    gearTier,
     trait: adv?.trait || 'HONORABLE',
     recruitedAtMinutes: now,
-    expiresAtMinutes: now + COMPANION_DURATION_MINUTES,
+    expiresAtMinutes: now + safeDays * COMPANION_DURATION_MINUTES,
   };
   reg.activeCompanion = companion;
   return companion;
@@ -1466,15 +1620,19 @@ export function recruitAdventurerCompanion(adv, nowMinutes = 0) {
 
 /**
  * Returns the currently active recruited adventurer companion if still within
- * their 24-hour contract window, or `null` if none / expired.
+ * their contract window, or `null` if none / expired.
  *
  * @param {number} [nowMinutes=0]
- * @returns {{ id: number|string, name: string, displayName: string, className: string, level: number, trait: string, recruitedAtMinutes: number, expiresAtMinutes: number } | null}
+ * @returns {{ id: number|string, name: string, displayName: string, className: string, level: number, gearTier: number, trait: string, recruitedAtMinutes: number, expiresAtMinutes: number } | null}
  */
 export function getActiveAdventurerCompanion(nowMinutes = 0) {
   const reg = getAdventurerSimRegistry();
   const comp = reg?.activeCompanion;
   if (!comp) return null;
+  if (!Number.isFinite(comp.gearTier)) {
+    const lvl = Math.max(1, Number(comp.level ?? 1));
+    comp.gearTier = Math.max(1, Math.min(9, Math.floor(lvl / 5) + 1));
+  }
   if (
     Number.isFinite(nowMinutes) &&
     nowMinutes > 0 &&
@@ -1496,6 +1654,70 @@ export function getActiveAdventurerCompanion(nowMinutes = 0) {
     return null;
   }
   return comp;
+}
+
+/**
+ * Returns remaining minutes on a companion's contract.
+ * @param {any} comp
+ * @param {number} [nowMinutes=0]
+ * @returns {number}
+ */
+export function getCompanionRemainingMinutes(comp, nowMinutes = 0) {
+  if (!comp || !Number.isFinite(comp.expiresAtMinutes)) return 0;
+  const now = Number.isFinite(nowMinutes) && nowMinutes > 0
+    ? nowMinutes
+    : Number(comp.recruitedAtMinutes || 0);
+  return Math.max(0, comp.expiresAtMinutes - now);
+}
+
+/**
+ * Extends the currently active adventurer companion's contract by `days` days,
+ * charging the player according to merchant pricing rules and capping total duration.
+ *
+ * @param {{ playerEntity: any, days?: number, regionIndex?: number, nowMinutes?: number }} [params]
+ * @returns {{ ok: boolean, reason?: string, companion?: any, days?: number, maxDays?: number, goldDelta?: number, hireCost?: number, quote?: any }}
+ */
+export function extendAdventurerCompanion({
+  playerEntity,
+  days = 1,
+  regionIndex = 0,
+  nowMinutes = 0,
+} = {}) {
+  const comp = getActiveAdventurerCompanion(nowMinutes);
+  if (!comp) return { ok: false, reason: 'no_companion' };
+
+  const addDays = Math.max(1, Math.min(MAX_COMPANION_CONTRACT_DAYS, Math.trunc(Number(days) || 1)));
+  const remMin = getCompanionRemainingMinutes(comp, nowMinutes);
+  const maxMin = MAX_COMPANION_CONTRACT_DAYS * COMPANION_DURATION_MINUTES;
+  if (remMin + addDays * COMPANION_DURATION_MINUTES > maxMin) {
+    return { ok: false, reason: 'max_duration', maxDays: MAX_COMPANION_CONTRACT_DAYS };
+  }
+
+  const quote = calculateAdventurerHireQuote(comp, playerEntity, {
+    days: addDays,
+    regionIndex,
+    nowMinutes,
+  });
+  const haveGold = playerEntity ? totalGoldAmount(playerEntity) : 0;
+  if (haveGold < quote.totalCost) {
+    return { ok: false, reason: 'gold_shortage', hireCost: quote.totalCost, quote };
+  }
+
+  if (playerEntity) {
+    deductGold(playerEntity, quote.totalCost);
+    if (Array.isArray(playerEntity.skillUses)) {
+      tallySkill(playerEntity, SKILLS.Mercantile, 1);
+    }
+  }
+  comp.expiresAtMinutes += addDays * COMPANION_DURATION_MINUTES;
+  return {
+    ok: true,
+    companion: comp,
+    days: addDays,
+    goldDelta: -quote.totalCost,
+    hireCost: quote.totalCost,
+    quote,
+  };
 }
 
 /**

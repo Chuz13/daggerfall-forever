@@ -717,7 +717,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** EnemyDeath.CompleteDeath's corpse, through the one home - the fallen foe's body on the ground (AUDIT 24 wave 38),
    *  tracked to the streamer's pixel at the death; WORLD6b: a puppet's body too, where its owner's stream let it fall. */
   function mintCorpse(f) {
-  if (f._advRecord || f.livingRole === 'wandering_adventurer' || f.livingRole === 'rival_adventurer') {
+  if (f.livingRole === 'recruited_companion' || f._suppressLoot) {
+    if (f.entity) {
+      f.entity.items = [];
+      f.entity.goldPieces = 0;
+    }
+    f.lootDropped = true;
+  } else if (f._advRecord || f.livingRole === 'wandering_adventurer' || f.livingRole === 'rival_adventurer') {
     applyAdventurerCorpseLoot(f.entity, LivingTamrielConfig.adventurerLootMode);
   }
   const _corpsePixel = currentPixelKey();
@@ -1143,19 +1149,28 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (!peer) sayEnemyDied(say, f.mobileType, f.entity);   // EnemyDeath:79-83, the kill notice - mine alone (AUDIT WORLD6b B2); LOOT7: a champion by its name
       if (f.entity?.revenant) scatterBand(f);   // RVN6: it dies - its band breaks
       if (f.entity?.revenant) { const nr = revenantSlain(playerEntity, f.entity); if (nr && !peer) revenantSay(revenantSlainEvent(nr, playerEntity?.name, { archive: f.archive }), say); }   // REVENANT: slain at last - its record closed, whoever struck last
-      rollCorpseKit(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a plain foe's kit, worn by nobody now, on its ladder - before the sigils and the chime read the body
-      stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds
-      raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck'), feet: f.ai?.feet ?? f.pos, mobileType: f.mobileType });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
-      if (!isOnlinePage() && !f.puppet && !f.entity?.summoned && !f.allied && f.entity?.team !== 'PlayerAlly' && !f.starSite) {
-        const offlineExtras = rollOfflinePreApotheosisSpoils({
-          source: 'foe',
-          level: playerEntity?.level ?? 1,
-          mobileType: f.mobileType,
-          entity: f.entity,
-        }, rolls);
-        if (offlineExtras.length) {
-          f.entity.items ??= [];
-          for (const extra of offlineExtras) addItem(f.entity.items, extra);
+      const _suppressCompLoot = f.livingRole === 'recruited_companion' || f._suppressLoot;
+      if (_suppressCompLoot) {
+        if (f.entity) {
+          f.entity.items = [];
+          f.entity.goldPieces = 0;
+        }
+        f.lootDropped = true;
+      } else {
+        rollCorpseKit(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a plain foe's kit, worn by nobody now, on its ladder - before the sigils and the chime read the body
+        stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds
+        raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck'), feet: f.ai?.feet ?? f.pos, mobileType: f.mobileType });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
+        if (!isOnlinePage() && !f.puppet && !f.entity?.summoned && !f.allied && f.entity?.team !== 'PlayerAlly' && !f.starSite) {
+          const offlineExtras = rollOfflinePreApotheosisSpoils({
+            source: 'foe',
+            level: playerEntity?.level ?? 1,
+            mobileType: f.mobileType,
+            entity: f.entity,
+          }, rolls);
+          if (offlineExtras.length) {
+            f.entity.items ??= [];
+            for (const extra of offlineExtras) addItem(f.entity.items, extra);
+          }
         }
       }
       // AUDIT 24 (wave 38): EnemyDeath.CompleteDeath, through the one

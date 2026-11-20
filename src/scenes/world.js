@@ -181,7 +181,8 @@ import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
 import { getActiveCrises, bindLivingRegionConditions, getActiveRegionFlags, CRISIS_TYPE } from '../systems/living/regionState.js';
 import { REGION_FLAGS } from '../systems/region/regionConditions.js';
-import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
+import { getActiveAdventurerCompanion } from '../systems/living/adventurerSim.js';
+import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, buildRecruitedCompanionChoiceSpec, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { stockTravelingMerchantTrunk, executeRoadsideFenceSale } from '../systems/living/travelingMerchant.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
@@ -3990,8 +3991,39 @@ export async function bootWorld(canvas, renderer, params, status) {
     return true;
   }
 
+  function openRecruitedCompanionDialog(rec, { inDungeon = false } = {}) {
+    const comp = getActiveAdventurerCompanion(skyMinutes());
+    const cleanupBody = () => {
+      livingSceneHostOf()?.dismissCompanionBody?.();
+      modes?.dungeonCtx?.dismissLivingCompanion?.();
+      dropEscortFace(_livingCompanionFace);
+    };
+    if (!comp) {
+      cleanupBody();
+      return true;
+    }
+    const showWin = (win) => (inDungeon ? modes?.dungeonCtx?.showOverlay?.(win) : townTalk.showOverlay(win));
+    const sayMsg = inDungeon
+      ? (msg) => modes?.dungeonCtx?.hudSay?.(msg)
+      : (msg, sec = 5) => townTalk.say(msg, sec);
+    const spec = buildRecruitedCompanionChoiceSpec({
+      comp,
+      playerEntity,
+      regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+      nowMinutes: skyMinutes(),
+      say: sayMsg,
+      playSound: (id) => audio?.playOneShot?.(id, 0.75),
+      onDismissed: cleanupBody,
+    });
+    showWin(new ChoiceWindow(spec));
+    return true;
+  }
+
   function openLivingSiteActor(rec, defaultMode = 'Buy') {
     if (!rec) return false;
+    if (rec.livingRole === 'recruited_companion') {
+      return openRecruitedCompanionDialog(rec, { inDungeon: false });
+    }
     if (rec.livingRole === 'traveler' || rec.entity?.name === 'Wayfaring Merchant') {
       return openTravelerMerchant(rec, defaultMode);
     }
@@ -4227,6 +4259,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           return px && maps?.getClimateIndex ? maps.getClimateIndex(px.x, px.y) : null;
         })(),
         sceneHost: livingSceneHostOf(),
+        dungeonCtx: modes?.dungeonCtx ?? null,
         triggerEncounter: (kind) => triggerWildernessEncounter(kind),
       }),
   );
@@ -29929,7 +29962,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     onPreTransition: () => { const n = handOverFoes(); if (n) console.info(`[foes] handed ${n} foe(s) at the door`); doorToken.entering(); },   // AUDIT PSCALE1 NET-3: a door out of the open country hands my foes to the players outside   // DOOR-TOKEN: and the room behind it has its token minted while the place builds
     horseCartSave: () => hccRuntime.getSaveData(),   // AUDIT HCC H3: the record a dungeon save carries (DFU's per-mod slot, whatever the switch says)
     deepCleared: (loc, stops, entry) => livingDeepCleared(loc, stops, entry),   // LW14: the stops a company left, at a dungeon's build
-    openLivingDiver: (rec) => (livingWorldOn() && rec?.living ? !!livingDivers?.offers(rec, () => modes?.dungeonCtx?.hudSay?.(`${firstNameOf(rec.living.res?.name ?? '')}: "Keep your blade up down here."`)) : false),   // LW14: a company below, pressed
+    openLivingDiver: (rec) => (rec?.livingRole === 'recruited_companion' ? openRecruitedCompanionDialog(rec, { inDungeon: true }) : (livingWorldOn() && rec?.living ? !!livingDivers?.offers(rec, () => modes?.dungeonCtx?.hudSay?.(`${firstNameOf(rec.living.res?.name ?? '')}: "Keep your blade up down here."`)) : false)),   // LW14: a company below, pressed
     outerCampsSave: () => camps.snapshot(campToRecord),   // AUDIT REST II H6: my camps standing outside, for a dungeon's own save; AUDIT LANDFORMS C1: DFU's frame
     outerCampsLoad: (extras) => standSavedOuterCamps(extras),   // AUDIT REST III A1: and the save's stood again by the dungeon's own load
     horseCartLoad: (rec) => { hccRuntime.handleStartLoad(); upkeep.reset(); if (rec) hccRuntime.restoreSaveData(rec); },   // AUDIT HCC H3: a same-dungeon load's OnStartLoad and RestoreSaveData
