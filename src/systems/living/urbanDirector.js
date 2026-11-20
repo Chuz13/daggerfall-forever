@@ -225,10 +225,14 @@ export function planUrbanSkirmish({
   const enemyProv = getEnemyProvinceName(regionIndex, rng);
   const factionNames = event ? event.getFactionNames(regionIndex, enemyProv) : { f1: 'City Watch', f2: 'Rebels' };
 
-  // 4. Props strictly capped at max 2
+  // 4. Props strictly capped at max 2, placed along the perpendicular axis clear of guard/rebel lines
+  const p0x = centerX - 1.8;
+  const p0z = centerZ + 1.6;
+  const p1x = centerX + 1.8;
+  const p1z = centerZ - 1.6;
   const propList = [
-    { id: 'barricade', x: centerX - 0.5, z: centerZ - 1.5, y: snapPropToGround(heightSampler, centerX - 0.5, centerZ - 1.5, 0.02, yCenter) },
-    { id: 'burning_cart', x: centerX + 0.8, z: centerZ + 1.2, y: snapPropToGround(heightSampler, centerX + 0.8, centerZ + 1.2, 0.02, yCenter) },
+    { id: 'barricade', x: p0x, z: p0z, y: snapPropToGround(heightSampler, p0x, p0z, 0.02, yCenter) },
+    { id: 'burning_cart', x: p1x, z: p1z, y: snapPropToGround(heightSampler, p1x, p1z, 0.02, yCenter) },
   ].slice(0, URBAN_PROP_LIMIT);
 
   return {

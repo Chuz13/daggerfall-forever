@@ -817,8 +817,9 @@ function buildPleaSceneConfig(pleaType, centerX, centerZ, snapY) {
 }
 
 function buildSkirmishThemeProps(theme, eventId, planProps, centerX, centerZ, y0, snapY) {
-  const p0 = planProps?.[0] ?? { x: centerX - 0.5, z: centerZ - 1.5, y: y0 };
-  const p1 = planProps?.[1] ?? { x: centerX + 0.8, z: centerZ + 1.2, y: y0 };
+  const pt = (dx, dz) => ({ x: centerX + dx, z: centerZ + dz, y: snapY(centerX + dx, centerZ + dz) });
+  const p0 = planProps?.[0] ?? pt(-1.8, 1.6);
+  const p1 = planProps?.[1] ?? pt(1.8, -1.6);
   const m = (modelId, p, yawDeg, destructible = false) => ({
     modelId,
     feet: [p.x, p.y, p.z],
@@ -831,77 +832,83 @@ function buildSkirmishThemeProps(theme, eventId, planProps, centerX, centerZ, y0
     ...(destructible ? { destructible: true } : {}),
   });
 
+  if (eventId === 'EVT_PLAGUE_RAT_SWARM') {
+    return {
+      meshes: [m(LIVING_MODELS.CRATES, pt(-0.6, 0.6), 20)],
+      flats: [f(LIVING_FLATS.CAMPFIRE, 0.7, -0.5), f(LIVING_FLATS.REMAINS_BODY, -1.6, -0.4), f(LIVING_FLATS.REMAINS_BONES, 0.4, 1.3)],
+    };
+  }
   if (theme === SKIRMISH_PROP_THEME.PRISONER_CAGE) {
     return {
       meshes: [m(LIVING_MODELS.CAGE, p0, 0), m(LIVING_MODELS.BANNER, p1, 30)],
-      flats: [f(LIVING_FLATS.CAPTIVE_FLAT, 0.2, 0.2), f(LIVING_FLATS.PRISONER_FLAT, -1.2, 0.6), f(LIVING_FLATS.WEAPON_RACK, 1.5, -0.5)],
+      flats: [f(LIVING_FLATS.CAPTIVE_FLAT, -0.5, 1.0), f(LIVING_FLATS.PRISONER_FLAT, -0.5, -0.8), f(LIVING_FLATS.WEAPON_RACK, 0.8, -0.6)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.GRANARY_MARKET) {
     return {
-      meshes: [m(LIVING_MODELS.CANOPY, p0, 10), m(LIVING_MODELS.WAGON, p1, -45)],
-      flats: [f(LIVING_FLATS.GRAIN_SACK, -0.8, 0.5), f(LIVING_FLATS.SACKS, 0.8, -0.4), f(LIVING_FLATS.BARREL, 1.4, 0.6), f(LIVING_FLATS.MERCHANT_FLAT, -0.2, -1.2)],
+      meshes: [m(LIVING_MODELS.CANOPY, pt(-2.0, 1.8), 10), m(LIVING_MODELS.WAGON, pt(2.0, -1.8), -45)],
+      flats: [f(LIVING_FLATS.GRAIN_SACK, -0.8, 0.9), f(LIVING_FLATS.SACKS, 0.6, -0.9), f(LIVING_FLATS.BARREL, 0.9, -0.2), f(LIVING_FLATS.MERCHANT_FLAT, 0, 0.2)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.CAULDRON_STATION) {
     return {
       meshes: [m(LIVING_MODELS.CANOPY, p0, 0), m(LIVING_MODELS.BOXES, p1, 25)],
-      flats: [f(LIVING_FLATS.CAULDRON, 0, 0.2), f(LIVING_FLATS.CAMPFIRE, 0.8, -0.4), f(LIVING_FLATS.BASKET, -0.9, 0.6)],
+      flats: [f(LIVING_FLATS.CAULDRON, 0, 0.1), f(LIVING_FLATS.CAMPFIRE, 0.8, -0.4), f(LIVING_FLATS.BASKET, -0.8, 0.5)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.PLAGUE_PYRE) {
     return {
       meshes: [m(LIVING_MODELS.COFFIN, p0, 20), m(LIVING_MODELS.CRATES, p1, -30)],
-      flats: [f(LIVING_FLATS.CAMPFIRE, 0, 0), f(LIVING_FLATS.REMAINS_BODY, -0.8, 0.7), f(LIVING_FLATS.REMAINS_BONES, 0.9, -0.5)],
+      flats: [f(LIVING_FLATS.CAMPFIRE, 0, 0), f(LIVING_FLATS.REMAINS_BODY, -0.7, 0.5), f(LIVING_FLATS.REMAINS_BONES, 0.8, -0.5)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.WATER_WELL_SITE) {
     const canSmashWell = eventId === 'EVT_PLAGUE_WATER_WELL_SCARE';
     return {
-      meshes: [m(LIVING_MODELS.WELL_PEDESTAL, p0, 0, canSmashWell), m(LIVING_MODELS.CRATES, p1, 40)],
-      flats: [f(LIVING_FLATS.BUCKET, -0.6, -0.6, canSmashWell), f(LIVING_FLATS.BUCKET, 0.6, -0.8, canSmashWell), f(LIVING_FLATS.BARREL, 1.2, 0.5), f(LIVING_FLATS.BRAZIER, -1.3, 0.4)],
+      meshes: [m(LIVING_MODELS.WELL_PEDESTAL, pt(0, 0), 0, canSmashWell), m(LIVING_MODELS.CRATES, p1, 40)],
+      flats: [f(LIVING_FLATS.BUCKET, -1.1, 0.4, canSmashWell), f(LIVING_FLATS.BUCKET, 0.9, 0.8, canSmashWell), f(LIVING_FLATS.BARREL, 0.8, -0.9), f(LIVING_FLATS.BRAZIER, -1.1, -0.6)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.MONUMENT_STATUE) {
     const canToppleStatue = eventId === 'EVT_NEW_RULER_STATUE_UNVEILING';
     return {
-      meshes: [m(LIVING_MODELS.STATUE, p0, 0, canToppleStatue), m(LIVING_MODELS.BANNER, p1, -20)],
-      flats: [f(LIVING_FLATS.BRAZIER_TALL, -1.1, 0.5), f(LIVING_FLATS.BRAZIER_TALL, 1.1, 0.5)],
+      meshes: [m(LIVING_MODELS.STATUE, pt(0, 0), 0, canToppleStatue), m(LIVING_MODELS.BANNER, p1, -20)],
+      flats: [f(LIVING_FLATS.BRAZIER_TALL, -1.3, 0.9), f(LIVING_FLATS.BRAZIER_TALL, 1.1, 1.0)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.OCCULT_RITUAL) {
     return {
-      meshes: [m(LIVING_MODELS.OBELISK, p0, 0), m(LIVING_MODELS.CAGE, p1, 25)],
-      flats: [f(LIVING_FLATS.RITUAL_BRAZIER, 0, 0), f(LIVING_FLATS.SKULL_TORCH, -1.2, 0.4), f(LIVING_FLATS.SKULL_TORCH, 1.2, -0.4), f(LIVING_FLATS.DAEDRIC_IDOL, 0.4, 1.1)],
+      meshes: [m(LIVING_MODELS.OBELISK, p0, 0), m(LIVING_MODELS.CAGE, pt(1.8, -1.4), 25)],
+      flats: [f(LIVING_FLATS.RITUAL_BRAZIER, 0, 0), f(LIVING_FLATS.SKULL_TORCH, -1.1, 0.5), f(LIVING_FLATS.SKULL_TORCH, 1.1, -0.1), f(LIVING_FLATS.DAEDRIC_IDOL, -0.3, -1.4)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.CRIME_HEIST) {
     return {
       meshes: [m(LIVING_MODELS.CHEST, p0, 15), m(LIVING_MODELS.BOXES, p1, -30)],
-      flats: [f(LIVING_FLATS.TREASURE_PILE, 0.4, 0.2), f(LIVING_FLATS.SACKS, -0.7, -0.5), f(LIVING_FLATS.LANTERN, 1.1, -0.6)],
+      flats: [f(LIVING_FLATS.TREASURE_PILE, -0.6, 0.8), f(LIVING_FLATS.SACKS, 0.7, -0.7), f(LIVING_FLATS.LANTERN, 0, 0)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.FARM_HOMESTEAD) {
     return {
-      meshes: [m(LIVING_MODELS.WAGON, p0, -35), m(LIVING_MODELS.CRATES, p1, 20)],
-      flats: [f(LIVING_FLATS.COW, -1.4, 0.6), f(LIVING_FLATS.CALF, -0.6, 1.2), f(LIVING_FLATS.DOG, 1.1, 0.4), f(LIVING_FLATS.GRAIN_SACK, 0.5, -0.9)],
+      meshes: [m(LIVING_MODELS.WAGON, pt(-2.0, 1.8), -35), m(LIVING_MODELS.CRATES, p1, 20)],
+      flats: [f(LIVING_FLATS.COW, 0.2, -1.2), f(LIVING_FLATS.CALF, -0.8, -0.7), f(LIVING_FLATS.DOG, 0.9, 0.3), f(LIVING_FLATS.GRAIN_SACK, -0.5, 0.8)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.GRAVEYARD_CRYPT) {
     return {
       meshes: [m(LIVING_MODELS.CASKET, p0, 10), m(LIVING_MODELS.COFFIN, p1, -25)],
-      flats: [f(LIVING_FLATS.REMAINS_BODY, 0.2, 0.6), f(LIVING_FLATS.REMAINS_SKULL, -0.9, -0.5), f(LIVING_FLATS.SKULL_CANDLE, 0.8, -0.6)],
+      flats: [f(LIVING_FLATS.REMAINS_BODY, 0, 0.2), f(LIVING_FLATS.REMAINS_SKULL, -0.8, -0.5), f(LIVING_FLATS.SKULL_CANDLE, 0.7, -0.4)],
     };
   }
   if (theme === SKIRMISH_PROP_THEME.TEMPLE_SANCTUARY) {
     return {
       meshes: [m(LIVING_MODELS.ALTAR, p0, 0), m(LIVING_MODELS.ARCH, p1, 0)],
-      flats: [f(LIVING_FLATS.DIVINE_STATUE, 0, -0.8), f(LIVING_FLATS.CANDELABRA, -1.0, 0.4), f(LIVING_FLATS.CANDELABRA, 1.0, 0.4)],
+      flats: [f(LIVING_FLATS.DIVINE_STATUE, 0, 0), f(LIVING_FLATS.CANDELABRA, -0.9, 0.4), f(LIVING_FLATS.CANDELABRA, 0.9, -0.4)],
     };
   }
   return {
     meshes: [m(LIVING_MODELS.BANNER, p0, 15), m(LIVING_MODELS.CRATES, p1, -35)],
-    flats: [f(LIVING_FLATS.WEAPON_RACK, 1.4, -0.8), f(LIVING_FLATS.BRAZIER, 0, 0)],
+    flats: [f(LIVING_FLATS.WEAPON_RACK, 0.8, -0.6), f(LIVING_FLATS.BRAZIER, 0, 0)],
   };
 }
 
