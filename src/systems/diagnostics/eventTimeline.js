@@ -114,7 +114,7 @@ export function dumpTimelineLog(triggerReason = 'manual') {
   const payload = {
     meta: {
       category: 'timeline',
-      gameVersion: '0.2.0',
+      gameVersion: '0.6.0',
       timestamp: new Date().toISOString(),
       sessionDurationSeconds: Math.round((Date.now() - sessionStartTime) / 1000),
       triggerReason,
