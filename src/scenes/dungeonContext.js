@@ -39,7 +39,7 @@ import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { equipAdventurerEntity, applyAdventurerCorpseLoot } from '../systems/living/adventurerGear.js';
 import { setCrimeCommitted, CRIMES } from '../systems/court.js';
 import { LivingTamrielConfig } from '../systems/living/livingConfig.js';
-import { CLASS_TO_MOBILE_TYPE, buildDungeonAdventurerChoiceSpec } from '../systems/living/livingWorldSpawner.js';
+import { CLASS_TO_MOBILE_TYPE, buildDungeonAdventurerChoiceSpec, applyCompanionEntityStamp } from '../systems/living/livingWorldSpawner.js';
 import { getActiveCrisisContract, completeRegionalCrisisContract } from '../systems/living/crisisPresenter.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { automapWaterLevel, ELEMENT_NAMES } from '../systems/automap/automapModel.js';   // ROAD-C c2/S1
@@ -2026,12 +2026,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _livingDungeonAdv = null;
   let _livingDungeonCrisisBoss = null;
   let _livingDungeonCompanion = null;
+  let _livingDungeonCompanionName = 'Adventurer';
   async function standDungeonLivingAdventurer() {
     if (!foeDeps || !collider || !_dungeonId) return null;
 
     // 1. Spawn persistent recruited adventurer companion alongside the player at the dungeon entrance
     const comp = getActiveAdventurerCompanion(skyMinutes());
     if (comp) {
+      _livingDungeonCompanionName = comp.displayName || comp.name || 'Adventurer';
       const start = dungeon.enterMarker ?? dungeon.startMarker ?? null;
       if (start) {
         const compSpot = spotAbout([start.x, start.y, start.z], 3) ?? { x: start.x, y: start.y, z: start.z };
@@ -2043,11 +2045,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         })
           .then((cf) => {
             if (!cf) return;
-            if (cf.entity) {
-              cf.entity.name = comp.displayName || comp.name;
-              cf.entity.team = 'PlayerAlly';
-              cf.entity.mobileTeam = 'PlayerAlly';
-            }
+            applyCompanionEntityStamp(
+              cf,
+              comp,
+              () => lastPlayerFeet ?? [cf.ai?.feet?.[0] ?? 0, cf.ai?.feet?.[1] ?? 0, cf.ai?.feet?.[2] ?? 0],
+            );
             if (cf.ai) {
               cf.ai.detected = true;
             }
@@ -2105,8 +2107,18 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   }
   function tickDungeonLivingAdventurer(playerFeet) {
     if (_livingDungeonCompanion?.dead) {
+      const fallenName = _livingDungeonCompanion.entity?.name || _livingDungeonCompanionName || 'Adventurer';
       _livingDungeonCompanion = null;
+      _livingDungeonCompanionName = 'Adventurer';
       dismissAdventurerCompanion();
+      hudText.add(LIVING_WORDS.roadAdvCompFallen(fallenName), 6);
+    } else if (_livingDungeonCompanion && !getActiveAdventurerCompanion(skyMinutes())) {
+      const expired = _livingDungeonCompanion;
+      const expiredName = expired.entity?.name || _livingDungeonCompanionName || 'Adventurer';
+      _livingDungeonCompanion = null;
+      _livingDungeonCompanionName = 'Adventurer';
+      removeLooseFoe(expired);
+      hudText.add(LIVING_WORDS.roadAdvExpired(expiredName), 6);
     }
     if (_livingDungeonCrisisBoss?.dead) {
       _livingDungeonCrisisBoss = null;
@@ -2126,6 +2138,26 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         regionIndex: _dungeonRegion,
         playerEntity,
         foeRecord: f,
+        nowMinutes: skyMinutes(),
+        openChoice: (ch) => pushDungeonWindow(new ChoiceWindow({ lines: ch.lines, options: ch.options })),
+        playSound: (id) => audio?.playOneShot?.(id, 0.75),
+        onHired: (comp, rec) => {
+          if (_livingDungeonCompanion && _livingDungeonCompanion !== rec) {
+            const prev = _livingDungeonCompanion;
+            _livingDungeonCompanion = null;
+            removeLooseFoe(prev);
+          }
+          if (rec && comp) {
+            applyCompanionEntityStamp(
+              rec,
+              comp,
+              () => lastPlayerFeet ?? playerFeet ?? [rec.ai?.feet?.[0] ?? 0, rec.ai?.feet?.[1] ?? 0, rec.ai?.feet?.[2] ?? 0],
+            );
+            if (rec.ai) rec.ai.detected = true;
+            _livingDungeonCompanion = rec;
+            _livingDungeonCompanionName = comp.displayName || comp.name || 'Adventurer';
+          }
+        },
         say: (l) => hudText.add(l),
       });
       pushDungeonWindow(new ChoiceWindow({ lines: spec.lines, options: spec.options }));
@@ -7268,6 +7300,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (foe.entity?.revenant) { const nr = revenantSlain(playerEntity, foe.entity); if (nr && !peer) revenantSay(revenantSlainEvent(nr, playerEntity?.name, { archive: foe.mobileArchive }), (l) => hudText.add(l)); }   // REVENANT-DUNGEON: one that killed me here and stood, slain at last
       // PARTY-LOOT: a room's body is the room's base - its kit's ladder, its sigils and its death's subscribers are
       // rolled inside it, on the room's dice (roomBodyBase, from spawnCorpse); this copy rolls none of them on its own
+      const _suppressCompLoot = foe.livingRole === 'recruited_companion' || foe._suppressLoot;
+      if (_suppressCompLoot) {
+        if (foe.entity) {
+          foe.entity.items = [];
+          foe.entity.goldPieces = 0;
+        }
+        foe.lootDropped = true;
+        spawnCorpse(foe);
+        return;
+      }
       const _roomBody = roomLootOn() && roomCanonOfFoe(foe) != null;
       if (!_roomBody) rollCorpseKit(foe.entity, { luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a plain foe's kit, worn by nobody now, on its ladder - before the chime and the sigils read the body (Math.random, as its spawn loot's)
       if (foe._advRecord || foe.livingRole === 'wandering_adventurer' || foe.livingRole === 'rival_adventurer') {
@@ -9688,6 +9730,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     spawnQuestFoe,   // B1: CreateFoe's dungeon arm stands foes through the one build chain
     fateFor, chooseFate, companionFx,   // REVENANT-FATE: a kneeling revenant's choice; COMPANION-PORTAL: the place's portals
     removeLooseFoe,   // CREW-COMPANIONS: a companion out of the room with no corpse
+    dismissLivingCompanion() {
+      const old = _livingDungeonCompanion;
+      _livingDungeonCompanion = null;
+      _livingDungeonCompanionName = 'Adventurer';
+      return old ? removeLooseFoe(old) : false;
+    },
+    getLivingCompanionFoe: () => _livingDungeonCompanion,
     arenaPit: _undercroftHall?.pit ?? null,   // ARENA-FIX 4: the training pit's centre (scenes/worldModes.js arenaPitStage)
     arenaPitAxis: _undercroftHall?.pitAxis ?? null,   // ...and its passage's way
     arenaHall: _undercroftHall?.hall ?? null,   // ARENA5: the Hall of Champions' place - its plaque wall hangs about it (scenes/worldModes.js standArenaWall)

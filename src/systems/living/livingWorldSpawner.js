@@ -118,7 +118,16 @@ import { shiftRegionInfluence } from '../apotheosis/apotheosisStage3.js';
 import { isAscendedGod } from '../apotheosis/apotheosisLive.js';
 import { evaluatePleaEncounter, resolvePleaResponse, PLEA_OUTCOME, PLEA_TYPE } from './pleaHost.js';
 import { SKILLS, tallySkill } from '../skills.js';
+import { dailyStockRolls } from '../shopStock.js';
 import {
+  ADVENTURER_TRAITS,
+  ADVENTURER_STATUS,
+  COMPANION_CONTRACT_OPTIONS_DAYS,
+  MAX_COMPANION_CONTRACT_DAYS,
+  ROAD_ADVENTURER_SITUATION,
+  WANDERING_OUTCOME,
+  DUEL_OUTCOME,
+  RECLAIM_OUTCOME,
   ensureAdventurerPool,
   getAdventurerSimRegistry,
   evaluateAdventurerTension,
@@ -130,17 +139,15 @@ import {
   pickWanderingAdventurerEncounter,
   resolveWanderingAdventurerInteraction,
   getAdventurerDisplayName,
-  recruitAdventurerCompanion,
+  calculateAdventurerHireQuote,
+  extendAdventurerCompanion,
   getActiveAdventurerCompanion,
+  getCompanionRemainingMinutes,
   dismissAdventurerCompanion,
-  ROAD_ADVENTURER_SITUATION,
-  WANDERING_OUTCOME,
-  DUEL_OUTCOME,
-  RECLAIM_OUTCOME,
-  ADVENTURER_STATUS,
   tickAdventurerSimulation,
   killAdventurerInDungeon,
   setAdventurerLevel,
+  setAdventurerTrait,
 } from './adventurerSim.js';
 import { LIVING_WORDS } from './livingWords.js';
 import { mobTraitChance } from '../bossTraits.js';
@@ -1466,6 +1473,7 @@ export function buildLivingSiteBlueprint({
       onRoad: Boolean(onRoad),
       isDay,
       playerEntity,
+      nowMinutes,
       rng,
     });
     const adv = passedAdv ?? wandering.adv;
@@ -1669,6 +1677,246 @@ export {
   restoreLocationEventCooldownsSnapshot,
 };
 
+/**
+ * Deterministically equips and stamps a spawned mobile as a hired companion.
+ * @param {any} foe
+ * @param {any} comp
+ * @param {(() => number[]) | null} [followFeetFn=null]
+ * @returns {any}
+ */
+export function applyCompanionEntityStamp(foe, comp, followFeetFn = null) {
+  if (!foe || !comp) return foe;
+  if (foe.entity) {
+    const level = Math.max(1, Number(comp.level ?? 1));
+    const gearTier = Number.isFinite(comp.gearTier)
+      ? comp.gearTier
+      : Math.max(1, Math.min(9, Math.floor(level / 5) + 1));
+    try {
+      equipAdventurerEntity(
+        foe.entity,
+        {
+          id: comp.id,
+          name: comp.name,
+          className: comp.className || 'Warrior',
+          level,
+          gearTier,
+          trait: comp.trait || 'HONORABLE',
+        },
+        level,
+        dailyStockRolls(Math.max(1, Math.trunc(Number(comp.id) || 1))),
+      );
+    } catch (_e) {}
+    foe.entity.name = comp.displayName || comp.name;
+    foe.entity.team = 'PlayerAlly';
+    foe.entity.mobileTeam = 'PlayerAlly';
+  }
+  if (foe.ai) {
+    foe.ai.isHostile = false;
+    foe.ai.target = null;
+    foe.ai.secondaryTarget = null;
+    if (typeof followFeetFn === 'function') {
+      foe.ai.follow = {
+        feet: () => followFeetFn() ?? [foe.ai.feet?.[0] ?? 0, foe.ai.feet?.[1] ?? 0, foe.ai.feet?.[2] ?? 0],
+        stop: 2.5,
+      };
+    }
+    foe.ai.moving = true;
+    foe.ai.canAct = true;
+    if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
+  }
+  foe.companion = `adv:${comp.name}`;
+  foe.allied = true;
+  foe.shipmate = true;
+  foe.livingRole = 'recruited_companion';
+  foe._advRecord = comp;
+  foe.lootDropped = true;
+  foe._suppressLoot = true;
+  return foe;
+}
+
+/**
+ * Builds the 1 / 3 / 7-day adventurer hire submenu (and replacement confirmation
+ * submenu when another active companion is already under contract).
+ */
+export function buildAdventurerHireSubmenuSpec({
+  adv,
+  playerEntity,
+  regionIndex = 0,
+  nowMinutes = 0,
+  situation = ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+  openChoice = null,
+  say = () => {},
+  playSound = null,
+  onHired = null,
+  rng = Math.random,
+}) {
+  const q1 = calculateAdventurerHireQuote(adv, playerEntity, { days: 1, regionIndex, nowMinutes });
+  const existing = getActiveAdventurerCompanion(nowMinutes);
+  const isSameCompanion = Boolean(existing && adv?.id != null && String(existing.id) === String(adv.id));
+  const isReplacing = Boolean(existing && !isSameCompanion);
+  const remainingHours = isReplacing
+    ? Math.max(1, Math.ceil(getCompanionRemainingMinutes(existing, nowMinutes) / 60))
+    : 0;
+
+  const lines = [
+    LIVING_WORDS.roadAdvHireTitle(
+      adv.name,
+      adv.className || 'Warrior',
+      adv.level || 1,
+      q1.dailyCost,
+      q1.baseDaily,
+    ),
+  ];
+  if (q1.isMerchantsFestival) lines.push(LIVING_WORDS.roadAdvHireTagFestival());
+  if (q1.isWartime) lines.push(LIVING_WORDS.roadAdvHireTagWartime());
+  if (isReplacing) lines.push(LIVING_WORDS.roadAdvReplaceWarn(existing.displayName || existing.name, remainingHours));
+
+  const executeHire = (days, quote) => {
+    const res = resolveWanderingAdventurerInteraction({
+      adv,
+      situation,
+      playerEntity,
+      action: 'RECRUIT_ALLY',
+      days,
+      regionIndex,
+      nowMinutes,
+      rng,
+    });
+    if (res.allied) {
+      const comp = res.companion || getActiveAdventurerCompanion(nowMinutes);
+      playSound?.(LIVING_SOUNDS.GOLD_COINS);
+      onHired?.(comp, res);
+      if (isSameCompanion) {
+        say(LIVING_WORDS.roadAdvCompExtended(comp?.name || adv.name, days, res.hireCost || quote.totalCost), 5);
+      } else {
+        say(LIVING_WORDS.roadAdvRecruited(adv.name), 5);
+      }
+    } else if (res.maxDuration) {
+      say(LIVING_WORDS.roadAdvCompMaxDays(res.maxDays || MAX_COMPANION_CONTRACT_DAYS), 5);
+    } else if (res.goldShortage) {
+      say(LIVING_WORDS.roadAdvNoGold(res.hireCost || quote.totalCost), 5);
+    } else {
+      say(LIVING_WORDS.roadAdvDeclined(), 5);
+    }
+  };
+
+  const options = COMPANION_CONTRACT_OPTIONS_DAYS.map((days, idx) => {
+    const quote = calculateAdventurerHireQuote(adv, playerEntity, { days, regionIndex, nowMinutes });
+    return {
+      code: `Digit${idx + 1}`,
+      label: `${idx + 1}. ${LIVING_WORDS.roadAdvHireDays(days, quote.totalCost)}`,
+      action: () => {
+        if (isReplacing && typeof openChoice === 'function') {
+          // ChoiceWindow wraps opt.action() in captureHudText — never call say() before openChoice().
+          openChoice({
+            lines: [
+              LIVING_WORDS.roadAdvReplaceWarn(existing.displayName || existing.name, remainingHours),
+              ...(q1.isMerchantsFestival ? [LIVING_WORDS.roadAdvHireTagFestival()] : []),
+              ...(q1.isWartime ? [LIVING_WORDS.roadAdvHireTagWartime()] : []),
+            ],
+            options: [
+              {
+                code: 'Digit1',
+                label: `1. ${LIVING_WORDS.roadAdvReplaceConfirm(existing.displayName || existing.name, adv.name, days, quote.totalCost)}`,
+                action: () => executeHire(days, quote),
+              },
+              {
+                code: 'Digit2',
+                label: `2. ${LIVING_WORDS.roadAdvOptCancel()}`,
+                action: () => {},
+              },
+            ],
+          });
+          return;
+        }
+        executeHire(days, quote);
+      },
+    };
+  });
+
+  options.push({
+    code: `Digit${COMPANION_CONTRACT_OPTIONS_DAYS.length + 1}`,
+    label: `${COMPANION_CONTRACT_OPTIONS_DAYS.length + 1}. ${LIVING_WORDS.roadAdvOptCancel()}`,
+    action: () => {},
+  });
+
+  return { lines, options };
+}
+
+/**
+ * Builds the interactive status / extension (+1d/+3d) / dismissal dialog
+ * when activating a currently recruited adventurer companion.
+ */
+export function buildRecruitedCompanionChoiceSpec({
+  comp,
+  playerEntity,
+  regionIndex = 0,
+  nowMinutes = 0,
+  say = () => {},
+  playSound = null,
+  onExtended = null,
+  onDismissed = null,
+}) {
+  const q1 = calculateAdventurerHireQuote(comp, playerEntity, { days: 1, regionIndex, nowMinutes });
+  const q3 = calculateAdventurerHireQuote(comp, playerEntity, { days: 3, regionIndex, nowMinutes });
+  const remMin = getCompanionRemainingMinutes(comp, nowMinutes);
+  const remainingHours = Math.max(1, Math.ceil(remMin / 60));
+  const lines = [
+    LIVING_WORDS.roadAdvCompStatus(
+      comp.displayName || comp.name,
+      comp.className || 'Warrior',
+      comp.level || 1,
+      remainingHours,
+      q1.dailyCost,
+    ),
+  ];
+  if (q1.isMerchantsFestival) lines.push(LIVING_WORDS.roadAdvHireTagFestival());
+  if (q1.isWartime) lines.push(LIVING_WORDS.roadAdvHireTagWartime());
+
+  const tryExtend = (days, quote) => {
+    const res = extendAdventurerCompanion({ playerEntity, days, regionIndex, nowMinutes });
+    if (res.ok) {
+      playSound?.(LIVING_SOUNDS.GOLD_COINS);
+      onExtended?.(res.companion, res);
+      say(LIVING_WORDS.roadAdvCompExtended(comp.name, days, res.hireCost || quote.totalCost), 5);
+    } else if (res.reason === 'max_duration') {
+      say(LIVING_WORDS.roadAdvCompMaxDays(res.maxDays || MAX_COMPANION_CONTRACT_DAYS), 5);
+    } else if (res.reason === 'gold_shortage') {
+      say(LIVING_WORDS.roadAdvNoGold(res.hireCost || quote.totalCost), 5);
+    }
+  };
+
+  return {
+    lines,
+    options: [
+      {
+        code: 'Digit1',
+        label: `1. ${LIVING_WORDS.roadAdvCompExtend(1, q1.totalCost)}`,
+        action: () => tryExtend(1, q1),
+      },
+      {
+        code: 'Digit2',
+        label: `2. ${LIVING_WORDS.roadAdvCompExtend(3, q3.totalCost)}`,
+        action: () => tryExtend(3, q3),
+      },
+      {
+        code: 'Digit3',
+        label: `3. ${LIVING_WORDS.roadAdvCompDismiss()}`,
+        action: () => {
+          dismissAdventurerCompanion();
+          onDismissed?.(comp);
+          say(LIVING_WORDS.roadAdvCompDismissed(comp.name), 5);
+        },
+      },
+      {
+        code: 'Digit4',
+        label: `4. ${LIVING_WORDS.roadAdvOptCancel()}`,
+        action: () => {},
+      },
+    ],
+  };
+}
+
 export function createLivingSceneHost(deps) {
   const rng = deps.rng ?? Math.random;
   /** @type {Map<number, any>} modelId -> { gpu } */
@@ -1688,35 +1936,103 @@ export function createLivingSceneHost(deps) {
   let lastQuarantineRegion = -1;
   let companionFoe = /** @type {any} */ (null);
   let companionId = /** @type {number|string|null} */ (null);
+  let companionDisplayName = 'Adventurer';
   let companionSpawning = false;
+
+  function dismissCompanionBody() {
+    const old = companionFoe;
+    const wasActive = Boolean(old || companionId !== null);
+    companionFoe = null;
+    companionId = null;
+    companionDisplayName = 'Adventurer';
+    if (old && deps.inPool(old)) {
+      try {
+        deps.remove(old);
+      } catch (_e) {}
+    }
+    if (wasActive) deps.onCompanionChanged?.(null);
+  }
+
+  function adoptSiteCompanion(site, role, comp) {
+    if (!comp) return;
+    const candidate = site?.foes?.find?.((f) => f?.livingRole === role || f?.livingRole === 'recruited_companion') || null;
+    if (companionFoe && companionFoe !== candidate) {
+      const old = companionFoe;
+      companionFoe = null;
+      if (deps.inPool(old)) {
+        try {
+          deps.remove(old);
+        } catch (_e) {}
+      }
+    }
+    if (candidate) {
+      if (Array.isArray(site?.foes)) {
+        site.foes = site.foes.filter((x) => x !== candidate);
+      }
+      applyCompanionEntityStamp(
+        candidate,
+        comp,
+        () => deps.feet?.() ?? [candidate.ai?.feet?.[0] ?? 0, candidate.ai?.feet?.[1] ?? 0, candidate.ai?.feet?.[2] ?? 0],
+      );
+      companionFoe = candidate;
+    }
+    companionId = comp.id;
+    companionDisplayName = comp.displayName || comp.name || 'Adventurer';
+    deps.onCompanionChanged?.(comp);
+  }
 
   function syncCompanion(feet, nowMin) {
     const comp = getActiveAdventurerCompanion(nowMin);
     if (!comp) {
       if (companionFoe && deps.inPool(companionFoe)) {
+        const old = companionFoe;
+        companionFoe = null;
         try {
-          deps.remove(companionFoe);
+          deps.remove(old);
         } catch (_e) {}
       }
       if (companionFoe || companionId !== null) {
-        deps.say?.(LIVING_WORDS.roadAdvExpired ? LIVING_WORDS.roadAdvExpired('Adventurer') : "Your contracted companion's 24-hour service has expired. They bid you farewell and return to the road.", 6);
+        const expiredName = companionDisplayName || 'Adventurer';
         companionFoe = null;
         companionId = null;
+        companionDisplayName = 'Adventurer';
         deps.onCompanionChanged?.(null);
+        deps.say?.(
+          LIVING_WORDS.roadAdvExpired
+            ? LIVING_WORDS.roadAdvExpired(expiredName)
+            : `${expiredName}'s contract has expired. They bid you farewell and return to the road.`,
+          6,
+        );
       }
       return;
     }
 
     if (companionFoe?.dead) {
-      dismissAdventurerCompanion();
+      const fallenName = companionFoe.entity?.name || companionDisplayName || 'Adventurer';
       companionFoe = null;
       companionId = null;
+      companionDisplayName = 'Adventurer';
+      dismissAdventurerCompanion();
       deps.onCompanionChanged?.(null);
+      deps.say?.(
+        LIVING_WORDS.roadAdvCompFallen
+          ? LIVING_WORDS.roadAdvCompFallen(fallenName)
+          : `${fallenName} has fallen in battle.`,
+        5,
+      );
       return;
     }
 
     if (companionId !== comp.id) {
+      if (companionFoe && deps.inPool(companionFoe) && String(companionFoe._advRecord?.id ?? companionId) !== String(comp.id)) {
+        const old = companionFoe;
+        companionFoe = null;
+        try {
+          deps.remove(old);
+        } catch (_e) {}
+      }
       companionId = comp.id;
+      companionDisplayName = comp.displayName || comp.name || 'Adventurer';
       deps.onCompanionChanged?.(comp);
     }
 
@@ -1740,24 +2056,21 @@ export function createLivingSceneHost(deps) {
         .then((rec) => {
           companionSpawning = false;
           if (!rec) return;
-          if (rec.entity) {
-            rec.entity.name = comp.displayName || comp.name;
-            rec.entity.team = 'PlayerAlly';
-            rec.entity.mobileTeam = 'PlayerAlly';
+          const latest = getActiveAdventurerCompanion(nowMin);
+          if (!latest || String(latest.id) !== String(comp.id)) {
+            try {
+              if (deps.inPool(rec)) deps.remove(rec);
+            } catch (_e) {}
+            return;
           }
-          if (rec.ai) {
-            rec.ai.isHostile = false;
-            rec.ai.target = null;
-            rec.ai.secondaryTarget = null;
-            rec.ai.follow = { feet: () => deps.feet?.() ?? [rec.ai.feet[0], rec.ai.feet[1], rec.ai.feet[2]], stop: 2.5 };
-            rec.ai.moving = true;
-            rec.ai.canAct = true;
-            if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();
-          }
-          rec.companion = `adv:${comp.name}`;
-          rec.shipmate = true;
-          rec.livingRole = 'recruited_companion';
+          applyCompanionEntityStamp(
+            rec,
+            comp,
+            () => deps.feet?.() ?? [rec.ai?.feet?.[0] ?? 0, rec.ai?.feet?.[1] ?? 0, rec.ai?.feet?.[2] ?? 0],
+          );
           companionFoe = rec;
+          companionId = comp.id;
+          companionDisplayName = comp.displayName || comp.name || 'Adventurer';
         })
         .catch(() => {
           companionSpawning = false;
@@ -2416,120 +2729,140 @@ export function createLivingSceneHost(deps) {
       const tension = s.blueprint.meta?.tension;
       if (!adv) return;
       const wager = tension?.wagerGold ?? 50;
+      const meetingOptions = [
+        {
+          code: 'Digit1',
+          label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
+          action: () => {
+            deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
+            const foe = s.foes.find((f) => f?.livingRole === 'rival_adventurer' || f?.livingRole === 'wandering_adventurer');
+            if (foe && (foe.motor || (foe.entity && foe.ai))) {
+              foe._isSparring = true;
+              foe._duelWager = wager;
+              foe._advRecord = adv;
+              foe._surrenderedSpar = false;
+              if (foe.ai) {
+                foe.ai.isHostile = true;
+                foe.ai.detected = true;
+                foe.ai.target = player;
+                foe.ai.secondaryTarget = null;
+                foe.ai.makeHostileToPlayer?.(undefined, foe.ai.feet);
+                if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
+              }
+              deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
+            } else {
+              const res = resolveAdventurerEncounter({
+                adv,
+                playerEntity: player,
+                action: 'ACCEPT_DARE',
+                wagerGold: wager,
+                rng,
+              });
+              if (player && res.goldDelta) {
+                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
+              }
+              if (res.outcome === DUEL_OUTCOME.PLAYER_WON) {
+                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+                recordAdventurerGrudge(adv.name);
+              }
+              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)), 5);
+            }
+          },
+        },
+        {
+          code: 'Digit2',
+          label: `2. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
+          action: () => {
+            const res = resolveAdventurerEncounter({
+              adv,
+              playerEntity: player,
+              action: 'APPEAL_ETIQUETTE',
+              wagerGold: wager,
+              rng,
+            });
+            if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) {
+              setSiteHostile(s, true);
+              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
+            } else if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
+              adjustPlayerRegionalRep(player, regIdx, 1);
+              setSiteHostile(s, false);
+              deps.say(LIVING_WORDS.adventurerPeaceParted(adv.name), 5);
+            } else {
+              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
+            }
+          },
+        },
+        {
+          code: 'Digit3',
+          label: `3. ${LIVING_WORDS.adventurerOptionIntimidate()}`,
+          action: () => {
+            const res = resolveAdventurerEncounter({
+              adv,
+              playerEntity: player,
+              action: 'INTIMIDATE',
+              wagerGold: wager,
+              rng,
+            });
+            if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) setSiteHostile(s, true);
+            deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
+          },
+        },
+      ];
+
+      if (adv.trait !== 'CUTTHROAT') {
+        const dailyQuote = calculateAdventurerHireQuote(adv, player, {
+          days: 1,
+          regionIndex: regIdx,
+          nowMinutes: nowMin,
+        });
+        meetingOptions.push({
+          code: `Digit${meetingOptions.length + 1}`,
+          label: `${meetingOptions.length + 1}. ${LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost)}`,
+          action: () => {
+            deps.openChoice(
+              buildAdventurerHireSubmenuSpec({
+                adv,
+                playerEntity: player,
+                regionIndex: regIdx,
+                nowMinutes: nowMin,
+                situation: ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+                openChoice: deps.openChoice,
+                say: deps.say,
+                playSound: deps.playSound,
+                onHired: (comp) => adoptSiteCompanion(s, 'rival_adventurer', comp),
+                rng,
+              }),
+            );
+          },
+        });
+      }
+
+      meetingOptions.push({
+        code: `Digit${meetingOptions.length + 1}`,
+        label: `${meetingOptions.length + 1}. ${LIVING_WORDS.adventurerOptionDecline()}`,
+        action: () => {
+          deps.say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0), 4);
+        },
+      });
+      meetingOptions.push({
+        code: `Digit${meetingOptions.length + 1}`,
+        label: `${meetingOptions.length + 1}. ${LIVING_WORDS.surrenderOptionForfeitDuel(wager)}`,
+        action: () => {
+          if (player) {
+            const currentGold = Number(player.goldPieces ?? 0);
+            const forfeitPaid = Math.min(currentGold, wager);
+            player.goldPieces = Math.max(0, currentGold - forfeitPaid);
+          }
+          deps.say(LIVING_WORDS.surrenderOutcomeConceded(), 5);
+          releaseSite();
+        },
+      });
+
       deps.openChoice({
         lines: [
           `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, wager)}"`,
         ],
-        options: [
-          {
-            code: 'Digit1',
-            label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
-            action: () => {
-              deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
-              const foe = s.foes.find((f) => f?.livingRole === 'rival_adventurer' || f?.livingRole === 'wandering_adventurer');
-              if (foe && (foe.motor || (foe.entity && foe.ai))) {
-                foe._isSparring = true;
-                foe._duelWager = wager;
-                foe._advRecord = adv;
-                foe._surrenderedSpar = false;
-                if (foe.ai) {
-                  foe.ai.isHostile = true;
-                  foe.ai.detected = true;
-                  foe.ai.target = player;
-                  foe.ai.secondaryTarget = null;
-                  foe.ai.makeHostileToPlayer?.(undefined, foe.ai.feet);
-                  if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
-                }
-                deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
-              } else {
-                const res = resolveAdventurerEncounter({
-                  adv,
-                  playerEntity: player,
-                  action: 'ACCEPT_DARE',
-                  wagerGold: wager,
-                  rng,
-                });
-                if (player && res.goldDelta) {
-                  player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
-                }
-                if (res.outcome === DUEL_OUTCOME.PLAYER_WON) {
-                  deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                  recordAdventurerGrudge(adv.name);
-                }
-                deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)), 5);
-              }
-            },
-          },
-          {
-            code: 'Digit2',
-            label: `2. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
-            action: () => {
-              const res = resolveAdventurerEncounter({
-                adv,
-                playerEntity: player,
-                action: 'APPEAL_ETIQUETTE',
-                wagerGold: wager,
-                rng,
-              });
-              if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) {
-                setSiteHostile(s, true);
-              } else if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
-                const comp = recruitAdventurerCompanion(adv, nowMin);
-                companionId = comp.id;
-                deps.onCompanionChanged?.(comp);
-                for (const f of s.foes) {
-                  if (f?.livingRole === 'rival_adventurer') {
-                    if (f.entity) {
-                      f.entity.team = 'PlayerAlly';
-                      f.entity.mobileTeam = 'PlayerAlly';
-                    }
-                    if (f.ai) f.ai.isHostile = false;
-                    f.companion = `adv:${comp.name}`;
-                    f.allied = true;
-                    f.shipmate = true;
-                    companionFoe = f;
-                  }
-                }
-              }
-              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
-            },
-          },
-          {
-            code: 'Digit3',
-            label: `3. ${LIVING_WORDS.adventurerOptionIntimidate()}`,
-            action: () => {
-              const res = resolveAdventurerEncounter({
-                adv,
-                playerEntity: player,
-                action: 'INTIMIDATE',
-                wagerGold: wager,
-                rng,
-              });
-              if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) setSiteHostile(s, true);
-              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
-            },
-          },
-          {
-            code: 'Digit4',
-            label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
-            action: () => {
-              deps.say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0), 4);
-            },
-          },
-          {
-            code: 'Digit5',
-            label: `5. ${LIVING_WORDS.surrenderOptionForfeitDuel(wager)}`,
-            action: () => {
-              if (player) {
-                const currentGold = Number(player.goldPieces ?? 0);
-                const forfeitPaid = Math.min(currentGold, wager);
-                player.goldPieces = Math.max(0, currentGold - forfeitPaid);
-              }
-              deps.say(LIVING_WORDS.surrenderOutcomeConceded(), 5);
-              releaseSite();
-            },
-          },
-        ],
+        options: meetingOptions,
       });
     } else if (s.kind === LIVING_SITE_KINDS.TRAVELER_REST) {
       const merchantActor = s.foes.find((f) => f?.livingRole === 'traveler');
@@ -2844,6 +3177,11 @@ export function createLivingSceneHost(deps) {
       const situation = s.blueprint.meta?.situation ?? ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD;
       if (!adv) return;
       const wager = Math.max(25, (adv.level || 3) * 15);
+      const dailyQuote = calculateAdventurerHireQuote(adv, player, {
+        days: 1,
+        regionIndex: regIdx,
+        nowMinutes: nowMin,
+      });
       const introLine =
         situation === ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP
           ? LIVING_WORDS.roadAdvCamp(adv.name)
@@ -2876,49 +3214,22 @@ export function createLivingSceneHost(deps) {
           },
           {
             code: 'Digit2',
-            label: `2. ${LIVING_WORDS.roadAdvOptionRecruit(wager)}`,
+            label: `2. ${LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost)}`,
             action: () => {
-              const res = resolveWanderingAdventurerInteraction({
-                adv,
-                situation,
-                playerEntity: player,
-                action: 'RECRUIT_ALLY',
-                regionIndex: regIdx,
-                rng,
-              });
-              if (res.allied) {
-                const comp = recruitAdventurerCompanion(adv, nowMin);
-                companionId = comp.id;
-                deps.onCompanionChanged?.(comp);
-                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                for (const f of s.foes) {
-                  if (f?.livingRole === 'wandering_adventurer') {
-                    if (f.entity) {
-                      f.entity.name = comp.displayName || comp.name;
-                      f.entity.team = 'PlayerAlly';
-                      f.entity.mobileTeam = 'PlayerAlly';
-                    }
-                    if (f.ai) {
-                      f.ai.isHostile = false;
-                      f.ai.target = null;
-                      f.ai.secondaryTarget = null;
-                      f.ai.follow = { feet: () => deps.feet?.() ?? [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], stop: 2.5 };
-                      f.ai.moving = true;
-                      f.ai.canAct = true;
-                      if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
-                    }
-                    f.companion = `adv:${comp.name}`;
-                    f.shipmate = true;
-                    f.livingRole = 'recruited_companion';
-                    companionFoe = f;
-                  }
-                }
-                deps.say(LIVING_WORDS.roadAdvRecruited(adv.name), 5);
-              } else if (res.goldShortage) {
-                deps.say(LIVING_WORDS.roadAdvNoGold(res.hireCost || wager), 5);
-              } else {
-                deps.say(LIVING_WORDS.roadAdvDeclined(), 5);
-              }
+              deps.openChoice(
+                buildAdventurerHireSubmenuSpec({
+                  adv,
+                  playerEntity: player,
+                  regionIndex: regIdx,
+                  nowMinutes: nowMin,
+                  situation,
+                  openChoice: deps.openChoice,
+                  say: deps.say,
+                  playSound: deps.playSound,
+                  onHired: (comp) => adoptSiteCompanion(s, 'wandering_adventurer', comp),
+                  rng,
+                }),
+              );
             },
           },
           {
@@ -4532,6 +4843,9 @@ export function createLivingSceneHost(deps) {
       return true;
     },
 
+    getCompanionFoe: () => companionFoe,
+    dismissCompanionBody,
+
     /** Clears any active site and releases all spawned actors and batches. */
     clear() {
       releaseSite();
@@ -4541,20 +4855,8 @@ export function createLivingSceneHost(deps) {
 }
 
 /**
- * Builds an interactive ChoiceWindow specification for a rival adventurer encountered
- * inside a dungeon (either reclaiming an intercepted non-main quest objective or
- * parleying/duelling/allying with a delving rival).
- *
- * @param {{
- *   adv: any,
- *   intercepted?: any|null,
- *   locationId: string|number,
- *   regionIndex?: number|null,
- *   playerEntity: any,
- *   foeRecord?: any,
- *   say?: (msg: string) => void,
- *   rng?: () => number,
- * }} params
+ * Builds an interactive ChoiceWindow spec for a dungeon rival adventurer.
+ * @param {any} params
  */
 export function buildDungeonAdventurerChoiceSpec({
   adv,
@@ -4563,6 +4865,10 @@ export function buildDungeonAdventurerChoiceSpec({
   regionIndex = null,
   playerEntity,
   foeRecord = null,
+  nowMinutes = 0,
+  openChoice = null,
+  playSound = null,
+  onHired = null,
   say = () => {},
   rng = Math.random,
 }) {
@@ -4686,87 +4992,121 @@ export function buildDungeonAdventurerChoiceSpec({
 
   const tension = evaluateAdventurerTension(adv, playerEntity);
   const wager = tension.wagerGold ?? 50;
+  const safeRegion = Number.isFinite(regionIndex) ? regionIndex : 0;
+  const options = [
+    {
+      code: 'Digit1',
+      label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
+      action: () => {
+        if (foeRecord) {
+          foeRecord._isSparring = true;
+          foeRecord._duelWager = wager;
+          foeRecord._advRecord = adv;
+          foeRecord._surrenderedSpar = false;
+          if (foeRecord.ai) {
+            foeRecord.ai.isHostile = true;
+            foeRecord.ai.detected = true;
+            foeRecord.ai.target = playerEntity;
+            foeRecord.ai.secondaryTarget = null;
+          }
+        }
+        say(LIVING_WORDS.adventurerDuelChallenge());
+      },
+    },
+    {
+      code: 'Digit2',
+      label: `2. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
+      action: () => {
+        const res = resolveAdventurerEncounter({
+          adv,
+          playerEntity,
+          action: 'APPEAL_ETIQUETTE',
+          wagerGold: wager,
+          rng,
+        });
+        if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
+          if (foeRecord?.ai) {
+            foeRecord.ai.isHostile = false;
+          }
+          say(LIVING_WORDS.adventurerPeaceParted(adv.name));
+          return;
+        }
+        if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW && foeRecord?.ai) {
+          foeRecord.ai.isHostile = true;
+          foeRecord.ai.detected = true;
+        }
+        say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0));
+      },
+    },
+    {
+      code: 'Digit3',
+      label: `3. ${LIVING_WORDS.adventurerOptionIntimidate()}`,
+      action: () => {
+        const res = resolveAdventurerEncounter({
+          adv,
+          playerEntity,
+          action: 'INTIMIDATE',
+          wagerGold: wager,
+          rng,
+        });
+        if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW && foeRecord?.ai) {
+          foeRecord.ai.isHostile = true;
+          foeRecord.ai.detected = true;
+        }
+        say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0));
+      },
+    },
+    {
+      code: 'Digit4',
+      label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
+      action: () => {
+        say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0));
+      },
+    },
+  ];
+
+  if (adv.trait !== 'CUTTHROAT') {
+    const dailyQuote = calculateAdventurerHireQuote(adv, playerEntity, {
+      days: 1,
+      regionIndex: safeRegion,
+      nowMinutes,
+    });
+    options.push({
+      code: 'Digit5',
+      label: `5. ${LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost)}`,
+      action: () => {
+        const subSpec = buildAdventurerHireSubmenuSpec({
+          adv,
+          playerEntity,
+          regionIndex: safeRegion,
+          nowMinutes,
+          situation: ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+          openChoice,
+          say,
+          playSound,
+          onHired: (comp) => {
+            if (foeRecord && comp) {
+              applyCompanionEntityStamp(foeRecord, comp);
+              if (foeRecord.ai) foeRecord.ai.detected = true;
+            }
+            onHired?.(comp, foeRecord);
+          },
+          rng,
+        });
+        if (typeof openChoice === 'function') {
+          openChoice(subSpec);
+        } else {
+          subSpec.options[0]?.action?.();
+        }
+      },
+    });
+  }
+
   return {
     lines: [
       `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, wager)}"`,
     ],
-    options: [
-      {
-        code: 'Digit1',
-        label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
-        action: () => {
-          if (foeRecord) {
-            foeRecord._isSparring = true;
-            foeRecord._duelWager = wager;
-            foeRecord._advRecord = adv;
-            foeRecord._surrenderedSpar = false;
-            if (foeRecord.ai) {
-              foeRecord.ai.isHostile = true;
-              foeRecord.ai.detected = true;
-              foeRecord.ai.target = playerEntity;
-              foeRecord.ai.secondaryTarget = null;
-            }
-          }
-          say(LIVING_WORDS.adventurerDuelChallenge());
-        },
-      },
-      {
-        code: 'Digit2',
-        label: `2. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
-        action: () => {
-          const res = resolveAdventurerEncounter({
-            adv,
-            playerEntity,
-            action: 'APPEAL_ETIQUETTE',
-            wagerGold: wager,
-            rng,
-          });
-          if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
-            recruitAdventurerCompanion(adv);
-            if (foeRecord) {
-              foeRecord.allied = true;
-              foeRecord.shipmate = true;
-            }
-            if (foeRecord?.entity) {
-              foeRecord.entity.team = 'PlayerAlly';
-              foeRecord.entity.mobileTeam = 'PlayerAlly';
-            }
-            if (foeRecord?.ai) {
-              foeRecord.ai.isHostile = false;
-            }
-          } else if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW && foeRecord?.ai) {
-            foeRecord.ai.isHostile = true;
-            foeRecord.ai.detected = true;
-          }
-          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0));
-        },
-      },
-      {
-        code: 'Digit3',
-        label: `3. ${LIVING_WORDS.adventurerOptionIntimidate()}`,
-        action: () => {
-          const res = resolveAdventurerEncounter({
-            adv,
-            playerEntity,
-            action: 'INTIMIDATE',
-            wagerGold: wager,
-            rng,
-          });
-          if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW && foeRecord?.ai) {
-            foeRecord.ai.isHostile = true;
-            foeRecord.ai.detected = true;
-          }
-          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0));
-        },
-      },
-      {
-        code: 'Digit4',
-        label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
-        action: () => {
-          say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0));
-        },
-      },
-    ],
+    options,
   };
 }
 
@@ -4921,6 +5261,84 @@ export function executeLivingConsoleCommand(args, ctx) {
       if (!adv) return `[Living Tamriel] Adventurer "${idOrName}" not found.`;
       return `[Living Tamriel] Updated ${adv.name} to Level ${adv.level} (Gear Tier T${adv.gearTier}).`;
     }
+    if (act === 'settrait') {
+      const idOrName = cleanArgs[2];
+      const newTrait = cleanArgs[3];
+      if (idOrName == null || !newTrait) {
+        return `Usage: /living adv settrait <name|id|index> <${ADVENTURER_TRAITS.join('|')}>`;
+      }
+      const adv = setAdventurerTrait(idOrName, newTrait);
+      if (!adv) {
+        return `[Living Tamriel] Adventurer "${idOrName}" not found or invalid trait (valid: ${ADVENTURER_TRAITS.join(', ')}).`;
+      }
+      return `[Living Tamriel] Updated ${adv.name} trait to ${adv.trait}.`;
+    }
+    if (act === 'quote') {
+      const query = cleanArgs[2];
+      const daysArg = parseInt(cleanArgs[3], 10);
+      const days = Number.isFinite(daysArg) ? Math.max(1, Math.min(MAX_COMPANION_CONTRACT_DAYS, daysArg)) : 1;
+      let adv = null;
+      if (query == null) {
+        adv = getActiveAdventurerCompanion(ctx?.nowMinutes ?? 0)
+          || pool.find((a) => a.currentRegion === regIdx && a.status !== ADVENTURER_STATUS.DEAD)
+          || pool[0];
+      } else if (Number.isFinite(Number(query))) {
+        const num = Number(query);
+        adv = pool.find((a) => a.id === num) || pool[num];
+      } else {
+        adv = pool.find((a) => (a.name || '').toLowerCase().includes(String(query).toLowerCase()));
+      }
+      if (!adv) return '[Living Tamriel] No matching adventurer found for quote.';
+      const q = calculateAdventurerHireQuote(adv, ctx?.playerEntity ?? null, {
+        days,
+        regionIndex: regIdx,
+        nowMinutes: ctx?.nowMinutes ?? 0,
+      });
+      return [
+        `[Living Tamriel] Hire Quote: ${getAdventurerDisplayName(adv)} (Lv.${q.advLevel} ${adv.className || 'Warrior'}, Trait: ${adv.trait}, Haggle Quality: ${q.quality})`,
+        `  Base: ${q.baseDaily}g/day | Quoted: ${q.dailyCost}g/day | ${q.days}d Total: ${q.totalCost}g (Discount: ${q.discountPct}%)`,
+        `  Player Inputs: Mercantile=${q.mercantile}, Personality=${q.personality} | MerchantsFestival=${q.isMerchantsFestival ? 'YES (-50%)' : 'no'} | WartimeRate=${q.isWartime ? `x${q.warFactor.toFixed(2)}` : '1.00'}`,
+      ].join('\n');
+    }
+    if (act === 'companion') {
+      const subAct = String(cleanArgs[2] ?? 'status').toLowerCase();
+      const nowMin = ctx?.nowMinutes ?? 0;
+      const comp = getActiveAdventurerCompanion(nowMin);
+      if (subAct === 'dismiss') {
+        if (!comp) return '[Living Tamriel] No active adventurer companion to dismiss.';
+        dismissAdventurerCompanion();
+        ctx?.sceneHost?.dismissCompanionBody?.();
+        ctx?.dungeonCtx?.dismissLivingCompanion?.();
+        return `[Living Tamriel] Dismissed companion ${comp.displayName || comp.name} (no refund).`;
+      }
+      if (subAct === 'kill') {
+        const foe = ctx?.sceneHost?.getCompanionFoe?.() || ctx?.dungeonCtx?.getLivingCompanionFoe?.();
+        if (foe?.entity) {
+          foe.lootDropped = true;
+          foe._suppressLoot = true;
+          foe.entity.items = [];
+          foe.entity.goldPieces = 0;
+          foe.entity.health = 0;
+          return `[Living Tamriel] Struck down active companion ${comp?.displayName || foe.entity.name || 'Companion'} (HP set to 0; zero-loot death).`;
+        }
+        if (comp) {
+          dismissAdventurerCompanion();
+          ctx?.sceneHost?.dismissCompanionBody?.();
+          ctx?.dungeonCtx?.dismissLivingCompanion?.();
+          return `[Living Tamriel] Companion ${comp.displayName || comp.name} had no live body in scene and was dismissed.`;
+        }
+        return '[Living Tamriel] No active adventurer companion.';
+      }
+      if (!comp) return 'No active adventurer companion.';
+      const remMin = getCompanionRemainingMinutes(comp, nowMin);
+      const remHours = Math.max(0, Math.ceil(remMin / 60));
+      const q = calculateAdventurerHireQuote(comp, ctx?.playerEntity ?? null, {
+        days: 1,
+        regionIndex: regIdx,
+        nowMinutes: nowMin,
+      });
+      return `[Living Tamriel] Active Companion: ${comp.displayName || comp.name} (${comp.className}, Lv.${comp.level}, T${comp.gearTier}, Trait: ${comp.trait}) | ${remHours}h (${Math.round(remMin)}m) remaining | Rate: ${q.dailyCost}g/day`;
+    }
     if (act === 'tick') {
       const days = Math.max(1, Math.min(365, parseInt(cleanArgs[2], 10) || 1));
       const dailyLogs = [];
@@ -4976,7 +5394,7 @@ export function executeLivingConsoleCommand(args, ctx) {
       ctx?.sceneHost?.standBlueprint?.(bp);
       return `[Living Tamriel] Summoned adventurer ${getAdventurerDisplayName(match)} (Lvl ${match.level} ${match.className}) in front of you. Step closer to interact.`;
     }
-    return 'Usage: /living adv <list [region] | summon [nearest|random|<name>] | setlevel <name|id|index> <level> | tick <days> | kill_in_dungeon [region]>';
+    return 'Usage: /living adv <list [region] | summon [nearest|random|<name>] | setlevel <name|id|index> <level> | settrait <name|id|index> <trait> | quote [name|id|index] [days] | companion [status|dismiss|kill] | tick <days> | kill_in_dungeon [region]>';
   }
 
   if (sub === 'spawn') {

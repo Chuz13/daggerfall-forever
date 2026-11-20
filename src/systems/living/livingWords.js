@@ -220,20 +220,48 @@ export const LIVING_WORDS = Object.freeze({
     t('living.roadAdv.spoils', '{name} guards a heavy chest of dungeon spoils: "Cleared the crypt ahead. A profitable day for bold steel!"', { name }),
   roadAdvOptionIntel: () =>
     t('living.roadAdv.optionIntel', 'Trade road news, dungeon intel, and share the camp.'),
-  roadAdvOptionRecruit: (gold) =>
-    t('living.roadAdv.optionRecruit', 'Hire to travel and fight alongside you ({gold}g retainer).', { gold }),
+  roadAdvOptionRecruit: (gold = 200) =>
+    t('living.roadAdv.optionRecruit', 'Hire to travel and fight alongside you ({gold}g/day).', { gold }),
   roadAdvOptionSpar: (gold) =>
     t('living.roadAdv.optionSpar', 'Propose a friendly wager match of blades ({gold}g).', { gold }),
   roadAdvOptionExtort: () =>
     t('living.roadAdv.optionExtort', 'Intimidate (Streetwise + Personality roll): demand a share of their dungeon spoils.'),
   roadAdvIntelShared: () =>
     t('living.roadAdv.intelShared', 'You exchange maps and road warnings over the fire, feeling refreshed for the journey ahead.'),
-  roadAdvRecruited: (name) =>
+  roadAdvRecruited: (name = 'Adventurer') =>
     t('living.roadAdv.recruited', '{name} salutes and falls in beside you: "My blade is with you along this road!"', { name }),
-  roadAdvNoGold: (gold) =>
+  roadAdvNoGold: (gold = 200) =>
     t('living.roadAdv.noGold', 'I cannot pledge my blade without the retainer fee ({gold} gold).', { gold }),
-  roadAdvExpired: (name) =>
-    t('living.roadAdv.contractExpired', "Your contracted companion's 24-hour service has expired. They bid you farewell and return to the road.", { name }),
+  roadAdvExpired: (name = 'Adventurer') =>
+    t('living.roadAdv.contractExpired', "{name}'s contract has expired. They bid you farewell and return to the road.", { name }),
+  roadAdvHireTitle: (name = 'Adventurer', className = 'Warrior', level = 1, gold = 200, base = 200) =>
+    t('living.roadAdv.hireTitle', '{name} ({className}, Lv.{level}) - {gold}g/day (base {base}g). Choose contract:', { name, className, level, gold, base }),
+  roadAdvHireDays: (days = 1, gold = 200) =>
+    t('living.roadAdv.hireDays', 'Hire for {days} day(s) ({gold}g total)', { days, gold }),
+  roadAdvHireTagFestival: () =>
+    t('living.roadAdv.hireTagFestival', 'Merchants Festival: 50% off!'),
+  roadAdvHireTagWartime: () =>
+    t('living.roadAdv.hireTagWartime', 'Wartime demand: higher mercenary rates.'),
+  roadAdvReplaceWarn: (oldName = 'Companion', hours = 1) =>
+    t('living.roadAdv.replaceWarn', 'Active companion {oldName} ({hours}h left) will be dismissed without refund.', { oldName, hours }),
+  roadAdvReplaceConfirm: (oldName = 'Companion', newName = 'Adventurer', days = 1, gold = 200) =>
+    t('living.roadAdv.replaceConfirm', 'Confirm: replace {oldName} with {newName} ({days}d, {gold}g)', { oldName, newName, days, gold }),
+  roadAdvOptCancel: () =>
+    t('living.roadAdv.optCancel', 'Cancel'),
+  roadAdvCompStatus: (name = 'Adventurer', className = 'Warrior', level = 1, hours = 24, gold = 200) =>
+    t('living.roadAdv.compStatus', '{name} ({className}, Lv.{level}) - {hours}h remaining ({gold}g/day).', { name, className, level, hours, gold }),
+  roadAdvCompExtend: (days = 1, gold = 200) =>
+    t('living.roadAdv.compExtend', 'Extend contract by {days} day(s) ({gold}g)', { days, gold }),
+  roadAdvCompExtended: (name = 'Adventurer', days = 1, gold = 200) =>
+    t('living.roadAdv.compExtended', "{name}'s contract extended by {days} day(s) (-{gold}g).", { name, days, gold }),
+  roadAdvCompMaxDays: (maxDays = 14) =>
+    t('living.roadAdv.compMaxDays', 'Contract cannot exceed {maxDays} days in total.', { maxDays }),
+  roadAdvCompDismiss: () =>
+    t('living.roadAdv.compDismiss', 'Dismiss companion (no refund)'),
+  roadAdvCompDismissed: (name = 'Adventurer') =>
+    t('living.roadAdv.compDismissed', '{name} bids you farewell and returns to the road.', { name }),
+  roadAdvCompFallen: (name = 'Adventurer') =>
+    t('living.roadAdv.compFallen', '{name} has fallen in battle.', { name }),
   roadAdvExtorted: (name) =>
     t('living.roadAdv.extorted', '{name} backs down with a scowl and tosses you a pouch of dungeon spoils.', { name }),
   roadAdvDeclined: () =>
@@ -305,7 +333,9 @@ export const LIVING_WORDS = Object.freeze({
   adventurerOptionDuel: (gold = 50) =>
     t('living.adventurer.optDuel', 'Accept wager duel for {gold}g (+Combat & Luck roll)', { gold }),
   adventurerOptionEtiquette: () =>
-    t('living.adventurer.optEtiquette', 'Propose fellowship / peace (Etiquette + Personality roll to recruit)'),
+    t('living.adventurer.optEtiquette', 'Propose peaceful parley (Etiquette + Personality roll)'),
+  adventurerPeaceParted: (name = 'Adventurer') =>
+    t('living.adventurer.peaceParted', '{name} nods with respect and sheathes their steel.', { name }),
   adventurerOptionIntimidate: () =>
     t('living.adventurer.optIntimidate', 'Intimidate to back down (Streetwise + Personality roll)'),
   adventurerOptionDecline: () =>

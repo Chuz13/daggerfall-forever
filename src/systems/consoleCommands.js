@@ -42,11 +42,12 @@
 
 import { getBool } from './settings/settings.js';
 import { staffPowers, setStaffPowers, staffNoclip, playerEntity, surfacePlayer, forcePlayerDeath } from '../characters/playerEntity.js';
-import { addGoldPieces, addItem } from './inventory.js';
+import { addGoldPieces, addItem, letterOfCredit } from './inventory.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { worldMinutes, setWorldMinutes, advanceOwnMinutes } from './worldTick.js';
 import { setSyntheticTimeIncrease } from './effectBroker.js';
 import { dateFromClassicMinutes, dateTimeString, dayOfMonth, monthName, seasonName } from './gameDate.js';
+import { HOLIDAYS, getHolidayId, holidayDayOfYear, MINUTES_PER_YEAR } from './holidays.js';
 import { setWeather, setDivineWeatherOverride, currentWeather } from './weather/weatherSim.js';
 import { templateByIndex, setItemFields, mintCondition, GROUP_TEMPLATE_INDICES, customTemplateRows } from './item/itemTemplates.js';
 import { ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE, makePotion } from './potions.js';
@@ -180,9 +181,15 @@ import {
   CRISIS_PHASE,
 } from './living/regionState.js';
 import {
+  ADVENTURER_TRAITS,
   tickAdventurerSimulation,
   killAdventurerInDungeon,
   setAdventurerLevel,
+  setAdventurerTrait,
+  calculateAdventurerHireQuote,
+  getActiveAdventurerCompanion,
+  getCompanionRemainingMinutes,
+  dismissAdventurerCompanion,
   getAdventurerSimRegistry,
   ADVENTURER_STATUS,
 } from './living/adventurerSim.js';
@@ -489,6 +496,21 @@ registerCommand(
     return `Added ${count} gold. (Total: ${playerEntity.goldPieces ?? 0})`;
   }
 );
+
+function handleAddCreditCommand(args = []) {
+  if (!args || !args.length) return 'Usage: add_credit <amount>';
+  const amount = parseInt(args[0], 10);
+  if (!Number.isFinite(amount) || amount <= 0) return 'Usage: add_credit <positive amount>';
+  if (!playerEntity) return 'No player entity found.';
+  playerEntity.items ??= [];
+  const loc = mintCondition(setItemFields(letterOfCredit(amount)));
+  addItem(playerEntity.items, loc);
+  surfacePlayer?.();
+  return `Added Letter of Credit worth ${amount} gold.`;
+}
+registerCommand('add_credit', 'Add a Letter of Credit to inventory: add_credit <amount>', 'add_credit <amount>', handleAddCreditCommand);
+registerCommand('addcredit', 'Alias for add_credit <amount>', 'addcredit <amount>', handleAddCreditCommand);
+registerCommand('give_credit', 'Alias for add_credit <amount>', 'give_credit <amount>', handleAddCreditCommand);
 
 registerCommand(
   'teleport',
@@ -800,6 +822,35 @@ function handleDateCommand() {
 registerCommand('date', 'Display current Tamriel calendar date and time', 'date', handleDateCommand);
 registerCommand('calendar', 'Display current Tamriel calendar date and time', 'calendar', handleDateCommand);
 registerCommand('get_time', 'Display current Tamriel calendar date and time', 'get_time', handleDateCommand);
+
+function handleSetHolidayCommand(args = []) {
+  const raw = String(args[0] || '').trim().toLowerCase();
+  const regIdx = playerEntity?.currentRegionIndex ?? 0;
+  if (!raw) {
+    const id = getHolidayId(worldMinutes(), regIdx);
+    return `Current Holiday ID: ${id}${id === HOLIDAYS.Merchants_Festival ? ' (Merchants Festival)' : ''}. Usage: set_holiday <merchants|none>`;
+  }
+  const cur = worldMinutes();
+  const year = Math.floor(Math.max(0, cur) / MINUTES_PER_YEAR);
+  let targetDay;
+  let label;
+  if (raw === 'merchants' || raw === 'merchants_festival' || raw === 'festival') {
+    targetDay = holidayDayOfYear(HOLIDAYS.Merchants_Festival);
+    label = 'Merchants Festival';
+  } else if (raw === 'none' || raw === 'off' || raw === 'clear') {
+    targetDay = holidayDayOfYear(HOLIDAYS.Merchants_Festival) + 1;
+    label = 'None';
+  } else {
+    return 'Usage: set_holiday <merchants|none>';
+  }
+  const nextMinutes = year * MINUTES_PER_YEAR + (targetDay - 1) * 1440 + 720;
+  setWorldMinutes(nextMinutes);
+  const d = dateFromClassicMinutes(nextMinutes);
+  const activeId = getHolidayId(nextMinutes, regIdx);
+  return `Holiday set to ${label} (ID=${activeId}, dayOfYear=${targetDay}). New Date: ${dateTimeString(d)}.`;
+}
+registerCommand('set_holiday', 'Jump calendar to a regional/global holiday for testing: set_holiday <merchants|none>', 'set_holiday <merchants|none>', handleSetHolidayCommand);
+registerCommand('holiday', 'Alias for set_holiday <merchants|none>', 'holiday <merchants|none>', handleSetHolidayCommand);
 
 function handleAdvanceTimeCommand(args = []) {
   if (!args || !args.length) return 'Usage: advance_time <hours>';
@@ -2342,8 +2393,8 @@ registerCommand(
 
 registerCommand(
   'living',
-  'Living Tamriel simulation controls: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>',
-  'living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>',
+  'Living Tamriel simulation controls: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region]>',
+  'living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region]>',
   (args = []) => {
     const scope = String(args[0] || '').toLowerCase();
     if (scope === 'adv' || scope === 'adventurer') {
@@ -2369,6 +2420,57 @@ registerCommand(
         if (!adv) return `Adventurer "${idOrName}" not found.`;
         return `[Living Tamriel] Updated ${adv.name} to Level ${adv.level} (Gear Tier ${adv.gearTier}).`;
       }
+      if (sub === 'settrait') {
+        const idOrName = args[2];
+        const newTrait = args[3];
+        if (!idOrName || !newTrait) return `Usage: living adv settrait <name|id> <${ADVENTURER_TRAITS.join('|')}>`;
+        const adv = setAdventurerTrait(idOrName, newTrait);
+        if (!adv) return `Adventurer "${idOrName}" not found or invalid trait.`;
+        return `[Living Tamriel] Updated ${adv.name} trait to ${adv.trait}.`;
+      }
+      if (sub === 'quote') {
+        const query = args[2];
+        const daysArg = parseInt(args[3], 10);
+        const days = Number.isFinite(daysArg) ? Math.max(1, Math.min(14, daysArg)) : 1;
+        const reg = getAdventurerSimRegistry();
+        const pool = reg?.pool || [];
+        const regIdx = playerEntity?.currentRegionIndex ?? 0;
+        let adv = null;
+        if (query == null) {
+          adv = getActiveAdventurerCompanion(worldMinutes()) || pool.find((a) => a.currentRegion === regIdx && a.status !== ADVENTURER_STATUS.DEAD) || pool[0];
+        } else if (Number.isFinite(Number(query))) {
+          const num = Number(query);
+          adv = pool.find((a) => a.id === num) || pool[num];
+        } else {
+          adv = pool.find((a) => (a.name || '').toLowerCase().includes(String(query).toLowerCase()));
+        }
+        if (!adv) return 'No matching adventurer found for quote.';
+        const q = calculateAdventurerHireQuote(adv, playerEntity, {
+          days,
+          regionIndex: regIdx,
+          nowMinutes: worldMinutes(),
+        });
+        return `[Living Tamriel] Hire Quote: ${adv.name} (Lv.${q.advLevel} ${adv.className}, Trait: ${adv.trait}, Q${q.quality}) -> Base ${q.baseDaily}g/d, Quoted ${q.dailyCost}g/d, ${q.days}d Total ${q.totalCost}g (${q.discountPct}% off, Merc=${q.mercantile}, Pers=${q.personality}, Festival=${q.isMerchantsFestival}, War=x${q.warFactor.toFixed(2)}).`;
+      }
+      if (sub === 'companion') {
+        const subAct = String(args[2] || 'status').toLowerCase();
+        const nowMin = worldMinutes();
+        const comp = getActiveAdventurerCompanion(nowMin);
+        if (subAct === 'dismiss') {
+          if (!comp) return 'No active adventurer companion to dismiss.';
+          dismissAdventurerCompanion();
+          return `[Living Tamriel] Dismissed companion ${comp.displayName || comp.name} (no refund).`;
+        }
+        if (!comp) return 'No active adventurer companion.';
+        const remMin = getCompanionRemainingMinutes(comp, nowMin);
+        const remHours = Math.max(0, Math.ceil(remMin / 60));
+        const q = calculateAdventurerHireQuote(comp, playerEntity, {
+          days: 1,
+          regionIndex: playerEntity?.currentRegionIndex ?? 0,
+          nowMinutes: nowMin,
+        });
+        return `[Living Tamriel] Active Companion: ${comp.displayName || comp.name} (${comp.className}, Lv.${comp.level}, T${comp.gearTier}, Trait: ${comp.trait}) | ${remHours}h remaining | Rate: ${q.dailyCost}g/day`;
+      }
       if (sub === 'list') {
         const reg = getAdventurerSimRegistry();
         const pool = reg?.pool || [];
@@ -2380,9 +2482,9 @@ registerCommand(
         }
         return lines.join('\n');
       }
-      return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>';
+      return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region]>';
     }
-    return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | list [region]>';
+    return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region]>';
   }
 );
 
