@@ -296,17 +296,10 @@ export function saveTile(doc, save, { actions = [], cloud = null, face = null, c
 
   // ── WHO, AND WHEN ───────────────────────────────────────────────
   const who = el('div', 'svwho');
-  // THE NAME AND THE SLOT SHARE ONE ROW, and they share it by FLEX
-  // rather than by one of them being absolutely positioned over the
-  // other. The first cut pinned the slot to the tile's corner and
-  // "Mithriil Stormaire" / "a very long slot name indeed" ran into each
-  // other - measured, not eyeballed. Sharing a row means the slot
-  // simply gives way to a long name and ellipsises, which is the right
-  // order of precedence: the character is who you are looking for.
-  const top = el('div', 'svtop');
-  top.append(el('h3', null, save?.name || t('menu.save.unnamed', 'Unnamed')));
-  if (save?.saveName) top.append(el('span', 'svslot', save.saveName));
-  who.append(top);
+  who.append(el('h3', null, save?.name || t('menu.save.unnamed', 'Unnamed')));
+  // The slot name sits on its own line under the character name so a
+  // multi-word character name never squeezes it down to a few letters.
+  if (save?.saveName) who.append(el('div', 'svslot', save.saveName));
   if (save?.house) who.append(el('p', 'svhouse', save.house)); // LEGACY7: the house, under the name (net/houseLaw.js houseLine)
   const line = tileLine(save);
   if (line) who.append(el('p', 'svsub', line));
