@@ -61,7 +61,7 @@ import { fieldOfView } from '../../ui/viewSettings.js';   // CLIMB-HANDS II: the
 // layer that either draws whole or does not draw at all - there is no
 // state in which both reach the screen, and none in which neither does.
 import { fpArm, hasAmmoFor } from '../fpArm.js';
-import { playerBodyOn } from '../../characters/npcBodies.js';
+import { playerFp3dOn, playerTp3dOn } from '../../characters/npcBodies.js';
 import { ammoCountFor } from '../../systems/inventory.js';   // AUDIT 68 S27-ammoCount-dup: the quiver's count, from the spend law's own module
 import { getPref } from '../../systems/uiPrefs.js';   // MWA1: the arms switch
 import { morrowindDataCount, morrowindDataFingerprint, registerMorrowindData, morrowindDataCounted, countMorrowindArchives } from '../../scenes/dataSource.js';   // MWA1: are the archives attached; AUDIT 65 XL-6: and measured; MW-EARLY: and counted
@@ -543,8 +543,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
    *  none (HT-WAIST). AUDIT: only where a lane paints it in that hand - Handheld Torches' sprite on the classic lane, the
    *  Morrowind arm's torch on the Shield Bone (a torch alone: the arm holds no lantern); a light no lane draws holds no
    *  hand, and the two fists (the pair, the running hands) stand. */
+  const mwTorchInHand = () => fpArm.ready() && !fpArm.standingIn?.() && (fpArm.viewMode?.() === 'third' ? !fpArm.tpOff?.() : !fpArm.fpOff?.());
   const lightInHand = () => !!entity && isHeldLight(entity.lightSource) && !lanternAtWaist(entity.lightSource)
-    && (fpArm.ready() ? isLitTorch(entity.lightSource) : handheldOn());
+    && (mwTorchInHand() ? isLitTorch(entity.lightSource) : handheldOn());
   /** TWO-HANDS: the pair's hands are drawn and swung - the rig is bound to an equip table (bindWorn), not the beast. */
   const pairUp = () => bindWorn && twoHanded(playerWeapon.handsMode);
   /** TWO-HANDS: nothing at all in either hand - both hand slots of the table empty (no weapon, no shield), no light, not
@@ -779,8 +780,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     // stands keeps them; a wolf refused or still building, a wereboar (Morrowind has none), and the wolf still standing
     // while the person rebuilds after the turn back stand aside - never the person on a beast, nor the beast on a person
     const beast = !!entity && isTransformedLycanthrope(entity), wolf = !!fpArm.wolfStanding?.();
-    fpArm.setStandIn?.(beast ? !(wolf && isMwWerewolf(entity)) : wolf || !playerBodyOn());
-    fpArm.setBodyOff?.(!playerBodyOn());
+    fpArm.setStandIn?.(beast ? !(wolf && isMwWerewolf(entity)) : wolf);
+    playerTp3dOn();
+    fpArm.setFpOff?.(!playerFp3dOn() || (!fpArm.canThirdPerson() && eotbCamera.thirdPerson()));
   };
   bindArm();
   // LAYERED-DUAL (2026-10-30, the owner: "We need to find a way to implement duel wielding perfectly"): a pair's right

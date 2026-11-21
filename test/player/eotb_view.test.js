@@ -33,7 +33,8 @@ const src = readFileSync(join(root, 'src/player/mwView.js'), 'utf8');
 /** Put the seam back the way a fresh session has it. */
 function reset() {
   setPref('skin', 'enhanced');
-  setPref('mwPlayerBody', true);
+  setPref('mwPlayerFp', '3d');
+  setPref('mwPlayerTp', '3d');
   setEotbBodyReady(null);
   setEotbDrawBody(null);
   mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });

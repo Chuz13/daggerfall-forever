@@ -316,20 +316,32 @@ export function foeBodiesOn() {
   return isEnhanced() && morrowindDataCount() > 0 && (getPref('mwFoeBodies') ?? getPref('mwNpcBodies')) !== 'off';
 }
 
-/** Is the player's 3D Morrowind body wanted - the enhanced skin, Morrowind data attached, and the toggle not false? */
-export function playerBodyOn() {
-  const on = isEnhanced() && (morrowindDataCount() > 0 || !!fpArm?.ready?.()) && getPref('mwPlayerBody') !== false;
-  fpArm?.setBodyOff?.(!on);
+const mwPlayerAssetsReady = () => isEnhanced() && (morrowindDataCount() > 0 || !!fpArm?.ready?.());
+
+/** Is 3D Morrowind rendering wanted for first person? */
+export function playerFp3dOn() {
+  return mwPlayerAssetsReady() && getPref('mwPlayerFp') === '3d';
+}
+
+/** Is 3D Morrowind rendering wanted for third person? Syncs fpArm's third-person gate at once. */
+export function playerTp3dOn() {
+  const on = mwPlayerAssetsReady() && getPref('mwPlayerTp') === '3d';
+  fpArm?.setTpOff?.(!on);
   return on;
 }
 
-/** Is the player's 3D Morrowind figure wanted in the inventory - following mwPlayerBody, forced to 3D, or forced to paperdoll? */
+/** Compat predicate: true if either first or third person is set to 3D Morrowind (e.g. 3D portraits). */
+export function playerBodyOn() {
+  return playerTp3dOn() || playerFp3dOn();
+}
+
+/** Is the player's 3D Morrowind figure wanted in the inventory - following third person, forced to 3D, or forced to paperdoll? */
 export function inventoryBodyOn() {
-  if (!isEnhanced() || !(morrowindDataCount() > 0 || !!fpArm?.ready?.())) return false;
+  if (!mwPlayerAssetsReady()) return false;
   const mode = getPref('mwInventoryBody') ?? 'follow';
   if (mode === 'paperdoll') return false;
   if (mode === '3d') return true;
-  return playerBodyOn();
+  return playerTp3dOn();
 }
 
 /** Are Morrowind 3D item icons wanted - the enhanced skin, Morrowind data attached, and the toggle not false? */

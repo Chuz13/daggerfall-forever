@@ -64,7 +64,6 @@ import { MOD_SETTINGS, modSetting, setModSetting, storedModSetting } from '../sy
 import { spriteFor, eotbSpriteUrl } from '../player/eyeOfTheBeholder/eotbSprite.js';
 import { EOTB_FOOT_SET_COUNT } from '../player/classSkins.js';
 import { layeredPreviewUrl, layeredGenderOf, LAYERED_OWN } from '../player/eyeOfTheBeholder/layeredArmor.js'; // LAYERED-GEAR
-import { getPref, setPref } from '../systems/uiPrefs.js';
 import { t } from '../systems/textManager.js';
 
 const VENDOR = 'eye-of-the-beholder';
@@ -239,7 +238,6 @@ export function skinCard(doc, { sets: offer = skinSets, gender = () => null } = 
         if (chosen) return;
         setModSetting(VENDOR, PAPERDOLL, on === null);
         setModSetting(VENDOR, LAYERED, on ? layeredBodyToWear() : 0);
-        if (on === null && getPref('mwPlayerBody')) setPref('mwPlayerBody', false);
         open = null;
         paint();
       };

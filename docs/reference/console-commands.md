@@ -189,3 +189,6 @@ This is the complete reference for all console commands currently implemented in
 * **Windfall** *(requires Enhanced + Windfall enabled)*: `windfall <auto|normal|windy|storm|gust|bright|ruffle|leaves|status>`.
 * **Foraging** *(requires Foraging enabled, offline only)*: `Foraging_Tools 0/1 n`.
 * **Come Sail Away** *(requires CSA runtime active)*: `giveboat [hull] [variant]`, `placeboat [hull] [variant]`, `printboats`, `identifyboat`, `purgeboat [index]`.
+* **Player View & Lycanthropy QA Helpers:**
+  * `player_view` (`pview`): `player_view [status | fp <2d|3d> | tp <2d|3d> | <2d|3d> <2d|3d> | inv <follow|3d|paperdoll> | look <skins|layered|paperdoll> | toggle]` - Inspects or toggles independent 2D/3D First-Person/Third-Person rendering, inventory figure mode, Profile 2D look, and camera perspective.
+  * `lycan` (`werewolf`, `wereboar`): `lycan [status | werewolf | wereboar | morph | unmorph | cure]` - Applies/switches lycanthropy, transforms/reverts, or cures the curse for rendering and combat checks.

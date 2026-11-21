@@ -137,16 +137,19 @@ test('SKIN-MODE the toggle is styled: two presses side by side, the chosen one i
   assert.match(rule('.card button.skinmodebtn:focus-visible'), /outline: 2px solid var\(--brass\);/);
 });
 
-test('SKIN-MODE PAPERDOLL: mutually exclusive with Layered Gearing, Skins, and Morrowind Body; keeps Mounted panel', () => {
+test('SKIN-MODE PAPERDOLL: mutually exclusive with Layered Gearing and Skins; keeps Mounted panel and leaves FP/TP 3D prefs untouched', () => {
   fresh();
-  const prevMw = getPref('mwPlayerBody');
-  setPref('mwPlayerBody', true);
+  const prevFp = getPref('mwPlayerFp');
+  const prevTp = getPref('mwPlayerTp');
+  setPref('mwPlayerFp', '3d');
+  setPref('mwPlayerTp', '3d');
   try {
     const card = skinCard(doc, { gender: () => 'male' });
     radio(card, 'Paperdoll').onclick();
     assert.equal(modSetting(V, 'Graphics.Paperdoll'), true);
     assert.equal(modSetting(V, LG), 0);
-    assert.equal(getPref('mwPlayerBody'), false, 'choosing Paperdoll turns off Morrowind Player Body');
+    assert.equal(getPref('mwPlayerFp'), '3d', 'choosing Paperdoll leaves mwPlayerFp untouched');
+    assert.equal(getPref('mwPlayerTp'), '3d', 'choosing Paperdoll leaves mwPlayerTp untouched');
     const p = parts(card);
     assert.deepEqual(p.checked, ['Paperdoll']);
     assert.deepEqual(p.panels, ['Mounted'], 'On foot hidden; Mounted kept');
@@ -164,7 +167,8 @@ test('SKIN-MODE PAPERDOLL: mutually exclusive with Layered Gearing, Skins, and M
     assert.equal(modSetting(V, 'Graphics.Paperdoll'), false);
     assert.equal(modSetting(V, LG), LAYERED_OWN);
   } finally {
-    setPref('mwPlayerBody', prevMw);
+    setPref('mwPlayerFp', prevFp);
+    setPref('mwPlayerTp', prevTp);
     fresh();
   }
 });

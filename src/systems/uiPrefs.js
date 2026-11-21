@@ -409,6 +409,13 @@ export function loadPrefs() {
         if (p.wagonUpkeep !== undefined && !isStoredWagonUpkeep(p.wagonUpkeep))
           _prefs.wagonUpkeep =
             p.wagonUpkeep === WAGON_UPKEEP_OLD_ON ? WAGON_UPKEEP_OLD_ON_TIER : PREF_DEFAULTS.wagonUpkeep;
+        // Migrate legacy mwPlayerBody boolean to independent FP / TP 2D/3D toggles once.
+        if (p.mwPlayerBody === true) {
+          if (p.mwPlayerFp === undefined) _prefs.mwPlayerFp = '3d';
+          if (p.mwPlayerTp === undefined) _prefs.mwPlayerTp = '3d';
+        }
+        if (_prefs.mwPlayerFp !== '2d' && _prefs.mwPlayerFp !== '3d') _prefs.mwPlayerFp = PREF_DEFAULTS.mwPlayerFp;
+        if (_prefs.mwPlayerTp !== '2d' && _prefs.mwPlayerTp !== '3d') _prefs.mwPlayerTp = PREF_DEFAULTS.mwPlayerTp;
       }
     }
   } catch (e) {

@@ -34,7 +34,7 @@
 
 import { mwCamera, MW_UNITS_PER_METER, FOCAL_HEIGHT, PITCH_LIMIT, MAX_DISTANCE } from './mwCamera.js';
 import { fpArm } from '../combat/fpArm.js';
-import { playerBodyOn } from '../characters/npcBodies.js';
+import { playerFp3dOn, playerTp3dOn } from '../characters/npcBodies.js';
 import { eotbCamera } from './eyeOfTheBeholder/eotbCamera.js';
 import { eotbBody } from './eyeOfTheBeholder/eotbBody.js';
 import { eotbWagon } from './eyeOfTheBeholder/eotbWagon.js';
@@ -114,7 +114,7 @@ function standInEdge({ fpEye, feet, yaw, pitch }) {
     if (third) eotbCamera.toggleOffset(true);
     return;
   }
-  if (_beastInSprite && !mounted) {
+  if (_beastInSprite && !mounted && mwCanThirdPerson()) {
     const third = eotbCamera.thirdPerson();
     if (third) eotbCamera.toggleOffset(false);
     mwCamera.restore({ firstPerson: !third, baseDistance: mwCamera.baseDistance() });
@@ -279,7 +279,7 @@ export function eotbLane() {
 }
 
 /** Whether the Morrowind body is wanted and built for third person. */
-export const mwCanThirdPerson = () => playerBodyOn() && fpArm.canThirdPerson();
+export const mwCanThirdPerson = () => playerTp3dOn() && fpArm.canThirdPerson();
 
 // MW-D30: the reference accumulates the frame's zoom presses and calls
 // zoom() ONCE per frame with their sum (actionbindings.lua:98-115 -
@@ -343,7 +343,10 @@ export function mwViewFrame({
     fpArm.setViewMode('first');
     if (mwCamera.thirdPerson()) {
       mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
-      if (!eotbCamera.thirdPerson()) eotbCamera.toggleOffset(true);
+      if (!eotbCamera.thirdPerson()) {
+        eotbCamera.eye({ fpEye, feet, yaw, pitch });
+        eotbCamera.toggleOffset(true);
+      }
     }
     // AUDIT-EOTB F1/F3/F4: the frame's REAL state. `dt` is the host's
     // own clock and nothing else has it; the rest comes from the rigs
@@ -364,6 +367,7 @@ export function mwViewFrame({
     // at all. Found by a test helper that span forever waiting for it.
     pendingClicks = 0;
     eotbCamera.tick(frame);
+    fpArm.setFpOff?.(!playerFp3dOn() || eotbCamera.thirdPerson());
     pitch = spireShaftPitch(pitch, yaw, frame.dt ?? 0, eotbCamera.thirdPerson()); // EG-ZN: over a shaft's ledge facing its drop, the camera's pitch biased down...
     pivotFloor = spireShaftPivot(pivotFloor, fpEye[1]); // ...and its pivot - the head - risen
     const out = eotbCamera.eye({ fpEye, feet, yaw, pitch, raycast, pivotFloor, ...frame }); // BENCH-CAM: the pivot over my wagon's roof
@@ -396,6 +400,7 @@ export function mwViewFrame({
   // HT-WAIST: the Morrowind lane has the frame, so the sprite's lantern at the waist (and the light point it drew
   // from) stands down - one line here rather than one in each of the four hosts.
   eotbBody.standDown();
+  fpArm.setFpOff?.(!playerFp3dOn());
   // RIDE-POV: the saddle first, before any queued notch can cross out of the head - COATS3D: unless the body sits a
   // 3D horse (the host's `horse`: the ridden horse's look, on a horse and not the cart - and HORSE-WALK's `slow`, the
   // motor's slow ride, which holds it under the gallop), which it can be seen on
@@ -410,6 +415,7 @@ export function mwViewFrame({
     mwIntoHead();
     pendingClicks = 0;
   }
+  if (mounted && eotbCamera.thirdPerson()) eotbCamera.toggleOffset(false);
   if (mwCanThirdPerson() && !mounted && eotbCamera.thirdPerson() && !mwCamera.thirdPerson()) {
     eotbCamera.toggleOffset(false);
     mwCamera.restore({ firstPerson: false, baseDistance: mwCamera.baseDistance() });
@@ -443,6 +449,7 @@ export function mwViewFrame({
       if (!mwCanThirdPerson() && eotbOn && !eotbCamera.thirdPerson()) eotbCamera.toggleOffset(true);
       mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
       fpArm.setViewMode('first');
+      fpArm.setFpOff?.(!playerFp3dOn() || eotbCamera.thirdPerson());
     }
   } else {
     fpArm.setViewMode('first');
@@ -510,6 +517,7 @@ export function mwViewFirstPerson() {
   if (eotbLane()) {
     if (!eotbCamera.thirdPerson()) return false;
     eotbCamera.toggleOffset(false);
+    fpArm.setFpOff?.(!playerFp3dOn());
     return true;
   }
   return mwIntoHead();
@@ -744,7 +752,7 @@ export const mwViewSaddle = () => (saddled ? ownSaddle : null);
  *  world, under the hands): taken with the world's own camera from the eye on its back. Answers whether it drew - the
  *  riding sprite stands down when it did. */
 export function mwViewDrawSaddle(canvas) {
-  if (!saddled || !ownHorse || !lastCamera || mwCamera.thirdPerson() || eotbLane()) return false;
+  if (!saddled || !ownHorse || !lastCamera || mwCamera.thirdPerson() || eotbLane() || !playerFp3dOn()) return false;
   horseRig.place(ownHorse, horseFeetUnder(lastCamera.feet, lastCamera.yaw), lastCamera.yaw);
   return horseRig.drawFirstPerson(ownHorse, canvas, lastCamera);
 }

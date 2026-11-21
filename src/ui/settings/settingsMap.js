@@ -229,7 +229,8 @@ export const CATEGORIES = Object.freeze([
       'Enhancements/BowLeftHandWithSwitching',
     ]),
     sec('morrowind', 'With Morrowind data', [
-      'feat:mw-player-body',
+      'feat:mw-player-fp',
+      'feat:mw-player-tp',
       'feat:mw-inventory-body',
       'feat:mw-item-icons',
       'feat:mod-weapon-sheathing',
