@@ -33,6 +33,8 @@ import { setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from '../../src/systems/li
 import { HOLIDAYS, holidayDayOfYear, MINUTES_PER_YEAR } from '../../src/systems/holidays.js';
 import { SOCIAL_GROUPS } from '../../src/formats/factionFile.js';
 import { SKILLS } from '../../src/systems/skills.js';
+import { applyLichdom, cureLichdom } from '../../src/systems/necromancy/lichdomStatus.js';
+import { getPlayerTaint, setNecroTaint, _resetTaintForTests } from '../../src/systems/necromancy/necroTaint.js';
 import { letterOfCredit, LETTER_OF_CREDIT_TEMPLATE } from '../../src/systems/inventory.js';
 import { mintCondition, setItemFields } from '../../src/systems/item/itemTemplates.js';
 import { totalGoldAmount } from '../../src/systems/court.js';
@@ -383,5 +385,59 @@ test('new console commands: add_credit, set_holiday, living adv settrait/quote/c
     playerEntity.items = prevItems;
     setWorldMinutes(prevMinutes);
     dismissAdventurerCompanion();
+  }
+});
+
+test('Lichdom quote increases price, cureLichdom resets taint & survival debuff so quote restores mortal price', () => {
+  _resetTaintForTests();
+  try {
+    const adv = { id: 501, name: 'Valen', className: 'Warrior', level: 2, trait: 'GREEDY' };
+    const clean = makePlayer({
+      stats: { personality: 60, intelligence: 60, willpower: 60, strength: 60, agility: 60, endurance: 60, speed: 60, luck: 60 },
+      skills: (() => { const a = new Array(35).fill(30); a[SKILLS.Mercantile] = 60; return a; })(),
+    });
+    const qBefore = calculateAdventurerHireQuote(adv, clean, { days: 1, regionIndex: 0, nowMinutes: 600 });
+    assert.equal(qBefore.tradeTaint, 0);
+    assert.equal(qBefore.effectivePersonality, 60);
+
+    assert.ok(applyLichdom(clean, { nowMinutes: 600 }));
+    const qLich = calculateAdventurerHireQuote(adv, clean, { days: 1, regionIndex: 0, nowMinutes: 600 });
+    assert.equal(qLich.tradeTaint, 100);
+    assert.equal(qLich.personality, 30);
+    assert.equal(qLich.effectivePersonality, 0);
+    assert.ok(qLich.dailyCost > qBefore.dailyCost, 'Lichdom must raise hire quote above mortal baseline');
+
+    assert.equal(cureLichdom(clean), true);
+    assert.equal(getPlayerTaint(clean), 0, 'cureLichdom must reset player taint to 0');
+    const qAfter = calculateAdventurerHireQuote(adv, clean, { days: 1, regionIndex: 0, nowMinutes: 600 });
+    assert.equal(qAfter.tradeTaint, 0);
+    assert.equal(qAfter.effectivePersonality, 60);
+    assert.equal(qAfter.dailyCost, qBefore.dailyCost, 'After cureLichdom, quote must return to mortal baseline');
+
+    // Starving/Dehydrated/Exhausted mortal: applyLichdom strips stale survival activeEffect
+    const starved = makePlayer({
+      stats: { personality: 60, intelligence: 60, willpower: 60, strength: 60, agility: 60, endurance: 60, speed: 60, luck: 60 },
+      skills: (() => { const a = new Array(35).fill(30); a[SKILLS.Mercantile] = 60; return a; })(),
+      activeEffects: [{ kind: 'survival', statMods: { personality: -50 } }],
+    });
+    assert.ok(applyLichdom(starved, { nowMinutes: 600 }));
+    assert.equal(starved.activeEffects.some((a) => a?.kind === 'survival'), false, 'applyLichdom must clear stale survival effect');
+    const qStarvedLich = calculateAdventurerHireQuote(adv, starved, { days: 1, regionIndex: 0, nowMinutes: 600 });
+    assert.equal(cureLichdom(starved), true);
+    const qStarvedCured = calculateAdventurerHireQuote(adv, starved, { days: 1, regionIndex: 0, nowMinutes: 600 });
+    assert.equal(qStarvedCured.effectivePersonality, 60);
+    assert.ok(qStarvedLich.dailyCost > qStarvedCured.dailyCost, 'Cured mortal quote must be lower than Lich quote');
+
+    // setNecroTaint lowers taint for mortal but stays 100 for active Lich
+    setNecroTaint(80, starved);
+    assert.equal(getPlayerTaint(starved), 80);
+    setNecroTaint(0, starved);
+    assert.equal(getPlayerTaint(starved), 0);
+    applyLichdom(starved, { nowMinutes: 600 });
+    setNecroTaint(0, starved);
+    assert.equal(getPlayerTaint(starved), 100);
+    cureLichdom(starved);
+  } finally {
+    _resetTaintForTests();
   }
 });

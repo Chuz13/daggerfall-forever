@@ -18,7 +18,7 @@ import { WEAPON_MATERIALS } from '../../characters/weapons.js';
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { registerBlowTakenMod } from '../blowTaken.js';
 import { t } from '../textManager.js';
-import { lockLichTaint } from './necroTaint.js';
+import { lockLichTaint, setNecroTaint } from './necroTaint.js';
 import { lichParalyzingTouchSpell, mortalDisguiseSpell, fingerOfDeathSpell } from './necromanticSpells.js';
 
 export const LICHDOM_CURSE_KEY = 'Lichdom';
@@ -371,6 +371,9 @@ export function applyLichdom(entity, { phylacteryId = 'phylactery_main', nowMinu
     delete entity.survival.borrowed;
     delete entity.survival.warmed;
   }
+  if (Array.isArray(entity.activeEffects)) {
+    entity.activeEffects = entity.activeEffects.filter((a) => a?.kind !== 'survival');
+  }
 
   // Set weapon vulnerability threshold
   entity.minMetalToHit = WEAPON_MATERIALS.Silver;
@@ -446,6 +449,9 @@ export function applyAncientLichdom(entity, { phylacteryId = 'phylactery_ancient
     entity.survival.exposure = 0;
     delete entity.survival.borrowed;
     delete entity.survival.warmed;
+  }
+  if (Array.isArray(entity.activeEffects)) {
+    entity.activeEffects = entity.activeEffects.filter((a) => a?.kind !== 'survival');
   }
 
   entity.minMetalToHit = WEAPON_MATERIALS.Mithril;
@@ -523,6 +529,7 @@ export function cureAncientLichdom(entity) {
     delete entity.phylacteryAnchor;
   }
   entity.minMetalToHit = 0;
+  setNecroTaint(0, entity);
   return true;
 }
 
@@ -547,5 +554,6 @@ export function cureLichdom(entity) {
     delete entity.phylacteryAnchor;
   }
   entity.minMetalToHit = 0;
+  setNecroTaint(0, entity);
   return true;
 }

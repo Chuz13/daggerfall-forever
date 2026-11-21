@@ -196,7 +196,7 @@ import {
 import { REGION_FLAGS, turnOnConditionFlag, turnOffConditionFlag } from './region/regionConditions.js';
 import { regionPowerUpdate } from './region/regionPower.js';
 import { applyLichdom, cureLichdom, isLich, applyAncientLichdom, cureAncientLichdom, isAncientLich, isPlayerDisguised, lichdomMagicRound } from './necromancy/lichdomStatus.js';
-import { getPlayerTaint, getEffectiveTradeTaint, getTaintTier, addNecroTaint } from './necromancy/necroTaint.js';
+import { getPlayerTaint, getEffectiveTradeTaint, getTaintTier, addNecroTaint, setNecroTaint } from './necromancy/necroTaint.js';
 import { allSpawnedMinions, spawnMinion, releaseAllControlledUndead } from './necromancy/minionController.js';
 import { _resetUndeadCapacityForTests as clearUndeadPool, usedUndeadPoints, calculateUndeadCapacity } from './necromancy/undeadCapacity.js';
 import { registerCorpse } from './necromancy/corpseRegistry.js';
@@ -2450,7 +2450,9 @@ registerCommand(
           regionIndex: regIdx,
           nowMinutes: worldMinutes(),
         });
-        return `[Living Tamriel] Hire Quote: ${adv.name} (Lv.${q.advLevel} ${adv.className}, Trait: ${adv.trait}, Q${q.quality}) -> Base ${q.baseDaily}g/d, Quoted ${q.dailyCost}g/d, ${q.days}d Total ${q.totalCost}g (${q.discountPct}% off, Merc=${q.mercantile}, Pers=${q.personality}, Festival=${q.isMerchantsFestival}, War=x${q.warFactor.toFixed(2)}).`;
+        const repBit = q.repBuyMult !== 1 ? `, RepRate=x${q.repBuyMult.toFixed(2)}` : '';
+        const disgBit = q.disguised ? ', Disguised=YES' : '';
+        return `[Living Tamriel] Hire Quote: ${adv.name} (Lv.${q.advLevel} ${adv.className}, Trait: ${adv.trait}, Q${q.quality}) -> Base ${q.baseDaily}g/d, Quoted ${q.dailyCost}g/d, ${q.days}d Total ${q.totalCost}g (${q.discountPct}% off, Merc=${q.mercantile}, Pers=${q.personality}, EffPers=${q.effectivePersonality}, Taint=${q.tradeTaint}${disgBit}${repBit}, Festival=${q.isMerchantsFestival}, War=x${q.warFactor.toFixed(2)}).`;
       }
       if (sub === 'companion') {
         const subAct = String(args[2] || 'status').toLowerCase();
@@ -2758,12 +2760,19 @@ registerCommand(
       if (val === 'off' || (val === 'toggle' && (currentlyLich || currentlyAncientLich))) {
         cureLichdom(playerEntity);
         cureAncientLichdom(playerEntity);
+        computeEntityMods(playerEntity);
+        surfacePlayer?.();
         return 'Lichdom stripped. You have returned to mortal flesh.';
       }
       if (currentlyAncientLich) {
         cureAncientLichdom(playerEntity);
       }
-      applyLichdom(playerEntity, { nowMinutes: worldMinutes() });
+      const applied = applyLichdom(playerEntity, { nowMinutes: worldMinutes() });
+      if (!applied && !isLich(playerEntity)) {
+        return 'Cannot apply Lichdom: player has an existing racial override (e.g. Vampire/Werewolf) or Necromancy is disabled.';
+      }
+      computeEntityMods(playerEntity);
+      surfacePlayer?.();
       return 'Lichdom transformation complete! You are now an immortal creature of darkness.';
     }
     if (sub === 'ancient_lich' || sub === 'ancientlich' || sub === 'archlich' || sub === 'arch_lich') {
@@ -2772,12 +2781,19 @@ registerCommand(
       const currentlyLich = isLich(playerEntity);
       if (val === 'off' || (val === 'toggle' && currentlyAncientLich)) {
         cureAncientLichdom(playerEntity);
+        computeEntityMods(playerEntity);
+        surfacePlayer?.();
         return 'Ancient Lichdom stripped. You have returned to mortal flesh.';
       }
       if (currentlyLich) {
         cureLichdom(playerEntity);
       }
-      applyAncientLichdom(playerEntity, { nowMinutes: worldMinutes(), force: true });
+      const applied = applyAncientLichdom(playerEntity, { nowMinutes: worldMinutes() });
+      if (!applied && !isAncientLich(playerEntity)) {
+        return 'Cannot apply Ancient Lichdom: player has an existing racial override (e.g. Vampire/Werewolf) or Necromancy is disabled.';
+      }
+      computeEntityMods(playerEntity);
+      surfacePlayer?.();
       return 'Ancient Lichdom transformation complete! You are now an ancient immortal terror.';
     }
     if (sub === 'taint') {
@@ -2789,8 +2805,7 @@ registerCommand(
       }
       if (action === 'set') {
         const amt = parseInt(args[2] || '0', 10);
-        addNecroTaint(-100, playerEntity);
-        const newTaint = addNecroTaint(amt, playerEntity);
+        const newTaint = setNecroTaint(amt, playerEntity);
         const lichNote = (isLich(playerEntity) || isAncientLich(playerEntity))
           ? ' (Note: Lichdom active; lore permanently locks passive soul taint at 100/100 ABOMINATION unless mortal)'
           : '';
