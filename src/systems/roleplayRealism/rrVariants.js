@@ -20,6 +20,7 @@ import {
   PERSON_TEXTURES,
   PERSON_FACE_RECORDS,
   PERSON_IDLE_RECORD,
+  PERSON_IDLE_FPS,
   NUM_PERSON_FACE_VARIANTS,
   walkerRace,
   raceOfPeople,
@@ -151,7 +152,7 @@ export function rrVariantPerson(
     ); // AUDIT FB1010 C3: the street's own rule
     if (v) {
       setFlatFaceOverride(pn.textureArchive, pn.textureRecord, v.faceIndex); // flatsDict[flatId] = { faceIndex } (:1017-1023), keyed by the flat the person was born as
-      return { textureArchive: v.textureArchive, textureRecord: v.textureRecord };
+      return { textureArchive: v.textureArchive, textureRecord: v.textureRecord, fps: PERSON_IDLE_FPS };
     }
   }
   return null;

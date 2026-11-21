@@ -119,7 +119,7 @@ test('NUDE-FLATS by source: every host that draws a person asks drawnFlat, and t
   const ic = src('src/scenes/interiorContext.js');
   assert.match(ic, /const \[da, dr\] = drawnFlat\(v\?\.textureArchive \?\? pn\.textureArchive, v\?\.textureRecord \?\? pn\.textureRecord\);/,
     'an interior person: on whatever picture the RR variant answered');
-  assert.match(ic, /const redrawn = v \|\| da !== pn\.textureArchive \|\| dr !== pn\.textureRecord;\s*return \{ \.\.\.pn, x, y, z, active: visible, questBehaviour: null, \.\.\.\(redrawn \? \{ drawArchive: da, drawRecord: dr \} : \{\}\) \};/,
+  assert.match(ic, /const redrawn = v \|\| da !== pn\.textureArchive \|\| dr !== pn\.textureRecord;\s*return \{ \.\.\.pn, x, y, z, active: visible, questBehaviour: null, \.\.\.\(redrawn \? \{ drawArchive: da, drawRecord: dr \} : \{\}\)[^\n]*\};/,
     'drawn through RR2\'s own door, textureArchive/textureRecord untouched');
   const w = hostText('src/scenes/world.js');
   // PIN MOVED (AUDIT PRECIP HOST-7): the flats are logged, and grouped by their drawn picture (scenes/pixelBuild.js groupFlats)

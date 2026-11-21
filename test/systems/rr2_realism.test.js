@@ -18,7 +18,8 @@ import {
   rrClimateRace, rrResidentVariant, rrVariantPerson, installRoleplayRealismArt, _resetRoleplayRealismArt,
 } from '../../src/systems/roleplayRealism/rrVariants.js';
 import { installRoleplayRealism, setRrHostSeams, rrHostSeams } from '../../src/systems/roleplayRealism/rrInstall.js';
-import { PERSON_TEXTURES, PERSON_FACE_RECORDS, PERSON_IDLE_RECORD, NUM_PERSON_FACE_VARIANTS, MobilePerson } from '../../src/characters/mobile/mobilePerson.js';
+import { PERSON_TEXTURES, PERSON_FACE_RECORDS, PERSON_IDLE_RECORD, PERSON_IDLE_FPS, NUM_PERSON_FACE_VARIANTS, MobilePerson } from '../../src/characters/mobile/mobilePerson.js';
+import { FlatAnimator, armFlatAnim } from '../../src/render/flatAnimation.js';
 import { CLIMATES } from '../../src/formats/mapsFile.js';
 import { BUILDING_TYPES } from '../../src/world/buildingNames.js';
 import { flatFaceOverride, _resetFlatFaceOverrides } from '../../src/characters/staticNpc.js';
@@ -132,9 +133,17 @@ test('RR2 the decision per person: the two switches, the face override for the b
   assert.equal(rrVariantPerson(resident, { buildingType: BUILDING_TYPES.House2, quality: 10, nameSeed: 5, worldClimate: CLIMATES.Desert }), null, 'variantResidents is off');
   assert.equal(flatFaceOverride(182, 10), null);
   on('variantResidents');
-  assert.deepEqual(rrVariantPerson(resident, { buildingType: BUILDING_TYPES.House2, quality: 10, nameSeed: 5, worldClimate: CLIMATES.Desert }),
-    { textureArchive: PERSON_TEXTURES.Redguard.female[1], textureRecord: 5 });
+  const res = rrVariantPerson(resident, { buildingType: BUILDING_TYPES.House2, quality: 10, nameSeed: 5, worldClimate: CLIMATES.Desert });
+  assert.deepEqual(res, { textureArchive: PERSON_TEXTURES.Redguard.female[1], textureRecord: 5, fps: PERSON_IDLE_FPS });
   assert.equal(flatFaceOverride(182, 10), PERSON_FACE_RECORDS.Redguard.female[1] + 5, 'flatsDict[182_10] = { faceIndex } - the born flat, so the talk portrait matches');
+  // 1 FPS idle clock regression: 0.5 s stays on frame 0 (5 FPS would advance to frame 2), 1.0 s advances to frame 1
+  const anim = new FlatAnimator();
+  const batch = { frame: null };
+  armFlatAnim(batch, { getFrameCount: () => 4 }, res.textureArchive, res.textureRecord, anim, () => {}, { fps: res.fps });
+  anim.tick(0.5);
+  assert.equal(batch.frame, 0, 'resident idle stays on frame 0 at 0.5 s under 1 FPS');
+  anim.tick(0.5);
+  assert.equal(batch.frame, 1, 'resident idle advances to frame 1 at 1.0 s under 1 FPS');
   assert.equal(rrVariantPerson(resident, { buildingType: BUILDING_TYPES.Tavern, quality: 10, nameSeed: 5 }), null, 'a resident is only swapped in a house');
   assert.equal(rrVariantPerson(null), null);
   // the interior context asks per person and draws the answer; identity keeps the born flat
@@ -142,7 +151,8 @@ test('RR2 the decision per person: the two switches, the face override for the b
   assert.match(ic, /const v = opts\.variantPerson\?\.\(pn\) \?\? null;/);
   // NUDE-FLATS: the answer reaches the draw through drawnFlat (a dressed variant is itself), and a variant always draws
   assert.match(ic, /const \[da, dr\] = drawnFlat\(v\?\.textureArchive \?\? pn\.textureArchive, v\?\.textureRecord \?\? pn\.textureRecord\);/);
-  assert.match(ic, /const redrawn = v \|\| da !== pn\.textureArchive \|\| dr !== pn\.textureRecord;[^\n]*\n[^\n]*\.\.\.\(redrawn \? \{ drawArchive: da, drawRecord: dr \} : \{\}\)/);
+  assert.match(ic, /const redrawn = v \|\| da !== pn\.textureArchive \|\| dr !== pn\.textureRecord;[^\n]*\n[^\n]*\.\.\.\(redrawn \? \{ drawArchive: da, drawRecord: dr \} : \{\}\)[^\n]*\.\.\.\(drawFps != null \? \{ drawFps \} : \{\}\)/);
+  assert.match(ic, /armFlatAnim\(pn\.standBatch, t, pn\.drawArchive \?\? pn\.textureArchive, pn\.drawRecord \?\? pn\.textureRecord, flatAnims, uploadRecordFrame, pn\.drawFps != null \? \{ fps: pn\.drawFps \} : undefined\);/);
   // AUDIT 68 S21-person-hide-noop: the build's stand and the late one are one stand now - four reads, every one a draw
   assert.ok((ic.match(/pn\.drawArchive \?\? pn\.textureArchive/g) ?? []).length >= 4, 'every draw read');
   assert.doesNotMatch(ic, /(?:getTexture|uploadRecord|createBillboardBatch)\(pn\.textureArchive/, 'and none reads the born flat');
