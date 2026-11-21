@@ -50,7 +50,7 @@ import {
 } from './loot/lootRarity.js';
 import { isGoldPieces, ARROW_TEMPLATE } from './inventory.js'; // STUCK-ARROWS: the quiver rides past the cap
 import { wildFoeLoot } from './wild/wildZone.js'; // WILD1: a foe of the open zone carries twice as much past its cap
-import { isPotion } from './useItem.js'; // CAP-SUPPLIES: a potion IS the glass bottle - DFU's IsPotion, its one export (AUDIT 625 L7)
+import { isPotion } from './item/itemKinds.js'; // CAP-SUPPLIES: a potion IS the glass bottle - DFU's IsPotion, from the leaf so foeLootCap stays acyclic from useItem
 import { ENEMY_BASICS } from '../characters/enemy/enemyBasics.js'; // KIT-ROLL: the row every host hands its spawn
 import { renownLootQuarters, lootEased } from './renownLoot.js';
 import { isCardRecord } from '../net/card/cardWorthLaw.js'; // CARDS9: a foe's card   // RENOWN-LOOT: the plain ladder by the roller's Renown
@@ -128,15 +128,20 @@ export function plainFoeLootRule(entity, basics = null) {
  *  glass bottle - the trio's, the healing and the magicka supplies'), and whatever a module registers by name
  *  (restItems.js: REST6's seven). Ranked by worth alone, a Common steel blade outbid every potion and supply on a full
  *  body and the cap threw them away first - measured, two in five of a plain humanoid's supplies at the new rates. */
-const _supplies = new Map();
+/** @type {Map<string, (item: any) => boolean> | undefined} */
+let _supplies;
+function suppliesMap() {
+  return (_supplies ??= new Map());
+}
 export function registerLootSupply(name, fn) {
-  if (typeof fn === 'function') _supplies.set(name, fn);
-  else _supplies.delete(name);
+  const map = suppliesMap();
+  if (typeof fn === 'function') map.set(name, fn);
+  else map.delete(name);
 }
 export function isLootSupply(item) {
   if (!item) return false;
   if (isPotion(item)) return true;
-  for (const fn of _supplies.values()) {
+  for (const fn of suppliesMap().values()) {
     try {
       if (fn(item)) return true;
     } catch {
