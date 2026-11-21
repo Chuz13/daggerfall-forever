@@ -65,8 +65,8 @@
   {
     "name": "WALL-CLEAR-the-tool's-size-unpassed",
     "file": "src/scenes/decor/decorTool.js",
-    "old": "        p.flatSize = billboardSize(t, gr);\n        p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, flat: p.flatSize });",
-    "new": "        p.flatSize = billboardSize(t, gr);\n        p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free });",
+    "old": "        p.flatSize = billboardSize(t, gr);\n        p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, flat: p.flatSize, snap: snapOn });",
+    "new": "        p.flatSize = billboardSize(t, gr);\n        p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, snap: snapOn });",
     "tests": [
       "test/systems/decor/fb1012b_wallclear.test.js"
     ]

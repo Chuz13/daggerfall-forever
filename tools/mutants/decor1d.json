@@ -336,8 +336,8 @@
   {
     "name": "DECOR1d-the-grid-toggling-on-repeat",
     "file": "src/scenes/decor/decorTool.js",
-    "old": "    else if (free === 'grid' && once) placing?.placer?.toggleSnap();",
-    "new": "    else if (free === 'grid') placing?.placer?.toggleSnap();",
+    "old": "    else if (free === 'grid' && once) toggleSnap();",
+    "new": "    else if (free === 'grid') toggleSnap();",
     "tests": [
       "test/scenes/decor/decor1d.test.js"
     ]

@@ -350,7 +350,7 @@ test('DECOR1d placing offline: Place starts the free camera (the body still, the
   assert.ok(near(rig.cam.pos[2], 10 + DECOR_FLY_SPEED * 0.1), 'the eye flies forward, and the camera is the eye');
   const ghost = rig.tool.ghost();
   assert.ok(ghost, 'a piece where the eye meets the room');
-  assert.ok(near(ghost.pos[2], rig.cam.pos[2] + 2 - 10, 1e-3), 'two metres ahead, where the fake room is met');
+  assert.ok(near(ghost.pos[2], 2.25, 1e-3), 'two metres ahead, snapped to the default grid');
   assert.ok(near(ghost.pos[1], 1.6 - 0 + 0.1, 1e-3), 'lifted by its own bottom (-0.1)');
   assert.ok(rig.tool.draw(), 'the ghost is drawn');
   assert.deepEqual([...rig.draws.at(-1).m], [...decorMatrix(ghost, [10, 0, 10])]);
@@ -434,10 +434,13 @@ test('DECOR1d the keys and presses while the camera flies, read as the actions t
   assert.equal(rig.tool.placer().state().scale, 1.1);
   key('Minus');
   assert.equal(rig.tool.placer().state().scale, 1);
+  assert.equal(rig.tool.placer().state().snap, true, 'grid starts on by default');
+  key('Slash');
+  assert.equal(rig.tool.placer().state().snap, false);
+  key('Slash', { repeat: true });
+  assert.equal(rig.tool.placer().state().snap, false, 'the grid is once a press');
   key('Slash');
   assert.equal(rig.tool.placer().state().snap, true);
-  key('Slash', { repeat: true });
-  assert.equal(rig.tool.placer().state().snap, true, 'the grid is once a press');
   rig.win.fire('wheel', { deltaY: 100 });
   assert.equal(rig.tool.placer().state().yaw, -2 * DECOR_TURN_STEP + DECOR_TURN_FINE + DECOR_TURN_STEP);
   assert.equal(key('KeyI').stopped, true, 'every press is the decorator\'s - no sheet opens under a placement');
@@ -569,4 +572,61 @@ test('DECOR1d the host (worldModes.js, world.js) by source: one tool on the room
   assert.match(m, /interiorWeapon\.draw\(\{ paralyzed \}\);[^\n]*\n    decorTool\.drawPreview\(interiorCtx(?:\?\.texRemap \?\? null|\.texRemap)\);/);
   assert.equal([...m.matchAll(/interiorDecor\.destroyAll\(\); _decorVisit\+\+; decorTool\.close\(\);/g)].length, 3);
   assert.match(w, /decorCharacter: \(\) => characterIdOf\(playerEntity\),/);
+});
+
+test('DECOR grid snap default: interior and yard start with Grid on and highlighted (even while loading), persist toggle within a session (A1), and reset to on when exiting decorator', async () => {
+  let resolveMesh;
+  const rig = toolRig({ getGpuMesh: (id) => new Promise((r) => { resolveMesh = () => r({ gpu: id }); }) });
+  rig.frame();
+  rig.doc.body.children.find((c) => String(c.className).includes('dfdecor-open')).fire('click');
+  rig.frame();
+  const bar = rig.doc.body.children.find((c) => String(c.className).startsWith('dfdecor-bar'));
+  const gridBtn = () => chipNamed(bar, 'Grid');
+  rig.tool.openPanel();
+  for (let i = 0; i < 6; i++) { rig.frame({ overlayUp: true }); await settle(); }
+  const root = rig.doc.body.children.find((c) => c.className === 'dfdecor');
+  rows(root).find((r) => r.dataset.key === 'm41000').fire('click');
+  all(root, 'dfdecor-btn').find((b) => b.textContent === 'Place').fire('click');
+  rig.frame();
+  assert.equal(rig.tool.placer(), null, 'model still loading on first frame');
+  assert.equal(gridBtn().getAttribute('aria-pressed'), 'true', 'Grid highlighted while loading');
+  resolveMesh();
+  await settle();
+  rig.frame();
+  assert.equal(rig.tool.placer().state().snap, true, 'interior starts snapped');
+  assert.equal(gridBtn().getAttribute('aria-pressed'), 'true');
+  gridBtn().fire('click');
+  rig.frame();
+  assert.equal(rig.tool.placer().state().snap, false);
+  assert.equal(gridBtn().getAttribute('aria-pressed'), 'false');
+  // A1: persists across pieces in the same decorating session
+  rig.win.fire('keydown', { code: 'Escape', target: rig.doc.body });
+  rig.frame();
+  assert.equal(rig.tool.flying(), true, 'returned to browse');
+  await placeFrom(rig, 'f210.3');
+  assert.equal(rig.tool.placer().state().snap, false, 'toggle persisted in session');
+  assert.equal(gridBtn().getAttribute('aria-pressed'), 'false');
+  // exiting decorator resets to true on next entry
+  rig.win.fire('keydown', { code: 'Escape', target: rig.doc.body });
+  rig.frame();
+  rig.win.fire('keydown', { code: 'Escape', target: rig.doc.body });
+  rig.frame();
+  assert.equal(rig.tool.flying(), false, 'exited decorator');
+  await placeFrom(rig, 'f210.3');
+  assert.equal(rig.tool.placer().state().snap, true, 'reset to on in new session');
+  assert.equal(gridBtn().getAttribute('aria-pressed'), 'true');
+
+  // Yard (exterior)
+  const yard = toolRig({ room: { kind: 'home', yard: true, where: 'Your yard', mapId: 77, buildingKey: 9 } });
+  yard.cam.pos = [10.13, 1.6, 10];
+  await placeFrom(yard, 'm41000');
+  const yBar = yard.doc.body.children.find((c) => String(c.className).startsWith('dfdecor-bar'));
+  assert.equal(yard.tool.placer().state().snap, true, 'yard starts snapped');
+  assert.equal(chipNamed(yBar, 'Grid').getAttribute('aria-pressed'), 'true');
+  assert.equal(yard.tool.ghost().pos[0], 0.25, 'yard ghost snapped to 0.25 m');
+  yard.win.fire('keydown', { code: 'Slash', target: yard.doc.body });
+  yard.frame();
+  assert.equal(yard.tool.placer().state().snap, false);
+  assert.equal(chipNamed(yBar, 'Grid').getAttribute('aria-pressed'), 'false');
+  assert.ok(near(yard.tool.ghost().pos[0], 0.13, 1e-3), 'yard ghost unsnapped after toggle');
 });

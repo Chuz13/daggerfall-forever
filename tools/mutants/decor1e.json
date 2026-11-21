@@ -155,8 +155,8 @@
   {
     "name": "DECOR1e-the-move-from-the-default-turn",
     "file": "src/scenes/decor/decorTool.js",
-    "old": "      if (m) p.placer = createDecorPlacer(p.entry, { radius: p.radius, box: m.box, from: p.pose, free: p.free });",
-    "new": "      if (m) p.placer = createDecorPlacer(p.entry, { radius: p.radius, box: m.box, from: null, free: p.free });",
+    "old": "      if (m) p.placer = createDecorPlacer(p.entry, { radius: p.radius, box: m.box, from: p.pose, free: p.free, snap: snapOn });",
+    "new": "      if (m) p.placer = createDecorPlacer(p.entry, { radius: p.radius, box: m.box, from: null, free: p.free, snap: snapOn });",
     "tests": [
       "test/systems/online/decor1e.test.js"
     ]
@@ -164,8 +164,8 @@
   {
     "name": "DECOR1e-the-placer-from-nothing",
     "file": "src/systems/decor/decorPlacer.js",
-    "old": "  const s = {\n    yaw: from ? wrapTurn((mount ? from.rot?.[2] : hungFrom ? 0 : from.rot?.[0]) ?? 0) : 0,\n    spin: hungFrom ? wrapTurn(from.rot?.[2] ?? 0) : 0,\n    hung: hungFrom,\n    raise: 0,\n    scale: from?.scale ?? 1,\n    snap: false,\n    nudge: [0, 0],\n  };",
-    "new": "  const s = { yaw: 0, spin: 0, hung: hungFrom, raise: 0, scale: 1, snap: false, nudge: [0, 0] };",
+    "old": "  const s = {\n    yaw: from ? wrapTurn((mount ? from.rot?.[2] : hungFrom ? 0 : from.rot?.[0]) ?? 0) : 0,\n    spin: hungFrom ? wrapTurn(from.rot?.[2] ?? 0) : 0,\n    hung: hungFrom,\n    raise: 0,\n    scale: from?.scale ?? 1,\n    snap: !!snap,\n    nudge: [0, 0],\n  };",
+    "new": "  const s = { yaw: 0, spin: 0, hung: hungFrom, raise: 0, scale: 1, snap: !!snap, nudge: [0, 0] };",
     "tests": [
       "test/systems/online/decor1e.test.js"
     ],

@@ -160,7 +160,7 @@ export function decorHungFoot(piece, size, radius = 0, k = 1) {
  * is set on the surface, the turn its spin there. WALL-CLEAR: `flat` a flat's size { w, h } in metres at scale 1 - how far it
  * reaches into a wall it is set on.
  */
-export function createDecorPlacer(entry, { radius = null, box = null, from = null, free = false, flat = null } = {}) {
+export function createDecorPlacer(entry, { radius = null, box = null, from = null, free = false, flat = null, snap = false } = {}) {
   let measured = radius; // the scan's, or what a copy was priced at - filled in once the scan reaches it
   const mount = !!entry.mount;
   const hangs = !mount && !!entry.hangs && entry.model == null; // YARD-WALLS: a picture hung flat on a wall it is set on
@@ -174,7 +174,7 @@ export function createDecorPlacer(entry, { radius = null, box = null, from = nul
     hung: hungFrom,
     raise: 0,
     scale: from?.scale ?? 1,
-    snap: false,
+    snap: !!snap,
     nudge: [0, 0],
   };
   // DECOR-FIGURE: one of Daggerfall's people takes no size step - placed or moved, it stands at scale 1, one grown before

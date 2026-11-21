@@ -200,7 +200,7 @@ test('YARD-WALLS the decorator outside: the ghost of a picture set on a wall is 
   rig.state.normal = [0, 0, -1];
   rig.frame();
   const ghost = rig.tool.ghost();
-  assert.deepEqual([ghost.pos, ghost.rot, ghost.hung], [[0, 1.6, 2 - DECOR_MOUNT_LIFT], [180, 0, 0], true], 'hung on the wall');
+  assert.deepEqual([ghost.pos, ghost.rot, ghost.hung], [[0, 1.5, 2 - DECOR_MOUNT_LIFT], [180, 0, 0], true], 'hung on the wall');
   const size = billboardSize({ getSize: () => ({ width: 16, height: 32 }), getScale: () => ({ width: 0, height: 0 }) }, 0);
   const decal = rig.decals.find((d) => d.cap === 1 && d.writes.length);
   assert.ok(decal, 'the ghost\'s picture');

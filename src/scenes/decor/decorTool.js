@@ -442,6 +442,12 @@ export function createDecorTool(deps) {
   /** @type {any} */ let scan = null;
   /** @type {any} */ let slot = null;
   /** @type {any} */ let placing = null;
+  let snapOn = true;
+  function toggleSnap() {
+    if (!placing || placing.browse) return false;
+    snapOn = placing.placer ? placing.placer.toggleSnap() : !snapOn;
+    return snapOn;
+  }
   // RPT1026-WORLD DECOR-VERBS: while it browses, its verbs are folded where no plaque is drawn (ui/worldPlaque.js)
   const verbsOff = wantPlaqueVerbs(() => !!placing?.browse && !placing.suspended && !panel?.isOpen());
   let spin = 0;
@@ -650,7 +656,7 @@ export function createDecorTool(deps) {
         raise: () => placing?.placer?.raise(DECOR_RAISE_STEP), lower: () => placing?.placer?.raise(-DECOR_RAISE_STEP),
         nudgeLeft: () => nudgePiece('left'), nudgeRight: () => nudgePiece('right'), nudgeForward: () => nudgePiece('forward'), nudgeBack: () => nudgePiece('back'),
         smaller: () => placing?.placer?.rescale(false), bigger: () => placing?.placer?.rescale(true),
-        grid: () => placing?.placer?.toggleSnap(),
+        grid: () => toggleSnap(),
         preview: () => togglePreview(),
         catalog: () => openPanel(),
         rest: () => { cycleRest(); },   // REST-GUEST
@@ -1116,20 +1122,20 @@ export function createDecorTool(deps) {
           p.flatSize = { ...own.size };
           p.mirrors = own.mirrors !== false;   // a tree turns in earnest - its picture never mirrors
           p.release = own.release ?? null;
-          p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, flat: p.flatSize });   // WALL-CLEAR: how far it reaches into a wall
+          p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, flat: p.flatSize, snap: snapOn });   // WALL-CLEAR: how far it reaches into a wall
           if (renderer?.createBillboardBatch) p.batch = renderer.createBillboardBatch(own.archive, own.key, { ...p.flatSize }, [[0, 0, 0]]);
           return;
         }
         if (pic) {
           p.flatSize = { w: pic.w, h: pic.h };
-          p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, flat: p.flatSize });   // WALL-CLEAR: how far it reaches into a wall
+          p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, flat: p.flatSize, snap: snapOn });   // WALL-CLEAR: how far it reaches into a wall
           if (renderer?.createBillboardBatch) p.batch = renderer.createBillboardBatch(MW_STAND_ARCHIVE, pic.key, { ...p.flatSize }, [[0, 0, 0]]);
           return;
         }
         if (!t || !(gr < t.recordCount)) return;
         deps.uploadRecord?.(ga, gr);
         p.flatSize = billboardSize(t, gr);
-        p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, flat: p.flatSize });   // WALL-CLEAR: how far it reaches into a wall
+        p.placer = createDecorPlacer(entry, { radius: p.radius, from: p.pose, free, flat: p.flatSize, snap: snapOn });   // WALL-CLEAR: how far it reaches into a wall
         if (renderer?.createBillboardBatch) p.batch = renderer.createBillboardBatch(ga, gr, { ...p.flatSize }, [[0, 0, 0]]);
       }, () => {});
     }
@@ -1356,7 +1362,7 @@ export function createDecorTool(deps) {
       if (placing !== p || p.ask !== ask || !art) return;
       p.art = art;
       p.decal ??= renderer?.createDecalBatch?.(1) ?? null;
-      p.placer ??= entry.mount ? createDecorPlacer(entry, { radius: p.radius, from: p.pose, free: p.free }) : null;   // YARD-WALLS: one that hangs takes its picture's
+      p.placer ??= entry.mount ? createDecorPlacer(entry, { radius: p.radius, from: p.pose, free: p.free, snap: snapOn }) : null;   // YARD-WALLS: one that hangs takes its picture's
     }, () => {});
   }
   /** AUDIT DYE-ICON r3 1: the room asked its mounts' pictures again and let the old ones go (decorRoom.js onRefresh) -
@@ -1618,6 +1624,7 @@ export function createDecorTool(deps) {
    *  `from` keeps the eye where a move finished. */
   function beginBrowse(from = null) {
     if (!deps.room?.() || placing || panel?.isOpen()) return false;
+    if (!from) snapOn = true;
     ensureDom();
     openDraft();
     const eye = from ?? deps.eye?.() ?? [0, 0, 0];
@@ -1672,7 +1679,7 @@ export function createDecorTool(deps) {
     placing.leaving = true;
     const box = new DecisionBoxWindow({
       rows: [t('decor.tool.unkeptLeave', 'These changes are not kept.'), t('decor.tool.leaveBehind', 'Leave them behind?')],
-      onYes: () => { deps.closeSlot?.(box); if (placing?.browse) { discardDraft(); endPlacing(); } },
+      onYes: () => { deps.closeSlot?.(box); if (placing?.browse) { discardDraft(); endPlacing(); snapOn = true; } },
       onNo: () => { deps.closeSlot?.(box); if (placing) placing.leaving = false; },
     });
     deps.openSlot(box);
@@ -1683,7 +1690,7 @@ export function createDecorTool(deps) {
   function back() {
     if (justClosed || !placing) return;
     if (placing.browse && draftDirty()) { askLeave(); return; }
-    if (placing.browse) { endPlacing(); return; }
+    if (placing.browse) { endPlacing(); snapOn = true; return; }
     const stay = !!(placing.editing || placing.through || placing.hotbar) || draftDirty();
     const fly = [...placing.fly];
     const key = placing.entry?.key ?? null;
@@ -2210,7 +2217,7 @@ export function createDecorTool(deps) {
     const free = act ? null : DECOR_FREE_KEYS[e.code];
     if (free === 'smaller') placing?.placer?.rescale(false);
     else if (free === 'bigger') placing?.placer?.rescale(true);
-    else if (free === 'grid' && once) placing?.placer?.toggleSnap();
+    else if (free === 'grid' && once) toggleSnap();
     else if (NUDGE_WAYS[free]) nudgePiece(NUDGE_WAYS[free], e.shiftKey || e.ctrlKey);   // AUDIT FB1029f C6: Windows lets Shift go for a numpad key under NumLock
   }
   const suspended = () => !placing || placing.suspended;
@@ -2322,7 +2329,7 @@ export function createDecorTool(deps) {
       decorHere = false;
       heardRev = null;
       pool.showSaved?.(null);
-      if (placing) endPlacing();
+      if (placing) { endPlacing(); snapOn = true; }
       if (panel?.isOpen()) panel.close();
       button?.render(false);
       syncHot();
@@ -2352,7 +2359,7 @@ export function createDecorTool(deps) {
     fillRadius(p);
     if (p.entry?.model != null && !p.placer) {
       const m = modelFor(p.entry.model);
-      if (m) p.placer = createDecorPlacer(p.entry, { radius: p.radius, box: m.box, from: p.pose, free: p.free });
+      if (m) p.placer = createDecorPlacer(p.entry, { radius: p.radius, box: m.box, from: p.pose, free: p.free, snap: snapOn });
     }
     const held = (a) => flyHeld.has(a);
     const stick = stickMove(deps.stick?.() ?? null);   // DECOR1e: an analog stick in hand is read over the walk keys
@@ -2392,7 +2399,7 @@ export function createDecorTool(deps) {
     bar?.show({
       name: p.editing ? `Moving ${p.entry.name}` : p.entry.name, price, priceText: edit ? decorEditText(edit) : p.entry.guild != null ? guildStockText(p.entry, guildPieceLeft(p.entry, roomPieces())) : p.free ? 'free' : null,   // GUILD-SHOP: what is left of the guild's stock
       count: pool.size(), cap: capHere(deps.room?.()),
-      snap: !!p.placer?.state().snap, why: placingWhy(p, price),
+      snap: p.placer ? !!p.placer.state().snap : snapOn, why: placingWhy(p, price),
       sized: decorEntrySized(p.entry), preview: !!p.lock,   // DECOR-FIGURE: no Smaller or Bigger for one of Daggerfall's people
     });
     if (p.batch && p.piece && p.flatSize) {
@@ -2649,6 +2656,7 @@ export function createDecorTool(deps) {
   /** The room goes (the host's three teardowns): the flight ends, the panel closes, the button stands down. */
   function close() {
     if (placing) endPlacing();
+    snapOn = true;
     if (panel?.isOpen()) panel.close();
     button?.render(false);
     letThumbsGo();   // AUDIT MENU-ORDER R4: the room goes, and the tiles' models with it

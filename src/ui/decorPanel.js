@@ -1511,6 +1511,7 @@ export function createDecorBar({ on, touch = false, doc = document }) {
     return n;
   };
   const grid = b('Grid', 'grid');
+  grid.setAttribute('aria-pressed', 'true');
   const preview = b('Preview', 'preview');
   const catalog = b('Catalogue', 'catalog');
   catalog.hidden = true;

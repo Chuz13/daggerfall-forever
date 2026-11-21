@@ -51,6 +51,8 @@ test('NUDGE the decorator: Numpad 4, 6, 8 and 2 push the piece in hand a step th
   assert.deepEqual(['Numpad4', 'Numpad6', 'Numpad8', 'Numpad2'].map((c) => DECOR_FREE_KEYS[c]), ['nudgeLeft', 'nudgeRight', 'nudgeForward', 'nudgeBack']);
   const rig = toolRig();
   await placeFrom(rig, 'm41000');
+  rig.win.fire('keydown', { code: 'Slash' });
+  rig.frame();
   const at = () => rig.tool.ghost().pos;
   const start = [...at()];
   rig.win.fire('keydown', { code: 'Numpad6' });
@@ -75,6 +77,8 @@ test('NUDGE the decorator: Numpad 4, 6, 8 and 2 push the piece in hand a step th
 test('AUDIT FB1029f C6: Ctrl is a fine step too (Windows lets Shift go for a numpad key under NumLock), and on the grid a step is the grid\'s, so a gridded piece stays on it (mutants: AUDITFB1029F-C6-ctrl-unread, AUDITFB1029F-C6-grid-unread)', async () => {
   const rig = toolRig();
   await placeFrom(rig, 'm41000');
+  rig.win.fire('keydown', { code: 'Slash' });
+  rig.frame();
   const at = () => rig.tool.ghost().pos;
   const start = [...at()];
   rig.win.fire('keydown', { code: 'Numpad6', ctrlKey: true });
