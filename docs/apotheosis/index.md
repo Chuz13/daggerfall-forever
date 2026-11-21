@@ -54,7 +54,7 @@ Fate Weight is evaluated dynamically from live character stats, gear, property, 
 | `tr16_magnate` | **Merchant Sovereign** | `>= 500,000` gold (carried + all regional bank accounts). |
 | `tr17_landed_sovereign` | **Landed Sovereign** | Own `>= 1` home (vanilla house deeds or offline homes). |
 | `tr22_sea_captain` | **Captain of the Seas** | Own a ship. |
-| `tr18_living_legend` | **Living Legend of Tamriel** | Peak faction reputation `>= +50`. |
+| `tr18_living_legend` | **Living Legend of Tamriel** | Peak reputation `>= +50` in any Standing organization (Guilds, Temples, Knightly Orders, Provinces, Witches' Covens, Vampire Clans, or Daedra). |
 | `tr06_hero_iliac` | **Shaper of History** | `>= 50` completed quests (excludes `_APOTHEO`). |
 
 ---

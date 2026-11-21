@@ -21,7 +21,7 @@ This is the complete reference for all console commands currently implemented in
 | `set_skill`, `mod_skill`, `set` | **Prefix match** (normalized, ignores spaces/`_`/`-`) on skill names. |
 | `prof set`, `prof addxp` | Exact `id` or **prefix match** on profession display name. |
 | `rcf set_sgroup` | Numeric `0..10` or **3-character prefix** (`com`, `mer`, `sch`, `nob`, `und`, `sup`). |
-| `living adv setlevel`, `living adv summon` | Numeric ID / array index, or case-insensitive **substring match** on adventurer name. |
+| `living adv setlevel`, `living adv summon`, `living adv settrait`, `living adv quote` | Numeric ID / array index, or case-insensitive **substring match** on adventurer name. |
 | `finish_errand` | Exact `id` or case-insensitive **substring match** on revenant name. |
 | `apo cult <key\|unlock\|clear\|consecrate\|upgrade\|branch> [site]` | Exact `siteKey`, keywords (`daedra`/`hatch`/`sanctuary`/`temple`), or case-insensitive **substring match** on `siteKey` (current city first, then all sites). |
 | `apo pantheon log [filter] [search...]` | Case-insensitive **substring match** across chronicle text, deity name, and region name. |
@@ -40,6 +40,7 @@ This is the complete reference for all console commands currently implemented in
 | `heal` | `player_heal` | `heal` | Restores Health, Fatigue, and Magicka to max. |
 | `set_fatigue` | `setfatigue`, `fatigue` | `set_fatigue <amount\|percent%>` | Sets fatigue (`<n>%`, display points `<= STR+END`, or raw points). |
 | `addgold` | - | `addgold <count>` | Adds `<count>` gold pieces. |
+| `add_credit` | `addcredit`, `give_credit` | `add_credit <amount>` | Adds a Letter of Credit worth `<amount>` gold to inventory. |
 | `teleport` | - | `teleport <x> <y> <z>` | Teleports to world coordinates `(x, y, z)`. |
 | `tele2loc` | - | `tele2loc <locationName>` | Teleports to named location in world mode (folded exact/prefix/substring match). |
 | `tp` | `/tp` | `tp <x> <y>` \| `tp <locationName>` | Teleports to map pixel `(x, y)` or named location (folded exact/prefix/substring match). |
@@ -49,6 +50,7 @@ This is the complete reference for all console commands currently implemented in
 | `tcl` | `noclip` | `tcl` | Toggles collision (`noclip` + `fly`). |
 | `set_time` | `time` | `time <h> [m]` \| `time set <h> [m]` \| `time add <n>[m\|h\|d]` | Sets time of day or advances time (unitless `<100` = hours, `>=100` = minutes; also supports unit-first `time add days 3` and space-separated `time add 3 days`). |
 | `date` | `calendar`, `get_time` | `date` | Prints Tamriel calendar date, time, year (`3E...`), and season. |
+| `set_holiday` | `holiday` | `set_holiday <merchants\|none>` | Prints current holiday ID or jumps the calendar to Merchants Festival (`merchants`) / clears it (`none`). |
 | `advance_time` | `advancetime`, `pass_time`, `passtime` | `advance_time <hours>` | Advances world clock by `<hours>`. |
 | `advance_days` | `advancedays`, `pass_days` | `advance_days <days>` | Advances world clock by `<days>`. |
 | `set_weather` | `weather` | `set_weather <0..6\|type>` | Pins a `180`-minute (3h) weather override (`sunny`/`clear`, `cloudy`/`clouds`, `overcast`, `fog`/`foggy`, `rain`/`rainy`, `thunder`/`thunderstorm`/`storm`, `snow`/`snowy`). |
@@ -74,6 +76,8 @@ This is the complete reference for all console commands currently implemented in
 | `firmament` | `firm` | `firmament <status \| addstars <n> \| addpoints <n> \| addxp <n> \| reset>` | Inspects or modifies Offline Firmament progression. |
 | `housing` | `house` | `housing <list \| buy [key] [mapId] [reg] \| inherit <mapId> <key> [reg] \| tp [key] \| clear>` | Manages offline player houses. |
 | `prof` | `profession` | `prof <list \| set <name> <1..100> \| addxp <name> <amount>>` | Manages offline professions (prefix match on name). |
+| `starfall` | - | `starfall <status \| spawn [heart] [fallen\|omen] \| clear>` | Inspects offline Starfall state, spawns a fallen/omen star (normal or Heart-Star), or clears the active star. |
+| `survival` | - | `survival <status \| tier <id> \| wildsleep <on\|off> \| need <hunger\|thirst\|sleep\|wet\|drunk> <val> \| drink <cat> \| hearty>` | Inspects or tests Climates & Calories tiers (`off`, `boons`, `casual`, `standard`, `veteran`, `hard`), wilderness sleep gate, needs, 5 drink buff categories, and Hearty Meal. |
 | `addmats` | - | `addmats [ore\|ores\|ingot\|ingots\|herb\|herbs\|leather\|hides\|wood\|logs\|planks\|all\|key] [count]` | Adds crafting materials (default `all`, `5`) and ensures a Materials Bag. |
 | `bank` | - | `bank <status \| deposit <n> \| withdraw <n> \| clearloans \| setloan <n>>` | Manages Unified Bank balance and loans. |
 | `city247` | - | `city247 [on\|off\|toggle]` | Toggles 24/7 city infrastructure. |
@@ -82,12 +86,13 @@ This is the complete reference for all console commands currently implemented in
 | `dynasty` | - | `dynasty <status \| addchild \| retire \| addrenown <n> \| setmodel <dynasty\|enduring\|bloodline>>` | Inspects or modifies Project Legacy / Dynasty state. |
 | `crisis` | - | `crisis <start <type\|FlagName> [reg] \| stop [type\|FlagName] [reg] \| status [reg] \| tp\|goto\|jump [type] \| tick\|sim>` | Starts/stops macro crises (`war`, `plague`, `famine`, `civil_strife`, `strife`) or vanilla `REGION_FLAGS`, teleports, or ticks 38 days (`crisis start war` also resets mundane war skirmish progress). |
 | `telecrisis` | - | `telecrisis [type\|FlagName]` | Teleports to a settlement with an active crisis (`war`, `plague`, `famine`, `crime`, `witch`, `ruler`, `holiday`, `strife`/`civil_strife`, `prices`/`tax`, or exact `REGION_FLAGS` name). |
-| `living` | - | See subcommands below | In World Mode, exposes the full `executeLivingConsoleCommand` suite. *(Outside World Mode, supports only `living adv\|adventurer <tick\|kill_in_dungeon\|setlevel\|list>`.)* |
+| `living` | - | See subcommands below | In World Mode, exposes the full `executeLivingConsoleCommand` suite. *(Outside World Mode, supports `living adv\|adventurer <tick\|kill_in_dungeon\|setlevel\|settrait\|quote\|companion [status\|dismiss]\|list>`.)* |
 | `rcf` | - | `rcf <status \| tier <0..3\|off\|light\|mid\|high> \| set_sgroup <0..10\|prefix> <n> \| set_faction <id\|alias> <n> \| give_stolen [item] \| test_rumor \| test_contraband>` | Inspects and tests Reputation Consequences Framework (`db`, `thieves`/`tg`, `knights`/`ko`, `mages`/`mg`, `temple`, `arkay`, `julianos`, `kynareth`, `mara`, `stendarr`, `dibella`, `zenithar`, `akatosh`). |
 | `dumplog` / `dumpcombat` / `dumpspawns` / `dumpall` | - | `dumpall [reason]` | Dumps diagnostic telemetry logs to disk with optional `[reason]`. |
 
 ### `living` Subcommands (World Mode)
-* `living status` - Prints current LT region state, tension, `cooldown=<N>m`, and subsystem status.
+* `living status` - Prints current LT region state, tension, `cooldown=<N>m`, `prosperity=<delta>`, and subsystem status.
+* `living prosperity [<-5..+5>|clear|status]` - Shows, sets, or clears the current settlement's local prosperity modifier (`-5..+5`) and combined shop quality shift.
 * `living cooldown [2h|8h|24h|3d|clear|reset]` - Shows active settlement cooldowns or sets/clears the settlement event cooldown (`2h` `120m`, `8h` `480m`, `24h`/`1d` `1440m`, `3d`/`72h` `4320m`).
 * `living scale [low|1|mid|2|high|3|4]` (alias `density`) - Sets encounter scale.
 * `living loot [full|supplies|gold|zero|none]` - Sets urban/world loot policy.
@@ -101,6 +106,9 @@ This is the complete reference for all console commands currently implemented in
 * `living formulas` / `living roll [Skill] [DC] [Formula]` (aliases `formula`, `check`) - Lists or tests LT roll formulas.
 * `living adv list [region]` | `living adv tick <1..365>` | `living adv kill_in_dungeon [region]`
 * `living adv setlevel <name|id|index> <1..45>` *(supports substring match)*
+* `living adv settrait <name|id|index> <trait>` *(supports substring match; `HONORABLE`, `ARROGANT`, `ENVIOUS`, `CUTTHROAT`, `DUELIST`, `MERCENARY`, `CAUTIOUS`)*
+* `living adv quote [name|id|index] [days]` *(supports substring match; `1..14` days)* - Prints full companion hire quote breakdown (base, haggled, Mercantile/Personality/Taint/Disguise/RCF/Festival/Wartime).
+* `living adv companion [status|dismiss|kill]` - Inspects active companion contract, dismisses them, or strikes them down (zero-loot test).
 * `living adv summon [nearest|random|<name|id|index>]` *(supports substring match)*
 
 ---

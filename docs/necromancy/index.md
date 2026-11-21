@@ -72,7 +72,7 @@ Once you read the `Grimoire of the Worm` (or are already a Lich/Archlich), a ded
 ### As a Lich
 * **Attributes & Skills:** `INT +25`, `WIL +25`, `PER -30` (suppressed to `0` while disguised); `Mysticism +30`, `Destruction +20`, `Alteration +20`.
 * **Vitals & Regen:** `+100` Max HP, `+250` Max Magicka, `+5` Magicka regen per magic round.
-* **Immunities & Mitigations:** Immune to Paralysis, Disease, Poison, Drowning, and normal weapons below **Silver** (`minMetalToHit: Silver`). Incoming arrow damage reduced by `50%`. Survival needs (thirst, sleep debt, exposure) cleared.
+* **Immunities & Mitigations:** Immune to Paralysis, Disease, Poison, Drowning, and normal weapons below **Silver** (`minMetalToHit: Silver`). Incoming arrow damage reduced by `50%`. Survival needs (thirst, sleep debt, exposure) and active Climates & Calories survival effects are cleared upon ascension; curing Lichdom resets Necromantic Taint to `0`.
 * **Weaknesses & Law:** Vulnerable to holy ground (`holyDamage: true`). Taint locked at `100`. Walking undisguised in a settlement triggers `Treason` (`High_Treason` in Hammerfell).
 * **Immortality (Reconstitution):** Physical death is intercepted - your vitals restore to `100%`, curses/drains clear, `30` in-game days pass (`43,200` min), and you reconstitute at the nearest cemetery with zero gold/permadeath penalties.
 * **Innate Spells:** `Paralyzing Touch` and `Mortal Disguise`.

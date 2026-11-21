@@ -21,6 +21,7 @@
 * **Climate/Region & Level-Gated Attacker Pools:** Encounter monsters scale dynamically with player level and regional climate (`isSouthernDesertRegion`) - e.g. Sabertooth Tigers / Giant Scorpions in southern deserts vs. Grizzly Bears / Wereboars / Giants elsewhere, and escalating undead/occult/Daedra tiers at levels `6+`, `11+`, and `14+`.
 * **12 Thematic Prop Sets & Destructible Props:** Urban skirmishes spawn themed 3D/flat props (`MILITARY_BARRICADE`, `PRISONER_CAGE`, `GRANARY_MARKET`, `CAULDRON_STATION`, `PLAGUE_PYRE`, `WATER_WELL_SITE`, `MONUMENT_STATUE`, `OCCULT_RITUAL`, `CRIME_HEIST`, `FARM_HOMESTEAD`, `GRAVEYARD_CRYPT`, `TEMPLE_SANCTUARY`) plus solid tent/pavilion colliders (`41606`/`41607`). Siding with attackers in events like `EVT_NEW_RULER_STATUE_UNVEILING` or `EVT_PLAGUE_WATER_WELL_SCARE` physically topples or smashes those scene props.
 * Encounters match your location type, active regional crises, and settlement prosperity (`LOW`, `MID`, `HIGH` based on building quality).
+* **Dynamic Settlement Prosperity & Shop Quality Shifts (`settlementProsperity.js`):** Local settlement prosperity shifts between `-5` and `+5` (decaying 1 step toward `0` every `7` game days) based on urban skirmish and citizen plea outcomes (defending towns, brokering peace, or helping merchants/urchins raises prosperity `+1`/`+2`; siding with raiders, heists, or saboteurs lowers it `-1`/`-2`), stacking with regional crisis shifts (`PLAGUE`/`FAMINE`: `-1` to `-2`; `WAR`/`CIVIL_STRIFE` `MID`: `-1`). Effective shop quality (`1..20`) shifts dynamically for both stock and prices without mutating base building records, with booming (`>= +2`) and depressed (`<= -2`) callouts in Travel Map tooltips and the compass Town Panel.
 * **4-Stance Choices & Typed Rolls:** Every crisis event offers 4 stances - side with defenders, side with attackers, stay neutral, or resolve peacefully via gold or skill checks (`Etiquette`, `Streetwise`, `Orcish`, `Mercantile`, `Restoration`, `Stealth`, `Medical`, `Thaumaturgy`, `Daedric`) with 5 outcome degrees (`TRIUMPH` to `CRITICAL_FAILURE`). Outcomes nudge vanilla faction power and crisis endurance.
 * **10 Ambient NPC Pleas & Peacetime Town Roulette:** Citizens may approach you with **4 crisis pleas** (`PLAGUE_CURE`, `FAMINE_BREAD`, `WAR_REFUGEE`, `ESCORT_REQUEST` at `10%`/`25%`/`40%` base chance) or **6 grounded peace pleas** (`DRUNKEN_BRAWLER`, `BROKEN_CART_MERCHANT`, `STRAY_HOUND_HANDLER`, `STREET_PREACHER`, `ACCUSED_URCHIN`, `BOASTFUL_DUELIST`). In peacetime towns, encounters roll `65%` Grounded Plea / `35%` Mundane Skirmish (crisis towns roll `80%` crisis / `20%` mundane; plague quarantines roll `40%` tent / `60%` plague skirmish). Rudely provoking a peace plea turns the NPC hostile with scale-based street backup (`1` Low / `1–2` Mid / `2–3` High).
 
@@ -30,7 +31,7 @@
 
 ### 3. Road Checkpoints & Travel Interruptions
 * **Road Checkpoints:** During `WAR` or `CIVIL_STRIFE`, military checkpoints spawn on highways. Knightly Order members (`rank > 0`), players with regional reputation `>= 15`, or `Nobility >= 20` / `GENERIC_KNIGHTLY_ORDER >= 20` pass free. Others pay a toll (`50–99` gold), use diplomacy, or fight. High `Underworld (>= 25)` or low `Commoners (<= -20)` triggers baggage inspections (`50g` fine per stolen item). Passing grants a **24-hour** regional transit pass.
-* **Travel Interruptions:** Fast travel and overworld journeys can be interrupted by `PEACEFUL_CARAVAN` (`40%`), `ROAD_DILEMMA` (`30%`), or `AMBUSH` (`30%`), with base danger scaling by tier (`5%` Light, `12%` Mid, `22%` High) plus regional tension minus Luck.
+* **Travel Interruptions:** Trips under `3` hours (`180m`) are never interrupted. Longer journeys scale interruption rolls by trip length (`1..maxInterrupts`), camping vs. inns (`+8%`), and reckless vs. cautious pace (`+6%`), plus regional tension minus Luck. Land routes roll across 5 event types (`PEACEFUL_CARAVAN`, `ROAD_DILEMMA`, `AMBUSH`, `WILD_BEASTS`, `WEATHER_HAZARD`), while sea voyages roll `WEATHER_HAZARD`.
 
 ### 4. Naval Incidents
 * At sea, naval squadrons (`LAW` vs `PIRATES`) clash `200–300m` from the player (`1–2` ships/side on Light, `2–4` or `5` at war on Mid, `3–6` on High). Approaching within `40m` prompts a side-allegiance choice.
@@ -39,7 +40,7 @@
 * A pool of virtual adventurers (`13` per region default, up to `30`) across 12 classes and 7 traits (`HONORABLE`, `ARROGANT`, `ENVIOUS`, `CUTTHROAT`, `DUELIST`, `MERCENARY`, `CAUTIOUS`) delves dungeons, levels up to `45`, and gears up across tiers `1–9`.
 * Cleared dungeons enter a `3–5` day cooldown. Failed delves (`25%` base demise chance) leave `fallenRemains` loot in boss chests.
 * **Quest Protection:** `allowQuestCompetition` is disabled - active quest dungeons and main story dungeons are immune to adventurer interference.
-* **Wandering Road Adventurers:** Meet non-hostile adventurers on highways, at camps, fighting monsters, or returning with spoils. You can share intel, recruit them as a **24-hour** companion, wager on a spar, or extort spoils.
+* **Wandering Road Adventurers & Multi-Day Companion Contracts:** Meet non-hostile adventurers on highways, at camps, fighting monsters, or returning with spoils. You can share intel, wager on a spar, extort spoils, or hire them on **multi-day contracts** (`1` / `3` / `7` days, extendable up to `14` days max, with replacement confirmation). Hiring uses a grounded `200g / level / day` base rate shaped by the adventurer's trait haggle quality (`16..20`), your Mercantile & Personality, regional wartime demand, Merchants Festival (`-50%`), RCF reputation, and Necromancy Taint/Disguise. Fallen hired companions drop no exploitable gear or gold.
 
 ### 6. Surrender / Yield & Nemesis System
 * **Surrender / Yield:** In LT encounters and checkpoints, you can yield. Ransom is `25%` of your gold (scaled by bribe multiplier and clamped between `max(25, level * 15)` and `level * 80`). Paying halves fatigue (`ROBBED`); if you cannot pay (`BEATEN_PAUPER`), all gold is taken and Health/Fatigue drop to `10%`.
@@ -56,10 +57,10 @@
 | System | Cooldown / Duration |
 | :--- | :--- |
 | Town / Location Events & Skirmishes | Configurable: `2h` (`120m`) / `8h` (`480m`) / `24h` (`1440m`) / `3d` (`4320m`, default) |
-| Travel Interruptions | `360` min (`6` in-game hours) |
+| Travel Interruptions | `360` min (`6` h) default, failsafe cap `720` min (`12` in-game hours); trips `< 180` min exempt |
 | Ambient NPC Pleas | `90` min (`1.5` in-game hours) |
 | Checkpoint Transit Pass | `1440` min (`24` in-game hours) |
-| Recruited Adventurer Companion | `1440` min (`24` in-game hours) |
+| Recruited Adventurer Companion | `1 / 3 / 7` in-game days per contract (extendable up to `14` days max) |
 | Adventurer-Cleared Dungeon | `3–5` in-game days |
 
 ---

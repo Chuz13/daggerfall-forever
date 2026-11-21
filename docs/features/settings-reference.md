@@ -10,6 +10,8 @@ While major frameworks (**Living Tamriel**, **Dark Arts & Necromancy**, and **Ap
 | :--- | :--- | :---: | :--- |
 | **Firmament (Offline)** | `port:offlineFirmament` (`offlineFirmament`) | `On` | Enables the Firmament constellation passive tree and Renown leveling offline. |
 | **Professions & Gathering (Offline)** | `port:offlineProfessions` (`offlineProfessions`) | `On` | Enables offline gathering nodes (mining, herbs, logging, hunting, fishing) and crafting professions. |
+| **Starfall (Offline)** | `port:offlineStarfall` (`offlineStarfall`) | `Normal` | 4-tier selector (`Off` \| `Rare` \| `Normal` \| `Frequent`). Controls offline fallen star encounters, coven defenses, and Morwen's questline. |
+| **Climates & Calories** | `feat:mod-climates-calories` (`survival`, `survivalTempHud`, `survivalNoWildRoughRest`) | `Veteran` (`Temp HUD: On`, `No wild sleep: Off`) | 6-tier selector (`Off` \| `Boons` \| `Casual` \| `Standard` \| `Veteran` \| `Hard`) with sub-toggles for HUD temperature plate and disallowing wilderness rough sleep without a tent or lit campfire. |
 | **Online-Style Respawn** | `feat:offline-respawn` (`offlineRespawn`) | `On` | On death, wakes you at the nearest safe location with `50%` HP, `-10%` carried gold, and `+4–24` hours passed instead of ending the game. |
 
 ---
@@ -64,5 +66,7 @@ While major frameworks (**Living Tamriel**, **Dark Arts & Necromancy**, and **Ap
 ## Notable Default Changes to Existing Settings
 
 * **UI & Intro:** `shopHidden: true` (online shop hidden), `plusTheme: 'iron'`, `textFont: 'sans'`, `skipStartVideo: true`.
+* **Survival:** `survival: 'veteran'` is the default Climates & Calories tier (stern survival with Survival Boons, soft rust, and non-fatal cold/thirst HP harm).
+* **Decorator:** `0.25m` grid snapping starts ON by default in both interiors and exterior yards.
 * **Travel Options:** `FirstPersonTravel: true` and `FirstPersonTravelFollowsRoads: true`.
 * **Removed:** `feat:event-board` was removed from `Interface › Messages & prompts`.
