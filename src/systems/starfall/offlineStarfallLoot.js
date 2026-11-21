@@ -13,7 +13,9 @@ import { t } from '../textManager.js';
 /** Single-point configuration for offline Starfall rewards (easy to tune later). */
 export const OFFLINE_STARFALL_LOOT_CONFIG = Object.freeze({
   goldPerLevel: STAR_SPOILS_GOLD_PER_LEVEL, // 60 * lv * (0.8..1.2), x2 for Heart-Star
-  starglassMinLevel: 6, // matches offlineRelicLoot.js Lv 6+ currency threshold
+  starglassMinLevel: 1, // Lv 1-5: 1 Starfall Glass; x2 on Heart-Star
+  starglassLowMax: 1,
+  starglassMidMinLevel: 6,
   starglassMidMax: 2, // Lv 6..11: 1..2 Starfall Glass
   starglassHighMax: 3, // Lv 12+: 1..3 Starfall Glass
   starspunMinLevel: 12, // matches offlineRelicLoot.js Lv 12+ Aetheric Set threshold
@@ -60,7 +62,12 @@ export function rollOfflineStarSpoils({ seed, level, heart = false, isFound = (i
 
   let glass = null;
   if (lv >= cfg.starglassMinLevel) {
-    const maxGlass = lv >= cfg.starspunMinLevel ? cfg.starglassHighMax : cfg.starglassMidMax;
+    const maxGlass =
+      lv >= cfg.starspunMinLevel
+        ? cfg.starglassHighMax
+        : lv >= cfg.starglassMidMinLevel
+          ? cfg.starglassMidMax
+          : cfg.starglassLowMax;
     const count = (1 + Math.min(maxGlass - 1, Math.floor(rolls() * maxGlass))) * mult;
     glass = starglass(count);
   }

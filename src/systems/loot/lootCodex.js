@@ -183,7 +183,7 @@ const OFFLINE_SET_HINT_DEFAULTS = Object.freeze({
   ruhn: 'Drops in Volcanic Caves, Desecrated Temples, and from Daedra or high undead (Lv 12+).',
   panoply: 'Drops in Volcanic Caves, Desecrated Temples, or bought for Embers at Coven Sigil Brokers.',
   wyrd: "Drops in Witches' Covens or woven from Starfall Glass at Coven Sigil Brokers (Lv 12+).",
-  starspun: "Drops in Witches' Covens or woven from Starfall Glass at Coven Sigil Brokers (Lv 12+).",
+  starspun: "Drops from Fallen Stars, in Witches' Covens, or woven from Starfall Glass at Coven Sigil Brokers (Lv 12+).",
   numidium: 'Drops in Dwemer Laboratories, Mines, and from Dwarven constructs (Lv 12+).',
   orcsbane: 'Drops in Orc Strongholds and from Orc elites (Lv 12+).',
   oath: 'Drops in Human Strongholds, Ruined Castles, and from knightly foes (Lv 12+).',

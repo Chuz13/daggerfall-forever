@@ -28,6 +28,10 @@ import { P_GATHER, P_WAVE, P_BREATH, P_MASTER, P_HELD, starTimes } from '../../.
 import { createStarfallHost, STAR_FLASH_LIGHT_M } from '../../../src/scenes/starfall/starfallHost.js';
 import { STAR_FLASH_W } from '../../../src/render/starfall/starfallPass.js';
 import { starTrackerModel } from '../../../src/systems/starfall/starfallClient.js';
+import { executeConsoleCommand, setDebugSceneContext } from '../../../src/systems/consoleCommands.js';
+import { createQuestBridge } from '../../../src/scenes/quest/questBridge.js';
+import { questSource, loadTables } from '../../qlSources.mjs';
+import { questlinesOn, QUESTLINES_PREF } from '../../../src/systems/questlines/qlLaw.js';
 
 function makeScan() {
   const byRegion = new Map();
@@ -49,9 +53,15 @@ function makeScan() {
 test('1. offlineStarfallLoot respects Lv 1-5 / Lv 6-11 / Lv 12+ curve and itemLaw', () => {
   const lv4 = rollOfflineStarSpoils({ seed: 12345, level: 4, heart: false });
   assert.ok(lv4.gold > 0);
-  assert.equal(lv4.starglass, null, 'No Starfall Glass below Lv 6');
+  assert.ok(isStarglass(lv4.starglass), 'Starfall Glass drops starting at Lv 1');
+  assert.equal(lv4.starglass.stackCount, 1, 'Lv 1-5 yields 1 Starfall Glass');
+  assert.deepEqual(itemFindings(lv4.starglass), []);
   assert.equal(lv4.pieces.length, 1, 'Only Magic+ item below Lv 12');
   assert.deepEqual(itemFindings(lv4.pieces[0].item), []);
+
+  const lv4Heart = rollOfflineStarSpoils({ seed: 12345, level: 4, heart: true });
+  assert.ok(isStarglass(lv4Heart.starglass));
+  assert.equal(lv4Heart.starglass.stackCount, 2, 'Heart-Star doubles Lv 1-5 Starfall Glass');
 
   const lv8 = rollOfflineStarSpoils({ seed: 12345, level: 8, heart: false });
   assert.ok(isStarglass(lv8.starglass), 'Starfall Glass drops at Lv 6+');
@@ -220,4 +230,125 @@ test('4. Offline fallen star clock does not go negative before fallAt or blow up
   assert.equal(lists2500.glows.length, 0);
   assert.equal(lists2500.beacons.length, 1);
   assert.ok(lists2500.beacons[0].fade > 0);
+});
+
+test('5. Console starfall command reads debug scene context for status, spawn, and clear', async () => {
+  _resetOfflineStarfallForTests();
+  setPref('offlineStarfall', 'normal');
+  const scan = makeScan();
+  const host = createStarfallHost({
+    offline: true,
+    renderer: null,
+    state: { pixelTranslation: (px, py, out) => { out[0] = px * 100; out[1] = 0; out[2] = py * 100; return out; } },
+    gateScanOf: () => scan,
+    warmGateScan: () => {},
+    surfaceAt: () => 0,
+    player: { feetAt: () => [100 * 100, 0, 100 * 100] },
+    playerPixel: () => ({ x: 100, y: 100 }),
+    classicMinutes: () => 10 * 1440,
+    walkMode: true,
+    playerSpawned: true,
+    _questRegionIndex: () => 42,
+    gamePaused: () => false,
+    townTalk: { hudHidden: false },
+  });
+
+  setDebugSceneContext({
+    spawnStarfall: (opts) => host.spawnDebugStar(opts),
+    clearStarfall: () => host.clearDebugStar(),
+    starfallStatus: () => host.debugStatus(),
+  });
+  try {
+    const status0 = await executeConsoleCommand('starfall', ['status']);
+    assert.match(status0, /Offline Starfall Status:/);
+    assert.match(status0, /Active Star: none/);
+
+    const spawned = await executeConsoleCommand('starfall', ['spawn', 'heart']);
+    assert.match(spawned, /Spawned Heart-Star #1 \(fallen\)/);
+
+    const status1 = await executeConsoleCommand('starfall', ['status']);
+    assert.match(status1, /Active Star #1 \(Heart-Star\)/);
+
+    const cleared = await executeConsoleCommand('starfall', ['clear']);
+    assert.match(cleared, /Cleared active offline star/);
+    assert.equal(getOfflineStarfallState().active, null);
+  } finally {
+    setDebugSceneContext(null);
+  }
+});
+
+test('6. QLTF01 auto-starts on first held star at Lv 6+ and via checkPendingOfflineStarfall after levelling', () => {
+  loadTables();
+  setPref(QUESTLINES_PREF, true);
+  setPref('offlineStarfall', 'normal');
+
+  // Case A: Direct hold at Lv 8
+  _resetOfflineStarfallForTests();
+  const popupsA = [];
+  const entityA = {
+    name: 'Hero',
+    level: 8,
+    gender: 'male',
+    career: { weaponArmorShieldsBitfield: 0, forbiddenMaterialsFlags: 0 },
+    skills: new Array(35).fill(30),
+    items: [],
+  };
+  const bridgeA = createQuestBridge({
+    data: { readListTable: () => null, getQuestSourceLines: (n) => questSource(n, questlinesOn()) },
+    classicSeconds: () => 1000,
+    questlineService: null,
+    playerEntity: entityA,
+    showPopup: (m) => popupsA.push(m),
+  });
+  assert.equal(bridgeA.onOfflineStarHeld({ heart: false, autoStartNow: true }), true);
+  for (let i = 0; i < 5; i++) {
+    bridgeA.machine.tick();
+    bridgeA.questlines.look();
+  }
+  const qA = [...bridgeA.machine.quests.values()].find((x) => x.questName === 'QLTF01');
+  assert.ok(qA, 'QLTF01 started on machine');
+  assert.equal(qA.tasks.get('held').triggered, true, '_held_ triggers on first star held');
+  assert.equal(qA.tasks.get('raven').triggered, true, '_raven_ triggers immediately after _held_');
+  assert.ok(bridgeA.questLog().active.some((r) => r.questName === 'QLTF01'), 'QLTF01 appears in active quest log');
+  assert.ok(popupsA.length > 0, 'Morwen raven note popup shown');
+  assert.equal(getOfflineStarfallState().pendingAutoLine, false);
+
+  // Case B: Deferred hold at Lv 1 -> level up to Lv 6 -> checkPendingOfflineStarfall
+  _resetOfflineStarfallForTests();
+  const popupsB = [];
+  const entityB = {
+    name: 'Novice',
+    level: 1,
+    gender: 'male',
+    career: { weaponArmorShieldsBitfield: 0, forbiddenMaterialsFlags: 0 },
+    skills: new Array(35).fill(30),
+    items: [],
+  };
+  const bridgeB = createQuestBridge({
+    data: { readListTable: () => null, getQuestSourceLines: (n) => questSource(n, questlinesOn()) },
+    classicSeconds: () => 1000,
+    questlineService: null,
+    playerEntity: entityB,
+    showPopup: (m) => popupsB.push(m),
+  });
+  const scan = makeScan();
+  const active = spawnOfflineStar({ scan, playerPx: 100, playerPy: 100, playerRegion: 42, classicMinutes: 5 * 1440, startFallen: true });
+  const holdRes = recordOfflineStarHeld(active, entityB.level);
+  assert.equal(holdRes.autoStartNow, false);
+  assert.equal(getOfflineStarfallState().pendingAutoLine, true);
+  assert.equal(bridgeB.checkPendingOfflineStarfall(), false, 'Still deferred at Lv 1');
+
+  entityB.level = 6;
+  assert.equal(bridgeB.checkPendingOfflineStarfall(), true, 'Starts once player reaches Lv 6');
+  for (let i = 0; i < 5; i++) {
+    bridgeB.machine.tick();
+    bridgeB.questlines.look();
+  }
+  const qB = [...bridgeB.machine.quests.values()].find((x) => x.questName === 'QLTF01');
+  assert.ok(qB, 'Deferred QLTF01 started on machine');
+  assert.equal(qB.tasks.get('held').triggered, true, 'Deferred _held_ triggers');
+  assert.equal(qB.tasks.get('raven').triggered, true, 'Deferred _raven_ triggers');
+  assert.ok(bridgeB.questLog().active.some((r) => r.questName === 'QLTF01'));
+  assert.ok(popupsB.length > 0);
+  assert.equal(getOfflineStarfallState().pendingAutoLine, false);
 });
