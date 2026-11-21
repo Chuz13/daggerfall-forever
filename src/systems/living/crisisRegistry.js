@@ -24,6 +24,7 @@ import {
   getActiveCrises,
   getBoundRegionConditions,
 } from './regionState.js';
+import { getTotalSettlementProsperityShift } from './settlementProsperity.js';
 import {
   LIVING_ROLL_DEGREE,
   resolveLivingRoll,
@@ -59,17 +60,20 @@ export const SKIRMISH_PROP_THEME = Object.freeze({
  * @param {any} dfLocation
  * @returns {'LOW' | 'MID' | 'HIGH'}
  */
-export function calculateLocationProsperity(dfLocation) {
+export function calculateLocationProsperity(dfLocation, { mapId = null, regionIndex = null } = {}) {
   const buildings = dfLocation?.exterior?.buildings;
   if (!Array.isArray(buildings) || buildings.length === 0) {
     return PROSPERITY_TIER.MID;
   }
+  const locMapId = mapId ?? dfLocation?.mapTableData?.mapId ?? null;
+  const locReg = regionIndex ?? dfLocation?.regionIndex ?? null;
+  const shift = locMapId != null || locReg != null ? getTotalSettlementProsperityShift(locMapId, locReg) : 0;
   let sum = 0;
   let count = 0;
   for (let i = 0; i < buildings.length; i++) {
     const q = Number(buildings[i]?.quality ?? 10);
     if (!Number.isNaN(q) && q > 0) {
-      sum += q;
+      sum += Math.max(1, Math.min(20, q + shift));
       count++;
     }
   }

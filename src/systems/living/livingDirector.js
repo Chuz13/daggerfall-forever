@@ -11,6 +11,11 @@ import { LivingTamrielConfig, PRESENCE, LIVING_ADVENTURER_LOOT, resetLivingConfi
 import { tickAllRegions } from './regionState.js';
 import { tickAdventurerSimulation } from './adventurerSim.js';
 import { getLocationEventCooldownsSnapshot, restoreLocationEventCooldownsSnapshot } from './locationCooldowns.js';
+import {
+  getSettlementProsperitySnapshot,
+  restoreSettlementProsperitySnapshot,
+  tickSettlementProsperityDecay,
+} from './settlementProsperity.js';
 
 export const LIVING_TAMRIEL_VENDOR = 'livingTamriel';
 export const LIVING_TAMRIEL_SAVE_VERSION = 1;
@@ -48,6 +53,7 @@ class LivingDirectorState {
     this.subsystems.checkpoints = { passesByRegion: {} };
     this.subsystems.crisisQuests = {};
     restoreLocationEventCooldownsSnapshot(null);
+    restoreSettlementProsperitySnapshot(null);
   }
 }
 
@@ -157,6 +163,7 @@ export function getLivingSaveData() {
       },
       crisisQuests: { ...(_state.subsystems.crisisQuests || {}) },
       locationCooldowns: getLocationEventCooldownsSnapshot(),
+      settlementProsperity: getSettlementProsperitySnapshot(),
     },
   };
 }
@@ -257,6 +264,9 @@ export function restoreLivingSaveData(data) {
       if (data.subsystems.locationCooldowns && typeof data.subsystems.locationCooldowns === 'object') {
         restoreLocationEventCooldownsSnapshot(data.subsystems.locationCooldowns);
       }
+      if (data.subsystems.settlementProsperity && typeof data.subsystems.settlementProsperity === 'object') {
+        restoreSettlementProsperitySnapshot(data.subsystems.settlementProsperity);
+      }
     }
   } catch (err) {
     console.warn('[LivingDirector] Error restoring save data, falling back to default:', err);
@@ -301,6 +311,7 @@ export function onLivingWorldTick(nowMinutes) {
       tickAllRegions();
       tickAdventurerSimulation({ activeQuestSites });
     }
+    tickSettlementProsperityDecay(Math.floor(current / MINUTES_PER_DAY));
     _state.lastWorldTickMinute = current;
   }
 }

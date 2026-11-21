@@ -4246,6 +4246,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     (args) =>
       executeLivingConsoleCommand(args ?? [], {
         regionIndex: _musicLoc?.regionIndex ?? _questRegionIndex() ?? 0,
+        mapId: _musicLoc?.mapTableData?.mapId ?? null,
         playerFeet: walkMode && playerSpawned ? player.feetAt() : cam.pos,
         heightAt: (x, z) => collider.heightAt?.(x, z) ?? 0,
     collider,

@@ -543,5 +543,25 @@ export const LIVING_WORDS = Object.freeze({
     t('living.travelerRest.optRob', '5. [Rob] Threaten the caravan and demand their gold!'),
   travelerRestRobSay: () =>
     t('living.travelerRest.robSay', '"Guards, to arms! A brigand attacks our camp!"'),
+
+  // Dynamic Settlement Prosperity
+  prosperityBooming: (delta) =>
+    t('living.prosperity.booming', 'Local Trade: Booming (+{delta} Quality)', { delta }),
+  prosperityDepressed: (delta) =>
+    t('living.prosperity.depressed', 'Local Trade: Depressed ({delta} Quality)', { delta }),
+  prosperityImproved: (town, delta) =>
+    t('living.prosperity.improved', 'Trade in {town} improves ({delta} Prosperity).', {
+      town,
+      delta: delta > 0 ? `+${delta}` : `${delta}`,
+    }),
+  prosperityDeclined: (town, delta) =>
+    t('living.prosperity.declined', 'Unrest hurts merchants in {town} ({delta} Prosperity).', {
+      town,
+      delta: delta > 0 ? `+${delta}` : `${delta}`,
+    }),
+  prosperityGenericImproved: (delta) =>
+    t('living.prosperity.genericImproved', 'Local trade improves (+{delta} Prosperity).', { delta }),
+  prosperityGenericDeclined: (delta) =>
+    t('living.prosperity.genericDeclined', 'Unrest hurts local trade ({delta} Prosperity).', { delta }),
 });
 
