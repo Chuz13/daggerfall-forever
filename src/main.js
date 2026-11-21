@@ -428,6 +428,7 @@ const rememberReload = () => {
     location.reload();
     return;
   }
+  document.body.style.cssText = 'margin:0;padding:24px;background:#000;color:#f88;font:14px/1.5 monospace;white-space:pre-wrap;overflow:auto;';
   document.body.textContent = act === 'rethrow' ? `boot failed: ${e.message}` : STALE_CHUNK_TEXT;
   console.error(e);
   // A data-seam failure (missing file in the stored set - the
