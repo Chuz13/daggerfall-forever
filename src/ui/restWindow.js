@@ -423,6 +423,13 @@ export class RestWindow {
    *  path, and the refusal closes the window under its message box.
    *  Answers true when the caller may proceed. */
   _canRest(alreadyWarned) {
+    const wildBlock = this.deps.wildernessSleepBlocked?.();
+    if (wildBlock) {
+      this.refusalLines = [wildBlock];
+      this._loiterOffer = true;
+      this.state = 'refused';
+      return false;
+    }
     const place = this.deps.restPlace?.();
     // No place seam at all (the dungeon host): CanRest's `return true`
     // tail. canRest()'s own defaults answer the same thing, but going

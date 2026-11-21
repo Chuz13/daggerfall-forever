@@ -3544,10 +3544,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     hudText.add(avoidDeathText());
     return true;
   });
-  function hurtPlayer(dmg) {
+  function hurtPlayer(dmg, optsArg = null) {
     // ARENA2: in my bout on the arena's sand (world/arena/arenaFloor.js - the host's word) the blow that would kill leaves me at
     // 1 and the bout hears I am down: playerEntity.hurtPlayer's `spare`, the duel's own floor
-    hurtEntity(playerEntity, dmg, opts.playerSpare?.() ?? {});
+    hurtEntity(playerEntity, dmg, { ...(opts.playerSpare?.() ?? {}), ...(optsArg?.bypassShield ? { bypassShield: true } : {}) });
   }
   // S13 magicka sink (parallel to heal/hurt): the SpellPoints damage
   // family drives it. DecreaseMagicka floors at 0; surfaces for the

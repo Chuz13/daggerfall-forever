@@ -1167,7 +1167,7 @@ import { DOOR_TYPE } from '../world/meshReader.js';   // ARENA1: the undercroft'
 import { homeLookSig, HOME_CAP } from '../net/homeLaw.js';
 import { setAirGround, altitudeOfWorldY } from '../systems/weather/airTemperature.js'; import { lawAirGround } from '../systems/weather/airGround.js';   // PRECIP1: the air's map, and the player's height in it
 import { eventMinuteOfSky } from '../systems/skyCalendar.js';   // AUDIT PRECIP HOST-2: a trip's arrival, on the event clock the snow is read by
-import { setWeather, setHeardWeather, heardWeather, fallingWeather, currentWeather, currentWeatherRaw, tickWeather, weatherRespawn, applyClimateWeather, importClimateWeathers, weatherJumpStamp, setSharedWeather, rollClimateWeathersForDay, sampleWeatherField, weatherCrossingStamp, currentFieldCells, currentWeatherIntensity, currentCloudBase, currentWindApproach, currentMapSystems, sampleWeatherIndoors, weatherArrivalStamp, mapGround, precipLawOn, weatherSystemStamp, weatherPhaseFlip, systemWordOf } from '../systems/weather/weatherSim.js';
+import { setWeather, setDivineWeatherOverride, clearDivineWeatherOverride, setHeardWeather, heardWeather, fallingWeather, currentWeather, currentWeatherRaw, tickWeather, weatherRespawn, applyClimateWeather, importClimateWeathers, weatherJumpStamp, setSharedWeather, rollClimateWeathersForDay, sampleWeatherField, weatherCrossingStamp, currentFieldCells, currentWeatherIntensity, currentCloudBase, currentWindApproach, currentMapSystems, sampleWeatherIndoors, weatherArrivalStamp, mapGround, precipLawOn, weatherSystemStamp, weatherPhaseFlip, systemWordOf } from '../systems/weather/weatherSim.js';
 import { createDistantStorms, thunderSourceAt, THUNDER_SOURCE_M } from '../systems/distantStorms.js';   // WEATHER3d: the storms at a distance
 import { createStormLights } from '../systems/lightning.js';   // BOLT: the strikes themselves - their channels and their light
 import { LightningBoltsRenderer } from '../render/lightningBolts.js';   // BOLT: the channels, drawn
@@ -15816,7 +15816,18 @@ export async function bootWorld(canvas, renderer, params, status) {
         } else if (interruptedEventType === TRAVEL_EVENT_TYPE.WILD_BEASTS) {
           triggerWildernessEncounter('wildlife');
         } else if (interruptedEventType === TRAVEL_EVENT_TYPE.WEATHER_HAZARD) {
-          const hasCamp = (playerEntity?.items ?? []).some((i) => i?.templateIndex === 530 || i?.templateIndex === 541);
+          const hazardClimate = maps?.getClimateIndex?.(targetPixelX, targetPixelY);
+          const hazardMonth = dateFromClassicMinutes(worldMinutes()).month;
+          const coldWinter = [0, 1, 10, 11].includes(hazardMonth);
+          const stormWord = (hazardClimate === CLIMATES.Mountain || hazardClimate === CLIMATES.MountainWoods
+            || (coldWinter && (hazardClimate === CLIMATES.Woodlands || hazardClimate === CLIMATES.HauntedWoodlands)))
+            ? 'snow'
+            : 'thunder';
+          if (!weatherOverride) {
+            setDivineWeatherOverride(stormWord, 240);
+            applyWeather(shownWeather());
+          }
+          const hasCamp = (playerEntity?.items ?? []).some((i) => (i?.templateIndex === 530 || i?.templateIndex === 541) && (i.currentCondition ?? 1) > 0);
           townTalk.showOverlay(new ChoiceWindow({
             lines: [
               t('survival.travel.weatherChoiceTitle', 'A sudden storm lashes the region.'),
@@ -15831,6 +15842,13 @@ export async function bootWorld(canvas, renderer, params, status) {
                 action: () => {
                   setSyntheticTimeIncrease(true);
                   playerTicker.advance(240);
+                  clearDivineWeatherOverride();
+                  if (!weatherOverride) {
+                    const wc = maps.getClimateIndex(targetPixelX, targetPixelY);
+                    tickWeather(Math.floor(playerTicker.classicMinutes), wc);
+                    applyClimateWeather(wc, Math.floor(playerTicker.classicMinutes), fieldXZ(), climateAt);
+                    if (weatherStale()) applyWeather(shownWeather());
+                  }
                   if (!hasCamp && playerEntity?.survival) {
                     playerEntity.survival.wet = Math.min(300, (playerEntity.survival.wet ?? 0) + 40);
                   }
@@ -15907,7 +15925,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       // calendar's own arms), exactly as offline. [SUPERSEDES WORLD5's "no jump, no catch-up window" for the
       // character: only the world's half stands still.] The arrival clamp below stays the world's sky's.
       setSyntheticTimeIncrease(true); playerTicker.advance(interruptedEventType ? travelMinutes : computed.minutes);
-      if (opts.sleepModeInn && survivalOn()) alignInnTravel(playerEntity, Math.floor(ownMinutes()));
       if (upkeepWagonWent) upkeep.journey(travelDays(computed.minutes));   // WAGONS4: the road's days on the wagon that went - never to breaking (a journey always arrives)
       // W1 review: DFU fast travel never fires the respawner's direct
       // re-roll - TeleportToCoordinates raises OnInitWorld, whose
@@ -15917,34 +15934,19 @@ export async function bootWorld(canvas, renderer, params, status) {
       // advance above runs the tick, whose day block (S41) re-rolls
       // the zones and raises updateWeatherFromClimateArray, and the
       // tickWeather here is the drain that applies it.
-      if (!weatherOverride) {
-        tickWeather(Math.floor(playerTicker.classicMinutes), maps.getClimateIndex(pick.pixel.x, pick.pixel.y));
-        applyClimateWeather(maps.getClimateIndex(pick.pixel.x, pick.pixel.y), Math.floor(playerTicker.classicMinutes), fieldXZ(), climateAt);   // WEATHER2a: over the ground the arrival lands on; WEATHER2b: the field's word there
+      if (!weatherOverride && interruptedEventType !== TRAVEL_EVENT_TYPE.WEATHER_HAZARD) {
+        const destPx = interruptedEventType ? targetPixelX : pick.pixel.x;
+        const destPy = interruptedEventType ? targetPixelY : pick.pixel.y;
+        tickWeather(Math.floor(playerTicker.classicMinutes), maps.getClimateIndex(destPx, destPy));
+        applyClimateWeather(maps.getClimateIndex(destPx, destPy), Math.floor(playerTicker.classicMinutes), fieldXZ(), climateAt);   // WEATHER2a: over the ground the arrival lands on; WEATHER2b: the field's word there
         if (weatherStale()) applyWeather(shownWeather());
       }
       const clamp = arrivalClampMinutes(playerTicker.classicMinutes, {
         speedCautious: opts.speedCautious,
-        // V2b: the vampirism arc LANDED - a sun-damaged racial
-        // override arrives at dusk, never in daylight (the law has
-        // supported this parameter since the F-slice; only the wiring
-        // waited).
-        //
-        // AUDIT 64 F20: and the SECOND arm of DFU's disjunction, which
-        // the wiring left out - DaggerfallTravelPopUp.cs:351 is
-        // `HasVampirism() || PlayerEntity.Career.DamageFromSunlight`,
-        // under the comment at :350 ("Vampires and characters with
-        // Damage from Sunlight disadvantage never arrive between 6am
-        // and 6pm regardless of travel type"). The two are separately
-        // sourced - the racial arm off the compound race, the career
-        // arm off the class's own CFG bit (the burn read both until
-        // VAMP-DAY left it the career's: passiveSpecials.js:"sinks?.hurt?.(SUN_DAMAGE_AMOUNT)").
-        // VAMP-HOOD: the racial arm asks the hood (vampirism.js
-        // racialSunAverse), so a hooded vampire lands in the day it
-        // travelled into; HOOD-CAREER: and so does the career's arm
-        // (passiveSpecials.js careerSunAverse).
         sunAverse: racialSunAverse(playerEntity) || careerSunAverse(playerEntity),
       });
       if (clamp > 0 && !sharedClockOn()) { setSyntheticTimeIncrease(true); playerTicker.advance(clamp); }   // AUDIT 63 F13: the arrival clamp is inside DFU's one shielded Update too
+      if (opts.sleepModeInn && survivalOn()) alignInnTravel(playerEntity, Math.floor(ownMinutes()), survivalRules());
       _lastEncMinutes = Math.floor(playerTicker.ownMinutes);   // X-slice: PreventEnemySpawns parity - no spawn catch-up for the traveled window
       // TP1 - performFastTravel's tail (:380): RaiseSkills fires AFTER
       // the arrival clamp, so a trip that lands at 7:10am raises

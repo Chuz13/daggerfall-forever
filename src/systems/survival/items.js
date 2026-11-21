@@ -243,7 +243,7 @@ export const isSurvivalItem = (item) =>
   !!item &&
   item.templateIndex >= TEMPLATE.CampingEquipment &&
   item.templateIndex <= TEMPLATE.Campfire &&
-  (item.group == null || item.group === SURVIVAL_GROUP);
+  (item.group == null || item.group === SURVIVAL_GROUP || item.group === 'MiscItems');
 export const isCampingEquipment = (item) => !!item && item.templateIndex === TEMPLATE.CampingEquipment;
 export const isCampfireKit = (item) => !!item && item.templateIndex === TEMPLATE.Campfire;
 export const isSkillet = (item) => !!item && item.templateIndex === TEMPLATE.Skillet;

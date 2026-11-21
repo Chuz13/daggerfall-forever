@@ -238,6 +238,7 @@ import { DUNGEON_TYPES } from '../formats/mapsFile.js';
 import { SURVIVAL_STORED, SURVIVAL_TIER_IDS } from './survival/difficulty.js';
 import { SURVIVAL_PREF, SURVIVAL_NO_WILD_SLEEP_PREF, survivalTier, noWildRoughRestOn } from './survival/switch.js';
 import { survivalOf, heartyMeal, DRINK_CATEGORIES, DRINK_BUFF_MINUTES, activeDrinkBuff } from './survival/needs.js';
+import { createSurvivalItem, TEMPLATE } from './survival/items.js';
 import { rollOfflinePreApotheosisSpoils, mintOfflineGun, noteRelicFind } from './offlineRelicLoot.js';
 
 let _sceneContext = null;
@@ -1143,6 +1144,8 @@ function handleAddItemCommand(args = []) {
     const hex = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
     const isBlue = rawTokens.some((tok) => /blue|aether/i.test(tok));
     item = setItemFields(newDragonMount({ id: `dg${hex}`, look: isBlue ? 1 : 0 }));
+  } else if (match.index >= TEMPLATE.CampingEquipment && match.index <= TEMPLATE.Campfire) {
+    item = createSurvivalItem(match.index, { stackCount: count });
   } else {
     item = setItemFields({
       group: group ?? 'MiscItems',
@@ -4227,7 +4230,7 @@ registerCommand(
     if (sub === 'status') {
       const db = activeDrinkBuff(s, now);
       return [
-        `Tier: ${survivalTier()} | NoWildSleep: ${noWildRoughRestOn()}`,
+        `Tier: ${survivalTier()} | NoWildSleep: ${noWildRoughRestOn()} | HP: ${playerEntity?.health ?? 0}/${playerEntity?.maxHealth ?? 0} | God: ${!!staffPowers()?.god}`,
         `HungerMin: ${Math.max(0, now - (s.lastAte ?? now))} | Thirst: ${Math.round(s.thirst ?? 0)} | SleepDebt: ${(s.sleepDebt ?? 0).toFixed(2)}h | Wet: ${Math.round(s.wet ?? 0)} | Drunk: ${s.drunk ?? 0}`,
         `HeartyLeft: ${Math.max(0, (s.mealUntil ?? 0) - now)}m (_heartyBonus=${s._heartyBonus ?? 0}) | DrinkBuff: ${db ? `${db.cat} (${Math.max(0, (db.until ?? now) - now)}m)` : 'none'}`,
         `Boons: ${(s.boons ?? []).join(', ') || 'none'} | Felt: ${s.felt ?? 'n/a'}`,

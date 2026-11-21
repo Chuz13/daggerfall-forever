@@ -168,6 +168,15 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
    *  law, restWindow.js's own comment: "LoiterButton is deliberately absent from this path - loitering in town
    *  is never gated." */
   function canRestNow(alreadyWarned) {
+    const wildBlock = deps.wildernessSleepBlocked?.();
+    if (wildBlock) {
+      overlay._wildBlocked = true;
+      overlay._refusalLines = [wildBlock];
+      overlay.state = 'refused';
+      render();
+      return false;
+    }
+    overlay._wildBlocked = false;
     const place = deps.restPlace?.();
     if (!place) { overlay._allocatedBed = null; overlay._remainingHoursRented = -1; return true; }
     const d = canRest({ ...place, alreadyWarned });
@@ -309,13 +318,23 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     const c = el('div', 'card');
     for (const line of overlay._refusalLines ?? []) c.append(el('p', null, line));
     const acts = el('div', 'acts');
-    if (overlay._loiterOffer) {   // LOITER-ANYWHERE: no fire or bed is no reason not to wait
+    if (overlay._wildBlocked) {
+      const sr = el('button', 'act', 'Short Rest (2h)');
+      sr.onclick = () => { overlay._wildBlocked = false; startFixed('short', 2); };
+      acts.append(sr);
+      const loiter = el('button', 'act', 'Loiter');
+      loiter.onclick = () => { overlay._wildBlocked = false; toLoiter(); };
+      acts.append(loiter);
+    } else if (overlay._loiterOffer) {   // LOITER-ANYWHERE: no fire or bed is no reason not to wait
       const loiter = el('button', 'act', 'Loiter');
       loiter.onclick = () => toLoiter();
       acts.append(loiter);
     }
-    const ok = el('button', 'act', overlay._loiterOffer ? 'Cancel' : 'OK');
-    ok.onclick = () => close();
+    const ok = el('button', 'act', overlay._wildBlocked ? 'Back' : overlay._loiterOffer ? 'Cancel' : 'OK');
+    ok.onclick = () => {
+      if (overlay._wildBlocked) { overlay._wildBlocked = false; home(); }
+      else close();
+    };
     acts.append(ok);
     c.append(acts);
     return c;
