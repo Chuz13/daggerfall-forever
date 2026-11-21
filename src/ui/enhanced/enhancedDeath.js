@@ -35,7 +35,7 @@ import { deathPenaltyLine } from '../../systems/deathPenalty.js';   // DEATH-PEN
 import { armDrawWatchdog, disarmDraw } from '../drawWatchdog.js';
 import { wildDeathLines, wildDeathSlain } from '../../systems/wild/wildZone.js';   // WILD1: a death in the open zone says what it cost
 import { t } from '../../systems/textManager.js';   // L10N4: the death screen's words in the player's language
-import { bindings } from '../input.js';
+import { bindings, swallowBrowserKey } from '../input.js';
 import { codeForAction } from '../../systems/inputActions.js';
 import { buttonText } from '../../systems/controlsConfig.js';
 import { drawGameLogPane, releaseGameLogPane } from '../gameLogPane.js';
@@ -130,7 +130,7 @@ function build(screen) {
 
 function closeDeathLogModal() {
   if (logKeyHandler) {
-    document.removeEventListener?.('keydown', logKeyHandler, true);
+    document.removeEventListener?.('keydown', logKeyHandler, false);
     logKeyHandler = null;
   }
   if (logModal) {
@@ -146,6 +146,7 @@ function toggleDeathLogModal(root) {
     return;
   }
   const modal = el('div', 'dth-log-modal');
+  modal.onclick = (e) => { if (e.target === modal) closeDeathLogModal(); };
   const win = el('div', 'px-win dth-log-win');
   const head = el('div', 'dth-log-head');
   head.append(el('h2', null, t('death.viewLog', 'Combat Log')));
@@ -161,6 +162,7 @@ function toggleDeathLogModal(root) {
   drawGameLogPane(body, { selectLatestEncounter: true });
   logKeyHandler = (e) => {
     if (!logModal) return;
+    swallowBrowserKey(e);
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -169,7 +171,7 @@ function toggleDeathLogModal(root) {
     }
     e.stopPropagation();
   };
-  document.addEventListener?.('keydown', logKeyHandler, true);
+  document.addEventListener?.('keydown', logKeyHandler, false);
 }
 
 /** One frame of the enhanced death screen - called from DeathScreen.draw

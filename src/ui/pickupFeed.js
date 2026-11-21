@@ -454,12 +454,15 @@ export function showPickups(moved, identity = undefined) {
     // (ui/lootBanner.js, the next frame) - it takes no card here, and the take still says no line for it
     const fresh = (m) => !!m?.item && announces(m.item) && !isAcquired(m.item);
     const banners = (moved ?? []).some(fresh);
+    const allLogEntries = (moved ?? [])
+      .map((m) => pickupEntry(m?.item, m?.count, identity))
+      .filter(Boolean);
+    if (allLogEntries.length) recordLootPickup(allLogEntries);
     const entries = (moved ?? [])
       .filter((m) => !fresh(m))
       .map((m) => pickupEntry(m?.item, m?.count, identity))
       .filter(Boolean);
     if (!entries.length) return banners;
-    recordLootPickup(entries);
     if (!queue.push(entries, _now())) return banners;
     ensure(d);
     draw();

@@ -9,12 +9,12 @@ import {
   getLatestEncounter,
   onGameLogChange,
 } from '../systems/gameLog.js';
-import { t, localizedText, getLocalizedItemName } from '../systems/textManager.js';
+import { t, getLocalizedEnemyName } from '../systems/textManager.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
-import { SKILLS, SKILL_NAMES } from '../systems/skills.js';
+import { SKILL_NAMES } from '../systems/skills.js';
 import { DISEASE_NAMES } from '../systems/diseases.js';
 import { enemyDisplayName } from '../characters/enemy/enemyBasics.js';
-import { shownItemName } from '../systems/item/itemInfo.js';
+import { shownItemName, itemNameParts } from '../systems/item/itemInfo.js';
 import { shownSpellName } from '../systems/loot/loot.js';
 import { dateFromClassicMinutes, dateString } from '../systems/gameDate.js';
 import { repaintKeepingScroll } from './domRepaint.js';
@@ -96,6 +96,7 @@ const GAME_LOG_CSS = `
 .glog-prob-fill { height: 100%; background: linear-gradient(90deg, #5e8fc4, #9ecbff); }
 .glog-prob-mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #f3ef2c; }
 .glog-empty { text-align: center; padding: 32px 16px; color: #9c937d; font-size: 15px; }
+@media (max-width: 480px) { .glog-main-col { padding-left: 0; } }
 `;
 
 let _filter = 'all'; // 'all' | 'combat' | 'magic' | 'character' | 'world'
@@ -152,7 +153,8 @@ function actorName(snap) {
   if (!snap) return t('log.actor.unknown', 'Unknown');
   if (snap.isPlayer) return t('log.actor.you', 'You');
   if (Number.isInteger(snap.mobileType)) {
-    const localized = enemyDisplayName(snap);
+    const canon = enemyDisplayName(snap.mobileType);
+    const localized = getLocalizedEnemyName(snap.mobileType, canon || snap.name || '');
     if (localized) return localized;
   }
   return snap.name || t('log.actor.foe', 'Enemy');
@@ -161,10 +163,19 @@ function actorName(snap) {
 function weaponLabel(w) {
   if (!w) return t('log.weapon.unarmed', 'Unarmed');
   if (w.unarmed) return w.isMonster ? t('log.weapon.natural', 'Natural attack') : t('log.weapon.unarmed', 'Unarmed');
-  if (Number.isInteger(w.templateIndex)) {
-    return getLocalizedItemName(w.templateIndex, w.name || t('log.weapon.weapon', 'Weapon'));
+  try {
+    const parts = itemNameParts(w);
+    if (parts?.name) {
+      const m = parts.material;
+      if (m && !parts.name.toLowerCase().startsWith(`${m.toLowerCase()} `) && !w.artifact && !w.legendary && !w.aetheric && !w.gilded && !w.qlNamed) {
+        return `${m} ${parts.name}`;
+      }
+      return parts.name;
+    }
+  } catch {
+    /* fallback */
   }
-  return w.name || t('log.weapon.weapon', 'Weapon');
+  return shownItemName(w) || w.name || t('log.weapon.weapon', 'Weapon');
 }
 
 function spellLabel(s) {
@@ -173,10 +184,7 @@ function spellLabel(s) {
 }
 
 function skillLabel(skillId) {
-  const key = SKILL_NAMES[skillId];
-  if (!key) return t('log.skill.unknown', 'Skill');
-  const lc = key.charAt(0).toLowerCase() + key.slice(1);
-  return localizedText(lc, key);
+  return SKILL_NAMES[skillId] || t('log.skill.unknown', 'Skill');
 }
 
 function diseaseLabel(diseaseType) {
@@ -225,13 +233,15 @@ function outcomeLabel(outcome) {
 function flavorForEntry(entry) {
   const d = entry.data || {};
   if (entry.kind === 'attack') {
-    if (d.ineffective) return t('log.flavor.ineffective', 'Your weapon cannot harm this foe.');
+    if (d.ineffective) return d.attacker?.isPlayer ? t('log.flavor.ineffective', 'Your weapon cannot harm this foe.') : null;
     const dmgDiag = d.diag?.damage || {};
     if (dmgDiag.shieldBlocked && d.damage === 0) return t('log.flavor.shieldFull', 'The shield turns the blow aside completely.');
     if (dmgDiag.shieldBlocked) return t('log.flavor.shieldBlock', 'The shield catches part of the blow.');
     if (!d.hit) {
-      const dodged = (d.diag?.toHit?.modifiers?.skillMod ?? 0) < 0;
-      return dodged
+      const m = d.diag?.toHit?.modifiers || {};
+      const armorPen = Math.abs(Math.min(0, m.armorMod ?? 0));
+      const dodgePen = Math.abs(Math.min(0, m.skillMod ?? 0));
+      return dodgePen > armorPen
         ? t('log.flavor.missDodge', 'The target slips out of the strike path.')
         : t('log.flavor.missArmor', 'The blow glances harmlessly off armor.');
     }
@@ -308,6 +318,9 @@ export function formatEntrySummary(entry, opts = {}) {
     if ((out.saved ?? 0) > 0) badges.push({ cls: 'magic', label: t('log.badge.saved', 'SAVE') });
     if ((out.paralyzed ?? 0) > 0) badges.push({ cls: 'danger', label: t('log.badge.paralyzed', 'PARALYZED') });
     if ((out.cured ?? 0) > 0) badges.push({ cls: '', label: t('log.badge.cured', 'CURED') });
+    if ((out.chanceFailed ?? 0) > 0 && !badges.length && !(out.damage > 0) && !(out.healed > 0)) {
+      badges.push({ cls: '', label: t('log.badge.miss', 'MISS') });
+    }
   } else if (entry.kind === 'kill') {
     glyph = '☠';
     text = t('log.kill', '{target} slain!', { target: actorName(d.target) });
@@ -382,7 +395,11 @@ function buildAttackBreakdown(entry) {
     const addMod = (lbl, val) => {
       if (Number.isFinite(val) && val !== 0) chips.append(el('span', 'glog-dchip', `${lbl} ${val > 0 ? `+${val}` : val}`));
     };
-    addMod(t('log.mod.skill', 'Base Skill'), th.chanceToHitMod);
+    if (th.parts && Number.isFinite(th.parts.baseSkill) && th.parts.baseSkill !== 0) {
+      addMod(t('log.mod.skill', 'Base Skill'), th.parts.baseSkill);
+    } else {
+      addMod(t('log.mod.skill', 'Base Skill'), th.chanceToHitMod);
+    }
     addMod(t('log.mod.armor', 'Armor'), m.armorMod);
     addMod(t('log.mod.dodging', 'Dodge/Crit'), m.skillMod);
     addMod(t('log.mod.stats', 'Stats'), m.statMod);
@@ -394,32 +411,36 @@ function buildAttackBreakdown(entry) {
       addMod(t('log.mod.swing', 'Swing'), th.parts.swingToHit);
       addMod(t('log.mod.prof', 'Proficiency'), th.parts.profToHit);
       addMod(t('log.mod.racial', 'Racial'), th.parts.racialToHit);
+      addMod(t('log.badge.backstab', 'BACKSTAB'), th.parts.backstabToHit);
+      addMod(t('log.badge.crit', 'CRIT'), th.parts.critHitAddi);
       addMod(t('log.mod.wepMat', 'Material'), th.parts.weaponMatToHit);
     }
     row.append(chips);
     box.append(row);
   }
 
-  const dmg = diag.damage || {};
-  const dmgRow = el('div', 'glog-det-row');
-  dmgRow.append(el('span', 'glog-det-lbl', t('log.det.damage', 'Damage')));
-  const dChips = el('div', 'glog-chips');
-  if (Number.isFinite(dmg.rawDamage)) dChips.append(el('span', 'glog-dchip', t('log.dmg.raw', 'Raw {n}', { n: Math.round(dmg.rawDamage) })));
-  if (dmg.strMod) dChips.append(el('span', 'glog-dchip', t('log.dmg.str', 'STR {n}', { n: dmg.strMod > 0 ? `+${dmg.strMod}` : dmg.strMod })));
-  if (dmg.matDamageMod) dChips.append(el('span', 'glog-dchip', t('log.dmg.mat', 'Mat {n}', { n: dmg.matDamageMod > 0 ? `+${dmg.matDamageMod}` : dmg.matDamageMod })));
-  if (dmg.qualityDamageMod) dChips.append(el('span', 'glog-dchip', t('log.dmg.qual', 'Qual {n}', { n: dmg.qualityDamageMod > 0 ? `+${dmg.qualityDamageMod}` : dmg.qualityDamageMod })));
-  if (dmg.critDamMulti && dmg.critDamMulti > 1) dChips.append(el('span', 'glog-dchip', `Crit ×${dmg.critDamMulti.toFixed(2)}`));
-  if (dmg.backstabApplied) dChips.append(el('span', 'glog-dchip', 'Backstab ×3'));
-  if (dmg.shieldBlocked) dChips.append(el('span', 'glog-dchip', t('log.dmg.shield', 'Shield Blocked')));
-  if ((dmg.mitigated ?? 0) > 0) dChips.append(el('span', 'glog-dchip', t('log.dmg.mitigated', 'Mitigated -{n}', { n: Math.round(dmg.mitigated) })));
-  if (dmg.eliteScale && dmg.eliteScale !== 1) dChips.append(el('span', 'glog-dchip', `Elite ×${dmg.eliteScale}`));
-  if (dmg.staggered) dChips.append(el('span', 'glog-dchip', t('log.dmg.stagger', 'Stagger ×1.25')));
-  if (d.hpBefore != null && d.hpAfter != null) {
-    dChips.append(el('span', 'glog-dchip', `HP ${Math.round(d.hpBefore)} → ${Math.round(d.hpAfter)}`));
+  if (d.hit && !d.ineffective) {
+    const dmg = diag.damage || {};
+    const dmgRow = el('div', 'glog-det-row');
+    dmgRow.append(el('span', 'glog-det-lbl', t('log.det.damage', 'Damage')));
+    const dChips = el('div', 'glog-chips');
+    if (Number.isFinite(dmg.rawDamage)) dChips.append(el('span', 'glog-dchip', t('log.dmg.raw', 'Raw {n}', { n: Math.round(dmg.rawDamage) })));
+    if (dmg.strMod) dChips.append(el('span', 'glog-dchip', t('log.dmg.str', 'STR {n}', { n: dmg.strMod > 0 ? `+${dmg.strMod}` : dmg.strMod })));
+    if (dmg.matDamageMod) dChips.append(el('span', 'glog-dchip', t('log.dmg.mat', 'Mat {n}', { n: dmg.matDamageMod > 0 ? `+${dmg.matDamageMod}` : dmg.matDamageMod })));
+    if (dmg.qualityDamageMod) dChips.append(el('span', 'glog-dchip', t('log.dmg.qual', 'Qual {n}', { n: dmg.qualityDamageMod > 0 ? `+${dmg.qualityDamageMod}` : dmg.qualityDamageMod })));
+    if (dmg.critDamMulti && dmg.critDamMulti > 1) dChips.append(el('span', 'glog-dchip', `${t('log.badge.crit', 'CRIT')} ×${dmg.critDamMulti.toFixed(2)}`));
+    if (dmg.backstabApplied) dChips.append(el('span', 'glog-dchip', `${t('log.badge.backstab', 'BACKSTAB')} ×3`));
+    if (dmg.shieldBlocked) dChips.append(el('span', 'glog-dchip', t('log.dmg.shield', 'Shield Blocked')));
+    if ((dmg.mitigated ?? 0) > 0) dChips.append(el('span', 'glog-dchip', t('log.dmg.mitigated', 'Mitigated -{n}', { n: Math.round(dmg.mitigated) })));
+    if (dmg.eliteScale && dmg.eliteScale !== 1) dChips.append(el('span', 'glog-dchip', `×${dmg.eliteScale}`));
+    if (dmg.staggered) dChips.append(el('span', 'glog-dchip', t('log.dmg.stagger', 'Stagger ×1.25')));
+    if (d.hpBefore != null && d.hpAfter != null) {
+      dChips.append(el('span', 'glog-dchip', `HP ${Math.round(d.hpBefore)} → ${Math.round(d.hpAfter)}`));
+    }
+    dmgRow.append(dChips);
+    box.append(dmgRow);
   }
-  dmgRow.append(dChips);
-  box.append(dmgRow);
-  return box;
+  return box.children.length ? box : null;
 }
 
 function buildSpellBreakdown(entry) {
@@ -432,10 +453,14 @@ function buildSpellBreakdown(entry) {
   chips.append(el('span', 'glog-dchip', t('log.spell.casterLvl', 'Caster Lv {n}', { n: d.casterLevel ?? 1 })));
   if ((out.damage ?? 0) > 0) chips.append(el('span', 'glog-dchip', t('log.spell.dmgOut', 'Damage {n}', { n: out.damage })));
   if ((out.healed ?? 0) > 0) chips.append(el('span', 'glog-dchip', t('log.spell.healOut', 'Healed +{n}', { n: out.healed })));
+  if ((out.magickaHealed ?? 0) > 0) chips.append(el('span', 'glog-dchip', `+${out.magickaHealed} SP`));
+  if ((out.magickaDrained ?? 0) > 0) chips.append(el('span', 'glog-dchip', `-${out.magickaDrained} SP`));
+  if ((out.fatigueDrained ?? 0) > 0) chips.append(el('span', 'glog-dchip', `-${out.fatigueDrained} FAT`));
   if ((out.absorbed ?? 0) > 0) chips.append(el('span', 'glog-dchip', t('log.spell.absOut', 'Absorbed {n} SP', { n: out.absorbed })));
   if ((out.reflected ?? 0) > 0) chips.append(el('span', 'glog-dchip', t('log.spell.refOut', 'Reflected')));
   if ((out.resisted ?? 0) > 0) chips.append(el('span', 'glog-dchip', t('log.spell.resOut', 'Resisted')));
   if ((out.saved ?? 0) > 0) chips.append(el('span', 'glog-dchip', t('log.spell.savOut', 'Save Made')));
+  if ((out.chanceFailed ?? 0) > 0) chips.append(el('span', 'glog-dchip', t('log.badge.miss', 'MISS')));
   if (d.hpBefore != null && d.hpAfter != null && d.hpBefore !== d.hpAfter) {
     chips.append(el('span', 'glog-dchip', `HP ${Math.round(d.hpBefore)} → ${Math.round(d.hpAfter)}`));
   }
@@ -461,21 +486,26 @@ function filterEntries(entries, { flavorOn }) {
         || e.kind === 'skill'
         || e.kind === 'levelUp'
         || e.kind === 'loot'
-        || e.kind === 'death',
+        || e.kind === 'death'
+        || (e.kind === 'itemBreak' && e.data?.isPlayerOwner)
+        || e.kind === 'disease'
+        || e.kind === 'poison',
       );
       if (!isPlayerActor) return false;
     }
     if (_onlyEnemies) {
       const isEnemyActor = Boolean(
         (e.data?.attacker && !e.data.attacker.isPlayer)
-        || (e.data?.caster && !e.data.caster.isPlayer),
+        || (e.data?.caster && !e.data.caster.isPlayer)
+        || (e.kind === 'itemBreak' && e.data && !e.data.isPlayerOwner),
       );
       if (!isEnemyActor) return false;
     }
     if (_hideMisses && e.kind === 'attack' && (!e.data?.hit || e.data?.ineffective)) return false;
     if (q) {
       const sum = formatEntrySummary(e, { formulas: true, flavor: flavorOn });
-      const hay = `${sum.text} ${sum.flavorText || ''} ${e.location || ''}`.toLowerCase();
+      const badgeText = sum.badges.map((b) => b.label).join(' ');
+      const hay = `${sum.text} ${badgeText} ${sum.flavorText || ''} ${e.location || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -500,10 +530,10 @@ function renderEncounterBanner(enc) {
     return sp;
   };
   stats.append(
-    statItem(t('log.enc.dealt', 'Dealt'), s.playerDamageDealt),
-    statItem(t('log.enc.taken', 'Taken'), s.playerDamageTaken),
+    statItem(t('log.enc.dealt', 'Dealt'), Math.round(s.playerDamageDealt)),
+    statItem(t('log.enc.taken', 'Taken'), Math.round(s.playerDamageTaken)),
     statItem(t('log.enc.acc', 'Accuracy'), acc),
-    statItem(t('log.enc.crits', 'Crits'), s.playerCrits + s.playerBackstabs),
+    statItem(t('log.enc.crits', 'Crits'), s.playerSpecialHits ?? (s.playerCrits + s.playerBackstabs)),
     statItem(t('log.enc.blocked', 'Shield Blocks'), s.shieldBlocks),
     statItem(t('log.enc.mitigated', 'Mitigated'), Math.round(s.armorMitigated)),
   );
@@ -511,10 +541,27 @@ function renderEncounterBanner(enc) {
   return box;
 }
 
+function repaintPreservingUi(host) {
+  const active = typeof document !== 'undefined' ? document.activeElement : null;
+  const wasSearch = Boolean(active && active.classList?.contains('glog-search') && host.contains?.(active));
+  const pos = wasSearch ? (/** @type {HTMLInputElement} */ (active).selectionStart ?? _search.length) : null;
+  repaintKeepingScroll(host, () => paintPane(host));
+  if (wasSearch) {
+    const nextSearch = /** @type {HTMLInputElement|null} */ (host.querySelector?.('.glog-search'));
+    if (nextSearch) {
+      nextSearch.focus();
+      if (pos != null) nextSearch.setSelectionRange?.(pos, pos);
+    }
+  }
+}
+
 function paintPane(host) {
   host.innerHTML = '';
   const all = getGameLogEntries();
   const encounters = getGameLogEncounters();
+  if (_selectedEncounterId != null && !encounters.some((x) => x.id === _selectedEncounterId)) {
+    _selectedEncounterId = null;
+  }
   const formulasOn = prefBool('gameLogFormulas', false);
   const flavorOn = prefBool('gameLogFlavor', true);
   const newestFirst = prefBool('gameLogNewestFirst', true);
@@ -563,7 +610,7 @@ function paintPane(host) {
       top.append(el('span', `glog-enc-pill ${enc.outcome}`, outcomeLabel(enc.outcome)));
       const sub = el('div', 'glog-enc-sub');
       const clk = formatGameClock(enc.startGameMinutes) || formatWallClock(enc.startWallTime);
-      sub.append(el('span', null, clk), el('span', null, `${enc.summary.playerDamageDealt} / -${enc.summary.playerDamageTaken}`));
+      sub.append(el('span', null, clk), el('span', null, `${Math.round(enc.summary.playerDamageDealt)} / -${Math.round(enc.summary.playerDamageTaken)}`));
       b.append(top, sub);
       b.onclick = () => {
         _selectedEncounterId = _selectedEncounterId === enc.id ? null : enc.id;
@@ -589,6 +636,18 @@ function paintPane(host) {
     if (nextSearch) {
       nextSearch.focus();
       nextSearch.setSelectionRange?.(pos, pos);
+    }
+  };
+  search.onkeydown = (e) => {
+    if (e.key === 'Escape') {
+      if (_search) {
+        e.preventDefault();
+        e.stopPropagation();
+        _search = '';
+        repaintPreservingUi(host);
+      } else {
+        search.blur();
+      }
     }
   };
   bar1.append(search);
@@ -634,18 +693,19 @@ function paintPane(host) {
       const ts = formatGameClock(e.gameMinutes) || formatWallClock(e.wallTime);
       return `[${ts}] ${s.text}${s.inlineRoll ? ` ${s.inlineRoll}` : ''}`;
     }).join('\n');
-    try {
-      globalThis.navigator?.clipboard?.writeText?.(lines);
-    } catch {
-      /* ignore */
-    }
-    _copyNotice = true;
-    if (_copyTimer) clearTimeout(_copyTimer);
-    _copyTimer = setTimeout(() => {
-      _copyNotice = false;
-      if (_mountedHost) redraw();
-    }, 1500);
-    redraw();
+    const write = globalThis.navigator?.clipboard?.writeText;
+    if (typeof write !== 'function') return;
+    Promise.resolve(write.call(globalThis.navigator.clipboard, lines)).then(() => {
+      _copyNotice = true;
+      if (_copyTimer) clearTimeout(_copyTimer);
+      _copyTimer = setTimeout(() => {
+        _copyNotice = false;
+        if (_mountedHost && _mountedHost.isConnected !== false) repaintPreservingUi(_mountedHost);
+      }, 1500);
+      if (_mountedHost && _mountedHost.isConnected !== false) repaintPreservingUi(_mountedHost);
+    }).catch(() => {
+      /* clipboard unavailable or denied */
+    });
   };
   const clearBtn = el('button', 'glog-act', t('log.act.clear', 'Clear'));
   clearBtn.type = 'button';
@@ -675,7 +735,7 @@ function paintPane(host) {
         feed.append(el('div', 'glog-day-sep', entry.location ? `${day} · ${entry.location}` : day));
       }
       const sum = formatEntrySummary(entry, { formulas: formulasOn, flavor: flavorOn });
-      const expandable = (entry.kind === 'attack' && entry.data?.diag) || entry.kind === 'spell';
+      const expandable = (entry.kind === 'attack' && Boolean(entry.data?.diag?.toHit || (entry.data?.hit && !entry.data?.ineffective && entry.data?.diag?.damage))) || entry.kind === 'spell';
       const isOpen = expandable && _expanded.has(entry.id);
       const row = el('div', `glog-row tone-${entry.tone}${expandable ? ' clickable' : ''}`);
       const top = el('div', 'glog-row-main');
@@ -727,7 +787,12 @@ export function drawGameLogPane(container, opts = {}) {
   _mountedHost = container;
   _unsubLog?.();
   _unsubLog = onGameLogChange(() => {
-    if (_mountedHost) paintPane(_mountedHost);
+    if (!_mountedHost) return;
+    if (_mountedHost.isConnected === false) {
+      releaseGameLogPane();
+      return;
+    }
+    repaintPreservingUi(_mountedHost);
   });
   paintPane(container);
 }
@@ -737,6 +802,7 @@ export function releaseGameLogPane() {
   _unsubLog?.();
   _unsubLog = null;
   _mountedHost = null;
+  _selectedEncounterId = null;
   _search = '';
   _expanded.clear();
   _copyNotice = false;

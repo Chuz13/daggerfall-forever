@@ -7,11 +7,13 @@ import { onModEvent } from './mods/modEventBus.js';
 export const GAME_LOG_MAX_ENTRIES = 400;
 export const GAME_LOG_MAX_ENCOUNTERS = 12;
 export const ENCOUNTER_INACTIVITY_MS = 8000;
+export const ENCOUNTER_VICTORY_GRACE_MS = 2500;
 
 let _seq = 0;
 let _encSeq = 0;
 let _activeEncounter = null;
 let _inactivityTimer = null;
+let _victoryTimer = null;
 
 /** @type {Array<Record<string, any>>} */
 const _entries = [];
@@ -117,6 +119,16 @@ function weaponSnapshot(weapon, attacker) {
       templateIndex: Number.isInteger(weapon.templateIndex) ? weapon.templateIndex : null,
       material: weapon.material ?? null,
       quality: weapon.quality ?? null,
+      group: weapon.group || 'Weapons',
+      artifact: Boolean(weapon.artifact),
+      identified: weapon.identified,
+      flags: weapon.flags,
+      rarity: weapon.rarity ?? null,
+      legendary: Boolean(weapon.legendary),
+      aetheric: Boolean(weapon.aetheric),
+      gilded: Boolean(weapon.gilded),
+      qlNamed: Boolean(weapon.qlNamed),
+      heirloom: weapon.heirloom?.house ? { house: weapon.heirloom.house } : null,
     };
   }
   return {
@@ -136,10 +148,31 @@ function clearInactivityTimer() {
   }
 }
 
+function clearVictoryTimer() {
+  if (_victoryTimer) {
+    clearTimeout(_victoryTimer);
+    _victoryTimer = null;
+  }
+}
+
+function armVictoryTimer() {
+  clearVictoryTimer();
+  _victoryTimer = setTimeout(() => {
+    _victoryTimer = null;
+    if (_activeEncounter && _activeEncounter.outcome === 'active') {
+      endActiveEncounter('victory');
+    }
+  }, ENCOUNTER_VICTORY_GRACE_MS);
+  if (typeof _victoryTimer === 'object' && typeof _victoryTimer?.unref === 'function') {
+    _victoryTimer.unref();
+  }
+}
+
 function armInactivityTimer() {
   clearInactivityTimer();
+  clearVictoryTimer();
   _inactivityTimer = setTimeout(() => {
-    endActiveEncounter('ended');
+    endActiveEncounter(_activeEncounter?._pendingVictory ? 'victory' : 'ended');
   }, ENCOUNTER_INACTIVITY_MS);
   if (typeof _inactivityTimer === 'object' && typeof _inactivityTimer?.unref === 'function') {
     _inactivityTimer.unref();
@@ -148,6 +181,7 @@ function armInactivityTimer() {
 
 function ensureEncounter() {
   if (_activeEncounter && _activeEncounter.outcome === 'active') {
+    _activeEncounter._pendingVictory = false;
     armInactivityTimer();
     return _activeEncounter;
   }
@@ -162,17 +196,22 @@ function ensureEncounter() {
     foes: [],
     _foeKeys: new Set(),
     _aliveFoeRefs: new Set(),
+    _deadFoeRefs: new Set(),
+    _pendingVictory: false,
     summary: {
       playerAttacks: 0,
       playerHits: 0,
       playerCrits: 0,
       playerBackstabs: 0,
+      playerSpecialHits: 0,
       playerDamageDealt: 0,
       playerDamageTaken: 0,
       enemyAttacks: 0,
       enemyHits: 0,
       shieldBlocks: 0,
       armorMitigated: 0,
+      enemyShieldBlocks: 0,
+      enemyArmorMitigated: 0,
       spellsCast: 0,
       spellsResisted: 0,
       spellsAbsorbed: 0,
@@ -191,23 +230,39 @@ function ensureEncounter() {
 }
 
 function registerFoeInEncounter(enc, entity, snap) {
-  if (!enc || !entity || entity.isPlayer) return;
+  if (!enc || !entity || snap?.isPlayer) return;
   const k = foeKey(snap);
   if (k && !enc._foeKeys.has(k)) {
     enc._foeKeys.add(k);
     enc.foes.push(snap);
   }
+  if (enc._deadFoeRefs.has(entity)) return;
   if ((entity.health ?? 1) > 0) enc._aliveFoeRefs.add(entity);
   else enc._aliveFoeRefs.delete(entity);
 }
 
 function markFoeDeadInEncounter(enc, entity, snap) {
-  if (!enc || !entity || entity.isPlayer) return;
-  enc._aliveFoeRefs.delete(entity);
+  if (!enc || snap?.isPlayer) return false;
+  if (entity && enc._deadFoeRefs.has(entity)) return false;
+  if (entity) enc._deadFoeRefs.add(entity);
+  let removed = entity ? enc._aliveFoeRefs.delete(entity) : false;
+  if (!removed && enc._aliveFoeRefs.size > 0) {
+    const targetKey = foeKey(snap);
+    for (const ref of enc._aliveFoeRefs) {
+      if ((snap?.mobileType != null && ref?.mobileType === snap.mobileType) || foeKey(combatantSnapshot(ref)) === targetKey) {
+        enc._aliveFoeRefs.delete(ref);
+        enc._deadFoeRefs.add(ref);
+        removed = true;
+        break;
+      }
+    }
+  }
   enc.summary.enemiesDefeated.push(snap);
   if (enc._foeKeys.size > 0 && enc._aliveFoeRefs.size === 0 && enc.outcome === 'active') {
-    endActiveEncounter('victory');
+    enc._pendingVictory = true;
+    armVictoryTimer();
   }
+  return true;
 }
 
 /**
@@ -216,6 +271,7 @@ function markFoeDeadInEncounter(enc, entity, snap) {
  */
 export function endActiveEncounter(outcome = 'ended') {
   clearInactivityTimer();
+  clearVictoryTimer();
   if (!_activeEncounter) return null;
   _activeEncounter.outcome = outcome;
   _activeEncounter.endWallTime = Date.now();
@@ -233,7 +289,13 @@ export function endActiveEncounter(outcome = 'ended') {
 export function suppressHudTextOnce(text, ttlMs = 300) {
   const s = String(text ?? '').trim();
   if (!s) return;
-  _suppressedHud.set(s, Date.now() + ttlMs);
+  const now = Date.now();
+  if (_suppressedHud.size >= 32) {
+    for (const [k, exp] of _suppressedHud) {
+      if (exp <= now) _suppressedHud.delete(k);
+    }
+  }
+  _suppressedHud.set(s, now + ttlMs);
 }
 
 function takeSuppressed(text) {
@@ -277,11 +339,21 @@ export function recordGameLog({ cat, kind, tone, encounterId = null, data = {} }
 export function recordCombatAttack(res) {
   if (!res || !res.attacker || !res.target) return null;
   const { attacker, target, weapon, damage = 0, hit, critical, backstab, ineffective, diag } = res;
-  const enc = ensureEncounter();
+  if (attacker.isPlayer && attacker.peer) return null;
   const atkSnap = combatantSnapshot(attacker);
   const tgtSnap = combatantSnapshot(target);
-  registerFoeInEncounter(enc, attacker, atkSnap);
-  registerFoeInEncounter(enc, target, tgtSnap);
+  const involvesPlayer = atkSnap.isPlayer || tgtSnap.isPlayer;
+  const tracksActive = Boolean(
+    _activeEncounter
+    && _activeEncounter.outcome === 'active'
+    && (_activeEncounter._aliveFoeRefs.has(attacker) || _activeEncounter._aliveFoeRefs.has(target)
+      || _activeEncounter._foeKeys.has(foeKey(atkSnap)) || _activeEncounter._foeKeys.has(foeKey(tgtSnap))),
+  );
+  const enc = (involvesPlayer || tracksActive) ? ensureEncounter() : null;
+  if (enc) {
+    registerFoeInEncounter(enc, attacker, atkSnap);
+    registerFoeInEncounter(enc, target, tgtSnap);
+  }
 
   const dmgDiag = diag?.damage || {};
   const toHit = diag?.toHit || null;
@@ -290,19 +362,27 @@ export function recordCombatAttack(res) {
   const hpBefore = Number.isFinite(diag?.targetHpBefore) ? diag.targetHpBefore : (target.health ?? null);
   const hpAfter = hpBefore != null ? Math.max(0, hpBefore - Math.max(0, damage)) : null;
 
-  if (atkSnap.isPlayer) {
-    enc.summary.playerAttacks++;
-    if (hit) enc.summary.playerHits++;
-    if (critical) enc.summary.playerCrits++;
-    if (backstab) enc.summary.playerBackstabs++;
-    enc.summary.playerDamageDealt += Math.max(0, damage);
-  } else if (tgtSnap.isPlayer) {
-    enc.summary.enemyAttacks++;
-    if (hit) enc.summary.enemyHits++;
-    enc.summary.playerDamageTaken += Math.max(0, damage);
+  if (enc) {
+    if (atkSnap.isPlayer) {
+      enc.summary.playerAttacks++;
+      if (hit) enc.summary.playerHits++;
+      if (critical) enc.summary.playerCrits++;
+      if (backstab) enc.summary.playerBackstabs++;
+      if (critical || backstab) enc.summary.playerSpecialHits++;
+      enc.summary.playerDamageDealt += Math.max(0, damage);
+    } else if (tgtSnap.isPlayer) {
+      enc.summary.enemyAttacks++;
+      if (hit) enc.summary.enemyHits++;
+      enc.summary.playerDamageTaken += Math.max(0, damage);
+    }
+    if (tgtSnap.isPlayer) {
+      if (shieldBlocked) enc.summary.shieldBlocks++;
+      if (mitigated > 0) enc.summary.armorMitigated += mitigated;
+    } else {
+      if (shieldBlocked) enc.summary.enemyShieldBlocks++;
+      if (mitigated > 0) enc.summary.enemyArmorMitigated += mitigated;
+    }
   }
-  if (shieldBlocked) enc.summary.shieldBlocks++;
-  if (mitigated > 0) enc.summary.armorMitigated += mitigated;
 
   let tone = 'miss';
   if (ineffective || !hit || (shieldBlocked && damage === 0)) {
@@ -319,7 +399,7 @@ export function recordCombatAttack(res) {
     cat: 'combat',
     kind: 'attack',
     tone,
-    encounterId: enc.id,
+    encounterId: enc?.id ?? null,
     data: {
       attacker: atkSnap,
       target: tgtSnap,
@@ -338,6 +418,7 @@ export function recordCombatAttack(res) {
         weaponMaterial: diag.weaponMaterial ?? null,
         minMetalToHit: diag.minMetalToHit ?? -1,
         struckPart: toHit?.struckPart ?? diag.struckPart ?? -1,
+        reflexEvaded: Boolean(diag.reflexEvaded),
         toHit: toHit ? {
           chanceToHitMod: toHit.chanceToHitMod ?? 0,
           rawChance: toHit.rawChance ?? toHit.finalChance ?? 0,
@@ -378,7 +459,22 @@ export function recordSpellEvent(payload) {
     (out.disintegrated ?? 0) > 0 ||
     (out.fatigueDrained ?? 0) > 0 ||
     (out.magickaDrained ?? 0) > 0 ||
-    (out.magickaHealed ?? 0) > 0;
+    (out.magickaHealed ?? 0) > 0 ||
+    Boolean(out.teleport) ||
+    (out.attrHealed ?? 0) > 0 ||
+    (out.fatigueHealed ?? 0) > 0 ||
+    (out.animateDead ?? 0) > 0 ||
+    (out.corpseExplosion ?? 0) > 0 ||
+    (out.controlUndead ?? 0) > 0 ||
+    (out.sutureCadaver ?? 0) > 0 ||
+    Boolean(out.armed) ||
+    Boolean(out.dispelMagic) ||
+    Boolean(out.dispel) ||
+    Boolean(out.pacify) ||
+    (out.swayRefused ?? 0) > 0 ||
+    Boolean(out.createItem) ||
+    Boolean(out.identify) ||
+    Boolean(out.trapAlert);
   if (!hasEffect) return null;
 
   const casterSnap = combatantSnapshot(casterEntity);
@@ -388,15 +484,22 @@ export function recordSpellEvent(payload) {
     (out.paralyzed ?? 0) > 0 ||
     (out.drained ?? 0) > 0 ||
     (out.disintegrated ?? 0) > 0 ||
+    (out.fatigueDrained ?? 0) > 0 ||
+    (out.magickaDrained ?? 0) > 0 ||
     (out.resisted ?? 0) > 0 ||
     (out.reflected ?? 0) > 0 ||
     (out.saved ?? 0) > 0 ||
-    (!casterSnap.isPlayer && !tgtSnap.isPlayer ? false : casterEntity !== target);
+    (out.swayRefused ?? 0) > 0;
 
-  const enc = isHostile || _activeEncounter ? ensureEncounter() : null;
+  const involvesPlayer = casterSnap.isPlayer || tgtSnap.isPlayer;
+  const enc = (isHostile && involvesPlayer)
+    ? ensureEncounter()
+    : (_activeEncounter && _activeEncounter.outcome === 'active' ? _activeEncounter : null);
   if (enc) {
-    registerFoeInEncounter(enc, casterEntity, casterSnap);
-    registerFoeInEncounter(enc, target, tgtSnap);
+    if (isHostile) {
+      registerFoeInEncounter(enc, casterEntity, casterSnap);
+      registerFoeInEncounter(enc, target, tgtSnap);
+    }
     enc.summary.spellsCast++;
     if ((out.resisted ?? 0) > 0) enc.summary.spellsResisted++;
     if ((out.absorbed ?? 0) > 0) enc.summary.spellsAbsorbed++;
@@ -412,13 +515,16 @@ export function recordSpellEvent(payload) {
   else if (tgtSnap.isPlayer && ((out.damage ?? 0) > 0 || (out.paralyzed ?? 0) > 0 || (out.drained ?? 0) > 0)) tone = 'enemy-hit';
 
   const hpBefore = Number.isFinite(diag?.targetHpBefore) ? diag.targetHpBefore : null;
-  const hpAfter = hpBefore != null && (out.damage ?? 0) > 0
-    ? Math.max(0, hpBefore - out.damage)
-    : hpBefore != null && (out.healed ?? 0) > 0
-      ? hpBefore + out.healed
-      : null;
+  let hpAfter = Number.isFinite(diag?.targetHpAfter) ? Math.max(0, diag.targetHpAfter) : null;
+  if (hpAfter == null && hpBefore != null) {
+    if ((out.damage ?? 0) > 0) hpAfter = Math.max(0, hpBefore - out.damage);
+    else if ((out.healed ?? 0) > 0) {
+      const next = hpBefore + out.healed;
+      hpAfter = Number.isFinite(target.maxHealth) ? Math.min(target.maxHealth, next) : next;
+    }
+  }
 
-  return recordGameLog({
+  const spellEntry = recordGameLog({
     cat: 'magic',
     kind: 'spell',
     tone,
@@ -439,6 +545,25 @@ export function recordSpellEvent(payload) {
       effectKinds: Array.isArray(diag?.effectKinds) ? [...diag.effectKinds] : [],
     },
   });
+
+  if (!tgtSnap.isPlayer && ((hpBefore != null && hpBefore > 0 && (hpAfter ?? target.health ?? 1) <= 0) || (out.disintegrated ?? 0) > 0)) {
+    const newlyDead = enc ? markFoeDeadInEncounter(enc, target, tgtSnap) : true;
+    if (newlyDead) {
+      recordGameLog({
+        cat: 'combat',
+        kind: 'kill',
+        tone: 'player-crit',
+        encounterId: enc?.id ?? null,
+        data: {
+          killer: casterSnap,
+          target: tgtSnap,
+          isCivilian: false,
+        },
+      });
+    }
+  }
+
+  return spellEntry;
 }
 
 /**
@@ -448,9 +573,11 @@ export function recordSpellEvent(payload) {
 export function recordEnemyKill(payload) {
   const { player, target, isCivilian = false, mobileType = null } = payload || {};
   const enc = _activeEncounter;
+  if (enc && target && enc._deadFoeRefs?.has(target)) return null;
   const tgtSnap = combatantSnapshot(target || { mobileType });
   if (enc) {
-    markFoeDeadInEncounter(enc, target, tgtSnap);
+    const marked = markFoeDeadInEncounter(enc, target, tgtSnap);
+    if (!marked && target) return null;
   }
   return recordGameLog({
     cat: 'combat',
@@ -522,7 +649,7 @@ export function recordItemBroken(itemName, isPlayerOwner = true) {
   return recordGameLog({
     cat: isPlayerOwner ? 'character' : 'combat',
     kind: 'itemBreak',
-    tone: 'danger',
+    tone: isPlayerOwner ? 'danger' : 'world',
     encounterId: _activeEncounter?.id ?? null,
     data: { itemName: String(itemName || ''), isPlayerOwner: Boolean(isPlayerOwner) },
   });
@@ -610,11 +737,12 @@ export function recordWorldEvent(eventKind, text) {
  * Records a generic HUD message unless suppressed by a richer structured producer,
  * collapsing consecutive identical messages into `repeatCount`.
  * @param {string} text
+ * @param {string|null} [rawText=null]
  */
-export function recordHudMessage(text) {
+export function recordHudMessage(text, rawText = null) {
   const s = String(text ?? '').trim();
   if (!s) return null;
-  if (takeSuppressed(s)) return null;
+  if (takeSuppressed(s) || (rawText && rawText !== text && takeSuppressed(rawText))) return null;
 
   const last = _entries[_entries.length - 1];
   if (last && last.kind === 'hud' && last.data?.rawText === s) {
@@ -651,6 +779,7 @@ export function getLatestEncounter() {
 /** Clears the session log (called on save load / new character / Clear button). */
 export function clearGameLog() {
   clearInactivityTimer();
+  clearVictoryTimer();
   _entries.length = 0;
   _encounters.length = 0;
   _activeEncounter = null;

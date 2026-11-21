@@ -187,7 +187,7 @@ export class HudText {
     else this.nextPopDelay = Math.max(this.nextPopDelay, delayInSeconds);
     this.lines.push({ id: ++this._nextId, text: pgText });
     this.onMessage?.(pgText);
-    recordHudMessage(pgText);
+    recordHudMessage(pgText, text);
   }
 
   /** PopupText.Update verbatim. CSA-G: its `Time.deltaTime` (PopupText.cs:56-59) is game time, so the frame's real

@@ -1708,7 +1708,8 @@ export function pcaaoAttackDamage(
   // half times its aim; a foe's Long Blade and Critical Strike are the same skills as the player's and are read the same
   // way now (a duel was always both players'). The armour term is NOT made one rule: the player's flat 100 is the mod's
   // premise (armour reduces damage, never the chance to be hit), and every even version of it eases the fight.
-  chanceToHitMod = Math.ceil(F(skill(attacker, skillID) * F(1.5)));
+  const baseSkillMod = Math.ceil(F(skill(attacker, skillID) * F(1.5)));
+  chanceToHitMod = baseSkillMod;
   if (modules.criticalStrikesIncreaseDamage) {
     critSuccess = pcaaoCriticalStrike(attacker, rolls);
     if (critSuccess) {
@@ -1719,15 +1720,17 @@ export function pcaaoAttackDamage(
       if (notes) notes.critical = true;
     }
   }
+  let profMods = null;
+  let racialMods = null;
   if (isPlayer(attacker)) {
     damageModifiers += damageMod; // CalculateSwingModifiers(ScreenWeapon)
     chanceToHitMod += toHitMod;
-    const prof = pcaaoProficiencyModifiers(attacker, weapon);
-    damageModifiers += prof.damageMod;
-    chanceToHitMod += prof.toHitMod;
-    const racial = pcaaoRacialModifiers(attacker, weapon, attacker);
-    damageModifiers += racial.damageMod;
-    chanceToHitMod += racial.toHitMod;
+    profMods = pcaaoProficiencyModifiers(attacker, weapon);
+    damageModifiers += profMods.damageMod;
+    chanceToHitMod += profMods.toHitMod;
+    racialMods = pcaaoRacialModifiers(attacker, weapon, attacker);
+    damageModifiers += racialMods.damageMod;
+    chanceToHitMod += racialMods.toHitMod;
     backstab = backstabChance; // CalculateBackstabChance(player, null, enemyAnimStateRecord)
     chanceToHitMod += backstab;
   }
@@ -1739,6 +1742,19 @@ export function pcaaoAttackDamage(
     notes.diag.weaponMaterial = struckWith?.material ?? null;
     notes.diag.minMetalToHit = target.minMetalToHit ?? -1;
     notes.diag.struckPart = struckBodyPart;
+    notes.diag.toHitParts = {
+      baseSkill: baseSkillMod,
+      swingToHit: isPlayer(attacker) ? toHitMod : 0,
+      profToHit: profMods?.toHitMod ?? 0,
+      racialToHit: racialMods?.toHitMod ?? 0,
+      backstabToHit: isPlayer(attacker) ? backstab : 0,
+      weaponMatToHit: 0,
+      critHitAddi: critSuccess ? critHitAddi : 0,
+    };
+    if (notes.diag.damage) {
+      notes.diag.damage.profDamageMod = profMods?.damageMod ?? 0;
+      notes.diag.damage.racialDamageMod = racialMods?.damageMod ?? 0;
+    }
   }
   const backstabbed = (before, after) => {
     if (notes && before > 0 && after === before * 3) notes.backstab = true;
@@ -1775,23 +1791,29 @@ export function pcaaoAttackDamage(
           ];
       const reflexes = playerReflexes ?? (isPlayer(target) ? target.reflexes : null) ?? 2;
       const reflexesChance = 50 - 10 * (reflexes - 2);
+      let winningToHit = null;
+      let anySpanRoll = false;
       for (const [min, max] of spans) {
-        if (
-          dfRand() % 100 < reflexesChance &&
-          min > 0 &&
-          pcaaoSuccessfulHit(attacker, target, chanceToHitMod, struckBodyPart, rolls, modules, notes)
-        ) {
-          if (notes) notes.hit = true;
-          const hit = range(min, max, rolls);
-          if (hit > 0 && onMonsterHit) onMonsterHit(attacker, target, hit);
-          damage += hit;
+        if (dfRand() % 100 < reflexesChance && min > 0) {
+          anySpanRoll = true;
+          if (pcaaoSuccessfulHit(attacker, target, chanceToHitMod, struckBodyPart, rolls, modules, notes)) {
+            if (notes) notes.hit = true;
+            if (!winningToHit && notes?.diag?.toHit) winningToHit = notes.diag.toHit;
+            const hit = range(min, max, rolls);
+            if (hit > 0 && onMonsterHit) onMonsterHit(attacker, target, hit);
+            damage += hit;
+          }
         }
       }
+      if (winningToHit && notes?.diag) notes.diag.toHit = winningToHit;
+      else if (!anySpanRoll && !notes?.hit && notes?.diag) notes.diag.reflexEvaded = true;
       if (damage >= 1) damage = pcaaoHandToHandAttackDamage(attacker, target, damage, false, rolls);
     }
   } else if (weapon) {
     weaponAttack = true;
-    chanceToHitMod += pcaaoWeaponToHit(weapon);
+    const wepMatHit = pcaaoWeaponToHit(weapon);
+    chanceToHitMod += wepMatHit;
+    if (notes?.diag?.toHitParts) notes.diag.toHitParts.weaponMatToHit = wepMatHit;
     if (modules.rolePlayRealismArchery)
       chanceToHitMod = rrAdjustWeaponHitChanceMod(chanceToHitMod, weaponAnimTime, weapon);
     if (pcaaoSuccessfulHit(attacker, target, chanceToHitMod, struckBodyPart, rolls, modules, notes)) {

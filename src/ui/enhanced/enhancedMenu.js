@@ -5188,7 +5188,7 @@ function pauseWindow() {
   for (const [id, label] of PAUSE_TABS.filter(([id]) => pauseTabShown(id))) {
     const b = el('button', id === pauseTab ? 'on' : null);
     b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(pauseLabel(id, label)), el('span', 'px-c', '\u25c6'));
-    b.onclick = () => { if (pauseTab === 'growth' && id !== 'growth' && growthAsks()) return; if (id !== 'system') discardControlsStaging(); disarmFamilyPages(); disarmCollectionsPage(); if (id !== 'growth') releaseGrowthTab(); pauseTab = id; render(); };   // AUDIT CARDS-5 D5: and the Collections page's - GROWTH3: and a face on the Growth stage
+    b.onclick = () => { if (pauseTab === 'growth' && id !== 'growth' && growthAsks()) return; if (id !== 'system') discardControlsStaging(); disarmFamilyPages(); disarmCollectionsPage(); if (id !== 'growth') releaseGrowthTab(); if (id !== 'log') releaseGameLogPane(); pauseTab = id; render(); };   // AUDIT CARDS-5 D5: and the Collections page's - GROWTH3: and a face on the Growth stage
     tabs.append(b);
   }
   win.append(tabs);

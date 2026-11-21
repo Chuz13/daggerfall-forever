@@ -2155,6 +2155,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
   if (out.disintegrated > 0) diag.effectKinds.push('disintegrate');
   if (out.buffs > 0) diag.effectKinds.push('buff');
   if (out.continuous > 0) diag.effectKinds.push('continuous');
+  diag.targetHpAfter = target?.health ?? null;
   try {
     emitModEvent('combatSpellResolved', { spell, casterLevel, target, caster, out, diag });
   } catch {

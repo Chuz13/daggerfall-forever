@@ -679,11 +679,13 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
       targetHpBefore: target.health ?? null,
       toHit: null,
       toHitParts: {
+        baseSkill: 0,
         swingToHit: toHitMod,
         profToHit: 0,
         racialToHit: 0,
         backstabToHit: backstabChance,
         weaponMatToHit: 0,
+        critHitAddi: 0,
       },
       damage: {
         rawDamage: 0,
@@ -711,7 +713,7 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   const report = (damage) => {
     if (notes.diag?.damage) {
       notes.diag.damage.finalDamage = damage;
-      if (notes.diag.damage.rawDamage > damage) {
+      if (notes.diag.core !== 'pcaao' && notes.diag.damage.rawDamage > damage) {
         notes.diag.damage.mitigated = notes.diag.damage.rawDamage - damage;
       }
     }
@@ -767,7 +769,9 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   // skill or HandToHand), + player mods. Enemies read the same value
   // for every skill (flat, SetEnemyCareer verbatim).
   const attackSkill = weapon ? (weaponSkillUsed(weapon.templateIndex) ?? SKILLS.HandToHand) : SKILLS.HandToHand;
-  let chanceToHitMod = skillValue(attacker, attackSkill) + toHitMod;
+  const baseSkillVal = skillValue(attacker, attackSkill);
+  notes.diag.toHitParts.baseSkill = baseSkillVal;
+  let chanceToHitMod = baseSkillVal + toHitMod;
   let damageModifiers = damageMod;
   // FormulaHelper.cs:594-613, the `attacker == player` block, in DFU's
   // order: swing mods (the caller's damageMod/toHitMod - they need the
@@ -827,17 +831,24 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
       // AT the player finds it on the target itself. 2 = Average.
       const reflexes = playerReflexes ?? (target.isPlayer ? target.reflexes : null) ?? 2;
       const reflexesChance = 50 - 10 * (reflexes - 2);
+      let winningToHit = null;
+      let anySpanRoll = false;
       for (const [min, max] of spans) {
         let hitDamage = 0;
-        if (dfRand() % 100 < reflexesChance && min > 0 &&
-            calculateSuccessfulHit(attacker, target, chanceToHitMod, struck, rolls, notes)) {
-          notes.hit = true;
-          hitDamage = min + Math.floor(rolls() * (max + 1 - min));   // Range(min, max+1)
-          if (hitDamage > 0 && onMonsterHit) onMonsterHit(attacker, target, hitDamage);
-          damage += hitDamage;
+        if (dfRand() % 100 < reflexesChance && min > 0) {
+          anySpanRoll = true;
+          if (calculateSuccessfulHit(attacker, target, chanceToHitMod, struck, rolls, notes)) {
+            notes.hit = true;
+            if (!winningToHit && notes.diag?.toHit) winningToHit = notes.diag.toHit;
+            hitDamage = min + Math.floor(rolls() * (max + 1 - min));   // Range(min, max+1)
+            if (hitDamage > 0 && onMonsterHit) onMonsterHit(attacker, target, hitDamage);
+            damage += hitDamage;
+          }
         }
         if (hitDamage > 0) damage += bonusOrPenaltyByEnemyType(attacker, target);
       }
+      if (winningToHit && notes.diag) notes.diag.toHit = winningToHit;
+      else if (!anySpanRoll && !notes.hit && notes.diag) notes.diag.reflexEvaded = true;
     } else if (calculateSuccessfulHit(attacker, target, chanceToHitMod, struck, rolls, notes)) {
       notes.hit = true;
       damage = handToHandAttackDamage(attacker, target, damageModifiers, !!attacker.isPlayer, rolls, { unaware: !!unaware, wraps });   // BAL10: the host's word for the fists' blow modifiers too; HAND-WRAPS: and the wraps' lines
@@ -874,7 +885,7 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     weapon.poisonType = -1;
   }
   damage = shared(Math.max(0, damage));
-  if (overridden === undefined && notes.diag?.damage) {
+  if (overridden === undefined && notes.hit && notes.diag?.damage) {
     if (attacker.isPlayer) notes.diag.damage.strMod = damageModifier(liveStat(attacker, 'strength'));
     if (weapon) {
       notes.diag.damage.matDamageMod = getEffectiveWeaponMaterialModifier(weapon.material);

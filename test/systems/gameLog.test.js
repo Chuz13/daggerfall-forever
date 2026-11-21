@@ -8,6 +8,7 @@ import {
   getGameLogEntries,
   getLatestEncounter,
   recordAmbientText,
+  recordCombatAttack,
   recordDiseaseEvent,
   recordHudMessage,
   recordItemBroken,
@@ -15,6 +16,7 @@ import {
   recordPlayerDeath,
   recordPoisonEvent,
   recordSkillAdvance,
+  recordSpellEvent,
   recordWorldEvent,
   suppressHudTextOnce,
 } from '../../src/systems/gameLog.js';
@@ -48,7 +50,7 @@ test('gameLog records classic & PCAAO attacks, spells, encounter stats, and deat
   uninstallPcaao();
   const player = makeActor({ isPlayer: true, name: 'Hero', health: 50 });
   const foe = makeActor({ isPlayer: false, name: 'Skeleton', health: 30 });
-  const sword = { name: 'Steel Longsword', templateIndex: 112, material: 1, quality: 2, condition: 1000, flags: 0x10 };
+  const sword = { name: 'Steel Longsword', templateIndex: 120, material: 1, quality: 2, condition: 1000, flags: 0x10 };
 
   // Classic attack hit (low roll -> hit)
   const dmg = calculateAttackDamage(player, foe, { weapon: sword, rolls: () => 0.1 });
@@ -124,4 +126,73 @@ test('gameLog records character/world events, deduplicates HUD lines, collapses 
   restorePlayer(ent, { v: SAVE_VERSION, name: 'Hero', classicMinutes: 100, arcanePath: null, martialPath: null, items: [], stats: ent.stats, skills: ent.skills, skillUses: new Array(35).fill(0), armorValues: new Array(7).fill(100), career: ent.career });
   assert.equal(getGameLogEntries().length, 0);
   assert.equal(getGameLogEncounters().length, 0);
+});
+
+test('gameLog audit fixes: mobileType names, toHitParts, friendly heal vs lethal spell, pre-grammar suppression, duel stub skip', () => {
+  clearGameLog();
+  uninstallPcaao();
+  const player = makeActor({ isPlayer: true, name: 'Hero', health: 50 });
+  const skeleton = { ...makeActor({ isPlayer: false, name: null, health: 30 }), mobileType: 15, isClass: false, basics: { minDamage: 2, maxDamage: 4, minDamage2: 5, maxDamage2: 8 } };
+  const sword = { name: 'Steel Longsword', templateIndex: 120, material: 1, quality: 2, condition: 1000, flags: 0x10 };
+
+  // 1. Enemy with mobileType and no .name formats as Skeleton
+  calculateAttackDamage(player, skeleton, { weapon: sword, rolls: () => 0.1 });
+  const atkEntry = getGameLogEntries().find((e) => e.kind === 'attack');
+  assert.ok(atkEntry.data.diag.toHit.parts.baseSkill > 0);
+  const sum = formatEntrySummary(atkEntry, { formulas: false, flavor: false });
+  assert.ok(sum.text.includes('Skeletal Warrior'), `expected Skeletal Warrior in "${sum.text}"`);
+  assert.ok(!sum.text.includes('Enemy'), `did not expect generic Enemy in "${sum.text}"`);
+
+  // 2. Monster multi-attack preserves first winning toHit roll when second span misses
+  clearGameLog();
+  let seqIdx = 0;
+  const seq = [0.5, 0.1, 0.2, 0.5, 0.99]; // part, span1 hit (0.1, 0.2), dmg, span2 miss (0.99)
+  const nextRoll = () => seq[seqIdx++] ?? 0.5;
+  calculateAttackDamage(skeleton, player, { rolls: nextRoll, dfRand: () => 0 });
+  const monAtk = getGameLogEntries().find((e) => e.kind === 'attack');
+  assert.equal(monAtk.data.hit, true);
+  assert.equal(monAtk.data.diag.toHit.isHit, true);
+
+  // 3. PCAAO populates toHitParts
+  clearGameLog();
+  const mods = pcaaoModules((k) => k === 'Enabled' || k === 'armorHitFormulaRedone' || k === 'criticalStrikesIncreaseDamage');
+  const notes = { critical: false, backstab: false, hit: false, ineffective: false, diag: { toHit: null, damage: {} } };
+  pcaaoAttackDamage(player, skeleton, { weapon: sword, rolls: () => 0.1, notes, modules: mods });
+  assert.ok(notes.diag.toHitParts.baseSkill > 0);
+  assert.ok(notes.diag.toHitParts.weaponMatToHit > 0);
+
+  // 4. Friendly heal on ally does not open encounter; lethal spell logs kill + _pendingVictory
+  clearGameLog();
+  const ally = makeActor({ isPlayer: false, name: 'Companion', health: 95 });
+  ally.maxHealth = 100;
+  const healEntry = recordSpellEvent({
+    spell: { name: 'Heal', index: 2, element: 0, rangeType: 1 },
+    casterLevel: 3,
+    caster: { entity: player },
+    target: ally,
+    out: { healed: 30 },
+    diag: { targetHpBefore: 95 },
+  });
+  assert.equal(healEntry.encounterId, null);
+  assert.equal(healEntry.data.hpAfter, 100);
+  assert.equal(getGameLogEncounters().length, 0);
+
+  const foe = { ...makeActor({ isPlayer: false, name: 'Imp', health: 0 }), mobileType: 1, isClass: false };
+  recordSpellEvent({
+    spell: { name: 'Fireball', index: 1, element: 0, rangeType: 2 },
+    casterLevel: 5,
+    caster: { entity: player },
+    target: foe,
+    out: { damage: 25 },
+    diag: { targetHpBefore: 20, targetHpAfter: 0 },
+  });
+  const enc = getLatestEncounter();
+  assert.ok(enc && enc._pendingVictory === true);
+  assert.ok(getGameLogEntries().some((e) => e.kind === 'kill'));
+
+  // 5. Pre-grammar HUD suppression & duel stub skip
+  suppressHudTextOnce('Raw notice');
+  assert.equal(recordHudMessage('Processed notice', 'Raw notice'), null);
+  assert.equal(recordCombatAttack({ attacker: { isPlayer: true, peer: true, name: 'Peer' }, target: player, damage: 5, hit: true }), null);
+  clearGameLog();
 });
