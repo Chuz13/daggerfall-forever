@@ -416,24 +416,73 @@ export function shellInputs(
 }
 
 /**
- * The shell's id at `at`: the sha256 of each input's git object id there - app/'s tree and each outside file's blob.
- * The same commit gives the same id on every runner (git objects, not checked-out bytes: a Windows checkout's line
- * endings are not the commit's), and any change to the shell gives another - which sends that release out by the
- * installer (app/lib/gameChannel.cjs routeFor).
+ * Digest of `app/package.json` with only its top-level `version` omitted.
+ * CI stamps `version` from the release tag (`release-desktop.yml`), so bumping it in git must not change the shell id
+ * and force players off the fast per-file game channel (`DA13`) onto the full installer. Any other edit in
+ * `app/package.json` (dependencies, build config, scripts, files, etc.) still changes this digest.
  */
-export function shellId(run = git, at = 'HEAD', inputs = shellInputs()) {
-  return sha256(Buffer.from(inputs.map((p) => `${p} ${run(['rev-parse', `${at}:${p}`])}\n`).join('')));
+export function normalizedAppPackageDigest(raw) {
+  const pkg = JSON.parse(String(raw ?? ''));
+  delete pkg.version;
+  return sha256(Buffer.from(JSON.stringify(pkg)));
 }
 
-/** Did any of the shell's inputs change between two commits? (git diff --quiet: exit 1 is a difference.) */
+/**
+ * Digest of the committed `app/` tree at `at`, hashing `app/package.json` without its `version` field while keeping
+ * exact git blob hashes for every other file under `app/`. Falls back to `rev-parse <at>:app` for minimal test stubs
+ * that only mock `rev-parse`.
+ */
+function appTreeDigest(run, at) {
+  const listing = run(['ls-tree', '-r', `${at}:app`]);
+  if (typeof listing !== 'string' || !listing.trim()) return run(['rev-parse', `${at}:app`]);
+  const lines = listing
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const tab = line.indexOf('\t');
+      if (tab < 0) return line;
+      const meta = line.slice(0, tab);
+      const rel = line.slice(tab + 1);
+      if (rel !== 'package.json') return `${meta}\t${rel}`;
+      const mode = meta.split(' ')[0];
+      const digest = normalizedAppPackageDigest(run(['show', `${at}:app/package.json`]));
+      return `${mode} pkg ${digest}\tpackage.json`;
+    });
+  return sha256(Buffer.from(`${lines.join('\n')}\n`));
+}
+
+/**
+ * The shell's id at `at`: the sha256 of each input's git object id there - app/'s tree (ignoring only
+ * `app/package.json`'s `version`) and each outside file's blob. The same commit gives the same id on every runner (git
+ * objects, not checked-out bytes: a Windows checkout's line endings are not the commit's), and any real change to the
+ * shell gives another - which sends that release out by the installer (app/lib/gameChannel.cjs routeFor).
+ */
+export function shellId(run = git, at = 'HEAD', inputs = shellInputs()) {
+  return sha256(
+    Buffer.from(
+      inputs.map((p) => `${p} ${p === 'app' ? appTreeDigest(run, at) : run(['rev-parse', `${at}:${p}`])}\n`).join(''),
+    ),
+  );
+}
+
+/** Did any of the shell's effective inputs change between two commits (ignoring `app/package.json`'s `version`)? */
 export function shellChangedSince(from, run = execFileSync, to = 'HEAD', inputs = shellInputs()) {
-  try {
-    run('git', ['diff', '--quiet', from, to, '--', ...inputs], { stdio: 'ignore' });
-    return false;
-  } catch (e) {
-    if (e?.status === 1) return true;
-    throw e;
-  }
+  const raw = run('git', ['diff', '--name-only', from, to, '--', ...inputs], {
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  const changed = String(raw ?? '')
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!changed.length) return false;
+  if (changed.some((p) => p !== 'app/package.json')) return true;
+  const show = (ref) =>
+    run('git', ['show', `${ref}:app/package.json`], {
+      encoding: 'utf8',
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  return normalizedAppPackageDigest(show(from)) !== normalizedAppPackageDigest(show(to));
 }
 
 /** Every file under `dir`, by its path from it ('/'-separated), in path order. */
