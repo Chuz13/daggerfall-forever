@@ -20,7 +20,8 @@
 import { survivalOn } from '../systems/survival/switch.js';
 import { feltNow } from '../systems/survival/env.js';
 import { temperatureBreakdown, signedDegrees } from '../systems/survival/temperature.js';
-import { temperatureReadout, HUD_BOON_WORDS, boonEffect, restedLeft, levelSaid } from '../systems/survival/status.js';
+import { temperatureReadout, HUD_BOON_WORDS, boonEffect, restedLeft, levelSaid, drinkCategoryLabel, drinkBuffEffect } from '../systems/survival/status.js';
+import { activeDrinkBuff } from '../systems/survival/needs.js';
 import { survivalRules } from '../systems/survival/switch.js';
 import { equipTableOf, isEquipped } from '../systems/equip.js';
 import { modsForSlots } from './armourCard.js';
@@ -139,10 +140,21 @@ export function boonStatRows(entity) {
   if (!survivalOn() || !survivalRules()?.boons) return [];
   const s = entity?.survival;
   const ids = Array.isArray(s?.boons) ? s.boons : [];
-  return ids
+  const rows = ids
     .filter((id) => HUD_BOON_WORDS[id])
     .map((id) => [
       HUD_BOON_WORDS[id][0],
       `${boonEffect(id)}${id === 'rested' && restedLeft(s) ? ` (${restedLeft(s)} left)` : ''}`,
     ]);
+  const db = activeDrinkBuff(s);
+  if (db) {
+    const leftH = Number.isFinite(db.until) && Number.isFinite(s?.lastMinute)
+      ? Math.max(1, Math.ceil((db.until - s.lastMinute) / 60))
+      : null;
+    rows.push([
+      drinkCategoryLabel(db.cat),
+      `${drinkBuffEffect(db)}${leftH ? ` (${leftH}h left)` : ''}`,
+    ]);
+  }
+  return rows;
 }

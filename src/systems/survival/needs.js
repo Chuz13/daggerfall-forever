@@ -714,8 +714,8 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
     // dehydration is the stamina above and nothing more.
     if (rules.health && s.thirst >= NEED.THIRST_HARM && !sleeping && !resting && now % HARM_EVERY_MINUTES === 0) {
       const bite = Math.max(1, Math.trunc((s.thirst - NEED.THIRST_HARM + 10) / 10));
-      if (rules.health === true && !replay && !landing) sinks.hurt?.(bite);
-      else if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(Math.min(bite, (entity.health ?? 0) - HEALTH_FLOOR));
+      if (rules.health === true && !replay && !landing) sinks.hurt?.(bite, { bypassShield: true });
+      else if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(Math.min(bite, (entity.health ?? 0) - HEALTH_FLOOR), { bypassShield: true });
     }
   }
 
@@ -749,7 +749,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   if (lich) { s.exposure = 0; }
   else if (abs > expAt) s.exposure = Math.min(s.exposure + 1, 600); else s.exposure = Math.max(0, s.exposure - 2);
   const harmTick = now % HARM_EVERY_MINUTES === 0;
-  const hurtFloored = (n) => { if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(n); };
+  const hurtFloored = (n) => { if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(n, { bypassShield: true }); };
   // AUDIT SURV-TIERS (the second pass): and in a tier whose `fireWarms` says so (Casual), a lit fire answers the cold
   // outright - the fire's fifteen degrees alone left a camper in a snowstorm Deadly cold beside it, charged, and the
   // cold's loan never repaid. The felt reading stays the world's; the body is warm.
@@ -764,8 +764,8 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
     // trip's heat as waking minutes: dead on arrival, in Hard, since SURV1.
     if (rules.health && abs > dmgAt && !sleeping && harmTick) {
       const bite = Math.max(1, Math.trunc((abs - 40) / 10));
-      if (rules.health === true && !replay && !landing) sinks.hurt?.(bite);
-      else if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(Math.min(bite, (entity.health ?? 0) - HEALTH_FLOOR));
+      if (rules.health === true && !replay && !landing) sinks.hurt?.(bite, { bypassShield: true });
+      else if ((entity.health ?? 0) > HEALTH_FLOOR) sinks.hurt?.(Math.min(bite, (entity.health ?? 0) - HEALTH_FLOOR), { bypassShield: true });
     }
   }
   // AUDIT SURV A/E: the strip's own words (temperature.js temperatureWord), one note a word said once - an escalation
@@ -807,8 +807,12 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   // traveling": never at rest and never under a roof. A sleeper in a tent in the rain rusted all night.
   const rustWetMin = rules.rustWetMin ?? NEED.WET_DAMP;
   const rustChance = rules.rustChance ?? 0.05;
-  if (rules.rust && !resting && !env.insideBuilding && s.wet >= rustWetMin && worn && rolls() < rustChance) {
-    const metal = [18, 23, 12, 13, 15, 26, 20].map((k) => worn[k]).filter((i) => i && i.group === 'Armor' && ((i.material ?? 0) & 0x0f00) !== 0);
+  const wetEnough = rustWetMin === NEED.WET_DAMP ? s.wet > rustWetMin : s.wet >= rustWetMin;
+  if (rules.rust && !resting && !env.insideBuilding && wetEnough && worn && rolls() < rustChance) {
+    const BOW_OR_AMMO = new Set([130, 131, 132]);
+    const metal = [18, 23, 12, 13, 15, 26, 20, 19, 21]
+      .map((k) => worn[k])
+      .filter((i) => i && ((i.group === 'Armor' && ((i.material ?? 0) & 0x0f00) !== 0) || (i.group === 'Weapons' && !BOW_OR_AMMO.has(i.templateIndex))));
     if (metal.length) {
       const piece = metal[Math.floor(rolls() * metal.length)];
       const loss = Math.max(1, Math.trunc((piece.maxCondition ?? 100) / 100));
@@ -1048,7 +1052,7 @@ export function clearSurvivalMods(entity) {
 }
 
 /** Fast travel with inns (`sleepModeInn`): food, water, sleep and warmth are tended along the road. */
-export function alignInnTravel(entity, now) {
+export function alignInnTravel(entity, now, rules = null) {
   const s = survivalOf(entity, now);
   s.lastAte = now - 10;
   s.thirst = 0;
@@ -1056,8 +1060,13 @@ export function alignInnTravel(entity, now) {
   s.awakeSince = now;
   s.wet = 0;
   s.exposure = 0;
+  s.stiffUntil = 0;
+  s.drunk = 0;
   s.lastMinute = now;
   if (s.borrowed) { delete s.borrowed; delete s.loanPool; }
+  const r = rules ?? HARD_RULES;
+  if (r.boons) s.boons = survivalBoons(s, now);
+  applySurvivalMods(entity, survivalStatMods(s, { abs: 0 }, now, { endurance: liveStat(entity, 'endurance'), rules: r }));
   return s;
 }
 

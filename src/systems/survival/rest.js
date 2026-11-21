@@ -156,9 +156,7 @@ export function installSurvivalRestGate(readEnv, register, { enabled = () => tru
   };
   const cold = () => block() === REST_TEXT_SURVIVAL.tooCold;
   const hot = () => block() === REST_TEXT_SURVIVAL.tooHot;
-  const wild = () => block() === REST_TEXT_SURVIVAL.noWildSleep;
   register(cold, REST_TEXT_SURVIVAL.tooCold);
   register(hot, REST_TEXT_SURVIVAL.tooHot);
-  register(wild, REST_TEXT_SURVIVAL.noWildSleep);
-  return [cold, hot, wild];
+  return [cold, hot];
 }

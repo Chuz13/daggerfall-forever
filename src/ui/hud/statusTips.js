@@ -9,9 +9,9 @@
 // DISEASE_DATA's own columns). Nothing here is drawn: no colour, no node.
 
 import { DISEASE_NAMES, DISEASE_DATA } from '../../systems/diseases.js';
-import { BOON } from '../../systems/survival/needs.js';
+import { BOON, activeDrinkBuff } from '../../systems/survival/needs.js';
 import { t } from '../../systems/textManager.js'; // L10N4: HEARTY-MEAL's line in the player's language
-import { LEVEL_WORDS } from '../../systems/survival/status.js';
+import { LEVEL_WORDS, drinkBuffEffect } from '../../systems/survival/status.js';
 import { STIFF_PENALTY } from '../../systems/survival/rest.js';
 import { WILD_TEXT, zoneWord } from '../../systems/wild/wildZone.js';
 import { zoneSafe, ZONE_SAFE_TEXT } from '../../systems/wild/zoneSafe.js'; // ZONE-SAFE: a settlement's streets are peace
@@ -192,10 +192,22 @@ const NEED_LINES = Object.freeze({
   drunk: 'Lowers Agility, Intelligence, Willpower and Speed, and makes you a little friendlier.',
 });
 /** A boon's own words (needs.js BOON's numbers, and the hearth's). */
-function boonLines(id) {
+function boonLines(id, entity) {
   if (id === 'hearth') return ['A lit fire close by gives back fatigue while you are awake.'];
-  if (id === 'meal')
-    return [t('survival.boon.mealTip', 'A hearty tavern meal: you stay fed and your thirst is held while it lasts.')]; // HEARTY-MEAL (survival/needs.js)
+  if (id === 'meal') {
+    const out = [t('survival.boon.mealTip', 'A hearty tavern meal: you stay fed and your thirst is held while it lasts.')];
+    const pct = Math.round((entity?.survival?._heartyBonus ?? 0) * 100);
+    if (pct > 0) out.push(t('survival.boon.mealCombatTip', '+{pct}% max fatigue and +2 HP per hour of rest.', { pct }));
+    return out;
+  }
+  if (id === 'drink') {
+    const db = activeDrinkBuff(entity?.survival);
+    if (!db) return [];
+    return [
+      `${drinkBuffEffect(db)}.`,
+      t('survival.drink.replaceTip', 'Drinking another tavern beverage replaces this bonus.'),
+    ];
+  }
   const b = BOON[id];
   if (!b) return [];
   return [
@@ -273,7 +285,7 @@ export function statusTip(tile, entity, extra = {}) {
   if (String(tile.key).startsWith('need:')) {
     const k = String(tile.key).slice(5);
     if (k.startsWith('boon:')) {
-      lines.push(...boonLines(k.slice(5)));
+      lines.push(...boonLines(k.slice(5), entity));
       return { title, meta: 'Boon', lines, foot: tile.foot ? `${tile.foot} left` : null };
     }
     if (NEED_LINES[k]) lines.push(NEED_LINES[k]);

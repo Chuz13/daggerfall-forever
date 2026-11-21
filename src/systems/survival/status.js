@@ -204,9 +204,8 @@ export function survivalHudChips(entity, now, { vampire = false, endurance = 50,
     if (mealChip) out.push(mealChip);
     const db = activeDrinkBuff(s, now);
     if (db) {
-      const cat = DRINK_CATEGORIES[db.cat];
       const left = db.until != null ? Math.max(1, Math.ceil((db.until - now) / 60)) : Math.ceil((db.duration ?? 180) / 60);
-      out.push({ key: 'boon:drink', text: cat?.label ?? 'Refreshed', level: 'boon', glyph: 'thirst', foot: `${left}h` });
+      out.push({ key: 'boon:drink', text: drinkCategoryLabel(db.cat), cat: db.cat, level: 'boon', glyph: 'thirst', foot: `${left}h` });
     }
     for (const id of Array.isArray(s.boons) ? s.boons : []) {
       const w = HUD_BOON_WORDS[id];
@@ -255,6 +254,24 @@ export function temperatureReadout(entity, felt = entity?.survival?.felt, { rule
 
 /** AUDIT SURV-BOONS C13: what a boon gives, in words - the page's line and the Stats side's row say it through this one
  *  helper: the attributes as the sheet names them, in its order (C11), or the hearth's stamina. */
+export function drinkCategoryLabel(catId) {
+  const fallback = DRINK_CATEGORIES[catId]?.label ?? 'Refreshed';
+  return catId && DRINK_CATEGORIES[catId] ? t(`survival.drink.${catId}.name`, fallback) : fallback;
+}
+
+export function drinkBuffEffect(db) {
+  const cat = db ? DRINK_CATEGORIES[db.cat] : null;
+  if (!cat) return '';
+  const parts = STAT_KEYS_ORDER.filter((k) => cat.stats?.[k])
+    .map((k) => `+${cat.stats[k]} ${k[0].toUpperCase()}${k.slice(1)}`);
+  if (cat.id === 'milk_juice') parts.push(t('survival.drink.milk_juice.perk', '-30% thirst rate'));
+  else if (cat.id === 'tea_coffee') parts.push(t('survival.drink.tea_coffee.perk', '-1.5h sleep debt on drink'));
+  else if (cat.id === 'light_alcohol') parts.push(t('survival.drink.light_alcohol.perk', '+10% stamina recovery'));
+  const deg = db.tempBonus ?? cat.tempBonus ?? 0;
+  if (deg > 0) parts.push(t('survival.drink.warmthPerk', '+{deg}° cold warmth', { deg }));
+  return parts.join(', ');
+}
+
 export function boonEffect(id) {
   if (id === 'hearth') return 'regain stamina beside a lit fire';
   return BOON[id]
@@ -376,6 +393,8 @@ export function survivalStatusLines(entity, now, { vampire = false, endurance = 
   } // TEMP-UI: and its number
   if (isStiff(s, now)) lines.push(STATUS_TEXT.stiff);
   if (s.drunk > endurance / 2) lines.push(s.drunk > endurance - 10 ? STATUS_TEXT.veryDrunk : STATUS_TEXT.drunk);
+  const db = kept ? activeDrinkBuff(s, now) : null;
+  if (db) lines.push(`${drinkCategoryLabel(db.cat)}: ${drinkBuffEffect(db)}.`);
   for (const id of boons) lines.push(STATUS_TEXT.boon(id), id === 'rested' ? STATUS_TEXT.restedFor(s) : null); // SURV-BOONS: what the body has earned - AUDIT C&C: the bank's hours after it
   return lines.filter(Boolean);
 }

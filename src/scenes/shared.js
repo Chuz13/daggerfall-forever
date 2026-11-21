@@ -59,7 +59,7 @@ import { DOOR_SPELL_TEXT, castBySkeletonKey } from '../systems/mysticism.js';   
 import { raiseSkills } from '../systems/advancement.js';   // AUDIT 23 (entity-1): the rest-end raise
 import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, skyMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, tickInFlight, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
 import { REST_KIND, REST_TEXT_SURVIVAL, restCost, restHour, stiffen } from '../systems/survival/rest.js';   // SURV4: the rest law - a bed and a fire sleep, the window alone is rough
-import { survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the rest's price is the tier's, read at the open
+import { survivalRules, survivalOn, noWildRoughRestOn } from '../systems/survival/switch.js';   // SURV-TIERS: the rest's price is the tier's, read at the open
 import { sleepStage } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: VampirismInfection.cs:161-162
 import { setInfectionHost, vampireClanForFaction } from '../systems/infection.js';   // V1: the host seam for the dream/death videos and the turn's clock raise
@@ -1781,7 +1781,10 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
     // AUDIT 21 (hosts lane, F6): through the one damage door - disease,
     // poison and continuous-damage effects can kill you, and above ground
     // they used to do it silently.
-    hurt: (n, a = null) => hurtPlayer(entity, n, a?.bundleDuel ? { spare: duelSpare } : undefined),   // DUEL1: a duel opponent's damage over time stops at 1 health (characters/playerEntity.js spare)
+    hurt: (n, a = null) => hurtPlayer(entity, n, {
+      ...(a?.bundleDuel ? { spare: duelSpare } : {}),
+      ...(a?.bypassShield ? { bypassShield: true } : {}),
+    }),
     heal: (n) => { if (n > 0) entity.health = Math.min(entity.maxHealth ?? Infinity, (entity.health ?? 0) + n); },
     drainMagicka: (n) => { if (n > 0) entity.magicka = Math.max(0, (entity.magicka ?? 0) - n); },
     restoreMagicka: (n) => { if (n > 0) entity.magicka = Math.min(entity.maxMagicka ?? Infinity, (entity.magicka ?? 0) + n); },
@@ -2759,6 +2762,14 @@ export function createRestDeps(entity, opts = {}) {
     fullyHealed: () => restFullyHealed(entity),
     sharedMinutes: () => (sharedClockOn() ? skyMinutes() : null),   // OL2: the window's world-clock line online (TIME3: the session's quest gate, RESTX2's, is gone) - LIVED1: the rest's own hours are the character's; TIME1: the world time it says is the sky's
     nowMinutes: () => worldMinutes(),
+    wildernessSleepBlocked: () => {
+      if (!survivalOn() || !noWildRoughRestOn()) return null;
+      if (inside()) return null;
+      const p = typeof place === 'function' ? place() : null;
+      if (p?.insideBuilding || p?.inTownLocation || p?.inTownOutside || p?.isShip || p?.houseOwned) return null;
+      const k = typeof restKind === 'function' ? restKind() : REST_KIND.Rough;
+      return k === REST_KIND.Rough ? REST_TEXT_SURVIVAL.noWildSleep : null;
+    },
     dead: () => entity.health <= 0,
     vitals: () => ({
       health: entity.health, maxHealth: entity.maxHealth,

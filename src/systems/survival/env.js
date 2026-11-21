@@ -26,7 +26,7 @@
 import { survivalOf, feltCtx } from './needs.js';
 import { temperatureWord, feltTemperature, temperatureBreakdown } from './temperature.js';
 import { installSurvivalRestGate } from './rest.js';
-import { survivalRules, survivalOn, noWildRoughRestOn } from './switch.js';
+import { survivalRules } from './switch.js';
 import { liveVampirism } from '../racialLive.js';
 import { isAnyLich } from '../necromancy/lichdomStatus.js';
 import { raceById } from '../races.js';
@@ -83,18 +83,10 @@ export function survivalFeed(entity, env = null, { rolls = null, say = null } = 
 export function restGateEnv(entity, env = null) {
   const s = entity?.survival;
   const felt = Number.isFinite(s?.felt) ? s.felt : null;
-  const rules = survivalRules();
-  const coldHotGate = !!rules?.restGate;
   return {
-    tempWord: !coldHotGate || felt == null ? 'comfortable' : temperatureWord(felt),
+    tempWord: felt == null ? 'comfortable' : temperatureWord(felt),
     byFire: !!env?.byFire,
     insideBuilding: !!env?.insideBuilding,
-    insideDungeon: !!env?.insideDungeon,
-    inTown: !!env?.inTown,
-    bed: !!env?.bed,
-    houseOwned: !!env?.houseOwned,
-    ship: !!env?.ship,
-    noWildSleep: noWildRoughRestOn(),
   };
 }
 
@@ -106,8 +98,8 @@ export function restGateEnv(entity, env = null) {
 export function installSurvivalGate(register, entity, env) {
   return installSurvivalRestGate(() => { const e = env?.(); return e ? restGateEnv(entity?.(), e) : null; }, register, { enabled: survivalGateOn });
 }
-/** SURV-TIERS: the gate stands when the tier refuses sleep in extreme weather OR when wilderness rough sleep is forbidden. */
-export const survivalGateOn = () => !!survivalRules()?.restGate || (survivalOn() && noWildRoughRestOn());
+/** SURV-TIERS: the gate stands only in a tier that refuses extreme-weather sleep. */
+export const survivalGateOn = () => !!survivalRules()?.restGate;
 
 /** AUDIT SURV B/C: a torn-down host takes its pair off the seam (a dead dungeon's handler was refusing the outdoor fire). */
 export function uninstallSurvivalGate(pair, unregister) {

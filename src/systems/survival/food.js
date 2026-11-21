@@ -101,7 +101,7 @@ export function registerFoods(rows) {
 export const isFood = (item) =>
   !!item &&
   (FOOD[item.templateIndex] ?? MORE_FOOD.get(item.templateIndex)) != null &&
-  (item.group == null || item.group === SURVIVAL_GROUP);
+  (item.group == null || item.group === SURVIVAL_GROUP || item.group === 'MiscItems');
 export const foodOf = (item) => (item ? (FOOD[item.templateIndex] ?? MORE_FOOD.get(item.templateIndex) ?? null) : null);
 export const foodStage = (item) => Math.min(FOOD_STAGE.Putrid, Math.max(0, item?.foodStage ?? 0));
 /** The name with its stage: "Soft Apple", "Mouldy Bread", "Putrid Meat". */
