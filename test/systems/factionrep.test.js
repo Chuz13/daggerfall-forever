@@ -9,7 +9,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { FactionFile, GUILD_GROUPS, FACTION_TYPES } from '../../src/formats/factionFile.js';
+import {
+  FactionFile, GUILD_GROUPS, FACTION_TYPES,
+  relinkChildren, registerCustomFaction, _resetCustomFactions,
+} from '../../src/formats/factionFile.js';
 import { changeLegalRep } from '../../src/systems/court.js';
 import {
   createFactionRep, attachFactionRep, getReputation, setReputation, changeReputation,
@@ -383,4 +386,35 @@ test('AUDIT 21 F12: DFU has NO visited-set - an ally that is also a sibling is p
   changeReputation(flat, 700, 100, true);
   assert.equal(getReputation(flat, 701), 50, 'the ally takes half');
   assert.equal(getReputation(flat, 702), 0, "and does NOT pass it on - the ally pass never propagates");
+});
+
+test('factions: relinkChildren is idempotent when addCustomFactions registers a child faction', () => {
+  const dict = dictOf(
+    fac({ id: 40, parent: 0 }),
+    fac({ id: 68, parent: 40 }),
+    fac({ id: 63, parent: 68 }),
+    fac({ id: 396, parent: 68 }),
+    fac({ id: 71, parent: 396 }),
+    fac({ id: 70, parent: 71 }),
+  );
+  relinkChildren(dict);
+
+  _resetCustomFactions();
+  try {
+    registerCustomFaction(8642, { id: 8642, parent: 0, name: 'Carriage Drivers' });
+    registerCustomFaction(8643, { id: 8643, parent: 8642, name: 'Sailors' });
+    const store = createFactionRep(dict);
+    assert.deepEqual(store.dict.get(40).children, [68], 'no duplicate children after second relink');
+    assert.deepEqual(store.dict.get(8642).children, [8643], 'custom child faction is linked');
+
+    for (let i = 0; i < 3; i++) changeReputation(store, 40, 5, true);
+    assert.equal(getReputation(store, 40), 15);
+    assert.equal(getReputation(store, 68), 6);
+    assert.equal(getReputation(store, 396), 6);
+    assert.equal(getReputation(store, 71), 6);
+    assert.equal(getReputation(store, 70), 6);
+    assert.equal(getReputation(store, 63), 15, 'questor takes 3x5=15, not 60');
+  } finally {
+    _resetCustomFactions();
+  }
 });

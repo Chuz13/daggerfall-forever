@@ -271,6 +271,7 @@ export function _resetCustomFactions() {
 }
 
 export function relinkChildren(dict) {
+  for (const faction of dict.values()) faction.children = null;
   for (const faction of [...dict.values()]) {
     const parent = dict.get(faction.parent);
     if (parent) {

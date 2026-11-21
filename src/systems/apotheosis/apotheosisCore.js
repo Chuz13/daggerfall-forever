@@ -25,7 +25,10 @@ import { liveVampirism } from '../racialLive.js';
 import { liveLycanthropy } from '../lycanthropy.js';
 import { registerPlayerKillListener } from '../playerKills.js';
 import { PROFESSIONS, PROF_RANK_MAX } from '../../net/professionLaw.js';
-import { activeMemberships, isMember } from '../guild/guilds.js';
+import { activeMemberships, isMember, GUILDS } from '../guild/guilds.js';
+import { DIVINES, ORDERS } from '../guild/guildVariants.js';
+import { FACTION_TYPES } from '../../formats/factionFile.js';
+import { RANDOM_RULER } from '../npcSession.js';
 import { snapshotDiscovery } from '../discovery.js';
 import { snapshotAutomap } from '../automap/automap.js';
 import { firmamentTree } from '../firmamentLive.js';
@@ -1033,18 +1036,52 @@ function countPropertiesAndShips(entity) {
   return { homes, hasShip };
 }
 
+const STANDING_ORG_TYPES = new Set([
+  FACTION_TYPES.Province,
+  FACTION_TYPES.WitchesCoven,
+  FACTION_TYPES.VampireClan,
+  FACTION_TYPES.Daedra,
+]);
+
+let _standingOrgFixedIds = null;
+function isStandingOrganization(id, faction = null) {
+  const numId = Number(id);
+  if (!Number.isInteger(numId) || numId === RANDOM_RULER) return false;
+  if (!_standingOrgFixedIds) {
+    _standingOrgFixedIds = new Set([
+      ...Object.values(GUILDS).map((g) => g.factionId),
+      ...Object.values(DIVINES),
+      ...Object.values(ORDERS),
+    ]);
+  }
+  if (_standingOrgFixedIds.has(numId)) return true;
+  return Boolean(faction && typeof faction === 'object' && STANDING_ORG_TYPES.has(faction.type));
+}
+
 function maxFactionReputation(entity) {
   let best = 0;
   const dict = entity?.factionRep?.dict;
   if (dict instanceof Map) {
-    for (const row of dict.values()) {
+    for (const [id, row] of dict) {
+      if (!isStandingOrganization(row?.id ?? id, row)) continue;
       const r = Number(row?.rep ?? 0);
-      if (r > best) best = r;
+      if (Number.isFinite(r) && r > best) best = r;
     }
   } else if (entity?.savedFactionRep && typeof entity.savedFactionRep === 'object') {
-    for (const row of Object.values(entity.savedFactionRep)) {
-      const r = Number(row?.rep ?? row ?? 0);
-      if (r > best) best = r;
+    const saved = entity.savedFactionRep;
+    if (Array.isArray(saved.ids) && Array.isArray(saved.rep)) {
+      for (let i = 0; i < saved.ids.length; i++) {
+        if (!isStandingOrganization(saved.ids[i])) continue;
+        const r = Number(saved.rep[i] ?? 0);
+        if (Number.isFinite(r) && r > best) best = r;
+      }
+    } else {
+      for (const [rawId, row] of Object.entries(saved)) {
+        const id = Number(row?.id ?? rawId);
+        if (!isStandingOrganization(id, row)) continue;
+        const r = Number(row?.rep ?? row ?? 0);
+        if (Number.isFinite(r) && r > best) best = r;
+      }
     }
   }
   return best;

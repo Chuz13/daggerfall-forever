@@ -52,6 +52,7 @@ import { executeConsoleCommand, getConsoleCommand } from '../../src/systems/cons
 import { playerEntity } from '../../src/characters/playerEntity.js';
 import { LOCALE_CATALOG } from '../../src/systems/localeCatalog.js';
 import { parseStringTableCsv, parseMessage, _resetTextManagerForTests } from '../../src/systems/textManager.js';
+import { FACTION_TYPES } from '../../src/formats/factionFile.js';
 
 function makeFreshEntity(characterId = 'apo_fresh') {
   return {
@@ -682,4 +683,35 @@ test('Localization: all 26 locales have all Apotheosis keys with valid CSV and m
       assert.deepEqual(argNames(val), args, `${loc.code}: ICU args mismatch for ${k}`);
     }
   }
+});
+
+test('tr18_living_legend counts only Standing organizations and supports columnar savedFactionRep', () => {
+  const e = makeFreshEntity('tr18_filter');
+  const findTr18 = () => evaluateFateWeight(e).triggers.find((tr) => tr.id === 'tr18_living_legend');
+
+  e.factionRep = {
+    dict: new Map([
+      [40, { id: 40, type: FACTION_TYPES.Group, rep: 15 }],
+      [70, { id: 70, type: FACTION_TYPES.Official, rep: 96 }],
+      [63, { id: 63, type: FACTION_TYPES.Subgroup, rep: 60 }],
+      [518, { id: 518, type: FACTION_TYPES.People, rep: 80 }],
+      [595, { id: 595, type: FACTION_TYPES.Courts, rep: 80 }],
+      [852, { id: 852, type: FACTION_TYPES.Province, rep: 90 }],
+    ]),
+  };
+  const before = findTr18();
+  assert.equal(before.natural, false);
+  assert.match(before.progressText, /\b15\/50\b/);
+
+  e.factionRep.dict.set(201, { id: 201, type: FACTION_TYPES.Province, rep: 50 });
+  assert.equal(findTr18().natural, true);
+
+  delete e.factionRep;
+  e.savedFactionRep = { ids: [70, 63, 40], rep: [96, 60, 15] };
+  const colBefore = findTr18();
+  assert.equal(colBefore.natural, false);
+  assert.match(colBefore.progressText, /\b15\/50\b/);
+
+  e.savedFactionRep = { ids: [70, 40], rep: [96, 50] };
+  assert.equal(findTr18().natural, true);
 });
