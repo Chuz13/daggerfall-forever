@@ -34,10 +34,15 @@ export const TRAVEL_INTERRUPT_COOLDOWN_MINUTES = 720; // 12 game hours
  *
  * @param {Object} params
  * @param {number} params.regionIndex Current or traversal region index
- * @param {number} params.playerLuck Player Luck attribute (default 50)
- * @param {number} params.nowMinutes Current game clock minute
+ * @param {number} [params.playerLuck=50] Player Luck attribute (default 50)
+ * @param {number} [params.nowMinutes=0] Current game clock minute
+ * @param {number} [params.tripMinutes=60] Total journey duration in game minutes
+ * @param {boolean} [params.sleepModeInn=true] Whether traveling via inns (vs. camping out)
+ * @param {boolean} [params.speedCautious=true] Whether traveling cautiously (vs. recklessly)
+ * @param {boolean} [params.sailing=false] Whether traveling by sea
+ * @param {number} [params.maxInterrupts=1] Maximum interruption roll cap for the journey
  * @param {() => number} [params.rng]
- * @returns {{ shouldInterrupt: boolean, eventType: string|null, reason: string }}
+ * @returns {{ shouldInterrupt: boolean, eventType: string|null, reason: string, rolls: number }}
  */
 export function evaluateTravelInterruption({
   regionIndex,
