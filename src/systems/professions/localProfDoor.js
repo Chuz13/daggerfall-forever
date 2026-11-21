@@ -12,16 +12,22 @@ import {
   trackOf,
   rankOfXp,
   harvestXp,
+  herbXpTier,
+  haulTier,
+  basketStep,
   smeltRecipe,
   smeltXp,
   materialOf,
   FISH_KEY,
   herbKey,
   hideOfFoe,
+  HIGH_HIDE_TIER,
+  HAUL_YIELD,
+  SURVEYOR,
+  trophyHunted,
 } from '../../net/professionLaw.js';
 import {
   parseNodeKey,
-  pixelKey,
   tree,
   herbPatch,
   vein,
@@ -37,7 +43,18 @@ import {
   treeFinds,
   veinGem,
   haulFinds,
+  basketFood,
+  foodYield,
+  FOOD_YIELD,
+  TREE_YIELD,
+  HERB_YIELD,
+  VEIN_YIELD,
+  BOULDER_YIELD,
+  herbSeasonMult,
+  daySeason,
+  haulAtSea,
 } from '../../net/nodeLaw.js';
+import { clampCarried, heldOk } from '../../net/bagLaw.js';
 import { firmamentStats } from '../firmamentLive.js';
 import { yieldPct, xpPct, scaleQty, scaleXp } from '../../net/firmament/firmamentLaw.js';
 import {
@@ -108,6 +125,75 @@ function addToStore(record, material, qty, origin = 'own') {
   s[origin] = (s[origin] | 0) + qty;
   record.stores[material] = s;
   return s;
+}
+
+/**
+ * Roll a whole number in [lo, hi].
+ * @param {number} lo
+ * @param {number} hi
+ */
+const rollRange = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+
+/**
+ * Clamp a carried material count down to what the player actually holds.
+ * @param {any} record
+ * @param {string} material
+ * @param {number} held
+ */
+function clampCarriedInRecord(record, material, held) {
+  const cur = record.carried?.[material];
+  if (!cur) return;
+  const clamped = clampCarried(cur, held);
+  if (clamped.own + clamped.bought + clamped.gold > 0) {
+    record.carried[material] = {
+      material,
+      own: clamped.own,
+      bought: clamped.bought,
+      ...(clamped.gold > 0 ? { gold: clamped.gold } : {}),
+    };
+  } else {
+    delete record.carried[material];
+  }
+}
+
+/**
+ * Add carried units of a material to the offline record.
+ * @param {any} record
+ * @param {string} material
+ * @param {number} qty
+ * @param {'own'|'bought'|'gold'} [origin]
+ */
+function addToCarried(record, material, qty, origin = 'own') {
+  record.carried ??= {};
+  const c = record.carried[material] ?? { material, own: 0, bought: 0 };
+  c[origin] = (c[origin] | 0) + qty;
+  record.carried[material] = c;
+  return { ...c };
+}
+
+/**
+ * Deduct carried units of a material from the offline record.
+ * @param {any} record
+ * @param {string} material
+ * @param {number} qty
+ */
+function deductFromCarried(record, material, qty) {
+  record.carried ??= {};
+  const c = record.carried[material];
+  if (!c) return { material, own: 0, bought: 0 };
+  let remaining = Math.max(0, qty | 0);
+  for (const origin of ['gold', 'bought', 'own']) {
+    const avail = c[origin] | 0;
+    const take = Math.min(avail, remaining);
+    c[origin] = avail - take;
+    remaining -= take;
+    if (remaining <= 0) break;
+  }
+  if ((c.own | 0) <= 0 && (c.bought | 0) <= 0 && (c.gold | 0) <= 0) {
+    delete record.carried[material];
+    return { material, own: 0, bought: 0 };
+  }
+  return { ...c };
 }
 
 /**
@@ -206,7 +292,7 @@ export function createLocalProfDoor(playerEntity, deps) {
           character,
           tracks: Object.values(rec.tracks),
           stores: Object.values(rec.stores ?? {}),
-          carried: [],
+          carried: Object.values(rec.carried ?? {}),
           silver: {},
           today: {},
           taken: [...(rec.harvestedNodes.keys ?? [])],
@@ -273,83 +359,145 @@ export function createLocalProfDoor(playerEntity, deps) {
 
       const climate = body.climate ?? 0;
       const region = body.region ?? 0;
+      const profession =
+        n.kind === 'tree'
+          ? 'logging'
+          : n.kind === 'herb'
+            ? 'herbalism'
+            : n.kind === 'body'
+              ? 'hunting'
+              : n.kind === 'haul'
+                ? 'fishing'
+                : 'mining';
+      const prof = trackOf(profession);
+      const curTrack = ensureTrack(rec, prof);
+      const specs = curTrack.specs ?? { 50: null, 100: null };
+
       let material = 'metal:iron';
       let tier = 1;
-      let profession = 'mining';
       let qty = 1;
-      let gem = null;
-      let extra = null;
+      let gem = /** @type {string|null} */ (null);
+      let extra = /** @type {string|null} */ (null);
       let extraQty = 1;
+      let clean = false;
+      let xpTier = /** @type {number|null} */ (null);
+      let trophy = false;
 
       if (n.kind === 'tree') {
         const found = tree({ x: n.x, y: n.y, day: n.day, slot: n.slot, climate, region, confirmed: true, jungle: body.jungle === true });
-        material = found ? found.material : 'wood:oak';
+        material = found ? found.material : 'log:oak';
         tier = found ? found.tier : 1;
-        profession = 'logging';
-        const roll = 2 + Math.floor(Math.random() * 3);
-        qty = treeYield({ roll }, Math.random());
-        const finds = treeFinds({ cuts: 2, confirmed: true }, Math.random);
+        clean = body.act?.clean === true;
+        qty = treeYield({ roll: rollRange(TREE_YIELD[0], TREE_YIELD[1]) }, Math.random());
+        const cuts = Number.isSafeInteger(body.act?.cuts) ? Math.max(0, body.act.cuts) : 2;
+        const finds = treeFinds({ cuts, confirmed: true, forester: specs[50] === 'forester' }, Math.random);
         gem = finds.heartwood;
         extra = finds.resin;
       } else if (n.kind === 'herb') {
         if (body.kind === 'herbs') {
-          const patch = herbPatch({ x: n.x, y: n.y, day: n.day, slot: n.slot, climate, region, confirmed: true });
-          material = patch ? herbKey(patch.herb, region) ?? 'herbs:green_leaves' : 'herbs:green_leaves';
+          const patch = herbPatch({
+            x: n.x,
+            y: n.y,
+            day: n.day,
+            slot: n.slot,
+            climate,
+            region,
+            confirmed: true,
+            seasonalEye: specs[100] === 'seasonal-eye',
+          });
+          material = (patch ? herbKey(patch.herb, region) : null) ?? herbKey(9, region) ?? 'p1:9';
           tier = patch ? patch.tier : 1;
-          profession = 'herbalism';
-          const roll = 1 + Math.floor(Math.random() * 3);
-          qty = herbYield({ roll, common: tier === 1 }, Math.random());
+          xpTier = herbXpTier(curTrack.rank);
+          const common = tier === 1;
+          let bruised = !common && body.act?.bruised === true;
+          clean = !common && body.act?.clean === true && !bruised;
+          if (!common && specs[100] === 'apothecarys-friend') {
+            bruised = false;
+            clean = true;
+          }
+          qty = herbYield(
+            {
+              roll: rollRange(HERB_YIELD[0], HERB_YIELD[1]),
+              common,
+              gardener: specs[50] === 'gardener',
+              seasonMult: patch ? herbSeasonMult(patch.herb, daySeason(n.day)) : 1,
+              offSeason: !!patch?.offSeason,
+              bruised,
+            },
+            Math.random(),
+          );
         } else {
-          material = 'food:apple';
           tier = 1;
-          profession = 'herbalism';
-          qty = 2;
+          const food = basketFood(climate, n.day, Math.random());
+          material = food?.material ?? 'food:apple';
+          const finds = Number.isSafeInteger(body.act?.finds) ? Math.max(0, Math.min(3, body.act.finds)) : 0;
+          clean = finds >= 3;
+          const [lo, hi] = FOOD_YIELD[food?.block] ?? [1, 2];
+          qty = foodYield({ roll: rollRange(lo, hi), step: basketStep(finds) }, Math.random());
         }
       } else if (n.kind === 'vein') {
         const found = vein({ x: n.x, y: n.y, day: n.day, slot: n.slot, climate, region, confirmed: true });
         material = found ? found.material : 'metal:iron';
         tier = found ? found.tier : 1;
-        profession = 'mining';
-        const roll = 2 + Math.floor(Math.random() * 3);
-        qty = veinYield({ roll }, Math.random());
-        gem = veinGem({ kind: 'vein', climate, glints: 2, confirmed: true }, Math.random);
+        clean = body.act?.clean === true;
+        const glints = Number.isSafeInteger(body.act?.glints) ? Math.max(0, body.act.glints) : 2;
+        qty = veinYield({ roll: rollRange(VEIN_YIELD[0], VEIN_YIELD[1]) }, Math.random());
+        gem = veinGem({ kind: 'vein', climate, glints, confirmed: true, prospector: specs[50] === 'prospector' }, Math.random);
       } else if (n.kind === 'boulder') {
-        const found = boulder({ x: n.x, y: n.y, day: n.day, slot: n.slot, climate, region, confirmed: true });
-        const roll = 2 + Math.floor(Math.random() * 3);
-        const bRes = boulderYield({ roll }, Math.random());
+        clean = body.act?.clean === true;
+        const bRes = boulderYield(
+          { roll: rollRange(BOULDER_YIELD[0], BOULDER_YIELD[1]), cut: clean || specs[100] === SURVEYOR },
+          Math.random(),
+        );
         material = bRes.material;
         qty = bRes.qty;
         tier = 1;
-        profession = 'mining';
       } else if (n.kind === 'dvein') {
         const found = dungeonVein({ dungeon: n.dungeon, day: n.day, slot: n.slot, climate, confirmed: true });
         material = found ? found.material : 'metal:iron';
-        tier = found ? found.tier : 2;
-        profession = 'mining';
-        const roll = 2 + Math.floor(Math.random() * 3);
-        qty = veinYield({ roll, deep: true }, Math.random());
-        gem = veinGem({ kind: 'dvein', climate, glints: 2, confirmed: true }, Math.random);
+        tier = found ? found.tier : 3;
+        clean = body.act?.clean === true;
+        const glints = Number.isSafeInteger(body.act?.glints) ? Math.max(0, body.act.glints) : 2;
+        qty = veinYield({ roll: rollRange(VEIN_YIELD[0], VEIN_YIELD[1]), deep: true, deepDelver: specs[50] === 'deep-delver' }, Math.random());
+        gem = veinGem({ kind: 'dvein', climate, glints, confirmed: true, prospector: specs[50] === 'prospector' }, Math.random);
       } else if (n.kind === 'body') {
         const h = hideOfFoe(body.foe);
-        material = h ? h.key : 'hide:leather';
+        material = h ? h.key : 'hide:wolf';
         tier = h ? h.tier : 1;
-        profession = 'hunting';
-        qty = hideYield({ clean: body.act?.clean === true }, Math.random());
-        const finds = bodyFinds({ hide: h, torn: body.act?.torn === true }, Math.random);
-        gem = finds.part;
-        extra = finds.meat;
-        extraQty = finds.meatQty || 1;
+        clean = body.act?.clean === true && body.act?.torn !== true;
+        qty = hideYield({ clean }, Math.random());
+        if (h) {
+          const finds = bodyFinds({ hide: h, torn: body.act?.torn === true, butcher: specs[100] === 'butcher' }, Math.random);
+          gem = finds.part;
+          extra = finds.meat;
+          extraQty = finds.meatQty || 1;
+        }
+        trophy = trophyHunted({ spec100: specs[100], tier, clean });
         rec.hunt = rec.hunt ?? { hides: 0, high: 0 };
         rec.hunt.hides = (rec.hunt.hides || 0) + qty;
-        if (tier >= 5) rec.hunt.high = (rec.hunt.high || 0) + 1;
+        if (tier >= HIGH_HIDE_TIER) rec.hunt.high = (rec.hunt.high || 0) + qty;
       } else if (n.kind === 'haul') {
         material = FISH_KEY;
-        tier = 1;
-        profession = 'fishing';
-        qty = haulYield({ roll: 2 }, Math.random());
-        const finds = haulFinds({ sea: true, confirmed: true }, Math.random);
+        tier = haulTier(curTrack.rank);
+        clean = body.act?.clean === true;
+        const school = body.act?.school === 0 || body.act?.school === 1;
+        const finds = haulFinds(
+          { sea: haulAtSea(climate, region), confirmed: true, pearlDiver: specs[100] === 'pearl-diver', deepSea: specs[100] === 'deep-sea' },
+          Math.random,
+        );
         gem = finds.pearl;
         extra = finds.scales;
+        trophy = finds.trophy === true;
+        qty = haulYield(
+          {
+            roll: rollRange(HAUL_YIELD[0], HAUL_YIELD[1]),
+            clean,
+            school,
+            netter: specs[50] === 'netter',
+            slaughterfish: !!finds.scales,
+          },
+          Math.random(),
+        );
         rec.hauls = (rec.hauls || 0) + 1;
       }
 
@@ -359,18 +507,26 @@ export function createLocalProfDoor(playerEntity, deps) {
       if (fYield) qty = scaleQty(qty, fYield, Math.random());
 
       // Update track & XP
-      const prof = trackOf(profession);
-      const curTrack = ensureTrack(rec, prof);
       const fXp = xpPct(firm, profession);
-      const baseXp = harvestXp(tier, curTrack.rank, body.act?.clean === true);
+      const baseXp = harvestXp(xpTier ?? tier, curTrack.rank, clean);
       const xp = fXp ? scaleXp(baseXp, fXp) : baseXp;
+      const rankBefore = curTrack.rank;
       const updatedTrack = addXp(rec, prof, xp);
 
       // Mark node taken
       rec.harvestedNodes.keys.push(nodeKeyStr);
 
+      const isCarry = body.carry === true;
+      const butcheryStores = n.kind === 'body' && isCarry && body.butcheryStores === true;
+      /** @type {any} */
       const resData = {
-        carry: body.carry === true,
+        node: body.node,
+        kind: body.kind,
+        material,
+        qty,
+        xp,
+        rose: updatedTrack.rank > rankBefore,
+        carry: isCarry,
         carried: null,
         store: null,
         gemCarried: null,
@@ -381,17 +537,20 @@ export function createLocalProfDoor(playerEntity, deps) {
         today: xp,
         hunt: rec.hunt,
         hauls: rec.hauls,
+        ...(gem ? { gem } : {}),
+        ...(extra ? { extra, extraQty } : {}),
+        ...(trophy ? { trophy: true } : {}),
       };
 
-      if (body.carry === true) {
-        resData.carried = { material, own: qty, bought: 0 };
-        if (gem) resData.gemCarried = { material: gem, own: 1, bought: 0 };
+      if (isCarry) {
+        if (heldOk(body.held) && body.heldKey === material) clampCarriedInRecord(rec, material, body.held);
+        resData.carried = addToCarried(rec, material, qty, 'own');
+        if (gem) resData.gemCarried = addToCarried(rec, gem, 1, 'own');
         if (extra) {
-          if (body.butcheryStores) {
-            const es = addToStore(rec, extra, extraQty, 'own');
-            resData.extraStore = es;
+          if (butcheryStores) {
+            resData.extraStore = addToStore(rec, extra, extraQty, 'own');
           } else {
-            resData.extraCarried = { material: extra, own: extraQty, bought: 0 };
+            resData.extraCarried = addToCarried(rec, extra, extraQty, 'own');
           }
         }
       } else {
@@ -409,6 +568,7 @@ export function createLocalProfDoor(playerEntity, deps) {
       const rec = getRecord();
       const origin = order === 'work' ? 'loose' : 'own';
       const s = addToStore(rec, material, qty, origin);
+      const updatedCarried = deductFromCarried(rec, material, qty);
       saveRecord(rec);
       saveSoon?.changed?.();
       return {
@@ -417,16 +577,32 @@ export function createLocalProfDoor(playerEntity, deps) {
           material,
           qty,
           store: s,
+          carried: updatedCarried,
         },
       };
     },
 
+    /**
+     * @param {string} character
+     * @param {string} material
+     * @param {number} qty
+     * @param {string} rid
+     * @param {boolean|{ held?: number, seen?: number }|null} [carry]
+     */
     async withdraw(character, material, qty, rid, carry = false) {
       const rec = getRecord();
       const cur = rec.stores?.[material];
       const avail = (cur?.own | 0) + (cur?.bought | 0) + (cur?.loose | 0);
       if (avail < qty) return { ok: false, error: 'stores-short' };
       deductFromStore(rec, material, qty);
+      const isCarry = carry === true || (carry != null && typeof carry === 'object');
+      let updatedCarried = null;
+      if (isCarry) {
+        if (carry && typeof carry === 'object' && heldOk(carry.held)) {
+          clampCarriedInRecord(rec, material, carry.held);
+        }
+        updatedCarried = addToCarried(rec, material, qty, 'own');
+      }
       saveRecord(rec);
       saveSoon?.changed?.();
       const updatedStore = rec.stores[material] ?? { material, own: 0, bought: 0 };
@@ -435,9 +611,9 @@ export function createLocalProfDoor(playerEntity, deps) {
         data: {
           material,
           qty,
-          carry: carry === true,
+          carry: isCarry,
           store: updatedStore,
-          carried: { material, own: qty, bought: 0 },
+          ...(isCarry ? { carried: updatedCarried } : {}),
         },
       };
     },

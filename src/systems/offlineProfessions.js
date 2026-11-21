@@ -36,6 +36,7 @@ export function createNewRecord() {
   return {
     tracks: {},
     stores: {},
+    carried: {},
     made: { crafts: [], works: [], brews: [] },
     harvestedNodes: { day: 0, keys: [] },
     hunt: { hides: 0, high: 0 },
@@ -52,6 +53,7 @@ export function sanitizeRecord(data) {
   return {
     tracks: data.tracks && typeof data.tracks === 'object' ? data.tracks : {},
     stores: data.stores && typeof data.stores === 'object' ? data.stores : {},
+    carried: data.carried && typeof data.carried === 'object' ? data.carried : {},
     made: {
       crafts: Array.isArray(data.made?.crafts) ? data.made.crafts : [],
       works: Array.isArray(data.made?.works) ? data.made.works : [],
