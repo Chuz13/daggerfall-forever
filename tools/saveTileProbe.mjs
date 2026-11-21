@@ -304,19 +304,15 @@ const measured = await page.evaluate(
           ? Math.round(box(t.querySelector('.svcloud .act:last-child')).right)
           : 0,
         slot: t.querySelector('.svslot')?.textContent ?? null,
-        // A LONG SLOT NAME SITS ON THE HEADING'S LINE, so it is bounded
-        // and clipped rather than allowed to crowd the character's name.
-        slotW: t.querySelector('.svslot') ? Math.round(box(t.querySelector('.svslot')).width) : 0,
-        // THE TEXT's right edge, not the heading BLOCK's: an h3 is
-        // full-width whatever it says, so measuring its box would make
-        // this check about the column and not about the name.
-        nameRight: (() => {
-          const h = t.querySelector('h3');
-          const r = document.createRange();
-          r.selectNodeContents(h);
-          return Math.round(r.getBoundingClientRect().right);
+        // The slot name sits on its own line under the character name and
+        // wraps rather than ellipsising so the full name is always visible.
+        slotTop: t.querySelector('.svslot') ? Math.round(box(t.querySelector('.svslot')).top) : 0,
+        nameBottom: Math.round(box(t.querySelector('h3')).bottom),
+        slotClipped: (() => {
+          const s = t.querySelector('.svslot');
+          if (!s) return false;
+          return s.scrollWidth > s.clientWidth + 1 || cs(s).textOverflow === 'ellipsis';
         })(),
-        slotLeft: t.querySelector('.svslot') ? Math.round(box(t.querySelector('.svslot')).left) : Infinity,
         // NOTHING MAY LEAVE ITS TILE. A long slot name and a long
         // character name are the two that would.
         overflow: [...t.querySelectorAll('*')].some(
@@ -424,9 +420,9 @@ check(
 );
 
 check(
-  'the name and the slot share a row and never overlap, however long either is',
-  measured.tiles.every((t) => t.slotLeft >= t.nameRight - 1),
-  measured.tiles.map((t) => `slot@${t.slotLeft} vs name to ${t.nameRight}`).join(' | '),
+  'the slot sits on its own line under the name and is never clipped',
+  measured.tiles.every((t) => t.slotTop >= t.nameBottom - 1 && !t.slotClipped),
+  measured.tiles.map((t) => `slot@${t.slotTop} below name@${t.nameBottom}${t.slotClipped ? ' CLIPPED' : ''}`).join(' | '),
 );
 
 check(

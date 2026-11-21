@@ -515,3 +515,23 @@ test('FIELD 2026-09-27 (Masta_Fu): a backup that is a LATER save of this slot is
   assert.equal(text(saveTile(fakeDoc(), SAVE, { cloud: { state: 'newer' } }), 'svsay'), 'Newer backup');
   assert.equal(byClass(saveTile(fakeDoc(), SAVE, { cloud: { state: 'newer' } }), 'svcloud')[0].className, 'svcloud is-newer');
 });
+
+test('save slot name renders on its own line under character name without ellipsis', () => {
+  const tile = saveTile(fakeDoc(), { ...SAVE, house: 'House Hlaalu' }, {});
+  const who = byClass(tile, 'svwho')[0];
+  assert.equal(byClass(tile, 'svtop').length, 0);
+  assert.deepEqual(
+    who.childNodes.slice(0, 5).map((n) => n.className || n.tagName),
+    ['H3', 'svslot', 'svhouse', 'svsub', 'svwhen'],
+  );
+  assert.equal(who.childNodes[1].tagName, 'DIV');
+
+  const noSlot = saveTile(fakeDoc(), { ...SAVE, saveName: '' }, {});
+  assert.equal(byClass(noSlot, 'svslot').length, 0);
+
+  const style = rd('src/ui/enhanced/enhancedStyle.js');
+  const rule = style.match(/\.svslot\s*\{[^}]*\}/)?.[0] ?? '';
+  assert.ok(rule, '.svslot rule exists');
+  assert.doesNotMatch(rule, /text-overflow:\s*ellipsis|white-space:\s*nowrap|overflow:\s*hidden/);
+  assert.match(rule, /overflow-wrap:\s*anywhere/);
+});

@@ -321,18 +321,11 @@ select, input, textarea { font: inherit; }
 .svwhen { color: var(--dim); font-size: 12px; margin: 0 0 10px; }
 .svwho .stats { gap: 4px 14px; margin: 0; }
 
-/* THE NAME AND THE SLOT SHARE ONE ROW. Not the slot pinned to the
-   tile's corner: a slot name is the player's own words and can be a
-   sentence, and pinned it ran straight into a long character name
-   (measured at "Mithriil Stormaire" beside "a very long slot name
-   indeed"). Sharing a row makes the slot GIVE WAY, which is the right
-   precedence - the character is who a player is looking for. */
-.svtop { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.svtop h3 { flex: 0 1 auto; min-width: 0; }
+/* The slot name sits on its own line under the character name and wraps
+   rather than ellipsising, so a long character or slot name never hides it. */
 .svslot {
-  flex: 0 1 auto; min-width: 0;
-  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; line-height: 1.35; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--dim); margin: 0 0 4px; overflow-wrap: anywhere;
 }
 
 /* ── THE CLOUD LINE (ACC2) ───────────────────────────────────────
@@ -2192,6 +2185,7 @@ ${badgeCss()}
 .px-sys .tag { display: inline-block; color: rgb(243,239,44); font-size: 12px;
   letter-spacing: 0.24em; text-indent: 0.24em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgb(93,77,12); margin: 0 0 4px; }
+.px-sys .svslot { font-size: 13px; margin: 0 0 6px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-sys .stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; margin: 8px 0 10px; }
 .px-sys .stats dt { color: #9c937d; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
