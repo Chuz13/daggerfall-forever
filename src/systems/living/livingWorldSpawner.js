@@ -43,6 +43,14 @@ import {
   CRISIS_TYPE,
   CRISIS_PHASE,
 } from './regionState.js';
+import {
+  getSettlementProsperityDelta,
+  getRegionProsperityShift,
+  getTotalSettlementProsperityShift,
+  shiftSettlementProsperity,
+  setSettlementProsperity,
+  clearSettlementProsperity,
+} from './settlementProsperity.js';
 import { getQuarantineReliefPostInfo } from './quarantineGate.js';
 import { checkCampFootprintSlope, snapPropToGround } from './campInjector.js';
 import { lodgedIn, freeLodgedFeet } from '../../characters/foeSpacing.js';
@@ -1677,6 +1685,18 @@ export {
   restoreLocationEventCooldownsSnapshot,
 };
 
+function applyTownProsperityDelta(mapId, townName, shift, nowMin, say) {
+  if (mapId == null || !shift) return;
+  const day = Math.floor((Number(nowMin) || 0) / 1440);
+  const res = shiftSettlementProsperity(mapId, shift, day);
+  if (!res.applied) return;
+  if (res.applied > 0) {
+    say?.(townName ? LIVING_WORDS.prosperityImproved(townName, res.applied) : LIVING_WORDS.prosperityGenericImproved(res.applied), 5);
+  } else {
+    say?.(townName ? LIVING_WORDS.prosperityDeclined(townName, res.applied) : LIVING_WORDS.prosperityGenericDeclined(res.applied), 5);
+  }
+}
+
 /**
  * Deterministically equips and stamps a spawned mobile as a hired companion.
  * @param {any} foe
@@ -2989,6 +3009,10 @@ export function createLivingSceneHost(deps) {
                   2,
                 );
               }
+              if (plea.type === PLEA_TYPE.BROKEN_CART_MERCHANT || plea.type === PLEA_TYPE.ACCUSED_URCHIN) {
+                const loc = deps.locationRecord?.() ?? null;
+                applyTownProsperityDelta(loc?.mapTableData?.mapId, loc?.name, 1, nowMin, deps.say);
+              }
             }
             if (res.grantHealingPotion && res.outcome === PLEA_OUTCOME.HELPED) {
               deps.say(LIVING_WORDS.pleaMerchantPotionSay(), 5);
@@ -3496,6 +3520,8 @@ export function createLivingSceneHost(deps) {
                 rolls: rng,
               });
               deps.say(LIVING_WORDS.eventJoinedF1(f1Name), 5);
+              const loc = deps.locationRecord?.() ?? null;
+              applyTownProsperityDelta(loc?.mapTableData?.mapId, loc?.name, checkRes.degree === 'TRIUMPH' ? 2 : 1, nowMin, deps.say);
             } else if (c.stance === 'attackers') {
               s.skirmishStance = 'rebels';
               retargetSkirmishFoes(s);
@@ -3517,6 +3543,14 @@ export function createLivingSceneHost(deps) {
               } else {
                 deps.say(LIVING_WORDS.eventJoinedF2(f2Name), 5);
               }
+              const loc = deps.locationRecord?.() ?? null;
+              const ecoHurts =
+                evt?.id === 'EVT_FAMINE_BARN_RAID' ||
+                evt?.id === 'EVT_CRIME_DAYLIGHT_HEIST' ||
+                evt?.id === 'EVT_WAR_DESERTERS_SHAKEDOWN' ||
+                evt?.id === 'EVT_PLAGUE_WATER_WELL_SCARE' ||
+                evt?.id === 'EVT_NEW_RULER_STATUE_UNVEILING';
+              applyTownProsperityDelta(loc?.mapTableData?.mapId, loc?.name, ecoHurts ? -2 : -1, nowMin, deps.say);
             } else if (
               c.stance === 'peace' ||
               c.stance === 'bribe' ||
@@ -3542,6 +3576,8 @@ export function createLivingSceneHost(deps) {
               });
               onContractCompleted(regIdx);
               deps.say(LIVING_WORDS.eventPeaceResolved(f1Name, f2Name), 5);
+              const loc = deps.locationRecord?.() ?? null;
+              applyTownProsperityDelta(loc?.mapTableData?.mapId, loc?.name, checkRes.degree === 'TRIUMPH' ? 2 : 1, nowMin, deps.say);
             } else {
               s.skirmishStance = 'chaos';
               retargetSkirmishFoes(s);
@@ -5153,8 +5189,33 @@ export function executeLivingConsoleCommand(args, ctx) {
     return (
       `[Living Tamriel] Region ${regIdx} (${regState.regionName}): crises=[${crisisStr}], ` +
       `tension=${regState.tension.toFixed(1)}, ` +
-      `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}, cooldown=${getLivingLocationCooldownMinutes()}m`
+      `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}, cooldown=${getLivingLocationCooldownMinutes()}m, prosperity=${getSettlementProsperityDelta(ctx?.mapId)}`
     );
+  }
+
+  if (sub === 'prosperity') {
+    const val = cleanArgs[1]?.toLowerCase();
+    const mapId = ctx?.mapId ?? null;
+    if (val === 'clear' || val === 'reset') {
+      clearSettlementProsperity();
+      return '[Living Tamriel] Cleared all local settlement prosperity modifiers.';
+    }
+    if (val !== undefined && val !== 'status') {
+      if (mapId == null) {
+        return '[Living Tamriel] Stand inside a settlement to set its local prosperity modifier.';
+      }
+      const parsed = Number(val);
+      if (!Number.isFinite(parsed)) {
+        return 'Usage: /living prosperity [<-5..+5>|clear|status]';
+      }
+      const applied = setSettlementProsperity(mapId, parsed, Math.floor((ctx?.nowMinutes ?? 0) / 1440));
+      const total = getTotalSettlementProsperityShift(mapId, regIdx);
+      return `[Living Tamriel] Settlement ${mapId} local prosperity set to ${applied >= 0 ? `+${applied}` : applied} (total shop quality shift: ${total >= 0 ? `+${total}` : total}).`;
+    }
+    const local = getSettlementProsperityDelta(mapId);
+    const crisis = getRegionProsperityShift(regIdx);
+    const total = getTotalSettlementProsperityShift(mapId, regIdx);
+    return `[Living Tamriel] Prosperity shift (map=${mapId ?? 'none'}): local=${local >= 0 ? `+${local}` : local}, crisis=${crisis >= 0 ? `+${crisis}` : crisis}, total=${total >= 0 ? `+${total}` : total}.`;
   }
 
   if (sub === 'scale' || sub === 'density') {
@@ -5532,6 +5593,6 @@ export function executeLivingConsoleCommand(args, ctx) {
     return `[Living Roll: ${res.formulaId}] Skill=${res.skill}, Stat=${res.stat}, Luck=${res.luck}, d100=${res.roll} -> Total=${res.totalScore} vs Target=${res.targetScore} (Margin=${res.margin >= 0 ? '+' : ''}${res.margin}) => ${res.degree}`;
   }
 
-  return 'Usage: /living <status | cooldown [2h|8h|24h|3d|clear] | scale [low|mid|high] | loot [zero|supplies|full] | traits [0..3|off|light|mid|high] | crisis <TYPE> [PHASE] | [site] spawn <KIND> [DETAIL] | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | roll [Skill] [DC] [Formula] | formulas | quest>';
+  return 'Usage: /living <status | prosperity [<-5..+5>|clear|status] | cooldown [2h|8h|24h|3d|clear] | scale [low|mid|high] | loot [zero|supplies|full] | traits [0..3|off|light|mid|high] | crisis <TYPE> [PHASE] | [site] spawn <KIND> [DETAIL] | encounter [random|wild|camp|merchant|adv|bandit|plea] | adv <list|summon> | roll [Skill] [DC] [Formula] | formulas | quest>';
 }
 

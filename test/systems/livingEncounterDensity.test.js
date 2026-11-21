@@ -23,6 +23,11 @@ import {
 } from '../../src/systems/living/livingWorldSpawner.js';
 import { setRegionCrisis, CRISIS_TYPE, CRISIS_PHASE } from '../../src/systems/living/regionState.js';
 import { restoreLivingSaveData } from '../../src/systems/living/livingDirector.js';
+import {
+  setSettlementProsperity,
+  getSettlementProsperityDelta,
+  clearSettlementProsperity,
+} from '../../src/systems/living/settlementProsperity.js';
 import { createNemesisHunter, NEMESIS_ARCHETYPES } from '../../src/systems/living/nemesisHost.js';
 import { ROAD_ADVENTURER_SITUATION } from '../../src/systems/living/adventurerSim.js';
 
@@ -322,5 +327,41 @@ test('Console /living spawn urban, plea aliases, and /living cooldown commands',
   const outStatus = executeLivingConsoleCommand(['status'], ctx);
   assert.match(outStatus, /cooldown=120m/);
 
+  resetLivingConfig();
+});
+
+test('Console /living prosperity and settlement prosperity status output', () => {
+  resetLivingConfig();
+  clearSettlementProsperity();
+  setRegionCrisis(17, CRISIS_TYPE.PEACE, CRISIS_PHASE.NONE);
+
+  const ctx = {
+    mapId: 9001,
+    regionIndex: 17,
+    nowMinutes: 1440 * 5,
+  };
+
+  const outNoTown = executeLivingConsoleCommand(['prosperity', '+2'], { regionIndex: 17 });
+  assert.match(outNoTown, /Stand inside a settlement/);
+
+  const outSet = executeLivingConsoleCommand(['prosperity', '+3'], ctx);
+  assert.match(outSet, /set to \+3/);
+  assert.equal(getSettlementProsperityDelta(9001), 3);
+
+  const outStatus = executeLivingConsoleCommand(['status'], ctx);
+  assert.match(outStatus, /prosperity=3/);
+
+  const outProspStatus = executeLivingConsoleCommand(['prosperity', 'status'], ctx);
+  assert.match(outProspStatus, /local=\+3/);
+
+  const outClamp = executeLivingConsoleCommand(['prosperity', '-9'], ctx);
+  assert.match(outClamp, /set to -5/);
+  assert.equal(getSettlementProsperityDelta(9001), -5);
+
+  const outClear = executeLivingConsoleCommand(['prosperity', 'clear'], ctx);
+  assert.match(outClear, /Cleared/);
+  assert.equal(getSettlementProsperityDelta(9001), 0);
+
+  clearSettlementProsperity();
   resetLivingConfig();
 });

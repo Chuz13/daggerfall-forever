@@ -220,6 +220,7 @@ import { isShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, 
 import { BAG_WORDS, isBagItem, holdsOtherBag } from '../net/bagLaw.js';   // ONE-BAG: one Materials Bag to a character, on the keyed shelf too
 import { identifySpellPass, identifiedTallyText, notEnoughSpellPointsText, tradeCost, getTradePrice, markCounterBought } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal; FB0929: the keyed rows' prices are the counter's; AUDIT LW-II-2 S1: the counter's mark
 import { getBuildingCrisisFactor } from '../systems/living/regionEconomy.js';
+import { getEffectiveBuildingQuality, getTotalSettlementProsperityShift } from '../systems/living/settlementProsperity.js';
 import { liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // X10: the Dispel Magic picker
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // X10
 import { chapterRollWindow } from '../ui/chapterRoll.js';   // CHAP5a: the hall's roll, the shelf's first book
@@ -3693,7 +3694,15 @@ export function createWorldModes(host) {
     const fresh = needsRestock(shelf, today);   // AUDIT WORLD6a A5: said at the window's mount, whichever window
     if (fresh) {
       shelf.stockedDate = today;
-      shelf.items = shelfLootSpawned(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity, { shelfIndex: i }), b);   // PlayerActivate.OnLootSpawned (:885): RRI2's three shelf hooks, then the other mods' in load order (Foraging's FORAGE3, Come Sail Away's CSA-H)
+      shelf.items = shelfLootSpawned(stockShopShelf({
+        buildingType: b.buildingType,
+        quality: getEffectiveBuildingQuality(b.quality, {
+          mapId: b?.townMapId || (questSceneCtx?.()?.mapId ?? 0),
+          regionIndex: b?.regionIndex ?? 0,
+          isShop: isShop(b.buildingType),
+          priceIndex: b?.priceIndex,
+        }),
+      }, playerEntity, { shelfIndex: i }), b);   // PlayerActivate.OnLootSpawned (:885): RRI2's three shelf hooks, then the other mods' in load order (Foraging's FORAGE3, Come Sail Away's CSA-H)
     }
     // AUDIT 26 F066: DFU NEVER opens a paying trade window in a
     // closed shop. PlayerActivate gates shelf activation on
@@ -3824,7 +3833,15 @@ export function createWorldModes(host) {
     if (fresh) {
       target.stockedDate = today;
       target.items = isShop(b.buildingType)
-        ? shelfLootSpawned(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b)   // RRI2, FORAGE3: the same OnLootSpawned, whichever door stocked it
+        ? shelfLootSpawned(stockShopShelf({
+          buildingType: b.buildingType,
+          quality: getEffectiveBuildingQuality(b.quality, {
+            mapId: b?.townMapId || (questSceneCtx?.()?.mapId ?? 0),
+            regionIndex: b?.regionIndex ?? 0,
+            isShop: true,
+            priceIndex: b?.priceIndex,
+          }),
+        }, playerEntity), b)   // RRI2, FORAGE3: the same OnLootSpawned, whichever door stocked it
         : [];
     }
     let win = null;
@@ -3901,7 +3918,12 @@ export function createWorldModes(host) {
       isBeingRepaired: (it) => isBeingRepaired(it),
       allowMagicRepairs: getBool('Controls', 'AllowMagicRepairs'),
       priceCtx: () => ({
-        quality: b.quality ?? 0,
+        quality: getEffectiveBuildingQuality(b.quality ?? 0, {
+          mapId: b?.townMapId || (questSceneCtx?.()?.mapId ?? 0),
+          regionIndex: b?.regionIndex ?? 0,
+          isShop: isShop(b?.buildingType),
+          priceIndex: b?.priceIndex,
+        }),
         priceAdjustment: shopAdjustment(b, mode),   // SEAT1d: a seat town's members and Market Day
         // UNLIKE the tavern's meal, this one reads the player's REAL
         // region (:437), so a regional holiday actually lands.
@@ -4183,25 +4205,28 @@ export function createWorldModes(host) {
   }
   function buyPrice(it) {
     const b = interiorBuilding;
-    // FB0929: the counter's own law, not a second copy of it - the walk's cost and pieces, and GetTradePrice's floor
-    // of a gold a piece, so the keyed row's price is the price it charges and the trade window's
-    const lot = tradeCost('Buy', [it], { quality: b.quality, priceAdjustment: shopAdjustment(b, 'Buy') });
-    return getTradePrice('Buy', lot.cost, b.quality, {
+    const q = getEffectiveBuildingQuality(b.quality, {
+      mapId: b?.townMapId || (questSceneCtx?.()?.mapId ?? 0),
+      regionIndex: b?.regionIndex ?? 0,
+      isShop: isShop(b?.buildingType),
+      priceIndex: b?.priceIndex,
+    });
+    const lot = tradeCost('Buy', [it], { quality: q, priceAdjustment: shopAdjustment(b, 'Buy') });
+    return getTradePrice('Buy', lot.cost, q, {
       mercantile: skillValue(playerEntity, SKILLS.Mercantile),
       personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
     }, lot.pieces);
   }
-  // E3: the sell offer - CalculateCost(value)*stack through the
-  // SELLING branch of CalculateTradePrice (DaggerfallTradeWindow's
-  // GetTradePrice; DFU's condition parameter is declared-but-unused).
-  // CRAFT-WORTH (2026-10-11, the exploit audit): THE COUNTER'S OWN LAW, as buyPrice's is - the trade window's Sell walk
-  // (a crafted piece at its plain worth, online a found piece at its mark and a third of its owner's own mends - MEND-THIRD) at the counter's own index
-  // (a yard's too). This keyed shelf priced the raw value at the region's index and read no condition, so the art's
-  // absence was a door round every sale law the window keeps.
   function sellPrice(it) {
     const b = interiorBuilding;
-    const lot = tradeCost('Sell', [it], { quality: b.quality, priceAdjustment: shopAdjustment(b, 'Sell') });
-    return getTradePrice('Sell', lot.cost, b.quality, {
+    const q = getEffectiveBuildingQuality(b.quality, {
+      mapId: b?.townMapId || (questSceneCtx?.()?.mapId ?? 0),
+      regionIndex: b?.regionIndex ?? 0,
+      isShop: isShop(b?.buildingType),
+      priceIndex: b?.priceIndex,
+    });
+    const lot = tradeCost('Sell', [it], { quality: q, priceAdjustment: shopAdjustment(b, 'Sell') });
+    return getTradePrice('Sell', lot.cost, q, {
       mercantile: skillValue(playerEntity, SKILLS.Mercantile),
       personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
     }, lot.pieces, lot.resale);   // LAW-3: a counter's piece never fetches more than it cost
@@ -7146,6 +7171,7 @@ export function createWorldModes(host) {
   let _doorTextGen = -1;
   let _doorTextHomes = -1;   // HOME1: the homes registry's version the text was read at - a town's answer, a sale, repaints the door
   let _doorTextVerbs = '';   // HOME2: whether the door's verbs were listed, and which buy was armed - a mode change or an arm repaints it
+  let _doorTextProsperity = 0;
   let _doorText = null;
   /**
    * ...AND IT IS FREED WHEN THE MODE LEAVES THE STREET.
@@ -7473,7 +7499,8 @@ export function createWorldModes(host) {
       const gen = doorGeneration?.() ?? 0;
       const homesV = host.onlineHomes?.version?.() ?? 0;
       const verbsSig = homeVerbsSig();
-      if (_doorTextKey === key && _doorTextGen === gen && _doorTextHomes === homesV && _doorTextVerbs === verbsSig) return _doorText;
+      const prospShift = getTotalSettlementProsperityShift(questSceneCtx?.()?.mapId ?? 0, playerEntity?.regionIndex ?? 0);
+      if (_doorTextKey === key && _doorTextGen === gen && _doorTextHomes === homesV && _doorTextVerbs === verbsSig && _doorTextProsperity === prospShift) return _doorText;
       // AUDIT-WH2 L1-F2: THE KEY IS STAMPED ON SUCCESS, NOT ON ENTRY.
       //
       // It used to be stamped here, with `_doorText = null` beside it,
@@ -7528,7 +7555,12 @@ export function createWorldModes(host) {
         locationName: bd.townName ?? currentLocationName(),   // IC-PROPS: the door's own town
         buildingType: bd.buildingType,
         unlocked: home ? true : resolveBuildingUnlocked(bd),
-        quality: bd.quality ?? 0,
+        quality: getEffectiveBuildingQuality(bd.quality ?? 0, {
+          mapId: homeTownOf(bd),
+          regionIndex: bd.regionIndex ?? 0,
+          isShop: isShop(bd.buildingType),
+          priceIndex: bd.priceIndex,
+        }),
       });
       // HOME2: a house I could buy, and my own home, list the door's VERBS on the plaque (onlineHomes.js homeBuyRows,
       // homeOwnerRows) - the wheel lights one, the click presses it; the price is the buy row's, not a line of its own
@@ -7539,7 +7571,7 @@ export function createWorldModes(host) {
       if (_doorText && cultSub) _doorText = { ..._doorText, subs: [...(_doorText.subs ?? []), cultSub] };
       _doorText = homeVoteDoorText(_doorText, bd, home, verbs);   // HOME-VOTE: its votes' lines, and the vote's rows unlit
       if (verbs) _doorText = { ..._doorText, actions: verbs };
-      _doorTextKey = key; _doorTextGen = gen; _doorTextHomes = homesV; _doorTextVerbs = verbsSig;
+      _doorTextKey = key; _doorTextGen = gen; _doorTextHomes = homesV; _doorTextVerbs = verbsSig; _doorTextProsperity = prospShift;
       return _doorText;
     }
     if (typeof key !== 'string') return null;
@@ -8050,7 +8082,12 @@ export function createWorldModes(host) {
         // invented registry entry (the port's own settings doctrine).
         const greet = (primeDecorList((home || (bd.buildingType === BUILDING_TYPES.Palace && host.seatHall?.here?.(homeTownOf(bd)))) && host.homeDecor ? decorListKey(homeTownOf(bd), bd.buildingKey, !home && bd.buildingType === BUILDING_TYPES.Palace) : null, () => host.homeDecor.list(homeTownOf(bd), bd.buildingKey, !home && bd.buildingType === BUILDING_TYPES.Palace)), buildingGreeting({
           buildingType: bd.buildingType,
-          quality: bd.quality ?? 0,
+          quality: getEffectiveBuildingQuality(bd.quality ?? 0, {
+            mapId: homeTownOf(bd),
+            regionIndex: bd.regionIndex ?? 0,
+            isShop: isShop(bd.buildingType),
+            priceIndex: bd.priceIndex,
+          }),
           factionId: bd.factionId ?? 0,
           buildingUnlocked: opened,
           isBrokenIn,

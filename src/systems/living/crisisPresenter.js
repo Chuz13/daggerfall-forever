@@ -14,6 +14,7 @@ import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getDirectorState } from './livingDirector.js';
 import { getRegionState, isRegionInQuarantine, getActiveCrises, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
 import { onContractCompleted } from './bountySync.js';
+import { getTotalSettlementProsperityShift } from './settlementProsperity.js';
 import { LIVING_WORDS } from './livingWords.js';
 
 /**
@@ -85,6 +86,13 @@ export function getRegionCrisisEconomyLine(regionIndex) {
     default:
       return null;
   }
+}
+
+export function getTownProsperityLines(mapId, regionIndex) {
+  const shift = getTotalSettlementProsperityShift(mapId, regionIndex);
+  if (shift >= 2) return [LIVING_WORDS.prosperityBooming(shift)];
+  if (shift <= -2) return [LIVING_WORDS.prosperityDepressed(shift)];
+  return [];
 }
 
 /**

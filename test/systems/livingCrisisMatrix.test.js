@@ -37,6 +37,22 @@ import {
   CRISIS_TYPE,
   CRISIS_PHASE,
 } from '../../src/systems/living/regionState.js';
+import { shopQualityTextId } from '../../src/systems/buildingGreeting.js';
+import {
+  setSettlementProsperity,
+  shiftSettlementProsperity,
+  getSettlementProsperityDelta,
+  getRegionProsperityShift,
+  getTotalSettlementProsperityShift,
+  getEffectiveBuildingQuality,
+  clearSettlementProsperity,
+} from '../../src/systems/living/settlementProsperity.js';
+import {
+  getLivingSaveData,
+  restoreLivingSaveData,
+  onLivingWorldTick,
+} from '../../src/systems/living/livingDirector.js';
+import { getTownProsperityLines } from '../../src/systems/living/crisisPresenter.js';
 import {
   REGION_FLAGS,
   createRegionConditions,
@@ -500,4 +516,61 @@ test('Matrix expansion covers rat swarm, witch coven, desert/level pools, mundan
   assert.equal(resolveEventAttackersPool(witchCoven, { playerLevel: 1 }).includes(MOBILE_TYPES.Harpy), false);
   assert.equal(resolveEventAttackersPool(witchCoven, { playerLevel: 6 }).includes(MOBILE_TYPES.Harpy), true);
   assert.equal(resolveEventAttackersPool(witchCoven, { playerLevel: 11 }).includes(MOBILE_TYPES.Gargoyle), true);
+});
+
+test('Dynamic settlement prosperity shifts shop quality, decays over 7 days, and persists in saves', () => {
+  clearSettlementProsperity();
+  setRegionCrisis(17, 'PEACE', 'NONE');
+
+  const mapId = 5001;
+  assert.equal(getEffectiveBuildingQuality(12, { mapId, regionIndex: 17, isShop: true }), 12);
+  assert.equal(shopQualityTextId(12), 268);
+
+  // Positive shift raises shop quality across thresholds into luxury tier (266)
+  const r1 = shiftSettlementProsperity(mapId, 4, 10);
+  assert.equal(r1.newDelta, 4);
+  assert.equal(getEffectiveBuildingQuality(12, { mapId, regionIndex: 17, isShop: true }), 16);
+  assert.equal(shopQualityTextId(getEffectiveBuildingQuality(12, { mapId, regionIndex: 17, isShop: true })), 267);
+
+  // Clamps at +5
+  const r2 = shiftSettlementProsperity(mapId, 4, 10);
+  assert.equal(r2.newDelta, 5);
+  assert.equal(getEffectiveBuildingQuality(13, { mapId, regionIndex: 17, isShop: true }), 18);
+  assert.equal(shopQualityTextId(getEffectiveBuildingQuality(13, { mapId, regionIndex: 17, isShop: true })), 266);
+
+  // Houses (isShop: false) and yards (priceIndex finite) are never shifted
+  assert.equal(getEffectiveBuildingQuality(12, { mapId, regionIndex: 17, isShop: false }), 12);
+  assert.equal(getEffectiveBuildingQuality(12, { mapId, regionIndex: 17, isShop: true, priceIndex: 15000 }), 12);
+
+  // Regional crisis stacks with local delta and appears in presenter + calculateLocationProsperity
+  setSettlementProsperity(mapId, -3, 10);
+  setRegionCrisis(17, CRISIS_TYPE.PLAGUE, CRISIS_PHASE.MID);
+  assert.equal(getRegionProsperityShift(17), -2);
+  assert.equal(getTotalSettlementProsperityShift(mapId, 17), -5);
+  assert.equal(getEffectiveBuildingQuality(12, { mapId, regionIndex: 17, isShop: true }), 7);
+  assert.equal(shopQualityTextId(getEffectiveBuildingQuality(12, { mapId, regionIndex: 17, isShop: true })), 269);
+
+  const locPros = calculateLocationProsperity({ mapId, services: 1 }, { mapId, regionIndex: 17 });
+  assert.equal(locPros.tier, PROSPERITY_TIER.POOR);
+  const lines = getTownProsperityLines(mapId, 17);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /-5/);
+
+  // Save / restore round-trip
+  setRegionCrisis(17, 'PEACE', 'NONE');
+  setSettlementProsperity(mapId, 3, 10);
+  const saved = getLivingSaveData();
+  clearSettlementProsperity();
+  assert.equal(getSettlementProsperityDelta(mapId), 0);
+  restoreLivingSaveData(saved);
+  assert.equal(getSettlementProsperityDelta(mapId), 3);
+
+  // 7-day decay via world tick
+  onLivingWorldTick(10 * 1440);
+  assert.equal(getSettlementProsperityDelta(mapId), 3);
+  onLivingWorldTick(17 * 1440);
+  assert.equal(getSettlementProsperityDelta(mapId), 2);
+
+  clearSettlementProsperity();
+  setRegionCrisis(17, 'PEACE', 'NONE');
 });
