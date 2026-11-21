@@ -29,6 +29,10 @@ import { calculateTradePrice, ONLINE_HAGGLE_MAX } from '../shopStock.js';
 import { totalGoldAmount, deductGold } from '../court.js';
 import { getHolidayId, HOLIDAYS } from '../holidays.js';
 import { getRegionEconomyMultipliers } from './regionEconomy.js';
+import { FORK_FLAGS } from '../../config/forkFlags.js';
+import { getEffectiveTradeTaint, applyTaintDisposition } from '../necromancy/necroTaint.js';
+import { isPlayerDisguised } from '../necromancy/lichdomStatus.js';
+import { getReputationPriceModifier } from './reputationConsequences.js';
 import {
   resolveLivingRoll,
   computeRoleplayBribeMultiplier,
@@ -1186,11 +1190,21 @@ export function calculateAdventurerHireQuote(
   const mercantile = Math.max(0, Math.min(ONLINE_HAGGLE_MAX, Number.isFinite(rawMerc) ? rawMerc : 0));
   const personality = Math.max(0, Math.min(ONLINE_HAGGLE_MAX, Number.isFinite(rawPers) ? rawPers : 50));
   const quality = getAdventurerHaggleQuality(adv?.trait);
+  const tradeEntity = playerEntity ?? {};
+  const tradeTaint = FORK_FLAGS.ENABLE_NECROMANCY ? getEffectiveTradeTaint(tradeEntity) : 0;
+  const disguised = FORK_FLAGS.ENABLE_NECROMANCY ? isPlayerDisguised(tradeEntity) : false;
+  const effectivePersonality =
+    FORK_FLAGS.ENABLE_NECROMANCY &&
+    !(mercantile === ONLINE_HAGGLE_MAX && personality === ONLINE_HAGGLE_MAX) &&
+    tradeTaint > 0
+      ? applyTaintDisposition(personality, tradeEntity)
+      : personality;
+  const repBuyMult = getReputationPriceModifier(tradeEntity, quality)?.buyMult ?? 1;
 
   const haggled = calculateTradePrice(
     preHaggle,
     quality,
-    { mercantile, personality, entity: playerEntity ?? {} },
+    { mercantile, personality, entity: tradeEntity },
     false,
     { online: false },
   );
@@ -1212,6 +1226,10 @@ export function calculateAdventurerHireQuote(
     isMerchantsFestival,
     mercantile,
     personality,
+    effectivePersonality,
+    tradeTaint,
+    disguised,
+    repBuyMult,
   };
 }
 

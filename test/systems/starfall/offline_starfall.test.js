@@ -10,6 +10,7 @@ import {
   shouldRollStarToday,
   pickOfflineStarPixel,
   spawnOfflineStar,
+  offlineStarSiteOf,
   stepOfflineStarClock,
   stepOfflineLedger,
   recordOfflineStarHeld,
@@ -17,12 +18,16 @@ import {
   getOfflineStarfallState,
   _resetOfflineStarfallForTests,
   OFFLINE_STARFALL_MIN_LEVEL,
+  OFFLINE_LIFE_MS,
   OFFLINE_FAST_TRAVEL_MIN_LEFT_MS,
 } from '../../../src/systems/starfall/offlineStarfall.js';
 import { isStarglass } from '../../../src/systems/starfall/starglass.js';
 import { itemFindings } from '../../../src/systems/item/itemLaw.js';
 import { setPref } from '../../../src/systems/uiPrefs.js';
-import { P_GATHER, P_WAVE, P_BREATH, P_MASTER, P_HELD } from '../../../src/net/starfall/starfallLaw.js';
+import { P_GATHER, P_WAVE, P_BREATH, P_MASTER, P_HELD, starTimes } from '../../../src/net/starfall/starfallLaw.js';
+import { createStarfallHost, STAR_FLASH_LIGHT_M } from '../../../src/scenes/starfall/starfallHost.js';
+import { STAR_FLASH_W } from '../../../src/render/starfall/starfallPass.js';
+import { starTrackerModel } from '../../../src/systems/starfall/starfallClient.js';
 
 function makeScan() {
   const byRegion = new Map();
@@ -166,4 +171,53 @@ test('3. Local solo ledger clears waves and master without online anti-cheat flo
   active.awarded = false;
   const highHold = recordOfflineStarHeld({ ...active, awarded: false }, OFFLINE_STARFALL_MIN_LEVEL);
   assert.equal(highHold.autoStartNow, true);
+});
+
+test('4. Offline fallen star clock does not go negative before fallAt or blow up impact flash', () => {
+  _resetOfflineStarfallForTests();
+  setPref('offlineStarfall', 'normal');
+  const scan = makeScan();
+  let nearModel = null;
+  const host = createStarfallHost({
+    offline: true,
+    renderer: null,
+    state: { pixelTranslation: (px, py, out) => { out[0] = px * 100; out[1] = 0; out[2] = py * 100; return out; } },
+    gateScanOf: () => scan,
+    warmGateScan: () => {},
+    surfaceAt: () => 0,
+    player: { feetAt: () => [100 * 100, 0, 100 * 100] },
+    playerPixel: () => ({ x: 100, y: 100 }),
+    classicMinutes: () => 10 * 1440,
+    walkMode: true,
+    playerSpawned: true,
+    _questRegionIndex: () => 42,
+    gamePaused: () => false,
+    townTalk: { hudHidden: false },
+  });
+  const active = host.spawnDebugStar({ startFallen: true });
+  assert.ok(active);
+  const site = offlineStarSiteOf(active);
+
+  active.activeElapsedMs = 0;
+  host.step();
+  const eye = [100 * 100, 2, 100 * 100];
+  const lists0 = host.skyLists(eye);
+  assert.ok(lists0.glows.length <= 1);
+  if (lists0.glows.length === 1) {
+    assert.ok(lists0.glows[0].w <= STAR_FLASH_W, `flash width ${lists0.glows[0].w} must not exceed STAR_FLASH_W`);
+    assert.ok(lists0.glows[0].light <= 2, `flash light ${lists0.glows[0].light} must not exceed 2`);
+  }
+  const fl = host.flash();
+  assert.ok(fl && fl.range <= STAR_FLASH_LIGHT_M);
+  const trackerT = starTimes(active.n, active.k).endAt - OFFLINE_LIFE_MS;
+  nearModel = starTrackerModel(site, active.led, trackerT, '', false);
+  assert.match(nearModel.left, /20:00/);
+
+  // Past STAR_FLASH_MS: flash glow gone, beacon visible
+  active.activeElapsedMs = 2500;
+  host.step();
+  const lists2500 = host.skyLists(eye);
+  assert.equal(lists2500.glows.length, 0);
+  assert.equal(lists2500.beacons.length, 1);
+  assert.ok(lists2500.beacons[0].fade > 0);
 });

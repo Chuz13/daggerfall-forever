@@ -5294,10 +5294,12 @@ export function executeLivingConsoleCommand(args, ctx) {
         regionIndex: regIdx,
         nowMinutes: ctx?.nowMinutes ?? 0,
       });
+      const repBit = q.repBuyMult !== 1 ? ` | RepRate=x${q.repBuyMult.toFixed(2)}` : '';
+      const disgBit = q.disguised ? ' | Disguised=YES' : '';
       return [
         `[Living Tamriel] Hire Quote: ${getAdventurerDisplayName(adv)} (Lv.${q.advLevel} ${adv.className || 'Warrior'}, Trait: ${adv.trait}, Haggle Quality: ${q.quality})`,
         `  Base: ${q.baseDaily}g/day | Quoted: ${q.dailyCost}g/day | ${q.days}d Total: ${q.totalCost}g (Discount: ${q.discountPct}%)`,
-        `  Player Inputs: Mercantile=${q.mercantile}, Personality=${q.personality} | MerchantsFestival=${q.isMerchantsFestival ? 'YES (-50%)' : 'no'} | WartimeRate=${q.isWartime ? `x${q.warFactor.toFixed(2)}` : '1.00'}`,
+        `  Player Inputs: Mercantile=${q.mercantile}, Personality=${q.personality}, EffPers=${q.effectivePersonality}, Taint=${q.tradeTaint}${disgBit}${repBit} | MerchantsFestival=${q.isMerchantsFestival ? 'YES (-50%)' : 'no'} | WartimeRate=${q.isWartime ? `x${q.warFactor.toFixed(2)}` : '1.00'}`,
       ].join('\n');
     }
     if (act === 'companion') {

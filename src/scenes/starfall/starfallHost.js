@@ -160,6 +160,7 @@ import {
   OFFLINE_OMEN_MS,
   OFFLINE_STREAK_MS,
   OFFLINE_LIFE_MS,
+  OFFLINE_AFTER_MS,
   OFFLINE_FOE_HEALTH,
   OFFLINE_SAY_M,
   OFFLINE_LEASH_M,
@@ -1095,7 +1096,7 @@ export function createStarfallHost(host) {
       host.chatNotice?.(OFFLINE_STAR_TEXT.renown(gained));
     }
     const { autoStartNow } = recordOfflineStarHeld(active, level);
-    if (S?.key) held.set(S.key, { top: [], c: 1, at: offlineClockOf(active) });
+    if (S?.key) held.set(S.key, { top: [], c: 1, at: starTimes(active.n, active.k).fallAt + OFFLINE_LIFE_MS });
     host.onOfflineStarHeld?.({ heart: !!active.heart, autoStartNow });
   }
 
@@ -1105,12 +1106,9 @@ export function createStarfallHost(host) {
     const el = Math.max(0, active.activeElapsedMs || 0);
     if (active.stage === 'omen') return T.omenAt + Math.min(1, el / OFFLINE_OMEN_MS) * (T.streakAt - T.omenAt);
     if (active.stage === 'streak') return T.streakAt + Math.min(1, el / OFFLINE_STREAK_MS) * (T.fallAt - T.streakAt);
-    if (active.stage === 'fallen') {
-      const leftMs = Math.max(0, OFFLINE_LIFE_MS - el);
-      return T.endAt - leftMs;
-    }
-    if (active.stage === 'after') return T.endAt + el;
-    return T.goneAt;
+    if (active.stage === 'fallen') return T.fallAt + Math.min(OFFLINE_LIFE_MS, el);
+    if (active.stage === 'after') return T.fallAt + OFFLINE_LIFE_MS + el;
+    return T.fallAt + OFFLINE_LIFE_MS + OFFLINE_AFTER_MS;
   }
 
   function defend(S, t, d) {
@@ -1229,7 +1227,7 @@ export function createStarfallHost(host) {
     }
     if ((S.phase === 'fallen' || S.phase === 'after') && !Number.isFinite(S.impactAt)) {
       S.impactAt = T.fallAt;
-      if (t - T.fallAt < 4000) {
+      if (t >= T.fallAt && t - T.fallAt < 4000) {
         // the landing seen as it happens (a page opened later finds it standing)
         if (allowOmen) sayOnce(S, 'fell', STAR_REGION_TEXT.fell(S.site.near));
         // AUDIT STARFALL R7: the stone's strike heard its distance late, as the thunder is - never with the flash
@@ -1269,7 +1267,7 @@ export function createStarfallHost(host) {
     }
     if (S.phase === 'fallen' || S.phase === 'after') {
       const since = t - T.fallAt;
-      if (since < STAR_FLASH_MS) {
+      if (since >= 0 && since < STAR_FLASH_MS) {
         const c = skyClamp(eye, [S.heart[0], S.heart[1] + 6, S.heart[2]]);
         sky.glows.push({
           at: c.at,
@@ -1296,7 +1294,7 @@ export function createStarfallHost(host) {
         ? Math.max(0, 1 - (t - (held.get(S.key)?.at ?? ledgers.get(S.key)?.hd ?? t)) / STAR_HELD_FADE_MS)
         : L.lost
           ? 0
-          : Math.min(1, since / 3000) * dim;
+          : Math.max(0, Math.min(1, since / 3000)) * dim;
       // AUDIT STARFALL R2: the beacon is a sky thing as the omen is - scaled about the eye to STAR_SKY_R (its foot, its
       // height and its width with it), so the far plane never cuts a star's column seen from across the region
       if (fade > 0) {
@@ -1394,7 +1392,9 @@ export function createStarfallHost(host) {
         const S = stars.get(key) ?? enter(site);
         if (isOffline && activeOff?.led && !ledgers.has(key)) {
           ledgers.set(key, starLedgerState(activeOff.led, 'offline'));
-          if (activeOff.awarded) held.set(key, { top: [], c: 1, at: effT });
+          if (activeOff.awarded) {
+            held.set(key, { top: [], c: 1, at: starTimes(activeOff.n, activeOff.k).fallAt + OFFLINE_LIFE_MS });
+          }
         }
         S.phase = phase;
         placeOf(S);
@@ -1447,7 +1447,11 @@ export function createStarfallHost(host) {
       if (near) {
         const L = ledgers.get(near.key) ?? null,
           M = starMasterOf(L?.b ?? 1, near.site.k, near.site.coven);
-        drawStarTracker(starTrackerModel(near.site, L, effT, M.name(), held.has(near.key)), { hidden });
+        const trackerT =
+          isOffline && activeOff && activeOff.stage === 'fallen'
+            ? starTimes(near.site.n, near.site.k).endAt - Math.max(0, OFFLINE_LIFE_MS - Math.max(0, activeOff.activeElapsedMs || 0))
+            : effT;
+        drawStarTracker(starTrackerModel(near.site, L, trackerT, M.name(), held.has(near.key)), { hidden });
         trackerUp = true;
         const m = near.masterFoe;
         const bar =

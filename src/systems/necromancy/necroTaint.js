@@ -73,6 +73,27 @@ export function getTaintTier(playerEntity = null) {
 }
 
 /**
+ * Sets the player's necromantic taint to a specific value (0..100) for mortals.
+ * Locked at 100 while Lichdom/Ancient Lichdom is active.
+ * @param {number} amount
+ * @param {object} [playerEntity]
+ * @returns {number} New taint level
+ */
+export function setNecroTaint(amount, playerEntity = null) {
+  if (playerEntity && isAnyLich(playerEntity)) {
+    _playerTaint = 100;
+    if (typeof playerEntity === 'object') playerEntity.necroTaint = 100;
+    return 100;
+  }
+  const next = Number.isFinite(amount) ? Math.min(100, Math.max(0, amount)) : 0;
+  _playerTaint = next;
+  if (playerEntity && typeof playerEntity === 'object') {
+    playerEntity.necroTaint = _playerTaint;
+  }
+  return _playerTaint;
+}
+
+/**
  * Increases the player's necromantic taint.
  * @param {number} amount
  * @param {object} [playerEntity]
