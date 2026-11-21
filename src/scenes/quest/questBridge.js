@@ -1053,14 +1053,27 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     onExteriorTransition() { machine.notifyExteriorTransition(); },
     onInitWorld() { machine.notifyInitWorld(); },
 
-    /** Auto-start Morwen's line on first held star at Lv 6+ and note star-held acts. */
+    /** Prime QlAct trigger baselines to 0 before noting an immediate act on a freshly started quest. */
     onOfflineStarHeld({ heart = false, autoStartNow = false } = {}) {
       if (!isOfflineStarfallActive()) return false;
+      const primeQlActBaselines = (questName) => {
+        for (const q of machine.quests.values()) {
+          if (q.questName !== questName || q.questComplete || q.questTombstoned) continue;
+          for (const task of q.tasks?.values?.() ?? []) {
+            for (const a of task?.actions ?? []) {
+              if (a?.typeName === 'QlAct' && a.from == null) a.from = 0;
+            }
+          }
+        }
+      };
       const runner = questlines?.runner;
       if (autoStartNow && runner && !runner.lineState('thirteenthFrostfall')) {
         const q = runner.offerQuest('thirteenthFrostfall');
         const res = runner.takeLine('thirteenthFrostfall', q ? { quest: q } : undefined);
-        if (res?.ok) clearPendingAutoLine();
+        if (res?.ok) {
+          clearPendingAutoLine();
+          primeQlActBaselines('QLTF01');
+        }
       }
       noteAct('star-held');
       if (heart) noteAct('heart-star-held');
@@ -1079,6 +1092,14 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       const res = runner.takeLine('thirteenthFrostfall', q ? { quest: q } : undefined);
       if (!res?.ok) return false;
       clearPendingAutoLine();
+      for (const started of machine.quests.values()) {
+        if (started.questName !== 'QLTF01' || started.questComplete || started.questTombstoned) continue;
+        for (const task of started.tasks?.values?.() ?? []) {
+          for (const a of task?.actions ?? []) {
+            if (a?.typeName === 'QlAct' && a.from == null) a.from = 0;
+          }
+        }
+      }
       noteAct('star-held');
       return true;
     },

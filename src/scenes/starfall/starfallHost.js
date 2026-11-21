@@ -136,7 +136,9 @@ import { betterAmbience } from '../../systems/betterAmbience.js';
 import { trs } from '../../world/mat4.js';
 import { setEventGround } from '../../systems/eventGround.js'; // RPT1026-EVENTS GATE-WAY: a fallen star's heart an event's ground
 import { adoptLight } from '../../render/lightId.js';
-import { tellTaken } from '../../systems/inventory.js';
+import { tellTaken, goldStack } from '../../systems/inventory.js';
+import { hudText } from '../../systems/notify.js';
+import { showPickups } from '../../ui/pickupFeed.js';
 import { addOfflineRenownXp } from '../../systems/offlineFirmament.js';
 import { renownRaidXp } from '../../net/renown.js';
 import { insideGateRing } from '../../systems/gate/gateOmen.js';
@@ -291,7 +293,17 @@ export function createStarfallHost(host) {
     sprang: (site) => host.wodSprang?.(site),
     unsprang: (site) => host.wodUnsprang?.(site),
   };
-  const say = (text, id = null) => (host.eventNotice ?? eventNotice)('star', text, id); // AUDIT EVENTS1 A1: with its star's id (the board's row, starTimerRows)   // EVENTS1: the event board's news, never the chat (`eventNotice` the tests')
+  const offlineNotice = (text) => {
+    if (!text) return;
+    if (host.offlineNotice) host.offlineNotice(text);
+    else hudText(text);
+  };
+  const say = (text, id = null) =>
+    isOffline
+      ? host.eventNotice
+        ? host.eventNotice('star', text, id)
+        : offlineNotice(text)
+      : (host.eventNotice ?? eventNotice)('star', text, id); // AUDIT EVENTS1 A1: with its star's id (the board's row, starTimerRows)   // EVENTS1: the event board's news, never the chat (`eventNotice` the tests')
   const onBare = (x0, z0, x1, z1) => host.labGrassField?.invalidate?.(x0, z0, x1, z1);
   const shake = (k) => betterAmbience.weaponKick?.(k);
   const regionAt = () => host._questRegionIndex?.() ?? -1;
@@ -1084,16 +1096,23 @@ export function createStarfallHost(host) {
     const level = Math.max(1, Math.floor(playerEntity?.level ?? 1));
     const seed = ((active.n * 2654435761) ^ (active.k + 1)) >>> 0;
     const spoilsList = offlineStarSpoilsList({ seed, level, heart: !!active.heart });
+    const moved = [];
     for (const entry of spoilsList) {
       host.takeSpoil?.(entry);
-      if (entry.kind === 'item' && entry.item) tellTaken(entry.item);
+      if (entry.kind === 'item' && entry.item) {
+        tellTaken(entry.item);
+        moved.push({ item: entry.item, count: Math.max(1, entry.item.stackCount ?? 1) });
+      } else if (entry.kind === 'gold' && entry.gold > 0) {
+        moved.push({ item: goldStack(entry.gold), count: entry.gold });
+      }
     }
-    setMidScreenText(STAR_SPOILS_TEXT.granted(), 4);
+    if (moved.length) showPickups(moved, playerEntity);
+    offlineNotice(STAR_SPOILS_TEXT.granted());
     const baseXp = renownRaidXp(host.renownLevel?.() ?? 1);
     const gained = addOfflineRenownXp(baseXp);
     if (gained > 0) {
       host.sigilDrinks?.(gained);
-      host.chatNotice?.(OFFLINE_STAR_TEXT.renown(gained));
+      offlineNotice(OFFLINE_STAR_TEXT.renown(gained));
     }
     const { autoStartNow } = recordOfflineStarHeld(active, level);
     if (S?.key) held.set(S.key, { top: [], c: 1, at: starTimes(active.n, active.k).fallAt + OFFLINE_LIFE_MS });
@@ -1791,14 +1810,14 @@ export function createStarfallHost(host) {
       const nextStage = stepOfflineStarClock(st.active, dtMs, classicMin, px.x, px.y, { indoors: true });
       if (prevStage !== 'fallen' && nextStage === 'fallen') {
         if (Math.max(Math.abs(st.active.px - px.x), Math.abs(st.active.py - px.y)) <= OFFLINE_STAR_SKY_PX) {
-          host.chatNotice?.(OFFLINE_STAR_TEXT.fellIndoors(st.active.town?.name ?? null));
+          offlineNotice(OFFLINE_STAR_TEXT.fellIndoors(st.active.town?.name ?? null));
         }
       }
     },
     /** Console & debug helpers for offline Starfall testing. */
     spawnDebugStar({ heart = false, startFallen = false } = {}) {
       if (!isOffline) return null;
-      const sc = scan();
+      const sc = scan() ?? host.gateScanOf?.() ?? null;
       if (!sc) return null;
       this.destroyScene();
       const px = host.playerPixel?.() ?? { x: 0, y: 0 };

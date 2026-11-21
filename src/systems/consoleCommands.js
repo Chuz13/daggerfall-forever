@@ -1918,9 +1918,10 @@ registerCommand('prof', 'Manage offline crafting and gathering professions: prof
 
 registerCommand(
   'starfall',
-  'Offline Starfall testing: starfall <status|spawn [heart] [fallen]|clear>',
-  'starfall <status | spawn [heart] [fallen] | clear>',
-  (args = [], ctx = null) => {
+  'Offline Starfall testing: starfall <status|spawn [heart] [fallen|omen]|clear>',
+  'starfall <status | spawn [heart] [fallen|omen] | clear>',
+  (args = []) => {
+    const ctx = getDebugSceneContext();
     const sub = String(args[0] || 'status').toLowerCase();
     if (sub === 'spawn') {
       if (!ctx?.spawnStarfall) return 'Offline Starfall host is unavailable in this scene.';
@@ -1942,7 +1943,7 @@ registerCommand(
       const a = st.active;
       const lines = [
         `<b>Offline Starfall Status:</b>`,
-        `Stars Held: ${st.starsHeld} | Since Heart-Star: ${st.sinceHeart} | Starwarden: ${st.starwardenEarned ? 'YES' : 'NO'} | Pending QLTF01: ${st.pendingAutoLine ? 'YES' : 'NO'}`,
+        `Player Lv: ${playerEntity?.level ?? 1} | Stars Held: ${st.starsHeld} | Since Heart-Star: ${st.sinceHeart} | Starwarden: ${st.starwardenEarned ? 'YES' : 'NO'} | Pending QLTF01: ${st.pendingAutoLine ? 'YES' : 'NO'}`,
       ];
       if (!a) lines.push('Active Star: none');
       else {
@@ -1951,7 +1952,7 @@ registerCommand(
       }
       return lines.join('\n');
     }
-    return 'Usage: starfall <status | spawn [heart] [fallen] | clear>';
+    return 'Usage: starfall <status | spawn [heart] [fallen|omen] | clear>';
   },
 );
 registerCommand('profession', 'Manage offline professions: profession <list|set|addxp>', 'profession <subcommand>', handleProfCommand);
