@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
-import { walkerRace, raceOfPeople, redguardRegion, RACE_OF_PEOPLE, PERSON_TEXTURES, PERSON_FACE_RECORDS, GUARD_TEXTURE } from '../../../src/characters/mobile/mobilePerson.js';
+import { walkerRace, raceOfPeople, redguardRegion, RACE_OF_PEOPLE, PERSON_TEXTURES, PERSON_FACE_RECORDS, PERSON_IDLE_FPS, GUARD_TEXTURE } from '../../../src/characters/mobile/mobilePerson.js';
 import { REGION_NAMES, REGION_RACES } from '../../../src/formats/mapsTables.js';
 import { FACTION_RACES, CLIMATES } from '../../../src/formats/mapsFile.js';
 import { mintResident } from '../../../src/systems/livingWorld/census.js';
@@ -59,9 +59,9 @@ test('REGIONAL-FOLK: Roleplay & Realism\'s house residents follow the street - a
   for (const k of ['Enabled', 'variantResidents']) setModSetting('roleplay-realism', k, true);
   const resident = { textureArchive: 182, textureRecord: 10, factionID: 0 };
   const at = (r) => rrVariantPerson(resident, { buildingType: BUILDING_TYPES.House2, quality: 10, nameSeed: 5, worldClimate: CLIMATES.Woodlands, region: r });
-  assert.deepEqual(at(region('Sentinel')), { textureArchive: PERSON_TEXTURES.Redguard.female[1], textureRecord: 5 });
-  assert.deepEqual(at(region('Daggerfall')), { textureArchive: PERSON_TEXTURES.Breton.female[1], textureRecord: 5 }, 'R&R\'s own GetClimateRace elsewhere');
-  assert.deepEqual(at(null), { textureArchive: PERSON_TEXTURES.Breton.female[1], textureRecord: 5 });
+  assert.deepEqual(at(region('Sentinel')), { textureArchive: PERSON_TEXTURES.Redguard.female[1], textureRecord: 5, fps: PERSON_IDLE_FPS });
+  assert.deepEqual(at(region('Daggerfall')), { textureArchive: PERSON_TEXTURES.Breton.female[1], textureRecord: 5, fps: PERSON_IDLE_FPS }, 'R&R\'s own GetClimateRace elsewhere');
+  assert.deepEqual(at(null), { textureArchive: PERSON_TEXTURES.Breton.female[1], textureRecord: 5, fps: PERSON_IDLE_FPS });
   _resetModSettings(); _resetFlatFaceOverrides();
 });
 

@@ -644,8 +644,9 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     // clothed stand-in while Show Nudity is off - the temples of Kynareth's
     // own two among them. Same door, same born identity.
     const [da, dr] = drawnFlat(v?.textureArchive ?? pn.textureArchive, v?.textureRecord ?? pn.textureRecord);
+    const drawFps = v?.fps != null && da === v.textureArchive && dr === v.textureRecord ? v.fps : null;
     const redrawn = v || da !== pn.textureArchive || dr !== pn.textureRecord;
-    return { ...pn, x, y, z, active: visible, questBehaviour: null, ...(redrawn ? { drawArchive: da, drawRecord: dr } : {}) };
+    return { ...pn, x, y, z, active: visible, questBehaviour: null, ...(redrawn ? { drawArchive: da, drawRecord: dr } : {}), ...(drawFps != null ? { drawFps } : {}) };
   });
   // LAMP-KEEPER II (systems/lampKeeper.js): the host's pick - a shop's keeper standing as the lamp today keeps its born identity
   // (its name, its shop) and stands as the lamp; no Morrowind body is read for it (MWNPC8a's look, null)
@@ -737,7 +738,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       if (!peopleBuilt || _rigFor || !pn.stood || pn.standBatch) return;
       uploadRecord(pn.drawArchive ?? pn.textureArchive, pn.drawRecord ?? pn.textureRecord);   // RR2: the re-materialised billboard   // REVIEW 2026-09-05: a FLAT - alphaIndex 0 (DaggerfallBillboard.cs:289-293), the cutout key drawBillboards reads; PR #55 had sent it through the mesh door and the person never drew
       pn.standBatch = renderer.createBillboardBatch(pn.drawArchive ?? pn.textureArchive, pn.drawRecord ?? pn.textureRecord, size, [[pn.x, pn.y, pn.z]]);
-      armFlatAnim(pn.standBatch, t, pn.drawArchive ?? pn.textureArchive, pn.drawRecord ?? pn.textureRecord, flatAnims, uploadRecordFrame);
+      armFlatAnim(pn.standBatch, t, pn.drawArchive ?? pn.textureArchive, pn.drawRecord ?? pn.textureRecord, flatAnims, uploadRecordFrame, pn.drawFps != null ? { fps: pn.drawFps } : undefined);
       billboardBatches.push(pn.standBatch);
     })().catch((e) => console.error('[interior] person stand failed:', e));
   };
