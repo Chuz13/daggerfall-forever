@@ -38,6 +38,7 @@ import { t } from '../../systems/textManager.js';   // L10N4: the death screen's
 import { bindings } from '../input.js';
 import { codeForAction } from '../../systems/inputActions.js';
 import { buttonText } from '../../systems/controlsConfig.js';
+import { drawGameLogPane, releaseGameLogPane } from '../gameLogPane.js';
 
 export const ENHANCED_DEATH_ID = 'enhanced-death';
 const STALE_MS = 350;
@@ -45,6 +46,8 @@ const STALE_MS = 350;
 let node = null;
 let owner = null;
 let watch = null;
+let logModal = null;
+let logKeyHandler = null;
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -115,10 +118,58 @@ function build(screen) {
   const wild = el('div', 'dth-wild');
   wild.hidden = true;
   band.append(title, rule, line, count, keys);
+  const logBtn = el('button', 'dth-log-btn', t('death.viewLog', 'Combat Log'));
+  logBtn.type = 'button';
+  logBtn.onclick = () => toggleDeathLogModal(root);
+  band.append(logBtn);
   line.after(wild);   // hidden everywhere but the zone - the loss still has no second line of its own
   root.append(band);
   document.body.append(root);
   return root;
+}
+
+function closeDeathLogModal() {
+  if (logKeyHandler) {
+    document.removeEventListener?.('keydown', logKeyHandler, true);
+    logKeyHandler = null;
+  }
+  if (logModal) {
+    releaseGameLogPane();
+    logModal.remove?.();
+    logModal = null;
+  }
+}
+
+function toggleDeathLogModal(root) {
+  if (logModal) {
+    closeDeathLogModal();
+    return;
+  }
+  const modal = el('div', 'dth-log-modal');
+  const win = el('div', 'px-win dth-log-win');
+  const head = el('div', 'dth-log-head');
+  head.append(el('h2', null, t('death.viewLog', 'Combat Log')));
+  const close = el('button', 'dth-log-close', t('death.closeLog', 'Close'));
+  close.type = 'button';
+  close.onclick = () => closeDeathLogModal();
+  head.append(close);
+  const body = el('div', 'px-body');
+  win.append(head, body);
+  modal.append(win);
+  root.append(modal);
+  logModal = modal;
+  drawGameLogPane(body, { selectLatestEncounter: true });
+  logKeyHandler = (e) => {
+    if (!logModal) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeDeathLogModal();
+      return;
+    }
+    e.stopPropagation();
+  };
+  document.addEventListener?.('keydown', logKeyHandler, true);
 }
 
 /** One frame of the enhanced death screen - called from DeathScreen.draw
@@ -150,6 +201,7 @@ export function drawEnhancedDeath(screen, fade = 0) {
 }
 
 export function removeEnhancedDeath() {
+  closeDeathLogModal();
   disarmDraw(watch); watch = null;
   node?.remove(); node = null; owner = null;
 }
@@ -242,8 +294,23 @@ button.dth-key:focus-visible { outline: 1px solid rgba(142,27,20,0.8); outline-o
 .dth-wild-claim { color: #d0563f; }
 .dth-wild-slain { color: #e8c9a0; font-size: clamp(15px, 1.9vw, 19px); }
 .dth-keys[hidden] { display: none; }
+.dth-log-btn { pointer-events: auto; cursor: pointer; margin-top: 6px; padding: 6px 14px;
+  font-family: ${PIXEL_STACK}; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #e8c9a0; background: rgba(24,10,8,0.86); border: 1px solid rgba(192,138,62,0.65);
+  text-shadow: 2px 2px 0 #000; animation: dth-in 700ms ease-out 1800ms both; }
+.dth-log-btn:hover, .dth-log-btn:focus-visible { border-color: #f3ef2c; color: #f3ef2c; outline: none; }
+.dth-log-modal { position: fixed; inset: 0; z-index: 19; pointer-events: auto;
+  display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,0.78); }
+.dth-log-win { width: min(1160px, 94vw); height: min(760px, 86dvh); display: flex; flex-direction: column;
+  background: rgba(10,12,17,0.95); border: 2px solid #7d7460; }
+.dth-log-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px;
+  border-bottom: 1px solid rgba(125,116,96,0.55); }
+.dth-log-head h2 { margin: 0; font-family: ${PIXEL_STACK}; font-size: 18px; color: #efe3bc; letter-spacing: 0.08em; text-transform: uppercase; }
+.dth-log-close { font-family: ${PIXEL_STACK}; font-size: 13px; padding: 4px 12px; cursor: pointer;
+  color: #efe3bc; background: rgba(30,35,46,0.9); border: 1px solid rgba(190,165,98,0.65); text-transform: uppercase; }
+.dth-log-close:hover { border-color: #f3ef2c; color: #f3ef2c; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dth-veil, .dth-band, .dth-title, .dth-rule, .dth-line, .dth-count, .dth-keys, .dth-edge, .dth-wild { animation: none; }
+  .dth-veil, .dth-band, .dth-title, .dth-rule, .dth-line, .dth-count, .dth-keys, .dth-edge, .dth-wild, .dth-log-btn { animation: none; }
 }
 `;

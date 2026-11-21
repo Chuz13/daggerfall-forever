@@ -428,7 +428,8 @@ export function calculateSuccessfulHit(attacker, target, chanceToHitMod, struckB
   // audit-F4 zero. BadReactionsFrom is its one core writer.
   const enchMod = enchantChanceToHitMod(attacker);
   chance += enchMod;
-  chance += getPerkHitBonus(attacker);
+  const perkMod = getPerkHitBonus(attacker);
+  chance += perkMod;
   const statMod = statsToHit(attacker, target);
   chance += statMod;
   const skillRoll = rolls();
@@ -449,7 +450,7 @@ export function calculateSuccessfulHit(attacker, target, chanceToHitMod, struckB
       finalChance: chance,
       hitRoll: Math.floor(hitRoll01 * 100),
       isHit: hit,
-      modifiers: { armorMod, adrenMod, enchMod, statMod, skillMod, adjMod },
+      modifiers: { armorMod, adrenMod, enchMod, perkMod, statMod, skillMod, adjMod },
     };
   }
   return hit;
@@ -671,11 +672,33 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     hit: false,
     ineffective: false,
     diag: {
+      core: 'classic',
+      attackSkill: weapon ? (weaponSkillUsed(weapon.templateIndex) ?? SKILLS.HandToHand) : SKILLS.HandToHand,
+      weaponMaterial: weapon?.material ?? null,
+      minMetalToHit: target.minMetalToHit ?? -1,
+      targetHpBefore: target.health ?? null,
       toHit: null,
+      toHitParts: {
+        swingToHit: toHitMod,
+        profToHit: 0,
+        racialToHit: 0,
+        backstabToHit: backstabChance,
+        weaponMatToHit: 0,
+      },
       damage: {
         rawDamage: 0,
         finalDamage: 0,
         mitigated: 0,
+        swingDamageMod: damageMod,
+        profDamageMod: 0,
+        racialDamageMod: 0,
+        strMod: 0,
+        matDamageMod: 0,
+        qualityDamageMod: 0,
+        enemyTypeMod: 0,
+        backstabApplied: false,
+        eliteScale: 1,
+        staggered: false,
         modsApplied: [],
       },
       hooks: [],
@@ -755,15 +778,23 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     const prof = proficiencyModifiers(attacker, weapon);
     damageModifiers += prof.damageMod;
     chanceToHitMod += prof.toHitMod;
+    notes.diag.toHitParts.profToHit = prof.toHitMod;
+    notes.diag.damage.profDamageMod = prof.damageMod;
     const racial = racialModifiers(attacker, weapon);
     damageModifiers += racial.damageMod;
     chanceToHitMod += racial.toHitMod;
+    notes.diag.toHitParts.racialToHit = racial.toHitMod;
+    notes.diag.damage.racialDamageMod = racial.damageMod;
   }
   chanceToHitMod += backstabChance;
   // CalculateWeaponToHit: material modifier x 10 rides the WEAPON
   // branch only, verbatim (audit F3).
   // RR1: `if (TryGetOverride("CalculateWeaponToHit", out del)) return del(weapon);` (FormulaHelper.cs:1140-1146) - Roleplay & Realism's weaponMaterials registers x3
-  if (weapon) chanceToHitMod += _overrides.get('calculateWeaponToHit')?.(weapon) ?? (getEffectiveWeaponMaterialModifier(weapon.material) * 10);
+  if (weapon) {
+    const wepMatHit = _overrides.get('calculateWeaponToHit')?.(weapon) ?? (getEffectiveWeaponMaterialModifier(weapon.material) * 10);
+    chanceToHitMod += wepMatHit;
+    notes.diag.toHitParts.weaponMatToHit = wepMatHit;
+  }
   if (weapon) chanceToHitMod = adjustWeaponHitChanceMod(attacker, target, chanceToHitMod, weaponAnimTime, weapon);   // AUDIT PCO1: the stock's mod hook, right after CalculateWeaponToHit
   const struck = calculateStruckBodyPart(rolls());
   struckPart = struck;   // SW1: carried out to the tail's hook, which sits past this block
@@ -843,6 +874,16 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     weapon.poisonType = -1;
   }
   damage = shared(Math.max(0, damage));
+  if (overridden === undefined && notes.diag?.damage) {
+    if (attacker.isPlayer) notes.diag.damage.strMod = damageModifier(liveStat(attacker, 'strength'));
+    if (weapon) {
+      notes.diag.damage.matDamageMod = getEffectiveWeaponMaterialModifier(weapon.material);
+      notes.diag.damage.qualityDamageMod = getQualityDamageModifier(weapon.quality);
+    }
+    notes.diag.damage.enemyTypeMod = bonusOrPenaltyByEnemyType(attacker, target);
+    notes.diag.damage.backstabApplied = Boolean(notes.backstab);
+    if (!notes.diag.damage.rawDamage) notes.diag.damage.rawDamage = damage;
+  }
   // FormulaHelper.cs:699-701: the equipment damages at the TAIL with
   // the clamped value, whatever the hit rolled.
   damageEquipment(attacker, target, damage, weapon, struck, { rolls, say });
@@ -903,6 +944,7 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   // applyEliteScaling). After either core - stock or a mod's override - so the multiplier holds
   // whichever formula rolled the hit; the concealment break and the HUD below see the real number.
   if (!attacker.isPlayer && damage > 0 && Number.isFinite(attacker.damageScale) && attacker.damageScale !== 1) {
+    notes.diag.damage.eliteScale = attacker.damageScale;
     damage = Math.max(1, Math.round(damage * attacker.damageScale));
   }
   // SOFTCAP1: MENTOR MODE at the same tail - a mentored player's weapon lands
@@ -919,7 +961,9 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
   }
   // TELL1 (bible/12-Enhanced-AI/Feud-Arc.md 3.2): what the TARGET takes - a staggered foe a quarter more - after either
   // core and every scale of the striker's, before the reports below, so they say what landed (systems/blowTaken.js)
+  const preBlowTaken = damage;
   damage = blowTaken(damage, attacker, target, weapon, { kind: weapon && weaponSkillUsed(weapon.templateIndex) === SKILLS.Archery ? 'arrow' : 'melee', ...(blowInfo ?? {}) });   // TELL6d: what the blow was (an aimed shot's)
+  if (damage > preBlowTaken && notes.diag?.damage) notes.diag.damage.staggered = true;
   // AUDIT 24 (wave 31) - A LANDED HIT ENDS THE ATTACKER'S NORMAL-POWER
   // CONCEALMENT, and it was unported at every door.
   //

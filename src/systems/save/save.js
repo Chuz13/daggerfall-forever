@@ -92,6 +92,7 @@ import { apotheosisHpOf } from '../apotheosis/apotheosisLive.js';
 import { getPerkHealthBonus } from '../perks/perkRegistry.js';
 import { offlineFirmamentHpOfSnap, OFFLINE_FIRMAMENT_VENDOR } from '../offlineFirmament.js';
 import { evenHpOf } from '../levelEven.js';
+import { clearGameLog } from '../gameLog.js';
 
 /**
  * Computes the effective offline base max health (`offMax`, without Renown/Firmament layer),
@@ -918,6 +919,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
     entity.necroGrimoireRead = true;
   }
   resetBlowEffects(entity);   // AUDIT TELL L2: the last game's landings - a bleed, a knockdown, a push queued - are nobody's in this one
+  clearGameLog();
   entity.oghmaLevelUp = false;   // AUDIT FB1026d II C2: the Oghma Infinium's latch is never saved - a load ends it, as a fresh entity's; restored in place, the last game's turned this game's next level into the book's thirty points, the book back in the pack
   releaseCapLatch(entity);   // LEVEL-45 (AUDIT FB1026d C1): a level owed past the cap, saved before it, is no window to open
   // CHARID1: A LEGACY SAVE IS ADOPTED HERE. An envelope written before

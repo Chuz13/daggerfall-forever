@@ -55,6 +55,7 @@ import { crosshairCentreY, CROSSHAIR_ARM } from './hud/hudCrosshair.js';
 import { hudReticle } from './hud/hud.js'; // the reticle's own two terms, from their home (the plaque's anchor reads the same)
 import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';
 import { haulWords, HAUL_ICON_BOX, LODE_ICON_BOX } from './haulCards.js'; // HAUL-CARDS: a gather's, a strike's and a claim's cards - their words
+import { recordLootPickup } from '../systems/gameLog.js';
 
 /** Four cards at most (the oldest goes past four). */
 export const PICKUP_FEED_MAX = 4;
@@ -458,6 +459,7 @@ export function showPickups(moved, identity = undefined) {
       .map((m) => pickupEntry(m?.item, m?.count, identity))
       .filter(Boolean);
     if (!entries.length) return banners;
+    recordLootPickup(entries);
     if (!queue.push(entries, _now())) return banners;
     ensure(d);
     draw();

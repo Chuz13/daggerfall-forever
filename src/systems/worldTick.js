@@ -48,6 +48,7 @@ import { NecroConfig } from './necromancy/necroConfig.js';
 import { lichdomMagicRound } from './necromancy/lichdomStatus.js';
 import { notifyApotheosisEvent } from './apotheosis/apotheosisLive.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
+import { setGameLogContext } from './gameLog.js';
 
 let _necroRestManaLocked = false;
 
@@ -136,6 +137,7 @@ let _lastMinionUpkeepMs = 0;
 // V3: the other tail - an enemy damaging the player runs the Ring of
 // Namira's reflection (registered here for the same cycle reason).
 setPlayerStruckHook((attacker, target, damage) => onPlayerStruckByEnemy(attacker, target, damage));
+setGameLogContext({ worldMinutes: () => ownMinutes() });
 // PCO1: Physical Combat And Armor Overhaul's three overrides - each
 // reads its module switch live and declines when off.
 installMeanerMonsters();   // MM1: before the overhaul, as DFU Awakes the dependency first

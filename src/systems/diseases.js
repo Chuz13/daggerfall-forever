@@ -44,6 +44,7 @@ import { dice100, formulaOverride } from '../combat/formulas.js'; // DEX4b: OnMo
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { localizedText } from './textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language
 import { noteFirstUse } from './tutorials.js'; // TUT1: the first touch of a system pops its tutorial page
+import { recordDiseaseEvent } from './gameLog.js';
 
 // ---- MagicAndEffectsEnums.Diseases, verbatim ----
 export const DISEASES = Object.freeze({
@@ -348,9 +349,13 @@ export function inflictDisease(target, diseaseList, { rolls = Math.random, curre
   // consumed neither roll, which is a divergence of the RNG stream for
   // every immune target - so the line is gone rather than moved.
   if (target.level === 1) return null; // classic: no diseases at level 1
-  if (savingThrow(2, EFFECT_FLAGS.Disease, target, 0, rolls) === 0) return null; // resisted
+  if (savingThrow(2, EFFECT_FLAGS.Disease, target, 0, rolls) === 0) {
+    recordDiseaseEvent({ diseaseType: null, contracted: false, resisted: true });
+    return null; // resisted
+  }
   const diseaseType = diseaseList[Math.floor(rolls() * diseaseList.length)]; // Range(0, length)
   const entry = startDisease(target, diseaseType, currentDay, rolls);
+  if (entry) recordDiseaseEvent({ diseaseType, contracted: true, resisted: false });
   if (entry && onContract) onContract(diseaseType, entry);
   return entry;
 }

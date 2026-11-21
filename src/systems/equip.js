@@ -35,6 +35,7 @@ import { startingProvisions } from './survival/items.js';   // SURV2: the new ch
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
 import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { ARMOR_BITS_SHIFT } from './specialAdvantages.js';   // the armour field's place, one home
+import { recordItemBroken, suppressHudTextOnce } from './gameLog.js';
 
 export { EQUIP_SLOTS, ITEM_HANDS };
 
@@ -579,7 +580,10 @@ export function lowerCondition(item, amount, owner = null, say = null, removeFro
   const name = nameOf?.(item) ?? item.name ?? templateByIndex(item.templateIndex)?.name ?? 'Item';
   // L10N3d: ItemBreaks' rows (DaggerfallUnityItem.cs:1203-1207), %s filled after the lookup - here with the port's
   // short name, where DFU passes LongName
-  say?.((PLURAL_BREAK_TEMPLATES.has(item.templateIndex) ? localizedText('itemHasBrokenPlural', '%s have broken.') : localizedText('itemHasBroken', '%s has broken.')).replace('%s', name));
+  const breakMsg = (PLURAL_BREAK_TEMPLATES.has(item.templateIndex) ? localizedText('itemHasBrokenPlural', '%s have broken.') : localizedText('itemHasBroken', '%s has broken.')).replace('%s', name);
+  recordItemBroken(name, !!owner?.isPlayer);
+  suppressHudTextOnce(breakMsg);
+  say?.(breakMsg);
   // E2 corrected E1's order to ItemBreaks' own (DaggerfallUnityItem):
   // the popup, THEN the unequip (which fires the Unequipped payloads
   // and strips any held bundle), THEN the Breaks payload - both

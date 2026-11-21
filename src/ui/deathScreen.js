@@ -41,6 +41,7 @@ import { goldPiecesOf } from '../systems/inventory.js'; // DEATH-PENALTY: the pu
 import { wildDeath, wildDeathLines, wildDeathSlain, WILD_DEATH_HOLD_S } from '../systems/wild/wildZone.js'; // WILD1: a death in the open zone holds two minutes, Enter or not
 import { noteFirstUse } from '../systems/tutorials.js'; // TUT1: the first touch of a system pops its tutorial page
 import { t } from '../systems/textManager.js'; // L10N4: the classic face's words in the player's language
+import { recordPlayerDeath } from '../systems/gameLog.js';
 
 /** L10N4: what a host's hint SAYS. The hosts hand the English hint - FIX-E's law is in it (no F11 where there is no
  *  quickload) and the enhanced face reads its keys off it - so the screen keeps it as given and shows its words; a
@@ -167,6 +168,7 @@ export class DeathScreen {
     this.goldLoss = respawns && penalty !== false && !isCasual(entity) ? deathGoldLoss(goldPiecesOf(entity)) : 0;
     if (respawns) stateDeathLoss(this.goldLoss);
     this.goldLossLine = deathPenaltyLine(this.goldLoss); // drawn ONCE: the enhanced face redraws every frame and the words must not change under the player
+    recordPlayerDeath({ goldLoss: this.goldLoss });
     this.clock = 0; // DEATH4: the enhanced screen's own clock (the sequence's stops short of its reset)
     // REZ-BLOODLINE AUDIT R2: and online, the wall clock it never runs behind (tick) - from the death
     this._wall = wall;

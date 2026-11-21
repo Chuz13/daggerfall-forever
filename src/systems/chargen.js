@@ -7,6 +7,7 @@ import { renownHpOf, renownMpOf, foldMpOf, spireHpOf } from './renownLayer.js'; 
 import { lichHpOf, lichMpOf } from './necromancy/lichdomStatus.js';
 import { apotheosisHpOf, apotheosisMpOf } from './apotheosis/apotheosisLive.js';
 import { getPerkMagickaBonus, getPerkHealthBonus } from './perks/perkRegistry.js';
+import { clearGameLog } from './gameLog.js';
 
 // Character creation (Systems S3). Verbatim ports from DFU
 // StatsRollout.cs / SkillsRollout.cs / DaggerfallSkills.cs /
@@ -315,6 +316,7 @@ export function applyCharacter(
   playerEntity.currentLevelUpSkillSum = playerEntity.startingLevelUpSkillSum;
   defineLiveMaxMagicka(playerEntity);
   defineLiveMaxHealth(playerEntity); // DISC10-E L4: DaggerfallEntity.MaxHealth, the limiter applied
+  clearGameLog();
   return playerEntity;
 }
 

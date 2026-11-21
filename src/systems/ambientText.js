@@ -20,6 +20,7 @@ import AMBIENT_TEXTS from '../../vendor/ambient-text/ambientTexts.json' with { t
 import { LOCATION_TYPES, DUNGEON_TYPES } from '../formats/mapsFile.js'; // DFRegion.LocationTypes / DungeonTypes - the names the keys are spelled with
 import { dice100 } from '../combat/formulas.js'; // Dice100.SuccessRoll
 import { weatherFlags } from '../world/weather.js'; // WeatherManager's four public flags
+import { recordAmbientText, suppressHudTextOnce } from './gameLog.js';
 
 export { AMBIENT_TEXTS };
 
@@ -248,6 +249,8 @@ export function createAmbientText({
     // string.IsNullOrWhiteSpace - a table line that is blank or spaces
     // is treated as no line, and the post-text interval is NOT armed.
     if (!text || !text.trim()) return null;
+    recordAmbientText(text);
+    suppressHudTextOnce(text);
     say(text, s.textDisplayTime);
     w.tickTimeInterval = s.postTextInterval;
     return text;

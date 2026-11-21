@@ -457,15 +457,29 @@ export const PCAAO_HIT_CHANCE_MIN = 3;
 export const PCAAO_HIT_CHANCE_MAX = 97;
 export function pcaaoSuccessfulHit(attacker, target, chanceToHitMod, struckBodyPart, rolls, modules, notes = null) {
   if (!attacker || !target) return false;
-  const chance =
-    chanceToHitMod +
-    pcaaoArmorToHit(target, struckBodyPart) +
-    pcaaoAdrenalineRushToHit(attacker, target) +
-    enchantChanceToHitMod(attacker) +
-    pcaaoStatDiffsToHit(attacker, target) +
-    pcaaoSkillsToHit(attacker, target, rolls, modules, notes) +
-    pcaaoAdjustmentsToHit(target);
-  return dice100(Math.max(PCAAO_HIT_CHANCE_MIN, Math.min(PCAAO_HIT_CHANCE_MAX, chance)), rolls());
+  const armorMod = pcaaoArmorToHit(target, struckBodyPart);
+  const adrenMod = pcaaoAdrenalineRushToHit(attacker, target);
+  const enchMod = enchantChanceToHitMod(attacker);
+  const statMod = pcaaoStatDiffsToHit(attacker, target);
+  const skillMod = pcaaoSkillsToHit(attacker, target, rolls, modules, notes);
+  const adjMod = pcaaoAdjustmentsToHit(target);
+  const rawChance = chanceToHitMod + armorMod + adrenMod + enchMod + statMod + skillMod + adjMod;
+  const finalChance = Math.max(PCAAO_HIT_CHANCE_MIN, Math.min(PCAAO_HIT_CHANCE_MAX, rawChance));
+  const hitRoll01 = rolls();
+  const hit = dice100(finalChance, hitRoll01);
+  if (notes && typeof notes === 'object') {
+    if (!notes.diag) notes.diag = {};
+    notes.diag.toHit = {
+      chanceToHitMod,
+      struckPart: struckBodyPart,
+      rawChance,
+      finalChance,
+      hitRoll: Math.floor(hitRoll01 * 100),
+      isHit: hit,
+      modifiers: { armorMod, adrenMod, enchMod, statMod, skillMod, adjMod },
+    };
+  }
+  return hit;
 }
 
 /** CalculateStruckBodyPart: the mod's twenty-slot table - feet likelier
@@ -1719,6 +1733,13 @@ export function pcaaoAttackDamage(
   }
   const struckBodyPart = pcaaoStruckBodyPart(rolls());
   onStruck?.(struckBodyPart); // WIDGET-RECOIL: the part this core rolled, to the port's tail (the Shield Widget's "on shield" Recoil)
+  if (notes?.diag) {
+    notes.diag.core = 'pcaao';
+    notes.diag.attackSkill = skillID;
+    notes.diag.weaponMaterial = struckWith?.material ?? null;
+    notes.diag.minMetalToHit = target.minMetalToHit ?? -1;
+    notes.diag.struckPart = struckBodyPart;
+  }
   const backstabbed = (before, after) => {
     if (notes && before > 0 && after === before * 3) notes.backstab = true;
   };
@@ -1811,6 +1832,14 @@ export function pcaaoAttackDamage(
   if (modules.conditionBasedEffectiveness && isPlayer(attacker) && weapon) {
     damage = pcaaoAlterDamageBasedOnWepCondition(damage, bluntWep, weapon, modules.equipmentDamageEnhanced); // BAL1: the edge rides the mod's wear
   }
+  if (notes?.diag?.damage) {
+    notes.diag.damage.critDamMulti = critSuccess ? Number(critDamMulti) : 1;
+    notes.diag.damage.matReqDamMulti = Number(matReqDamMulti);
+    notes.diag.damage.shieldBlocked = Boolean(shieldBlockSuccess);
+    notes.diag.damage.shieldStrongSpot = Boolean(shieldStrongSpot);
+    notes.diag.damage.naturalResist = Number(naturalDamResist);
+    notes.diag.damage.backstabApplied = Boolean(notes.backstab);
+  }
   if (damage < 1) return damage;
   // The CLASS's own DamageEquipment (`DamageEquipment(attacker, target,
   // num2, weapon, num10)` - the static, not FormulaHelper's), so the
@@ -1826,6 +1855,7 @@ export function pcaaoAttackDamage(
   if (blowShare && notes) notes.shared = true;
   if (modules.equipmentDamageEnhanced)
     pcaaoDamageEquipment(attacker, target, shared(damage), weapon, struckBodyPart, { rolls, say, modules });
+  const preArmor = damage;
   if (AITarget && isMonster(AITarget)) {
     if (!pcaaoArmorStruckVerification(target, struckBodyPart))
       damage = pcaaoPercentageReductionCalculationForMonsters(attacker, target, damage, bluntWep, naturalDamResist);
@@ -1861,6 +1891,11 @@ export function pcaaoAttackDamage(
       naturalDamResist,
       modules,
     );
+  }
+  const postArmor = damage;
+  if (notes?.diag?.damage) {
+    notes.diag.damage.rawDamage = preArmor;
+    notes.diag.damage.mitigated = Math.max(0, preArmor - postArmor);
   }
   damage = shared(damage);
   // WEAR-VANILLA, the module off: FormulaHelper's DamageEquipment (formulas.js damageEquipment, Roleplay Realism's slot

@@ -45,6 +45,7 @@ import { dice100 } from '../combat/formulas.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { youFeelSomewhatBadText } from './diseases.js';
 import { isClassEnemyId } from '../characters/enemy/enemyBasics.js'; // DEX1: DFU's class test (DaggerfallEntity.IsClassEnemyId) - a mod's monster past 255 is no class
+import { recordPoisonEvent } from './gameLog.js';
 
 // ---- ItemEnums.Poisons, verbatim (0-7 weapon poisons, 8-11 drugs) ----
 export const POISONS = Object.freeze({
@@ -234,9 +235,18 @@ export function updatePoisons(entity, currentMinute, sinks, rolls = Math.random,
  * level 1. Element 2 = DiseaseOrPoison.
  */
 export function inflictPoison(target, poisonType, bypassResistance, { rolls = Math.random, currentMinute = 0 } = {}) {
-  if (careerTolerance(target.career ?? {}, EFFECT_FLAGS.Poison) === 'Immune') return null;
+  if (careerTolerance(target.career ?? {}, EFFECT_FLAGS.Poison) === 'Immune') {
+    if (target.isPlayer) recordPoisonEvent({ poisonType, inflicted: false, resisted: true });
+    return null;
+  }
   if (bypassResistance || savingThrow(2, EFFECT_FLAGS.Poison, target, 0, rolls) !== 0) {
-    if (target.level !== 1) return startPoison(target, poisonType, currentMinute, rolls);
+    if (target.level !== 1) {
+      const entry = startPoison(target, poisonType, currentMinute, rolls);
+      if (entry && target.isPlayer) recordPoisonEvent({ poisonType, inflicted: true, resisted: false });
+      return entry;
+    }
+  } else if (target.isPlayer) {
+    recordPoisonEvent({ poisonType, inflicted: false, resisted: true });
   }
   return null;
 }

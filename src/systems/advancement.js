@@ -22,6 +22,7 @@
 //   is mounted.
 
 import { OGHMA_BONUS_POOL } from './artifactEffects.js'; // V3: the sheet's oghmaBonusPool (:44)
+import { recordSkillAdvance, recordLevelUp } from './gameLog.js';
 import { SKILLS, setSkillRecentlyIncreased, levelUpSkillSum } from './skills.js';
 // SOFTCAP1: skills past 100 - the cost ladder and the milestones (a leaf)
 import { SKILL_SOFT_CAP, SKILL_HARD_CAP, softcapCostMultiplier, milestoneAt } from './skillSoftcap.js';
@@ -228,6 +229,7 @@ export function raiseSkills(
       entity.skills[i] += 1;
       setSkillRecentlyIncreased(entity, i);
       raised.push(i);
+      if (entity.isPlayer !== false) recordSkillAdvance(i, entity.skills[i]);
       onRaise?.(i);
       const ms = milestoneAt(entity.skills[i]);
       if (ms) onMilestone?.(i, ms);
@@ -255,6 +257,7 @@ export function raiseSkills(
 
       setSkillRecentlyIncreased(entity, i);
       raised.push(i);
+      if (entity.isPlayer !== false) recordSkillAdvance(i, entity.skills[i]);
       // PopupMessage("skillImprove") (:1388) - in the loop, ahead of
       // the mastery box for that same skill and ahead of the sheet.
       onRaise?.(i);
@@ -463,6 +466,7 @@ export function applyLevelUp(entity, distribute, rolls = Math.random, prerolledP
     return false;
   }
   entity.level += 1; // L-slice (entity-9): Level++, never a jump to the calculated level
+  if (entity.isPlayer !== false) recordLevelUp(entity.level);
   // DISC10-E L4: onto the RAW maximum - MaxHealth reads the lycanthrope's limiter now, and `+=` through it would bake the urge's ceiling into the level
   entity.maxHealth =
     (entity.rawMaxHealth ?? entity.maxHealth) + hitPointsPerLevelUp(entity.career, entity.stats.endurance, rolls); // PERMANENT endurance, verbatim (audit F8 - DFU reads Stats.PermanentEndurance here, not the live value)

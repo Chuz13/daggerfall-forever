@@ -920,6 +920,12 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     return k !== 1 ? Math.min(100, Math.round(ch * k)) : ch;
   };
   const out = { damage: 0, healed: 0, continuous: 0, skipped: 0 };
+  const diag = {
+    element: spell?.element ?? null,
+    rangeType: spell?.rangeType ?? 0,
+    targetHpBefore: target?.health ?? null,
+    effectKinds: [],
+  };
   // E2: ctx.heldItem is CastWhenHeld's InstantiateSpellBundle - the
   // whole apply is a HeldMagicItem bundle pinned to the worn item
   // (bundle.FromEquippedItem, CastWhenHeld.cs:~165). A pinned apply
@@ -2140,8 +2146,17 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     }
     sinks?.say?.(localizedText('spellAbsorbed', SPELL_ABSORBED_TEXT));
   }
+  if (out.damage > 0) diag.effectKinds.push('damage');
+  if (out.healed > 0) diag.effectKinds.push('heal');
+  if (out.paralyzed > 0) diag.effectKinds.push('paralyze');
+  if (out.drained > 0) diag.effectKinds.push('drain');
+  if (out.fortified > 0) diag.effectKinds.push('fortify');
+  if (out.cured > 0) diag.effectKinds.push('cure');
+  if (out.disintegrated > 0) diag.effectKinds.push('disintegrate');
+  if (out.buffs > 0) diag.effectKinds.push('buff');
+  if (out.continuous > 0) diag.effectKinds.push('continuous');
   try {
-    emitModEvent('combatSpellResolved', { spell, casterLevel, target, caster, out });
+    emitModEvent('combatSpellResolved', { spell, casterLevel, target, caster, out, diag });
   } catch {
     /* telemetry is not the spell's problem */
   }

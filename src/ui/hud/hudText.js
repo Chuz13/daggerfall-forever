@@ -51,6 +51,7 @@ import { isEnhanced } from '../../systems/uiSkin.js';
 import { drawEnhancedToasts, releaseEnhancedToasts } from '../enhanced/enhancedNotice.js';
 import { processGrammar } from '../../systems/textManager.js'; // L10N3g: PopupText.AddText runs the grammar (PopupText.cs:117-118)
 import { timeScale } from '../../systems/timeScale.js'; // CSA-G: PopupText.Update counts Time.deltaTime, which the time scale scales
+import { recordHudMessage } from '../../systems/gameLog.js';
 
 /** AUDIT FONT F1: every model gets a name of its own, so two never
  *  share one DOM column - see ui/enhanced/enhancedHudText.js's header for why
@@ -186,6 +187,7 @@ export class HudText {
     else this.nextPopDelay = Math.max(this.nextPopDelay, delayInSeconds);
     this.lines.push({ id: ++this._nextId, text: pgText });
     this.onMessage?.(pgText);
+    recordHudMessage(pgText);
   }
 
   /** PopupText.Update verbatim. CSA-G: its `Time.deltaTime` (PopupText.cs:56-59) is game time, so the frame's real
