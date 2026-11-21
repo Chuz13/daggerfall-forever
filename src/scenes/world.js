@@ -24670,17 +24670,19 @@ export async function bootWorld(canvas, renderer, params, status) {
   const starfall = FORK_FLAGS.ENABLE_ONLINE_PLAY && params.has('online')
     ? createStarfallHost(_eventHostDeps)
     : !params.has('online') && FORK_FLAGS.ENABLE_OFFLINE_STARFALL
-      ? createStarfallHost({
-          ..._eventHostDeps,
-          offline: true,
-          classicMinutes: () => playerTicker.classicMinutes,
-          playerPixel: () => playerTravelPixel(),
-          renownLevel: () => getActiveOfflineRecord()?.renown ?? 1,
-          sigilDrinks: (xp) => sigilDrinks?.(xp),
-          onOfflineStarHeld: (o) => questBridge?.onOfflineStarHeld?.(o),
-          qltf03NeedsHeart: () => questBridge?.qltf03NeedsHeart?.() ?? false,
-          isIndoors: () => _mode() !== 'exterior',
-        })
+      ? createStarfallHost(Object.defineProperties({}, {
+          ...Object.getOwnPropertyDescriptors(_eventHostDeps),
+          ...Object.getOwnPropertyDescriptors({
+            offline: true,
+            classicMinutes: () => playerTicker.classicMinutes,
+            playerPixel: () => playerTravelPixel(),
+            renownLevel: () => getActiveOfflineRecord()?.renown ?? 1,
+            sigilDrinks: (xp) => sigilDrinks?.(xp),
+            onOfflineStarHeld: (o) => questBridge?.onOfflineStarHeld?.(o),
+            qltf03NeedsHeart: () => questBridge?.qltf03NeedsHeart?.() ?? false,
+            isIndoors: () => _mode() !== 'exterior',
+          }),
+        }))
       : null;
   // STOREFRONT (bible/06-Systems/Battle-Pass.md section 6): THE SEASON IN THE WORLD - the Battle Pass bound, the hourly
   // tremor, the Brass Fissures and their constructs, the Brass Colossus and its Resonant Maul (scenes/seasonHost.js)
