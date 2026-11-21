@@ -26,8 +26,9 @@ While major frameworks (**Living Tamriel**, **Dark Arts & Necromancy**, and **Ap
 
 | Setting | Key / Pref | Default | Effect |
 | :--- | :--- | :---: | :--- |
-| **Morrowind Player Body** | `feat:mw-player-body` (`mwPlayerBody`) | `Off` | Draws the player in 3D using Morrowind data (1st-person hands/weapons, 3rd-person body, 3D inventory figure). Takes effect immediately. |
-| **Inventory Player Figure** | `feat:mw-inventory-body` (`mwInventoryBody`) | `Follow Player Body` | 3-tier selector (`Follow Player Body` \| `Always 3D` \| `Always Paperdoll`). Independently controls the inventory paperdoll vs. 3D model. |
+| **Player Character (First Person)** | `feat:mw-player-fp` (`mwPlayerFp`) | `2D` | 2-tier selector (`2D` \| `3D`). Switches between classic 2D sprites and 3D Morrowind arms/weapons in 1st person (falls back to `2D` without Morrowind data). |
+| **Player Character (Third Person)** | `feat:mw-player-tp` (`mwPlayerTp`) | `2D` | 2-tier selector (`2D` \| `3D`). Switches between your Profile 2D look and 3D Morrowind body in 3rd person (falls back to your 2D look without Morrowind data). |
+| **Inventory Player Figure** | `feat:mw-inventory-body` (`mwInventoryBody`) | `Follow Third Person` | 3-tier selector (`Follow Third Person` \| `Always 3D` \| `Always Paperdoll`). Independently controls the inventory paperdoll vs. 3D model. |
 | **Morrowind Item Icons** | `feat:mw-item-icons` (`mwItemIcons`) | `Off` | Renders inventory and quickslot items as 3D Morrowind ground meshes instead of 2D sprites. |
 | **Morrowind Foes** | `feat:mw-foe-bodies` (`mwFoeBodies`) | `Off` | 3-tier selector (`Off` \| `Near` [up to 24] \| `All` [up to 48]). Enables Morrowind 3D bodies for monsters/hostiles independently of peaceful townsfolk (`mw-npc-bodies`). |
 
@@ -56,7 +57,7 @@ While major frameworks (**Living Tamriel**, **Dark Arts & Necromancy**, and **Ap
 
 | Setting | Key / Mod Setting | Default | Effect |
 | :--- | :--- | :---: | :--- |
-| **Look → Paperdoll** | `eye-of-the-beholder` → `Graphics.Paperdoll` | `Off` | Added alongside `Skins` and `Layered Gearing (WIP)` in the top-right Profile / Look card. Draws the player on foot in 3rd person as a static cropped 2D character-sheet paperdoll and automatically disables `mwPlayerBody`. |
+| **Look → Paperdoll** | `eye-of-the-beholder` → `Graphics.Paperdoll` | `Off` | Added alongside `Skins` and `Layered Gearing (WIP)` in the top-right Profile / Look card. Draws the player on foot in 3rd person as a static cropped 2D character-sheet paperdoll when Third Person is `2D` (or falling back without Morrowind data). |
 
 ---
 

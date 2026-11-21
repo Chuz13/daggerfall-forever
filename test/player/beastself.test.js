@@ -105,9 +105,11 @@ test('BEAST-SELF: the weapon rig stands the arm aside from the curse itself - tr
 
 test('BEAST-SELF: at the edge the view carries over - the sprite camera takes the Morrowind camera\'s person and pulls out from the head, not from wherever it last stood; and back', () => {
   const real = { standingIn: fpArm.standingIn, canThirdPerson: fpArm.canThirdPerson, setViewMode: fpArm.setViewMode, ready: fpArm.ready };
-  const origBody = getPref('mwPlayerBody');
+  const origFp = getPref('mwPlayerFp');
+  const origTp = getPref('mwPlayerTp');
   let beast = false;
-  setPref('mwPlayerBody', true);
+  setPref('mwPlayerFp', '3d');
+  setPref('mwPlayerTp', '3d');
   fpArm.ready = () => true;
   fpArm.standingIn = () => beast;
   fpArm.canThirdPerson = () => !beast;   // the Morrowind body while a person
@@ -136,7 +138,8 @@ test('BEAST-SELF: at the edge the view carries over - the sprite camera takes th
     mwViewFrame(at(0));
     assert.equal(eotbCamera.thirdPerson(), false, 'in the head, the claws');
   } finally {
-    setPref('mwPlayerBody', origBody);
+    setPref('mwPlayerFp', origFp);
+    setPref('mwPlayerTp', origTp);
     Object.assign(fpArm, real);
     setEotbBodyReady(null);
     eotbCamera.toggleOffset(false);

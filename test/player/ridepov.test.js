@@ -15,7 +15,7 @@ import { mwCamera } from '../../src/player/mwCamera.js';
 import { fpArm } from '../../src/combat/fpArm.js';
 import { eotbCamera } from '../../src/player/eyeOfTheBeholder/eotbCamera.js';
 import { setModSetting, _resetModSettings } from '../../src/systems/modSettings.js';
-import { setPref } from '../../src/systems/uiPrefs.js';
+import { getPref, setPref } from '../../src/systems/uiPrefs.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -30,14 +30,25 @@ function arm() {
   setEotbBodyReady(null); setEotbDrawBody(null);
   eotbCamera.loadSettings(null); eotbCamera.toggleOffset(false);
   _resetModSettings();
-  setPref('mwPlayerBody', true);
+  const origFp = getPref('mwPlayerFp');
+  const origTp = getPref('mwPlayerTp');
+  setPref('mwPlayerFp', '3d');
+  setPref('mwPlayerTp', '3d');
   const real = { canThirdPerson: fpArm.canThirdPerson, setViewMode: fpArm.setViewMode, ready: fpArm.ready };
   fpArm.canThirdPerson = () => true;
   fpArm.setViewMode = () => true;
   fpArm.ready = () => true;
   mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
   frame(false);   // drain anything a previous test left queued
-  return () => { fpArm.canThirdPerson = real.canThirdPerson; fpArm.setViewMode = real.setViewMode; fpArm.ready = real.ready; mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() }); frame(false); };
+  return () => {
+    setPref('mwPlayerFp', origFp);
+    setPref('mwPlayerTp', origTp);
+    fpArm.canThirdPerson = real.canThirdPerson;
+    fpArm.setViewMode = real.setViewMode;
+    fpArm.ready = real.ready;
+    mwCamera.restore({ firstPerson: true, baseDistance: mwCamera.baseDistance() });
+    frame(false);
+  };
 }
 
 test('RIDE-POV: a rider in third person is put in the head on the frame, keeps the zoom distance, and is left there on dismount (the wheel is where it was)', () => {

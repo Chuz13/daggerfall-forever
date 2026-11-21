@@ -3910,7 +3910,8 @@ export function createFpArm() {
   let viewMode = 'first';
   /** BEAST-SELF: the arm and the body stand aside for a transformed lycanthrope (setStandIn) - no Morrowind beast */
   let standIn = false;
-  let bodyOff = false;
+  let fpOff = false;
+  let tpOff = false;
   let thirdBuilt = null;
   let thirdMesh = null;
   let thirdPacked = null;
@@ -3930,11 +3931,11 @@ export function createFpArm() {
     return nonBiped() && !isRealWeapon(t) ? MW_WEAPON_TYPE.None : t;
   };
 
-  const active = () => !standIn && !!(built && built.ok && mesh && renderer && camera && (actionState || movementState || jumpState || idleState)
+  const active = () => !standIn && !!(!fpOff && built && built.ok && mesh && renderer && camera && (actionState || movementState || jumpState || idleState)
     && viewMode === 'first');
   // MWNPC4 (AUDIT, 2026-10-09): a body in its recoil or its death stands too - die() resets every other state, so a
   // dying body answered false here, its lane let it go (PeerBodies._standing) and its corpse flat drew instead
-  const thirdActive = () => !standIn && !!(built && built.ok && thirdBuilt && thirdBuilt.ok && thirdMesh
+  const thirdActive = () => !standIn && !!(!tpOff && built && built.ok && thirdBuilt && thirdBuilt.ok && thirdMesh
     && renderer && (actionState || movementState || jumpState || idleState || hitState || deathState) && viewMode === 'third');
 
   /**
@@ -6844,7 +6845,7 @@ export function createFpArm() {
     setViewMode(mode) {
       const want = mode === 'third' ? 'third' : 'first';
       if (want === viewMode) return true;
-      if (want === 'third' && standIn) return false;   // BEAST-SELF: no Morrowind body for a beast - refused, and no refusal on the card
+      if (want === 'third' && (standIn || tpOff)) return false;   // BEAST-SELF / TP-2D: no 3D third-person body
       if (want === 'first' && built && built.creature) return false;   // MWNPC9: a creature has no first person
       if (want === 'third' && !(thirdBuilt && thirdBuilt.ok)) {
         notes.push(`view: no third-person body - ${thirdBuilt ? `${thirdBuilt.stage}: ${thirdBuilt.error}` : 'not built'}`);
@@ -6905,7 +6906,7 @@ export function createFpArm() {
       && (upper === UPPER_BODY.None || upper === UPPER_BODY.WeaponEquipped),
     /** What the wheel may cross INTO: a body that refused keeps the
      *  player in first person with the reason on the card. */
-    canThirdPerson: () => !standIn && !!(thirdBuilt && thirdBuilt.ok),
+    canThirdPerson: () => !standIn && !tpOff && !!(thirdBuilt && thirdBuilt.ok),
     /** MW-SHOULDER (player/mwCamera.js stepShoulder): third_person.lua's two questions of the actor (:89-92) - a weapon
      *  or a spell out (Actor.getStance), else swimming (Actor.isSwimming, the frame's motion bag) - or null. */
     shoulderStance: () => (spellReady || !sheathed ? 'combat' : camera?.()?.move?.swimming ? 'swimming' : null),
@@ -6922,8 +6923,10 @@ export function createFpArm() {
      */
     setStandIn(v) { const was = standIn; standIn = !!v; return was !== standIn; },
     standingIn: () => standIn,
-    setBodyOff(off) { const was = bodyOff; bodyOff = !!off; return was !== bodyOff; },
-    bodyOff: () => bodyOff,
+    setFpOff(off) { const was = fpOff; fpOff = !!off; return was !== fpOff; },
+    fpOff: () => fpOff,
+    setTpOff(off) { const was = tpOff; tpOff = !!off; return was !== tpOff; },
+    tpOff: () => tpOff,
     /** SHADOW-FANG (the merge): whether the rig standing is Bloodmoon's wolf - built, and built as the wolf. */
     wolfStanding: () => !!(built && built.ok && built.werewolf),
     /** SHADOW-CLOAK: THE BODY'S BONES WHERE THEY STAND THIS FRAME - each named bone's origin in the third-person body's

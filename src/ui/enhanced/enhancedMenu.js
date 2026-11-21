@@ -4023,7 +4023,8 @@ const TILE_AFTER = Object.freeze({
   mwSteelHelm: rebuildMorrowindBody,   // MW-STEEL1: the steel helm's style, closed or open, on the standing body at once
   mwBeastFeet: rebuildMorrowindBody,   // BEAST-BOOTS: a beast's footwear and helmet, on the standing body at once
   mwBeastHelm: rebuildMorrowindBody,
-  mwPlayerBody: () => { if (getPref('mwPlayerBody')) setModSetting('eye-of-the-beholder', 'Graphics.Paperdoll', false); render(); },
+  mwPlayerFp: () => { render(); },
+  mwPlayerTp: () => { render(); },
   mwInventoryBody: () => { render(); },
   mwItemIcons: () => { render(); },
 });

@@ -18,12 +18,14 @@ import {
   setEotbBodyReady,
 } from '../../src/player/mwView.js';
 
-test('Save and load camera with mwPlayerBody=false preserves 3rd person', () => {
-  const origBody = getPref('mwPlayerBody');
+test('Save and load camera with 2D player view preserves 3rd person', () => {
+  const origFp = getPref('mwPlayerFp');
+  const origTp = getPref('mwPlayerTp');
   const origInv = getPref('mwInventoryBody');
   try {
     setModSetting('eye-of-the-beholder', 'Enabled', true);
-    setPref('mwPlayerBody', false);
+    setPref('mwPlayerFp', '2d');
+    setPref('mwPlayerTp', '2d');
     setPref('mwInventoryBody', '3d');
     setEotbBodyReady(() => true);
 
@@ -43,18 +45,21 @@ test('Save and load camera with mwPlayerBody=false preserves 3rd person', () => 
     assert.equal(eotbCamera.thirdPerson(), true, 'eotbCamera must be in 3rd person after load');
     assert.equal(mwViewThirdPerson(), true, 'mwViewThirdPerson must be true after load');
   } finally {
-    setPref('mwPlayerBody', origBody);
+    setPref('mwPlayerFp', origFp);
+    setPref('mwPlayerTp', origTp);
     setPref('mwInventoryBody', origInv);
     setEotbBodyReady(null);
     eotbCamera.toggleOffset(false);
   }
 });
 
-test('Save and load camera with mwPlayerBody=false preserves 1st person', () => {
-  const origBody = getPref('mwPlayerBody');
+test('Save and load camera with 2D player view preserves 1st person', () => {
+  const origFp = getPref('mwPlayerFp');
+  const origTp = getPref('mwPlayerTp');
   try {
     setModSetting('eye-of-the-beholder', 'Enabled', true);
-    setPref('mwPlayerBody', false);
+    setPref('mwPlayerFp', '2d');
+    setPref('mwPlayerTp', '2d');
     setEotbBodyReady(() => true);
 
     // Put into 1st person
@@ -73,21 +78,24 @@ test('Save and load camera with mwPlayerBody=false preserves 1st person', () => 
     assert.equal(eotbCamera.thirdPerson(), false, 'eotbCamera must be in 1st person after load');
     assert.equal(mwViewThirdPerson(), false, 'mwViewThirdPerson must be false after load');
   } finally {
-    setPref('mwPlayerBody', origBody);
+    setPref('mwPlayerFp', origFp);
+    setPref('mwPlayerTp', origTp);
     setEotbBodyReady(null);
     eotbCamera.toggleOffset(false);
   }
 });
 
-test('mwViewTogglePerspective and wheel work seamlessly when mwPlayerBody=false', () => {
-  const origBody = getPref('mwPlayerBody');
+test('mwViewTogglePerspective and wheel work seamlessly when 2D player view is set', () => {
+  const origFp = getPref('mwPlayerFp');
+  const origTp = getPref('mwPlayerTp');
   try {
     setModSetting('eye-of-the-beholder', 'Enabled', true);
-    setPref('mwPlayerBody', false);
+    setPref('mwPlayerFp', '2d');
+    setPref('mwPlayerTp', '2d');
     setEotbBodyReady(() => true);
 
     eotbCamera.toggleOffset(false);
-    assert.equal(mwViewCanTogglePerspective(), true, 'Can toggle perspective even when mwPlayerBody=false');
+    assert.equal(mwViewCanTogglePerspective(), true, 'Can toggle perspective when player view is 2D');
 
     // Toggle to 3rd person
     const toggled = mwViewTogglePerspective();
@@ -111,17 +119,20 @@ test('mwViewTogglePerspective and wheel work seamlessly when mwPlayerBody=false'
     assert.equal(fpMoved, true);
     assert.equal(eotbCamera.thirdPerson(), false);
   } finally {
-    setPref('mwPlayerBody', origBody);
+    setPref('mwPlayerFp', origFp);
+    setPref('mwPlayerTp', origTp);
     setEotbBodyReady(null);
     eotbCamera.toggleOffset(false);
   }
 });
 
-test('mwViewHoldThird and mwViewHoldFirst work when mwPlayerBody=false', () => {
-  const origBody = getPref('mwPlayerBody');
+test('mwViewHoldThird and mwViewHoldFirst work when 2D player view is set', () => {
+  const origFp = getPref('mwPlayerFp');
+  const origTp = getPref('mwPlayerTp');
   try {
     setModSetting('eye-of-the-beholder', 'Enabled', true);
-    setPref('mwPlayerBody', false);
+    setPref('mwPlayerFp', '2d');
+    setPref('mwPlayerTp', '2d');
     setEotbBodyReady(() => true);
 
     // Start in 1st person
@@ -145,7 +156,8 @@ test('mwViewHoldThird and mwViewHoldFirst work when mwPlayerBody=false', () => {
     mwViewHoldFirst(false);
     assert.equal(mwViewThirdPerson(), true);
   } finally {
-    setPref('mwPlayerBody', origBody);
+    setPref('mwPlayerFp', origFp);
+    setPref('mwPlayerTp', origTp);
     setEotbBodyReady(null);
     eotbCamera.toggleOffset(false);
   }

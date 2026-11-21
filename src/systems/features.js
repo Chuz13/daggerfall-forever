@@ -1457,27 +1457,44 @@ export const FEATURES = Object.freeze([
     control: Object.freeze({ store: 'prefs', key: 'mwShoulderCam', initial: 'off', online: 'player', tiers: Object.freeze([
       tier('off', OFF), tier('right', () => t('features.mwShoulder.right', 'Right')), tier('left', () => t('features.mwShoulder.left', 'Left'))]) }),
   }),
-  // MW-PLAYER-BODY: The player character in a 3D Morrowind body
+  // MW-PLAYER-FP / MW-PLAYER-TP: Separate 2D/3D selectors for first person and third person
   Object.freeze({
-    id: 'mw-player-body',
+    id: 'mw-player-fp',
     group: 'world',
-    get title() { return t('features.mwPlayerBody.title', 'Morrowind Player Body'); },
-    get note() { return t('features.mwPlayerBody.note', 'With Morrowind data, your character is drawn in 3D: hands and weapons in first person, and full body in third person. Inventory uses a 3D figure. Off keeps classic 2D sprites and the paperdoll.'); },
+    get title() { return t('features.mwPlayerFp.title', 'Player Character (First Person)'); },
+    get note() { return t('features.mwPlayerFp.note', 'Choose 3D Morrowind arms and weapons or classic 2D sprites in first person. Falls back to 2D without Morrowind data.'); },
     get effect() { return t('features.effect.atOnce', 'Takes effect at once.'); },
     kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({ store: 'prefs', key: 'mwPlayerBody', initial: false, online: 'player' }),
+    control: Object.freeze({ store: 'prefs', key: 'mwPlayerFp', initial: '2d', classic: '2d', online: 'player',
+      tiers: Object.freeze([
+        tier('2d', () => t('features.playerView.2d', '2D')),
+        tier('3d', () => t('features.playerView.3d', '3D')),
+      ]) }),
+  }),
+  Object.freeze({
+    id: 'mw-player-tp',
+    group: 'world',
+    get title() { return t('features.mwPlayerTp.title', 'Player Character (Third Person)'); },
+    get note() { return t('features.mwPlayerTp.note', 'Choose a 3D Morrowind body or your Profile 2D look in third person. Falls back to your 2D look without Morrowind data.'); },
+    get effect() { return t('features.effect.atOnce', 'Takes effect at once.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'mwPlayerTp', initial: '2d', classic: '2d', online: 'player',
+      tiers: Object.freeze([
+        tier('2d', () => t('features.playerView.2d', '2D')),
+        tier('3d', () => t('features.playerView.3d', '3D')),
+      ]) }),
   }),
   // MW-INVENTORY-BODY: How the player character is shown in the inventory
   Object.freeze({
     id: 'mw-inventory-body',
     group: 'world',
     get title() { return t('features.mwInventoryBody.title', 'Inventory Player Figure'); },
-    get note() { return t('features.mwInventoryBody.note', 'Choose how your character is shown in the inventory: follow Morrowind Player Body, always use a 3D figure when Morrowind data is attached, or always use the classic 2D paperdoll.'); },
+    get note() { return t('features.mwInventoryBody.note', 'Choose how your character appears in the inventory: follow third person, always 3D with Morrowind data, or always the 2D paperdoll.'); },
     get effect() { return t('features.effect.atOnce', 'Takes effect at once.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'mwInventoryBody', initial: 'follow', online: 'player',
       tiers: Object.freeze([
-        tier('follow', () => t('features.mwInventoryBody.follow', 'Follow Player Body')),
+        tier('follow', () => t('features.mwInventoryBody.follow', 'Follow Third Person')),
         tier('3d', () => t('features.mwInventoryBody.3d', 'Always 3D')),
         tier('paperdoll', () => t('features.mwInventoryBody.paperdoll', 'Always Paperdoll')),
       ]) }),

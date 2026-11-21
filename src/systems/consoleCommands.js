@@ -4256,6 +4256,121 @@ registerCommand(
   },
 );
 
+registerCommand(
+  'player_view',
+  'Inspect or switch FP/TP 2D/3D player rendering, inventory figure, and 2D look',
+  'player_view [status | fp <2d|3d> | tp <2d|3d> | <2d|3d> <2d|3d> | inv <follow|3d|paperdoll> | look <skins|layered|paperdoll> | toggle]',
+  async (args = []) => {
+    const [{ fpArm }, { playerFp3dOn, playerTp3dOn, inventoryBodyOn }, mwv, { modSetting, setModSetting }, { morrowindDataCount }, { LAYERED_OWN }] =
+      await Promise.all([
+        import('../combat/fpArm.js'),
+        import('../characters/npcBodies.js'),
+        import('../player/mwView.js'),
+        import('./modSettings.js'),
+        import('../scenes/dataSource.js'),
+        import('../player/eyeOfTheBeholder/layeredArmor.js'),
+      ]);
+    const sub = String(args?.[0] ?? 'status').toLowerCase();
+    const arg1 = String(args?.[1] ?? '').toLowerCase();
+    if ((sub === '2d' || sub === '3d') && (arg1 === '2d' || arg1 === '3d')) {
+      setPref('mwPlayerFp', sub);
+      setPref('mwPlayerTp', arg1);
+      playerTp3dOn();
+      fpArm.setFpOff?.(!playerFp3dOn() || (mwv.eotbLane() && mwv.mwViewThirdPerson()));
+      return `Player view set: FP=${sub}, TP=${arg1} (fp3dOn=${playerFp3dOn()}, tp3dOn=${playerTp3dOn()}, mwData=${morrowindDataCount()}).`;
+    }
+    if (sub === 'fp' && (arg1 === '2d' || arg1 === '3d')) {
+      setPref('mwPlayerFp', arg1);
+      fpArm.setFpOff?.(!playerFp3dOn() || (mwv.eotbLane() && mwv.mwViewThirdPerson()));
+      return `First person set to ${arg1} (fp3dOn=${playerFp3dOn()}, mwData=${morrowindDataCount()}).`;
+    }
+    if (sub === 'tp' && (arg1 === '2d' || arg1 === '3d')) {
+      setPref('mwPlayerTp', arg1);
+      const on = playerTp3dOn();
+      return `Third person set to ${arg1} (tp3dOn=${on}, mwData=${morrowindDataCount()}).`;
+    }
+    if (sub === 'inv' && (arg1 === 'follow' || arg1 === '3d' || arg1 === 'paperdoll')) {
+      setPref('mwInventoryBody', arg1);
+      return `Inventory player figure set to ${arg1} (inventoryBodyOn=${inventoryBodyOn()}).`;
+    }
+    if (sub === 'look' && (arg1 === 'skins' || arg1 === 'layered' || arg1 === 'paperdoll')) {
+      setModSetting('eye-of-the-beholder', 'Graphics.Paperdoll', arg1 === 'paperdoll');
+      setModSetting('eye-of-the-beholder', 'Graphics.LayeredGear', arg1 === 'layered' ? LAYERED_OWN : 0);
+      return `Profile 2D look set to ${arg1}.`;
+    }
+    if (sub === 'toggle') {
+      const moved = mwv.mwViewTogglePerspective();
+      return `Perspective toggle: ${moved ? 'ok' : 'refused'} (third=${mwv.mwViewThirdPerson()}).`;
+    }
+    if (sub !== 'status') {
+      return 'Usage: player_view [status | fp <2d|3d> | tp <2d|3d> | <2d|3d> <2d|3d> | inv <follow|3d|paperdoll> | look <skins|layered|paperdoll> | toggle]';
+    }
+    const look2d = modSetting('eye-of-the-beholder', 'Graphics.Paperdoll')
+      ? 'paperdoll'
+      : (modSetting('eye-of-the-beholder', 'Graphics.LayeredGear') ?? 0) > 0
+      ? 'layered'
+      : 'skins';
+    return [
+      `Prefs: FP=${getPref('mwPlayerFp')} (3dOn=${playerFp3dOn()}) | TP=${getPref('mwPlayerTp')} (3dOn=${playerTp3dOn()}) | Inv=${getPref('mwInventoryBody')} (3dOn=${inventoryBodyOn()}) | Look2D=${look2d} | MWData=${morrowindDataCount()}`,
+      `fpArm: ready=${fpArm.ready()} active=${fpArm.active()} thirdActive=${fpArm.thirdActive()} fpOff=${fpArm.fpOff?.()} tpOff=${fpArm.tpOff?.()} standIn=${fpArm.standingIn?.()} wolf=${fpArm.wolfStanding?.()} mode=${fpArm.viewMode?.()}`,
+      `View: mwCanTp=${mwv.mwCanThirdPerson()} eotbLane=${mwv.eotbLane()} third=${mwv.mwViewThirdPerson()}`,
+    ].join('\n');
+  },
+);
+
+registerCommand('pview', 'Alias for player_view', 'pview [args...]', (args = []) => getConsoleCommand('player_view').callback(args));
+
+registerCommand(
+  'lycan',
+  'Inspect or toggle lycanthropy form (werewolf / wereboar) for rendering tests',
+  'lycan [status | werewolf | wereboar | morph | unmorph | cure]',
+  async (args = []) => {
+    if (!playerEntity) return 'No player entity found.';
+    const [{ LYCANTHROPY_TYPES }, lyc, { fpArm }] = await Promise.all([
+      import('./infection.js'),
+      import('./lycanthropy.js'),
+      import('../combat/fpArm.js'),
+    ]);
+    const sub = String(args?.[0] ?? 'status').toLowerCase();
+    const now = Math.floor(worldMinutes());
+    const typeName = (t) => (t === LYCANTHROPY_TYPES.Werewolf ? 'Werewolf' : t === LYCANTHROPY_TYPES.Wereboar ? 'Wereboar' : 'None');
+    if (sub === 'werewolf' || sub === 'wereboar') {
+      const want = sub === 'werewolf' ? LYCANTHROPY_TYPES.Werewolf : LYCANTHROPY_TYPES.Wereboar;
+      const cur = lyc.liveLycanthropy(playerEntity);
+      if (cur && cur.infectionType !== want) lyc.cureLycanthropy(playerEntity, { nowMinutes: now });
+      if (!lyc.liveLycanthropy(playerEntity)) {
+        const entry = lyc.createLycanthropyCurse(playerEntity, want, { now });
+        if (!entry) return 'Cannot apply lycanthropy: another racial override is active.';
+      }
+      if (!lyc.isTransformedLycanthrope(playerEntity)) lyc.morphSelf(playerEntity, { force: true, nowMinutes: now });
+      return `Lycanthropy: ${sub} (transformed=true).`;
+    }
+    if (sub === 'morph') {
+      if (!lyc.liveLycanthropy(playerEntity)) return 'Not infected. Run: lycan werewolf | lycan wereboar';
+      if (!lyc.isTransformedLycanthrope(playerEntity)) lyc.morphSelf(playerEntity, { force: true, nowMinutes: now });
+      return `Transformed into ${typeName(lyc.liveLycanthropy(playerEntity).infectionType)}.`;
+    }
+    if (sub === 'unmorph') {
+      if (lyc.isTransformedLycanthrope(playerEntity)) lyc.morphSelf(playerEntity, { force: true, nowMinutes: now });
+      return 'Reverted to mortal form.';
+    }
+    if (sub === 'cure') {
+      const ok = lyc.cureLycanthropy(playerEntity, { nowMinutes: now });
+      return ok ? 'Lycanthropy cured.' : 'Not infected with lycanthropy.';
+    }
+    if (sub !== 'status') return 'Usage: lycan [status | werewolf | wereboar | morph | unmorph | cure]';
+    const cur = lyc.liveLycanthropy(playerEntity);
+    return `Lycanthropy: ${typeName(cur?.infectionType)} | transformed=${lyc.isTransformedLycanthrope(playerEntity)} | fpArm.standIn=${fpArm.standingIn?.()} | wolfStanding=${fpArm.wolfStanding?.()}`;
+  },
+);
+
+registerCommand('werewolf', 'Become a transformed werewolf (or unmorph/cure/status)', 'werewolf [unmorph|cure|status]', (args = []) =>
+  getConsoleCommand('lycan').callback(args?.length ? args : ['werewolf']),
+);
+registerCommand('wereboar', 'Become a transformed wereboar (or unmorph/cure/status)', 'wereboar [unmorph|cure|status]', (args = []) =>
+  getConsoleCommand('lycan').callback(args?.length ? args : ['wereboar']),
+);
+
 /** THE PORT'S DOOR (the departure above). ConsoleUI.ToggleConsole
  *  refuses to open at all when `LypyL_GameConsole` is off (:51-53), so
  *  the seam answers the same way rather than running the command. */
