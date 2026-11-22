@@ -139,7 +139,7 @@ export function passiveSpecialsMagicRound(entity, { nowMinutes = 0, clockMinutes
     if (held > 0) sinks?.heal?.(held);
   }
 
-  // RACIAL-OVERHAUL: Argonian Hist Regen in water or outdoor rain/thunder (every 2 rounds)
+  // Argonian Hist Regen in water or outdoor rain/thunder (every 2 rounds)
   if (
     nowMinutes % 2 === 0 &&
     isRacialOverhaulEnabled() &&

@@ -1,4 +1,4 @@
-// RACIAL-OVERHAUL: Leaf data, pure formulas, flag overlays, vital/standing/pace helpers,
+// Leaf data, pure formulas, flag overlays, vital/standing/pace helpers,
 // and localized race trait descriptions for the optional, live-toggleable Racial Overhaul.
 // Kept as a minimal leaf (uiPrefs, textManager, races, skills only) so BOOT2's static reach stays untouched.
 
