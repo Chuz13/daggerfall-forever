@@ -27,6 +27,9 @@ import { canSeeTarget, SYSTEM_TIMER_UPDATES_DIVISOR, SENSES_INTERVAL_UNITS } fro
 import { CAPSULE_HEIGHT } from '../../player/motor.js';   // REVIEW 2026-09-05: the player's transform above its feet
 import { getBool } from '../../systems/settings/settings.js';
 import { ENEMY_BASICS } from './enemyBasics.js';   // the STATIC table the ally revert reads
+import { ENEMY_GROUPS, enemyEntityGroup } from '../../combat/enemyGroups.js';
+import { playerEntity } from '../playerEntity.js';
+import { isGreenPactProtected } from '../../systems/racialOverhaulData.js';
 
 /** MobileTeams (DaggerfallUnityEnums.cs:262-286), index = enum value.
  *  EnemyEntity.team already carries these as STRINGS (enemyBasics'
@@ -250,6 +253,7 @@ export function getTargets(self, candidates, playerFeet, {
     // NoTarget mode (:776-777): the BASICS team here
     if ((noTargetMode || !ai.isHostile || selfMobileTeam === 'PlayerAlly' || self.companion != null || self.entity?.skirmishNeutralToPlayer) && isPlayer) continue;   // AUDIT CC-B2: a companion never the player's foe, whatever his team reads
     if (dropLocal && isLocalPlayerTarget(c)) continue;   // AUDIT-F5: a wilderness foe unaware of a fast traveller (scenes/exteriorFoes.js) - them alone
+    if (isLocalPlayerTarget(c) && isGreenPactProtected(self, playerEntity, enemyEntityGroup(self.entity?.careerIndex) === ENEMY_GROUPS.Animals)) continue;
     // Pacified enemies should not attack player allies (:780-781)
     if (!ai.isHostile && targetEntity && targetEntity.team === 'PlayerAlly') continue;
     // Player allies should not attack pacified enemies (:784-789)

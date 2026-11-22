@@ -34,6 +34,7 @@ import { isGoldPieces, ARROW_TEMPLATE } from '../systems/inventory.js';   // PLA
 import { bonusShare, rollBonusSupplies, ROOM_BASE_QUARTERS } from '../systems/roomLoot.js';   // PARTY-LOOT: a player's own layer over a room's shared base
 import { wildFoeLoot } from '../systems/wild/wildZone.js';   // WILD1: the open zone's gold (wildLootAfter)
 import { getMaterialFatigueCostMultiplier } from '../systems/mods/modDataSync.js';
+import { racialSwingFatigueMult } from '../systems/racialOverhaulData.js';
 import { liveStat, FATIGUE_DRAIN_SCALE } from '../systems/statMods.js';   // RF2: the player's live luck for the roll   // AUDIT 58: ItemHelper's EquipItem half - a foe's equip table is what DamageEquipment's struck side reads
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { swingSoundFor, hitSoundFor, ENEMY_HIT_VOLUME, SOUND } from '../systems/soundClips.js';
@@ -307,9 +308,9 @@ export const SWING_FATIGUE_COST = Math.trunc(SWING_WEAPON_FATIGUE_LOSS * FATIGUE
  * @param {any} [weapon]
  * @returns {number}
  */
-export function swingFatigueCost(weapon = null) {
+export function swingFatigueCost(weapon = null, entity = null) {
   const mult = weapon?.material !== undefined ? getMaterialFatigueCostMultiplier(weapon.material) : 1.0;
-  return Math.max(1, Math.round(SWING_FATIGUE_COST * mult));
+  return Math.max(1, Math.round(SWING_FATIGUE_COST * mult * racialSwingFatigueMult(entity)));
 }
 
 /** The tally half of the same block: the weapon's own skill (or

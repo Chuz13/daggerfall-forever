@@ -84,6 +84,7 @@ import { modSetting, modSettingIfDeclared } from '../systems/modSettings.js';
 import { liveStat } from '../systems/statMods.js';
 import { skillValue, SKILLS } from '../systems/skills.js';
 import { RACES } from '../systems/races.js';
+import { isRacialOverhaulEnabled, isOverhaulPlayer, overhaulRacialCombatMods } from '../systems/racialOverhaulData.js';
 import { SPECIAL_ABILITY_BITS } from '../systems/specialAdvantages.js';
 import { WEAPONS, weaponMinDamage, weaponMaxDamage, weaponSkillUsed } from '../characters/weapons.js';
 import {
@@ -1728,7 +1729,9 @@ export function pcaaoAttackDamage(
     profMods = pcaaoProficiencyModifiers(attacker, weapon);
     damageModifiers += profMods.damageMod;
     chanceToHitMod += profMods.toHitMod;
-    racialMods = pcaaoRacialModifiers(attacker, weapon, attacker);
+    racialMods = isRacialOverhaulEnabled() && isOverhaulPlayer(attacker)
+      ? overhaulRacialCombatMods(attacker, weapon, skillID)
+      : pcaaoRacialModifiers(attacker, weapon, attacker);
     damageModifiers += racialMods.damageMod;
     chanceToHitMod += racialMods.toHitMod;
     backstab = backstabChance; // CalculateBackstabChance(player, null, enemyAnimStateRecord)

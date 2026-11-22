@@ -18,6 +18,7 @@ import { getPerkSavingThrowBonus } from './perks/perkRegistry.js';
 import { entityResistMod } from './entityMods.js'; // RF1: the port's resistance channel rides the saving throw
 import { magicResist } from '../combat/formulas.js'; // U10
 import { raceById, raceByKey } from './races.js'; // AUDIT 18: the racial saving-throw block
+import { effectiveRaceTemplate } from './racialOverhaulData.js';
 import { getInt } from './settings/settings.js'; // ROAD-H H1c: Controls/Handedness, the screen weapon's FlipHorizontal (DaggerfallMissile.cs:546)
 import { CAPSULE_RADIUS } from '../player/motor.js'; // AUDIT 65 CV-2: the PLAYER's own CharacterController radius, imported rather than restated
 import { CAPSULE_HEIGHT } from '../player/motor.js'; // TRUNK-FOES: a struck body's standing height where it states none (struckPoints)
@@ -90,7 +91,7 @@ export function spellHasFlags(element, checkFlags, spellEffectFlags) {
  *  template if it carries one (DFU's racial-override effects -
  *  vampire/lycanthropy - swap it there), else the race table row for
  *  its raceId / race key. */
-const raceTemplateOf = (target) => target.raceTemplate ?? raceById(target.raceId) ?? raceByKey(target.race) ?? null;
+const raceTemplateOf = (target) => target.raceTemplate ?? effectiveRaceTemplate(target) ?? raceById(target.raceId) ?? raceByKey(target.race) ?? null;
 
 /**
  * FormulaHelper.SavingThrow verbatim for our entities. Returns the
@@ -122,6 +123,7 @@ const RESIST_NAMES = Object.freeze([
   [EFFECT_FLAGS.Shock, 'shock'],
   [EFFECT_FLAGS.Poison, 'poison'],
   [EFFECT_FLAGS.Magic, 'magic'],
+  [EFFECT_FLAGS.Disease, 'disease'],
 ]);
 
 /** STATS-RESIST (2026-10-08, the owner: "Resistances on the stat screen please"): the saving throw's chance BEFORE its

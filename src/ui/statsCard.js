@@ -18,6 +18,7 @@ import { PIXEL_STACK } from './pixelifyFive.js'; // the Enhanced Plus face: Pixe
 import { temperatureStatRows, boonStatRows, penaltyStatRows } from './temperatureCard.js'; // TEMP-UI: the felt temperature's parts; AUDIT SURV-BOONS C13: and the boons
 import { savingChance, elementalResistanceChance, ELEMENTS, EFFECT_FLAGS } from '../systems/spellcast.js'; // STATS-RESIST: the saving throw's own law
 import { t, localizedText } from '../systems/textManager.js'; // L10N4: the card's words in the player's language; the attributes are DFU's own
+import { racialOverhaulInfo } from '../systems/racialOverhaulData.js';
 
 const FLIP_MS = 900;
 // THE TURN, one set of numbers for the keyframes and for FIREFOX-FLIP's face swap below: the first leg runs to FLIP_MID
@@ -421,6 +422,18 @@ export function buildStatsPage(entity, repaint, opts = {}) {
     page.append(pn);
   }
 
+  const rInfo = racialOverhaulInfo(entity?.raceId);
+  if (rInfo) {
+    const rv = section(rInfo.header, 16);
+    const p = el('p', null, rInfo.text);
+    p.style.margin = '4px 0 0 0';
+    p.style.fontSize = '11px';
+    p.style.lineHeight = '1.35';
+    p.style.opacity = '0.88';
+    rv.append(p);
+    page.append(rv);
+  }
+
   const foot = el(
     'p',
     'sf-foot sf-rise',
@@ -434,7 +447,7 @@ export function buildStatsPage(entity, repaint, opts = {}) {
           'Rules: the original game\u2019s combat formulas. Damage is before any armor effects.',
         ),
   );
-  foot.style.setProperty('--i', '16'); // TEMP-UI: after the Temperature, Boons and Penalties sections
+  foot.style.setProperty('--i', rInfo ? '17' : '16'); // TEMP-UI: after the Temperature, Boons and Penalties sections
   page.append(foot);
   return page;
 }

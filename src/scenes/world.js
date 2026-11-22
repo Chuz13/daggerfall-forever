@@ -36186,7 +36186,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (spendAmmoFor(playerEntity.items, weaponRig.playerWeapon.weapon, shot)) {
             // AUDIT 23 (C14): the swing fatigue + the FULL bow tally
             // arm (Archery AND CriticalStrike) - see exterior.js.
-            drainExteriorFatigue(swingFatigueCost(weaponRig.playerWeapon.weapon));
+            drainExteriorFatigue(swingFatigueCost(weaponRig.playerWeapon.weapon, playerEntity));
             tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon, weaponRig.playerWeapon.blowWeight);   // AUDIT PISTOLET A2: an off-hand shot counts as its blow weighs, as the other two hosts count it (THE FOUR HOSTS RULE)
             const fwd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
             arrows.fire(cam.pos, fwd, { fromPlayer: true, weapon: weaponRig.playerWeapon.weapon, muzzle: weaponRig.thunderlockMuzzle(fieldOfView()), summoned: shot.summoned }); weaponRig.noteShot?.(weaponRig.playerWeapon.weapon);   // SPELLFX1: the peers draw it   // FIELD-GUN17: the barrel's own offset when the hand holds the gun, null for every bow - the rig answers, the lane forks   // #64: LastBowUsed rides the shaft - the impact prices off it   // ROAD-H H1c: ArrowFlight.fire applies GetAimPosition's player arm (the bow hand), as DFU's missile does its own
@@ -36194,7 +36194,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           continue;
         }
         // C14: the melee swing's fatigue, unconditional.
-        drainExteriorFatigue(swingFatigueCost(weaponRig.playerWeapon.weapon));
+        drainExteriorFatigue(swingFatigueCost(weaponRig.playerWeapon.weapon, playerEntity));
         // G1: melee swings resolve against live guards. G4: no guard
         // hit -> WANDERING townsfolk (civilian one-hit Murder +
         // response; wandering guard NPC -> Assault + conversion with

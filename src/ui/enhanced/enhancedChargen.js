@@ -63,6 +63,7 @@ import { repaintKeepingScroll } from '../domRepaint.js';
 import { drawPixelGround } from '../pixelGround.js';
 import { localizedStrings, t } from '../../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { raceDisplayName } from '../../systems/talk/talkSession.js';   // L10N3d: RaceTemplate.Name, read in the player's language
+import { racialOverhaulInfo } from '../../systems/racialOverhaulData.js';
 
 /** DFU's WizardStages, in the order the flow walks them, with the
  *  words a player reads. The flow's own state names are the keys.
@@ -255,8 +256,9 @@ function refreshHover() {
   if (!hoverTitle || !hoverBody) return;
   const who = hover ? RACE_TEMPLATES.find((r) => r.key === hover) : null;
   hoverTitle.textContent = who ? (PROVINCE_NAMES[who.key] ?? who.name) : 'Where are you from?';
+  const rInfo = who ? racialOverhaulInfo(who.key) : null;
   hoverBody.textContent = who
-    ? `Home of the ${who.name}. Click to read what it means to be born here.`
+    ? `Home of the ${who.name}.${rInfo ? ` ${rInfo.header}: ${rInfo.text}` : ''} Click to read what it means to be born here.`
     : 'Your homeland sets your face, your name and how much of Tamriel greets you kindly.';
 }
 
@@ -315,6 +317,20 @@ function raceStage() {
       if (text.trim()) para.push(text.trim()); else flush();
     }
     flush();
+    const rInfo = racialOverhaulInfo(flow.race?.key);
+    if (rInfo) {
+      const box = el('div', 'race-overhaul-box');
+      box.style.marginTop = '10px';
+      box.style.paddingTop = '8px';
+      box.style.borderTop = '1px solid rgba(255,255,255,0.16)';
+      const h = el('h4', null, rInfo.header);
+      h.style.margin = '0 0 4px 0';
+      h.style.fontSize = '0.92em';
+      const p = el('p', null, rInfo.text);
+      p.style.margin = '0';
+      box.append(h, p);
+      body.append(box);
+    }
     const a = el('div', 'acts');
     const yes = el('button', 'act primary', `Play as ${raceDisplayName(flow.race.key)}`);
     // AUDIT 64 F32: the box's own hit, not the shared 'confirm' - on

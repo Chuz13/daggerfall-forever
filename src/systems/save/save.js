@@ -93,6 +93,15 @@ import { getPerkHealthBonus } from '../perks/perkRegistry.js';
 import { offlineFirmamentHpOfSnap, OFFLINE_FIRMAMENT_VENDOR } from '../offlineFirmament.js';
 import { evenHpOf } from '../levelEven.js';
 import { clearGameLog } from '../gameLog.js';
+import {
+  isRacialOverhaulEnabled,
+  isOverhaulPlayer,
+  withRacialOverhaulState,
+  racialHpBonus,
+  racialFatigueMult,
+} from '../racialOverhaulData.js';
+import { maxFatigue, maxFatigueBase } from '../statMods.js';
+import { applyDressStanding } from '../clothingStanding.js';
 
 /**
  * Computes the effective offline base max health (`offMax`, without Renown/Firmament layer),
@@ -121,8 +130,9 @@ export function savedVitalsOf(snap) {
     offHealth = keepFraction(offHealth, own, offMax);
   }
   const layerHp = offlineFirmamentHpOfSnap(snap);
-  const maxHealth = offMax + layerHp;
-  const health = layerHp > 0 ? keepFraction(offHealth, offMax, maxHealth) : offHealth;
+  const racialHp = racialHpBonus(snap, own);
+  const maxHealth = offMax + racialHp + layerHp;
+  const health = (racialHp + layerHp) > 0 ? keepFraction(offHealth, offMax, maxHealth) : offHealth;
   return { health, maxHealth, offHealth, offMax };
 }
 
@@ -399,10 +409,15 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // RENOWN1: AND NOTHING OF THE ONLINE LAYER. Renown's health and magicka sit on top of the live maximums
   // while online (systems/renownLayer.js); a save keeps the vitals as they would stand without it, each at the same
   // fraction of its maximum, so a save written online is the one the character would have written offline.
-  if (renownHpOf(entity) || onlineMpOf(entity)) Object.assign(snap, offlineVitals(entity));   // EG15: and the Battlemage's Bearing, a set's magicka (at Renown 1, with no layer)
-  const offBaseMax = offlineBaseMaxHealth(entity);
   const rawMax = Number.isFinite(snap.maxHealth) ? snap.maxHealth : 0;
   const ownMax = entity.maxHealthLimiter >= 1 && entity.maxHealthLimiter < rawMax ? entity.maxHealthLimiter : rawMax;
+  const hasRacialHp = racialHpBonus(entity, ownMax) > 0;
+  const hasRacialMp = entity.raceId === 5 && isRacialOverhaulEnabled() && isOverhaulPlayer(entity);
+  if (renownHpOf(entity) || onlineMpOf(entity) || hasRacialHp || hasRacialMp) Object.assign(snap, offlineVitals(entity));   // EG15: and the Battlemage's Bearing, a set's magicka (at Renown 1, with no layer)
+  if (racialFatigueMult(entity) !== 1 && Number.isFinite(entity.fatigue)) {
+    snap.fatigue = keepFraction(entity.fatigue, maxFatigue(entity), maxFatigueBase(entity));
+  }
+  const offBaseMax = offlineBaseMaxHealth(entity);
   if (offBaseMax > ownMax) snap.vitalBaseMax = offBaseMax;
   snap.stats = { ...entity.stats };
   // SURV1: the needs record (survival/needs.js) - its markers are classic
@@ -1197,6 +1212,25 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // E2: re-instantiate the held enchantments from the worn set the
   // equip table just rebuilt - a recast, so no durability is billed.
   restartHeldEnchantments(entity);
+  applyDressStanding(entity);
+  if (isRacialOverhaulEnabled() && isOverhaulPlayer(entity)) {
+    const offHp = offlineBaseMaxHealth(entity);
+    const liveHp = entity.maxHealth ?? 0;
+    if (liveHp > offHp && Number.isFinite(entity.health) && entity.health > 0) {
+      entity.health = keepFraction(entity.health, offHp, liveHp);
+    }
+    if (entity.raceId === 5 && Number.isFinite(entity.magicka) && entity.magicka > 0) {
+      let baseMp = 0;
+      withRacialOverhaulState(false, () => { baseMp = entity.maxMagicka ?? 0; });
+      const liveMp = entity.maxMagicka ?? 0;
+      if (liveMp > baseMp) entity.magicka = keepFraction(entity.magicka, baseMp, liveMp);
+    }
+    if (racialFatigueMult(entity) !== 1 && Number.isFinite(entity.fatigue) && entity.fatigue > 0) {
+      const baseFat = maxFatigueBase(entity);
+      const liveFat = maxFatigue(entity);
+      if (liveFat > baseFat) entity.fatigue = keepFraction(entity.fatigue, baseFat, liveFat);
+    }
+  }
   // W1: the restored weather, which S41 made self-suppressing -
   // restoreWeather now stamps the array rolled and the pending-apply
   // flag DOWN (startedFromLoadedSaveGame's else arm, WeatherManager.cs

@@ -5545,6 +5545,10 @@ function statsCharacter(detail, m) {
     }
     detail.append(a);
   }
+  if (m.racialOverhaul) {
+    detail.append(pxDivider(m.racialOverhaul.header));
+    detail.append(el('p', 'px-note', m.racialOverhaul.text));
+  }
 }
 
 function statsPerks(detail) {
@@ -5849,18 +5853,22 @@ function statsSpecials(detail, m) {
   if (!rows.length) {
     detail.append(pxDivider(t('pause.stats.advantages', 'Advantages')));
     detail.append(el('p', 'px-note', t('pause.specials.none', 'No special advantages or disadvantages.')));
-    return;
-  }
-  for (const [kind, title] of [['advantage', t('pause.stats.advantages', 'Advantages')], ['disadvantage', t('pause.specials.disadvantages', 'Disadvantages')]]) {
-    const list = rows.filter((r) => r.kind === kind);
-    if (!list.length) continue;
-    detail.append(pxDivider(title));
-    for (const r of list) {
-      const row = el('div', 'px-stat');
-      row.append(el('span', 'k', r.label));
-      row.append(el('span', 'v px-src', r.source === 'race' ? (m.race || t('pause.specials.race', 'Race')) : (m.career || t('pause.specials.class', 'Class'))));
-      detail.append(row);
+  } else {
+    for (const [kind, title] of [['advantage', t('pause.stats.advantages', 'Advantages')], ['disadvantage', t('pause.specials.disadvantages', 'Disadvantages')]]) {
+      const list = rows.filter((r) => r.kind === kind);
+      if (!list.length) continue;
+      detail.append(pxDivider(title));
+      for (const r of list) {
+        const row = el('div', 'px-stat');
+        row.append(el('span', 'k', r.label));
+        row.append(el('span', 'v px-src', r.source === 'race' ? (m.race || t('pause.specials.race', 'Race')) : (m.career || t('pause.specials.class', 'Class'))));
+        detail.append(row);
+      }
     }
+  }
+  if (m.racialOverhaul) {
+    detail.append(pxDivider(m.racialOverhaul.header));
+    detail.append(el('p', 'px-note', m.racialOverhaul.text));
   }
 }
 

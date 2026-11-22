@@ -2743,6 +2743,7 @@ export function createWorldModes(host) {
       && (interiorBuilding.buildingType === BUILDING_TYPES.Temple
         || interiorBuilding.factionId === FIGHTER_TRAINERS_FACTION),
     isSwimming: () => !!player?.swimming,
+    isRaining: () => mode === 'exterior' && !!weatherFlags(currentWeather())?.isRaining,
   });
   /** X11b: mount a modal into whichever slot the CURRENT mode draws.
    *  See the note on openCreateItemPicker for what this fixed. */
@@ -11536,14 +11537,14 @@ export function createWorldModes(host) {
       if (isBowWeapon(interiorWeapon.playerWeapon.weapon)) {
         const shot = { summoned: false };   // STUCK-ARROWS: DFU's isArrowSummoned, carried by the shaft
         if (spendAmmoFor(playerEntity.items, interiorWeapon.playerWeapon.weapon, shot)) {
-          drainInteriorFatigue(swingFatigueCost(interiorWeapon.playerWeapon.weapon));
+          drainInteriorFatigue(swingFatigueCost(interiorWeapon.playerWeapon.weapon, playerEntity));
           tallySwingSkills(playerEntity, interiorWeapon.playerWeapon.weapon, interiorWeapon.playerWeapon.blowWeight);
           interiorArrows.fire(player.eye, eyeDir(), { fromPlayer: true, weapon: interiorWeapon.playerWeapon.weapon, muzzle: interiorWeapon.thunderlockMuzzle(fieldOfView()), summoned: shot.summoned }); interiorWeapon.noteShot?.(interiorWeapon.playerWeapon.weapon);   // SPELLFX1: the peers draw it   // FIELD-GUN17: the barrel's own offset when the hand holds the gun, null for every bow - the rig answers, the lane forks   // #64: LastBowUsed rides the shaft - the impact prices off it   // ROAD-H H1c: ArrowFlight.fire applies GetAimPosition's player arm (the bow hand), as DFU's missile does its own
         }
         continue;
       }
       // "// Fatigue loss" - unconditional, whatever the swing meets.
-      drainInteriorFatigue(swingFatigueCost(interiorWeapon.playerWeapon.weapon));
+      drainInteriorFatigue(swingFatigueCost(interiorWeapon.playerWeapon.weapon, playerEntity));
       // IF: ...and an interior swing CAN meet an enemy now. This was
       // `envAttack` alone, on the strength of a true premise that has
       // stopped being true: with no interior pool there was never a

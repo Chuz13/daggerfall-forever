@@ -40,6 +40,7 @@
 // onInflictPoison seam in formulas.js).
 
 import { savingThrow, careerTolerance, EFFECT_FLAGS } from './spellcast.js';
+import { effectiveRaceTemplate } from './racialOverhaulData.js';
 import { FATIGUE_MULTIPLIER } from './statMods.js';
 import { dice100 } from '../combat/formulas.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
@@ -238,6 +239,16 @@ export function inflictPoison(target, poisonType, bypassResistance, { rolls = Ma
   if (careerTolerance(target.career ?? {}, EFFECT_FLAGS.Poison) === 'Immune') {
     if (target.isPlayer) recordPoisonEvent({ poisonType, inflicted: false, resisted: true });
     return null;
+  }
+  if (target.isPlayer) {
+    const rt = target.raceTemplate ?? effectiveRaceTemplate(target) ?? null;
+    if (((rt?.immunityFlags ?? 0) & EFFECT_FLAGS.Poison) !== 0) {
+      const tol = careerTolerance(target.career ?? {}, EFFECT_FLAGS.Poison);
+      if (tol !== 'LowTolerance' && tol !== 'CriticalWeakness') {
+        recordPoisonEvent({ poisonType, inflicted: false, resisted: true });
+        return null;
+      }
+    }
   }
   if (bypassResistance || savingThrow(2, EFFECT_FLAGS.Poison, target, 0, rolls) !== 0) {
     if (target.level !== 1) {

@@ -36,6 +36,7 @@ import { spellPowerMult, spellPierce, schoolMult } from './spell/spellPower.js';
 import { castSchool } from './spellcost.js';   // SCHOOLS3: the school an effect is cast in (a signature spell's path's)
 import { noteFeudHarm, elementFeudClass } from './feudLedger.js';   // RVN1: my spell's round, in its fight's ledger (a leaf)
 import { raceById, raceByKey } from './races.js';   // L2-slice (magic-10): the racial immunity arm
+import { effectiveRaceTemplate } from './racialOverhaulData.js';
 import { STAT_KEYS_ORDER, FATIGUE_MULTIPLIER, maxFatigue, increaseDrainMagnitude, liveStat } from './statMods.js';
 import { dice100 } from '../combat/formulas.js';
 import { tryAbsorption, absorbRefund } from './absorption.js';
@@ -392,7 +393,7 @@ export function isEntityImmuneToParalysis(entity) {
   // IsImmuneToParalysis) - the curse entry is the race now
   if (entity.racialOverride?.immuneParalysis && !entity.racialOverride.ended) return true;
   if (entity.isPlayer) {
-    const rt = entity.raceTemplate ?? raceById(entity.raceId) ?? raceByKey(entity.race) ?? null;
+    const rt = entity.raceTemplate ?? effectiveRaceTemplate(entity) ?? raceById(entity.raceId) ?? raceByKey(entity.race) ?? null;
     if (((rt?.immunityFlags ?? 0) & EFFECT_FLAGS.Paralysis) !== 0) {
       const t = careerTolerance(entity.career ?? {}, EFFECT_FLAGS.Paralysis);
       return t !== 'LowTolerance' && t !== 'CriticalWeakness';
@@ -429,7 +430,7 @@ export function isEntityImmuneToDisease(entity) {
   if (careerTolerance(entity.career ?? {}, EFFECT_FLAGS.Disease) === 'Immune') return true;
   if ((entity.racialOverride && !entity.racialOverride.ended) || entity.racialOverridePending) return true;
   if (entity.isPlayer) {
-    const rt = entity.raceTemplate ?? raceById(entity.raceId) ?? raceByKey(entity.race) ?? null;
+    const rt = entity.raceTemplate ?? effectiveRaceTemplate(entity) ?? raceById(entity.raceId) ?? raceByKey(entity.race) ?? null;
     if (((rt?.immunityFlags ?? 0) & EFFECT_FLAGS.Disease) !== 0) {
       const t = careerTolerance(entity.career ?? {}, EFFECT_FLAGS.Disease);
       return t !== 'LowTolerance' && t !== 'CriticalWeakness';

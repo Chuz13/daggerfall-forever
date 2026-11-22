@@ -18,6 +18,7 @@ import { skillValue, SKILLS } from '../skills.js';
 import { healingRateModifier } from '../../combat/formulas.js'; // U10
 import { isOnlinePage } from '../online/onlineLane.js'; // REST-MANA1: online, every career's magicka comes back with rest
 import { localizedText, t } from '../textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language; L10N4: SPENT-ASHORE's line is the port's own
+import { racialRestSpMult } from '../racialOverhaulData.js';
 
 // ---- DFCareer.SpecialAbilityFlags (the low byte of
 // AbilityFlagsAndSpellPointsBitfield) + RapidHealingFlags ----
@@ -81,7 +82,8 @@ export const restIgnoresNoRegen = () => isOnlinePage();
 
 export function spellPointRecoveryRate(entity) {
   if (hasSpecialAbility(entity.career, SPECIAL_ABILITY.NoRegenSpellPoints) && !restIgnoresNoRegen()) return 0;
-  return Math.max(Math.floor((entity.maxMagicka ?? 0) / 8), 1);
+  const base = Math.max(Math.floor((entity.maxMagicka ?? 0) / 8), 1);
+  return Math.max(1, Math.floor(base * racialRestSpMult(entity)));
 }
 
 // The exhaustion texts: TEXT.RSC 1071 ("you drop to the ground",

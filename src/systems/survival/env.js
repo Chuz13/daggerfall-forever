@@ -30,6 +30,7 @@ import { survivalRules } from './switch.js';
 import { liveVampirism } from '../racialLive.js';
 import { isAnyLich } from '../necromancy/lichdomStatus.js';
 import { raceById } from '../races.js';
+import { effectiveRaceTemplate } from '../racialOverhaulData.js';
 
 /** TEMP-UI: the last feed built for each entity (feltNow, at the end of this file) - weak, never on the entity. */
 const LAST_FEED = new WeakMap();
@@ -49,7 +50,7 @@ export function survivalCtx(entity, env = {}) {
     vampire: !!liveVampirism(entity),
     lich: !!isAnyLich(entity),
     raceId: entity?.raceId ?? 1,
-    raceTemplate: raceById(entity?.raceId ?? 1) ?? {},
+    raceTemplate: effectiveRaceTemplate(entity) ?? raceById(entity?.raceId ?? 1) ?? {},
     lycanthrope: !!env.lycanthrope, beastForm: !!env.beastForm,
     fireResist: env.fireResist ?? 0, frostResist: env.frostResist ?? 0,
   };

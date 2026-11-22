@@ -466,6 +466,7 @@ export const CATEGORIES = Object.freeze([
     sec('index', 'Every mod', ['mods-index']),
   ]),
   tab('dff', () => t('settings.tab.dff', 'DFF'), [
+    sec('races', () => t('settings.sec.races', 'Races & Character'), ['feat:racial-overhaul']),
     sec('necromancy', () => t('settings.sec.necromancy', 'Dark Arts & Necromancy (Experimental, alpha)'), [
       'port:necroEnabled',
       'port:necroCorpseReq',

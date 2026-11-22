@@ -72,6 +72,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { STAT_KEYS_ORDER } from '../../systems/chargen.js';
+import { racialOverhaulInfo } from '../../systems/racialOverhaulData.js';
 import { skillAdvanceProgress } from '../../systems/advancement.js'; // SKILL-TICK: the uses toward each skill's next point
 import {
   SKILLS,
@@ -179,6 +180,7 @@ export function sheetModel(entity) {
     // classic sheet's History button pops before the history window,
     // which the port had never drawn in EITHER skin.
     specials: classSpecials(e.career, raceTemplateOf(e)),
+    racialOverhaul: racialOverhaulInfo(e.raceId),
     groups: SKILL_GROUPS.map((name, i) => ({
       name,
       ids: i < 3 ? career[i] : misc,

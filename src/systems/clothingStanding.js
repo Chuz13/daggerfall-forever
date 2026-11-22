@@ -40,6 +40,7 @@
 import { EQUIP_SLOTS } from '../characters/paperdoll/paperdoll.js';
 import { ITEM_GROUPS } from '../characters/equipRules.js';
 import { FACTION_TYPES } from '../formats/factionFile.js';
+import { racialStandingBonus } from './racialOverhaulData.js';
 
 /** The five named social groups, by index (FactionFile.SocialGroups). */
 export const DRESS_GROUP = Object.freeze({ Commoners: 0, Merchants: 1, Scholars: 2, Nobility: 3, Underworld: 4 });
@@ -159,8 +160,9 @@ export function dressStanding(entity) {
     temple += fx.temple;
   }
   const gear = entity?._mods?.standing; // LOOT14
+  const racial = racialStandingBonus(entity);
   const capGear = (v) => Math.max(-GEAR_STANDING_CAP, Math.min(GEAR_STANDING_CAP, Number(v) || 0));
-  return { groups: groups.map((v, g) => clamp(v) + capGear(gear?.[g])), temple: clamp(temple) };
+  return { groups: groups.map((v, g) => clamp(v) + capGear(gear?.[g]) + (racial?.[g] ?? 0)), temple: clamp(temple) };
 }
 
 /** The magic-round hook: fold the dress into the (just-cleared) live

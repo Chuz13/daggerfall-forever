@@ -54,6 +54,7 @@ import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { packImgTexture } from './packArt.js';   // OVH2: the worn UI pack's picture
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { raceDisplayName } from '../systems/talk/talkSession.js';   // L10N3d: RaceTemplate.Name, read in the player's language
+import { racialOverhaulInfo } from '../systems/racialOverhaulData.js';
 
 // DaggerfallUI.cs:52-62 - the colours these windows actually use.
 /** CreateCharNameSelect.cs:79-81 - the RANDOM button's own colours. */
@@ -517,7 +518,23 @@ export function raceDescriptionLines(race) {
   // AUDIT 17g F2: the ROWS, with the record's own per-row alignment -
   // mapping them to bare strings threw away the JustifyCenter flag the
   // box needs.
-  return t.linesById(race.descriptionId);
+  const rows = [...t.linesById(race.descriptionId)];
+  const info = racialOverhaulInfo(race.key);
+  if (info) {
+    rows.push({ text: '', align: 0 }, { text: info.header, align: 0 });
+    const words = info.text.split(/\s+/).filter(Boolean);
+    let line = '';
+    for (const w of words) {
+      if (line && line.length + 1 + w.length > 42) {
+        rows.push({ text: line, align: 0 });
+        line = w;
+      } else {
+        line = line ? `${line} ${w}` : w;
+      }
+    }
+    if (line) rows.push({ text: line, align: 0 });
+  }
+  return rows;
 }
 
 const img = (n) => _art.imgs.get(n);

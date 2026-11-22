@@ -94,7 +94,7 @@ export function spellPowerMult(caster, target, opts = {}) {
   if (!ownSpellAt(caster, target)) return 1;
   let pct = 0;
   for (const fn of _power.values()) {
-    const v = fn(caster, target);
+    const v = fn(caster, target, opts);
     if (Number.isFinite(v) && v !== 0) pct += v; // FIRM1: a keystone's price may be a percent LESS (Martyr's Vow)
   }
   return schoolPotency(caster, opts) * Math.max(SPELL_POWER_FLOOR, 1 + pct / 100);

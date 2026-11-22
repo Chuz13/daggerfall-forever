@@ -15,6 +15,7 @@
 // cleanly and the raw (permanent) stat is never mutated.
 
 import { mentoredStat } from './mentorMode.js'; // SOFTCAP1: mentor mode's overlay - a leaf, so this file stays cycle-free
+import { racialFatigueMult } from './racialOverhaulData.js';
 export const STAT_KEYS_ORDER = Object.freeze([
   'strength',
   'intelligence',
@@ -196,12 +197,21 @@ export function killIfAnyLiveStatZero(entity, sinks, dt = 0) {
 // or drained strength moves the ceiling exactly as DFU's getter does.
 export const FATIGUE_MULTIPLIER = 64;
 
-/** DaggerfallEntity.MaxFatigue, verbatim (live stats) + Apotheosis ascended god gift (+500 * 64). */
-export function maxFatigue(entity) {
+export function maxFatigueBase(entity) {
   const apo = entity?.apotheosis;
   const godBonus = (apo && (apo.ascended === true || apo.stage === 'ascended')) ? 500 * FATIGUE_MULTIPLIER : 0;
   const hearty = entity?.survival?._heartyBonus > 0 ? entity.survival._heartyBonus : 0;
   return Math.trunc((liveStat(entity, 'strength') + liveStat(entity, 'endurance')) * FATIGUE_MULTIPLIER * (1 + hearty)) + godBonus;
+}
+
+/** DaggerfallEntity.MaxFatigue, verbatim (live stats) + Apotheosis ascended god gift (+500 * 64) + Racial Overhaul. */
+export function maxFatigue(entity) {
+  const mult = racialFatigueMult(entity);
+  if (mult === 1) return maxFatigueBase(entity);
+  const apo = entity?.apotheosis;
+  const godBonus = (apo && (apo.ascended === true || apo.stage === 'ascended')) ? 500 * FATIGUE_MULTIPLIER : 0;
+  const hearty = entity?.survival?._heartyBonus > 0 ? entity.survival._heartyBonus : 0;
+  return Math.trunc((liveStat(entity, 'strength') + liveStat(entity, 'endurance')) * FATIGUE_MULTIPLIER * (1 + hearty) * mult) + godBonus;
 }
 /** DaggerfallEntity.SetFatigue's clamp, the one every fatigue write takes: [0, MaxFatigue]. AUDIT C&C N5: the hosts'
  *  drains clamped at nought alone, so a pool a lapsed boon or a Fortify's end had left over its new ceiling (8,320 in
