@@ -22,6 +22,7 @@ docs/.vitepress/cache/
 app/game-seed.json
 app/launcher/menuPad.js
 app/launcher/dfo-online.png
+app/mods/
 
 # Original game data - freeware but not redistributable. NEVER commit.
 ARENA2/
