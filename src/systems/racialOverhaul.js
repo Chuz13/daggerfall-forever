@@ -17,6 +17,7 @@ import { WEAPONS, weaponSkillUsed } from '../characters/weapons.js';
 import { isHandWraps } from '../characters/handWrapsIds.js';
 
 const WEAPON_TYPE_BOW = 14; // WEAPON_TYPES.Bow (kept inline to avoid fpsWeapon -> weaponWidget cycle)
+const TORCH_TEMPLATE = 247; // UselessItems2.Torch (kept inline to avoid handheldTorches -> weaponWidget -> fpsWeapon cycle)
 import { EQUIP_SLOTS } from '../characters/paperdoll/paperdoll.js';
 import { getItemHands, ITEM_HANDS } from './equip.js';
 import { registerEntityFold, registerWeaponBlowMod, computeEntityMods } from './entityMods.js';
@@ -31,8 +32,7 @@ import { keepFraction, offlineBaseMaxHealth } from './renownLayer.js';
 import { maxFatigue } from './statMods.js';
 import { applyDressStanding } from './clothingStanding.js';
 import { playerEntity, surfacePlayer } from '../characters/playerEntity.js';
-import { isHeldLight } from './handheldTorches.js';
-import { lanternAtWaist } from './playerTorch.js';
+import { lanternAtWaist, LANTERN_TEMPLATE } from './playerTorch.js';
 
 const SPELL_SCHOOL_RESTORATION = SKILLS.Restoration;
 const SPELL_SCHOOL_ALTERATION = SKILLS.Alteration;
@@ -49,7 +49,8 @@ const BRETON_DISCOUNT_SCHOOLS = new Set([
 export function isSpellswordStance(entity) {
   const slots = entity?.equip?.slots;
   if (!slots) return false;
-  if (isHeldLight(entity.lightSource) && !lanternAtWaist(entity.lightSource)) return false;
+  const light = entity.lightSource;
+  if ((light?.templateIndex === TORCH_TEMPLATE || light?.templateIndex === LANTERN_TEMPLATE) && !lanternAtWaist(light)) return false;
   const right = slots[EQUIP_SLOTS.RightHand] ?? null;
   const left = slots[EQUIP_SLOTS.LeftHand] ?? null;
   const isOneHandedWeapon = (it) =>

@@ -11054,7 +11054,7 @@ wild.zone.revenantOne,"In Cyrodiil darf nur ein Wiedergänger an deiner Seite ge
 wild.zone.unstuckOut,"/unstuck funktioniert in Cyrodiil im Freien nicht."
 settings.sec.races,"Rassen & Charakter"
 features.racialOverhaul.title,"Rassen-Überarbeitung"
-features.racialOverhaul.note,"Verleiht jedem spielbaren Volk stufenabhängige Waffenboni, Resistenzen und Lore-Passive. Jederzeit abschaltbar, um klassische Daggerfall-Regeln wiederherzustellen."
+features.racialOverhaul.note,"Verleiht jedem spielbaren Volk stufenabhängige Waffenboni, Resistenzen und Lore-Passive. Jederzeit abschaltbar, um klassische Regeln wiederherzustellen."
 race.overhaul.header,"Rassenmerkmale (Overhaul)"
 race.overhaul.desc.Breton,"+30% Magieresistenz, 15% Zauberabsorption, -15% Kosten für Wiederherstellung/Veränderung/Mystik, +10 Etikette & Mystik, +10 Ruf bei Adel & Gelehrten."
 race.overhaul.desc.Redguard,"Bevorzugte Waffen: Lang- & Kurzschwerter (stufenabhängiger Treffer/Schaden). +30% Gift- & Krankheitsresistenz, +15% max. Ausdauer, -25% Bewegungs-Ausdauer, -30% Angriffs-Ausdauer, +10° Hitzeschutz."
