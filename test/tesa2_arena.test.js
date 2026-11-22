@@ -286,7 +286,7 @@ test('TESA2 with ARENA2: on the player\'s own trace all 283 places past the Bay 
     off++;
     assert.ok(Math.hypot(p.bx - fx, p.by - fy) <= 8, `${p.name}: ${p.bx - fx}, ${p.by - fy} off its point`);
   }
-  assert.equal(off, 8, 'eight places a few pixels off their point - every other under it');
+  assert.equal(off, 4, 'four places a few pixels off their point - every other under it');
   const maps = new MapsFile();
   maps.load(await fetchBytes('MAPS.BSA'), await fetchBytes('CLIMATE.PAK'), await fetchBytes('POLITIC.PAK'));
   const rows = [];
