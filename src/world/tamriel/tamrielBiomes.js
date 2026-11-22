@@ -68,7 +68,7 @@ export const PEAKS_SEEK = 12;
 export const BIOME_CACHE_MAX = 262144;
 /** THE ZONES' LAW'S VERSION - moved whenever the table or its law changes what a pixel reads, so a store of answers made
  *  with them (the roads' regions in IndexedDB, world/tamrielRoads.js inputsPrint) is made again (AUDIT TESA-BIOME Z3). */
-export const BIOMES_VERSION = 6;   // lore-accurate city relocation & biome seed updates; TAMRIEL-RELIEF: the peaks on the heightmap where the trace stands; IC-RING: the valley's city and the jungle's ring moved; AUDIT TESA II (G1-G12, Z8, J4): the coast's ease and the inland floor, the peaks near their ranges and of the land past the Bay, Vvardenfell's zones about Red Mountain and the Grazelands, a zone's province read at the wandered point, the landforms' hills past the Bay
+export const BIOMES_VERSION = 7;   // lore-accurate city relocation & biome seed updates; TAMRIEL-RELIEF: the peaks on the heightmap where the trace stands; IC-RING: the valley's city and the jungle's ring moved; AUDIT TESA II (G1-G12, Z8, J4): the coast's ease and the inland floor, the peaks near their ranges and of the land past the Bay, Vvardenfell's zones about Red Mountain and the Grazelands, a zone's province read at the wandered point, the landforms' hills past the Bay
 
 const C = CLIMATES;
 /** @typedef {readonly [number, number]} Point */

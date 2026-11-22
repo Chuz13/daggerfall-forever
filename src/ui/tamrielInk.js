@@ -515,9 +515,8 @@ export function arenaInkCities(model) {
     const [x, y] = pictureToBay(p.px, p.py);
     if (inBay(x, y)) continue;
     const st = stood.get(`${p.provinceIndex}|${p.id}`), pixel = st ? { x: st.x, y: st.y } : capitalStandsAt(p);
-    // AUDIT-TESA A7-4: a place on a capital's pixel (its pin, or the capital standing where the places do not) is inked
-    // there - on the city the world stands, not on its own point a pixel or more away
-    const on = pixel && (st?.pinned || !st) ? [pixel.x + 0.5, pixel.y + 0.5] : [x, y];
+    // Ink every resolved city/place at the pixel where it stands in the world (not at raw pictureToBay, which can drift into sea/off-road).
+    const on = pixel ? [pixel.x + 0.5, pixel.y + 0.5] : [x, y];
     const isCapital = capital.has(`${p.province}|${p.name}`), k = isCapital ? CAPITALS.findIndex((cap) => cap.name === p.name) : -1;
     // WW7-6: its map id - the seat's key (scenes/tamrielPlacesHost.js seatPlaces: a capital's its centre's, a city's its own).
     // BAY-LEFT-MAPS (C11): whether it is a port, by its provider's word as the registry reads it (world/pastBayRows.js): the
@@ -1298,11 +1297,12 @@ export function paintTamrielInk(ctx, view, ink, opts) {
   for (const m of marks) if (m.port) paintHarbour(ctx, m.x, m.y, true);   // BAY-LEFT-MAPS C11: a port's anchor, beside its glyph
   const size = continent ? 11 : 12;
   ctx.font = `${size}px ${NAME_FACE}`;
+  const labelDx = (c) => (all && c.port ? 14 : c.capital ? 8 : 5);
   ctx.strokeStyle = PEN.halo;
   ctx.lineWidth = 2 * HALO_PEN;
-  for (const [c, x, y] of named) ctx.strokeText(c.name, x + (c.capital ? 8 : 5), y + 4);
+  for (const [c, x, y] of named) ctx.strokeText(c.name, x + labelDx(c), y + 4);
   ctx.fillStyle = PEN.name;
-  for (const [c, x, y] of named) ctx.fillText(c.name, x + (c.capital ? 8 : 5), y + 4);
+  for (const [c, x, y] of named) ctx.fillText(c.name, x + labelDx(c), y + 4);
   // the provinces' names, and the seas'
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
