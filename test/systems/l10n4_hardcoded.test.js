@@ -699,7 +699,7 @@ const HARDCODED = {
   'src/ui/hud/hudAdvance.js': 8,   // HUD/GROWTH PATCHES (2026-10-20): counted as they arrived at their merge with main - English until a slice routes them through t() (SKILL-READY, FIRM-STARS: ADV_WORDS, the tiles' hover card)
   'src/ui/hud/hudLayout.js': 28,
   'src/ui/hud/hudStatus.js': 1,
-  'src/ui/hud/statusTips.js': 53,   // HUD/GROWTH PATCHES (2026-10-20): counted as they arrived at their merge with main - English until a slice routes them through t() (STATUS-TIPS: what each status tile says under the pointer)
+  'src/ui/hud/statusTips.js': 52,   // HUD/GROWTH PATCHES (2026-10-20): counted as they arrived at their merge with main - English until a slice routes them through t() (STATUS-TIPS: what each status tile says under the pointer)
   'src/ui/iliacTableHud.js': 63,
   'src/ui/ink/inkDungeonGL.js': 1,
   'src/ui/ink/inkDungeonSolid.js': 6,

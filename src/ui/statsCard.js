@@ -15,7 +15,7 @@ import { dollArmour, overallArmour, tenth, PART_NAMES } from './armourCard.js';
 import { SKILL_NAMES, SKILLS } from '../systems/skills.js';
 import { itemLongName } from '../systems/item/itemInfo.js';
 import { PIXEL_STACK } from './pixelifyFive.js'; // the Enhanced Plus face: Pixelify Sans, its 5 from Silkscreen
-import { temperatureStatRows, boonStatRows } from './temperatureCard.js'; // TEMP-UI: the felt temperature's parts; AUDIT SURV-BOONS C13: and the boons
+import { temperatureStatRows, boonStatRows, penaltyStatRows } from './temperatureCard.js'; // TEMP-UI: the felt temperature's parts; AUDIT SURV-BOONS C13: and the boons
 import { savingChance, elementalResistanceChance, ELEMENTS, EFFECT_FLAGS } from '../systems/spellcast.js'; // STATS-RESIST: the saving throw's own law
 import { t, localizedText } from '../systems/textManager.js'; // L10N4: the card's words in the player's language; the attributes are DFU's own
 
@@ -410,6 +410,16 @@ export function buildStatsPage(entity, repaint, opts = {}) {
     bn.title = 'With Climates & Calories set to Boons: what staying fed, watered and rested has earned you.';
     page.append(bn);
   }
+  const penaltyRows = penaltyStatRows(entity);
+  if (penaltyRows.length) {
+    const pn = section(t('pause.stats.penalties', 'Penalties'), 15);
+    for (const [k, v] of penaltyRows) {
+      const r = row(k, v);
+      r.querySelector('.sf-rv')?.classList.add('down');
+      pn.append(r);
+    }
+    page.append(pn);
+  }
 
   const foot = el(
     'p',
@@ -424,7 +434,7 @@ export function buildStatsPage(entity, repaint, opts = {}) {
           'Rules: the original game\u2019s combat formulas. Damage is before any armor effects.',
         ),
   );
-  foot.style.setProperty('--i', '15'); // TEMP-UI: after the Temperature and Boons sections
+  foot.style.setProperty('--i', '16'); // TEMP-UI: after the Temperature, Boons and Penalties sections
   page.append(foot);
   return page;
 }
@@ -607,6 +617,7 @@ export const STATS_CARD_CSS = `
   font-size: 12px; line-height: 1.1; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sf-hi); }
 .statflip .sf-row { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; border-bottom-width: 1px; border-bottom-style: solid; }
 .statflip .sf-rk { color: var(--sf-soft); } .statflip .sf-rv { color: var(--sf-ink); white-space: nowrap; }
+.statflip .sf-rv.down { color: var(--sf-down); white-space: normal; text-align: right; }
 .statflip .sf-tbl { display: flex; flex-direction: column; gap: 1px; }
 .statflip .sf-tr { display: grid; grid-template-columns: 1.3fr 1fr 0.7fr 0.9fr; gap: 6px; padding: 2px 4px; }
 .statflip .sf-tr span:not(.sf-name) { text-align: right; }

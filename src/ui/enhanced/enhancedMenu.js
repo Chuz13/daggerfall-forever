@@ -110,7 +110,7 @@ import { drawShotsPane, releaseShotsPane } from '../shotsPane.js';   // LOAD1: t
 import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT, TEST_GOD, TEST_ASCENSION } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../../formats/morrowind/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../../systems/equip.js';
-import { boonStatRows } from '../temperatureCard.js';   // AUDIT C&C B11: the Attributes page names the boons that raise them
+import { boonStatRows, penaltyStatRows } from '../temperatureCard.js';   // AUDIT C&C B11: the Attributes page names the boons that raise them and penalties that lower them
 import { statTooltip, skillTooltip } from '../../systems/chargenTooltips.js';
 import { dfWornEquipment } from '../../formats/morrowind/mwItemMap.js';
 import { ARMOR_ENUM } from '../../combat/enemyEquipment.js';
@@ -5630,12 +5630,22 @@ function statsAttributes(detail, m) {
     detail.append(row);
   }
   const boons = boonStatRows(playerEntity);
-  if (!boons.length) return;
-  detail.append(pxDivider('Boons'));
-  for (const [k, v] of boons) {
-    const r = el('div', 'px-stat');
-    r.append(el('span', 'k', k), el('span', 'v', v));
-    detail.append(r);
+  if (boons.length) {
+    detail.append(pxDivider('Boons'));
+    for (const [k, v] of boons) {
+      const r = el('div', 'px-stat');
+      r.append(el('span', 'k', k), el('span', 'v', v));
+      detail.append(r);
+    }
+  }
+  const penalties = penaltyStatRows(playerEntity);
+  if (penalties.length) {
+    detail.append(pxDivider(t('pause.stats.penalties', 'Penalties')));
+    for (const [k, v] of penalties) {
+      const r = el('div', 'px-stat px-penalty');
+      r.append(el('span', 'k', k), el('span', 'v bad', v));
+      detail.append(r);
+    }
   }
 }
 
