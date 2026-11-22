@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Lähmungsimmunität, -25% Feuer-/Frost-/Schockresist
 race.overhaul.desc.WoodElf,"Bevorzugte Waffen: Bogenschießen & Kurzschwerter (stufenabhängiger Treffer/Schaden). +30% Krankheits- & Giftresistenz, +10 Schleichen, +10% Bogen-Nachladetempo, +25% Schaden gegen unaufmerksame Gegner. Grüner Pakt: Wildtiere bleiben friedlich, bis sie angegriffen werden."
 race.overhaul.desc.Khajiit,"Bevorzugte Waffen: Nahkampf & Kurzschwerter (stufenabhängiger Treffer/Schaden). +5 Schnelligkeit & Geschicklichkeit, +10 Schleichen, Taschendiebstahl & Krit. Treffer, -50% Fallschaden, Nachtsicht im Dunkeln."
 race.overhaul.desc.Argonian,"Bevorzugte Waffen: Stumpfe Waffen & Bogenschießen (stufenabhängiger Treffer/Schaden). Giftimmunität, +50% Krankheitsresistenz, +15 Schwimmen, +40% Schwimmtempo, +5 Rüstung auf alle Teile, Leben- & Ausdauerregeneration im Wasser oder Regen."
+menu.test.raceTitle,"Schnellstart nach Volk"
+menu.test.raceName,"Schnellstart nach Volk (Gothway Garden)"
+menu.test.raceNote,"Wähle eines der 8 Völker und starte im Freien in Gothway Garden mit der Test-Waffenkammer und Startzaubern."
+menu.test.raceLevel,"Stufe {level}"

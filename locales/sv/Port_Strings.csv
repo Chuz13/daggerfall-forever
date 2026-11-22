@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Förlamningsimmunitet, -25% Eld/Frost/Chock-motstån
 race.overhaul.desc.WoodElf,"Favoritvapen: Archery & Short Blade (nivåskalad Träff & Skada). +30% Sjukdoms- & Giftmotstånd, +10 Stealth, +10% bågladdning, +25% skada mot ovetande fiender. Gröna Pakten: vilda djur ignorerar dig tills de provoceras."
 race.overhaul.desc.Khajiit,"Favoritvapen: Hand-to-Hand & Short Blade (nivåskalad Träff & Skada). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% fallskada, Mörkerseende i mörker."
 race.overhaul.desc.Argonian,"Favoritvapen: Blunt Weapon & Archery (nivåskalad Träff & Skada). Giftimmunitet, +50% Sjukdomsmotstånd, +15 Swimming, +40% simhastighet, +5 Rustning på alla delar, passiv Hälsa- & Uthållighetsregen i vatten eller regn."
+menu.test.raceTitle,"Snabbstart efter ras"
+menu.test.raceName,"Snabbstart efter ras (Gothway Garden)"
+menu.test.raceNote,"Välj någon av de 8 raserna och börja utomhus i Gothway Garden med testvapenkammaren och startbesvärjelser."
+menu.test.raceLevel,"Nivå {level}"

@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Imunita vůči paralýze, -25% odolnost Ohni/Mrazu/�
 race.overhaul.desc.WoodElf,"Oblíbené zbraně: Lukostřelba a Krátké čepele (Zásah a Poškození podle úrovně). +30% odolnost Nemocem a Jedům, +10 Plížení, +10% rychlost nabíjení luku, +25% poškození proti nic netušícím cílům. Zelený pakt: divoká zvířata vás ignorují, dokud je nenapadnete."
 race.overhaul.desc.Khajiit,"Oblíbené zbraně: Boj beze zbraně a Krátké čepele (Zásah a Poškození podle úrovně). +5 Rychlost a Obratnost, +10 Plížení, Kapsářství a Kritický zásah, -50% poškození pádem, Noční vidění ve tmě."
 race.overhaul.desc.Argonian,"Oblíbené zbraně: Tupé zbraně a Lukostřelba (Zásah a Poškození podle úrovně). Imunita vůči jedům, +50% odolnost Nemocem, +15 Plavání, +40% rychlost plavání, +5 Zbroj na všechny části, pasivní obnova HP a Výdrže ve vodě nebo dešti."
+menu.test.raceTitle,"Rychlý start podle rasy"
+menu.test.raceName,"Rychlý start podle rasy (Gothway Garden)"
+menu.test.raceNote,"Vyberte libovolnou z 8 ras a začněte venku v Gothway Garden s testovací zbrojnicí a počátečními kouzly."
+menu.test.raceLevel,"Úroveň {level}"

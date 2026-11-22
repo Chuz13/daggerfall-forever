@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Kebal Lumpuh, -25% Ketahanan Api/Es/Petir (kelemahan
 race.overhaul.desc.WoodElf,"Senjata favorit: Archery & Short Blade (Hit & Damage berskala level). +30% Ketahanan Penyakit & Racun, +10 Stealth, +10% kecepatan isi ulang busur, +25% damage ke musuh yang lengah. Pakta Hijau: hewan liar mengabaikanmu kecuali diserang."
 race.overhaul.desc.Khajiit,"Senjata favorit: Hand-to-Hand & Short Blade (Hit & Damage berskala level). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% damage jatuh, Penglihatan Malam dalam gelap."
 race.overhaul.desc.Argonian,"Senjata favorit: Blunt Weapon & Archery (Hit & Damage berskala level). Kebal Racun, +50% Ketahanan Penyakit, +15 Swimming, +40% kecepatan renang, +5 Zirah di semua bagian, regenerasi HP & Stamina di air atau hujan."
+menu.test.raceTitle,"Mulai cepat berdasarkan ras"
+menu.test.raceName,"Mulai cepat berdasarkan ras (Gothway Garden)"
+menu.test.raceNote,"Pilih salah satu dari 8 ras dan muncul di luar ruangan di Gothway Garden dengan gudang senjata uji dan mantra awal."
+menu.test.raceLevel,"Level {level}"

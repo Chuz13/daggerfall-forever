@@ -23,11 +23,14 @@
 // starting kit and skills, which the room does not care about beyond
 // "a real character" - the armory below supersedes it.
 
-import { RACES } from './races.js';
+import { RACES, RACE_TEMPLATES } from './races.js';
 import { t } from './textManager.js';
+import { LEFAY_TOWN } from '../world/lefayMonument.js';
+import { createHandWraps } from './handWraps.js';
+import { applyDressStanding } from './clothingStanding.js';
 import { hitPointsPerLevelUp, defineLiveMaxHealth, defineLiveMaxMagicka } from './chargen.js';
 import { ONLINE_BONUS_POOL } from './levelEven.js';
-import { STAT_KEYS_ORDER, liveStat, FATIGUE_MULTIPLIER } from './statMods.js';
+import { STAT_KEYS_ORDER, liveStat, FATIGUE_MULTIPLIER, maxFatigue } from './statMods.js';
 import { SKILLS, SKILL_COUNT } from './skills.js';
 import { setMasterSkills, masterSkill } from './masterSkills.js';
 import { choosePath } from './arcanePaths.js';
@@ -140,8 +143,37 @@ export const TEST_SEA_TEXT = Object.freeze({
   noRoom: 'No open water here for a pirate ship.',
 });
 
+export const TEST_RACE_PREFIX = 'race-';
+export const TEST_RACE_LOCATION = Object.freeze({ region: 'Daggerfall', loc: LEFAY_TOWN });
+export const TEST_RACE_LEVELS = Object.freeze([1, 10]);
+
+/** Parses `'race-<RaceKey>'` or `'race-<RaceKey>-<level>'` strictly against `RACE_TEMPLATES`. */
+export function parseTestRaceId(id) {
+  if (typeof id !== 'string' || !id.startsWith(TEST_RACE_PREFIX)) return null;
+  const rest = id.slice(TEST_RACE_PREFIX.length);
+  const dash = rest.indexOf('-');
+  const raceKey = dash >= 0 ? rest.slice(0, dash) : rest;
+  const tpl = RACE_TEMPLATES.find((r) => r.key === raceKey) ?? null;
+  if (!tpl) return null;
+  if (dash < 0) return { tpl, level: 1 };
+  const lvlStr = rest.slice(dash + 1);
+  if (!/^\d+$/.test(lvlStr)) return null;
+  const level = Number(lvlStr);
+  if (!Number.isInteger(level) || level < 1 || level > 35) return null;
+  return { tpl, level };
+}
+
+/** Resolves a race quick-start preset (`classIndex: 1` Spellsword) or `null` for unknown IDs. */
+export function testRacePresetOf(id) {
+  const parsed = parseTestRaceId(id);
+  if (!parsed) return null;
+  const { tpl } = parsed;
+  return { id, label: tpl.name, race: tpl.key, gender: 'male', faceIndex: 0, classIndex: 1 };
+}
+
 /** The doors that start OUTDOORS - a spawn, not a character: never the classic start's dungeon (main.js's route). */
-export const testStartsOutdoors = (id) => id === TEST_RIDE.id || id === TEST_SEA.id || id === TEST_GOD.id || id === TEST_ASCENSION.id;
+export const testStartsOutdoors = (id) =>
+  id === TEST_RIDE.id || id === TEST_SEA.id || id === TEST_GOD.id || id === TEST_ASCENSION.id || parseTestRaceId(id) !== null;
 
 /** Newly ascended god preset: level 35 Nord Warrior, Portfolio of War, starting outdoors in Chesterwark. */
 export const TEST_GOD = Object.freeze({
@@ -179,6 +211,7 @@ export const TEST_ASCENSION = Object.freeze({
 export const testStartLocation = (id) => {
   if (id === TEST_GOD.id) return { region: TEST_GOD.region, loc: TEST_GOD.loc };
   if (id === TEST_ASCENSION.id) return { region: TEST_ASCENSION.region, loc: TEST_ASCENSION.loc };
+  if (parseTestRaceId(id)) return TEST_RACE_LOCATION;
   return null;
 };
 
@@ -199,6 +232,8 @@ export function testEntryById(id) {
   if (id === TEST_LOOT.id) return { preset: testPresetById(TEST_LOOT.preset), ride: false, loot: true };
   if (id === TEST_GOD.id) return { preset: testPresetById(TEST_GOD.preset), ride: false, god: true };
   if (id === TEST_ASCENSION.id) return { preset: testPresetById(TEST_ASCENSION.preset), ride: false, ascension: true };
+  const parsedRace = parseTestRaceId(id);
+  if (parsedRace) return { preset: testRacePresetOf(id), ride: false, raceTest: { race: parsedRace.tpl.key, level: parsedRace.level } };
   const preset = testPresetById(id);
   return preset ? { preset, ride: false } : null;
 }
@@ -836,6 +871,72 @@ export function seedTestAscensionSpellsword(entity, { spellsByIndex = null } = {
     fateCount: fate.count,
     fateTotal: fate.total,
   };
+}
+
+/**
+ * Configures a newly created Race Quick-Start character (Gothway Garden) at `level` (1..35)
+ * with unrestricted armory usage, starter spells across Restoration/Alteration/Mysticism/Destruction,
+ * Hand Wraps, a Torch, empty off-hand (for Dark Elf Spellsword Resonance), and full live vitals.
+ */
+export function seedTestRaceQuickStart(entity, { level = 1, spellsByIndex = null } = {}) {
+  defineLiveMaxHealth(entity);
+  defineLiveMaxMagicka(entity);
+  if (entity.career && typeof entity.career === 'object') {
+    entity.career.weaponArmorShieldsBitfield = 0;
+    entity.career.forbiddenMaterialsFlags = 0;
+  }
+  const targetLevel = Math.max(1, Math.min(35, Math.trunc(Number(level) || 1)));
+  const career = entity.career;
+  entity.stats ??= {};
+  for (const k of STAT_KEYS_ORDER) entity.stats[k] ??= 50;
+  while ((entity.level ?? 1) < targetLevel) {
+    entity.level = (entity.level ?? 1) + 1;
+    if (career && typeof career === 'object' && Number.isFinite(career.hitPointsPerLevel)) {
+      const hpAdd = hitPointsPerLevelUp(career, entity.stats.endurance, () => 0.5);
+      entity.rawMaxHealth = (entity.rawMaxHealth ?? entity.maxHealth ?? 35) + hpAdd;
+      entity.maxHealth = entity.rawMaxHealth;
+    }
+    let pool = ONLINE_BONUS_POOL;
+    while (pool > 0) {
+      const key = GOD_STAT_PRIORITY.find((k) => (entity.stats[k] ?? 0) < 100);
+      if (!key) break;
+      entity.stats[key] += 1;
+      pool--;
+    }
+  }
+
+  addTestMissileSpells(entity, spellsByIndex);
+  entity.spells ??= [];
+  const pushSpell = (sp) => {
+    if (!sp) return;
+    if (!entity.spells.some((k) => k === sp || (k?.index === sp.index && k?.name === sp.name))) {
+      entity.spells.push(sp);
+    }
+  };
+  const slot = (type, subType, settings) => ({ type, subType, settings });
+  const balmName = t('spell.balynasBalm', "Balyna's Balm");
+  const starterSpells = [
+    [97, () => buildCustomSpell({ name: balmName, element: 4, rangeType: 0, icon: 0, index: -1010, slots: [slot(10, 8, { magnitudeBaseLow: 12, magnitudeBaseHigh: 20, magnitudeLevelBase: 2, magnitudeLevelHigh: 3, magnitudePerLevel: 1 })] })],
+    [17, () => buildCustomSpell({ name: 'Shield', element: 4, rangeType: 0, icon: 0, index: -1011, slots: [slot(35, 255, { durationBase: 8, durationMod: 2, durationPerLevel: 1, magnitudeBaseLow: 25, magnitudeBaseHigh: 45, magnitudeLevelBase: 5, magnitudeLevelHigh: 5, magnitudePerLevel: 1 })] })],
+    [1, () => buildCustomSpell({ name: 'Open', element: 4, rangeType: 0, icon: 0, index: -1012, slots: [slot(17, 255, { chanceBase: 10, chanceMod: 5, chancePerLevel: 1 })] })],
+  ];
+  for (const [id, fallback] of starterSpells) {
+    pushSpell(spellsByIndex?.get?.(id) ?? spellRecordOfIndex(id) ?? fallback());
+  }
+
+  entity.items ??= [];
+  addItem(entity.items, createHandWraps());
+  addItem(entity.items, mintCondition(setItemFields({ group: 'UselessItems2', templateIndex: 247, flags: 0 })));
+  unequipSlot(entity, EQUIP_SLOTS.LeftHand);
+
+  computeEntityMods(entity);
+  if (Array.isArray(entity.reactionMods)) entity.reactionMods.fill(0);
+  else entity.reactionMods = new Array(11).fill(0);
+  applyDressStanding(entity);
+  entity.health = entity.maxHealth;
+  entity.magicka = entity.maxMagicka;
+  entity.fatigue = maxFatigue(entity);
+  return { level: entity.level, maxHealth: entity.maxHealth, maxMagicka: entity.maxMagicka, maxFatigue: entity.fatigue };
 }
 
 /**

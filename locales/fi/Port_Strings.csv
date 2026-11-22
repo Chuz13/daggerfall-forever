@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Halvausimmuniteetti, -25% tuli/pakkas/sähkövastus 
 race.overhaul.desc.WoodElf,"Suosikkiaseet: Archery & Short Blade (tason mukainen osuma & vahinko). +30% tauti- & myrkkyvastus, +10 Stealth, +10% jousen latausnopeus, +25% vahinko huomaamattomiin vihollisiin. Vihreä liitto: villieläimet jättävät sinut rauhaan, ellet provosoi."
 race.overhaul.desc.Khajiit,"Suosikkiaseet: Hand-to-Hand & Short Blade (tason mukainen osuma & vahinko). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% putoamisvahinko, Pimeänäkö pimeässä."
 race.overhaul.desc.Argonian,"Suosikkiaseet: Blunt Weapon & Archery (tason mukainen osuma & vahinko). Myrkkyimmuniteetti, +50% tautivastus, +15 Swimming, +40% uintinopeus, +5 Panssari kaikkiin osiin, passiivinen HP- & Kestävyyspalautus vedessä tai sateessa."
+menu.test.raceTitle,"Pikakäynnistys rodun mukaan"
+menu.test.raceName,"Pikakäynnistys rodun mukaan (Gothway Garden)"
+menu.test.raceNote,"Valitse mikä tahansa 8 rodusta ja synny ulos Gothway Gardeniin testivarustamon ja aloitusloitsujen kanssa."
+menu.test.raceLevel,"Taso {level}"

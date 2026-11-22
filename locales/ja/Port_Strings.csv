@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"麻痺無効、炎/冷気/電撃耐性-25%（弱点�
 race.overhaul.desc.WoodElf,"得意武器：弓術・短剣（レベル連動の命中・ダメージ）。病気と毒耐性+30%、隠密+10、弓リロード速度+10%、未警戒の敵へのダメージ+25%。緑の盟約：攻撃しない限り野生動物は敵対しない。"
 race.overhaul.desc.Khajiit,"得意武器：格闘・短剣（レベル連動の命中・ダメージ）。速度と敏捷性+5、隠密・スリ・クリティカル+10、落下ダメージ-50%、暗所での暗視。"
 race.overhaul.desc.Argonian,"得意武器：打撃武器・弓術（レベル連動の命中・ダメージ）。毒無効、病気耐性+50%、水泳+15、水泳速度+40%、全部位の防具値+5、水中や雨天時にHPとスタミナが自動回復。"
+menu.test.raceTitle,"種族別クイックスタート"
+menu.test.raceName,"種族別クイックスタート (Gothway Garden)"
+menu.test.raceNote,"8種族から選び、テスト用武器庫と初期呪文を持ってゴスウェイ・ガーデンの屋外に出現します。"
+menu.test.raceLevel,"レベル {level}"

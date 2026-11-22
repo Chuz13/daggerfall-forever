@@ -107,7 +107,9 @@ import { drawApotheosisPane, releaseApotheosisPane } from '../apotheosisPane.js'
 import { drawLichdomPane, releaseLichdomPane, lichdomTabShown } from '../lichdomPane.js';   // Lichdom & Archlich progression pane
 import { drawGameLogPane, releaseGameLogPane } from '../gameLogPane.js';
 import { drawShotsPane, releaseShotsPane } from '../shotsPane.js';   // LOAD1: the Screenshots pane - the gallery the PrintScreen key keeps
-import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT, TEST_GOD, TEST_ASCENSION } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
+import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT, TEST_GOD, TEST_ASCENSION, TEST_RACE_PREFIX, TEST_RACE_LEVELS } from '../../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
+import { RACE_TEMPLATES } from '../../systems/races.js';
+import { raceDisplayName } from '../../systems/talk/talkSession.js';
 import { mwRaceId } from '../../formats/morrowind/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../../systems/equip.js';
 import { boonStatRows, penaltyStatRows } from '../temperatureCard.js';   // AUDIT C&C B11: the Attributes page names the boons that raise them and penalties that lower them
@@ -1178,6 +1180,10 @@ function paneTest(body) {
   outdoors.append(el('h3', null, t('menu.test.outdoors', 'The outdoors')));
   outdoors.append(outdoorsTestRow());
   body.append(outdoors);
+  const raceStart = el('div', 'card');
+  raceStart.append(el('h3', null, t('menu.test.raceTitle', 'Race quick start')));
+  raceStart.append(raceQuickStartRow());
+  body.append(raceStart);
 }
 
 // ── LOAD GAME ────────────────────────────────────────────────────
@@ -3082,6 +3088,33 @@ function outdoorsTestRow() {
   testCtl.append(seasonSel, weatherSel, go);
   test.append(testMain, testCtl);
   return test;
+}
+
+/** 8-race quick start in Gothway Garden for rapid Racial Overhaul testing. */
+function raceQuickStartRow() {
+  const row = el('div', 'row');
+  const main = el('div', 'row-main');
+  main.append(el('div', 'row-name', t('menu.test.raceName', 'Quick start by race (Gothway Garden)')));
+  main.append(el('div', 'row-note', t('menu.test.raceNote', 'Pick any of the 8 races and spawn outdoors in Gothway Garden with the test armory and starter spells.')));
+  const ctl = el('div', 'ctl');
+  const raceSel = el('select', 'act');
+  for (const r of RACE_TEMPLATES) {
+    const o = el('option', '', raceDisplayName(r.key));
+    o.value = r.key;
+    raceSel.append(o);
+  }
+  const levelSel = el('select', 'act');
+  for (const lvl of TEST_RACE_LEVELS) {
+    const o = el('option', '', t('menu.test.raceLevel', 'Level {level}', { level: lvl }));
+    o.value = String(lvl);
+    levelSel.append(o);
+  }
+  const go = el('button', 'act primary', t('menu.test.spawn', 'Spawn'));
+  go.type = 'button';
+  go.addEventListener('click', () => onAction(`test:${TEST_RACE_PREFIX}${raceSel.value}-${levelSel.value}`));
+  ctl.append(raceSel, levelSel, go);
+  row.append(main, ctl);
+  return row;
 }
 
 

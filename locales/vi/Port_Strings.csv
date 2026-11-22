@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Miễn nhiễm Tê liệt, -25% Kháng Lửa/Băng/S
 race.overhaul.desc.WoodElf,"Vũ khí ưa thích: Archery & Short Blade (Chính xác & Sát thương theo cấp). +30% Kháng Bệnh & Độc, +10 Stealth, +10% tốc độ nạp cung, +25% sát thương lên mục tiêu mất cảnh giác. Hiệp ước Xanh: thú hoang bỏ qua bạn trừ khi bị khiêu khích."
 race.overhaul.desc.Khajiit,"Vũ khí ưa thích: Hand-to-Hand & Short Blade (Chính xác & Sát thương theo cấp). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% sát thương rơi, Nhìn đêm trong bóng tối."
 race.overhaul.desc.Argonian,"Vũ khí ưa thích: Blunt Weapon & Archery (Chính xác & Sát thương theo cấp). Miễn nhiễm Độc, +50% Kháng Bệnh, +15 Swimming, +40% tốc độ bơi, +5 Giáp mọi bộ phận, hồi Máu & Thể lực thụ động dưới nước hoặc mưa."
+menu.test.raceTitle,"Khởi đầu nhanh theo chủng tộc"
+menu.test.raceName,"Khởi đầu nhanh theo chủng tộc (Gothway Garden)"
+menu.test.raceNote,"Chọn bất kỳ chủng tộc nào trong 8 chủng tộc và xuất hiện ngoài trời tại Gothway Garden với kho vũ khí thử nghiệm và phép khởi đầu."
+menu.test.raceLevel,"Cấp {level}"

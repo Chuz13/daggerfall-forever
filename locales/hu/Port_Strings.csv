@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Bénulás-immunitás, -25% Tűz/Fagy/Villám ellená
 race.overhaul.desc.WoodElf,"Kedvelt fegyverek: Archery & Short Blade (szintfüggő Találat & Sebzés). +30% Betegség & Méreg ellenállás, +10 Stealth, +10% íj újratöltés, +25% sebzés gyanútlan ellenfelek ellen. Zöld Paktum: a vadállatok békén hagynak, amíg nem támadsz."
 race.overhaul.desc.Khajiit,"Kedvelt fegyverek: Hand-to-Hand & Short Blade (szintfüggő Találat & Sebzés). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% esési sebzés, Éjjellátás sötétben."
 race.overhaul.desc.Argonian,"Kedvelt fegyverek: Blunt Weapon & Archery (szintfüggő Találat & Sebzés). Méreg-immunitás, +50% Betegség ellenállás, +15 Swimming, +40% úszási sebesség, +5 Páncél minden testrészre, passzív Életerő & Állóképesség töltés vízben vagy esőben."
+menu.test.raceTitle,"Gyorsindítás faj szerint"
+menu.test.raceName,"Gyorsindítás faj szerint (Gothway Garden)"
+menu.test.raceNote,"Válassz a 8 faj közül, és jelenj meg a szabadban Gothway Gardenben a tesztfegyvertárral és kezdő varázslatokkal."
+menu.test.raceLevel,"{level}. szint"

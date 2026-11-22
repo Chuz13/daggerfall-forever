@@ -3,7 +3,9 @@
 // settled names by value at construction, every live one (a `let` someone writes, a `const` made below) read at its
 // use as `boot.<name>` - as the code read them where it was.
 import { applyHeadlessChargen, createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex } from '../systems/chargenSession.js';
-import { applyTestCharacter, seedTestAscensionSpellsword, seedTestGod, seedTestLoot, seedTestMount } from '../systems/testRoom.js';
+import { applyTestCharacter, seedTestAscensionSpellsword, seedTestGod, seedTestLoot, seedTestMount, seedTestRaceQuickStart } from '../systems/testRoom.js';
+import { auditRacialOverhaulState } from '../systems/diagnostics/racialAudit.js';
+import { recordTimelineEvent } from '../systems/diagnostics/eventTimeline.js';
 import { autoBuildArms, buildArmsFor } from '../combat/weapon/weaponRig.js';
 import { enumerateSaves } from '../systems/save/saveSlots.js';
 import { exitToTitleMenu, fetchBytes, runAfterNewGameCinematics } from './shared.js';
@@ -48,6 +50,18 @@ export function createTestPreset(boot) {
         const res = seedTestAscensionSpellsword(playerEntity, { spellsByIndex: sbi });
         surfacePlayer();
         console.log(`[testroom] ascension spellsword: level ${res.level}, hp=${res.maxHealth}, mp=${res.maxMagicka}, stars=${res.stars}, wt=${res.weightKg.toFixed(1)}/${res.maxWeightKg.toFixed(1)}kg`);
+      }
+      if (testEntry.raceTest) {
+        seedTestRaceQuickStart(playerEntity, { level: testEntry.raceTest.level, spellsByIndex: sbi });
+        surfacePlayer();
+        const diag = auditRacialOverhaulState(playerEntity);
+        recordTimelineEvent({
+          cat: 'system',
+          event: 'RACIAL_QUICKSTART',
+          sev: diag.anomalies.length ? 'warn' : 'info',
+          data: { race: diag.race, level: diag.level, overhaulEnabled: diag.overhaulEnabled, anomalies: diag.anomalies },
+        });
+        console.log(`[testroom] race quickstart (${diag.race} L${diag.level}, overhaul=${diag.overhaulEnabled}): hp=${diag.vitals.health}/${diag.vitals.maxHealth}, mp=${diag.vitals.magicka}/${diag.vitals.maxMagicka}, fat=${diag.vitals.fatigue}/${diag.vitals.maxFatigue}, anomalies=${diag.anomalies.length}`);
       }
       // The Morrowind rigs, WITHOUT the trip to the pause card - the
       // room exists to look at them. Only when the data is attached;

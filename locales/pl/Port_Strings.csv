@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Odporność na paraliż, -25% odp. na Ogień/Mróz/P
 race.overhaul.desc.WoodElf,"Ulubiona broń: Łucznictwo i Krótkie ostrza (Trafienie i Obrażenia z poziomem). +30% odp. na Choroby i Trucizny, +10 Skradania, +10% szybkości przeładowania łuku, +25% obrażeń przeciw nieświadomym wrogom. Zielony Pakt: dzikie zwierzęta są neutralne, dopóki nie zaatakujesz."
 race.overhaul.desc.Khajiit,"Ulubiona broń: Walka wręcz i Krótkie ostrza (Trafienie i Obrażenia z poziomem). +5 Szybkości i Zwinności, +10 Skradania, Kradzieży kieszonkowej i Ciosu krytycznego, -50% obrażeń od upadku, Widzenie w ciemności."
 race.overhaul.desc.Argonian,"Ulubiona broń: Broń obuchowa i Łucznictwo (Trafienie i Obrażenia z poziomem). Odporność na Trucizny, +50% odp. na Choroby, +15 Pływania, +40% szybkości pływania, +5 Pancerza na każdą część ciała, pasywna regeneracja HP i Kondycji w wodzie lub deszczu."
+menu.test.raceTitle,"Szybki start według rasy"
+menu.test.raceName,"Szybki start według rasy (Gothway Garden)"
+menu.test.raceNote,"Wybierz jedną z 8 ras i rozpocznij na zewnątrz w Gothway Garden z testową zbrojownią i zaklęciami startowymi."
+menu.test.raceLevel,"Poziom {level}"

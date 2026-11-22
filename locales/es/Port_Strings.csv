@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Inmunidad a parálisis, -25% Res. Fuego/Frío/Choque
 race.overhaul.desc.WoodElf,"Armas favoritas: Arquería y Hoja corta (Acierto y Daño por nivel). +30% Res. Enfermedad y Veneno, +10 Sigilo, +10% recarga de arco, +25% daño a enemigos desprevenidos. Pacto Verde: los animales te ignoran salvo provocación."
 race.overhaul.desc.Khajiit,"Armas favoritas: Mano a mano y Hoja corta (Acierto y Daño por nivel). +5 Velocidad y Agilidad, +10 Sigilo, Hurto y Golpe crítico, -50% daño de caída, Visión nocturna en la oscuridad."
 race.overhaul.desc.Argonian,"Armas favoritas: Arma contundente y Arquería (Acierto y Daño por nivel). Inmunidad a venenos, +50% Res. Enfermedad, +15 Natación, +40% velocidad de nado, +5 Armadura en todo el cuerpo, regen. de Salud y Fatiga en agua o lluvia."
+menu.test.raceTitle,"Inicio rápido por raza"
+menu.test.raceName,"Inicio rápido por raza (Gothway Garden)"
+menu.test.raceNote,"Elige cualquiera de las 8 razas y aparece al aire libre en Gothway Garden con la armería de pruebas y hechizos iniciales."
+menu.test.raceLevel,"Nivel {level}"

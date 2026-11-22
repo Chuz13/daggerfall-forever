@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { RACES } from '../../src/systems/races.js';
+import { RACES, RACE_TEMPLATES } from '../../src/systems/races.js';
 import { SKILLS } from '../../src/systems/skills.js';
 import { WEAPONS } from '../../src/characters/weapons.js';
-import { HAND_WRAPS_TEMPLATE } from '../../src/characters/handWrapsIds.js';
+import { HAND_WRAPS_TEMPLATE, isHandWraps } from '../../src/characters/handWrapsIds.js';
 const WEAPON_TYPE_BOW = 14;
 import { EQUIP_SLOTS } from '../../src/characters/paperdoll/paperdoll.js';
 import { createEquipTable } from '../../src/characters/equipTable.js';
@@ -48,6 +48,23 @@ import {
   isSpellswordStance,
 } from '../../src/systems/racialOverhaul.js';
 import { setPref, resetPrefs } from '../../src/systems/uiPrefs.js';
+import {
+  TEST_RACE_LOCATION,
+  TEST_RACE_LEVELS,
+  parseTestRaceId,
+  testRacePresetOf,
+  testEntryById,
+  testStartsOutdoors,
+  testStartLocation,
+  testRoomOnlineRefused,
+  seedTestRaceQuickStart,
+} from '../../src/systems/testRoom.js';
+import { auditRacialOverhaulState, runAllRacesMatrixAudit } from '../../src/systems/diagnostics/racialAudit.js';
+import { buildDiagnosticSnapshot } from '../../src/systems/diagnostics/sessionLogger.js';
+import { recordAttackResolution, dumpCombatLog } from '../../src/systems/diagnostics/combatLogger.js';
+import { getRecentTimelineEvents, clearTimeline } from '../../src/systems/diagnostics/eventTimeline.js';
+import { executeConsoleLine } from '../../src/systems/consoleCommands.js';
+import { playerEntity } from '../../src/characters/playerEntity.js';
 
 function makePlayer(raceId, level = 10, extra = {}) {
   const e = {
@@ -356,7 +373,7 @@ describe('Racial Overhaul', () => {
     assert.equal(loadedOn.health, 55);
   });
 
-  it('contains all 12 localization keys in all 26 locales and hides info when OFF', () => {
+  it('contains all 16 localization keys in all 26 locales and hides info when OFF', () => {
     const expectedKeys = [
       'settings.sec.races',
       'features.racialOverhaul.title',
@@ -370,6 +387,10 @@ describe('Racial Overhaul', () => {
       'race.overhaul.desc.WoodElf',
       'race.overhaul.desc.Khajiit',
       'race.overhaul.desc.Argonian',
+      'menu.test.raceTitle',
+      'menu.test.raceName',
+      'menu.test.raceNote',
+      'menu.test.raceLevel',
     ];
     const localesDir = path.join(process.cwd(), 'locales');
     const langs = fs.readdirSync(localesDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
@@ -385,5 +406,102 @@ describe('Racial Overhaul', () => {
     withRacialOverhaulState(false, () => {
       assert.equal(racialOverhaulInfo('Khajiit'), null);
     });
+  });
+
+  it('resolves all 8 race quick-start IDs in Gothway Garden and seeds clean level-1 & level-10 characters', () => {
+    assert.deepEqual(TEST_RACE_LOCATION, { region: 'Daggerfall', loc: 'Gothway Garden' });
+    assert.deepEqual(TEST_RACE_LEVELS, [1, 10]);
+    assert.equal(parseTestRaceId('race-NoSuchRace'), null);
+    assert.equal(parseTestRaceId('race-DarkElf-0'), null);
+    assert.equal(parseTestRaceId('race-DarkElf-36'), null);
+    assert.equal(testEntryById('race-NoSuchRace'), null);
+
+    for (const tpl of RACE_TEMPLATES) {
+      for (const lvl of TEST_RACE_LEVELS) {
+        const id = `race-${tpl.key}-${lvl}`;
+        const parsed = parseTestRaceId(id);
+        assert.deepEqual({ race: parsed.tpl.key, level: parsed.level }, { race: tpl.key, level: lvl });
+        assert.equal(testStartsOutdoors(id), true);
+        assert.deepEqual(testStartLocation(id), TEST_RACE_LOCATION);
+        assert.equal(testRoomOnlineRefused(new URLSearchParams(`online=1&test=${id}`)), true);
+        const entry = testEntryById(id);
+        assert.equal(entry.preset.race, tpl.key);
+        assert.equal(entry.raceTest.level, lvl);
+
+        const entity = makePlayer(tpl.id, 1, { race: tpl.key, items: [], spells: [] });
+        entity.equip.slots[EQUIP_SLOTS.RightHand] = { group: 'Weapons', templateIndex: WEAPONS.Longsword };
+        entity.equip.slots[EQUIP_SLOTS.LeftHand] = { group: 'Armor', templateIndex: 100 };
+        const seeded = seedTestRaceQuickStart(entity, { level: lvl });
+        assert.equal(seeded.level, lvl);
+        assert.equal(entity.health, entity.maxHealth);
+        assert.equal(entity.magicka, entity.maxMagicka);
+        assert.equal(entity.fatigue, maxFatigue(entity));
+        assert.equal(entity.equip.slots[EQUIP_SLOTS.LeftHand], null);
+        assert.ok(entity.items.some((it) => isHandWraps(it)));
+        assert.ok(entity.items.some((it) => it.templateIndex === 247));
+        assert.ok(entity.spells.some((sp) => /fireball/i.test(sp.name)));
+        assert.ok(entity.spells.some((sp) => /shield/i.test(sp.name)));
+        assert.ok(entity.spells.some((sp) => /open/i.test(sp.name)));
+        const audit = auditRacialOverhaulState(entity);
+        assert.deepEqual(audit.anomalies, [], `${tpl.key} L${lvl} anomalies: ${audit.anomalies.join(',')}`);
+      }
+    }
+    assert.equal(testRacePresetOf('race-Khajiit-10')?.race, 'Khajiit');
+  });
+
+  it('passes runAllRacesMatrixAudit(10) and integrates with session, combat, timeline loggers, and raceaudit console command', () => {
+    const matrix = runAllRacesMatrixAudit(10);
+    assert.equal(matrix.ok, true);
+    assert.equal(matrix.passed, 8);
+    assert.equal(matrix.total, 8);
+
+    clearTimeline();
+    const prevSnapshotRace = { race: playerEntity.race, raceId: playerEntity.raceId, level: playerEntity.level, health: playerEntity.health, maxHealth: playerEntity.maxHealth, magicka: playerEntity.magicka, maxMagicka: playerEntity.maxMagicka, fatigue: playerEntity.fatigue };
+    try {
+      playerEntity.race = 'Nord';
+      playerEntity.raceId = RACES.Nord;
+      playerEntity.level = 10;
+      defineLiveMaxHealth(playerEntity);
+      defineLiveMaxMagicka(playerEntity);
+      computeEntityMods(playerEntity);
+      playerEntity.health = playerEntity.maxHealth;
+      playerEntity.magicka = playerEntity.maxMagicka;
+      playerEntity.fatigue = maxFatigue(playerEntity);
+
+      const snap = buildDiagnosticSnapshot('test-racial-audit');
+      assert.equal(snap.player.raceId, RACES.Nord);
+      assert.ok(snap.systems.racialOverhaul);
+      assert.equal(snap.systems.racialOverhaul.race, 'Nord');
+
+      const encBefore = recordAttackResolution({
+        attacker: playerEntity,
+        target: { isPlayer: false, name: 'Orc', health: 50, maxHealth: 50 },
+        weapon: { name: 'Battle Axe', templateIndex: WEAPONS.Battle_Axe, material: 1 },
+        damage: 12,
+        hit: true,
+        diag: { toHitParts: { racialToHit: 5 }, damage: { rawDamage: 12, racialDamageMod: 3, modsApplied: [] } },
+      });
+      assert.equal(encBefore, undefined);
+      const dumped = dumpCombatLog('test-racial-combat');
+      assert.equal(dumped.configMatrix.gameplay.racialOverhaul, true);
+      assert.equal(dumped.combatants.player.raceId, RACES.Nord);
+      assert.equal(dumped.events[0].toHit.racialToHit, 5);
+      assert.equal(dumped.events[0].damage.racialDamageMod, 3);
+
+      // Toggle listener emits RACIAL_OVERHAUL_TOGGLED
+      setPref(RACIAL_OVERHAUL_PREF, false);
+      setPref(RACIAL_OVERHAUL_PREF, true);
+      // restorePlayer emits RACIAL_SAVE_RESTORED
+      const saveSnap = snapshotPlayer(playerEntity, {});
+      restorePlayer(playerEntity, saveSnap);
+      const events = getRecentTimelineEvents(20).map((e) => e.event);
+      assert.ok(events.includes('RACIAL_OVERHAUL_TOGGLED'));
+      assert.ok(events.includes('RACIAL_SAVE_RESTORED'));
+
+      const cmdAll = executeConsoleLine('raceaudit all 10');
+      assert.match(cmdAll, /8\/8 PASS/);
+    } finally {
+      Object.assign(playerEntity, prevSnapshotRace);
+    }
   });
 });

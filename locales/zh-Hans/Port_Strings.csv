@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"麻痹免疫，火/冰/电抗性-25%（弱点）。�
 race.overhaul.desc.WoodElf,"擅长武器：弓箭与短剑（随等级提升命中与伤害）。+30%疾病与毒素抗性，潜行+10，拉弓速度+10%，对未察觉目标伤害+25%。绿色契约：野生动物不会主动攻击，除非被激怒。"
 race.overhaul.desc.Khajiit,"擅长武器：徒手与短剑（随等级提升命中与伤害）。速度与敏捷+5，潜行/扒窃/暴击+10，坠落伤害-50%，黑暗中夜视。"
 race.overhaul.desc.Argonian,"擅长武器：钝器与弓箭（随等级提升命中与伤害）。毒素免疫，+50%疾病抗性，游泳+15，游泳速度+40%，全身护甲+5，水中或雨天自动恢复生命与耐力。"
+menu.test.raceTitle,"按种族快速开始"
+menu.test.raceName,"按种族快速开始 (Gothway Garden)"
+menu.test.raceNote,"从8个种族中任选其一，携带测试武器库和初始法术在哥斯威花园户外出生。"
+menu.test.raceLevel,"等级 {level}"
