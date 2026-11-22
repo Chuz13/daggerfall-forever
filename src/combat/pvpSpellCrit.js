@@ -8,7 +8,7 @@ import { liveStat } from '../systems/statMods.js';
 export function pvpSpellCrit(caster) {
   const crit = Math.max(0, skillValue(caster, SKILLS.CriticalStrike) || 0);
   const luckTerm = Math.floor((liveStat(caster, 'luck') - 50) / 25);
-  return { chance: Math.min(100, Math.trunc(crit / (4 - luckTerm))) / 100, mult: Math.floor(crit / 5) * 0.05 + 1 };
+  return { chance: Math.min(100, Math.trunc(crit / Math.max(1, 4 - luckTerm))) / 100, mult: Math.floor(crit / 5) * 0.05 + 1 };
 }
 
 // PVP-CAST-SKILL (2026-10-30: "it was ment to scale with skill", "magic scaled to 875 in dustruction"): PvE's mages'

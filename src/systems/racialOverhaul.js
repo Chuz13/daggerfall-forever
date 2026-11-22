@@ -94,6 +94,7 @@ function racialFold(entity) {
       return {
         fallLess: 50,
         stats: { speed: 5, agility: 5 },
+        statMax: { speed: 5, agility: 5 },
         skills: { [SKILLS.Stealth]: 10, [SKILLS.Pickpocket]: 10, [SKILLS.CriticalStrike]: 10 },
       };
     case RACES.Argonian:

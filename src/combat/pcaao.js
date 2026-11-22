@@ -506,7 +506,7 @@ export function pcaaoBackstabDamage(damage, backstabbingLevel, rolls, say) {
 export function pcaaoCriticalStrike(attacker, rolls) {
   const luckTerm = Math.floor(F((stat(attacker, 'luck') - 50) / 25));
   const crit = skill(attacker, SKILLS.CriticalStrike);
-  return dice100(int(crit / (4 - luckTerm)), rolls()); // BAL2: one roll for every striker
+  return dice100(int(crit / Math.max(1, 4 - luckTerm)), rolls()); // BAL2: one roll for every striker
 }
 
 // ── damage ────────────────────────────────────────────────────────

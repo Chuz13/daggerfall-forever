@@ -367,10 +367,14 @@ export function martialFold(entity) {
   const mods = newMods();
   const at = (n) => Math.round(mentorScaled(entity, n)); // MENTOR2
   if (id === 'shadowdancer') {
-    mods.stats.agility = at(N.lightStep.agility);
+    const agi = at(N.lightStep.agility);
+    mods.stats.agility = agi;
+    if (agi > 0) mods.statMax.agility = agi;
     mods.skills[SKILLS.Dodging] = at(N.lightStep.dodging);
   } else {
-    mods.stats.speed = at(N.windborne.speed);
+    const spd = at(N.windborne.speed);
+    mods.stats.speed = spd;
+    if (spd > 0) mods.statMax.speed = spd;
     mods.skills[SKILLS.Running] = at(N.windborne.running);
     mods.skills[SKILLS.Jumping] = at(N.windborne.jumping);
   }

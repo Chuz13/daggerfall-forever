@@ -227,6 +227,7 @@ import { itemLongName } from './item/itemInfo.js';
 import { sigilActive, sigilRenown } from './sigil/sigil.js';
 import { drinkWorn, wornSets } from './sigil/sigilSets.js';
 import { AETHERIC_RECORDS, mintAetheric } from './aetheric.js';
+import { applyRarity, legendaryById, AFFIX_RANGES, lootRarityOn } from './loot/lootRarity.js';
 import { GILDED_RECORDS, mintGilded } from './gilded.js';
 import { mintResonantMaul } from './pass/resonantMaul.js';
 import { EG_LORD_ARMS, egLordArm } from './eliteGates/egLordArms.js';
@@ -1227,6 +1228,102 @@ registerCommand(
   'mod_stat <attribute> <delta>',
   handleModAttr
 );
+
+function mintStatRing(attr, bonus) {
+  const ring = mintCondition(setItemFields({
+    group: 'Jewellery',
+    templateIndex: 135, // Ring
+    material: 0,
+    flags: 0,
+    variant: 0,
+    message: 0,
+    stackCount: 1,
+  }));
+  const capName = attr[0].toUpperCase() + attr.slice(1);
+  ring.rarity = 'rare';
+  ring.isIdentified = true;
+  ring.affixes = [{ id: 'stat', param: attr, value: bonus }];
+  ring.name = `Ring of ${capName} (+${bonus})`;
+  return ring;
+}
+
+function mintLegendaryStatPiece(baseItem, legendaryId) {
+  const rec = legendaryById(legendaryId);
+  if (!rec) return null;
+  const item = applyRarity(baseItem, 'legendary', Math.random, [rec]);
+  item.isIdentified = true;
+  return item;
+}
+
+function handleGiveStatGearCommand(args = []) {
+  if (!playerEntity) return 'No player entity found.';
+  playerEntity.items ??= [];
+  const rarityNote = lootRarityOn() ? '' : '\nNote: Loot Rarity setting is OFF — turn it ON for item stat affixes to apply.';
+  const first = args[0] != null ? String(args[0]).toLowerCase() : 'kit';
+
+  if (first === 'kit' || first === 'all') {
+    const jewellery = (templateIndex) => mintCondition(setItemFields({
+      group: 'Jewellery',
+      templateIndex,
+      material: 0,
+      flags: 0,
+      variant: 0,
+      message: 0,
+      stackCount: 1,
+    }));
+    const aetheric = (id) => {
+      const rec = AETHERIC_RECORDS.find((r) => r.id === id);
+      if (!rec) return null;
+      const it = mintAetheric(rec, { party: 1 });
+      it.isIdentified = true;
+      return it;
+    };
+    const pieces = [
+      mintLegendaryStatPiece(armorOfMaterial(102, ARMOR_MATERIAL.Daedric), 'titanheart'),       // Cuirass: +15 STR
+      mintLegendaryStatPiece(weaponOfMaterial(121, 9), 'wyrmbane'),                            // Daedric Longsword: +12 STR
+      aetheric('ruhn-right-pauldron'),                                                         // Right Pauldron: +15 STR
+      aetheric('ruhn-left-pauldron'),                                                          // Left Pauldron: +15 AGI
+      mintLegendaryStatPiece(armorOfMaterial(104, ARMOR_MATERIAL.Daedric), 'the-warden'),      // Greaves: +12 END
+      aetheric('ruhn-cinder-boots'),                                                           // Boots: +15 SPD
+      aetheric('ruhn-horned-crown'),                                                           // Helm: +15 WIL
+      mintLegendaryStatPiece(jewellery(135), 'foxglove'),                                      // Ring 1: +15 LCK, +10 SPD
+      mintLegendaryStatPiece(jewellery(135), 'archmages-loop'),                                // Ring 2: +15 INT, +12 WIL
+      mintLegendaryStatPiece(jewellery(133), 'kings-mark'),                                    // Amulet: +15 PER
+    ].filter(Boolean);
+
+    for (const it of pieces) addItem(playerEntity.items, it);
+    surfacePlayer?.();
+    return [
+      `Added ${pieces.length}-piece Stat Overcap QA Kit (all identified, no slot overlap):`,
+      'Total equipped bonuses: +42 STR, +15 INT, +27 WIL, +15 AGI, +12 END, +15 PER, +25 SPD, +15 LCK.',
+      ...pieces.map((p) => `  - ${p.name}`),
+    ].join('\n') + rarityNote;
+  }
+
+  const attr = VALID_ATTRS.find((a) => a.startsWith(first));
+  if (!attr) {
+    return `Unknown attribute "${args[0]}". Usage: give_stat_gear [kit | <${VALID_ATTRS.join('|')}> [1..${AFFIX_RANGES.stat.legendary[1]}]]`;
+  }
+  const maxBonus = AFFIX_RANGES.stat.legendary[1];
+  const parsed = args[1] != null ? parseInt(args[1], 10) : maxBonus;
+  if (args[1] != null && Number.isNaN(parsed)) {
+    return `Usage: give_stat_gear <attribute> [1..${maxBonus}]`;
+  }
+  const bonus = Math.max(1, Math.min(maxBonus, parsed));
+  const ring = mintStatRing(attr, bonus);
+  addItem(playerEntity.items, ring);
+  surfacePlayer?.();
+  return `Added ${ring.name} (+${bonus} ${attr}) to inventory.${rarityNote}`;
+}
+
+registerCommand(
+  'give_stat_gear',
+  'Add identified stat-bonus gear for overcap testing: give_stat_gear [kit | <attribute> [1..15]]',
+  'give_stat_gear [kit | <strength|intelligence|willpower|agility|endurance|personality|speed|luck> [1..15]]',
+  handleGiveStatGearCommand
+);
+registerCommand('stat_gear', 'Alias for give_stat_gear', 'stat_gear [kit | <attribute> [1..15]]', handleGiveStatGearCommand);
+registerCommand('overcap_gear', 'Alias for give_stat_gear', 'overcap_gear [kit | <attribute> [1..15]]', handleGiveStatGearCommand);
 
 function resolveSkillId(name) {
   if (!name) return null;
