@@ -28,7 +28,7 @@ import { CLIP_SENTINEL } from '../world/terrain/terrainSurface.js';   // FAR-CLI
 /** AUDIT TECH-FX: the screen offset before any is set - one, frozen (Renderer `screenOffset`). */
 const NO_SCREEN_OFFSET = Object.freeze([0, 0]);
 let _nightVisionReader = null;
-/** RACIAL-OVERHAUL: zero-import hook for Khajiit night vision ambient lift when sunScale is low. */
+/** Zero-import hook for night vision ambient lift when sunScale is low. */
 export function setNightVisionReader(fn) { _nightVisionReader = typeof fn === 'function' ? fn : null; }
 /** OW-HITCH: how many layers of a ground tile array go up between two of uploadTileArraySteps' yields (8 of 256 texels: 2 MB). */
 export const TILE_LAYERS_A_STEP = 8;

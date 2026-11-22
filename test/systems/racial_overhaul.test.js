@@ -6,6 +6,8 @@ import path from 'node:path';
 import { RACES } from '../../src/systems/races.js';
 import { SKILLS } from '../../src/systems/skills.js';
 import { WEAPONS } from '../../src/characters/weapons.js';
+import { WEAPON_TYPES } from '../../src/combat/fpsWeapon.js';
+import { HAND_WRAPS_TEMPLATE } from '../../src/characters/handWrapsIds.js';
 import { EQUIP_SLOTS } from '../../src/characters/paperdoll/paperdoll.js';
 import { createEquipTable } from '../../src/characters/equipTable.js';
 import { computeEntityMods, weaponBlowMods } from '../../src/systems/entityMods.js';
@@ -21,7 +23,7 @@ import { castRate } from '../../src/systems/castSpeed.js';
 import { spellPointRecoveryRate } from '../../src/systems/rest/rest.js';
 import { tryAbsorption } from '../../src/systems/absorption.js';
 import { calculateCastCost } from '../../src/systems/spellcost.js';
-import { swingPacePct } from '../../src/characters/weaponStates.js';
+import { swingPacePct, bowReloadSeconds } from '../../src/characters/weaponStates.js';
 import { passiveSpecialsMagicRound, setPassiveSpecialsHost } from '../../src/systems/passiveSpecials.js';
 import { swingFatigueCost } from '../../src/scenes/hostCombat.js';
 import { motorStats } from '../../src/scenes/shared.js';
@@ -194,6 +196,9 @@ describe('Racial Overhaul', () => {
     assert.ok(castRate(darkElf) > 1.09);
     darkElf.equip.slots[EQUIP_SLOTS.LeftHand] = { group: 'Armor', templateIndex: 100 }; // offhand occupied
     assert.equal(isSpellswordStance(darkElf), false);
+    darkElf.equip.slots[EQUIP_SLOTS.RightHand] = { group: 'Weapons', templateIndex: HAND_WRAPS_TEMPLATE };
+    darkElf.equip.slots[EQUIP_SLOTS.LeftHand] = null;
+    assert.equal(isSpellswordStance(darkElf), false);
 
     // High Elf: +25% MP, +35% rest SP, +15% spell power, +12% cast speed
     const highElf = makePlayer(RACES.HighElf, 10);
@@ -217,7 +222,13 @@ describe('Racial Overhaul', () => {
     // Wood Elf: +25% unaware blow, +10% bow pace, Green Pact
     const woodElf = makePlayer(RACES.WoodElf, 10);
     assert.equal(weaponBlowMods({ templateIndex: WEAPONS.Long_Bow }, 20, woodElf, { isPlayer: false }, { unaware: true }), 25);
-    assert.equal(swingPacePct({ entity: woodElf, weaponType: 17 }, null), 10);
+    assert.equal(swingPacePct({ entity: woodElf, weaponType: WEAPON_TYPES.Bow }, null), 10);
+    const reloadOn = bowReloadSeconds(50, { entity: woodElf, weaponType: WEAPON_TYPES.Bow });
+    let reloadOff = 0;
+    withRacialOverhaulState(false, () => {
+      reloadOff = bowReloadSeconds(50, { entity: woodElf, weaponType: WEAPON_TYPES.Bow });
+    });
+    assert.ok(reloadOn < reloadOff, `expected faster bow reload (${reloadOn} < ${reloadOff})`);
     const wolf = { isQuestFoe: false, entity: { _provokedByPlayer: false } };
     assert.equal(isGreenPactProtected(wolf, woodElf, true), true);
     wolf.entity._provokedByPlayer = true;

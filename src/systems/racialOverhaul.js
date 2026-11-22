@@ -1,4 +1,4 @@
-// RACIAL-OVERHAUL: Runtime hook installer and live-toggle vital/mod recalculator.
+// Runtime hook installer and live-toggle vital/mod recalculator for the racial overhaul.
 // Imported by worldTick.js alongside installPcaao() (kept off main.js's static boot graph).
 
 import {
@@ -14,6 +14,8 @@ import {
 import { RACES } from './races.js';
 import { SKILLS } from './skills.js';
 import { WEAPONS, weaponSkillUsed } from '../characters/weapons.js';
+import { isHandWraps } from '../characters/handWrapsIds.js';
+import { WEAPON_TYPES } from '../combat/fpsWeapon.js';
 import { EQUIP_SLOTS } from '../characters/paperdoll/paperdoll.js';
 import { getItemHands, ITEM_HANDS } from './equip.js';
 import { registerEntityFold, registerWeaponBlowMod, computeEntityMods } from './entityMods.js';
@@ -49,6 +51,7 @@ export function isSpellswordStance(entity) {
   const isOneHandedWeapon = (it) =>
     !!it &&
     (it.group === 'Weapons' || it.group === 3) &&
+    !isHandWraps(it) &&
     getItemHands(it) !== ITEM_HANDS.Both &&
     it.templateIndex !== WEAPONS.Short_Bow &&
     it.templateIndex !== WEAPONS.Long_Bow;
@@ -164,9 +167,7 @@ function racialSwingPace(ctx, w) {
   const entity = ctx?.entity;
   if (!isRacialOverhaulEnabled() || !isOverhaulPlayer(entity)) return 0;
   if (entity.raceId !== RACES.WoodElf) return 0;
-  const isBow = w
-    ? w.family === 'archery'
-    : ctx?.weaponType === 17 || ctx?.weaponType === 18;
+  const isBow = w?.family === 'archery' || ctx?.weaponType === WEAPON_TYPES.Bow;
   return isBow ? 10 : 0;
 }
 
