@@ -953,3 +953,12 @@ export function capitalBuildView(loc, px, py, current) {
 /** IC-GRAND: the view a built location stands in - 'far', 'near' (a family capital's slice built near), or null (none of a
  *  family capital's). */
 export const capitalViewOf = (loc) => (loc?.capital && CAPITALS[loc.capital.k]?.family ? loc.capital.lod ?? 'near' : null);
+
+/** True when a capital spans more than a single map pixel (e.g. Imperial City, Solitude, Mournhold). */
+export function isMultiSliceCapital(loc) {
+  if (!loc?.capital) return false;
+  const cap = CAPITALS[loc.capital.k];
+  if (!cap) return false;
+  const d = capitalDims(cap);
+  return d.w * d.h > 1;
+}

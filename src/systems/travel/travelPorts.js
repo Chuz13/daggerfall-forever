@@ -158,17 +158,27 @@ export function hasPort(mapId) {
 // the "hasPort" Travel Options answers other mods (travelOptions.js - Roleplay Realism's ship gate) and Come Sail
 // Away's deed. A DEPARTURE - Travel Options has no seats (Port-Ledger A, EVERY PALACE A SEAT's row).
 let _seatHarbour = () => false;
+let _worldPort = () => false;
 /** The host's word on a map id (the location's own, unmasked - the seats' key): a members' Harbour there. Anything but a
  *  function clears it. */
 export const setSeatHarbours = (fn) => {
   _seatHarbour = typeof fn === 'function' ? fn : () => false;
 };
-/** HasPort, or a members' Harbour at the seat. */
+/** Host provider for world ports beyond the Iliac Bay (worldPlaces / Arena / capital harbours). Anything but a function clears it. */
+export const setWorldPorts = (fn) => {
+  _worldPort = typeof fn === 'function' ? fn : () => false;
+};
+/** HasPort, a members' Harbour at the seat, or a world port beyond the Bay. */
 export function hasPortFor(mapId) {
   if (hasPort(mapId)) return true;
   if (mapId == null || !Number.isFinite(mapId)) return false;
   try {
-    return _seatHarbour(mapId) === true;
+    if (_seatHarbour(mapId) === true) return true;
+  } catch {
+    // ignore broken provider
+  }
+  try {
+    return _worldPort(mapId) === true;
   } catch {
     return false;
   }

@@ -3316,10 +3316,15 @@ export class HeldMapWindow {
   _shipCtx() {
     const d = this.deps;
     const summary = this._selected?.summary ?? {};
+    let destinationMapId = summary.mapID ?? summary.mapId ?? null;
+    if (destinationMapId == null && (this._selected?.place || this._selected?.pastBay) && typeof d.placeSummaryAt === 'function') {
+      const ps = d.placeSummaryAt(Math.floor(this._selected.x), Math.floor(this._selected.y), true);
+      destinationMapId = ps?.mapID ?? ps?.mapId ?? null;
+    }
     return {
       currentLocationMapId: d.currentLocationMapId?.() ?? null,
       isOnShip: !!d.isOnShip?.(),
-      destinationMapId: summary.mapID ?? summary.mapId ?? null,
+      destinationMapId,
       oceanPixels: this._panelState?.trip?.oceanPixels ?? 0,
     };
   }

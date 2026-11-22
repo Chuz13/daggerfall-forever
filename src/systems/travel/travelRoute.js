@@ -381,9 +381,16 @@ export function edgeKind(a, b, bit, roads, tracks) {
  * corner of it. A track is not: his track table paints water over it (TRACK_TILES column 0 - a ford). Travel Options'
  * follow key walks his bytes whatever the ground under them.
  */
-function pavedStep(ax, ay, bx, by, bit, width, height, roads) {
-  if (!roads || ax < 0 || ay < 0 || bx < 0 || by < 0 || ax >= width || ay >= height || bx >= width || by >= height)
-    return false;
+function pavedStep(ax, ay, bx, by, bit, width, height, roads, beyond = null) {
+  const off = ax < 0 || ay < 0 || bx < 0 || by < 0 || ax >= width || ay >= height || bx >= width || by >= height;
+  if (beyond && (off || nearEdge(ax, ay, width, height) || nearEdge(bx, by, width, height))) {
+    const back = BACK_BIT[bit];
+    return !!(
+      (pathByte('roads', ax, ay, width, height, roads, beyond) & bit) &&
+      (pathByte('roads', bx, by, width, height, roads, beyond) & back)
+    );
+  }
+  if (!roads || off) return false;
   return edgeKindAt(ay * width + ax, by * width + bx, bit, roads, null) === 0;
 }
 
@@ -411,7 +418,7 @@ function stepKind(
   beyond = null,
 ) {
   // RPT1026-WORLD CAUSEWAY: his road's own step is ground - asked only where the sea would refuse it (pavedStep)
-  if (goal === 0 && isWater(bx, by) && !pavedStep(ax, ay, bx, by, bit, width, height, roads)) return -1;
+  if (goal === 0 && isWater(bx, by) && !pavedStep(ax, ay, bx, by, bit, width, height, roads, beyond)) return -1;
   // AUDIT DEEP T2-5: nor through a corner of the sea - a diagonal between two water pixels is a swim (the roads' own
   // ROADS 6, whose stricter half would refuse a coast road's own diagonal)
   if (
@@ -419,7 +426,7 @@ function stepKind(
     ay !== by &&
     isWater(bx, ay) &&
     isWater(ax, by) &&
-    !pavedStep(ax, ay, bx, by, bit, width, height, roads)
+    !pavedStep(ax, ay, bx, by, bit, width, height, roads, beyond)
   )
     return -1;
   const kind = pathKind(ax, ay, bx, by, bit, width, height, roads, tracks, beyond);
@@ -2070,7 +2077,7 @@ function* searchSteps(
         }
       } else if (
         wet &&
-        ((seaGoal && n === goal) || (n !== goal && !pavedStep(cx, cy, nx, ny, STEP_BIT[d], width, height, roads)))
+        ((seaGoal && n === goal) || (n !== goal && !pavedStep(cx, cy, nx, ny, STEP_BIT[d], width, height, roads, beyond)))
       ) {
         // a place's own pixel on the water is walked into (the harbour town), a spot on it sailed to; RPT1026-WORLD CAUSEWAY: his road's step onto it walked
         if (layer !== ASHORE) continue; // no boat to hand: the sea refused

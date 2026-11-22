@@ -73,7 +73,7 @@ import { questTracker } from '../ui/quest/questTracker.js';   // GUIDE5: the que
 import { marksOn, questMapMarks } from '../ui/quest/questMarks.js'; import { boatCompassPoints } from '../ui/boatMarks.js';   // GUIDE5: where the quests point, on the held map and the compass; BOAT-MARK: where my boats lie, on the compass
 import { settlementsOf, loadModRoads, retryModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
-import { hasPortFor, hasPort, setSeatHarbours, PORT_LOCATION_IDS } from '../systems/travel/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate; SEAT2b part two: a members' Harbour among them (hasPortFor)
+import { hasPortFor, hasPort, setSeatHarbours, setWorldPorts, PORT_LOCATION_IDS } from '../systems/travel/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate; SEAT2b part two: a members' Harbour among them (hasPortFor)
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, surfaceHeightAt, surfaceNormalAt, terrainSampleHeightAt, walkGroundAt } from '../world/terrain/terrainSurface.js';   // GRASS-LIT2: the ground's normal under a blade; SNOWFALL1: and a pixel's that keeps none; FLORA-GROUND: the ground's one law
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
@@ -176,10 +176,13 @@ import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the b
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { worldMinutes, skyMinutes, setSkyMinutesOverride, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes, raisedMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { evaluateTravelInterruption, canEvadeAmbushWithStealth, TRAVEL_EVENT_TYPE } from '../systems/living/travelDirector.js';
+import { parseCrisisTpQuery } from '../systems/living/crisisTpQuery.js';
+import { findSafeLandInterruptSpot, selectInterruptRegion, resolveInterruptLanding } from '../systems/living/travelInterruptSpot.js';
+import { ghostfenceShuts } from '../world/tamriel/ghostfence.js';
 import { setLivingQuestSitesProvider } from '../systems/living/livingDirector.js';
 import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
-import { getActiveCrises, bindLivingRegionConditions, getActiveRegionFlags, CRISIS_TYPE } from '../systems/living/regionState.js';
+import { getActiveCrises, getRegionState, bindLivingRegionConditions, getActiveRegionFlags, CRISIS_TYPE } from '../systems/living/regionState.js';
 import { REGION_FLAGS } from '../systems/region/regionConditions.js';
 import { getActiveAdventurerCompanion } from '../systems/living/adventurerSim.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, buildRecruitedCompanionChoiceSpec, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
@@ -311,7 +314,7 @@ import { arenaTemplates, ARENA_LOAD_WAIT_MS } from '../world/arenaLocations.js';
 import { countryTemplates, countryCounts } from '../world/tamrielCountry.js';   // TESA7: the countryside past the Bay
 import { countrysideOn } from './shared.js';   // TESA7: its kill door
 import { capitalsOn } from './shared.js';   // TESA10: the capitals' kill door
-import { capitalBase, cityBlockNames, setCapitalsStanding, isCapitalLandmark } from '../world/tamrielCapitals.js';   // TESA10: the capitals, built by hand; BAY-LEFT-SEA: a landmark measured by its footprint
+import { capitalBase, cityBlockNames, setCapitalsStanding, isCapitalLandmark, isMultiSliceCapital } from '../world/tamrielCapitals.js';   // TESA10: the capitals, built by hand; BAY-LEFT-SEA: a landmark measured by its footprint
 import { lairTemplates, lairPools } from '../world/tamrielDungeons.js';   // TESA8: the lairs past the Bay
 import { provinceKeyBeyondBay } from '../world/tamriel/tamrielLand.js';   // TESA3: the province a pixel past the Bay stands on
 import { provinceByKey } from '../world/tamriel/tamrielGeography.js';   // TESA3: its name and race
@@ -2220,6 +2223,16 @@ export async function bootWorld(canvas, renderer, params, status) {
   // SEAT2b part two (Seats-Arc 7.5: "the town is a Travel Options port for members"): a Harbour standing at a seat my
   // guild holds is a port to the travel map, the ship's rules and the held map (systems/travel/travelPorts.js hasPortFor)
   setSeatHarbours((mapId) => harbourPortFor(seatHere(mapId), guildBook?.guild?.id ?? null));
+  setWorldPorts((mapId) => {
+    const id = Number(mapId) >>> 0;
+    const place = worldPlaces?.byMapId?.(id) ?? null;
+    if (place && !onTheBay(place.px, place.py)) return !!place.port;
+    const loc = _musicLoc;
+    if (loc?.mapTableData?.mapId != null && (loc.mapTableData.mapId >>> 0) === id && (loc.arena || loc.capital || loc.ether)) {
+      return loc.ether ? loc.etherKind === 'port' : (loc.exterior?.exteriorData?.portTownAndUnknown ?? 0) !== 0;
+    }
+    return false;
+  });
   // SEAT1d (Seats-Arc 7.2, 7.6): a held seat as this client lives it - its shops' prices for its holder's members and on
   // Market Day, its arrival's news, a Festival's buff, a Curfew's watch and crimes, a Bounty's camps (systems/seatEdicts.js)
   const seatEdicts = createSeatEdicts({
@@ -14214,7 +14227,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function travelOriginMapId() {
     const here = playerTravelPixel(), from = playerTravelOrigin();
     if (from.x === here.x && from.y === here.y) return _musicLoc?.mapTableData?.mapId ?? null;
-    return locationIndex.get(`${from.x},${from.y}`)?.mapTableData?.mapId ?? null;
+    return locationIndex.get(`${from.x},${from.y}`)?.mapTableData?.mapId ?? (!onTheBay(from.x, from.y) ? tvPlaceSummary(from.x, from.y, true)?.mapId ?? null : null);
   }
   /** FS1 (2026-08-28) - THE TILE UNDER THE PLAYER, which this host has
    *  wanted since the FS-slice: the footstep block's own comment says
@@ -15685,64 +15698,99 @@ export async function bootWorld(canvas, renderer, params, status) {
         const curPixel = playerTravelPixel();
         const regIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(curPixel.x, curPixel.y) ?? 0) : 0;
         const destRegIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(pick.pixel.x, pick.pixel.y) ?? regIdx) : regIdx;
-        const midX = Math.round((curPixel.x + pick.pixel.x) / 2);
-        const midY = Math.round((curPixel.y + pick.pixel.y) / 2);
-        const midRegIdx = maps?.getRegionIndexAt ? (maps.getRegionIndexAt(midX, midY) ?? regIdx) : regIdx;
-        interruptedRegionIdx = regIdx;
-
-        // APOTHEOSIS STAGE 3.4: Unified Divine & Mundane War Skirmish Fast-Travel Interrupt (LAND-ONLY, NEVER AT SEA!)
+        const isWaterAt = (x, y) => maps?.getClimateIndex?.(x, y) === CLIMATES.Ocean
+          || Boolean(seaVentures?.openSeaAt?.({ x, y }));
+        const spotInfo = findSafeLandInterruptSpot(curPixel, pick.pixel, {
+          isWater: isWaterAt,
+          isBlocked: (x, y) => Boolean(ghostfenceShuts?.(x, y)),
+        });
+        const landSpot = spotInfo.pixel;
         const sailingNow = isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, curPixel)
           || Boolean(csaRuntime?.isSailing?.() || csaAboard?.aboard?.boat || naval?.aboard?.());
-        const midOcean = maps?.getClimateIndex?.(midX, midY) === CLIMATES.Ocean
-          || Boolean(seaVentures?.openSeaAt?.({ x: midX, y: midY }));
-        const warReg = [regIdx, midRegIdx, destRegIdx].find((r) => getActiveWarForRegion(playerEntity, r) != null) ?? regIdx;
-        if (!sailingNow && !midOcean && shouldInterruptFastTravelForWar(playerEntity, warReg, worldMinutes(), { isOcean: false, isAfloat: false })) {
-          interruptedEventType = 'war_skirmish';
-          interruptedWarDesc = getActiveWarForRegion(playerEntity, warReg);
-          interruptedRegionIdx = warReg;
-          targetPixelX = midX;
-          targetPixelY = midY;
-          travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
-          townTalk.say(t('apotheosis.skirmish.fastTravelInterruptHud', 'Warring banners block the road ahead!'));
+        const sailingTrip = sailingNow || !!opts?.travelShip || !landSpot;
+        const midRegIdx = landSpot && maps?.getRegionIndexAt ? (maps.getRegionIndexAt(landSpot.x, landSpot.y) ?? regIdx) : regIdx;
+        const evalRegIdx = selectInterruptRegion([midRegIdx, destRegIdx, regIdx], getRegionState);
+        interruptedRegionIdx = evalRegIdx;
+
+        // APOTHEOSIS STAGE 3.4: Unified Divine & Mundane War Skirmish Fast-Travel Interrupt (LAND-ONLY, NEVER AT SEA!)
+        const warReg = [midRegIdx, destRegIdx, regIdx].find((r) => getActiveWarForRegion(playerEntity, r) != null) ?? evalRegIdx;
+        if (!sailingTrip && landSpot && shouldInterruptFastTravelForWar(playerEntity, warReg, worldMinutes(), { isOcean: false, isAfloat: false })) {
+          const landing = resolveInterruptLanding({
+            eventType: 'war_skirmish',
+            spot: spotInfo,
+            destPixel: pick.pixel,
+            computedMinutes: computed.minutes,
+            sailingNow,
+            travelShip: !!opts?.travelShip,
+          });
+          if (landing) {
+            interruptedEventType = 'war_skirmish';
+            interruptedWarDesc = getActiveWarForRegion(playerEntity, warReg);
+            interruptedRegionIdx = warReg;
+            targetPixelX = landing.x;
+            targetPixelY = landing.y;
+            travelMinutes = landing.minutes;
+            townTalk.say(t('apotheosis.skirmish.fastTravelInterruptHud', 'Warring banners block the road ahead!'));
+          }
         }
 
         if (!interruptedEventType) {
           const playerLuck = liveStat(playerEntity, 'luck') || 50;
           const interruption = evaluateTravelInterruption({
-            regionIndex: regIdx,
+            regionIndex: evalRegIdx,
             playerLuck,
             nowMinutes: worldMinutes(),
             tripMinutes: computed.minutes,
             sleepModeInn: !!opts.sleepModeInn,
             speedCautious: !!opts.speedCautious,
-            sailing: sailingNow || midOcean,
+            sailing: sailingTrip,
             maxInterrupts: survivalRules()?.maxTravelInterrupts ?? 1,
           });
           if (interruption.shouldInterrupt) {
-            interruptedEventType = interruption.eventType;
-            targetPixelX = midX;
-            targetPixelY = midY;
-            travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
-            if (interruption.eventType === TRAVEL_EVENT_TYPE.PEACEFUL_CARAVAN) {
-              townTalk.say(LIVING_WORDS.travelCaravan());
-            } else if (interruption.eventType === TRAVEL_EVENT_TYPE.ROAD_DILEMMA) {
-              townTalk.say(LIVING_WORDS.travelDilemma());
-            } else if (interruption.eventType === TRAVEL_EVENT_TYPE.AMBUSH) {
-              townTalk.say(LIVING_WORDS.travelAmbush());
-            } else if (interruption.eventType === TRAVEL_EVENT_TYPE.WILD_BEASTS) {
-              townTalk.say(t('survival.travel.wildBeasts', 'Wild beasts stalk your path!'));
-            } else if (interruption.eventType === TRAVEL_EVENT_TYPE.WEATHER_HAZARD) {
-              townTalk.say(t('survival.travel.weatherHazard', 'Fierce weather blocks the road ahead!'));
+            const landing = resolveInterruptLanding({
+              eventType: interruption.eventType,
+              spot: landSpot ? spotInfo : null,
+              destPixel: pick.pixel,
+              computedMinutes: computed.minutes,
+              sailingNow,
+              travelShip: !!opts?.travelShip,
+            });
+            if (landing) {
+              interruptedEventType = interruption.eventType;
+              targetPixelX = landing.x;
+              targetPixelY = landing.y;
+              travelMinutes = landing.minutes;
+              if (interruption.eventType === TRAVEL_EVENT_TYPE.PEACEFUL_CARAVAN) {
+                townTalk.say(LIVING_WORDS.travelCaravan());
+              } else if (interruption.eventType === TRAVEL_EVENT_TYPE.ROAD_DILEMMA) {
+                townTalk.say(LIVING_WORDS.travelDilemma());
+              } else if (interruption.eventType === TRAVEL_EVENT_TYPE.AMBUSH) {
+                townTalk.say(LIVING_WORDS.travelAmbush());
+              } else if (interruption.eventType === TRAVEL_EVENT_TYPE.WILD_BEASTS) {
+                townTalk.say(t('survival.travel.wildBeasts', 'Wild beasts stalk your path!'));
+              } else if (interruption.eventType === TRAVEL_EVENT_TYPE.WEATHER_HAZARD) {
+                townTalk.say(t('survival.travel.weatherHazard', 'Fierce weather blocks the road ahead!'));
+              }
             }
-          } else if (FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.witchHunters !== 'off') {
+          } else if (!sailingTrip && landSpot && FORK_FLAGS.ENABLE_NECROMANCY && NecroConfig.witchHunters !== 'off') {
             const tripHours = Math.max(1, (computed?.minutes ?? 60) / 60);
             const witchAmbush = checkTravelWitchHunterAmbush(playerEntity, tripHours);
             if (witchAmbush.ambush) {
-              interruptedEventType = 'witch_hunter_ambush';
-              targetPixelX = midX;
-              targetPixelY = midY;
-              travelMinutes = Math.max(30, Math.round(computed.minutes / 2));
-              townTalk.say(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
+              const landing = resolveInterruptLanding({
+                eventType: 'witch_hunter_ambush',
+                spot: spotInfo,
+                destPixel: pick.pixel,
+                computedMinutes: computed.minutes,
+                sailingNow,
+                travelShip: !!opts?.travelShip,
+              });
+              if (landing) {
+                interruptedEventType = 'witch_hunter_ambush';
+                targetPixelX = landing.x;
+                targetPixelY = landing.y;
+                travelMinutes = landing.minutes;
+                townTalk.say(t('necro.alert.witchHunters', 'In the name of Arkay, unholy defiler, face righteous judgment!'));
+              }
             }
           }
         }
@@ -17178,16 +17226,29 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through it, and the rect the pixel build stored (null until the
     // terrain is built, which is the C#'s `GetTerrainFromPixel` null).
     locationTileRect: (pixel) => {
-      const summary = onTheBay(pixel.x, pixel.y) ? travelLocationSummaryAt(mapDict, pixel.x, pixel.y) : null;   // AUDIT-TESA A2-3
-      if (!summary) return null;
-      const loc = maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex);
+      if (onTheBay(pixel.x, pixel.y)) {
+        const summary = travelLocationSummaryAt(mapDict, pixel.x, pixel.y);
+        if (!summary) return null;
+        const loc = maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex);
+        if (!loc) return null;
+        const r = built.get(`${pixel.x},${pixel.y}`)?.locationRect ?? null;
+        if (!r) return null;
+        return {
+          tileRect: { x: r.xMin, y: r.yMin, width: r.xMax - r.xMin, height: r.yMax - r.yMin },
+          locationType: loc.mapTableData?.locationType ?? summary.locationType,
+          hasCustomPosition: hasCustomLocationPosition(loc),
+          multiSlice: false,
+        };
+      }
+      const loc = locationIndex.get(`${pixel.x},${pixel.y}`) ?? null;
       if (!loc) return null;
       const r = built.get(`${pixel.x},${pixel.y}`)?.locationRect ?? null;
       if (!r) return null;
       return {
         tileRect: { x: r.xMin, y: r.yMin, width: r.xMax - r.xMin, height: r.yMax - r.yMin },
-        locationType: loc.mapTableData?.locationType ?? summary.locationType,
+        locationType: loc.mapTableData?.locationType ?? LOCATION_TYPES.TownCity,
         hasCustomPosition: hasCustomLocationPosition(loc),
+        multiSlice: isMultiSliceCapital(loc),
       };
     },
     // SPAWN-TRAVEL (2026-09-25, a crash report: "Error finding location Daggerfall : The Jubul Monastery (208,189)"):
@@ -17508,6 +17569,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       seatAt: seatBook ? (summary) => seatHere(summary?.mapID ?? summary?.mapId) : null,
       townTipAt: (summary) => townEcon.tipAt(summary?.mapID ?? summary?.mapId),   // TOWN-ECON TE1: every town's card - its economy and its guild control
       carriageAt: (summary) => carriageTown(summary?.mapID ?? summary?.mapId),   // OW-HUBS: a carriage town's wheel
+      placeSummaryAt: (x, y, forceNamed = true) => tvPlaceSummary(x, y, forceNamed),
       oreAt: profBook ? oreMapAt : null,   // ORE-MAP: bare ground's ore card - online, where the professions are
       // TO1: the mod itself rides travelFareDeps (above); the reads its additions to this window need follow.
       // AUDIT-TO1 I4: ...and the door ACTS on the refusal it can still get
@@ -26985,7 +27047,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       ...travelFareDeps(),
       getPlayerPixel: playerTravelOrigin,
       getClimateIndex: (x, yy) => maps.getClimateIndex(x, yy),
-      locationSummary: () => (onTheBay(to.x, to.y) ? travelLocationSummaryAt(mapDict, to.x, to.y) : null),   // AUDIT-TESA A2-3
+      locationSummary: () => (onTheBay(to.x, to.y) ? travelLocationSummaryAt(mapDict, to.x, to.y) : tvPlaceSummary(to.x, to.y, true)),
     });
     pop.speedCautious = !!opts?.speedCautious; pop.sleepModeInn = !!opts?.sleepModeInn; pop.travelShip = !!opts?.travelShip;
     pop.enforceShipRestriction();
@@ -30771,13 +30833,18 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (Array.isArray(playerEntity?.regionConditions)) {
         bindLivingRegionConditions(playerEntity.regionConditions, playerEntity.factionRep ?? null);
       }
-      const cleanFilter = filterType ? String(filterType).toLowerCase().trim() : null;
+      const query = parseCrisisTpQuery(filterType, REGION_NAMES, REGION_FLAGS);
+      if (query.unknownTarget) {
+        return `[Crisis TP] Unknown target region/scope "${query.unknownTarget}". Use a region number (0-${REGION_NAMES.length - 1}), province name (e.g. morrowind, skyrim, cyrodiil), "beyond", or "bay".`;
+      }
+      const cleanFilter = query.filterType;
       const candidateRegions = [];
       const matchFlagEntry = cleanFilter
         ? Object.entries(REGION_FLAGS).find(([k]) => k.toLowerCase() === cleanFilter)
         : null;
 
       for (let r = 0; r < REGION_NAMES.length; r++) {
+        if (query.target && !query.target.matches(r)) continue;
         const crises = getActiveCrises(r);
         const condFlags = playerEntity?.regionConditions?.[r]?.flags ?? [];
         const activeFlagObjs = getActiveRegionFlags(r, playerEntity?.regionConditions);
@@ -30865,6 +30932,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
 
       if (candidateRegions.length === 0) {
+        if (query.target) {
+          const hintType = cleanFilter || 'famine';
+          return cleanFilter
+            ? `[Crisis TP] No active "${cleanFilter}" crisis in ${query.target.label}. Use 'crisis start ${hintType} ${query.target.sampleRegion}'.`
+            : `[Crisis TP] No active regional crises in ${query.target.label}. Use 'crisis start ${hintType} ${query.target.sampleRegion}'.`;
+        }
         return cleanFilter
           ? `[Crisis TP] No active region currently experiencing "${cleanFilter}". Use 'crisis start ${cleanFilter}' or wait for world simulation.`
           : `[Crisis TP] No active regional crises currently occurring in Tamriel.`;

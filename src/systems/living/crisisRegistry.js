@@ -143,6 +143,7 @@ export const CRISIS_EVENTS = Object.freeze([
     propTheme: SKIRMISH_PROP_THEME.MILITARY_BARRICADE,
     crisisTypes: [CRISIS_TYPE.WAR],
     regionFlags: [REGION_FLAGS.WarBeginning, REGION_FLAGS.WarOngoing],
+    regionFilter: (reg) => Number.isInteger(reg) && reg >= 0 && reg <= 63,
     locationTypes: [LOCATION_TYPES.TownCity, LOCATION_TYPES.TownVillage, LOCATION_TYPES.TownHamlet, LOCATION_TYPES.HomeFarms],
     baseDefenders: 2,
     baseAttackers: 3,
@@ -1078,6 +1079,11 @@ export function matchLivingCrisisEvent({
 
     // 1. Location type filter
     if (evt.locationTypes.length > 0 && !evt.locationTypes.includes(locationType)) {
+      continue;
+    }
+
+    // 1b. Regional eligibility filter (e.g. Orsinium raids only in Iliac Bay / High Rock / Hammerfell)
+    if (typeof evt.regionFilter === 'function' && !evt.regionFilter(regionIndex)) {
       continue;
     }
 
