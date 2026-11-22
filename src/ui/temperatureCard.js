@@ -17,12 +17,17 @@
 // are, or as a wear would leave them (ui/armourCard.js wearComparison's `worn`, its wardrobe through modsForSlots). The
 // HUD reads the same live reading - its plate and, AUDIT C&C S9, the strip's chip - each level the live tier's and its
 // fire the live air's (survival/status.js temperatureReadout, needs.js warmedByFire), so the pack and the HUD say one thing.
-import { survivalOn } from '../systems/survival/switch.js';
-import { feltNow } from '../systems/survival/env.js';
-import { temperatureBreakdown, signedDegrees } from '../systems/survival/temperature.js';
-import { temperatureReadout, HUD_BOON_WORDS, boonEffect, restedLeft, levelSaid, drinkCategoryLabel, drinkBuffEffect } from '../systems/survival/status.js';
-import { activeDrinkBuff } from '../systems/survival/needs.js';
-import { survivalRules } from '../systems/survival/switch.js';
+import { survivalOn, survivalRules } from '../systems/survival/switch.js';
+import { feltNow, lastSurvivalFeed } from '../systems/survival/env.js';
+import { temperatureBreakdown, signedDegrees, temperatureWord } from '../systems/survival/temperature.js';
+import { temperatureReadout, HUD_BOON_WORDS, HUD_NEED_WORDS, boonEffect, restedLeft, levelSaid, drinkCategoryLabel, drinkBuffEffect, drunkWord } from '../systems/survival/status.js';
+import { activeDrinkBuff, NEED, hungerMinutes, hungerStage, starvingDays, thirstStage, sleepStage, wakingHeld, warmedByFire } from '../systems/survival/needs.js';
+import { isStiff, STIFF_PENALTY } from '../systems/survival/rest.js';
+import { STAT_KEYS_ORDER, liveStat } from '../systems/statMods.js';
+import { liveVampirism } from '../systems/racialLive.js';
+import { isAnyLich } from '../systems/necromancy/lichdomStatus.js';
+import { DISEASE_NAMES } from '../systems/diseases.js';
+import { t } from '../systems/textManager.js';
 import { equipTableOf, isEquipped } from '../systems/equip.js';
 import { modsForSlots } from './armourCard.js';
 
@@ -155,6 +160,148 @@ export function boonStatRows(entity) {
       drinkCategoryLabel(db.cat),
       `${drinkBuffEffect(db)}${leftH ? ` (${leftH}h left)` : ''}`,
     ]);
+  }
+  return rows;
+}
+
+const capStat = (k) => `${k[0].toUpperCase()}${k.slice(1)}`;
+const fmtNegMods = (map) =>
+  STAT_KEYS_ORDER.filter((k) => (map?.[k] ?? 0) < 0)
+    .map((k) => `${map[k]} ${capStat(k)}`)
+    .join(', ');
+
+/**
+ * Character sheet penalties snapshot: `[label, effectText]` for every active survival penalty (attribute drains,
+ * stamina drains, stiffness, drunkenness) and non-survival negative attribute effect (diseases, poisons, drains, curses).
+ * @param {any} entity
+ * @param {number|null} [nowArg]
+ * @returns {[string, string][]}
+ */
+export function penaltyStatRows(entity, nowArg = null) {
+  if (!entity) return [];
+  const rows = [];
+  const vampire = !!liveVampirism(entity);
+  const lich = !!isAnyLich(entity);
+
+  const rules = survivalOn() ? survivalRules() : null;
+  const s = entity.survival && typeof entity.survival === 'object' ? entity.survival : null;
+  if (rules && s) {
+    const now = Number.isFinite(nowArg)
+      ? nowArg
+      : Number.isFinite(s.lastMinute)
+        ? s.lastMinute
+        : Number.isFinite(entity.lastGameMinutes)
+          ? entity.lastGameMinutes
+          : null;
+    const beast = !!lastSurvivalFeed(entity)?.ctx?.beastForm;
+    const endurance = entity.stats ? liveStat(entity, 'endurance') : 50;
+    const tires = rules.stamina.floor < 1;
+    const takesAttr = !!rules.attributes;
+    const scale = rules.attrScale ?? 1;
+    const capAttr = rules.attrCap ?? 20;
+    const expAt = rules.exposureAt ?? NEED.EXPOSURE_AT;
+    const sc = (n) => (n > 0 ? Math.max(1, Math.round(n * scale)) : 0);
+    const allAttrText = (n) => t('survival.penalty.allStats', '-{n} all attributes (excl. Luck)', { n });
+    const drainStaminaText = () => t('survival.penalty.drainsStamina', 'drains stamina');
+
+    if (now != null && !vampire && !beast && !lich) {
+      const hMins = hungerMinutes(s, now);
+      if (hungerStage(hMins) === 'starving') {
+        const starveN = takesAttr ? Math.min(capAttr, sc(starvingDays(hMins) * 2)) : 0;
+        if (starveN > 0) rows.push([HUD_NEED_WORDS.hunger.starving, allAttrText(starveN)]);
+        else if (tires) rows.push([HUD_NEED_WORDS.hunger.starving, drainStaminaText()]);
+      }
+    }
+
+    if (!vampire && !beast && !lich) {
+      const thStage = thirstStage(s.thirst ?? 0);
+      if (thStage === 'dehydrated') {
+        const thN = takesAttr ? Math.min(capAttr, sc(Math.trunc(((s.thirst ?? 0) - 90) / 10))) : 0;
+        if (thN > 0) rows.push([HUD_NEED_WORDS.thirst.dehydrated, allAttrText(thN)]);
+        else if (tires) rows.push([HUD_NEED_WORDS.thirst.dehydrated, drainStaminaText()]);
+      } else if (thStage === 'parched' && tires) {
+        rows.push([HUD_NEED_WORDS.thirst.parched, drainStaminaText()]);
+      }
+    }
+
+    if (!vampire && !lich && !(now != null && wakingHeld(s, now))) {
+      const slStage = sleepStage(s.sleepDebt ?? 0);
+      if (slStage !== 'rested') {
+        const rawSleep = slStage === 'tired' ? 2 : slStage === 'drowsy' ? 5 : 10;
+        const slN = takesAttr ? sc(rawSleep) : 0;
+        if (slN > 0) rows.push([HUD_NEED_WORDS.sleep[slStage], allAttrText(slN)]);
+        else if (tires && slStage === 'exhausted') rows.push([HUD_NEED_WORDS.sleep.exhausted, drainStaminaText()]);
+      }
+    }
+
+    if (!lich) {
+      const liveTemp = feltNow(entity);
+      const felt = liveTemp ? liveTemp.felt : s.felt;
+      if (Number.isFinite(felt)) {
+        const word = temperatureWord(felt);
+        const label = HUD_NEED_WORDS.temp[word] ?? null;
+        const abs = Math.abs(felt);
+        const expN = takesAttr && abs > expAt ? Math.min(capAttr, sc(Math.trunc(Math.min(s.exposure ?? 0, abs - expAt) / 4))) : 0;
+        const warmed = liveTemp
+          ? warmedByFire(rules, liveTemp.env, felt)
+          : !!s.warmed && (word === 'cold' || word === 'freezing' || word === 'deadly cold');
+        if (expN > 0) rows.push([label ?? 'Exposure', allAttrText(expN)]);
+        else if (tires && !warmed && label && (felt >= rules.stamina.hotFrom || felt <= rules.stamina.coldFrom)) {
+          rows.push([label, drainStaminaText()]);
+        }
+      }
+    }
+
+    if (now != null && takesAttr && isStiff(s, now)) {
+      const pen = rules.stiffPenalty ?? STIFF_PENALTY;
+      const leftH = Math.max(1, Math.ceil((s.stiffUntil - now) / 60));
+      rows.push(['Stiff', `-${pen} Agility, -${pen} Speed (${leftH}h left)`]);
+    }
+
+    if ((s.drunk ?? 0) > endurance / 2) {
+      const d = Math.trunc((s.drunk - endurance / 2) / 10);
+      if (d > 0) {
+        const p = Math.min(5, d + 1);
+        rows.push([
+          drunkWord(s.drunk, endurance),
+          `-${d} Intelligence, -${d} Willpower, -${d} Agility, -${d} Speed, +${p} Personality`,
+        ]);
+      }
+    }
+  }
+
+  const drainMap = new Map();
+  for (const a of entity.activeEffects ?? []) {
+    if (!a || a.ended) continue;
+    if (a.kind === 'disease' && a.statMods) {
+      const txt = fmtNegMods(a.statMods);
+      if (txt) rows.push([DISEASE_NAMES[a.disease] ?? 'Disease', txt]);
+    } else if (a.kind === 'poison' && a.statMods) {
+      const txt = fmtNegMods(a.statMods);
+      if (txt) rows.push(['Poisoned', txt]);
+    } else if ((a.kind === 'drainAttribute' || a.kind === 'transferAttribute') && a.stat && a.magnitude > 0) {
+      drainMap.set(a.stat, (drainMap.get(a.stat) ?? 0) + a.magnitude);
+    } else if ((a.kind === 'racialOverride' || a.kind === 'lichdom' || a.kind === 'ancient_lichdom') && a.statMods) {
+      const txt = fmtNegMods(a.statMods);
+      if (txt) {
+        const kind = a.racial ?? a.kind;
+        const label =
+          kind === 'ancient_lichdom'
+            ? t('lichdom.badge.archlich', 'Ancient Lich')
+            : kind === 'lichdom'
+              ? t('lichdom.badge.lich', 'Immortal Lich')
+              : vampire
+                ? t('lichdom.curse.vampirism', 'Vampirism')
+                : 'Curse';
+        rows.push([label, txt]);
+      }
+    }
+  }
+  if (drainMap.size) {
+    const txt = STAT_KEYS_ORDER.filter((k) => (drainMap.get(k) ?? 0) > 0)
+      .map((k) => `-${drainMap.get(k)} ${capStat(k)}`)
+      .join(', ');
+    if (txt) rows.push(['Drain', txt]);
   }
   return rows;
 }

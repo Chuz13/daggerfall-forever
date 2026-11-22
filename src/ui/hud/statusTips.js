@@ -216,12 +216,13 @@ function boonLines(id, entity) {
       .join(', ')}.`,
   ];
 }
-/** What every felt need takes from the attributes right now (the one survival entry), or null. */
+/** What every felt need takes from or adds to the attributes right now (the one survival entry), or null. */
 export function needCostLine(entity) {
   const e = (entity?.activeEffects ?? []).find((a) => a?.kind === 'survival');
   const mods = Object.entries(e?.statMods ?? {}).filter(([, n]) => n);
   if (!mods.length) return null;
-  return `Your needs now: ${mods.map(([k, n]) => `${statWord(k)} ${n > 0 ? '+' : ''}${n}`).join(', ')}.`;
+  const list = mods.map(([k, n]) => `${statWord(k)} ${n > 0 ? '+' : ''}${n}`).join(', ');
+  return t('survival.tip.needsLeadTo', 'Your needs lead to: {mods}.', { mods: list });
 }
 
 /**
@@ -286,6 +287,8 @@ export function statusTip(tile, entity, extra = {}) {
     const k = String(tile.key).slice(5);
     if (k.startsWith('boon:')) {
       lines.push(...boonLines(k.slice(5), entity));
+      const cost = needCostLine(entity);
+      if (cost) lines.push(cost);
       return { title, meta: 'Boon', lines, foot: tile.foot ? `${tile.foot} left` : null };
     }
     if (NEED_LINES[k]) lines.push(NEED_LINES[k]);

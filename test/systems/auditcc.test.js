@@ -365,9 +365,9 @@ test('AUDIT C&C N3/H2: A PRISONER LEAVES FED, WATERED AND RESTED - the sentence 
 
 test('AUDIT C&C B11: THE ENHANCED MENU\'S ATTRIBUTES PAGE NAMES THE BOONS THAT RAISE THEM - under the meters, from the pack\'s one source (ui/temperatureCard.js boonStatRows: nothing outside the Boons tier), so a raised attribute is explained on every sheet that shows it', () => {
   const src = read('src/ui/enhanced/enhancedMenu.js');
-  assert.match(src, /import \{ boonStatRows \} from '\.\.\/temperatureCard\.js';/);
+  assert.match(src, /import \{ boonStatRows, penaltyStatRows \} from '\.\.\/temperatureCard\.js';/);
   const fn = src.slice(src.indexOf('function statsAttributes('), src.indexOf('\n}\n', src.indexOf('function statsAttributes(')));
-  assert.match(fn, /const boons = boonStatRows\(playerEntity\);\n\s*if \(!boons\.length\) return;\n\s*detail\.append\(pxDivider\('Boons'\)\);/, 'the section only when a boon stands, after the eight meters');
+  assert.match(fn, /const boons = boonStatRows\(playerEntity\);\n\s*if \(boons\.length\) \{\n\s*detail\.append\(pxDivider\('Boons'\)\);/, 'the section only when a boon stands, after the eight meters');
   assert.match(fn, /r\.append\(el\('span', 'k', k\), el\('span', 'v', v\)\);/, 'each boon its name and what it gives');
   assert.ok(fn.indexOf('meterRow(') < fn.indexOf('boonStatRows('), 'the meters first');
 });

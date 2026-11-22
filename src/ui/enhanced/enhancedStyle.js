@@ -2165,6 +2165,7 @@ ${badgeCss()}
   text-transform: uppercase; align-self: center; }
 .px-stat .v.won { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .px-stat .v.bad { color: var(--blood); }
+.px-stat.px-penalty .v { white-space: normal; text-align: right; }
 /* GUILD-REP: a guild row carries three facts - the affiliation, the
    rank title and the reputation - so the title takes the slack and
    the number keeps the social rows' right edge. */

@@ -39699,6 +39699,11 @@
   "tr": "94580bd9d5e7",
   "by": "claude-in-session"
  },
+ "pause.stats.penalties": {
+  "en": "633f6f84ec6a",
+  "tr": "c6c86df3c854",
+  "by": "claude-in-session"
+ },
  "pause.stats.perks": {
   "en": "f6d5cd0a367d",
   "tr": "3186749ddc39",
@@ -54174,6 +54179,16 @@
   "tr": "5f34b7ca4a62",
   "by": "human"
  },
+ "survival.penalty.allStats": {
+  "en": "f92abc0103d4",
+  "tr": "54d2066053e9",
+  "by": "claude-in-session"
+ },
+ "survival.penalty.drainsStamina": {
+  "en": "a95c92bb99f8",
+  "tr": "4a1f0a564928",
+  "by": "claude-in-session"
+ },
  "survival.status.deathlyCold": {
   "en": "015c54b3434d",
   "tr": "32146911d04f",
@@ -54183,6 +54198,11 @@
   "en": "503d3ecc41ba",
   "tr": "a8cc7d5eac93",
   "by": "human"
+ },
+ "survival.tip.needsLeadTo": {
+  "en": "d5850faa4482",
+  "tr": "42e6c619c076",
+  "by": "claude-in-session"
  },
  "survival.travel.weatherChoiceTitle": {
   "en": "7ee14b369a90",

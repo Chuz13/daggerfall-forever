@@ -125,6 +125,9 @@ const NEED_LADDERS = Object.freeze({
 const needLadder = (key, stage) =>
   key === 'temp' ? (NEED_LADDERS.cold.includes(stage) ? NEED_LADDERS.cold : NEED_LADDERS.warm) : NEED_LADDERS[key];
 
+/** The drunk label for a body's drunk level and live endurance. */
+export const drunkWord = (drunk, endurance) => (drunk > endurance - 10 ? 'Very drunk' : 'Drunk');
+
 /** The strip's chips: [{ key, text, level, tier?, of? }] - empty when every need is met; `tier` of `of` is how bad
  *  (NEED-TIER), absent on a need with one stage (Stiff). `rules` the live tier's (tierOf); `live` the HUD's live reading
  *  (env.js feltNow), the temperature's. */
@@ -191,7 +194,7 @@ export function survivalHudChips(entity, now, { vampire = false, endurance = 50,
     s.drunk > endurance / 2
       ? {
           key: 'drunk',
-          text: s.drunk > endurance - 10 ? 'Very drunk' : 'Drunk',
+          text: drunkWord(s.drunk, endurance),
           level: s.drunk > endurance - 10 ? 'danger' : 'warn',
           tier: s.drunk > endurance - 10 ? 2 : 1,
           of: 2,

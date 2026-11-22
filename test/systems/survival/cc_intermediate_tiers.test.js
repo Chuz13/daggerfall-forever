@@ -21,7 +21,10 @@ import { restBlock, REST_TEXT_SURVIVAL, restHour, REST_KIND, installSurvivalRest
 import { maxFatigue } from '../../../src/systems/statMods.js';
 import { hurtPlayer } from '../../../src/characters/playerEntity.js';
 import { drinkBuffEffect } from '../../../src/systems/survival/status.js';
-import { statusTip } from '../../../src/ui/hud/statusTips.js';
+import { statusTip, needCostLine } from '../../../src/ui/hud/statusTips.js';
+import { penaltyStatRows } from '../../../src/ui/temperatureCard.js';
+import { setPref, _resetForTests as resetPrefs } from '../../../src/systems/uiPrefs.js';
+import { SURVIVAL_PREF } from '../../../src/systems/survival/switch.js';
 import { isSurvivalItem } from '../../../src/systems/survival/items.js';
 import { executeConsoleLine, getConsoleCommand } from '../../../src/systems/consoleCommands.js';
 import { evaluateTravelInterruption, TRAVEL_EVENT_TYPE } from '../../../src/systems/living/travelDirector.js';
@@ -206,4 +209,68 @@ test('CC QA fixes: alignInnTravel clears stiffUntil, drunk, thirst, sleepDebt an
   assert.equal(e.survival.thirst, 0);
   assert.ok(e.survival.boons.includes('fed'));
   assert.ok(e.survival.boons.includes('quenched'));
+});
+
+test('Boon tooltip stat summary uses "Your needs lead to:" on all boon cards', () => {
+  const e = makeEntity({
+    activeEffects: [{ kind: 'survival', statMods: { intelligence: 4, willpower: 4, speed: -2 } }],
+  });
+  e.survival = { lastAte: 90, thirst: 0, wet: 0, sleepDebt: 0, awakeSince: 0, exposure: 0, fed: 0, drunk: 0, rotMinutes: 0, rotDays: 0, stiffUntil: 0, notes: {}, lastMinute: 100 };
+  tavernDrink(e.survival, 0, { endurance: 50, rules: SURVIVAL_RULES.veteran, now: 100, name: 'Coffee' });
+
+  assert.equal(needCostLine(e), 'Your needs lead to: Intelligence +4, Willpower +4, Speed -2.');
+  const drinkTip = statusTip({ key: 'need:boon:drink', name: 'Invigorating', kind: 'buff', foot: '3h' }, e);
+  assert.ok(drinkTip.lines.includes('Your needs lead to: Intelligence +4, Willpower +4, Speed -2.'));
+  const mealTip = statusTip({ key: 'need:boon:meal', name: 'Well Fed', kind: 'buff', foot: '6h' }, e);
+  assert.ok(mealTip.lines.includes('Your needs lead to: Intelligence +4, Willpower +4, Speed -2.'));
+  const quenchedTip = statusTip({ key: 'need:boon:quenched', name: 'Quenched', kind: 'buff' }, e);
+  assert.ok(quenchedTip.lines.includes('Your needs lead to: Intelligence +4, Willpower +4, Speed -2.'));
+});
+
+test('Character sheet penaltyStatRows reports survival and non-survival penalties', () => {
+  resetPrefs();
+  try {
+    setPref(SURVIVAL_PREF, 'veteran');
+    const healthy = makeEntity();
+    healthy.survival = { lastAte: 995, thirst: 0, wet: 0, sleepDebt: 0, awakeSince: 995, exposure: 0, fed: 0, drunk: 0, stiffUntil: 0, lastMinute: 1000 };
+    assert.deepEqual(penaltyStatRows(healthy, 1000), []);
+
+    const rough = makeEntity({
+      activeEffects: [
+        { kind: 'disease', disease: 0, incubationOver: true, statMods: { strength: -3, endurance: -2 } },
+        { kind: 'drainAttribute', stat: 'agility', magnitude: 4 },
+      ],
+    });
+    rough.survival = {
+      lastAte: 0,
+      thirst: 120,
+      wet: 0,
+      sleepDebt: 12,
+      awakeSince: 0,
+      exposure: 40,
+      felt: -55,
+      fed: 0,
+      drunk: 45,
+      stiffUntil: 3120,
+      lastMinute: 3000,
+    };
+    const rows = penaltyStatRows(rough, 3000);
+    const labels = rows.map(([k]) => k);
+    assert.ok(labels.includes('Starving'));
+    assert.ok(labels.includes('Dehydrated'));
+    assert.ok(labels.includes('Exhausted'));
+    assert.ok(labels.includes('Deadly cold'));
+    assert.ok(labels.includes('Stiff'));
+    assert.ok(labels.includes('Very drunk'));
+    assert.ok(labels.includes('Drain'));
+    assert.ok(rows.some(([, v]) => v.includes('-3 Strength, -2 Endurance')));
+    assert.ok(rows.some(([k, v]) => k === 'Drain' && v === '-4 Agility'));
+
+    setPref(SURVIVAL_PREF, 'casual');
+    const parched = makeEntity();
+    parched.survival = { lastAte: 1000, thirst: 85, wet: 0, sleepDebt: 0, awakeSince: 1000, exposure: 0, felt: 0, drunk: 0, stiffUntil: 0, lastMinute: 1000 };
+    assert.deepEqual(penaltyStatRows(parched, 1000), [['Parched', 'drains stamina']]);
+  } finally {
+    resetPrefs();
+  }
 });
