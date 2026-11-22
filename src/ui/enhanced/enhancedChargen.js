@@ -246,6 +246,7 @@ export function untangleLabels(items, { width, height }, gap = 4) {
 
 let hoverTitle = null;
 let hoverBody = null;
+let hoverTraits = null;
 
 /** The readout under the pointer, written into the two nodes that
  *  carry it. See the pointerenter handler for why this is not a
@@ -256,10 +257,19 @@ function refreshHover() {
   if (!hoverTitle || !hoverBody) return;
   const who = hover ? RACE_TEMPLATES.find((r) => r.key === hover) : null;
   hoverTitle.textContent = who ? (PROVINCE_NAMES[who.key] ?? who.name) : 'Where are you from?';
-  const rInfo = who ? racialOverhaulInfo(who.key) : null;
   hoverBody.textContent = who
-    ? `Home of the ${who.name}.${rInfo ? ` ${rInfo.header}: ${rInfo.text}` : ''} Click to read what it means to be born here.`
+    ? `Home of the ${who.name}. Click to read what it means to be born here.`
     : 'Your homeland sets your face, your name and how much of Tamriel greets you kindly.';
+  if (hoverTraits) {
+    const rInfo = who ? racialOverhaulInfo(who.key) : null;
+    if (rInfo) {
+      hoverTraits.textContent = `${rInfo.header}: ${rInfo.text}`;
+      hoverTraits.style.display = '';
+    } else {
+      hoverTraits.textContent = '';
+      hoverTraits.style.display = 'none';
+    }
+  }
 }
 
 /** A province press. The flow owns what happens next: setRace records
@@ -349,7 +359,14 @@ function raceStage() {
     const d = el('div', 'dcard');
     hoverTitle = el('h3', null, '');
     hoverBody = el('p', null, '');
-    d.append(hoverTitle, hoverBody);
+    hoverTraits = el('p', null, '');
+    hoverTraits.style.marginTop = '8px';
+    hoverTraits.style.paddingTop = '8px';
+    hoverTraits.style.borderTop = '1px solid rgba(255,255,255,0.14)';
+    hoverTraits.style.fontSize = '0.88em';
+    hoverTraits.style.opacity = '0.9';
+    hoverTraits.style.display = 'none';
+    d.append(hoverTitle, hoverBody, hoverTraits);
     detail.append(d);
     refreshHover();
   }

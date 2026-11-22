@@ -23,6 +23,9 @@ import { TextRsc } from '../formats/textRsc.js';   // U18: the class questions r
 import { parseQuestionLibrary } from './classQuestions.js';   // U18
 import { ChargenFlow, handHeroGenderToGrammar } from '../ui/chargen.js';   // L10N3g: the live hero's gender, handed to the grammar at the start
 import { applyCharacter, createCharacter, assignStartingSpells, CLASS_CAREERS } from './chargen.js';   // RRI2: AssignStartingSpells, the delegate
+import { computeEntityMods } from './entityMods.js';
+import { applyDressStanding } from './clothingStanding.js';
+import { maxFatigue } from './statMods.js';
 import { levelUpSkillSum } from './advancement.js';   // AUDIT 18: SetCurrentLevelUpSkillSum, one home
 import { overlayAction } from '../ui/input.js';
 import { isEnhanced } from './uiSkin.js';   // THE SKIN: which wizard
@@ -305,6 +308,12 @@ export function finishChargen(playerEntity, result, spellsByIndex = null, { roll
   // LEGACY-CHOICE: AND PROJECT LEGACY'S ANSWER, kept on the character as the leveling one is - a model, or no lineage,
   // which keeps them out of the system for good (legacyHost.js found). A result the question was not put to carries none.
   if (isLegacyChoice(result.legacyModel)) playerEntity.legacyChoice = result.legacyModel;
+  computeEntityMods(playerEntity);
+  if (Array.isArray(playerEntity.reactionMods)) playerEntity.reactionMods.fill(0);
+  applyDressStanding(playerEntity);
+  playerEntity.health = playerEntity.maxHealth;
+  playerEntity.magicka = playerEntity.maxMagicka;
+  playerEntity.fatigue = maxFatigue(playerEntity);
   return playerEntity;
 }
 

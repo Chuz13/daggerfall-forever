@@ -729,7 +729,7 @@ function drawRace(renderer, m, font, flow) {
   // leaves the screen, No returns to the map.
   if (flow.raceConfirm) {
     const lines = flow.raceConfirm;
-    const box = layoutMessageBox(font, lines, [MB_BUTTONS.Yes, MB_BUTTONS.No]);
+    const box = layoutMessageBox(font, lines, [MB_BUTTONS.Yes, MB_BUTTONS.No], { maxTextHeight: 128 });
     flow._raceBox = box;
     drawMessageBox(renderer, m, font, box);
   } else {

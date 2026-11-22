@@ -2950,12 +2950,20 @@ export class Renderer {
     if (_nightVisionReader && this._sunScale < 0.15 && src) {
       const raw = _nightVisionReader();
       if (Number.isFinite(raw) && raw > 0) {
-        const lift = Math.min(0.4, raw) * Math.max(0, Math.min(1, (0.15 - this._sunScale) / 0.15));
-        const nv = this._nvScratch ?? (this._nvScratch = new Float32Array(3));
-        nv[0] = Math.min(1, Math.max(0, (Number.isFinite(src[0]) ? src[0] : 0) + lift * 0.85));
-        nv[1] = Math.min(1, Math.max(0, (Number.isFinite(src[1]) ? src[1] : 0) + lift * 0.95));
-        nv[2] = Math.min(1, Math.max(0, (Number.isFinite(src[2]) ? src[2] : 0) + lift * 1.1));
-        base = nv;
+        const r = Number.isFinite(src[0]) ? src[0] : 0;
+        const g = Number.isFinite(src[1]) ? src[1] : 0;
+        const b = Number.isFinite(src[2]) ? src[2] : 0;
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (lum < 0.32) {
+          const sunDark = Math.max(0, Math.min(1, (0.15 - this._sunScale) / 0.15));
+          const lumDark = Math.max(0, Math.min(1, (0.32 - lum) / 0.32));
+          const lift = Math.min(0.4, raw) * sunDark * lumDark;
+          const nv = this._nvScratch ?? (this._nvScratch = new Float32Array(3));
+          nv[0] = Math.min(1, Math.max(0, r + lift * 0.85));
+          nv[1] = Math.min(1, Math.max(0, g + lift * 0.95));
+          nv[2] = Math.min(1, Math.max(0, b + lift * 1.1));
+          base = nv;
+        }
       }
     }
     return this._lane ? this._lane.decode3(base, scratch) : base;

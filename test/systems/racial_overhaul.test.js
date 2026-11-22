@@ -6,15 +6,17 @@ import path from 'node:path';
 import { RACES } from '../../src/systems/races.js';
 import { SKILLS } from '../../src/systems/skills.js';
 import { WEAPONS } from '../../src/characters/weapons.js';
-import { WEAPON_TYPES } from '../../src/combat/fpsWeapon.js';
 import { HAND_WRAPS_TEMPLATE } from '../../src/characters/handWrapsIds.js';
+const WEAPON_TYPE_BOW = 14;
 import { EQUIP_SLOTS } from '../../src/characters/paperdoll/paperdoll.js';
 import { createEquipTable } from '../../src/characters/equipTable.js';
 import { computeEntityMods, weaponBlowMods } from '../../src/systems/entityMods.js';
 import { liveStat, maxFatigue, maxFatigueBase } from '../../src/systems/statMods.js';
 import { skillValue } from '../../src/systems/skills.js';
-import { defineLiveMaxHealth, defineLiveMaxMagicka } from '../../src/systems/chargen.js';
-import { dressStanding } from '../../src/systems/clothingStanding.js';
+import { defineLiveMaxHealth, defineLiveMaxMagicka, applyCharacter } from '../../src/systems/chargen.js';
+import { weatherFlags } from '../../src/world/weather.js';
+import { Renderer, setNightVisionReader } from '../../src/render/renderer.js';
+import { dressStanding, dressStandingBreakdown } from '../../src/systems/clothingStanding.js';
 import { savingChance, ELEMENTS, EFFECT_FLAGS } from '../../src/systems/spellcast.js';
 import { isEntityImmuneToParalysis, isEntityImmuneToDisease } from '../../src/systems/effects.js';
 import { inflictPoison, POISONS } from '../../src/systems/poisons.js';
@@ -138,7 +140,7 @@ describe('Racial Overhaul', () => {
     const nord = makePlayer(RACES.Nord, 10);
     const frostOn = savingChance(ELEMENTS.Frost, EFFECT_FLAGS.Frost, nord);
     const shockOn = savingChance(ELEMENTS.Shock, EFFECT_FLAGS.Shock, nord);
-    assert.equal(frostOn.immune, true);
+    assert.deepEqual(frostOn, { immune: false, chance: 95 }); // 50 + 30 + 20 + 5 = 105 -> clamped to 95 (not hard immune)
     assert.equal(shockOn.chance, 85); // 50 + 30 + 5 (willpower 50/10)
 
     const highElf = makePlayer(RACES.HighElf, 10);
@@ -147,7 +149,7 @@ describe('Racial Overhaul', () => {
 
     const argonian = makePlayer(RACES.Argonian, 10);
     assert.equal(inflictPoison(argonian, POISONS.Arsenic, false), null);
-    assert.equal(savingChance(ELEMENTS.DiseaseOrPoison, EFFECT_FLAGS.Disease, argonian).immune, true); // 50 + 30 + 20 = 100
+    assert.deepEqual(savingChance(ELEMENTS.DiseaseOrPoison, EFFECT_FLAGS.Disease, argonian), { immune: false, chance: 95 }); // 50 + 30 + 20 + 5 -> 95 (not hard immune)
 
     withRacialOverhaulState(false, () => {
       computeEntityMods(nord);
@@ -166,6 +168,9 @@ describe('Racial Overhaul', () => {
     const standing = dressStanding(breton);
     assert.equal(standing.groups[3], 20); // +10 gear + +10 Breton
     assert.equal(standing.groups[2], 10); // +10 Scholars
+    const breakdown = dressStandingBreakdown(breton);
+    assert.equal(breakdown.dressGroups[3], 10); // Dress row excludes racial standing
+    assert.equal(breakdown.racialGroups[3], 10); // Race row carries +10 Nobility
     assert.equal(skillValue(breton, SKILLS.Etiquette), 45);
     assert.equal(skillValue(breton, SKILLS.Mysticism), 45);
     const healSpell = { rangeType: 0, effects: [{ type: 10, subType: 8, magnitudeBaseLow: 10, magnitudeBaseHigh: 10, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1 }] };
@@ -199,6 +204,22 @@ describe('Racial Overhaul', () => {
     darkElf.equip.slots[EQUIP_SLOTS.RightHand] = { group: 'Weapons', templateIndex: HAND_WRAPS_TEMPLATE };
     darkElf.equip.slots[EQUIP_SLOTS.LeftHand] = null;
     assert.equal(isSpellswordStance(darkElf), false);
+    darkElf.equip.slots[EQUIP_SLOTS.RightHand] = sword;
+    darkElf.lightSource = { group: 'Usable', templateIndex: 247, isEquipped: true }; // lit torch in off-hand
+    assert.equal(isSpellswordStance(darkElf), false);
+    darkElf.lightSource = null;
+    assert.equal(isSpellswordStance(darkElf), true);
+    const hybridSpell = {
+      rangeType: 0,
+      effects: [
+        { type: 15, subType: 255, durationBase: 10, durationMod: 0, durationPerLevel: 1 }, // Illusion Light
+        { type: 4, subType: 0, magnitudeBaseLow: 10, magnitudeBaseHigh: 10, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1 }, // Destruction
+      ],
+    };
+    const darkCostOn = calculateCastCost(hybridSpell, darkElf).sp;
+    let darkCostOff = 0;
+    withRacialOverhaulState(false, () => { darkCostOff = calculateCastCost(hybridSpell, darkElf).sp; });
+    assert.ok(darkCostOn < darkCostOff, `expected Dark Elf multi-effect Destruction discount (${darkCostOn} < ${darkCostOff})`);
 
     // High Elf: +25% MP, +35% rest SP, +15% spell power, +12% cast speed
     const highElf = makePlayer(RACES.HighElf, 10);
@@ -222,11 +243,11 @@ describe('Racial Overhaul', () => {
     // Wood Elf: +25% unaware blow, +10% bow pace, Green Pact
     const woodElf = makePlayer(RACES.WoodElf, 10);
     assert.equal(weaponBlowMods({ templateIndex: WEAPONS.Long_Bow }, 20, woodElf, { isPlayer: false }, { unaware: true }), 25);
-    assert.equal(swingPacePct({ entity: woodElf, weaponType: WEAPON_TYPES.Bow }, null), 10);
-    const reloadOn = bowReloadSeconds(50, { entity: woodElf, weaponType: WEAPON_TYPES.Bow });
+    assert.equal(swingPacePct({ entity: woodElf, weaponType: WEAPON_TYPE_BOW }, null), 10);
+    const reloadOn = bowReloadSeconds(50, { entity: woodElf, weaponType: WEAPON_TYPE_BOW });
     let reloadOff = 0;
     withRacialOverhaulState(false, () => {
-      reloadOff = bowReloadSeconds(50, { entity: woodElf, weaponType: WEAPON_TYPES.Bow });
+      reloadOff = bowReloadSeconds(50, { entity: woodElf, weaponType: WEAPON_TYPE_BOW });
     });
     assert.ok(reloadOn < reloadOff, `expected faster bow reload (${reloadOn} < ${reloadOff})`);
     const wolf = { isQuestFoe: false, entity: { _provokedByPlayer: false } };
@@ -250,6 +271,50 @@ describe('Racial Overhaul', () => {
     passiveSpecialsMagicRound(argonian, { nowMinutes: 2, clockMinutes: 2, sinks: { heal: (n) => { healed += n; }, restoreFatigue: (n) => { fatRestored += n; } } });
     assert.equal(healed, 1);
     assert.ok(fatRestored > 0);
+    assert.equal(weatherFlags('rain').raining, true);
+    assert.equal(weatherFlags('thunder').raining, true);
+  });
+
+  it('fills new characters to 100% live vitals, avoids brightening bright interiors, and does not stack Breton reactionMods on quickload', () => {
+    const career = {
+      name: 'Warrior',
+      abilityFlagsAndSpellPointsBitfield: 0x1000,
+      hitPointsPerLevel: 10,
+      primarySkills: [0, 1, 2],
+      majorSkills: [3, 4, 5],
+      minorSkills: [6, 7, 8, 9, 10, 11],
+    };
+    const baseStats = { strength: 60, intelligence: 60, willpower: 50, agility: 50, endurance: 60, personality: 50, speed: 50, luck: 50 };
+    const skills = new Array(35).fill(35);
+
+    const newNord = applyCharacter({}, career, 0, { race: 'Nord', raceId: RACES.Nord, stats: { ...baseStats }, skills: [...skills] });
+    assert.equal(newNord.health, newNord.maxHealth);
+    const newHighElf = applyCharacter({}, career, 0, { race: 'HighElf', raceId: RACES.HighElf, stats: { ...baseStats }, skills: [...skills] });
+    assert.equal(newHighElf.magicka, newHighElf.maxMagicka);
+    const newRedguard = applyCharacter({}, career, 0, { race: 'Redguard', raceId: RACES.Redguard, stats: { ...baseStats }, skills: [...skills] });
+    assert.equal(newRedguard.fatigue, maxFatigue(newRedguard));
+
+    // Khajiit night vision lifts dark ambient, leaves bright interior / unlit automap untouched
+    setNightVisionReader(() => 0.18);
+    const fakeRenderer = { _sunScale: 0, _lane: null, _decA: new Float32Array(3) };
+    const darkOut = Renderer.prototype._nvAmb.call(fakeRenderer, new Float32Array([0.05, 0.05, 0.06]));
+    assert.ok(darkOut[0] > 0.05 && darkOut[2] > 0.06);
+    const brightSrc = new Float32Array([0.65, 0.65, 0.65]);
+    const brightInterior = Renderer.prototype._nvAmb.call(fakeRenderer, brightSrc);
+    assert.equal(brightInterior, brightSrc);
+    const unlitMap = Renderer.prototype._nvAmb.call(fakeRenderer, new Float32Array([1, 1, 1]));
+    assert.deepEqual(Array.from(unlitMap), [1, 1, 1]);
+    setNightVisionReader(null);
+
+    // Repeated quickloads do not stack Breton reactionMods
+    const breton = makePlayer(RACES.Breton, 10);
+    const snap = snapshotPlayer(breton, {});
+    const target = makePlayer(RACES.Breton, 10);
+    restorePlayer(target, snap);
+    restorePlayer(target, snap);
+    restorePlayer(target, snap);
+    assert.equal(target.reactionMods[2], 10);
+    assert.equal(target.reactionMods[3], 10);
   });
 
   it('live toggle ON <-> OFF rescales vitals proportionally and updates mods immediately', () => {

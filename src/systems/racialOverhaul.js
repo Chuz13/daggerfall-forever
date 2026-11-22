@@ -15,7 +15,8 @@ import { RACES } from './races.js';
 import { SKILLS } from './skills.js';
 import { WEAPONS, weaponSkillUsed } from '../characters/weapons.js';
 import { isHandWraps } from '../characters/handWrapsIds.js';
-import { WEAPON_TYPES } from '../combat/fpsWeapon.js';
+
+const WEAPON_TYPE_BOW = 14; // WEAPON_TYPES.Bow (kept inline to avoid fpsWeapon -> weaponWidget cycle)
 import { EQUIP_SLOTS } from '../characters/paperdoll/paperdoll.js';
 import { getItemHands, ITEM_HANDS } from './equip.js';
 import { registerEntityFold, registerWeaponBlowMod, computeEntityMods } from './entityMods.js';
@@ -30,6 +31,8 @@ import { keepFraction, offlineBaseMaxHealth } from './renownLayer.js';
 import { maxFatigue } from './statMods.js';
 import { applyDressStanding } from './clothingStanding.js';
 import { playerEntity } from '../characters/playerEntity.js';
+import { isHeldLight } from './handheldTorches.js';
+import { lanternAtWaist } from './playerTorch.js';
 
 const SPELL_SCHOOL_RESTORATION = SKILLS.Restoration;
 const SPELL_SCHOOL_ALTERATION = SKILLS.Alteration;
@@ -42,10 +45,11 @@ const BRETON_DISCOUNT_SCHOOLS = new Set([
   SPELL_SCHOOL_MYSTICISM,
 ]);
 
-/** Dark Elf Spellsword Resonance: 1-handed non-bow weapon in one hand, other hand completely empty. */
+/** Dark Elf Spellsword Resonance: 1-handed non-bow weapon in one hand, other hand completely empty (no off-hand torch). */
 export function isSpellswordStance(entity) {
   const slots = entity?.equip?.slots;
   if (!slots) return false;
+  if (isHeldLight(entity.lightSource) && !lanternAtWaist(entity.lightSource)) return false;
   const right = slots[EQUIP_SLOTS.RightHand] ?? null;
   const left = slots[EQUIP_SLOTS.LeftHand] ?? null;
   const isOneHandedWeapon = (it) =>
@@ -124,23 +128,24 @@ function racialAbsorb(entity) {
   return entity.raceId === RACES.Breton ? 15 : 0;
 }
 
-function primarySpellSchool(entity, spell) {
+function spellSchools(entity, spell) {
+  const out = [];
   for (const e of spell?.effects ?? []) {
-    if (e && e.type >= 0) return castSchool(entity, spell, e);
+    if (e && e.type >= 0) out.push(castSchool(entity, spell, e));
   }
-  return null;
+  return out;
 }
 
 function racialSpellCost(entity, sp, spell) {
   if (!isRacialOverhaulEnabled() || !isOverhaulPlayer(entity) || !spell) return sp;
+  const schools = spellSchools(entity, spell);
+  if (!schools.length) return sp;
   if (entity.raceId === RACES.Breton) {
-    const school = primarySpellSchool(entity, spell);
-    if (school != null && BRETON_DISCOUNT_SCHOOLS.has(school)) {
+    if (schools.every((s) => BRETON_DISCOUNT_SCHOOLS.has(s))) {
       return Math.max(1, Math.round(sp * 0.85));
     }
   } else if (entity.raceId === RACES.DarkElf && isSpellswordStance(entity)) {
-    const school = primarySpellSchool(entity, spell);
-    if (school === SPELL_SCHOOL_DESTRUCTION) {
+    if (schools.includes(SPELL_SCHOOL_DESTRUCTION)) {
       return Math.max(1, Math.round(sp * 0.80));
     }
   }
@@ -167,7 +172,7 @@ function racialSwingPace(ctx, w) {
   const entity = ctx?.entity;
   if (!isRacialOverhaulEnabled() || !isOverhaulPlayer(entity)) return 0;
   if (entity.raceId !== RACES.WoodElf) return 0;
-  const isBow = w?.family === 'archery' || ctx?.weaponType === WEAPON_TYPES.Bow;
+  const isBow = w?.family === 'archery' || ctx?.weaponType === WEAPON_TYPE_BOW;
   return isBow ? 10 : 0;
 }
 

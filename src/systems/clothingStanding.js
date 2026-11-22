@@ -149,8 +149,7 @@ export function wornClothing(entity) {
 
 const clamp = (v) => Math.max(-DRESS_CAP, Math.min(DRESS_CAP, v));
 
-/** Pure read: { groups: [5], temple } for what the entity wears now. */
-export function dressStanding(entity) {
+export function dressStandingBreakdown(entity) {
   const groups = new Array(DRESS_GROUP_COUNT).fill(0);
   let temple = 0;
   for (const it of wornClothing(entity)) {
@@ -162,7 +161,20 @@ export function dressStanding(entity) {
   const gear = entity?._mods?.standing; // LOOT14
   const racial = racialStandingBonus(entity);
   const capGear = (v) => Math.max(-GEAR_STANDING_CAP, Math.min(GEAR_STANDING_CAP, Number(v) || 0));
-  return { groups: groups.map((v, g) => clamp(v) + capGear(gear?.[g]) + (racial?.[g] ?? 0)), temple: clamp(temple) };
+  const dressGroups = groups.map((v, g) => clamp(v) + capGear(gear?.[g]));
+  const racialGroups = racial ? groups.map((_, g) => racial[g] ?? 0) : null;
+  return {
+    groups: racialGroups ? dressGroups.map((v, g) => v + racialGroups[g]) : dressGroups,
+    dressGroups,
+    racialGroups,
+    temple: clamp(temple),
+  };
+}
+
+/** Pure read: { groups: [5], temple } for what the entity wears now. */
+export function dressStanding(entity) {
+  const { groups, temple } = dressStandingBreakdown(entity);
+  return { groups, temple };
 }
 
 /** The magic-round hook: fold the dress into the (just-cleared) live

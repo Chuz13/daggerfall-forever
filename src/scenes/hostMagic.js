@@ -860,6 +860,9 @@ export function createPlayerMagic({
     // RVN1 (Feud-Arc.md section 12): MY spell's landing goes in the fight's ledger by its element (a later round is
     // systems/effects.js's to write - the round sink's own law); a peer's (its stand-in caster) and a foe's never
     const mine = striker === playerEntity;
+    if (mine && !ctx?.allyCast && typeof ctx?.peerCaster !== 'string' && foe?.entity) {
+      foe.entity._provokedByPlayer = true;
+    }
     // RPT1026-FIGHTS (TRAP-TO-OWNER; a private report: Soul Trap on Daedra Lords in a party member's dungeon said
     // "Trap active." and never trapped a soul): MY CAST'S SOUL TRAP ON A FOE ANOTHER PLAYER RUNS is laid
     // where the foe lives. Landed here it lay on my copy - a puppet its runner's stream poses, whose death is the runner's

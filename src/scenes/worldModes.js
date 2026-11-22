@@ -2743,7 +2743,7 @@ export function createWorldModes(host) {
       && (interiorBuilding.buildingType === BUILDING_TYPES.Temple
         || interiorBuilding.factionId === FIGHTER_TRAINERS_FACTION),
     isSwimming: () => !!player?.swimming,
-    isRaining: () => mode === 'exterior' && !!weatherFlags(currentWeather())?.isRaining,
+    isRaining: () => mode === 'exterior' && !!weatherFlags(currentWeather())?.raining,
   });
   /** X11b: mount a modal into whichever slot the CURRENT mode draws.
    *  See the note on openCreateItemPicker for what this fixed. */
