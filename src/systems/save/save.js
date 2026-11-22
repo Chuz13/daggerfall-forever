@@ -103,6 +103,7 @@ import {
 import { maxFatigue, maxFatigueBase } from '../statMods.js';
 import { applyDressStanding } from '../clothingStanding.js';
 import { computeEntityMods } from '../entityMods.js';
+import { recordTimelineEvent } from '../diagnostics/eventTimeline.js';
 
 /**
  * Computes the effective offline base max health (`offMax`, without Renown/Firmament layer),
@@ -1234,6 +1235,27 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
       const liveFat = maxFatigue(entity);
       if (liveFat > baseFat) entity.fatigue = keepFraction(entity.fatigue, baseFat, liveFat);
     }
+  }
+  if (entity.isPlayer) {
+    recordTimelineEvent({
+      cat: 'save',
+      event: 'RACIAL_SAVE_RESTORED',
+      sev: 'info',
+      data: {
+        race: entity.race ?? null,
+        raceId: entity.raceId ?? null,
+        overhaulEnabled: isRacialOverhaulEnabled(),
+        savedHp: snap.health ?? null,
+        savedMaxHp: snap.maxHealth ?? null,
+        liveHp: entity.health ?? null,
+        liveMaxHp: entity.maxHealth ?? null,
+        savedMp: snap.magicka ?? null,
+        liveMp: entity.magicka ?? null,
+        liveMaxMp: entity.maxMagicka ?? null,
+        reactionModsScholars: entity.reactionMods?.[2] ?? 0,
+        reactionModsNobility: entity.reactionMods?.[3] ?? 0,
+      },
+    });
   }
   // W1: the restored weather, which S41 made self-suppressing -
   // restoreWeather now stamps the array rolled and the pending-apply

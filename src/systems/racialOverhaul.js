@@ -259,7 +259,32 @@ export function installRacialOverhaul() {
     if (next === _lastEnabled) return;
     const prev = _lastEnabled;
     _lastEnabled = next;
+    const hpBefore = playerEntity.health ?? null;
+    const mpBefore = playerEntity.magicka ?? null;
+    const fatBefore = playerEntity.fatigue ?? null;
     recalcEntityForRacialToggle(playerEntity, prev, next);
+    const tlPayload = {
+      cat: 'system',
+      event: 'RACIAL_OVERHAUL_TOGGLED',
+      sev: 'info',
+      data: {
+        from: prev,
+        to: next,
+        race: playerEntity.race ?? null,
+        raceId: playerEntity.raceId ?? null,
+        hpBefore,
+        hpAfter: playerEntity.health ?? null,
+        mpBefore,
+        mpAfter: playerEntity.magicka ?? null,
+        fatBefore,
+        fatAfter: playerEntity.fatigue ?? null,
+      },
+    };
+    if (typeof globalThis.__dffRecordTimelineEvent === 'function') {
+      globalThis.__dffRecordTimelineEvent(tlPayload);
+    } else {
+      import('./diagnostics/eventTimeline.js').then((m) => m.recordTimelineEvent(tlPayload)).catch(() => {});
+    }
   });
 }
 

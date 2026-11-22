@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Lammelsesimmunitet, -25% Ild/Frost/Chok-modstand (sv
 race.overhaul.desc.WoodElf,"Favoritvåben: Archery & Short Blade (niveauskaleret Træf & Skade). +30% Sygdoms- & Giftmodstand, +10 Stealth, +10% bue-genladning, +25% skade mod intetanende fjender. Grøn Pagt: vilde dyr ignorerer dig, medmindre de provokeres."
 race.overhaul.desc.Khajiit,"Favoritvåben: Hand-to-Hand & Short Blade (niveauskaleret Træf & Skade). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% faldskade, Nattesyn i mørke."
 race.overhaul.desc.Argonian,"Favoritvåben: Blunt Weapon & Archery (niveauskaleret Træf & Skade). Giftimmunitet, +50% Sygdomsmodstand, +15 Swimming, +40% svømmehastighed, +5 Rustning på alle dele, passiv Liv- & Udholdenhedsregen i vand eller regn."
+menu.test.raceTitle,"Hurtigstart efter race"
+menu.test.raceName,"Hurtigstart efter race (Gothway Garden)"
+menu.test.raceNote,"Vælg en af de 8 racer og start udendørs i Gothway Garden med testrustkammeret og begynderbesværgelser."
+menu.test.raceLevel,"Niveau {level}"

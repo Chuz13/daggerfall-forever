@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Verlammingsimmuniteit, -25% Vuur/Vorst/Schok-weersta
 race.overhaul.desc.WoodElf,"Favoriete wapens: Archery & Short Blade (niveau-schalende Treffer & Schade). +30% Ziekte- & Gifweerstand, +10 Stealth, +10% boogsnelheid, +25% schade tegen onoplettende vijanden. Groen Pact: wilde dieren negeren je tenzij uitgedaagd."
 race.overhaul.desc.Khajiit,"Favoriete wapens: Hand-to-Hand & Short Blade (niveau-schalende Treffer & Schade). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% valschade, Nachtzicht in het donker."
 race.overhaul.desc.Argonian,"Favoriete wapens: Blunt Weapon & Archery (niveau-schalende Treffer & Schade). Gifimmuniteit, +50% Ziekteweerstand, +15 Swimming, +40% zwemsnelheid, +5 Pantser op alle delen, passief HP- & Uithoudingsherstel in water of regen."
+menu.test.raceTitle,"Snelstart per ras"
+menu.test.raceName,"Snelstart per ras (Gothway Garden)"
+menu.test.raceNote,"Kies een van de 8 rassen en verschijn buiten in Gothway Garden met de testwapenkamer en beginspreuken."
+menu.test.raceLevel,"Niveau {level}"

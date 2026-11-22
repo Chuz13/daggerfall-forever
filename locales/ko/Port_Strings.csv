@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"마비 면역, 화염/냉기/전격 저항 -25% (약
 race.overhaul.desc.WoodElf,"선호 무기: 궁술 및 단검 (레벨 비례 명중 및 피해). 질병/독 저항 +30%, 은신 +10, 활 재장전 속도 +10%, 비경계 적 대상 피해 +25%. 녹색 조약: 선공하지 않으면 야생 동물이 공격하지 않음."
 race.overhaul.desc.Khajiit,"선호 무기: 맨손 격투 및 단검 (레벨 비례 명중 및 피해). 속도 및 민첩 +5, 은신/소매치기/치명타 +10, 낙하 피해 -50%, 어둠 속 야간 투시."
 race.overhaul.desc.Argonian,"선호 무기: 둔기 및 궁술 (레벨 비례 명중 및 피해). 독 면역, 질병 저항 +50%, 수영 +15, 수영 속도 +40%, 모든 부위 방어도 +5, 물이나 비 속에서 체력 및 피로도 지속 회복."
+menu.test.raceTitle,"종족별 빠른 시작"
+menu.test.raceName,"종족별 빠른 시작 (Gothway Garden)"
+menu.test.raceNote,"8개 종족 중 하나를 선택해 테스트 무기고와 기본 주문을 가지고 고스웨이 가든 야외에서 시작합니다."
+menu.test.raceLevel,"레벨 {level}"

@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Ανοσία στην Παράλυση, -25% Αντ.
 race.overhaul.desc.WoodElf,"Αγαπημένα όπλα: Archery & Short Blade (Ευστοχία & Ζημιά ανά επίπεδο). +30% Αντ. Ασθένεια & Δηλητήριο, +10 Stealth, +10% ταχύτητα τόξου, +25% ζημιά σε ανυποψίαστους εχθρούς. Πράσινο Σύμφωνο: τα άγρια ζώα σας αγνοούν αν δεν τα προκαλέσετε."
 race.overhaul.desc.Khajiit,"Αγαπημένα όπλα: Hand-to-Hand & Short Blade (Ευστοχία & Ζημιά ανά επίπεδο). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% ζημιά πτώσης, Νυχτερινή όραση στο σκοτάδι."
 race.overhaul.desc.Argonian,"Αγαπημένα όπλα: Blunt Weapon & Archery (Ευστοχία & Ζημιά ανά επίπεδο). Ανοσία στο Δηλητήριο, +50% Αντ. Ασθένεια, +15 Swimming, +40% ταχύτητα κολύμβησης, +5 Πανοπλία παντού, παθητική αναγέννηση HP & Αντοχής σε νερό ή βροχή."
+menu.test.raceTitle,"Γρήγορη εκκίνηση ανά φυλή"
+menu.test.raceName,"Γρήγορη εκκίνηση ανά φυλή (Gothway Garden)"
+menu.test.raceNote,"Επιλέξτε οποιαδήποτε από τις 8 φυλές και ξεκινήστε σε εξωτερικό χώρο στο Gothway Garden με το οπλοστάσιο δοκιμών και αρχικά ξόρκια."
+menu.test.raceLevel,"Επίπεδο {level}"

@@ -21,6 +21,8 @@ import { pcaaoModules } from '../../combat/pcaao.js';
 import { getEncounterInfo } from './encounterLogger.js';
 import { onModEvent } from '../mods/modEventBus.js';
 import { recordTimelineEvent } from './eventTimeline.js';
+import { isRacialOverhaulEnabled } from '../racialOverhaulData.js';
+import { isSpellswordStance } from '../racialOverhaul.js';
 
 const INACTIVITY_TIMEOUT_MS = 6000;
 let _combatSeq = 0;
@@ -56,8 +58,12 @@ function snapshotCombatant(entity) {
       type: 'player',
       level: entity.level ?? 1,
       race: entity.race,
+      raceId: entity.raceId ?? null,
+      racialOverhaul: isRacialOverhaulEnabled(),
+      spellswordStance: isSpellswordStance(entity),
       gender: entity.gender,
       health: { current: entity.health, max: entity.maxHealth },
+      magicka: { current: entity.magicka, max: entity.maxMagicka },
       fatigue: { current: entity.fatigue, max: entity.maxFatigue },
       stats: {
         str: stats.strength,
@@ -131,6 +137,7 @@ function buildConfigMatrix() {
       enhancedAI: Boolean(getPref('enhancedAI')),
       retroMode: Boolean(getPref('retroMode')),
       city247: Boolean(getPref('city247')),
+      racialOverhaul: isRacialOverhaulEnabled(),
     },
     mods: {
       pcaao: {
@@ -254,9 +261,11 @@ export function recordAttackResolution(resolution) {
         finalChance: diag.toHit.finalChance,
         hitRoll: diag.toHit.hitRoll,
         isHit: diag.toHit.isHit ?? hit,
+        racialToHit: diag.toHitParts?.racialToHit ?? 0,
       } : {
         isHit: Boolean(hit),
         ineffective: Boolean(ineffective),
+        racialToHit: diag?.toHitParts?.racialToHit ?? 0,
       },
 
       // Damage calculation and mitigation
@@ -264,6 +273,7 @@ export function recordAttackResolution(resolution) {
         rawDamage: diag?.damage?.rawDamage ?? damage,
         finalDamageDealt: damage,
         damageAbsorbed: diag?.damage?.mitigated ?? 0,
+        racialDamageMod: diag?.damage?.racialDamageMod ?? 0,
         critical: Boolean(critical),
         backstab: Boolean(backstab),
         modifiersApplied: diag?.damage?.modsApplied || [],

@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Paralysis Immunity, -25% Fire/Frost/Shock Resistance
 race.overhaul.desc.WoodElf,"Favored weapons: Archery & Short Blade (level-scaled Hit & Damage). +30% Disease & Poison Resistance, +10 Stealth, +10% bow reload speed, +25% damage vs unaware foes. Green Pact: wild animals ignore you unless provoked."
 race.overhaul.desc.Khajiit,"Favored weapons: Hand-to-Hand & Short Blade (level-scaled Hit & Damage). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -50% fall damage, Night Vision in darkness."
 race.overhaul.desc.Argonian,"Favored weapons: Blunt Weapon & Archery (level-scaled Hit & Damage). Poison Immunity, +50% Disease Resistance, +15 Swimming, +40% swim speed, +5 Armor on all parts, passive Health & Fatigue regen in water or rain."
+menu.test.raceTitle,"Race quick start"
+menu.test.raceName,"Quick start by race (Gothway Garden)"
+menu.test.raceNote,"Pick any of the 8 races and spawn outdoors in Gothway Garden with the test armory and starter spells."
+menu.test.raceLevel,"Level {level}"

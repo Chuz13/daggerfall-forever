@@ -20,6 +20,8 @@ import { getPlayerTaint } from '../necromancy/necroTaint.js';
 import { activeUndeadCount, usedUndeadPoints, calculateUndeadCapacity } from '../necromancy/undeadCapacity.js';
 import { NecroConfig } from '../necromancy/necroConfig.js';
 import { getRecentTimelineEvents, getTimelineAnomalies } from './eventTimeline.js';
+import { auditRacialOverhaulState } from './racialAudit.js';
+import { maxFatigue } from '../statMods.js';
 
 const MAX_ERROR_ENTRIES = 50;
 const sessionStartTime = Date.now();
@@ -173,16 +175,20 @@ export function buildDiagnosticSnapshot(triggerReason = 'manual') {
       name: p.name || 'Unknown',
       gender: p.gender || 'Unknown',
       race: p.race || 'Unknown',
+      raceId: p.raceId ?? null,
       career: p.career?.name || 'Unknown',
       level: p.level || 1,
       health: p.health || 0,
       maxHealth: p.maxHealth || 0,
       fatigue: p.fatigue || 0,
+      maxFatigue: maxFatigue(p) || 0,
       magicka: p.magicka || 0,
+      maxMagicka: p.maxMagicka || 0,
       goldPurse: p.goldPieces || 0,
       stats: { ...stats },
     },
     systems: {
+      racialOverhaul: auditRacialOverhaulState(p),
       firmament: {
         renown: firm.renown,
         xp: firm.xp,

@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Felç Bağışıklığı, -%25 Ateş/Soğuk/Şok Dir
 race.overhaul.desc.WoodElf,"Favori silahlar: Archery & Short Blade (seviye ölçekli İsabet ve Hasar). +%30 Hastalık ve Zehir Direnci, +10 Stealth, +%10 yay hızı, habersiz düşmanlara +%25 hasar. Yeşil Pakt: vahşi hayvanlar kışkırtılmadıkça saldırmaz."
 race.overhaul.desc.Khajiit,"Favori silahlar: Hand-to-Hand & Short Blade (seviye ölçekli İsabet ve Hasar). +5 Speed & Agility, +10 Stealth, Pickpocket & Critical Strike, -%50 düşme hasarı, karanlıkta Gece Görüşü."
 race.overhaul.desc.Argonian,"Favori silahlar: Blunt Weapon & Archery (seviye ölçekli İsabet ve Hasar). Zehir Bağışıklığı, +%50 Hastalık Direnci, +15 Swimming, +%40 yüzme hızı, tüm parçalarda +5 Zırh, suda veya yağmurda pasif Can & Dayanıklılık yenilenmesi."
+menu.test.raceTitle,"Irka göre hızlı başlangıç"
+menu.test.raceName,"Irka göre hızlı başlangıç (Gothway Garden)"
+menu.test.raceNote,"8 ırktan birini seçin ve test cephaneliği ile başlangıç büyüleriyle Gothway Garden'da açık alanda başlayın."
+menu.test.raceLevel,"Seviye {level}"

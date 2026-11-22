@@ -11064,3 +11064,7 @@ race.overhaul.desc.HighElf,"Immunité à la paralysie, -25% Rés. Feu/Froid/Foud
 race.overhaul.desc.WoodElf,"Armes favorites : Archerie & Lames courtes (Toucher/Dégâts évolutifs). +30% Rés. Maladie & Poison, +10 Discrétion, +10% cadence d’arc, +25% dégâts sur cibles inconscientes. Pacte Vert : les animaux restent neutres sauf provocation."
 race.overhaul.desc.Khajiit,"Armes favorites : Corps à corps & Lames courtes (Toucher/Dégâts évolutifs). +5 Rapidité & Agilité, +10 Discrétion, Vol à la tire & Coup critique, -50% dégâts de chute, Vision nocturne dans le noir."
 race.overhaul.desc.Argonian,"Armes favorites : Armes contondantes & Archerie (Toucher/Dégâts évolutifs). Immunité Poison, +50% Rés. Maladie, +15 Natation, +40% vitesse de nage, +5 Armure partout, régén. Santé & Fatigue dans l’eau ou sous la pluie."
+menu.test.raceTitle,"Démarrage rapide par race"
+menu.test.raceName,"Démarrage rapide par race (Gothway Garden)"
+menu.test.raceNote,"Choisissez l'une des 8 races et apparaissez en extérieur à Gothway Garden avec l'armurerie de test et les sorts de départ."
+menu.test.raceLevel,"Niveau {level}"

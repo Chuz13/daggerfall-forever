@@ -55,6 +55,8 @@ import { defineLiveMaxMagicka, defineLiveMaxHealth } from './chargen.js';
 import { evenHpFloor } from './levelEven.js';
 import { refreshOnlineLayer, keepFraction } from './renownLayer.js';
 import { seedTestAscensionSpellsword } from './testRoom.js';
+import { auditRacialOverhaulState, verifyRacialSaveRoundTrip, verifyRacialToggleRoundTrip, runAllRacesMatrixAudit } from './diagnostics/racialAudit.js';
+import { recordTimelineEvent } from './diagnostics/eventTimeline.js';
 import {
   animateDeadSpell,
   corpseExplosionSpell,
@@ -4388,6 +4390,43 @@ registerCommand('werewolf', 'Become a transformed werewolf (or unmorph/cure/stat
 );
 registerCommand('wereboar', 'Become a transformed wereboar (or unmorph/cure/status)', 'wereboar [unmorph|cure|status]', (args = []) =>
   getConsoleCommand('lycan').callback(args?.length ? args : ['wereboar']),
+);
+
+registerCommand(
+  'raceaudit',
+  'Audit RacialOverhaul: raceaudit [all [lvl]]',
+  'raceaudit [all [lvl]]',
+  (args = []) => {
+    const mode = String(args?.[0] ?? 'current').toLowerCase();
+    if (mode === 'all') {
+      const lvl = args[1] != null ? Number(args[1]) : 10;
+      const res = runAllRacesMatrixAudit(lvl);
+      recordTimelineEvent({
+        cat: 'system',
+        event: 'RACIAL_AUDIT_ALL',
+        sev: res.ok ? 'info' : 'warn',
+        data: { level: res.level, passed: res.passed, total: res.total },
+      });
+      const failed = res.results.filter((r) => !r.ok).map((r) => `${r.race}:${r.anomalies.join(',')}`);
+      return `raceaudit all L${res.level}: ${res.passed}/${res.total} ${res.ok ? 'PASS' : `FAIL (${failed.join('; ')})`}`;
+    }
+    if (!playerEntity) return 'raceaudit FAIL: no-player';
+    const diag = auditRacialOverhaulState(playerEntity);
+    const toggle = verifyRacialToggleRoundTrip(playerEntity);
+    const saveRt = verifyRacialSaveRoundTrip(playerEntity);
+    const allAnom = [...new Set([...diag.anomalies, ...toggle.anomalies, ...saveRt.anomalies])];
+    recordTimelineEvent({
+      cat: 'system',
+      event: 'RACIAL_AUDIT',
+      sev: allAnom.length ? 'warn' : 'info',
+      data: { race: diag.race, level: diag.level, overhaulEnabled: diag.overhaulEnabled, anomalies: allAnom },
+    });
+    return `raceaudit ${diag.race} L${diag.level} overhaul=${diag.overhaulEnabled}: ${allAnom.length ? `FAIL (${allAnom.join(',')})` : 'PASS'} hp=${diag.vitals.health}/${diag.vitals.maxHealth} mp=${diag.vitals.magicka}/${diag.vitals.maxMagicka} fat=${diag.vitals.fatigue}/${diag.vitals.maxFatigue}`;
+  },
+);
+
+registerCommand('racecheck', 'Alias: raceaudit', 'racecheck [all [lvl]]', (args = []) =>
+  getConsoleCommand('raceaudit').callback(args),
 );
 
 /** THE PORT'S DOOR (the departure above). ConsoleUI.ToggleConsole
