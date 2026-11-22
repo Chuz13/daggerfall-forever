@@ -2371,10 +2371,10 @@ registerCommand(
     const defReg = defaultRegion();
     const reg = args[2] ? parseInt(args[2], 10) : (args[1] && !Number.isNaN(parseInt(args[1], 10)) ? parseInt(args[1], 10) : defReg);
     if (sub === 'tp' || sub === 'goto' || sub === 'jump') {
-      const filter = args[1] ? String(args[1]).toLowerCase() : null;
+      const filterArgs = args.length > 1 ? args.slice(1) : null;
       const ctx = getDebugSceneContext();
       if (!ctx?.tele2crisis) return 'Crisis teleport is only available in world mode.';
-      return await ctx.tele2crisis(filter);
+      return await ctx.tele2crisis(filterArgs);
     }
     if (sub === 'tick' || sub === 'sim') {
       if (!playerEntity?.factionRep || !playerEntity?.regionConditions) {
@@ -2479,18 +2479,18 @@ registerCommand(
       const st = getRegionState(stopReg);
       return `Stopped all crises in Region ${stopReg} (${st.regionName}). Peace restored.`;
     }
-    return 'Usage: crisis <start <war|plague|famine|civil_strife|FlagName> [region] | stop [type|FlagName] [region] | status [region] | tp [type] | tick>';
+    return 'Usage: crisis <start <war|plague|famine|civil_strife|FlagName> [region] | stop [type|FlagName] [region] | status [region] | tp [type] [region|province|beyond] | tick>';
   }
 );
 
 registerCommand(
   'telecrisis',
-  'Teleport to a random settlement with an active regional crisis: telecrisis [war|plague|famine|crime|witch|ruler|holiday]',
-  'telecrisis [type]',
+  'Teleport to a random settlement with an active regional crisis: telecrisis [type] [region|province|beyond]',
+  'telecrisis [type] [region|province|beyond]',
   async (args = []) => {
     const ctx = getDebugSceneContext();
     if (!ctx?.tele2crisis) return 'Crisis teleport is only available in world mode.';
-    return await ctx.tele2crisis(args[0] ? String(args[0]).toLowerCase() : null);
+    return await ctx.tele2crisis(args.length ? args : null);
   }
 );
 

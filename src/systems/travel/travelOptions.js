@@ -519,6 +519,7 @@ export function createTravelOptions(deps = {}) {
     lastLocation: null,
     locationRect: null,
     locationBorderRect: null,
+    locationMultiSlice: false,
     corners: null,
     // :157-166
     ignoreEncounters: false,
@@ -1040,13 +1041,14 @@ export function createTravelOptions(deps = {}) {
   function setLocationRects(mapPixel) {
     const info = deps.locationTileRect?.(mapPixel);
     if (!info) {
-      st.locationRect = null; st.locationBorderRect = null;
+      st.locationRect = null; st.locationBorderRect = null; st.locationMultiSlice = false;
       return false;
     }
     const origin = mapPixelWorldOrigin(mapPixel.x, mapPixel.y);
     const r = locationRectsOf(origin.x, origin.z, info.tileRect, info.locationType === LOCATION_TYPES.TownCity, info.hasCustomPosition);
     st.locationRect = r.locationRect;
     st.locationBorderRect = r.locationBorderRect;
+    st.locationMultiSlice = !!info.multiSlice;
     return r.aimForCentre;
   }
 
@@ -1080,8 +1082,8 @@ export function createTravelOptions(deps = {}) {
         return true;
       }
     }
-    // :658-664 - in the border ring of a town: walk around it
-    if (!inLoc && st.locationBorderRect && rectContains(st.locationBorderRect, p.x, p.z)) {
+    // :658-664 - in the border ring of a town: walk around it (single-pixel towns; multi-slice capitals span neighbouring pixels)
+    if (!inLoc && !st.locationMultiSlice && st.locationBorderRect && rectContains(st.locationBorderRect, p.x, p.z)) {
       // ROAD-CRASH (2026-09-23, Discord through Mac: "crashes while
       // traveling on roads with travel options"): THE RING WALK IS A
       // FOLLOWED PATH, and forgets the named destination as the two path
