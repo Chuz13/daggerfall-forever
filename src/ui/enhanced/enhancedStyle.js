@@ -4348,6 +4348,7 @@ ${paceControlsCss('tview')}
 .rest-shell .vitals-line { margin: 10px 0 0; font-size: 14px; color: var(--dim, #9a9486); font-variant-numeric: tabular-nums; }
 .rest-shell .clock-line { margin: 8px 0 0; font-size: 13px; color: var(--dim, #9a9486); text-align: center; }   /* AUDIT LIVED1b U7 */
 .rest-shell .clock-line:empty { display: none; }
+.rest-shell .clock-line.selection-clock { margin: 4px 0 0; font-variant-numeric: tabular-nums; }
 .tavern-shell .px-body { flex: 0 1 auto; overflow-y: auto; padding: 18px 22px 22px; }
 .tavern-shell .sb-top { display: grid; grid-template-columns: 1fr auto 1fr;
   align-items: center; padding: 12px 16px;
