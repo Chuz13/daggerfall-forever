@@ -31,6 +31,7 @@ import { dressStandingBreakdown } from '../clothingStanding.js';
 import { computeEntityMods } from '../entityMods.js';
 import { defineLiveMaxHealth, defineLiveMaxMagicka } from '../chargen.js';
 import { snapshotPlayer, restorePlayer, savedVitalsOf } from '../save/save.js';
+import { worldMinutes } from '../worldTick.js';
 import { offlineFirmamentHpOfSnap } from '../offlineFirmament.js';
 import { renownHpOf } from '../renownLayer.js';
 
@@ -291,7 +292,7 @@ export function verifyRacialToggleRoundTrip(entity) {
 export function verifyRacialSaveRoundTrip(entity) {
   const anomalies = [];
   const copy = cloneEntityForCheck(entity);
-  const snap = snapshotPlayer(copy, {});
+  const snap = snapshotPlayer(copy, { classicMinutes: Math.floor(worldMinutes()) });
   const savedVitals = savedVitalsOf(snap);
   const expectedSavedMax = (copy.maxHealth ?? 0) - renownHpOf(copy) + offlineFirmamentHpOfSnap(snap);
   const expectedSavedHp = (copy.maxHealth ?? 0) > 0
@@ -305,7 +306,7 @@ export function verifyRacialSaveRoundTrip(entity) {
   let offVitals = null;
   withRacialOverhaulState(false, () => {
     const tOff = cloneEntityForCheck(copy);
-    restorePlayer(tOff, snap);
+    restorePlayer(tOff, snap, null, { dryRun: true });
     offVitals = { hp: tOff.health, maxHp: tOff.maxHealth, mp: tOff.magicka, maxMp: tOff.maxMagicka };
   });
 
@@ -313,9 +314,9 @@ export function verifyRacialSaveRoundTrip(entity) {
   let tripleLoadReactionMods = null;
   withRacialOverhaulState(true, () => {
     const tOn = cloneEntityForCheck(copy);
-    restorePlayer(tOn, snap);
-    restorePlayer(tOn, snap);
-    restorePlayer(tOn, snap);
+    restorePlayer(tOn, snap, null, { dryRun: true });
+    restorePlayer(tOn, snap, null, { dryRun: true });
+    restorePlayer(tOn, snap, null, { dryRun: true });
     onVitals = { hp: tOn.health, maxHp: tOn.maxHealth, mp: tOn.magicka, maxMp: tOn.maxMagicka };
     tripleLoadReactionMods = tOn.reactionMods ? [...tOn.reactionMods] : [];
     if (copy.raceId === RACES.Breton && (tOn.reactionMods?.[2] !== 10 || tOn.reactionMods?.[3] !== 10)) {

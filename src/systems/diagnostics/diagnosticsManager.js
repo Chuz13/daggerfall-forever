@@ -18,8 +18,10 @@ import { dumpCombatLog, isInCombat } from './combatLogger.js';
 import { dumpEncounterLog } from './encounterLogger.js';
 import { dumpLivingLog, getLivingAnomalies } from './livingLogger.js';
 import { dumpTimelineLog, getTimelineAnomalies, recordTimelineEvent } from './eventTimeline.js';
+import { playerEntity } from '../../characters/playerEntity.js';
 
 let _isExitHooked = false;
+let _exitFlushed = false;
 
 /**
  * Perform a complete, atomic flush of all diagnostic subsystems.
@@ -105,12 +107,23 @@ export function initUnifiedExitHooks() {
   _isExitHooked = true;
 
   if (typeof window !== 'undefined') {
+    const flushOnExit = (reason) => {
+      if (_exitFlushed) return;
+      if (!playerEntity?.chargenDone) return;
+      _exitFlushed = true;
+      dumpAllDiagnostics(reason);
+    };
+
     window.addEventListener('beforeunload', () => {
-      dumpAllDiagnostics('beforeunload');
+      flushOnExit('beforeunload');
     });
 
     window.addEventListener('pagehide', () => {
-      dumpAllDiagnostics('pagehide');
+      flushOnExit('pagehide');
+    });
+
+    window.addEventListener('pageshow', () => {
+      _exitFlushed = false;
     });
   }
 }

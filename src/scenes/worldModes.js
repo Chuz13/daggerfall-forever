@@ -2742,7 +2742,8 @@ export function createWorldModes(host) {
     isHolyPlace: () => mode === 'interior' && !!interiorBuilding
       && (interiorBuilding.buildingType === BUILDING_TYPES.Temple
         || interiorBuilding.factionId === FIGHTER_TRAINERS_FACTION),
-    isSwimming: () => !!player?.swimming,
+    isSwimming: () => !!(player?.swimming || player?.isPlayerSwimming),
+    inWater: () => !!(player?.swimming || player?.isPlayerSwimming || (player?.onExteriorWater && player.onExteriorWater !== 'None')),
     isRaining: () => mode === 'exterior' && !!weatherFlags(currentWeather())?.raining,
   });
   /** X11b: mount a modal into whichever slot the CURRENT mode draws.

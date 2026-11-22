@@ -903,12 +903,18 @@ export function repairItemLists(repairLists) {
  *  rather than each branch of each load. */
 let _restores = 0;
 export const restoresSoFar = () => _restores;
-export function restorePlayer(entity, snap, spellsByIndex = null) {
+/**
+ * @param {any} entity
+ * @param {any} snap
+ * @param {Map<number, any>|null} [spellsByIndex=null]
+ * @param {{ dryRun?: boolean }} [opts={}]
+ */
+export function restorePlayer(entity, snap, spellsByIndex = null, { dryRun = false } = {}) {
   if (!snap || snap.v !== SAVE_VERSION) {
     console.warn(`[save] version mismatch (got ${snap?.v}, want ${SAVE_VERSION}); refusing`);
     return null;
   }
-  _restores++;   // PORTAL1: a load that lands - the world host ends its portals on the count's move
+  if (!dryRun) _restores++;   // PORTAL1: a load that lands - the world host ends its portals on the count's move
   // AUDIT LIVED1b F3 (S4): THE ENVELOPE'S CLOCKS ARE READ ONCE, HERE. A clock is an unsigned minute count (DFU's
   // ToClassicDaggerfallTime answers a uint), and nothing legitimate writes another - but a tampered or corrupted one
   // reached every reader raw: at 2^53 the calendar loop's `i++` stands still and the page froze for good, a
@@ -937,7 +943,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
     entity.necroGrimoireRead = true;
   }
   resetBlowEffects(entity);   // AUDIT TELL L2: the last game's landings - a bleed, a knockdown, a push queued - are nobody's in this one
-  clearGameLog();
+  if (!dryRun) clearGameLog();
   entity.oghmaLevelUp = false;   // AUDIT FB1026d II C2: the Oghma Infinium's latch is never saved - a load ends it, as a fresh entity's; restored in place, the last game's turned this game's next level into the book's thirty points, the book back in the pack
   releaseCapLatch(entity);   // LEVEL-45 (AUDIT FB1026d C1): a level owed past the cap, saved before it, is no window to open
   // CHARID1: A LEGACY SAVE IS ADOPTED HERE. An envelope written before
@@ -947,7 +953,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // and a NEW character of the same name never can.
   if (typeof snap.characterId !== 'string' || !snap.characterId) {
     entity.characterId = mintCharacterId();
-    adoptLegacyCards(appStorage(), entity.name, entity.characterId);
+    if (!dryRun) adoptLegacyCards(appStorage(), entity.name, entity.characterId);
   }
   // ONLINE-DEATH-FIX: NEVER LOAD DEAD ONLINE. hurtPlayer fires the death only on the alive->0 TRANSITION, so a
   // character restored at 0 HP can never die again and is stuck at 0% (unkillable). Online, a death is a respawn, so a
@@ -1184,7 +1190,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
     : typeof snap.necroTaint === 'number' && Number.isFinite(snap.necroTaint)
       ? Math.max(0, Math.min(100, snap.necroTaint))
       : 0;
-  syncNecroTaintFromEntity(entity, Math.floor((snap.classicMinutes ?? 0) / 1440));
+  if (!dryRun) syncNecroTaintFromEntity(entity, Math.floor((snap.classicMinutes ?? 0) / 1440));
   if (snap.vitalBaseMax == null && Number.isFinite(entity.health) && entity.health > 0) {
     const { offHealth, offMax } = savedVitalsOf(snap);
     if (offHealth > entity.health && offMax > (snap.maxHealth ?? 0)) {
@@ -1207,11 +1213,11 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // merges the two casts into one icon row and Dispel Magic on it
   // strips both. Lift the counter past the save's high water mark
   // before anything can cast - restartHeldEnchantments below does.
-  seedBundleSeq((snap.activeEffects ?? []).reduce((m, a) => Math.max(m, a.bundleId ?? 0), 0));
+  if (!dryRun) seedBundleSeq((snap.activeEffects ?? []).reduce((m, a) => Math.max(m, a.bundleId ?? 0), 0));
   // AUDIT LIVED1b S5: online the character's clock is restored BEFORE the recast below - the enchantments' clock is
   // theirs (world.js's ctx reads ownMinutes), and at the boot it still read the world's: a Cast-When-Held item with no
   // reroll stamp took the world's minute, months ahead of theirs, and rerolled nothing for 3,606 hours.
-  if (sharedClockOn()) setOwnMinutes(Math.floor(snap.classicMinutes));
+  if (!dryRun && sharedClockOn()) setOwnMinutes(Math.floor(snap.classicMinutes));
   // E2: re-instantiate the held enchantments from the worn set the
   // equip table just rebuilt - a recast, so no durability is billed.
   restartHeldEnchantments(entity);
@@ -1236,7 +1242,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
       if (liveFat > baseFat) entity.fatigue = keepFraction(entity.fatigue, baseFat, liveFat);
     }
   }
-  if (entity.isPlayer) {
+  if (!dryRun && entity.isPlayer) {
     recordTimelineEvent({
       cat: 'save',
       event: 'RACIAL_SAVE_RESTORED',
@@ -1262,7 +1268,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // flag DOWN (startedFromLoadedSaveGame's else arm, WeatherManager.cs
   // :540-542) rather than taking a day stamp from here. A pre-W1 save
   // carries no weather - the current sky stands.
-  restoreWeather(snap.weather ?? null);
+  if (!dryRun) restoreWeather(snap.weather ?? null);
   // Missing on a pre-17h save: leave whatever the entity carries (a
   // fresh entity starts every group at zero, which is classic's own
   // starting state), the additive-field shape DFU's serializer gives.
@@ -1388,7 +1394,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
     console.warn(`[save] ${_pending.length} spell(s) could not be resolved`
       + `${spellsByIndex ? '' : ' (SPELLS.STD not loaded yet)'} - HELD, not dropped:`, _pending);
   }
-  seedCustomSpellIndex(entity.spells);
+  if (!dryRun) seedCustomSpellIndex(entity.spells);
   // AUDIT SCHOOLS L3 F2: a save an OLDER BUILD carried has no `arcanePath` key at all (a newer one writes null for none)
   // and keeps its signature spell whole - the book bears witness to the permanent choice that build dropped
   if (snap.arcanePath === undefined && !arcMirrored && !entity.arcanePath) {
@@ -1401,15 +1407,17 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // T4: a load replaces the discovery store; a pre-T4 save carries no
   // field and restores an empty one (nothing was discoverable then).
   // BAY-LEFT-MAPS (C7 = E2): with the deeds restored above - a house past the Bay keeps its residence in its own town's book
-  restoreDiscovery(snap.discovery, { houses: allDeeds(entity.houses) });   // HOUSES-3: every region's three
+  if (!dryRun) restoreDiscovery(snap.discovery, { houses: allDeeds(entity.houses) });   // HOUSES-3: every region's three
   // RR3b: WorldDataVariants.RestoreWorldVariationData (SaveLoadManager.cs:1465-1466); a save without the field restores nothing, as the C#'s null does
-  clearWorldDataVariants();
-  restoreWorldVariationData(snap.worldVariation ?? null);
+  if (!dryRun) {
+    clearWorldDataVariants();
+    restoreWorldVariationData(snap.worldVariation ?? null);
+  }
   // A1: a load replaces the automap store too; a pre-A1 save carries
   // no field and the store is LEFT ALONE (restoreAutomap's null arm,
   // SaveLoadManager.cs:1508-1509 - AUDIT-AMAP F10 fixed this comment).
   // A dungeon context re-fetches its live record after this runs.
-  restoreAutomap(snap.automap ?? null);
+  if (!dryRun) restoreAutomap(snap.automap ?? null);
   // AUDIT 23: the sticky per-region price band (see snapshot side); a
   // pre-fix save re-mints lazily, exactly as an unvisited region does.
   entity.regionPrices = snap.regionPrices ? { ...snap.regionPrices } : {};
@@ -1442,7 +1450,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // the next tick claimed the gap - up to MAX_CATCHUP_ROUNDS (2880) -
   // expiring restored buffs on the spot and bursting a restored
   // continuous-damage effect over a window the saved game never lived.
-  resetMagicRoundMarker(Math.floor(snap.classicMinutes ?? 0));
+  if (!dryRun) resetMagicRoundMarker(Math.floor(snap.classicMinutes ?? 0));
   // AUDIT WORLD5 C4: under the shared clock a LOAD is an arrival, in every host and through this one door.
   // LIVED1: an arrival that moves nothing of the character's. The save's clock IS their own clock (snapshotPlayer's
   // classicMinutes), so it is restored as it stood - the markers above were stamped on it and stay in tune, and the
@@ -1451,7 +1459,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // none of the world's arms), the absence's one arm is paid over the world's minutes from the one the character left
   // at (AUDIT DISC28 TM-1 - a save from before LIVED1 carried the world's minute as its own, so it answers for both),
   // and the day's sky is rolled from the shared day's seed over the one the save carried.
-  if (sharedClockOn()) {
+  if (!dryRun && sharedClockOn()) {
     // AUDIT LIVED1b F1: the reading re-anchors at now, not at its whole minute - the floor billed the first tick up to a
     // world minute of the absence (alignEntityClocks floors where it counts)
     const own = Math.floor(snap.classicMinutes ?? 0), at = worldMinutes();

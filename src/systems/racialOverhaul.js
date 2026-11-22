@@ -30,7 +30,7 @@ import { addPrefListener } from './uiPrefs.js';
 import { keepFraction, offlineBaseMaxHealth } from './renownLayer.js';
 import { maxFatigue } from './statMods.js';
 import { applyDressStanding } from './clothingStanding.js';
-import { playerEntity } from '../characters/playerEntity.js';
+import { playerEntity, surfacePlayer } from '../characters/playerEntity.js';
 import { isHeldLight } from './handheldTorches.js';
 import { lanternAtWaist } from './playerTorch.js';
 
@@ -262,7 +262,16 @@ export function installRacialOverhaul() {
     const hpBefore = playerEntity.health ?? null;
     const mpBefore = playerEntity.magicka ?? null;
     const fatBefore = playerEntity.fatigue ?? null;
+    let maxHpBefore = null;
+    let maxMpBefore = null;
+    let maxFatBefore = null;
+    withRacialOverhaulState(prev, () => {
+      maxHpBefore = playerEntity.maxHealth ?? null;
+      maxMpBefore = playerEntity.maxMagicka ?? null;
+      maxFatBefore = maxFatigue(playerEntity);
+    });
     recalcEntityForRacialToggle(playerEntity, prev, next);
+    surfacePlayer();
     const tlPayload = {
       cat: 'system',
       event: 'RACIAL_OVERHAUL_TOGGLED',
@@ -274,10 +283,16 @@ export function installRacialOverhaul() {
         raceId: playerEntity.raceId ?? null,
         hpBefore,
         hpAfter: playerEntity.health ?? null,
+        maxHpBefore,
+        maxHpAfter: playerEntity.maxHealth ?? null,
         mpBefore,
         mpAfter: playerEntity.magicka ?? null,
+        maxMpBefore,
+        maxMpAfter: playerEntity.maxMagicka ?? null,
         fatBefore,
         fatAfter: playerEntity.fatigue ?? null,
+        maxFatBefore,
+        maxFatAfter: maxFatigue(playerEntity),
       },
     };
     if (typeof globalThis.__dffRecordTimelineEvent === 'function') {

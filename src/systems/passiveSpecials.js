@@ -139,16 +139,18 @@ export function passiveSpecialsMagicRound(entity, { nowMinutes = 0, clockMinutes
     if (held > 0) sinks?.heal?.(held);
   }
 
-  // Argonian Hist Regen in water or outdoor rain/thunder (every 2 rounds)
+  // Argonian Hist Regen in water (swimming or wading) or outdoor rain/thunder:
+  // +2% maxFatigue every magic round (5s), +1 HP every 2nd round (10s).
   if (
-    nowMinutes % 2 === 0 &&
     isRacialOverhaulEnabled() &&
     isOverhaulPlayer(entity) &&
     entity.raceId === RACES.Argonian &&
-    ((_host?.isSwimming?.() ?? false) || (_host?.isRaining?.() ?? false))
+    ((_host?.inWater?.() ?? _host?.isSwimming?.() ?? false) || (_host?.isRaining?.() ?? false))
   ) {
-    const held = regenShare(1, 'racial', entity);
-    if (held > 0) sinks?.heal?.(held);
+    if (nowMinutes % 2 === 0) {
+      const held = regenShare(1, 'racial', entity);
+      if (held > 0) sinks?.heal?.(held);
+    }
     const fatGain = Math.trunc(maxFatigue(entity) * 0.02);
     if (fatGain > 0) sinks?.restoreFatigue?.(fatGain);
   }
