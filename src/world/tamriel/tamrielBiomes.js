@@ -68,7 +68,7 @@ export const PEAKS_SEEK = 12;
 export const BIOME_CACHE_MAX = 262144;
 /** THE ZONES' LAW'S VERSION - moved whenever the table or its law changes what a pixel reads, so a store of answers made
  *  with them (the roads' regions in IndexedDB, world/tamrielRoads.js inputsPrint) is made again (AUDIT TESA-BIOME Z3). */
-export const BIOMES_VERSION = 5;   // TAMRIEL-RELIEF: the peaks on the heightmap where the trace stands; IC-RING: the valley's city and the jungle's ring moved; AUDIT TESA II (G1-G12, Z8, J4): the coast's ease and the inland floor, the peaks near their ranges and of the land past the Bay, Vvardenfell's zones about Red Mountain and the Grazelands, a zone's province read at the wandered point, the landforms' hills past the Bay
+export const BIOMES_VERSION = 6;   // lore-accurate city relocation & biome seed updates; TAMRIEL-RELIEF: the peaks on the heightmap where the trace stands; IC-RING: the valley's city and the jungle's ring moved; AUDIT TESA II (G1-G12, Z8, J4): the coast's ease and the inland floor, the peaks near their ranges and of the land past the Bay, Vvardenfell's zones about Red Mountain and the Grazelands, a zone's province read at the wandered point, the landforms' hills past the Bay
 
 const C = CLIMATES;
 /** @typedef {readonly [number, number]} Point */
@@ -143,7 +143,7 @@ export const BIOMES = Object.freeze(/** @type {any[]} */ ([
     seeds: ['Silvenar', [108, 132], [120, 128]],
     lore: 'the deep northern canopy about Silvenar: the densest forest, its rivers, its Wood Orcs' },
   { key: 'valenwoodGreenshade', province: 'Valenwood', name: 'Greenshade', climate: C.Swamp, jungle: true, canopy: true,
-    seeds: ['Woodhearth', 'Southpoint', 'Haven', [84, 146]],
+    seeds: ['Woodhearth', 'Southpoint', 'Haven', [104, 154]],
     lore: 'the western and southern coasts - Woodhearth, Haven and Southpoint among the mangrove swamps' },
   { key: 'valenwoodReapersMarch', province: 'Valenwood', name: 'Reaper\'s March', climate: C.Subtropical,
     seeds: ['Arenthia', [142, 140]],
@@ -163,7 +163,7 @@ export const BIOMES = Object.freeze(/** @type {any[]} */ ([
     lore: 'the Tenmar between Torval and Senchal - jungle, moon-sugar cane growing wild, senche-tigers' },
   // ── BLACK MARSH: vast swamplands, the Hist in their heart ────────────────────────────────────────────────────────────
   { key: 'blackMarshHist', province: 'BlackMarsh', name: 'the Hist Swamps', climate: C.Swamp,
-    seeds: ['Helstrom', 'Blackrose', [246, 136]],
+    seeds: ['Helstrom', 'Blackrose', [236, 138]],
     lore: 'the interior: black peat, standing water, the Hist in their groves' },
   { key: 'blackMarshFens', province: 'BlackMarsh', name: 'the Shadowfen', climate: C.Swamp,
     seeds: ['Stormhold', 'Thorn', [264, 112]],
@@ -192,14 +192,14 @@ export const BIOMES = Object.freeze(/** @type {any[]} */ ([
     peaks: [RED_MOUNTAIN], seeds: [],
     lore: 'the volcano at Vvardenfell\'s heart - ash and blighted rock, never snow' },
   { key: 'morrowindAscadian', province: 'Morrowind', name: 'the Ascadian Isles', climate: C.Woodlands, air: C.Subtropical,
-    seeds: ['Vivec', [258, 46]],
-    lore: 'Vivec\'s farmlands, lakes and woods on the Inner Sea' },
+    seeds: ['Vivec', 'Ebonheart', [244, 62]],
+    lore: 'Vivec\'s and Ebonheart\'s farmlands, lakes and woods on the Inner Sea' },
   { key: 'morrowindBitterCoast', province: 'Morrowind', name: 'the Bitter Coast', climate: C.Swamp, air: C.Subtropical,
     seeds: [], hearts: { range: RED_MOUNTAIN, at: [[-7, 7], [-2, 9]] },
     lore: 'Vvardenfell\'s south-west shore - swamp, mangrove and smugglers\' coves' },
   { key: 'morrowindStonefalls', province: 'Morrowind', name: 'Stonefalls', climate: C.Mountain, air: C.Desert2, ash: 0.15,
-    seeds: ['Ebonheart', [236, 70]],
-    lore: 'Ebonheart\'s and Kragenmoor\'s mainland coast across from Vvardenfell - lava fields and ash' },
+    seeds: [[232, 82], [242, 82]],
+    lore: 'Kragenmoor\'s and Davon\'s Watch\'s mainland coast across from Vvardenfell - lava fields and ash' },
   { key: 'morrowindDeshaan', province: 'Morrowind', name: 'Deshaan', climate: C.MountainWoods, air: C.Subtropical,
     seeds: ['Mournhold', 'Tear', [268, 80]],
     lore: 'Mournhold\'s and Tear\'s lowlands - fungal valleys and plantations, warm and wet' },
@@ -226,7 +226,7 @@ export const BIOMES = Object.freeze(/** @type {any[]} */ ([
     seeds: ['Chorrol', 'Skingrad', [136, 96], [150, 96]],
     lore: 'Chorrol\'s and Skingrad\'s uplands, the jungle climbing the Colovian Highlands' },
   { key: 'cyrodiilGoldCoast', province: 'Imperial', name: 'the Gold Coast', climate: C.Woodlands,
-    seeds: ['Anvil', 'Kvatch', [136, 110]],
+    seeds: ['Anvil', 'Kvatch', [118, 112]],
     lore: 'Anvil and Kvatch: the deciduous forest and mangroves, becoming sparser towards the ocean' },
   { key: 'cyrodiilJerall', province: 'Imperial', name: 'the Jerall Highlands', climate: C.MountainWoods, peaks: true,
     seeds: ['Bruma', [196, 78], [150, 80]],

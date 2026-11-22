@@ -53,7 +53,7 @@ export const TAMRIEL_ROADS_VERSION = 8;   // ROAD-LOOK: the carved lakes water n
  * high fails that pin until this moves with it and the fingerprint is recorded again. The zones' climate is
  * BIOMES_VERSION's, in the print.
  */
-export const GROUND_ROLL_VERSION = 6;   // 1 the laws as AUDIT TESA II found them; 2 its lane G's beach-line floor (BIOMES_VERSION 5); 3 CYRODIIL-SHORES: Cyrodiil's lakes' smooth shores; 4 SMOOTH-LAND: every coast and border the land's smooth law (world/tamriel/tamrielLand.js landLabelAt); 5 RUMARE-WATER: the land let down about the Imperial City at the sea (world/rumareWaters.js rumareBasin); 6 GHOSTFENCE: no countryside within the Ghostfence, no lair and no road on its line but at Ghostgate (world/tamriel/ghostfence.js)
+export const GROUND_ROLL_VERSION = 7;   // 1 the laws as AUDIT TESA II found them; 2 its lane G's beach-line floor (BIOMES_VERSION 5); 3 CYRODIIL-SHORES: Cyrodiil's lakes' smooth shores; 4 SMOOTH-LAND: every coast and border the land's smooth law (world/tamriel/tamrielLand.js landLabelAt); 5 RUMARE-WATER: the land let down about the Imperial City at the sea (world/rumareWaters.js rumareBasin); 6 GHOSTFENCE: no countryside within the Ghostfence, no lair and no road on its line but at Ghostgate (world/tamriel/ghostfence.js); 7 lore-accurate mountain spine & city relocation update
 /** ROAD-LOOK: how near a carved lake's water (Bay pixels) a pixel's middle is the lake's to the routes - past a curve's widest
  *  swing off a pixel's middle (world/road/roadCurves.js: a bend's apex 0.125 of a pixel in) and a road's half width. */
 export const LAKE_MARGIN = 0.25;

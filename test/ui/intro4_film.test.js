@@ -202,7 +202,7 @@ test('INTRO4: the continent - the geography’s provinces on their own ground, t
   assert.ok(at(B.x0 + BALFIERA.x * (B.x1 - B.x0), B.y0 + BALFIERA.y * (B.y1 - B.y0)).h > 0, 'Balfiera, in the Bay');
   assert.equal(at(B.x0 + 0.3 * (B.x1 - B.x0), B.y0 + 0.49 * (B.y1 - B.y0)).h, 0, 'the Bay’s own water, west of Balfiera');
   assert.ok(f.border.some((v) => v === 255), 'the provinces’ borders are inked');
-  const throat = at(164, 42);
+  const throat = at(172, 64);
   assert.ok(throat.h > 120 && throat.rgb.every((c) => c > 180), `the Throat of the World stands high and white (${throat.h}, ${throat.rgb})`);
   assert.equal(RIVER_SEGMENTS.length, RIVERS.reduce((n, r) => n + r.pts.length - 1, 0));
   const again = buildTamrielField({ w: 320, h: 200 }), once = buildTamrielField({ w: 320, h: 200 });
