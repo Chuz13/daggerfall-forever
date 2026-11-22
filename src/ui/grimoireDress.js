@@ -2082,6 +2082,7 @@ ${G} .rest-win h2 { color: ${T.ink} !important; text-shadow: none !important; te
 ${G} .rest-win { max-width: min(92vw, 420px) !important; }
 ${G} .rest-win .card { padding: 6px 10px !important; }
 ${G} .rest-win h2::first-letter { color: ${T.red}; }
+${G} .rest-win .clock-line { color: ${T.inkSoft} !important; text-shadow: none !important; font-size: 20px; line-height: 22px; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
 ${G} .rest-win .acts.selection-acts { border-top: 0 !important; box-shadow: none !important; }
 ${G} .rest-win .acts.selection-acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px; align-items: stretch; }
 ${G} .rest-win .acts.selection-acts { margin-top: 6px !important; padding-top: 4px !important; }

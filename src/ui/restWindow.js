@@ -892,6 +892,17 @@ export class RestWindow {
     return st;
   }
 
+  _selectionClockLine() {
+    const shared = this.deps.sharedMinutes?.();
+    const mins = Number.isFinite(shared) ? shared : this.deps.nowMinutes?.();
+    return Number.isFinite(mins) ? restClockLine(mins, { ownClock: false }) : null;
+  }
+
+  selectionLines() {
+    const clock = this._selectionClockLine();
+    return ['How would you like to rest?', ...(clock ? [clock] : []), '', '1. Rest for a while', '2. Rest until healed', '3. Loiter', '', 'Esc - never mind'];
+  }
+
   /** OL2: the RESTING page's lines - the text chain's, and the pin's. */
   restingLines() {
     const v = this.deps.vitals?.() ?? null;
@@ -926,6 +937,10 @@ export class RestWindow {
     const st = this.status();
     if (st.panel === 'main') {
       drawImg(renderer, _art.base, m, restPanelX(_art.base.w), REST_PANEL_Y);
+      const clock = this._selectionClockLine();
+      if (clock) {
+        shadowText(renderer, font, clock, m, 0, REST_PANEL_Y + _art.base.h + 8, { align: 'center', w: NATIVE_W });
+      }
       return true;
     }
     // counterPanel: DFU's explicit 105x41 Size (:154-155) over whichever
@@ -1007,7 +1022,7 @@ export class RestWindow {
 
     let lines;
     if (this.state === 'selection') {
-      lines = ['How would you like to rest?', '', '1. Rest for a while', '2. Rest until healed', '3. Loiter', '', 'Esc - never mind'];
+      lines = this.selectionLines();
     } else if (this.state === 'confirm') {
       lines = [illegalRestWarningText(), '', 'Y - yes', 'N - no'];
     } else if (this.state === 'hours') {

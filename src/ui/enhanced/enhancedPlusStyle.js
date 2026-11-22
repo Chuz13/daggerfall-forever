@@ -390,6 +390,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .rest-shell .clock-line { margin: 10px 0 0; text-align: center; font-size: 12px; letter-spacing: 0.02em; color: #d8cfae;
   text-shadow: 1px 1px 0 #050608; }
 .rest-shell .clock-line:empty { display: none; }
+.rest-shell .clock-line.selection-clock { margin: -10px 0 0; font-variant-numeric: tabular-nums; }
 
 /* PLUS6: THE REST WINDOW WHILE RESTING - a title, the hours as a large gold readout, a sunk track with a banded
    brass fill, the three vitals as readouts, and Stop in its own foot under an engraved rule (it sat on the text). */

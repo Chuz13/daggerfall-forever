@@ -290,6 +290,10 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   function selectionCard() {
     const c = el('div', 'card');
     c.append(el('h2', null, 'Rest'));
+    const wm = deps.sharedMinutes?.();
+    const nm = deps.nowMinutes?.();
+    const mins = Number.isFinite(wm) ? wm : Number.isFinite(nm) ? nm : null;
+    if (mins != null) c.append(el('p', 'clock-line selection-clock', restClockLine(mins, { ownClock: false })));
     const acts = el('div', 'acts selection-acts');
     const btn = (label, onClick) => { const b = el('button', 'act', label); b.onclick = onClick; acts.append(b); };
     btn('Rest for a While', () => continueRest('while', false));
