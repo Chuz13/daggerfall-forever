@@ -151,3 +151,24 @@ test('GRASS-ON (Mac: "Can you please turn grass on by default"): THE GRASS IS FU
   P.setPref('grassDensity', 1);
   assert.equal(shelf().grassDensity, undefined, 'and a press back to Full is the default, which the shelf does not write');
 });
+
+test('retired legacy migrations (proceduralSky, featuresRestore+enhancedAI) do not revert user choices across reload', () => {
+  withShelf({ proceduralSky: false, textScale: 0 });
+  assert.equal(P.getPref('enhancedEnvironments'), false, 'initial migration from proceduralSky: false applies once');
+  assert.equal(shelf().proceduralSky, undefined, 'proceduralSky is retired from stored shelf after migration');
+  P.setPref('enhancedEnvironments', true);
+  reload();
+  assert.equal(P.getPref('enhancedEnvironments'), true, 're-enabling enhancedEnvironments persists across reload');
+  assert.equal(shelf().proceduralSky, undefined);
+
+  withShelf({ _rev: 2, featuresRestore: { blood: 'Heavy' } });
+  assert.equal(P.getPref('enhancedAI'), false);
+  P.setPref('enhancedAI', true);
+  assert.equal(shelf().enhancedAI, true, 'enhancedAI override is retained while featuresRestore is active');
+  reload();
+  assert.equal(P.getPref('enhancedAI'), true, 're-enabling enhancedAI while All off is active persists across reload');
+  P.setPref('featuresRestore', null);
+  assert.equal(shelf().enhancedAI, undefined, 'once featuresRestore is cleared, default enhancedAI no longer needs storing');
+  reload();
+  assert.equal(P.getPref('enhancedAI'), true);
+});

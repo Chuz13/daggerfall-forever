@@ -20,6 +20,8 @@ const SHELF_REV = 2;
  *  shelf. A key joins this list only when the old stored value cannot
  *  honestly be read as the player's answer - see loadPrefs. */
 const PREF1_ADOPT_NEW_DEFAULT = Object.freeze(['lootRarity', 'enhancedAI']); // BAL4: and the Enhanced AI - see loadPrefs
+/** Legacy migration-only keys that loadPrefs consumes once and overridesOf never writes back. */
+const RETIRED_PREF_KEYS = Object.freeze(new Set(['proceduralSky', 'mwPlayerBody']));
 
 import { appStorage } from './appStorage.js'; // DA1: the storage seam
 import { onlineForcedPref } from './online/onlineLane.js'; // OL1: the online lane's forcing, read before the shelf
@@ -322,6 +324,7 @@ export function loadPrefs() {
       const p = JSON.parse(raw);
       if (p && typeof p === 'object') {
         _prefs = { ...PREF_DEFAULTS, ...p, open: { ...(p.open ?? {}) } };
+        let migratedLegacy = false;
         // PREF1: A SHELF WRITTEN BEFORE THE FIX carries the defaults of
         // its own day as if they were answers, and nothing in it says
         // which were which - the information was destroyed at save
@@ -379,6 +382,10 @@ export function loadPrefs() {
         if (p.enhancedEnvironments === undefined && p.proceduralSky !== undefined) {
           _prefs.enhancedEnvironments = !!p.proceduralSky;
         }
+        if (p.proceduralSky !== undefined) {
+          delete _prefs.proceduralSky;
+          migratedLegacy = true;
+        }
         // SURV-TIERS (2026-09-23): THE SURVIVAL SWITCH BECAME THREE TIERS
         // ON THE SAME KEY (survival/difficulty.js SURVIVAL_STORED). Off is
         // stored as the old switch's own `false`, so a shelf written before
@@ -414,8 +421,13 @@ export function loadPrefs() {
           if (p.mwPlayerFp === undefined) _prefs.mwPlayerFp = '3d';
           if (p.mwPlayerTp === undefined) _prefs.mwPlayerTp = '3d';
         }
+        if (p.mwPlayerBody !== undefined) {
+          delete _prefs.mwPlayerBody;
+          migratedLegacy = true;
+        }
         if (_prefs.mwPlayerFp !== '2d' && _prefs.mwPlayerFp !== '3d') _prefs.mwPlayerFp = PREF_DEFAULTS.mwPlayerFp;
         if (_prefs.mwPlayerTp !== '2d' && _prefs.mwPlayerTp !== '3d') _prefs.mwPlayerTp = PREF_DEFAULTS.mwPlayerTp;
+        if (migratedLegacy) savePrefs();
       }
     }
   } catch (e) {
@@ -456,8 +468,13 @@ export function savePrefs() {
  *  default, plus `open` and the stamp. Pure; pinned in test/systems/pref1_shelf.test.js. */
 export function overridesOf(prefs) {
   const out = {};
+  const keepEnhancedAi = !!(prefs?.featuresRestore && typeof prefs.featuresRestore === 'object');
   for (const [k, v] of Object.entries(prefs ?? {})) {
-    if (k === 'open') continue;
+    if (k === 'open' || k === SHELF_STAMP || RETIRED_PREF_KEYS.has(k)) continue;
+    if (k === 'enhancedAI' && keepEnhancedAi) {
+      out[k] = v;
+      continue;
+    }
     if (Object.hasOwn(PREF_DEFAULTS, k) && v === PREF_DEFAULTS[k]) continue; // the default is not a choice
     out[k] = v;
   }

@@ -556,6 +556,20 @@ test('uiPrefs loadPrefs migrates legacy mwPlayerBody boolean cleanly once and va
     load({ mwPlayerBody: true });
     assert.equal(getPref('mwPlayerFp'), '3d');
     assert.equal(getPref('mwPlayerTp'), '3d');
+    assert.equal(JSON.parse(backing.get('dagger.ui.v1')).mwPlayerBody, undefined, 'legacy mwPlayerBody is removed after migration');
+
+    setPref('mwPlayerFp', '2d');
+    _resetForTests();
+    loadPrefs();
+    assert.equal(getPref('mwPlayerFp'), '2d', 'setting mwPlayerFp back to 2d persists across reload after mwPlayerBody migration');
+    assert.equal(getPref('mwPlayerTp'), '3d');
+
+    setPref('mwPlayerTp', '2d');
+    _resetForTests();
+    loadPrefs();
+    assert.equal(getPref('mwPlayerFp'), '2d');
+    assert.equal(getPref('mwPlayerTp'), '2d', 'setting mwPlayerTp back to 2d persists across reload after mwPlayerBody migration');
+    assert.equal(JSON.parse(backing.get('dagger.ui.v1')).mwPlayerBody, undefined);
 
     load({ mwPlayerBody: true, mwPlayerFp: '2d' });
     assert.equal(getPref('mwPlayerFp'), '2d', 'explicit mwPlayerFp is not overwritten by legacy mwPlayerBody');
