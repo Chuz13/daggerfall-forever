@@ -60,7 +60,7 @@ test('TESA12 the cities: TAMRIEL1\'s own, a province\'s from slot 0 in TAMRIEL1\
   assert.deepEqual(lost.map((p) => p.province).filter((k) => k === 'Skyrim'), []);
   // the reach: Skyrim's land 30 below its points - the north coast's cities lost, the inland stand
   const far = makeTamrielPlaces(rectTrace([[3, 110, 50, 210, 80]]));
-  assert.deepEqual(far.lost.filter((p) => p.province === 'Skyrim').map((p) => p.name), ['Solitude', 'Windhelm', 'Winterhold', 'Dawnstar'], 'past SNAP_REACH (24) from y 22 to 26');
+  assert.deepEqual(far.lost.filter((p) => p.province === 'Skyrim').map((p) => p.name), ['Solitude', 'Winterhold', 'Dawnstar'], 'past SNAP_REACH (24) from y 22 to 26');
   assert.ok(far.places.some((p) => p.name === 'Morthal' && p.py === 50.1), 'y 36: 14 off, within it');
   // the snap itself
   const own = provinceLand(trace, 'Skyrim');
@@ -200,7 +200,7 @@ test('TESA12 no Arena: no reader, no card, no store read - the boot empties the 
 const ARENA2 = process.env.ARENA2_PATH;
 const HAVE = !!ARENA2 && ['TMAP00I0.IMG', 'TAMRIEL2.IMG', 'MAP.PAL', 'ART_PAL.COL'].every((f) => existsSync(join(ARENA2, f)));
 
-test('TESA12 with ARENA2: on the player\'s own trace every one of TAMRIEL1\'s 67 cities stands (none lost, Thorn the farthest snapped), and every province has its eight towns and sixteen villages - 283 places, 35 of them ports (Anvil and Leyawiin inland on this picture)', { skip: HAVE ? false : 'ARENA2_PATH not set' }, async () => {
+test('TESA12 with ARENA2: on the player\'s own trace every one of TAMRIEL1\'s 67 cities stands (none lost, Firsthold the farthest snapped), and every province has its eight towns and sixteen villages - 283 places, 33 of them ports (all 32 lore ports stood)', { skip: HAVE ? false : 'ARENA2_PATH not set' }, async () => {
   const { DFPalette } = await import('../src/formats/dfPalette.js');
   const { preloadTamrielTrace } = await import('../src/ui/tamrielTrace.js');
   const fetchBytes = async (n) => new Uint8Array(readFileSync(join(ARENA2, n)));
@@ -211,12 +211,12 @@ test('TESA12 with ARENA2: on the player\'s own trace every one of TAMRIEL1\'s 67
   assert.equal(CITIES.length, 67);
   assert.deepEqual(m.lost, []);
   const far = m.places.filter((p) => p.kind === 'city-state').sort((a, b) => b.snapped - a.snapped)[0];
-  assert.equal(far.name, 'Thorn');
+  assert.equal(far.name, 'Firsthold');
   for (const key of PLACE_PROVINCES) {
     const mine = m.places.filter((p) => p.province === key);
     assert.deepEqual([mine.filter((p) => p.kind === 'town').length, mine.filter((p) => p.kind === 'village').length], [8, 16], key);
   }
   const px = arenaPixels();
-  assert.deepEqual([m.places.length, px.stood.length, px.unstood.length, px.stood.filter((p) => p.port).length], [283, 283, 0, 35]);   // PIN MOVED (FIELD BUGS 2026-10-28b COAST-PORT): 28, and the seven places the sea bears on
-  assert.deepEqual(px.stood.filter((p) => !p.port && CITIES.some((c) => c.port && c.name === p.name)).map((p) => p.name), ['Anvil', 'Leyawiin'], 'no shore within SHORE_REACH: no port');
+  assert.deepEqual([m.places.length, px.stood.length, px.unstood.length, px.stood.filter((p) => p.port).length], [283, 283, 0, 33]);   // 32 lore ports + Tear (COAST-PORT)
+  assert.deepEqual(px.stood.filter((p) => !p.port && CITIES.some((c) => c.port && c.name === p.name)).map((p) => p.name), [], 'every lore port within SHORE_REACH');
 });

@@ -94,7 +94,7 @@ test('TESA6 the host: an Arena port past the Bay answers where the Bay\'s ports 
 
 const ARENA2 = process.env.ARENA2_PATH;
 const HAVE = !!ARENA2 && ['TMAP00I0.IMG', 'TAMRIEL2.IMG', 'ART_PAL.COL', 'WOODS.WLD'].every((f) => existsSync(join(ARENA2, f)));
-test('TESA6 with ARENA2: on the player\'s own trace 28 of the lore\'s 30 ports stand on their shore, each beside the ground\'s sea', { skip: HAVE ? false : 'ARENA2_PATH not set' }, async () => {
+test('TESA6 with ARENA2: on the player\'s own trace all 32 of the lore\'s 32 ports stand on their shore, each beside the ground\'s sea', { skip: HAVE ? false : 'ARENA2_PATH not set' }, async () => {
   const { DFPalette } = await import('../src/formats/dfPalette.js');
   const { preloadTamrielTrace } = await import('../src/ui/tamrielTrace.js');
   const { WoodsFile } = await import('../src/formats/woodsFile.js');
@@ -110,7 +110,7 @@ test('TESA6 with ARENA2: on the player\'s own trace 28 of the lore\'s 30 ports s
   const g = groundWoods(woods);
   const { CITIES } = await import('../src/world/tamriel/tamrielGeography.js');
   const ports = arenaPixels().stood.filter((p) => p.port && CITIES.some((c) => c.port && c.name === p.name));   // PIN MOVED (FIELD BUGS 2026-10-28b COAST-PORT): the lore's - the coast's own are fb1028b_seasquare's
-  assert.equal(ports.length, 28, 'PIN MOVED (TESA12): the lore\'s ports, not A.EXE\'s 51');
+  assert.equal(ports.length, 32, 'PIN MOVED (TESA12): the lore\'s ports, not A.EXE\'s 51');
   for (const p of ports) {
     // PIN MOVED (AUDIT TESA II P11): the sea beside it is the ground's WATER (isWaterPixel - the Ocean climate, or a byte at
     // the ocean's floor), never `<= WATER_BYTE`, which the coast's own land at SHORE_BYTE answers too: moved 8 pixels
