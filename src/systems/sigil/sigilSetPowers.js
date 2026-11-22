@@ -319,6 +319,11 @@ export function setFold(entity) {
     add(m().resist, 'shock', wrack.shock);
     add(m().stats, 'speed', wrack.speed);
   }
+  if (mods) {
+    for (const [k, v] of Object.entries(mods.stats)) {
+      if (v > 0) mods.statMax[k] = (mods.statMax[k] ?? 0) + v;
+    }
+  }
   return mods ?? EMPTY_MODS;
 }
 

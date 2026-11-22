@@ -46,7 +46,10 @@ export const BOUNTY_DEN_ASK_GAP_MS = 10 * 60 * 1000;
 const MINUTES_A_DAY = 1440;
 
 /** The Festive buff's mods: +5 to every attribute (`keys` statMods.js STAT_KEYS_ORDER). */
-export const festiveMods = (keys) => ({ stats: Object.fromEntries(keys.map((k) => [k, FESTIVE.attributes])) });
+export const festiveMods = (keys) => ({
+  stats: Object.fromEntries(keys.map((k) => [k, FESTIVE.attributes])),
+  statMax: Object.fromEntries(keys.map((k) => [k, FESTIVE.attributes])),
+});
 
 /** SEASON1 part two: an Orc Raid's camp counted for the guild. */
 export const ORC_CAMP_TEXT = 'The Orc Raids: your guild gains 50 influence at its seat in the region.';

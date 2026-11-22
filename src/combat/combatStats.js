@@ -168,7 +168,7 @@ export function criticalModel(entity, core) {
     return { chance: pct(int(crit / 3)), hitBonus: int(crit / 3), damageMult: 1, kind: 'hit' };
   const luckTerm = Math.floor(Math.fround((liveStat(entity, 'luck') - 50) / 25));
   return {
-    chance: pct(int(crit / (4 - luckTerm))),
+    chance: pct(int(crit / Math.max(1, 4 - luckTerm))),
     hitBonus: int(crit / 4),
     damageMult: Math.fround(Math.fround(int(crit / 5) * Math.fround(0.05)) + 1),
     kind: 'damage',

@@ -2402,6 +2402,7 @@ export function affixFold(entity) {
   // AUDIT LOOT II A8: the cap is the gear's whole - an element's rolled lines fill to it beside an Aetheric piece's own,
   // never past it (the Oathkeeper's Helm's 35 and a Rare ring's 20 made 55, and every Magic throw turned)
   for (const [el, v] of Object.entries(rolledResist)) mods.resist[el] = (mods.resist[el] ?? 0) + rolledCounts(v, mods.resist[el] ?? 0);
+  for (const [k, v] of Object.entries(mods.stats)) if (v > 0) mods.statMax[k] = v;
   return mods;
 }
 /** LOOT12 (the Loot arc II, bible/06-Systems/Loot-II-Arc.md section 4): HONEST RESISTANCE. A resistance line adds its

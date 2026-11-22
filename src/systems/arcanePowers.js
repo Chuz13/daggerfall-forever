@@ -229,7 +229,9 @@ export function pathFold(entity) {
   if (awakePathId(entity) !== 'enchanter') return EMPTY_MODS;
   const mods = newMods();
   const at = (n) => Math.round(mentorScaled(entity, n));
-  mods.stats.personality = at(N.glamour.personality);
+  const per = at(N.glamour.personality);
+  mods.stats.personality = per;
+  if (per > 0) mods.statMax.personality = per;
   mods.skills[SKILLS.Etiquette] = at(N.glamour.etiquette);
   mods.skills[SKILLS.Streetwise] = at(N.glamour.streetwise);
   return mods;
