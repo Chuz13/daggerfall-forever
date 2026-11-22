@@ -14,9 +14,38 @@
 'use strict';
 
 const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
 
+async function patchWinExecutableIcon(context) {
+  const exePath = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.exe`);
+  if (!fs.existsSync(exePath)) return;
+  const iconPath = typeof context.packager.getIconPath === 'function' ? await context.packager.getIconPath() : null;
+  if (!iconPath || !fs.existsSync(iconPath)) return;
+  const { NtExecutable, NtExecutableResource, Data, Resource } = require('resedit');
+  const exe = NtExecutable.from(fs.readFileSync(exePath), { ignoreCert: true });
+  const res = NtExecutableResource.from(exe);
+  const iconFile = Data.IconFile.from(fs.readFileSync(iconPath));
+  const groups = Resource.IconGroupEntry.fromEntries(res.entries);
+  const groupId = groups[0]?.id ?? 1;
+  const lang = groups[0]?.lang ?? 1033;
+  Resource.IconGroupEntry.replaceIconsForResource(
+    res.entries,
+    groupId,
+    lang,
+    iconFile.icons.map((i) => i.data),
+  );
+  res.outputResource(exe);
+  const tmpPath = `${exePath}.tmp`;
+  fs.writeFileSync(tmpPath, Buffer.from(exe.generate()));
+  fs.renameSync(tmpPath, exePath);
+}
+
 module.exports = async function afterPack(context) {
+  if (context.electronPlatformName === 'win32') {
+    await patchWinExecutableIcon(context);
+    return;
+  }
   if (context.electronPlatformName !== 'darwin') return;
   const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
   execFileSync('codesign', ['--force', '--deep', '--sign', '-', app], { stdio: 'inherit' });

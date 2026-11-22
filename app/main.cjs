@@ -32,7 +32,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, protocol, net, session, shell, utilityProcess } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage, protocol, net, session, shell, utilityProcess } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -141,6 +141,24 @@ app.on('second-instance', () => {
 const DIST = app.isPackaged
   ? path.join(__dirname, 'dist')
   : path.join(__dirname, '..', 'dist');
+let cachedAppIcon;
+function getAppIcon() {
+  if (cachedAppIcon !== undefined) return cachedAppIcon;
+  const candidates = app.isPackaged
+    ? [path.join(DIST, 'icons', 'icon-512.png')]
+    : [path.join(__dirname, '..', 'public', 'icons', 'icon-512.png'), path.join(DIST, 'icons', 'icon-512.png')];
+  for (const p of candidates) {
+    try {
+      const img = nativeImage.createFromBuffer(fs.readFileSync(p));
+      if (!img.isEmpty()) {
+        cachedAppIcon = img;
+        return cachedAppIcon;
+      }
+    } catch { /* try next candidate */ }
+  }
+  cachedAppIcon = undefined;
+  return cachedAppIcon;
+}
 const CONFIG_FILE = () => path.join(app.getPath('userData'), 'config.json');
 
 // DA13 (2026-10-14, Mac: "B only: per-file channel"; a player, Discord 2026-10-13: "Every update downloads around
@@ -1493,6 +1511,7 @@ async function createWindow({ onShown = null } = {}) {
     height: 800,
     backgroundColor: '#111111',
     title: 'Daggerfall Forever',
+    icon: getAppIcon(),
     show: !onShown,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -1655,6 +1674,7 @@ function openLauncherWindow() {
     show: false,
     backgroundColor: '#0a0c11',
     title: 'Daggerfall Forever',
+    icon: getAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'launcherPreload.cjs'),
       contextIsolation: true,

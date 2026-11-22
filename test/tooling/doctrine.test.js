@@ -47,9 +47,9 @@ const PUBLIC_ALLOWLIST = new Map([
   // field) - no ARENA2 pixel, no screenshot, nothing derived. Re-run
   // the script and the same bytes come out.
   ['public/manifest.webmanifest', 'TI2: the web app manifest - text, the port\'s own'],
-  ['public/icons/icon-192.png', 'TI2: home-screen icon, drawn by scripts/makeIcons.mjs from the skin\'s tokens'],
-  ['public/icons/icon-512.png', 'TI2: home-screen icon, drawn by scripts/makeIcons.mjs from the skin\'s tokens'],
-  ['public/icons/icon-512-maskable.png', 'TI2: home-screen icon (maskable), drawn by scripts/makeIcons.mjs from the skin\'s tokens'],
+  ['public/icons/icon-192.png', 'custom infinity app icon (192x192); no ARENA2 data'],
+  ['public/icons/icon-512.png', 'custom infinity app icon (512x512); no ARENA2 data'],
+  ['public/icons/icon-512-maskable.png', 'custom infinity app icon (512x512 maskable); no ARENA2 data'],
   // INTRO2 (2026-09-18): restored at Mac's explicit request. The credit
   // marks and score are the identical U65 assets, not ARENA2-derived data.
   // Credit marks identify their respective projects; no new rights claimed.
