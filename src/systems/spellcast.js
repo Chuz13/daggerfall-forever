@@ -133,6 +133,7 @@ const RESIST_NAMES = Object.freeze([
 export function savingChance(element, effectFlags, target, modifier = 0, pierce = 0) {
   let saving = 50;
   let biographyMod = 0;
+  let hasHardImmunity = false;
   const career = target.career ?? {};
   // Player racial flags (gated on `target == playerEntity`): note
   // IMMUNITY ASSIGNS 100 rather than adding, which the >= 100 return
@@ -140,7 +141,10 @@ export function savingChance(element, effectFlags, target, modifier = 0, pierce 
   if (target.isPlayer) {
     const rt = raceTemplateOf(target) ?? {};
     if (spellHasFlags(element, rt.resistanceFlags ?? 0, effectFlags)) saving += 30;
-    if (spellHasFlags(element, rt.immunityFlags ?? 0, effectFlags)) saving = 100;
+    if (spellHasFlags(element, rt.immunityFlags ?? 0, effectFlags)) {
+      saving = 100;
+      hasHardImmunity = true;
+    }
     if (spellHasFlags(element, rt.lowToleranceFlags ?? 0, effectFlags)) saving -= 25;
     if (spellHasFlags(element, rt.criticalWeaknessFlags ?? 0, effectFlags)) saving -= 50;
   }
@@ -175,7 +179,10 @@ export function savingChance(element, effectFlags, target, modifier = 0, pierce 
     }
   }
   // DFU's own departure from classic (mixed tolerances), preserved:
-  if (tolerance.Immune) saving += 50;
+  if (tolerance.Immune) {
+    saving += 50;
+    hasHardImmunity = true;
+  }
   if (tolerance.CriticalWeakness) saving -= 50;
   if (tolerance.LowTolerance) saving -= 25;
   if (tolerance.Resistant) saving += 25;
@@ -187,7 +194,7 @@ export function savingChance(element, effectFlags, target, modifier = 0, pierce 
     target,
     RESIST_NAMES.filter(([flag]) => effectFlags & flag).map(([, name]) => name),
   );
-  if (saving >= 100) return { immune: true, chance: 100 };
+  if (hasHardImmunity && saving >= 100) return { immune: true, chance: 100 };
   // MagicResist = floor(LIVE willpower / 10) - fortify-aware (audit F9).
   // U10: through the FormulaHelper home, not a fourth inline copy.
   saving += magicResist(liveStat(target, 'willpower'));

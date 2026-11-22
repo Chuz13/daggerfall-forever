@@ -93,7 +93,7 @@ import { statsHunt } from '../bounty/huntRank.js';   // HUNTERS-MARK (Bounty-Boa
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { statsVillainy } from '../pvpVillainBar.js';   // PVP-VILLAIN
 import { fpArm, hasDaggerfallArrows } from '../../combat/fpArm.js';
-import { dressStanding } from '../../systems/clothingStanding.js';   // DRESS1 (2026-09-30, Discord): the Standing page's Dress line
+import { dressStandingBreakdown } from '../../systems/clothingStanding.js';   // DRESS1 (2026-09-30, Discord): the Standing page's Dress line
 import { questRail, shelvedRail, unloggedRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS, remainWords } from '../quest/questRail.js';   // MAC-K2: the ONE quest walk, shared with the chronicle
 import { qlObjectivesBlock, qlOfferDetail, offerRowWords, qlLineDetail, lineStateWords, qlLadderDetail } from '../questlines/qlJournal.js';   // QL2: a stamped quest's objectives, choices and outcome; the rewards waiting
 import { lineStepOf } from '../../systems/questlines/qlLines.js';   // QL-OFFERED: a questline's step drawn under its line, never as a side quest
@@ -5919,19 +5919,35 @@ export function statsEveryStanding(detail, entity) {
  *  are doing right now - one light line under the groups, only when the dress moves anybody. Read live off the equip
  *  table (dressStanding is pure), so it is right before the next magic round folds it into reactionMods. */
 export function dressLine(entity) {
-  const d = dressStanding(entity);
+  const d = dressStandingBreakdown(entity);
   const parts = [];
   const groupNames = socialGroupNames();
-  for (let i = 0; i < SOCIAL_GROUP_NAMES.length; i++) if (d.groups[i]) parts.push(`${groupNames[i]} ${d.groups[i] > 0 ? '+' : ''}${d.groups[i]}`);
+  const dg = d.dressGroups ?? d.groups;
+  for (let i = 0; i < SOCIAL_GROUP_NAMES.length; i++) if (dg[i]) parts.push(`${groupNames[i]} ${dg[i] > 0 ? '+' : ''}${dg[i]}`);
   if (d.temple) parts.push(t('pause.standing.temples', 'Temples {mod}', { mod: `${d.temple > 0 ? '+' : ''}${d.temple}` }));
+  return parts.join(', ');
+}
+export function racialStandingLine(entity) {
+  const rg = dressStandingBreakdown(entity).racialGroups;
+  if (!rg) return '';
+  const parts = [];
+  const groupNames = socialGroupNames();
+  for (let i = 0; i < SOCIAL_GROUP_NAMES.length; i++) if (rg[i]) parts.push(`${groupNames[i]} ${rg[i] > 0 ? '+' : ''}${rg[i]}`);
   return parts.join(', ');
 }
 export function statsDress(detail, entity) {
   const line = dressLine(entity);
-  if (!line) return;
-  const r = el('div', 'px-stat px-dress');
-  r.append(el('span', 'k', t('pause.standing.dress', 'Dress')), el('span', 'v', line));
-  detail.append(r);
+  if (line) {
+    const r = el('div', 'px-stat px-dress');
+    r.append(el('span', 'k', t('pause.standing.dress', 'Dress')), el('span', 'v', line));
+    detail.append(r);
+  }
+  const rLine = racialStandingLine(entity);
+  if (rLine) {
+    const r = el('div', 'px-stat px-dress');
+    r.append(el('span', 'k', t('pause.specials.race', 'Race')), el('span', 'v', rLine));
+    detail.append(r);
+  }
 }
 
 /** REP5: THE LAW, REGION BY REGION - every region with a standing other than a common citizen's, or a banishment. */

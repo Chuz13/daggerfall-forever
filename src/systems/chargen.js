@@ -2,7 +2,7 @@ import { SKILLS, SKILL_COUNT, SKILLS_RECENTLY_RAISED_WORDS, levelUpSkillSum } fr
 import { spellPointsFor } from '../combat/formulas.js'; // U10
 import { mintCharacterId } from './characterId.js'; // CHARID1
 import { CLASSIC_GAME_START_TIME } from './gameDate.js'; // AUDIT 23: the skill-check anchor
-import { liveStat, STAT_KEYS_ORDER, FATIGUE_MULTIPLIER } from './statMods.js'; // wave 28: MaxMagicka reads LiveIntelligence
+import { liveStat, STAT_KEYS_ORDER, FATIGUE_MULTIPLIER, maxFatigue } from './statMods.js'; // wave 28: MaxMagicka reads LiveIntelligence
 import { renownHpOf, renownMpOf, foldMpOf, spireHpOf } from './renownLayer.js'; // RENOWN1: Renown's online health and magicka, on top of both live maximums; EG15: and the folds' magicka; EG-ZR: and the Spire's Stoneskin
 import { lichHpOf, lichMpOf } from './necromancy/lichdomStatus.js';
 import { apotheosisHpOf, apotheosisMpOf } from './apotheosis/apotheosisLive.js';
@@ -317,6 +317,9 @@ export function applyCharacter(
   playerEntity.currentLevelUpSkillSum = playerEntity.startingLevelUpSkillSum;
   defineLiveMaxMagicka(playerEntity);
   defineLiveMaxHealth(playerEntity); // DISC10-E L4: DaggerfallEntity.MaxHealth, the limiter applied
+  playerEntity.health = playerEntity.maxHealth;
+  playerEntity.magicka = playerEntity.maxMagicka;
+  playerEntity.fatigue = maxFatigue(playerEntity);
   clearGameLog();
   return playerEntity;
 }

@@ -52,7 +52,7 @@ import '../professions/profTemplates.js';   // PROF2: the ores, ingots and stone
 import '../rest/restItems.js';   // REST6: the seven rest supplies (1700-1706), known to every scene a save loads in
 import { repairPartsWeights } from '../comeSailAway/comeSailAwayItems.js';   // PARTS-WEIGHT: a boat's parts weighed as her hull alone
 import { repairRarityNames, repairRarityBases, repairCraftedNames } from '../loot/lootRarity.js';   // DISC29-B: a Magic or Rare Roleplay & Realism: Items piece given back its make's word; RARITY-WEAR: a rolled wand worn as an Amulet
-import { SOCIAL_GROUPS } from '../../formats/factionFile.js';   // AUDIT 24
+import { SOCIAL_GROUPS, SOCIAL_GROUP_COUNT } from '../../formats/factionFile.js';   // AUDIT 24
 import { travelMapSaveData, restoreTravelMapSaveData } from '../travel/travelMapState.js';   // U41: TravelMapSaveData
 import { getEscortFacesSaveData, restoreEscortFacesSaveData } from '../../ui/hud/hudEscortFaces.js';   // FE1: SaveData_v1.escortingFaces
 import { quickslotSaveData, restoreQuickslotSaveData } from '../quickslots.js';   // QS1: the quickslot diamond rides the one composer
@@ -102,6 +102,7 @@ import {
 } from '../racialOverhaulData.js';
 import { maxFatigue, maxFatigueBase } from '../statMods.js';
 import { applyDressStanding } from '../clothingStanding.js';
+import { computeEntityMods } from '../entityMods.js';
 
 /**
  * Computes the effective offline base max health (`offMax`, without Renown/Firmament layer),
@@ -928,6 +929,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   setOnlineLayerExtra(entity, null);
   setRenownLayer(entity, null);
   entity.spireHp = 0;
+  entity.maxMagickaModifier = 0;
   for (const k of ENTITY_FIELDS) entity[k] = snap[k];
   if (snap.NecroGrimoireRead || snap.necroGrimoireRead) {
     entity.NecroGrimoireRead = true;
@@ -1212,6 +1214,8 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // E2: re-instantiate the held enchantments from the worn set the
   // equip table just rebuilt - a recast, so no durability is billed.
   restartHeldEnchantments(entity);
+  computeEntityMods(entity);
+  if (entity.isPlayer) (entity.reactionMods ??= new Array(SOCIAL_GROUP_COUNT).fill(0)).fill(0);
   applyDressStanding(entity);
   if (isRacialOverhaulEnabled() && isOverhaulPlayer(entity)) {
     const offHp = offlineBaseMaxHealth(entity);

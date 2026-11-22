@@ -7075,7 +7075,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // AUDIT 68 S19-damagefoe-dead-reentry: a corpse takes no blow. EnemyDeath runs once; the round sinks tick on
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
     if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
-    if (fromPlayer && !peer && foe.entity) foe.entity._provokedByPlayer = true;
+    if (fromPlayer && !peer && foe.entity) {
+      foe.entity._provokedByPlayer = true;
+      if (foe.campId != null) {
+        for (const g of foes) {
+          if (g !== foe && !g.dead && g.campId === foe.campId && g.entity) g.entity._provokedByPlayer = true;
+        }
+      }
+    }
     const bout = foe.entity?.bout ?? null;   // ARENA2: a fighter on the arena floor's sand (scenes/arena/arenaBouts.js)
     if (fromPlayer && !peer && !bout) renownFoeStruck(foe);   // RENOWN1: MY blow - a joiner's too, before the divert sends it to the host; ARENA2: no renown on the sand
     if (foe.yielded || foe.executing || foe.sparing || foe.leaving || foe.roaring) return;   // REVENANT-FATE: a beaten revenant takes no blow - its fate is the player's choice (RVN3: nor one tearing away; RVN4: nor one roaring)
