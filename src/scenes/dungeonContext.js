@@ -4989,6 +4989,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     inDungeon: () => true,
     isHolyPlace: () => false,
     isSwimming: () => !!_activity.swimming,
+    isRaining: () => false,
   });
   async function ensureMissileBatch(m) {
     if (m.batch !== null) return;
@@ -6428,7 +6429,6 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // a corpse past the layout's run is this player's own foe (a quest spawn, a summon) and its body is too
     if (kind === 'corpse') { const f = foes[i]; return i < _layoutFoes && lootableBody(f) && Array.isArray(f.entity?.items) ? f.entity.items : null; }
     // REST-SYNC: a rest's encounter is the room's, and so is its body - by the room's number, its pool index being
-    // each client's own. Every copy rolled its own list; the first opener's is the room's, as a layout body's is.
     if (kind === 'enc') { const f = _sharedById.get(i); return lootableBody(f) && Array.isArray(f.entity?.items) ? f.entity.items : null; }
     // SEARCH1: a searched object's find - the room's word about it is ALSO its five hours: whoever in the room searched
     // it, nobody searches it again until they run out, and a find is the same list for everyone
@@ -7075,6 +7075,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // AUDIT 68 S19-damagefoe-dead-reentry: a corpse takes no blow. EnemyDeath runs once; the round sinks tick on
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
     if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
+    if (fromPlayer && !peer && foe.entity) foe.entity._provokedByPlayer = true;
     const bout = foe.entity?.bout ?? null;   // ARENA2: a fighter on the arena floor's sand (scenes/arena/arenaBouts.js)
     if (fromPlayer && !peer && !bout) renownFoeStruck(foe);   // RENOWN1: MY blow - a joiner's too, before the divert sends it to the host; ARENA2: no renown on the sand
     if (foe.yielded || foe.executing || foe.sparing || foe.leaving || foe.roaring) return;   // REVENANT-FATE: a beaten revenant takes no blow - its fate is the player's choice (RVN3: nor one tearing away; RVN4: nor one roaring)
@@ -8085,7 +8086,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // fatigue whatever it hits, and a BOW always takes the tally
           // arm (`!hitEnemy && WeaponType != Bow` is false for a bow),
           // so Archery AND CriticalStrike count a use per loose.
-          drainFatigue(swingFatigueCost(playerWeapon.weapon));
+          drainFatigue(swingFatigueCost(playerWeapon.weapon, playerEntity));
           tallySwingSkills(playerEntity, playerWeapon.weapon, playerWeapon.blowWeight);
           continue;
         }
@@ -8094,7 +8095,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // when the swing connected. swingWeaponFatigueLoss (11) was
         // ported as a constant and applied by nobody, and
         // CriticalStrike was tallied nowhere in the port at all.
-        drainFatigue(swingFatigueCost(playerWeapon.weapon));
+        drainFatigue(swingFatigueCost(playerWeapon.weapon, playerEntity));
         if (hitEnemy) tallySwingSkills(playerEntity, playerWeapon.weapon, playerWeapon.blowWeight);
         // AUDIT 23 (C9) - WeaponManager.cs:423-424: the swing sound
         // fires at the HIT FRAME of a swing that hit no enemy (never

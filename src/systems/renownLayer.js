@@ -40,6 +40,7 @@
 
 import { renownBonus } from '../net/renown.js';
 import { evenHpOf } from './levelEven.js'; // LEVEL-EVEN: the floor's health, a term of the layer
+import { racialHpBonus, isRacialOverhaulEnabled, isOverhaulPlayer, withRacialOverhaulState } from './racialOverhaulData.js';
 
 /** The layer's health on an entity: whole, never negative. */
 export const renownHpOf = (e) => (Number.isFinite(e?.renownHp) && e.renownHp > 0 ? Math.trunc(e.renownHp) : 0);
@@ -160,7 +161,7 @@ export function offlineBaseMaxHealth(entity) {
   const own = lim >= 1 && lim < raw ? lim : raw;
   const hasLiveGetter = Boolean(Object.getOwnPropertyDescriptor(entity, 'maxHealth')?.get);
   if (hasLiveGetter) {
-    return Math.max(0, (entity.maxHealth ?? 0) - hp - spire);
+    return Math.max(0, (entity.maxHealth ?? 0) - hp - spire - racialHpBonus(entity, own));
   }
   return own;
 }
@@ -174,12 +175,22 @@ export function offlineVitals(entity) {
   const hp = renownHpOf(entity),
     mp = onlineMpOf(entity); // EG15: and the folds' magicka (the Battlemage's Bearing)
   const out = { health: entity?.health, magicka: entity?.magicka, maxMagicka: entity?.maxMagicka };
-  if (hp) {
+  const rawHp = Number.isFinite(entity?.rawMaxHealth) ? entity.rawMaxHealth : (entity?.maxHealth ?? 0);
+  const lim = entity?.maxHealthLimiter;
+  const ownHp = lim >= 1 && lim < rawHp ? lim : rawHp;
+  const rHp = racialHpBonus(entity, ownHp);
+  if (hp || rHp) {
     const off = offlineBaseMaxHealth(entity);
     out.health = keepFraction(entity.health, entity.maxHealth, off);
   }
-  if (mp) {
-    const off = Math.max(0, (entity.maxMagicka ?? 0) - mp);
+  const hasRacialMp = entity?.raceId === 5 && isRacialOverhaulEnabled() && isOverhaulPlayer(entity);
+  if (mp || hasRacialMp) {
+    let off = Math.max(0, (entity.maxMagicka ?? 0) - mp);
+    if (hasRacialMp) {
+      withRacialOverhaulState(false, () => {
+        off = Math.max(0, (entity.maxMagicka ?? 0) - mp);
+      });
+    }
     out.magicka = keepFraction(entity.magicka, entity.maxMagicka, off);
     out.maxMagicka = off;
   }

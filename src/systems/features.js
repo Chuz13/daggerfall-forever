@@ -2223,6 +2223,15 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'livingLocationCooldown', initial: 4320, online: 'player', tiers: LT_LOCATION_COOLDOWN_TIERS }),
   }),
+  Object.freeze({
+    id: 'racial-overhaul',
+    group: 'character',
+    get title() { return t('features.racialOverhaul.title', 'Racial Overhaul'); },
+    get note() { return t('features.racialOverhaul.note', 'Gives every playable race distinct level-scaled favored weapon bonuses, resistances, and lore passives. Turn off at any time to restore classic Daggerfall racial rules.'); },
+    get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'racialOverhaul', initial: true, online: 'player' }),
+  }),
 ]);
 
 // ── RF4: the lanes, and what the stores derive ────────────────────

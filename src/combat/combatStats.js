@@ -14,6 +14,7 @@
 // the overhaul reads a flat 60 off it whatever it wears (pcaaoArmorToHit). Damage is shown BEFORE the foe's armour
 // reduces it (the overhaul's reduction depends on the foe's materials and the blow's weight, applied after these figures).
 import { liveStat } from '../systems/statMods.js';
+import { isRacialOverhaulEnabled, isOverhaulPlayer, overhaulRacialCombatMods } from '../systems/racialOverhaulData.js';
 import { skillValue, SKILLS } from '../systems/skills.js';
 import {
   formulaOverride,
@@ -180,7 +181,11 @@ function swingContext(entity, held, core) {
     weapon = wraps ? null : held; // HAND-WRAPS: the fists' blow, the wraps' lines over it (combat/formulas.js)
   const skillId = weapon ? (weaponSkillUsed(weapon.templateIndex) ?? SKILLS.HandToHand) : SKILLS.HandToHand;
   const prof = core.overhaul ? pcaaoProficiencyModifiers(entity, weapon) : proficiencyModifiers(entity, weapon);
-  const racial = core.overhaul ? pcaaoRacialModifiers(entity, weapon, entity) : racialModifiers(entity, weapon);
+  const racial = isRacialOverhaulEnabled() && isOverhaulPlayer(entity)
+    ? overhaulRacialCombatMods(entity, weapon, skillId)
+    : core.overhaul
+      ? pcaaoRacialModifiers(entity, weapon, entity)
+      : racialModifiers(entity, weapon);
   const isBow = !!weapon && skillId === SKILLS.Archery;
   const twoHanded =
     !!weapon &&

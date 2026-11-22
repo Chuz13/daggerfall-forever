@@ -914,7 +914,8 @@ export class PlayerMotor {
   _rideScale() { const k = this.rideSpeedScale; return Number.isFinite(k) && k > 0 ? k : 1; }
   /** GetSwimSpeed(GetBaseSpeed()) - LevitateMotor's swim: GetBaseSpeed skips the crouch arm while it swims. */
   swimSpeedNow() {
-    return swimSpeed(this._refreshWalkSpeed(), this.stats.swimming ?? 0);
+    const mult = this.stats.swimSpeedMult;
+    return swimSpeed(this._refreshWalkSpeed(), this.stats.swimming ?? 0) * (Number.isFinite(mult) && mult > 0 ? mult : 1);
   }
 
   get levitating() { return this._levitating; }
@@ -3388,7 +3389,10 @@ export class PlayerMotor {
     // of the surface (KeepSurfaceCameraUnsunk) - so `sunk` goes false
     // while DFU's own gate, the host flag, stays true, and a proxy on
     // `sunk` would walk the swimmer at the full ground speed.
-    if (this.isPlayerSwimming && !this.waterWalking) speed = swimSpeed(speed, this.stats.swimming ?? 0);
+    if (this.isPlayerSwimming && !this.waterWalking) {
+      const mult = this.stats.swimSpeedMult;
+      speed = swimSpeed(speed, this.stats.swimming ?? 0) * (Number.isFinite(mult) && mult > 0 ? mult : 1);
+    }
     if (this._rattleLeft > 0) speed *= this._rattleShare;   // TELL6e: a slam, a ring or a leap that landed rattles the walk
     this.speed = speed;   // UpdateSpeed writes the field the getter reads
     this._trackHalfSpeed(input, speed);

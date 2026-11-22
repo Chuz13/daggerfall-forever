@@ -40,6 +40,9 @@ import { SPECIAL_ABILITY_BITS, REGENERATION_FLAGS } from './specialAdvantages.js
 import { onlineMpOf } from './renownLayer.js'; // AUDIT RENOWN1 GAME-5: the magery's third is of Daggerfall's own maximum, never the online layer (EG15: nor the folds' magicka)
 import { regenShare } from './courtRules.js'; // WBX6 / EVENT-RULES: a made level holds regeneration
 import { cloakState } from './survival/temperature.js'; // HOOD-CAREER: the ONE "is the hood up" - the felt temperature's, never a second list
+import { isRacialOverhaulEnabled, isOverhaulPlayer } from './racialOverhaulData.js';
+import { RACES } from './races.js';
+import { maxFatigue } from './statMods.js';
 
 // PassiveSpecialsEffect.cs:35-40, verbatim.
 export const SUN_DAMAGE_AMOUNT = 12;
@@ -134,6 +137,20 @@ export function passiveSpecialsMagicRound(entity, { nowMinutes = 0, clockMinutes
     else if (career.regeneration === REGENERATION_FLAGS.whileImmersed) regenerate = !!(_host?.isSwimming?.() ?? false);
     const held = regenerate ? regenShare(REGENERATE_AMOUNT, 'career', entity) : 0; // WBX6 / EVENT-RULES: held in a made level
     if (held > 0) sinks?.heal?.(held);
+  }
+
+  // RACIAL-OVERHAUL: Argonian Hist Regen in water or outdoor rain/thunder (every 2 rounds)
+  if (
+    nowMinutes % 2 === 0 &&
+    isRacialOverhaulEnabled() &&
+    isOverhaulPlayer(entity) &&
+    entity.raceId === RACES.Argonian &&
+    ((_host?.isSwimming?.() ?? false) || (_host?.isRaining?.() ?? false))
+  ) {
+    const held = regenShare(1, 'racial', entity);
+    if (held > 0) sinks?.heal?.(held);
+    const fatGain = Math.trunc(maxFatigue(entity) * 0.02);
+    if (fatGain > 0) sinks?.restoreFatigue?.(fatGain);
   }
 
   // DamageFromSunlight (:107-121): the career flag, every 4th round in

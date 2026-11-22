@@ -31,6 +31,7 @@ import { skillValue, SKILLS } from '../systems/skills.js';
 import { noteSkillChallenge } from '../systems/skillSoftcap.js';   // SOFTCAP1: the foe a blow was traded with, for the real-use law
 import { mentorArmorValue, mentorGearScale, mentorDamageTakenMult } from '../systems/mentorMode.js';   // SOFTCAP1: mentor mode's overlay   // S3: real skills (enemies stay flat, verbatim)
 import { RACES } from '../systems/races.js';   // CalculateRacialModifiers reads the DFU-numbered race id
+import { isRacialOverhaulEnabled, isOverhaulPlayer, overhaulRacialCombatMods } from '../systems/racialOverhaulData.js';
 import { SPECIAL_ABILITY_BITS, PROFICIENCY_BITS } from '../systems/specialAdvantages.js';   // AUDIT 21 F2: the Adrenaline Rush bit; CF1: the HandToHand expertise bit
 // NOT from rest.js, which re-exports healingRateModifier FROM here - importing
 // hasSpecialAbility back out of it makes a cycle, and the ESM binding lands in
@@ -784,7 +785,9 @@ export function calculateAttackDamage(attacker, target, { weapon = null, wraps: 
     chanceToHitMod += prof.toHitMod;
     notes.diag.toHitParts.profToHit = prof.toHitMod;
     notes.diag.damage.profDamageMod = prof.damageMod;
-    const racial = racialModifiers(attacker, weapon);
+    const racial = isRacialOverhaulEnabled() && isOverhaulPlayer(attacker)
+      ? overhaulRacialCombatMods(attacker, weapon, weapon ? weaponSkillUsed(weapon.templateIndex) : SKILLS.HandToHand)
+      : racialModifiers(attacker, weapon);
     damageModifiers += racial.damageMod;
     chanceToHitMod += racial.toHitMod;
     notes.diag.toHitParts.racialToHit = racial.toHitMod;

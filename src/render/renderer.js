@@ -27,6 +27,9 @@ import { frameTarget, setFrameTarget } from './renderTarget.js';   // RW1: the v
 import { CLIP_SENTINEL } from '../world/terrain/terrainSurface.js';   // FAR-CLIP1: the byte the terrain's clip variant discards - the TileMap format's module, already in this file's closure (waterCorners.js)
 /** AUDIT TECH-FX: the screen offset before any is set - one, frozen (Renderer `screenOffset`). */
 const NO_SCREEN_OFFSET = Object.freeze([0, 0]);
+let _nightVisionReader = null;
+/** RACIAL-OVERHAUL: zero-import hook for Khajiit night vision ambient lift when sunScale is low. */
+export function setNightVisionReader(fn) { _nightVisionReader = typeof fn === 'function' ? fn : null; }
 /** OW-HITCH: how many layers of a ground tile array go up between two of uploadTileArraySteps' yields (8 of 256 texels: 2 MB). */
 export const TILE_LAYERS_A_STEP = 8;
 
@@ -2942,6 +2945,22 @@ export class Renderer {
     return this._lane ? this._lane.decode3(src, scratch) : src;
   }
 
+  _nvAmb(src, scratch = this._decA) {
+    let base = src;
+    if (_nightVisionReader && this._sunScale < 0.15 && src) {
+      const raw = _nightVisionReader();
+      if (Number.isFinite(raw) && raw > 0) {
+        const lift = Math.min(0.4, raw) * Math.max(0, Math.min(1, (0.15 - this._sunScale) / 0.15));
+        const nv = this._nvScratch ?? (this._nvScratch = new Float32Array(3));
+        nv[0] = Math.min(1, Math.max(0, (Number.isFinite(src[0]) ? src[0] : 0) + lift * 0.85));
+        nv[1] = Math.min(1, Math.max(0, (Number.isFinite(src[1]) ? src[1] : 0) + lift * 0.95));
+        nv[2] = Math.min(1, Math.max(0, (Number.isFinite(src[2]) ? src[2] : 0) + lift * 1.1));
+        base = nv;
+      }
+    }
+    return this._lane ? this._lane.decode3(base, scratch) : base;
+  }
+
   /** EL1: the lane's own uniforms for one program, when a lane is on -
    *  the exposure, and the in-scatter gain folded with the fog's density
    *  (zero with the fog off, so clear air glows nowhere). */
@@ -3939,7 +3958,7 @@ export class Renderer {
       gl.uniformMatrix4fv(c.proj, false, this._proj);
       gl.uniformMatrix4fv(c.view, false, this._view);
       gl.uniform3fv(c.lightDir, this._lightDir);
-      gl.uniform3fv(c.ambient, this._c3(this._ambient));
+      gl.uniform3fv(c.ambient, this._nvAmb(this._ambient));
       gl.uniform1f(c.sunScale, this._sunScale);
       gl.uniform3fv(c.sunColor, this._c3(this._sunColor));
       gl.uniform3fv(c.moonDir, this._moonDir);
@@ -4900,7 +4919,7 @@ void main() {
         // rediscovered: THREE COLOURS, THREE SCRATCHES. Two decodes into
         // one scratch is the bug that pass carried for the whole world's
         // flats until an audit found it.
-        const am = this._c3(this._ambient, this._decA);
+        const am = this._nvAmb(this._ambient, this._decA);
         const mc = this._c3(this._moonColor, this._decB);
         const sc = this._c3(this._sunColor, this._decC);
         // BLOOD AUDIT 5: THE BARE AMBIENT - the moon is its own term by N.L
@@ -4922,7 +4941,7 @@ void main() {
       // BLOOD AUDIT 5: the trilight ambient (BA1), as drawMesh uploads it
       const tri = this._ambientTri;
       gl.uniform1f(d.trilight, tri ? 1 : 0);
-      if (tri) { gl.uniform3fv(d.ambientSky, this._c3(tri.sky)); gl.uniform3fv(d.ambientGround, this._c3(tri.ground)); }
+      if (tri) { gl.uniform3fv(d.ambientSky, this._nvAmb(tri.sky)); gl.uniform3fv(d.ambientGround, this._nvAmb(tri.ground)); }
       // MAC-BUG W4 pinned this as "a fifth classic program with no lane
       // twin", cutting to the classic sixteen under the lane's forty-eight.
       // MAC-BUG W6 gave it the twin (enhancedLighting.js EL_DECAL_FS), so
@@ -5988,7 +6007,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     this._frameStamp++;   // PERF3
     this._ripples = null;   // AUDIT WATER-NEXT G12: no ripple field but the one a host hands over this frame
     this._snowRise = 0;   // SNOW-TELL: and the snow's height over the ground - drawSnow's, on a frame that draws it
-    gl.uniform3fv(this.uAmbient, this._c3(this._ambient));   // EL1: every colour goes up as the installed set wants it (_c3)
+    gl.uniform3fv(this.uAmbient, this._nvAmb(this._ambient));   // EL1: every colour goes up as the installed set wants it (_c3)
     this._uploadTrilight();
     gl.uniform1f(this.uSunScale, this._sunScale);
     gl.uniform3fv(this.uSunColor, this._c3(this._sunColor));
@@ -6744,7 +6763,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const gl = this.gl;
     this._use(this.program);
     gl.uniform3fv(this.uLightDir, this._lightDir);
-    gl.uniform3fv(this.uAmbient, this._c3(this._ambient));
+    gl.uniform3fv(this.uAmbient, this._nvAmb(this._ambient));
     this._uploadTrilight();
     gl.uniform1f(this.uSunScale, this._sunScale);
     gl.uniform3fv(this.uSunColor, this._c3(this._sunColor));
@@ -6776,7 +6795,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const gl = this.gl;
     const tri = this._ambientTri;
     gl.uniform1f(this.uTrilight, tri ? 1 : 0);
-    if (tri) { gl.uniform3fv(this.uAmbientSky, this._c3(tri.sky)); gl.uniform3fv(this.uAmbientGround, this._c3(tri.ground)); }
+    if (tri) { gl.uniform3fv(this.uAmbientSky, this._nvAmb(tri.sky)); gl.uniform3fv(this.uAmbientGround, this._nvAmb(tri.ground)); }
   }
 
   /** Distance fog for every world pass. mode 'off'|'linear'|'exp'|'exp2'
@@ -8022,7 +8041,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       gl.uniformMatrix4fv(L.uView, false, this._view);
       this._uploadFog(S.fog);
       gl.uniform3fv(L.uLightDir, this._lightDir);
-      gl.uniform3fv(L.uAmbient, this._c3(this._ambient));
+      gl.uniform3fv(L.uAmbient, this._nvAmb(this._ambient));
       gl.uniform1f(L.uSunScale, this._sunScale);
       gl.uniform3fv(L.uSunColor, this._c3(this._sunColor));
       gl.uniform3fv(L.uMoonDir, this._moonDir);
@@ -8203,7 +8222,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       gl.uniform1f(this.tUGroundEdge, this.coastEdges ? 1 : 0);   // COAST-LOOK: a frame's, as the road edge's
       this._uploadFog(this._terrainFog);
       gl.uniform3fv(this.tULightDir, this._lightDir);
-      gl.uniform3fv(this.tUAmbient, this._c3(this._ambient));
+      gl.uniform3fv(this.tUAmbient, this._nvAmb(this._ambient));
       gl.uniform1f(this.tUSunScale, this._sunScale);
       gl.uniform3fv(this.tUSunColor, this._c3(this._sunColor));
       gl.uniform3fv(this.tUMoonDir, this._moonDir);
@@ -8887,7 +8906,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
         // holds more than one decoded colour live at once, which is why it
         // is the only one that could have it; found by the audit that had
         // just pinned PERF-FOG's decoded fog (gone since EL-DISTANCE) against the same hazard one method away.
-        const am = this._c3(this._ambient, this._decA), mc = this._c3(this._moonColor, this._decB), sc = this._c3(this._sunColor, this._decC);
+        const am = this._nvAmb(this._ambient, this._decA), mc = this._c3(this._moonColor, this._decB), sc = this._c3(this._sunColor, this._decC);
         gl.uniform3f(
           this.bbUTint,
           am[0] + mc[0] * this._moonScale * 0.5,

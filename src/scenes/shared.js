@@ -31,6 +31,7 @@ import { canopyWaterSky } from '../world/jungle/jungleCanopy.js';   // VALENWOOD
 import { cloudsStateUnderMod, dynamicMoonState, dynamicMoonlight } from '../render/dynamicSkiesBridge.js';   // DS1/DS2: the mod's state in the port's shapes - the moons, the clouds, and the moons' own term (AUDIT 65 MC-3: the bridge's third export had no caller and this file carried its body inline)
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // RA1: the Enhanced pane's sky switch
+import { racialSwimSpeedMult } from '../systems/racialOverhaulData.js';
 import { pageParam } from '../systems/pageQuery.js';   // CLIMB1: `?parkour=off`, the enhanced climb's kill door
 import { isOnlinePage, onlineForcedPref } from '../systems/online/onlineLane.js';   // CLIMB1: online the skin is not asked, and the row is the lane's
 import { madeRuleHere } from '../systems/madeLevel.js';   // EG-PERFECT: the made level's law refuses the running leap on its proven ways
@@ -890,6 +891,7 @@ export function motorStats(entity) {
     get speed() { return entity.stats?.speed != null ? liveStat(entity, 'speed') : 50; },
     get running() { return skillValue(entity, SKILLS.Running); },
     get swimming() { return skillValue(entity, SKILLS.Swimming); },
+    get swimSpeedMult() { return racialSwimSpeedMult(entity); },
   };
 }
 

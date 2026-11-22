@@ -34,6 +34,7 @@ import { setModApiContext } from './mods/modPluginApi.js';
 import { decayEnemyAlert } from './encounters.js';   // PlayerEntity.Update:380-384, the 8-hour alert decay
 import { dice100, setPlayerStruckHook } from '../combat/formulas.js';
 import { installPcaao } from '../combat/pcaao.js';   // PCO1: the mod's RegisterOverride, once, for every host
+import { installRacialOverhaul } from './racialOverhaul.js';
 import { installMeanerMonsters } from '../characters/meanerMonsters.js';   // MM1: its xml billboard scales join the registry, once
 import { installUnleveledLoot } from './unleveledLoot.js';   // UL1: its two material overrides and its death handler, once
 import { onLycanthropeHit } from './lycanthropy.js';
@@ -142,6 +143,7 @@ setGameLogContext({ worldMinutes: () => ownMinutes() });
 // reads its module switch live and declines when off.
 installMeanerMonsters();   // MM1: before the overhaul, as DFU Awakes the dependency first
 installPcaao();
+installRacialOverhaul();
 installUnleveledLoot();   // UL1: after everything it would override (its manifest orders it after Roleplay Realism)
 syncModData();
 loadActiveModPlugins();

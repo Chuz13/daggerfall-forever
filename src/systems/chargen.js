@@ -7,6 +7,7 @@ import { renownHpOf, renownMpOf, foldMpOf, spireHpOf } from './renownLayer.js'; 
 import { lichHpOf, lichMpOf } from './necromancy/lichdomStatus.js';
 import { apotheosisHpOf, apotheosisMpOf } from './apotheosis/apotheosisLive.js';
 import { getPerkMagickaBonus, getPerkHealthBonus } from './perks/perkRegistry.js';
+import { racialHpBonus, racialMpBonus } from './racialOverhaulData.js';
 import { clearGameLog } from './gameLog.js';
 
 // Character creation (Systems S3). Verbatim ports from DFU
@@ -355,7 +356,7 @@ export function defineLiveMaxHealth(entity) {
       // rides above whatever Daggerfall allows ("On top").
       const limiter = this.maxHealthLimiter;
       const own = limiter >= 1 && limiter < stored ? limiter : stored; // "Limiter must be 1 or greater"
-      return own + renownHpOf(this) + spireHpOf(this) + lichHpOf(this) + apotheosisHpOf(this) + getPerkHealthBonus(this); // EG-ZR: and the Spire's Stoneskin, on the same terms; Lichdom HP bonus; Apotheosis HP bonus; Feat bonus
+      return own + racialHpBonus(this, own) + renownHpOf(this) + spireHpOf(this) + lichHpOf(this) + apotheosisHpOf(this) + getPerkHealthBonus(this); // EG-ZR: and the Spire's Stoneskin, on the same terms; Lichdom HP bonus; Apotheosis HP bonus; Feat bonus
     },
     set(v) {
       stored = v;
@@ -419,7 +420,7 @@ export function defineLiveMaxMagicka(entity) {
       // (systems/renownLayer.js) - inside the floor, so a magery that makes the character unable still leaves 0.
       // EG15: and the folds' magicka beside it (entityMods.js's channel - the Battlemage's Bearing), on the same terms
       // NECRO: and Lichdom's magicka bonus (+250 for Lich, +500 for Ancient Lich)
-      const effective = raw + (this.maxMagickaModifier ?? 0) + renownMpOf(this) + foldMpOf(this) + lichMpOf(this) + apotheosisMpOf(this) + getPerkMagickaBonus(this);
+      const effective = raw + racialMpBonus(this, raw) + (this.maxMagickaModifier ?? 0) + renownMpOf(this) + foldMpOf(this) + lichMpOf(this) + apotheosisMpOf(this) + getPerkMagickaBonus(this);
       return effective < 0 ? 0 : effective;
     },
     set(v) {
