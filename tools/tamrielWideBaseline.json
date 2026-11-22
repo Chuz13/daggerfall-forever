@@ -46,7 +46,7 @@
   "src/systems/gate/gateSite.js": 1,
   "src/systems/map/mapDirectory.js": 1,
   "src/systems/quest/place.js": 3,
-  "src/ui/heldMap.js": 2,
+  "src/ui/heldMap.js": 1,
   "src/ui/ink/inkMap.js": 2,
   "src/ui/travel/travelMapWindow.js": 3,
   "src/world/oceanHoles.js": 1,

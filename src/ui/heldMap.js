@@ -4181,6 +4181,43 @@ export class HeldMapWindow {
    * window's chrome is a sheet that cannot be built outside this file.
    * The window does the writing, in one place, for every sheet.
    */
+  _regionGroundTip(region, rawOre = null) {
+    let ore = rawOre;
+    if (ore && !this._zoneLaws()) {
+      ore = {
+        ...ore,
+        lines: ore.lines
+          .filter((l) => !/witness|player|account/i.test(l))
+          .map((l) => l.replace(/;\s*[^;]*witnessed[^;]*/gi, '').replace(/[^;]*witnessed[^;]*;\s*/gi, '').trim())
+          .filter(Boolean),
+      };
+    }
+    const regionValid = Number.isInteger(region) && region >= 0 && region < REGION_NAMES.length;
+    const crisisLines = regionValid ? [...(getRegionCrisisLines(region) ?? [])] : [];
+    const apoPlayer = this.deps.playerEntity?.() ?? getActiveApotheosisPlayer?.() ?? null;
+    if (regionValid && isAscendedGod(apoPlayer)) {
+      const inf = getRegionInfluence(apoPlayer, region);
+      const leadName = inf.leaderId === 'player'
+        ? t('apotheosis.map.you', 'Your Cult')
+        : (getPantheonDeity(inf.leaderId)?.name ?? inf.leaderId);
+      crisisLines.unshift(t('apotheosis.map.dominion', 'Dominion: {god} ({pct}%) · Your Cult: {you}%', {
+        god: leadName,
+        pct: inf.leaderShare,
+        you: inf.playerShare,
+      }));
+    }
+    if (ore && crisisLines.length > 0) {
+      ore = {
+        ...ore,
+        lines: [...crisisLines, ...ore.lines],
+      };
+    }
+    const crisisTip = crisisLines.length > 0
+      ? readTip({ title: REGION_NAMES[region] ?? '', lines: crisisLines }, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX })
+      : null;
+    return { regionValid, tip: ore ?? crisisTip };
+  }
+
   _hoverLabel(sx, sy) {
     const flag = this._waypointHover(sx, sy);   // WAYPOINTS: a flag names itself first (and lights, or lets its light go)
     if (flag) return flag;
@@ -4246,7 +4283,33 @@ export class HeldMapWindow {
       const ore = past.on === 'land' ? readTip(this.deps.oreAt?.(px, py, () => this._refreshTip()) ?? null) : null;
       // WW7-6: a seat past the Bay answers with its card, as the Bay's (SEAT-TIP)
       const seat = past.city?.mapId != null ? this.deps.seatAt?.({ mapId: past.city.mapId }) ?? null : null;
-      const tip = seat ? readTip(seatTipOf(seat), { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX }) : ore;
+      let tip = null;
+      if (past.on === 'city') {
+        const card = (past.city?.mapId != null ? this.deps.townTipAt?.({ mapId: past.city.mapId }) : null) ?? (seat ? seatTipOf(seat) : null);
+        tip = card ? readTip(card, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX }) : null;
+        if (!tip) {
+          const cx = past.city?.pixel?.x ?? px, cy = past.city?.pixel?.y ?? py;
+          const reg = (this.deps.maps?.getPoliticIndex?.(cx, cy) ?? -1) - 128;
+          if (reg >= 0 && reg < REGION_NAMES.length) {
+            const lines = getRegionCrisisLines(reg) ?? [];
+            if (lines.length > 0) {
+              tip = readTip({ title: past.city?.name || REGION_NAMES[reg] || '', lines }, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX });
+            }
+          }
+        }
+      } else if (past.on === 'mark') {
+        const mxPx = past.pixel?.x ?? px, myPx = past.pixel?.y ?? py;
+        const reg = (this.deps.maps?.getPoliticIndex?.(mxPx, myPx) ?? -1) - 128;
+        if (reg >= 0 && reg < REGION_NAMES.length) {
+          const lines = getRegionCrisisLines(reg) ?? [];
+          if (lines.length > 0) {
+            tip = readTip({ title: past.name || REGION_NAMES[reg] || '', lines }, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX });
+          }
+        }
+      } else if (past.on === 'land') {
+        const reg = (this.deps.maps?.getPoliticIndex?.(px, py) ?? -1) - 128;
+        tip = this._regionGroundTip(reg, ore).tip;
+      }
       return { label: past.label, cursor: (this.teleportationTravel ? past.city?.pixel || (past.on === 'mark' && this._pastBayTownAt(past.pixel.x, past.pixel.y)) || (this.deps.portalLandPastBay && portalLandAt(px, py)) : (this._walksPastBay() || this._travelsPastBay()) && this._pastBayPressPick(mx, my)) ? 'pointer' : '', ...(tip ? { tip } : {}) };   // PORTAL-ANYWHERE: and on the stone's map its land   // TESA2: a place the stone's portal reaches points; OW-PAST-BAY: and on the travel map where a press walks
     }
     // the raw politic read, range-checked - the classic window's own
@@ -4255,40 +4318,8 @@ export class HeldMapWindow {
     const region = politic - 128;
     // ORE-MAP (ui/oreMapTip.js): bare ground answers with its ore card where the host has one - online, the professions
     // open (deps.oreAt) - and the card is asked again when the ground's witnessed state arrives
-    let ore = readTip(this.deps.oreAt?.(px, py, () => this._refreshTip()) ?? null);
-    if (ore && !this._zoneLaws()) {
-      ore = {
-        ...ore,
-        lines: ore.lines
-          .filter((l) => !/witness|player|account/i.test(l))
-          .map((l) => l.replace(/;\s*[^;]*witnessed[^;]*/gi, '').replace(/[^;]*witnessed[^;]*;\s*/gi, '').trim())
-          .filter(Boolean),
-      };
-    }
-    const regionValid = region >= 0 && region < (this.deps.maps?.regionCount ?? 0);
-    const crisisLines = regionValid ? [...(getRegionCrisisLines(region) ?? [])] : [];
-    const apoPlayer = this.deps.playerEntity?.() ?? getActiveApotheosisPlayer?.() ?? null;
-    if (regionValid && isAscendedGod(apoPlayer)) {
-      const inf = getRegionInfluence(apoPlayer, region);
-      const leadName = inf.leaderId === 'player'
-        ? t('apotheosis.map.you', 'Your Cult')
-        : (getPantheonDeity(inf.leaderId)?.name ?? inf.leaderId);
-      crisisLines.unshift(t('apotheosis.map.dominion', 'Dominion: {god} ({pct}%) · Your Cult: {you}%', {
-        god: leadName,
-        pct: inf.leaderShare,
-        you: inf.playerShare,
-      }));
-    }
-    if (ore && crisisLines.length > 0) {
-      ore = {
-        ...ore,
-        lines: [...crisisLines, ...ore.lines],
-      };
-    }
-    const crisisTip = crisisLines.length > 0
-      ? readTip({ title: REGION_NAMES[region] ?? '', lines: crisisLines }, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX })
-      : null;
-    const groundTip = ore ?? crisisTip;
+    const rawOre = readTip(this.deps.oreAt?.(px, py, () => this._refreshTip()) ?? null);
+    const { regionValid, tip: groundTip } = this._regionGroundTip(region, rawOre);
     return {
       label: regionValid ? (REGION_NAMES[region] ?? '') : '',
       cursor: '',

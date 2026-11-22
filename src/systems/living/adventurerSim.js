@@ -18,6 +18,7 @@ import { REGION_NAMES } from '../../formats/mapsTables.js';
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getLivingDirectorState } from './livingDirector.js';
 import { getRegionState } from './regionState.js';
+import { getRegionNeighbors } from './tamrielNeighbors.js';
 import { LEVEL_CAP } from '../levelCap.js';
 import { isMainStoryDungeon } from '../../world/dungeon/dungeonTextures.js';
 import { SKILLS, skillValue, tallySkill } from '../skills.js';
@@ -111,13 +112,26 @@ export const RECLAIM_OUTCOME = Object.freeze({
  * @param {boolean} [allowCompetition]
  * @returns {boolean} True if the location is immune to adventurer clearing
  */
+export function matchesQuestSite(site, locationId) {
+  if (!site || !locationId) return false;
+  const siteId = site.mapId ?? site.locationId;
+  if (siteId == null) return false;
+  const target = String(locationId);
+  if (String(siteId) === target) return true;
+  if (site.regionIndex != null && Number.isFinite(Number(siteId))) {
+    const slotKey = `dungeon_${site.regionIndex}_${Math.abs(Math.trunc(Number(siteId))) % 10}`;
+    if (slotKey === target) return true;
+  }
+  return false;
+}
+
 export function isQuestImmuneLocation(
   locationId,
   activeQuestSites = [],
   allowCompetition = LivingTamrielConfig.allowQuestCompetition
 ) {
   if (!activeQuestSites || !Array.isArray(activeQuestSites) || !locationId) return false;
-  const site = activeQuestSites.find((s) => s && String(s.mapId) === String(locationId));
+  const site = activeQuestSites.find((s) => matchesQuestSite(s, locationId));
   if (!site) return false;
 
   // If competition is turned OFF, all active quest locations are strictly shielded
@@ -247,6 +261,45 @@ export const REGIONAL_DUNGEON_NAMES = Object.freeze([
   { suffix: 'Vault', type: 'Ruin' },
 ]);
 
+const PROVINCE_ICONIC_DUNGEONS = Object.freeze({
+  62: [
+    { name: 'Crypt of Hearts [Crypt]', type: 'Crypt' },
+    { name: 'Spindleclutch Caverns [Den]', type: 'Den' },
+  ],
+  63: [
+    { name: 'Volenfell Ruins [Ruin]', type: 'Ruin' },
+    { name: 'Fang Lair [Labyrinth]', type: 'Labyrinth' },
+  ],
+  64: [
+    { name: 'Labyrinthian [Labyrinth]', type: 'Labyrinth' },
+    { name: 'Bleak Falls Barrow [Crypt]', type: 'Crypt' },
+  ],
+  65: [
+    { name: 'Arkngthand Ruins [Ruin]', type: 'Ruin' },
+    { name: 'Dagoth Ur Citadel [Keep]', type: 'Keep' },
+  ],
+  66: [
+    { name: 'Crystal Tower Vaults [Keep]', type: 'Keep' },
+    { name: 'Tor-Hame-Khard Ruins [Ruin]', type: 'Ruin' },
+  ],
+  67: [
+    { name: 'Elden Hollow [Den]', type: 'Den' },
+    { name: "Selene's Web [Coven]", type: 'Coven' },
+  ],
+  68: [
+    { name: 'Halls of the Colossus [Labyrinth]', type: 'Labyrinth' },
+    { name: 'Sunspire Vaults [Ruin]', type: 'Ruin' },
+  ],
+  69: [
+    { name: 'Mazzatun Ruins [Ruin]', type: 'Ruin' },
+    { name: 'Blackrose Prison [Keep]', type: 'Keep' },
+  ],
+  70: [
+    { name: 'Sancre Tor [Keep]', type: 'Keep' },
+    { name: 'Vilverin Ruins [Ruin]', type: 'Ruin' },
+  ],
+});
+
 /**
  * Returns a canonical regional dungeon descriptor with name and dungeon type.
  * Uses iconic canonical DFU dungeons for major regions.
@@ -262,6 +315,14 @@ export function getRegionalDungeonDescriptor(regionIndex, slotIndex) {
   if (regionIndex === 17 && slot === 1) return { id: `dungeon_${regionIndex}_1`, name: "Castle Daggerfall Dungeons [Labyrinth]", type: 'Labyrinth' };
   if (regionIndex === 23 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Wayrest Sewers [Labyrinth]", type: 'Labyrinth' };
   if (regionIndex === 20 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Ruins of Kemel-Ze [Ruin]", type: 'Ruin' };
+  const provIconic = PROVINCE_ICONIC_DUNGEONS[regionIndex]?.[slot];
+  if (provIconic) {
+    return {
+      id: `dungeon_${regionIndex}_${slot}`,
+      name: provIconic.name,
+      type: provIconic.type,
+    };
+  }
   return {
     id: `dungeon_${regionIndex}_${slot}`,
     name: `${regName} ${tmpl.suffix} [${tmpl.type}]`,
@@ -516,10 +577,10 @@ export function tickAdventurerSimulation({
 
           // If this dungeon was a non-main quest site and competition is ON, intercept!
           if (allowComp && activeQuestSites?.length) {
-            const matchedSite = activeQuestSites.find((s) => s && String(s.mapId) === String(locId));
+            const matchedSite = activeQuestSites.find((s) => matchesQuestSite(s, locId));
             if (matchedSite && !matchedSite.isMainQuest) {
               reg.interceptedQuests[locId] = {
-                questId: matchedSite.mapId,
+                questId: matchedSite.mapId ?? matchedSite.locationId,
                 locationId: locId,
                 adventurerId: adv.id,
                 adventurerName: adv.name,
@@ -591,7 +652,10 @@ export function tickAdventurerSimulation({
       }
     } else {
       // Travel to adjacent region across all of Tamriel
-      const neighborRegion = (adv.currentRegion + 1) % TOTAL_REGION_COUNT;
+      const neighbors = getRegionNeighbors(adv.currentRegion);
+      const neighborRegion = neighbors.length > 0
+        ? neighbors[Math.floor(rng() * neighbors.length)]
+        : (adv.currentRegion + 1) % TOTAL_REGION_COUNT;
       adv.status = ADVENTURER_STATUS.TRAVELING;
       adv.currentRegion = neighborRegion;
       adv.daysRemainingInAction = 1 + Math.floor(rng() * 2);

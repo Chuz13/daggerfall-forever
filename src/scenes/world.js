@@ -330,7 +330,7 @@ import { freePull } from '../systems/travel/freePull.js';   // OW-FREE-STRAIGHT,
 import { createGrantHost } from './grantHost.js';   // GRANT2-GRANT4: the spawn grants - my stands' and my reading of others' (bible/11-Multiplayer/Spawn-Grants.md)
 import { wireOwnerClock } from './ownerCatchUp.js';   // OWNER-CLOCK: my foes' steps on the clock their frames carry, and the street's kept to my frame's pace while anyone else is in my room
 import { createBootStart } from './bootStartHost.js';   // HOST-SPLIT: the boot's start, moved out of bootWorld
-import { isProvinceRegion, BAY_REGION_COUNT } from '../formats/mapsTables.js';   // BAY-LEFT-B: a province's region the quest layer's table (the talk's Regional rows)
+import { isProvinceRegion, BAY_REGION_COUNT, theatreOfRegion } from '../formats/mapsTables.js';   // BAY-LEFT-B: a province's region the quest layer's table (the talk's Regional rows)
 import { createCraftWritHost } from './craftWritHost.js';   // CRAFT-WRITS: the Work tab's crafting writs, handed over from the pack
 import { createSeasonBook } from './seasonBookHost.js';   // SEASON-BOOK: the laurel's boards, asked while its window is open
 import { rollNoticeDoors } from './rollNoticeHost.js';   // SEAT-WORDS / STANDING-WORDS: what the Roll's tracker says
@@ -3893,6 +3893,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       for (const p of Object.values(q.places ?? {})) {
         if (p?.mapId != null) {
           out.push({
+            mapId: p.mapId,
             locationId: p.mapId,
             regionIndex: p.regionIndex ?? (_musicLoc?.regionIndex ?? 0),
             isMainQuest: Boolean(q.isMainStory || String(q.questName || '').startsWith('S0000')),
@@ -30866,7 +30867,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (candidateRegions.length === 0) {
         return cleanFilter
           ? `[Crisis TP] No active region currently experiencing "${cleanFilter}". Use 'crisis start ${cleanFilter}' or wait for world simulation.`
-          : `[Crisis TP] No active regional crises currently occurring in the Bay.`;
+          : `[Crisis TP] No active regional crises currently occurring in Tamriel.`;
       }
 
       // Shuffle candidate regions and pick the first one that has mapped settlements
@@ -30880,6 +30881,24 @@ export async function bootWorld(canvas, renderer, params, status) {
         for (const [k, loc] of locationIndex.entries()) {
           if (loc.regionIndex === r && loc.name) {
             candSettlements.push({ loc, key: k });
+          }
+        }
+        if (candSettlements.length === 0) {
+          const theatre = theatreOfRegion(r);
+          const listed = theatre >= 0 ? (worldPlaces?.inTheatre?.(theatre) ?? []) : [];
+          const fillNames = new Set(['City Isle', 'Lake Rumare', 'Rumare Shore']);
+          for (const p of listed) {
+            if (
+              p &&
+              p.region === r &&
+              p.name &&
+              !fillNames.has(p.name) &&
+              (p.type === LOCATION_TYPES.TownCity || p.type === LOCATION_TYPES.TownHamlet || p.type === LOCATION_TYPES.TownVillage) &&
+              Number.isInteger(p.px) &&
+              Number.isInteger(p.py)
+            ) {
+              candSettlements.push({ loc: { name: p.name, regionIndex: r }, key: `${p.px},${p.py}` });
+            }
           }
         }
         if (candSettlements.length > 0) {
