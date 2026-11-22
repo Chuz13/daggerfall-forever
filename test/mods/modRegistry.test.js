@@ -7,6 +7,8 @@ import {
   getMod,
   registerVirtualMod,
   setModEnabled,
+  setModLoadOrder,
+  getModLoadOrder,
   readModFile,
   _resetModRegistry,
 } from '../../src/systems/mods/modRegistry.js';
@@ -127,6 +129,73 @@ test('ModsStorage: auto-seeds missing bundled examples into non-empty Mods folde
     assert.ok(ids.includes('duelists-flow'));
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('ModRegistry: persists mod enabled flags and load order via daggerShell.storage (appStorage seam)', () => {
+  const prevShellDesc = Object.getOwnPropertyDescriptor(globalThis, 'daggerShell');
+  const prevLsDesc = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const shellStore = new Map([['dagger.mods.legacy-mod.enabled', 'false']]);
+  const lsStore = new Map([['dagger.mods.migrated-mod.enabled', 'false']]);
+
+  Object.defineProperty(globalThis, 'daggerShell', {
+    configurable: true,
+    writable: true,
+    value: {
+      storage: {
+        length: () => shellStore.size,
+        key: (i) => [...shellStore.keys()][i] ?? null,
+        getItem: (k) => (shellStore.has(k) ? shellStore.get(k) : null),
+        setItem: (k, v) => shellStore.set(k, String(v)),
+        removeItem: (k) => shellStore.delete(k),
+      },
+    },
+  });
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    writable: true,
+    value: {
+      get length() { return lsStore.size; },
+      key: (i) => [...lsStore.keys()][i] ?? null,
+      getItem: (k) => (lsStore.has(k) ? lsStore.get(k) : null),
+      setItem: (k, v) => lsStore.set(k, String(v)),
+      removeItem: (k) => lsStore.delete(k),
+    },
+  });
+
+  try {
+    _resetModRegistry();
+    registerVirtualMod({ id: 'legacy-mod', name: 'Legacy', enabled: true }, {});
+    registerVirtualMod({ id: 'migrated-mod', name: 'Migrated', enabled: true }, {});
+    registerVirtualMod({ id: 'second-mod', name: 'Second', enabled: true }, {});
+    discoverMods();
+
+    assert.equal(getMod('legacy-mod')?.enabled, false, 'reads enabled flag from daggerShell.storage');
+    assert.equal(getMod('migrated-mod')?.enabled, false, 'falls back to localStorage and migrates into daggerShell.storage');
+    assert.equal(shellStore.get('dagger.mods.migrated-mod.enabled'), 'false');
+
+    setModEnabled('second-mod', false);
+    assert.equal(shellStore.get('dagger.mods.second-mod.enabled'), 'false');
+    assert.equal(lsStore.has('dagger.mods.second-mod.enabled'), false, 'writes go to appStorage, not raw localStorage');
+
+    setModLoadOrder(['second-mod', 'legacy-mod']);
+    assert.equal(shellStore.get('dagger.mods.loadOrder'), JSON.stringify(['second-mod', 'legacy-mod']));
+
+    // Simulate restart
+    _resetModRegistry();
+    registerVirtualMod({ id: 'legacy-mod', name: 'Legacy', enabled: true }, {});
+    registerVirtualMod({ id: 'migrated-mod', name: 'Migrated', enabled: true }, {});
+    registerVirtualMod({ id: 'second-mod', name: 'Second', enabled: true }, {});
+    discoverMods();
+
+    assert.equal(getMod('second-mod')?.enabled, false);
+    assert.deepEqual(getModLoadOrder(), ['second-mod', 'legacy-mod']);
+  } finally {
+    _resetModRegistry();
+    if (prevShellDesc) Object.defineProperty(globalThis, 'daggerShell', prevShellDesc);
+    else delete globalThis.daggerShell;
+    if (prevLsDesc) Object.defineProperty(globalThis, 'localStorage', prevLsDesc);
+    else delete globalThis.localStorage;
   }
 });
 

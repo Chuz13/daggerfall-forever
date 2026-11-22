@@ -5,6 +5,7 @@
 // Adheres strictly to .agentrules (zero unhandled exceptions, surgical integration, no bloat).
 
 import { FORK_FLAGS } from '../../config/forkFlags.js';
+import { appStorage } from '../appStorage.js';
 
 /**
  * @typedef {Object} ModManifest
@@ -74,6 +75,38 @@ const _inMemoryModToggles = new Map();
 const modPrefKey = (modId) => `dagger.mods.${modId}.enabled`;
 const MOD_LOAD_ORDER_KEY = 'dagger.mods.loadOrder';
 
+function readModStorage(key) {
+  try {
+    const store = appStorage();
+    const val = store?.getItem(key);
+    if (val !== null && val !== undefined) return val;
+    // One-way fallback migration for desktop profiles that stored mod prefs in localStorage before DA1 seam adoption.
+    const fallback = typeof localStorage !== 'undefined' ? localStorage : null;
+    if (fallback && fallback !== store) {
+      const legacy = fallback.getItem(key);
+      if (legacy !== null && legacy !== undefined) {
+        try {
+          store?.setItem(key, legacy);
+        } catch {
+          // ignore migration write failure
+        }
+        return legacy;
+      }
+    }
+  } catch {
+    // storage unavailable
+  }
+  return null;
+}
+
+function writeModStorage(key, value) {
+  try {
+    appStorage()?.setItem(key, value);
+  } catch {
+    // storage unavailable
+  }
+}
+
 /**
  * Get user configured mod load order (array of mod IDs).
  * @returns {string[]}
@@ -81,18 +114,16 @@ const MOD_LOAD_ORDER_KEY = 'dagger.mods.loadOrder';
 export function getModLoadOrder() {
   if (_inMemoryLoadOrder !== null) return [..._inMemoryLoadOrder];
   try {
-    if (typeof localStorage !== 'undefined') {
-      const val = localStorage.getItem(MOD_LOAD_ORDER_KEY);
-      if (val) {
-        const parsed = JSON.parse(val);
-        if (Array.isArray(parsed)) {
-          _inMemoryLoadOrder = parsed;
-          return parsed;
-        }
+    const val = readModStorage(MOD_LOAD_ORDER_KEY);
+    if (val) {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        _inMemoryLoadOrder = parsed;
+        return parsed;
       }
     }
   } catch {
-    // localStorage unavailable
+    // storage unavailable
   }
   return [];
 }
@@ -104,13 +135,7 @@ export function getModLoadOrder() {
 export function setModLoadOrder(orderArray) {
   if (!Array.isArray(orderArray)) return;
   _inMemoryLoadOrder = [...orderArray];
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(MOD_LOAD_ORDER_KEY, JSON.stringify(orderArray));
-    }
-  } catch {
-    // localStorage unavailable
-  }
+  writeModStorage(MOD_LOAD_ORDER_KEY, JSON.stringify(orderArray));
 }
 
 /**
@@ -140,14 +165,8 @@ function isModUserEnabled(modId, defaultState = true) {
   if (_inMemoryModToggles.has(modId)) {
     return !!_inMemoryModToggles.get(modId);
   }
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const val = localStorage.getItem(modPrefKey(modId));
-      if (val !== null) return val === 'true';
-    }
-  } catch {
-    // localStorage unavailable
-  }
+  const val = readModStorage(modPrefKey(modId));
+  if (val !== null) return val === 'true';
   return defaultState;
 }
 
@@ -162,13 +181,7 @@ export function setModEnabled(modId, enabled) {
   if (mod) {
     mod.enabled = !!enabled;
   }
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(modPrefKey(modId), String(!!enabled));
-    }
-  } catch {
-    // localStorage unavailable
-  }
+  writeModStorage(modPrefKey(modId), String(!!enabled));
 }
 
 /**
