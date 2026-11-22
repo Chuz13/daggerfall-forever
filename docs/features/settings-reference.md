@@ -1,6 +1,6 @@
 # Settings Added Outside the DFF Tab
 
-While major frameworks (**Living Tamriel**, **Dark Arts & Necromancy**, and **Apotheosis: Path of CHIM**) live under the bottom **DFF** tab in the Enhanced Settings menu, many DFF features and granular toggles are placed directly in their natural vanilla/DFO categories or the Profile / Look selector.
+While major frameworks (**Races & Character** / [Racial Overhaul](/racial-overhaul/), **Living Tamriel**, **Dark Arts & Necromancy**, and **Apotheosis: Path of CHIM**) live under the bottom **DFF** tab in the Enhanced Settings menu, many DFF features and granular toggles are placed directly in their natural vanilla/DFO categories or the Profile / Look selector.
 
 ---
 
