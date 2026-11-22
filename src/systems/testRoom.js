@@ -924,9 +924,59 @@ export function seedTestRaceQuickStart(entity, { level = 1, spellsByIndex = null
     pushSpell(spellsByIndex?.get?.(id) ?? spellRecordOfIndex(id) ?? fallback());
   }
 
-  entity.items ??= [];
+  const slots = equipTableOf(entity);
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i]) unequipSlot(entity, i);
+  }
+  entity.items = [];
+
+  addItem(entity.items, mintCondition(setItemFields({ group: 'MiscItems', templateIndex: SPELLBOOK_TEMPLATE_INDEX })));
+
+  addItem(entity.items, createWeapon(WEAPONS_ENUM.Dagger, 1));
+  const longsword = createWeapon(WEAPONS_ENUM.Longsword, 1);
+  addItem(entity.items, longsword);
+  equipItem(entity, longsword, EQUIP_SLOTS.RightHand);
+  addItem(entity.items, createWeapon(WEAPONS_ENUM['Battle Axe'] ?? 127, 1));
+  addItem(entity.items, createWeapon(WEAPONS_ENUM.Mace ?? 124, 1));
+  addItem(entity.items, createWeapon(WEAPONS_ENUM['Long Bow'] ?? 130, 1));
+  addItem(entity.items, { ...createWeapon(ARROW_TEMPLATE, 0), stackCount: 60 });
   addItem(entity.items, createHandWraps());
+
+  const cuirass = mintCondition(setItemFields({
+    group: 'Armor',
+    templateIndex: ARMOR_ENUM.Cuirass,
+    material: ARMOR_MATERIAL.Leather,
+    name: templateByIndex(ARMOR_ENUM.Cuirass)?.name ?? '',
+    flags: 0,
+  }));
+  addItem(entity.items, cuirass);
+  equipItem(entity, cuirass);
+
+  const bucklerIdx = ARMOR_ENUM.Buckler ?? 109;
+  addItem(entity.items, mintCondition(setItemFields({
+    group: 'Armor',
+    templateIndex: bucklerIdx,
+    material: ARMOR_MATERIAL.Leather,
+    name: templateByIndex(bucklerIdx)?.name ?? '',
+    flags: 0,
+  })));
+
   addItem(entity.items, mintCondition(setItemFields({ group: 'UselessItems2', templateIndex: 247, flags: 0 })));
+
+  const female = entity.gender === 'female';
+  const clothGroup = female ? 'WomensClothing' : 'MensClothing';
+  for (const idx of (female ? [200, 186, 191] : [163, 147, 154])) {
+    const cloth = mintCondition(setItemFields({
+      group: clothGroup,
+      templateIndex: idx,
+      dye: 0,
+      variant: 0,
+      name: templateByIndex(idx)?.name ?? '',
+      flags: 0,
+    }));
+    addItem(entity.items, cloth);
+    equipItem(entity, cloth);
+  }
   unequipSlot(entity, EQUIP_SLOTS.LeftHand);
 
   computeEntityMods(entity);
@@ -936,7 +986,14 @@ export function seedTestRaceQuickStart(entity, { level = 1, spellsByIndex = null
   entity.health = entity.maxHealth;
   entity.magicka = entity.maxMagicka;
   entity.fatigue = maxFatigue(entity);
-  return { level: entity.level, maxHealth: entity.maxHealth, maxMagicka: entity.maxMagicka, maxFatigue: entity.fatigue };
+  return {
+    level: entity.level,
+    maxHealth: entity.maxHealth,
+    maxMagicka: entity.maxMagicka,
+    maxFatigue: entity.fatigue,
+    weightKg: carriedWeight(entity),
+    maxWeightKg: entityMaxEncumbrance(entity),
+  };
 }
 
 /**

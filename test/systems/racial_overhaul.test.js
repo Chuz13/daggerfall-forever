@@ -29,9 +29,11 @@ import { swingPacePct, bowReloadSeconds } from '../../src/characters/weaponState
 import { passiveSpecialsMagicRound, setPassiveSpecialsHost } from '../../src/systems/passiveSpecials.js';
 import { swingFatigueCost } from '../../src/scenes/hostCombat.js';
 import { motorStats } from '../../src/scenes/shared.js';
-import { racialModifiers } from '../../src/combat/formulas.js';
+import { racialModifiers, entityMaxEncumbrance } from '../../src/combat/formulas.js';
 import { pcaaoRacialModifiers } from '../../src/combat/pcaao.js';
-import { snapshotPlayer, restorePlayer, savedVitalsOf } from '../../src/systems/save/save.js';
+import { snapshotPlayer, restorePlayer, savedVitalsOf, restoresSoFar } from '../../src/systems/save/save.js';
+import { carriedWeight } from '../../src/systems/inventory.js';
+import { claimMagicRounds, resetMagicRoundMarker, setWorldMinutes, worldMinutes } from '../../src/systems/worldTick.js';
 import {
   RACIAL_OVERHAUL_PREF,
   isRacialOverhaulEnabled,
@@ -59,7 +61,7 @@ import {
   testRoomOnlineRefused,
   seedTestRaceQuickStart,
 } from '../../src/systems/testRoom.js';
-import { auditRacialOverhaulState, runAllRacesMatrixAudit } from '../../src/systems/diagnostics/racialAudit.js';
+import { auditRacialOverhaulState, verifyRacialSaveRoundTrip, runAllRacesMatrixAudit } from '../../src/systems/diagnostics/racialAudit.js';
 import { buildDiagnosticSnapshot } from '../../src/systems/diagnostics/sessionLogger.js';
 import { recordAttackResolution, dumpCombatLog } from '../../src/systems/diagnostics/combatLogger.js';
 import { getRecentTimelineEvents, clearTimeline } from '../../src/systems/diagnostics/eventTimeline.js';
@@ -503,5 +505,212 @@ describe('Racial Overhaul', () => {
     } finally {
       Object.assign(playerEntity, prevSnapshotRace);
     }
+  });
+});
+
+describe('Racial Overhaul Stage-3 regression fixes', () => {
+  beforeEach(() => {
+    installRacialOverhaul();
+    resetPrefs();
+    setPref(RACIAL_OVERHAUL_PREF, true);
+  });
+
+  afterEach(() => {
+    resetPrefs();
+    setPassiveSpecialsHost(null);
+  });
+
+  it('seedTestRaceQuickStart gives a lightweight, warm, unencumbered kit across all 8 races at L1 and L10', () => {
+    for (const tpl of RACE_TEMPLATES) {
+      for (const lvl of [1, 10]) {
+        const e = {
+          isPlayer: true,
+          raceId: tpl.id,
+          race: tpl.key,
+          gender: tpl.id === RACES.WoodElf ? 'female' : 'male',
+          level: 1,
+          stats: { strength: 55, intelligence: 55, willpower: 50, agility: 50, endurance: 55, personality: 50, speed: 50, luck: 50 },
+          skills: new Array(35).fill(35),
+          skillUses: new Array(35).fill(0),
+          career: { name: 'Spellsword', abilityFlagsAndSpellPointsBitfield: 0x1000, hitPointsPerLevel: 12 },
+          items: [],
+          equip: createEquipTable(),
+          activeEffects: [],
+          reactionMods: new Array(11).fill(0),
+          rawMaxHealth: 40,
+          maxHealth: 40,
+          chargenDone: true,
+        };
+        const info = seedTestRaceQuickStart(e, { level: lvl });
+        const maxEnc = entityMaxEncumbrance(e);
+        const load = carriedWeight(e);
+        assert.ok(load < maxEnc * 0.75, `${tpl.key} L${lvl} load=${load} should be < 75% of ${maxEnc}`);
+        assert.equal(info.weightKg, load);
+        assert.ok(e.equip.slots[EQUIP_SLOTS.RightHand], `${tpl.key} RightHand equipped`);
+        assert.equal(e.equip.slots[EQUIP_SLOTS.LeftHand], null, `${tpl.key} LeftHand empty`);
+        assert.ok(e.equip.slots[EQUIP_SLOTS.Cloak1] || e.equip.slots[EQUIP_SLOTS.Cloak2], `${tpl.key} warm cloak equipped`);
+        assert.equal(e.health, e.maxHealth);
+        assert.equal(e.magicka, e.maxMagicka);
+        assert.equal(e.fatigue, maxFatigue(e));
+      }
+    }
+  });
+
+  it('raceaudit / verifyRacialSaveRoundTrip dryRun does NOT reset magic rounds or increment _restores', () => {
+    const prevWorld = worldMinutes();
+    try {
+      const now = 250000;
+      setWorldMinutes(now);
+      resetMagicRoundMarker(now);
+      const restoresBefore = restoresSoFar();
+
+      const e = {
+        isPlayer: true,
+        raceId: RACES.DarkElf,
+        race: 'DarkElf',
+        level: 10,
+        stats: { strength: 60, intelligence: 60, willpower: 50, agility: 50, endurance: 60, personality: 50, speed: 50, luck: 50 },
+        skills: new Array(35).fill(35),
+        skillUses: new Array(35).fill(0),
+        career: { name: 'Spellsword', abilityFlagsAndSpellPointsBitfield: 0x1000, hitPointsPerLevel: 12 },
+        items: [],
+        equip: createEquipTable(),
+        activeEffects: [],
+        reactionMods: new Array(11).fill(0),
+        rawMaxHealth: 112,
+        maxHealth: 112,
+        health: 112,
+        magicka: 90,
+        fatigue: 7680,
+        chargenDone: true,
+      };
+      defineLiveMaxHealth(e);
+      defineLiveMaxMagicka(e);
+      computeEntityMods(e);
+
+      const rt = verifyRacialSaveRoundTrip(e);
+      assert.equal(rt.ok, true);
+      const matrix = runAllRacesMatrixAudit(10);
+      assert.equal(matrix.ok, true);
+
+      assert.equal(restoresSoFar(), restoresBefore, 'dryRun must not increment _restores');
+      assert.equal(claimMagicRounds(now, now).rounds, 0, 'dryRun must not trigger catch-up magic rounds');
+    } finally {
+      setWorldMinutes(prevWorld);
+      resetMagicRoundMarker(Math.floor(prevWorld));
+    }
+  });
+
+  it('Argonian Hist Regen restores +2% maxFatigue every round and +1 HP every 2nd round in water or rain', () => {
+    const e = {
+      isPlayer: true,
+      raceId: RACES.Argonian,
+      race: 'Argonian',
+      level: 5,
+      stats: { strength: 50, intelligence: 50, willpower: 50, agility: 50, endurance: 50, personality: 50, speed: 50, luck: 50 },
+      skills: new Array(35).fill(30),
+      career: { name: 'Warrior', abilityFlagsAndSpellPointsBitfield: 0, hitPointsPerLevel: 10 },
+      items: [],
+      equip: createEquipTable(),
+      activeEffects: [],
+      rawMaxHealth: 60,
+      maxHealth: 60,
+      health: 40,
+      magicka: 20,
+      fatigue: 100,
+    };
+    defineLiveMaxHealth(e);
+    computeEntityMods(e);
+
+    let healed = 0;
+    let fatRestored = 0;
+    const sinks = {
+      heal: (n) => { healed += n; },
+      restoreFatigue: (n) => { fatRestored += n; },
+    };
+
+    // Dry: no regen
+    setPassiveSpecialsHost({ isSwimming: () => false, inWater: () => false, isRaining: () => false });
+    passiveSpecialsMagicRound(e, { nowMinutes: 1, clockMinutes: 500, sinks });
+    passiveSpecialsMagicRound(e, { nowMinutes: 2, clockMinutes: 500, sinks });
+    assert.equal(healed, 0);
+    assert.equal(fatRestored, 0);
+
+    // Wading / exterior water (inWater: true, isSwimming: false): fat every round, HP every 2nd round
+    setPassiveSpecialsHost({ isSwimming: () => false, inWater: () => true, isRaining: () => false });
+    passiveSpecialsMagicRound(e, { nowMinutes: 1, clockMinutes: 500, sinks });
+    assert.equal(healed, 0);
+    assert.equal(fatRestored, Math.trunc(maxFatigue(e) * 0.02));
+    passiveSpecialsMagicRound(e, { nowMinutes: 2, clockMinutes: 500, sinks });
+    assert.equal(healed, 1);
+    assert.equal(fatRestored, Math.trunc(maxFatigue(e) * 0.02) * 2);
+
+    // Verify worldModes.js checks both player?.isPlayerSwimming and player?.onExteriorWater
+    const wmSrc = fs.readFileSync(path.resolve('src/scenes/worldModes.js'), 'utf8');
+    assert.match(wmSrc, /player\?\.isPlayerSwimming/);
+    assert.match(wmSrc, /player\?\.onExteriorWater && player\.onExteriorWater !== 'None'/);
+  });
+
+  it('Live toggle ON/OFF updates maxHealth (Nord), maxMagicka (HighElf), maxFatigue (Redguard) without reload', async () => {
+    const { playerEntity } = await import('../../src/characters/playerEntity.js');
+    const saved = { ...playerEntity, stats: { ...playerEntity.stats } };
+    try {
+      clearTimeline();
+      playerEntity.isPlayer = true;
+      playerEntity.chargenDone = true;
+      playerEntity.stats = { strength: 60, intelligence: 60, willpower: 50, agility: 50, endurance: 60, personality: 50, speed: 50, luck: 50 };
+      playerEntity.skills = new Array(35).fill(35);
+      playerEntity.career = { name: 'Spellsword', abilityFlagsAndSpellPointsBitfield: 0x1000, hitPointsPerLevel: 12 };
+      playerEntity.equip = createEquipTable();
+      playerEntity.items = [];
+      playerEntity.activeEffects = [];
+      playerEntity.rawMaxHealth = 100;
+      defineLiveMaxHealth(playerEntity);
+      defineLiveMaxMagicka(playerEntity);
+
+      // Nord: maxHealth changes live
+      playerEntity.raceId = RACES.Nord;
+      playerEntity.race = 'Nord';
+      computeEntityMods(playerEntity);
+      playerEntity.health = playerEntity.maxHealth;
+      const nordOnHp = playerEntity.maxHealth;
+      setPref(RACIAL_OVERHAUL_PREF, false);
+      const nordOffHp = playerEntity.maxHealth;
+      assert.ok(nordOnHp > nordOffHp, `Nord maxHealth ${nordOnHp} > ${nordOffHp}`);
+      const tl = getRecentTimelineEvents(5).find((ev) => ev.event === 'RACIAL_OVERHAUL_TOGGLED');
+      assert.ok(tl && tl.data.maxHpBefore === nordOnHp && tl.data.maxHpAfter === nordOffHp);
+      setPref(RACIAL_OVERHAUL_PREF, true);
+      assert.equal(playerEntity.maxHealth, nordOnHp);
+
+      // HighElf: maxMagicka changes live
+      playerEntity.raceId = RACES.HighElf;
+      playerEntity.race = 'HighElf';
+      computeEntityMods(playerEntity);
+      const heOnMp = playerEntity.maxMagicka;
+      setPref(RACIAL_OVERHAUL_PREF, false);
+      const heOffMp = playerEntity.maxMagicka;
+      assert.ok(heOnMp > heOffMp, `HighElf maxMagicka ${heOnMp} > ${heOffMp}`);
+      setPref(RACIAL_OVERHAUL_PREF, true);
+      assert.equal(playerEntity.maxMagicka, heOnMp);
+
+      // Redguard: maxFatigue changes live
+      playerEntity.raceId = RACES.Redguard;
+      playerEntity.race = 'Redguard';
+      computeEntityMods(playerEntity);
+      const rgOnFat = maxFatigue(playerEntity);
+      setPref(RACIAL_OVERHAUL_PREF, false);
+      const rgOffFat = maxFatigue(playerEntity);
+      assert.ok(rgOnFat > rgOffFat, `Redguard maxFatigue ${rgOnFat} > ${rgOffFat}`);
+    } finally {
+      Object.assign(playerEntity, saved);
+    }
+  });
+
+  it('sessionLogger has no duplicate unload listeners and diagnosticsManager guards exit flushes', () => {
+    const slSrc = fs.readFileSync(path.resolve('src/systems/diagnostics/sessionLogger.js'), 'utf8');
+    const dmSrc = fs.readFileSync(path.resolve('src/systems/diagnostics/diagnosticsManager.js'), 'utf8');
+    assert.doesNotMatch(slSrc, /addEventListener\(['"](beforeunload|pagehide)['"]/);
+    assert.match(dmSrc, /_exitFlushed/);
+    assert.match(dmSrc, /playerEntity\?\.chargenDone/);
   });
 });

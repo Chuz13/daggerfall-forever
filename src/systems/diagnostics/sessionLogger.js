@@ -66,23 +66,6 @@ export function initSessionDiagnostics() {
       recordDiagnosticLog('unhandledrejection', reason?.message || String(reason), reason?.stack);
     });
 
-    // Auto dump on tab/window close
-    window.addEventListener('beforeunload', () => {
-      if (globalThis.__dffDumpAllDiagnostics) {
-        globalThis.__dffDumpAllDiagnostics('beforeunload');
-      } else {
-        dumpSessionLog('beforeunload');
-      }
-    });
-
-    window.addEventListener('pagehide', () => {
-      if (globalThis.__dffDumpAllDiagnostics) {
-        globalThis.__dffDumpAllDiagnostics('pagehide');
-      } else {
-        dumpSessionLog('pagehide');
-      }
-    });
-
     // Expose global door for console and probes
     globalThis.__dffDumpSessionLog = dumpSessionLog;
   }
