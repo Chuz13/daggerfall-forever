@@ -22,6 +22,7 @@ import {
 import { SKILLS } from '../../src/systems/skills.js';
 import { restoreLivingSaveData } from '../../src/systems/living/livingDirector.js';
 import { LivingTamrielConfig, resetLivingConfig } from '../../src/systems/living/livingConfig.js';
+import { getRegionNeighbors } from '../../src/systems/living/crisisRegistry.js';
 
 test('LT-04: Adventurer pool initializes across all 71 Tamriel regions with zero bloat', () => {
   restoreLivingSaveData(null);
@@ -135,14 +136,21 @@ test('LT-04: Legacy 62-region adventurer pool upgrades cleanly to 71 regions and
   assert.equal(upgraded[0].name, firstLegacyName);
   assert.equal(upgraded.filter((a) => a.currentRegion === 70).length, 13);
 
-  // Verify travel wraps across 71 regions (61 -> 62 and 70 -> 0)
+  // Verify geographical neighbor travel across all 71 regions (including Bay -> Province border crossings)
   const reg61Adv = upgraded.find((a) => a.currentRegion === 61);
   const reg70Adv = upgraded.find((a) => a.currentRegion === 70);
+  const reg16Adv = upgraded.find((a) => a.currentRegion === 16);
+  const valid61 = getRegionNeighbors(61);
+  const valid70 = getRegionNeighbors(70);
+  const valid16 = getRegionNeighbors(16);
   reg61Adv.status = ADVENTURER_STATUS.IDLE;
   reg70Adv.status = ADVENTURER_STATUS.IDLE;
+  reg16Adv.status = ADVENTURER_STATUS.IDLE;
   // rng = 0.90 >= 0.60 forces TRAVELING instead of DELVING
   tickAdventurerSimulation({ rng: () => 0.90 });
-  assert.equal(reg61Adv.currentRegion, 62);
-  assert.equal(reg70Adv.currentRegion, 0);
+  assert.ok(valid61.includes(reg61Adv.currentRegion) && reg61Adv.currentRegion !== 61, 'Bay region 61 migrates to a real neighbor');
+  assert.ok(valid70.includes(reg70Adv.currentRegion) && reg70Adv.currentRegion !== 70, 'Cyrodiil (70) migrates to a real neighbor');
+  assert.ok(valid16.includes(reg16Adv.currentRegion) && reg16Adv.currentRegion !== 16, 'Wrothgarian Mountains (16) migrates to a real neighbor');
+  assert.ok(valid16.includes(62) && valid16.includes(63), 'Bay border region 16 connects to High Rock (62) and Hammerfell (63)');
 });
 

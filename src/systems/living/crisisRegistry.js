@@ -13,10 +13,10 @@
 
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { LOCATION_TYPES } from '../../formats/mapsFile.js';
-import { REGION_NAMES, BAY_REGION_COUNT, REGION_RACES, CLIMATES } from '../../formats/mapsTables.js';
+import { REGION_NAMES, REGION_RACES, CLIMATES } from '../../formats/mapsTables.js';
 import { getLocalizedRegionName, t } from '../textManager.js';
 import { LIVING_WORDS } from './livingWords.js';
-import { BORDER_REGIONS } from '../faction/factionRelations.js';
+import { getRegionNeighbors } from './tamrielNeighbors.js';
 import { SKILLS } from '../skills.js';
 import { REGION_FLAGS } from '../region/regionConditions.js';
 import {
@@ -84,6 +84,8 @@ export function calculateLocationProsperity(dfLocation, { mapId = null, regionIn
   return PROSPERITY_TIER.LOW;
 }
 
+export { getRegionNeighbors };
+
 /**
  * Gets a neighbor or enemy province name for interprovincial narrative.
  * @param {number} regionIndex
@@ -91,20 +93,11 @@ export function calculateLocationProsperity(dfLocation, { mapId = null, regionIn
  * @returns {string}
  */
 export function getEnemyProvinceName(regionIndex, rng = Math.random) {
-  if (regionIndex >= 0 && regionIndex < BAY_REGION_COUNT) {
-    const offset = regionIndex * 11;
-    const candidates = [];
-    for (let i = 0; i < 11; i++) {
-      const neighbor = BORDER_REGIONS[offset + i];
-      if (neighbor > 0 && neighbor !== regionIndex && neighbor < REGION_NAMES.length) {
-        candidates.push(neighbor);
-      }
-    }
-    if (candidates.length > 0) {
-      const idx = Math.floor(rng() * candidates.length);
-      const regId = candidates[idx];
-      return getLocalizedRegionName(regId, () => REGION_NAMES[regId] ?? '');
-    }
+  const candidates = getRegionNeighbors(regionIndex);
+  if (candidates.length > 0) {
+    const idx = Math.floor(rng() * candidates.length);
+    const regId = candidates[idx];
+    return getLocalizedRegionName(regId, () => REGION_NAMES[regId] ?? '');
   }
   return regionIndex === 16 ? getLocalizedRegionName(16, () => 'Sentinel') : 'Orsinium';
 }
