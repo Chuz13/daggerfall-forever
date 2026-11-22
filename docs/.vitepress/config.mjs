@@ -11,6 +11,7 @@ export default defineConfig({
       { text: 'Apotheosis', link: '/apotheosis/' },
       { text: 'Living Tamriel', link: '/living-tamriel/' },
       { text: 'Necromancy', link: '/necromancy/' },
+      { text: 'Races', link: '/racial-overhaul/' },
       { text: 'Features & Settings', link: '/features/global-changes' },
       { text: 'Modding', link: '/modding/' },
       { text: 'Console', link: '/reference/console-commands' }
@@ -34,7 +35,8 @@ export default defineConfig({
         text: 'Gameplay Systems',
         items: [
           { text: 'Living Tamriel', link: '/living-tamriel/' },
-          { text: 'Necromancy & Lichdom', link: '/necromancy/' }
+          { text: 'Necromancy & Lichdom', link: '/necromancy/' },
+          { text: 'Racial Overhaul', link: '/racial-overhaul/' }
         ]
       },
       {

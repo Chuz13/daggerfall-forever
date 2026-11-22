@@ -88,6 +88,7 @@ This is the complete reference for all console commands currently implemented in
 | `telecrisis` | - | `telecrisis [type\|FlagName]` | Teleports to a settlement with an active crisis (`war`, `plague`, `famine`, `crime`, `witch`, `ruler`, `holiday`, `strife`/`civil_strife`, `prices`/`tax`, or exact `REGION_FLAGS` name). |
 | `living` | - | See subcommands below | In World Mode, exposes the full `executeLivingConsoleCommand` suite. *(Outside World Mode, supports `living adv\|adventurer <tick\|kill_in_dungeon\|setlevel\|settrait\|quote\|companion [status\|dismiss]\|list>`.)* |
 | `rcf` | - | `rcf <status \| tier <0..3\|off\|light\|mid\|high> \| set_sgroup <0..10\|prefix> <n> \| set_faction <id\|alias> <n> \| give_stolen [item] \| test_rumor \| test_contraband>` | Inspects and tests Reputation Consequences Framework (`db`, `thieves`/`tg`, `knights`/`ko`, `mages`/`mg`, `temple`, `arkay`, `julianos`, `kynareth`, `mara`, `stendarr`, `dibella`, `zenithar`, `akatosh`). |
+| `raceaudit` | `racecheck` | `raceaudit [all [lvl]]` | Audits live Racial Overhaul state, saving throws, toggle `ON↔OFF` vital rescaling, and save/load round-trip invariants for the active character (or all 8 playable races at level `lvl`, default `10`). |
 | `dumplog` / `dumpcombat` / `dumpspawns` / `dumpall` | - | `dumpall [reason]` | Dumps diagnostic telemetry logs to disk with optional `[reason]`. |
 
 ### `living` Subcommands (World Mode)

@@ -2227,7 +2227,7 @@ export const FEATURES = Object.freeze([
     id: 'racial-overhaul',
     group: 'character',
     get title() { return t('features.racialOverhaul.title', 'Racial Overhaul'); },
-    get note() { return t('features.racialOverhaul.note', 'Gives every playable race distinct level-scaled favored weapon bonuses, resistances, and lore passives. Turn off at any time to restore classic Daggerfall racial rules.'); },
+    get note() { return t('features.racialOverhaul.note', 'Gives every playable race distinct level-scaled favored weapon bonuses, resistances, and lore passives. Turn off at any time to restore classic racial rules.'); },
     get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'racialOverhaul', initial: true, online: 'player' }),

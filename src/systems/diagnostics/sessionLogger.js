@@ -146,7 +146,7 @@ export function buildDiagnosticSnapshot(triggerReason = 'manual') {
 
   return {
     meta: {
-      gameVersion: '0.6.6',
+      gameVersion: '0.6.7',
       timestamp: new Date().toISOString(),
       sessionDurationSeconds: sessionDurationSec,
       triggerReason,
