@@ -16,6 +16,8 @@
 // passes them by, and their own blasts/shafts pass by player and allies (`hostMagic.js`). Summoned daedra
 // and quest companions keep DFU friendly fire.
 
+import { isSparProtected } from '../systems/living/sparSurrender.js';
+
 /** Whether `t` (a pool's foe) is a shipmate or spared ally. */
 export const isShipmate = (t) =>
   !!t &&
@@ -31,8 +33,8 @@ export const isShipmate = (t) =>
  *  fireball at the raiders on it counted it lost). */
 export const isRefugee = (t) => !!t && t.refugee === true && !t.dead && t.entity?.team === 'PlayerAlly';
 
-/** Whether the player's own SWING passes `t` by: a shipmate, or a refugee (a defender keeps the watch's own law). */
-export const sparedBySwing = (t) => isShipmate(t) || isRefugee(t);
+/** Whether the player's own SWING passes `t` by: a shipmate, a refugee, or a recently surrendered spar opponent. */
+export const sparedBySwing = (t) => isShipmate(t) || isRefugee(t) || isSparProtected(t);
 
 /** Whether the player's own harm passes `t` by: a town's defender, a shipmate, or a refugee. */
 export const sparedByPlayer = (t) => !!t && (t.defender === true || sparedBySwing(t));

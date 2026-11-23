@@ -17,6 +17,7 @@ import { MOBILE_TYPES } from './mobile/mobileTypes.js'; // MWNPC10: a roster's p
 import { npcHint } from './wardrobe.js'; // MWNPC17: the man under the kit his own - his head, his hair, the clothes' records
 import { folkHere, folkWhere, folkRace, folkOfKey, FOLK_RACE_KEYS } from './provinceFolk.js'; // PROVINCE-FOLK: past the Bay a foe is one of the province's people
 import { isClassEnemyId, isClassicEnemyId } from './enemy/enemyBasics.js'; // DEX1: DFU's class test (DaggerfallEntity.IsClassEnemyId) - a mod's monster past 255 is no class; DEX7: a mod's person row names its own mobile
+import { isSparKneeling, isSparPeaceful } from '../systems/living/sparSurrender.js';
 
 /** The Iliac Bay's people, weighted - the races a class foe is drawn as (Daggerfall's own spelling, the look's). The
  *  Bay is Breton and Redguard country; the rest are travellers, the beast folk fewest. */
@@ -420,6 +421,8 @@ export function foeActor(f, id = foeId(f), { scale = 1 } = {}) {
     f._mwHits = ((f._mwHits | 0) + 1) & 0xffff;
   }
   const swings = (f._atkA | 0) >> 1;
+  const kneeling = !f.dead && !!(f.yielded || f.executing || f._pupYield || isSparKneeling(f));
+  const peaceful = isSparPeaceful(f);
   return {
     id,
     look: isPersonFoe(f) ? foeLook(f) : creatureLook(f), // MWNPC9: a creature's is its Morrowind creature; MWNPC12: an orc a person's
@@ -428,9 +431,10 @@ export function foeActor(f, id = foeId(f), { scale = 1 } = {}) {
     feet: f.dead ? (f.corpsePos ?? f.corpseMarker?.pos ?? f.ai.feet) : f.ai.feet,
     yaw: f.ai.yaw,
     scale: scale > 0 ? scale : 1, // AUDIT MW-NPC D3: drawn the size its sprite is (an elite's quarter, a last stand's tenth, the wild giant)
-    moving: !!f.ai.moving,
-    running: !!f.ai.moving && f.ai.giveUpTimer > 0, // pursuing (EnemyMotor's GiveUpTimer running): a Morrowind NPC runs at its foe
-    drawn: true, // a class foe's weapon is out - Daggerfall's foes never sheathe
+    moving: kneeling ? false : !!f.ai.moving,
+    running: kneeling ? false : !!f.ai.moving && f.ai.giveUpTimer > 0, // pursuing (EnemyMotor's GiveUpTimer running): a Morrowind NPC runs at its foe
+    drawn: !(kneeling || peaceful), // weapon sheathed while kneeling in defeat or standing peacefully after a spar
+    kneel: kneeling,
     swings,
     strike: 1 + (swings % 6), // POSE_STRIKES 1..6: down, down-left, left, right, down-right, up
     casts: f._castN | 0,

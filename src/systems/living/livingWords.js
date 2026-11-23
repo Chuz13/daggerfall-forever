@@ -150,6 +150,7 @@ export const LIVING_WORDS = Object.freeze({
     t('living.adventurer.duelLost', 'Yield! Better luck next time, wanderer. The gold stays with me.'),
   adventurerAssaultCrime: () =>
     t('living.adventurer.assaultCrime', 'Crime reported: Assault! You struck a surrendered sparring opponent!'),
+  adventurerYieldedTag: () => t('living.adventurer.yieldedTag', 'yielded'),
   adventurerQuestIntercepted: () =>
     t('living.adventurer.questIntercepted', 'A rival adventurer cleared the dungeon ahead of you and claimed the objective!'),
   adventurerReclaimSuccess: () =>

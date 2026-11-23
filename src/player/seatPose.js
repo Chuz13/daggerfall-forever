@@ -71,7 +71,7 @@ export const seatedMotion = (bag) => ({
 /** WAGONS3: a rig's camera snapshot as the body reads it - seated (`seat`, a wagon's bench or a table's chair; COATS3D: or `saddle`, astride), its
  *  motion bag still (combat/fpArm.js update: the hosts hand the motor's bag whole, WW2's one bag). */
 export const seatedCamera = (cam) =>
-  cam && (cam.seat || cam.saddle) && cam.move ? { ...cam, move: seatedMotion(cam.move) } : cam; // COATS3D: astride too - the horse walks, not the rider
+  cam && (cam.seat || cam.saddle || cam.kneel) && cam.move ? { ...cam, move: seatedMotion(cam.move) } : cam; // COATS3D: astride too - the horse walks, not the rider
 
 /** The table's top above the feet as the wire's byte. */
 export const seatTopByte = (top) =>
@@ -231,4 +231,113 @@ export function saddleRequestFor(saddle, { unitsPerMetre, weight = 1, height = 1
   if (!saddle || !saddle.feet || !saddle.seat) return null;
   const s = saddleRigInput(saddle.feet, saddle, { weight, height });
   return climbRequestToRig(s.req, { feet: s.origin, yaw: s.yaw, unitsPerMetre, weight, height });
+}
+
+// ── ONE-KNEE KNEEL: beaten revenants and surrendered wager opponents ─────────────────────────────────────────────────
+
+/** Measured on retail's biped (SEAT_PELVIS_HEIGHT 1.09 m, thigh 0.46 m, shin 0.53 m): dropping the pelvis by 0.50 m
+ *  plants the forward left foot flat with the knee bent, and tucks the trailing right knee low behind it. */
+export const KNEEL_HIP_DROP = 0.5;
+export const KNEEL_FRONT_FOOT_AHEAD = 0.34;
+export const KNEEL_FRONT_FOOT_SIDE = -0.14;
+export const KNEEL_FRONT_ANKLE = 0.08;
+export const KNEEL_BACK_FOOT_AHEAD = -0.44;
+export const KNEEL_BACK_FOOT_SIDE = 0.14;
+export const KNEEL_BACK_ANKLE = 0.08;
+export const KNEEL_LEAN_PITCH = 0.24;
+export const KNEEL_BREATH_PITCH = 0.035;
+
+/**
+ * World-space IK request for a one-knee defeated kneel at `feet` and `yaw`.
+ * @param {number[]} feet
+ * @param {number} yaw
+ * @param {{ w?: number, breath?: number }} [state]
+ * @param {{ weight?: number, height?: number }} [race]
+ */
+export function kneelRigInput(feet, yaw, { w = 1, breath = 0 } = {}, race = {}) {
+  const h = Number.isFinite(race.height) ? race.height : 1;
+  const wt = Number.isFinite(race.weight) ? race.weight : 1;
+  const f = [Math.sin(yaw), 0, Math.cos(yaw)];
+  const right = [Math.cos(yaw), 0, 0 - Math.sin(yaw)];
+  const at = (ahead, side, up) => [
+    feet[0] + f[0] * ahead + right[0] * side,
+    feet[1] + up,
+    feet[2] + f[2] * ahead + right[2] * side,
+  ];
+  const unit = (v) => {
+    const l = Math.hypot(v[0], v[1], v[2]) || 1;
+    return [v[0] / l + 0, v[1] / l + 0, v[2] / l + 0];
+  };
+  const elbow = (side) => unit([right[0] * side * 0.65 - f[0] * 0.25, -0.72, right[2] * side * 0.65 - f[2] * 0.25]);
+  const weight = Math.min(1, Math.max(0, Number.isFinite(w) ? w : 1));
+  const br = Number.isFinite(breath) ? breath : 0;
+
+  return {
+    origin: [feet[0], feet[1], feet[2]],
+    yaw,
+    req: {
+      w: weight,
+      offset: [0, -KNEEL_HIP_DROP * h, 0],
+      lean: { pitch: KNEEL_LEAN_PITCH + KNEEL_BREATH_PITCH * br, roll: 0 },
+      hands: {
+        L: {
+          at: at(0.24 * wt, -0.16 * wt, 0.58 * h),
+          fingers: f.slice(),
+          palm: [0, -1, 0],
+          pole: elbow(-1),
+          w: 1,
+          curl: 0.4,
+        },
+        R: {
+          at: at(0.12 * wt, 0.22 * wt, 0.56 * h),
+          fingers: f.slice(),
+          palm: unit([-right[0] * 0.5, -0.86, -right[2] * 0.5]),
+          pole: elbow(1),
+          w: 1,
+          curl: 0.5,
+        },
+      },
+      feet: {
+        L: {
+          at: at(KNEEL_FRONT_FOOT_AHEAD * wt, KNEEL_FRONT_FOOT_SIDE * wt, KNEEL_FRONT_ANKLE * h),
+          toe: f.slice(),
+          pole: f.slice(),
+          w: 1,
+        },
+        R: {
+          at: at(KNEEL_BACK_FOOT_AHEAD * wt, KNEEL_BACK_FOOT_SIDE * wt, KNEEL_BACK_ANKLE * h),
+          toe: f.slice(),
+          pole: unit([f[0] * 0.7, -0.7, f[2] * 0.7]),
+          w: 1,
+        },
+      },
+    },
+  };
+}
+
+/**
+ * A kneel spec (`{ feet, yaw, w?, breath? }`) mapped into the rig's space via `climbRequestToRig`.
+ * @param {{ feet: number[], yaw: number, w?: number, breath?: number } | null | undefined} kneel
+ * @param {{ unitsPerMetre: number, weight?: number, height?: number }} rig
+ */
+export function kneelRequestFor(kneel, { unitsPerMetre, weight = 1, height = 1 }) {
+  if (
+    !kneel ||
+    !Array.isArray(kneel.feet) ||
+    kneel.feet.length < 3 ||
+    !Number.isFinite(kneel.yaw) ||
+    !Number.isFinite(kneel.feet[0]) ||
+    !Number.isFinite(kneel.feet[1]) ||
+    !Number.isFinite(kneel.feet[2]) ||
+    !((kneel.w ?? 1) > 0)
+  ) {
+    return null;
+  }
+  const k = kneelRigInput(
+    kneel.feet,
+    kneel.yaw,
+    { w: kneel.w ?? 1, breath: kneel.breath ?? 0 },
+    { weight, height },
+  );
+  return climbRequestToRig(k.req, { feet: k.origin, yaw: k.yaw, unitsPerMetre, weight, height });
 }

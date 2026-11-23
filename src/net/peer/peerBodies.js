@@ -440,6 +440,16 @@ export function seatFor(b, f, yaw, st) {
   return b.seatSpec;
 }
 
+/** ONE-KNEE KNEEL: a kneeling actor's `{ feet, yaw }` spec, cached while still. */
+export function kneelFor(b, f, yaw) {
+  const key = `${f[0].toFixed(2)},${f[1].toFixed(2)},${f[2].toFixed(2)},${yaw.toFixed(3)}`;
+  if (b.kneelKey !== key) {
+    b.kneelKey = key;
+    b.kneelSpec = { feet: [f[0], f[1], f[2]], yaw };
+  }
+  return b.kneelSpec;
+}
+
 export function peerCamera(shown, feet, speed = 0, cam = null, yaw = peerBodyYaw(shown), travel = null) {
   const c = cam ?? {
     pos: [0, 0, 0],
@@ -1005,6 +1015,7 @@ export class PeerBodies {
     // table's top the pose names; rebuilt only when the seat moves
     b.cam.seat = peer.shown.st ? seatFor(b, f, b.yaw, peer.shown.st) : null;
     b.cam.saddle = this._saddle(b, peer.shown, f, dt); // COATS3D: on a horse - astride its 3D horse
+    b.cam.kneel = peer.shown.kn && !peer.shown.dd ? kneelFor(b, f, b.yaw) : null;
     b.inView = !this._planesOk || this._sees(b, turnLeadMargin(Math.sqrt(b.d2), this._turn)); // WB9h: in the last pass's view, with the margin a turning eye needs - MW-CROWD: led by the turn
   }
 
@@ -1078,7 +1089,7 @@ export class PeerBodies {
     const eye = this._cam?.eye ?? null,
       lens = this._cam?.lens ?? 1; // HORSE-VIEW (AUDIT): the last pass's camera, as the view is (cadenceD2); before any - or for a body never placed (ONE-BAD-BODY) - the distance from `near`
     for (const b of due) {
-      const must = !b.posed || !(b.rig.thirdActive?.() ?? true);
+      const must = !b.posed || !(b.rig.thirdActive?.() ?? true) || (b.kneelEaseLeft ?? 0) > 0;
       b.rank = must
         ? 3
         : !b.inView
@@ -1117,6 +1128,7 @@ export class PeerBodies {
         b.owed = false;
         b.stale = false;
         b.posedAt = this._frame;
+        if ((b.kneelEaseLeft ?? 0) > 0) b.kneelEaseLeft = Math.max(0, b.kneelEaseLeft - dt);
       } else b.rig.update(dt, { pose: false });
     } catch (e) {
       this._fail(b, `update threw: ${e?.message ?? e}`);
@@ -1282,7 +1294,13 @@ export class PeerBodies {
    *  (`revive`, nothing on a living rig). A dead actor recoils from nothing. True while the actor is dead. */
   _react(b, shown) {
     const ht = shown.ht | 0,
-      dd = shown.dd | 0;
+      dd = shown.dd | 0,
+      kn = shown.kn ? 1 : 0;
+    if (b.kneel !== kn) {
+      if (b.kneel != null) b.kneelEaseLeft = 0.35;
+      b.kneel = kn;
+      b.posedAt = 0;
+    }
     if (b.dead == null) {
       b.dead = dd;
       if (dd) b.rig.die?.(dd - 1, { startPoint: 1 });

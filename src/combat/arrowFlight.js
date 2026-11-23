@@ -40,6 +40,7 @@ import { bowShotStamp, bowFastDamage, whileShaftLands } from './bowBloom.js';   
 import { orbArchiveFor, ORB_RECORD, noteOrbColour, ORB_SCALE } from '../characters/thunderlockIds.js';   // FIELD-GUN14: what this weapon's shot LOOKS like - the leaf, so no cycle   // FIELD-GUN17: ...and what colour it is, sampled the one moment the texture is in hand   // FIELD-GUN18: ...and how big it is drawn
 import { playerWeaponHitEntity } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher (worldTick never reaches this module - no cycle)
 import { sparedByPlayer } from './friendlyFire.js';   // SHIPMATES: the player's shaft passes their own crew by
+import { isSparProtected } from '../systems/living/sparSurrender.js';
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 import { blowMult, scaleBlowDamage, playerBody, tellTechniqueLanded } from './technique/techniqueBlow.js';   // TECH1: a technique's shaft - its weight, and never a player's body
 import { takeOwed } from '../systems/playerDoor.js';   // AUDIT MARTIAL L2 F5: the follow-ups a shaft owes a body the relay runs
@@ -496,7 +497,7 @@ export function playerArrowHitFoe(m, foe, {
   if (!foe || foe.dead || !playerEntity) return 0;
   // REVENANT-FATE (the 2026-10-02 audit): one held by its fate (kneeling, burning, gathering into a portal) - the shaft
   // lands nothing: no blow, no poison, no rage, no Archery (the kill door refused the damage; the rest still landed; nor an undead minion feigning death)
-  if (foe.yielded || foe.executing || foe.sparing || foe.leaving || foe.roaring || foe.undeadStance === 'feign_death') return 0;   // RVN4: nor one roaring its last stand
+  if (foe.yielded || foe.executing || foe.sparing || foe.leaving || foe.roaring || foe.undeadStance === 'feign_death' || isSparProtected(foe)) return 0;   // RVN4: nor one roaring its last stand
   const swing = SWING_MODS[playerWeapon?.machine?.state] ?? { damage: 0, toHit: 0 };
   const back = foe.ai && playerFeet ? isBackFacing(foe.ai.yaw, foe.ai.feet, playerFeet) : false;
   // AUDIT PISTOLET A1 (TWO-HANDS DUAL): a pair's OFF-HAND shot strikes less surely and less hard, as the off hand's swing

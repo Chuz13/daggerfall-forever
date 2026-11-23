@@ -2782,6 +2782,8 @@ export function createLivingSceneHost(deps) {
               foe._duelWager = wager;
               foe._advRecord = adv;
               foe._surrenderedSpar = false;
+              foe._sparGraceLeft = 0;
+              foe._sparKneeling = false;
               if (foe.ai) {
                 foe.ai.isHostile = true;
                 foe.ai.detected = true;
@@ -3288,6 +3290,8 @@ export function createLivingSceneHost(deps) {
                 foe._duelWager = wager;
                 foe._advRecord = adv;
                 foe._surrenderedSpar = false;
+                foe._sparGraceLeft = 0;
+                foe._sparKneeling = false;
                 if (foe.ai) {
                   foe.ai.isHostile = true;
                   foe.ai.detected = true;
@@ -5060,6 +5064,8 @@ export function buildDungeonAdventurerChoiceSpec({
           foeRecord._duelWager = wager;
           foeRecord._advRecord = adv;
           foeRecord._surrenderedSpar = false;
+          foeRecord._sparGraceLeft = 0;
+          foeRecord._sparKneeling = false;
           if (foeRecord.ai) {
             foeRecord.ai.isHostile = true;
             foeRecord.ai.detected = true;
