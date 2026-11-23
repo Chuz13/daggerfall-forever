@@ -199,6 +199,13 @@ const LT_LOCATION_COOLDOWN_TIERS = Object.freeze([
   tier(4320, () => t('features.ltLocationCooldown.3d', '3 Days')),
 ]);
 
+const COMBAT_LETHALITY_TIERS = Object.freeze([
+  tier('classic', () => t('features.combatLethality.classic', 'Classic (1.0x)')),
+  tier('sharp', () => t('features.combatLethality.sharp', 'Sharp (1.25x dmg)')),
+  tier('lethal', () => t('features.combatLethality.lethal', 'Lethal (1.45x dmg)')),
+  tier('brutal', () => t('features.combatLethality.brutal', 'Brutal (1.75x dmg)')),
+]);
+
 /** FT14 (2026-09-15) - WHAT A MOD'S TILE SHOWS, AND WHAT IT DOES NOT.
  *
  *  The eight vendored mods carried 125 settings keys between them when
@@ -2231,6 +2238,15 @@ export const FEATURES = Object.freeze([
     get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'racialOverhaul', initial: true, online: 'player' }),
+  }),
+  Object.freeze({
+    id: 'combat-lethality',
+    group: 'combat',
+    get title() { return t('features.combatLethality.title', 'Combat Lethality'); },
+    get note() { return t('features.combatLethality.note', 'Raises enemy damage and lightly boosts enemy health in single-player to keep mid- and late-game combat dangerous without turning foes into sponges.'); },
+    get effect() { return t('features.combatLethality.effect', 'Takes effect for newly spawned enemies.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'combatLethality', initial: 'classic', online: 'player', tiers: COMBAT_LETHALITY_TIERS }),
   }),
 ]);
 

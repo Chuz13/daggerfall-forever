@@ -46,8 +46,8 @@ import { lootRarityOn } from './loot/lootRarity.js';
 /** THE TUNING TABLE. `from`: the first level that pays nothing; `to`: the last that pays; `damage` and `health`: the
  *  factor each level between them stands on a foe, compounding. */
 export const HERO_THREAT = Object.freeze({
-  level: Object.freeze({ from: 10, to: 30, damage: 1.07, health: 1.04 }),
-  renown: Object.freeze({ from: 15, to: 50, damage: 1.01, health: 1.005 }),
+  level: Object.freeze({ from: 5, to: 30, damage: 1.056, health: 1.032 }),
+  renown: Object.freeze({ from: 8, to: 50, damage: 1.0085, health: 1.0042 }),
 });
 
 /** How many of a track's levels pay: `v` past `from`, never past `to` (a whole number; 0 for anything not a number). */

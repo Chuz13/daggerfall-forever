@@ -18,6 +18,7 @@ import { markFoeStruck, markHostStruck, markFoeHovered } from '../ui/hud/hudFoeT
 import { combatStanding, dungeonShare, foeShare, progressionScaling, placeVeteran } from '../systems/skillSoftcap.js';   // SOFTCAP2: tougher foes, by dungeon tier; BAL3: and by the place's own threat
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP1
 import { heroThreatOf } from '../systems/heroThreat.js';   // BAL11: the hero's threat
+import { applyCombatLethality } from '../systems/combatLethality.js';
 import { quickslotHand } from '../ui/quickslotTags.js';   // DISC21-C: an empty quickslot press reads the hand   // PX30
 import { lycanthropeAttackVoice, lycanthropeMoveSound } from '../systems/lycanthropy.js';   // V4: the beast's attack voice; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
 import { layoutDungeon, isDungeonExitDoor } from '../world/dungeon/dungeonLayout.js';
@@ -1546,9 +1547,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const place = lootRarityOn() ? _placeVeteran : 0;
     const share = puppet ? 0 : _dungeonShare;
     const hero = ally || _heroStage ? null : heroThreatOf(foeDeps.playerEntity, { puppet });
-    if (!(share > 0) && !(place > 0) && !hero) return;
-    const scaling = progressionScaling(puppet ? null : combatStanding(foeDeps.playerEntity), share, foeShare(basics?.level ?? entity.level, entity.isClass), place, hero);
-    foeDeps.applyProgressionScaling?.(entity, scaling);   // lazily loaded beside makeEnemyEntity; the dungeon's own deps (the import used `D`, which only the spawn builders below bind)
+    if (share > 0 || place > 0 || hero) {
+      const scaling = progressionScaling(puppet ? null : combatStanding(foeDeps.playerEntity), share, foeShare(basics?.level ?? entity.level, entity.isClass), place, hero);
+      foeDeps.applyProgressionScaling?.(entity, scaling);   // lazily loaded beside makeEnemyEntity; the dungeon's own deps (the import used `D`, which only the spawn builders below bind)
+    }
+    if (!puppet && !ally && !_heroStage && typeof applyCombatLethality === 'function') {
+      const online = (typeof isOnlinePage === 'function' ? isOnlinePage() : false) || (typeof opts !== 'undefined' && opts?.selfId?.() != null);
+      applyCombatLethality(entity, { online });
+    }
   }
   function applyEliteScaling(entity, e) {
     if (e?.eliteFoe && entity && promoteEliteFoe(entity, { eliteDungeon: !!e.elite, superDungeon: !!e.superTier, checkLevel: false })) { if (e.elite) entity.elite = true; eliteTraits(entity, e.eliteSeed); return; }   // BOSS-TRAITS: its trait off the pick's own seed - every client the same   // ELITE-FLOOR: the pick's own (by the kind's level, every client alike)   // ELITE FOES: 5x health, 3x damage - 7x / 4x in an Elite Dungeon, in place of its doubling

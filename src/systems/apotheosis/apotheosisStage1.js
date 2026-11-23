@@ -7,6 +7,7 @@ import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { SKILLS, SKILL_NAMES } from '../skills.js';
 import { effectiveLevel } from '../mentorMode.js';
 import { liveStat } from '../statMods.js';
+import { direnniDamageScaleForLethality } from '../combatLethality.js';
 import {
   APOTHEOSIS_STAGES,
   APOTHEOSIS_QUEST_STEPS,
@@ -207,7 +208,7 @@ export function applyDirenniForcedTraits(entity, roll = Math.random) {
   if (traits.length) giveBossTraits(entity, traits, { own: true });
   entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 30) * 1.6));
   entity.health = entity.maxHealth;
-  entity.damageScale = (Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1) * 1.3;
+  entity.damageScale = (Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1) * direnniDamageScaleForLethality(1.3);
   return traits;
 }
 
