@@ -19,7 +19,7 @@ import {
   armorOfMaterial,
 } from '../../combat/enemyEquipment.js';
 import { addItem, goldStack, isGoldPieces } from '../inventory.js';
-import { equipItem, equipTableOf, getEquipSlot, EQUIP_SLOTS } from '../equip.js';
+import { equipItem, unequipSlot, equipTableOf, getEquipSlot, EQUIP_SLOTS } from '../equip.js';
 import { applyRarity, rarityEligible } from '../loot/lootRarity.js';
 import { createArtifact, getMagicItemTemplates } from '../loot/loot.js';
 import { makePotion, potionRecipeKey, POTION_RECIPES } from '../potions.js';
@@ -178,9 +178,24 @@ export function areArtifactsSlotCompatible(art1, art2) {
  * @param {number} [playerLevel=1]
  * @param {Function} [rolls=Math.random]
  */
-export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math.random) {
+export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math.random, { replace = false } = {}) {
   if (!entity || typeof entity !== 'object') return;
   entity.items = Array.isArray(entity.items) ? entity.items : [];
+
+  if (replace) {
+    const prevTable = equipTableOf(entity);
+    if (prevTable) {
+      const removed = new Set();
+      for (let s = 0; s < prevTable.length; s++) {
+        const prev = unequipSlot(entity, s);
+        if (prev) removed.add(prev);
+      }
+      if (removed.size > 0) {
+        entity.items = entity.items.filter((it) => !removed.has(it));
+      }
+    }
+    entity.weapon = null;
+  }
 
   const baseTier = Math.max(1, Math.min(9, Math.trunc(Number(adv?.gearTier) || Math.floor((adv?.level || 1) / 5) + 1)));
   const className = String(adv?.className || 'Warrior');
@@ -288,6 +303,11 @@ export function equipAdventurerEntity(entity, adv, playerLevel = 1, rolls = Math
       }
     }
   }
+
+  // Synchronize entity.weapon so exterior/dungeon melee & bow attack doors use the equipped weapon
+  const finalTable = equipTableOf(entity);
+  const mainHand = finalTable?.[EQUIP_SLOTS.RightHand] ?? finalTable?.[EQUIP_SLOTS.LeftHand] ?? null;
+  if (mainHand) entity.weapon = mainHand;
 
   // 5. Gold Purse (Tier-scaled) and Field Supplies
   const baseGold = Math.max(30, (adv?.level || 1) * 25);

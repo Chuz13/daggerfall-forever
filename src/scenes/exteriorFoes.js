@@ -441,7 +441,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // CENTRE, and `hitDist` what AlignControllerToGround's ray found below
   // it (null: nothing within 3); the drop needs the capsule the sprite
   // sizes, so it lands once the sprite has.
-  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null, eliteFoe = undefined, turned = false, band = true, zoneGiant = null, grantKind = null, eventFoe = false, traits = null } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
+  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null, eliteFoe = undefined, turned = false, band = true, zoneGiant = null, grantKind = null, eventFoe = false, traits = null, allowThreatScaling = false, allowEliteRoll = false, allowChampionRoll = false, eliteChance = null, forcedBossTraits = null, hpMult = 1, damageMult = 1 } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
     // WORLD6b: a puppet is not this cap's. AUDIT 68 review (R-scenes-loose-foe-squad-capped): nor is a `loose` stand -
     // CreateFoeSpawner's (a summoning punishment, RR's expulsion squad, a Rose's Daedroth) stands however many it is
     // told in one loop, and DFU caps none of them; the cap is the encounter rolls'
@@ -486,9 +486,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // word, the record's `z`), never an ally, a quest's foe, a retype, a team a spawner set, or anything on a
       // location's ground. Off Math.random, not this pool's `rolls`, so the encounter's own dice are not moved.
       // ELITE-RATES: ELITE-RARITY's gate (one standing at a time, a 180-minute gap, never a loose stand) is gone.
+      const eliteEligible = allowEliteRoll
+        ? (!puppet && !allied && !questBehaviour && !replacing)
+        : (!puppet && !allied && !questBehaviour && !replacing && !team && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null }));
+      const eliteRollHit = revenant
+        ? revenant.elite
+        : (Number.isFinite(eliteChance) ? Math.random() < eliteChance : rollOverworldElite(Math.random));
       if (eliteFoe === true && !allied) promoteEliteFoe(entity);   // a saved foe's classification, restored before its HP/items overlay - never re-rolled
-      else if (eliteFoe === undefined && !puppet && !allied && !questBehaviour && !replacing && !team && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
-        && (revenant ? revenant.elite : rollOverworldElite(Math.random))) promoteEliteFoe(entity);   // REVENANT: a returning revenant stands as what it was - an elite's glow where elites stand, never a fresh roll   // BAL4: online, and offline under the loot ladder
+      else if (eliteFoe === undefined && eliteEligible && eliteRollHit) promoteEliteFoe(entity);   // REVENANT: a returning revenant stands as what it was - an elite's glow where elites stand, never a fresh roll   // BAL4: online, and offline under the loot ladder
+      if (Array.isArray(forcedBossTraits) && forcedBossTraits.length && !puppet && !allied && !bossTraitsOf(entity).length) {
+        giveBossTraits(entity, forcedBossTraits, { own: !puppet });
+      }
       if (entity.eliteFoe && !puppet && !entity.raidLeader && !bossTraitsOf(entity).length) eliteTraits(entity);   // BOSS-TRAITS: an elite of my own carries a trait, mine to draw (its record carries it - `bt`)
       else if (traits !== false && eliteFoe === undefined && !puppet && !allied && !entity.raidLeader && !bossTraitsOf(entity).length) {
         maybeApplyMobTraits(entity, {
@@ -499,13 +507,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         });
       }
       // SOFTCAP5: THE WILDS ARE AN AREA TOO - the dungeons' law, with the wilderness's share (22% by day, 44% at night):
-      // my own foes only (a puppet is its owner's build), never an ally, never on a location's ground
-      if (!puppet && !allied && !inLocation()) {
+      // my own foes only (a puppet is its owner's build), never an ally, never on a location's ground (unless LT allowThreatScaling)
+      if (!puppet && !allied && (!inLocation() || allowThreatScaling)) {
         let night = false;
         try { night = isNight((skyMinute ?? currentMinute)()); } catch { /* no clock: day */ }   // TIME1: the sky's night
         // BAL3 (bible/05-Combat/Balance-Arc.md section 5): and the wilds' own threat - tier 5 by day, a harpy nest's 7 at night - while the ladder stands
         // BAL11 (section 17): and the hero's threat - my level past 10 and my Renown past 15, every kind alike
-        applyProgressionScaling(entity, progressionScaling(combatStanding(playerEntity), wildernessShare(night), foeShare(basics?.level ?? entity.level, isClass), lootRarityOn() ? placeVeteran(wildernessThreat(night)) : 0, heroThreatOf(playerEntity)));
+        applyProgressionScaling(entity, progressionScaling(combatStanding(playerEntity), wildernessShare(night), foeShare(basics?.level ?? entity.level, isClass), lootRarityOn() ? placeVeteran(wildernessThreat(night)) : 0, heroThreatOf(playerEntity, { ignoreLootRarity: allowThreatScaling })));
       } else if (puppet && !allied && !inLocation()) {
         // BAL11: a peer's foe strikes ME at MY threat - its blows alone; its maximum is its owner's word (the record's `k`)
         applyProgressionScaling(entity, progressionScaling(null, 0, 0, 0, heroThreatOf(playerEntity, { puppet: true })));
@@ -514,7 +522,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (team) entity.team = team;
       entity._feudPlace = playerInside ? 'building' : 'street';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
       recordEntityPlacement(entity, { pos, team: entity.team, allied, questBehaviour, site, placed, loose, eliteFoe: entity.eliteFoe, champion: entity.championTrait, revenant, zoneGiant, grantKind, eventFoe, puppet });
-      if (!allied && !entity.eliteFoe) applyChampion(entity, champion !== undefined ? champion : revenant ? (revenant.trait ? championIndex(revenant.trait) : null) : (capped ? rollStreetChampion(pending.feet, mobileType) : null), { own: !puppet });   // LOOT7: a champion - before its loot, which reads the mark
+      if (!allied && !entity.eliteFoe) applyChampion(entity, champion !== undefined ? champion : revenant ? (revenant.trait ? championIndex(revenant.trait) : null) : ((capped || allowChampionRoll) ? rollStreetChampion(pending.feet, mobileType) : null), { own: !puppet });   // LOOT7: a champion - before its loot, which reads the mark
+      if (!puppet && !allied) {
+        if (Number.isFinite(hpMult) && hpMult > 1) {
+          entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 1) * hpMult));
+          entity.health = entity.maxHealth;
+          entity.healthMult = (entity.healthMult ?? 1) * hpMult;
+        }
+        if (Number.isFinite(damageMult) && damageMult > 1) {
+          entity.damageScale = (Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1) * damageMult;
+        }
+      }
       if (revenant && !puppet) applyRevenant(entity, revenant, { turned });   // REVENANT: its name and its rank - over its trait or its glow, before its loot; RVN11c: a betrayer's turning is no return
       // WILD1 (systems/wild/wildZone.js): a foe of the open zone - four times its health and its blows, over its elite's, its
       // champion's or its revenant's (a puppet: its blows alone, its maximum is its owner's word); never an ally
@@ -724,7 +742,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       f.entity.goldPieces = 0;
     }
     f.lootDropped = true;
-  } else if (f._advRecord || f.livingRole === 'wandering_adventurer' || f.livingRole === 'rival_adventurer') {
+  } else if (f._advRecord || f._nemesisRecord || f.livingRole === 'wandering_adventurer' || f.livingRole === 'rival_adventurer' || f.livingRole === 'nemesis_leader') {
     applyAdventurerCorpseLoot(f.entity, LivingTamrielConfig.adventurerLootMode);
   }
   const _corpsePixel = currentPixelKey();
@@ -995,6 +1013,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // owner whole, `kind` and all, and is cut there); a whole-health one (a Disintegrate) takes a tenth of its health
     const _bossSpell = kind === 'spell' && !f.puppet && !!f.entity?.staffBoss;
     const _whole = whole || takeWholeBlow(f.entity);
+    if (!fromPlayer && !peer && !bypassShield && !_whole && f.entity?.skirmishNeutralToPlayer && (f.entity.eliteFoe || f.entity.champion || f.entity.skirmishLeader)) {
+      const floorHp = Math.ceil((f.entity.maxHealth || 1) * 0.75);
+      damage = Math.max(0, Math.min(damage, Math.max(0, (f.entity.health ?? 0) - floorHp)));
+      if (damage <= 0) return;
+    }
     // BOSS-TRAITS (bible/05-Combat/Boss-Traits.md): MY blow on a foe with traits - its resistances, its thorns at me - on
     // MY machine, where the weapon and the spell are, before a puppet's goes to its owner
     if (fromPlayer && !peer) damage = strikeTraits(f.entity, damage, kind, weapon, element, _whole || bypassShield, (n) => { onPlayerHurt?.(n, null); flashPlayerDamage(n); }, say);   // AUDIT WORLD-EVENTS L2-10: a SetHealth(0) is a kill; L5-6: each trait's rule told once, at my first blow on one

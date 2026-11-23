@@ -77,11 +77,11 @@ export function heroThreat(level, renown = null) {
  * around it (a mentor's, the group's), its Renown unless mentoring - or null where none stands (the ladder off, or
  * nothing to pay). `puppet`: another client's foe - its blows alone; its health is its owner's word.
  * @param {any} player
- * @param {{ puppet?: boolean }} [o]
+ * @param {{ puppet?: boolean, ignoreLootRarity?: boolean }} [o]
  * @returns {{ damage: number, health: number, level: number, renown: number } | null}
  */
-export function heroThreatOf(player, { puppet = false } = {}) {
-  if (!player || !lootRarityOn()) return null;
+export function heroThreatOf(player, { puppet = false, ignoreLootRarity = false } = {}) {
+  if (!player || (!ignoreLootRarity && !lootRarityOn())) return null;
   const t = heroThreat(effectiveLevel(player), player._mentor ? null : sigilRenown());
   if (!(t.damage > 1 || t.health > 1)) return null;
   return puppet ? { ...t, health: 1 } : t;

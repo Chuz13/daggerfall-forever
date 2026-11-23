@@ -3881,7 +3881,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     sceneOf: (nx, nz) => tvSceneOf(nx, nz, 0),
     // AUDIT LW-II C3: managed - this host owns their lives (the relevance cull took them as dead at 120 m, the camp stood
     // at 200: walked up to, a band was routed)
-    spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { yaw: o.yaw, gender: o.gender, level: o.level, allied: false, loose: true, transient: true, managed: true }),
+    spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { yaw: o.yaw, gender: o.gender, level: o.level, allied: false, loose: true, transient: true, managed: true, ...(o.allowThreatScaling ? { allowThreatScaling: true } : {}), ...(o.allowEliteRoll ? { allowEliteRoll: true } : {}), ...(o.allowChampionRoll ? { allowChampionRoll: true } : {}), ...(o.eliteFoe !== undefined ? { eliteFoe: o.eliteFoe } : {}), ...(o.eliteChance != null ? { eliteChance: o.eliteChance } : {}), ...(o.forcedBossTraits ? { forcedBossTraits: o.forcedBossTraits } : {}), ...(o.hpMult > 1 ? { hpMult: o.hpMult } : {}), ...(o.damageMult > 1 ? { damageMult: o.damageMult } : {}) }),
     remove: (f) => exteriorFoes.removeFoe(f),
     inPool: (f) => exteriorFoes.foes.includes(f),
     relations: () => livingRelations,
@@ -4170,6 +4170,75 @@ export async function bootWorld(canvas, renderer, params, status) {
       return '[Living Tamriel] Spawned Roadside Plea Encounter (Stranded Traveler requesting Aid).';
     }
 
+    const fx = feet[0] + Math.sin(cam.yaw) * 14;
+    const fz = feet[2] + Math.cos(cam.yaw) * 14;
+
+    if (targetKind === 'nemesis' || targetKind === 'nemesis_ambush') {
+      const bp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.NEMESIS_AMBUSH,
+        centerX: fx,
+        centerZ: fz,
+        heightAt,
+        regionIndex: reg,
+        playerEntity,
+        nowMinutes: nowMin,
+        onRoad: true,
+      });
+      livingSceneHostOf().standBlueprint(bp);
+      const nem = bp?.meta?.nemesis;
+      const leader = bp?.actors?.find((a) => a.role === 'nemesis_leader');
+      const traits = leader?.forcedBossTraits?.length ? ` [${leader.forcedBossTraits.join(', ')}]` : '';
+      return nem
+        ? `[Living Tamriel] Spawned Nemesis Ambush: ${nem.name} (Lv.${nem.level} ${nem.className}, Tier ${nem.tier}${traits}, ${nem.minions?.length ?? 0} minions).`
+        : '[Living Tamriel] Spawned Nemesis Ambush.';
+    }
+
+    if (targetKind === 'checkpoint') {
+      const bp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.CHECKPOINT,
+        centerX: fx,
+        centerZ: fz,
+        heightAt,
+        regionIndex: reg,
+        playerEntity,
+        nowMinutes: nowMin,
+        onRoad: true,
+      });
+      livingSceneHostOf().standBlueprint(bp);
+      return `[Living Tamriel] Spawned Road Checkpoint (${bp?.actors?.length ?? 0} guards).`;
+    }
+
+    if (targetKind === 'skirmish' || targetKind === 'urban_skirmish' || targetKind === 'war' || targetKind === 'war_skirmish') {
+      const wantUrban = (targetKind === 'urban_skirmish' || (targetKind === 'skirmish' && _musicInLocationRect()));
+      let bp = wantUrban
+        ? buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
+          centerX: fx,
+          centerZ: fz,
+          heightAt,
+          regionIndex: reg,
+          playerEntity,
+          nowMinutes: nowMin,
+          dfLocation: _musicLoc,
+          locationType: _musicLocationType(),
+          climateIndex: clim,
+        })
+        : null;
+      if (!bp) {
+        bp = buildLivingSiteBlueprint({
+          kind: LIVING_SITE_KINDS.WAR_SKIRMISH,
+          centerX: fx,
+          centerZ: fz,
+          heightAt,
+          regionIndex: reg,
+          playerEntity,
+          nowMinutes: nowMin,
+        });
+      }
+      livingSceneHostOf().standBlueprint(bp);
+      return `[Living Tamriel] Spawned ${bp.kind} (${bp?.actors?.length ?? 0} fighters).`;
+    }
+
     if (targetKind === 'camp' || targetKind === 'pack' || targetKind === 'band') {
       const roster = rollLivingChunkCampRoster({
         climateIndex: clim,
@@ -4205,6 +4274,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       return stood
         ? `[Living Tamriel] Spawned wilderness ${h.kind} (${types.length} enemies) near player.`
         : '[Living Tamriel] Could not find clear ground for wilderness camp.';
+    }
+
+    if (targetKind !== 'wild' && targetKind !== 'wildlife') {
+      return `Unknown encounter kind "${kind}". Valid: random, wild, camp, merchant, adv, bandit, plea, nemesis, checkpoint, skirmish, war, naval.`;
     }
 
     // Default 'wild' / ecological encounter:
@@ -4324,7 +4397,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     fights: createRoadFights({
       // AUDIT LW-III: managed - the fight owns its bodies' lives (its LIVE_KEEP_M lets them go); the pool's relevance cull
       // (120 m) took them inside the fight's own reach, and the fight read every one of them fallen
-      spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { yaw: o.yaw, gender: o.gender, level: o.level, allied: o.allied, loose: true, transient: true, managed: true }),
+      spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { yaw: o.yaw, gender: o.gender, level: o.level, allied: o.allied, loose: true, transient: true, managed: true, ...(o.allowThreatScaling ? { allowThreatScaling: true } : {}), ...(o.allowEliteRoll ? { allowEliteRoll: true } : {}), ...(o.allowChampionRoll ? { allowChampionRoll: true } : {}), ...(o.eliteFoe !== undefined ? { eliteFoe: o.eliteFoe } : {}), ...(o.eliteChance != null ? { eliteChance: o.eliteChance } : {}), ...(o.forcedBossTraits ? { forcedBossTraits: o.forcedBossTraits } : {}), ...(o.hpMult > 1 ? { hpMult: o.hpMult } : {}), ...(o.damageMult > 1 ? { damageMult: o.damageMult } : {}) }),
       remove: (f) => exteriorFoes.removeFoe(f),
       inPool: (f) => exteriorFoes.foes.includes(f),
       // AUDIT-B5: the fight's own election - the lowest id of those within LIVE_M of IT (each player near it stands it or
@@ -4342,7 +4415,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // LW7b: THE ARMED BEYOND THE WALLS - a traveller who counts the player hostile draws on them, a friend comes to their
     // fight; each the encounter pool's own body while it stands (loose, transient), this character's alone to stand
     stands: createRoadStands({
-      spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { allied: o.allied, yaw: o.yaw, gender: o.gender, level: o.level, loose: true, transient: true, managed: true }),   // AUDIT LW-III: its KEEP_M lets them go, never the cull
+      spawn: (type, feet, o) => exteriorFoes.spawnFoe(type, feet, { allied: o.allied, yaw: o.yaw, gender: o.gender, level: o.level, loose: true, transient: true, managed: true, ...(o.allowThreatScaling ? { allowThreatScaling: true } : {}), ...(o.allowEliteRoll ? { allowEliteRoll: true } : {}), ...(o.allowChampionRoll ? { allowChampionRoll: true } : {}), ...(o.eliteFoe !== undefined ? { eliteFoe: o.eliteFoe } : {}), ...(o.eliteChance != null ? { eliteChance: o.eliteChance } : {}), ...(o.forcedBossTraits ? { forcedBossTraits: o.forcedBossTraits } : {}), ...(o.hpMult > 1 ? { hpMult: o.hpMult } : {}), ...(o.damageMult > 1 ? { damageMult: o.damageMult } : {}) }),   // AUDIT LW-III: its KEEP_M lets them go, never the cull
       remove: (f) => exteriorFoes.removeFoe(f),
       inPool: (f) => exteriorFoes.foes.includes(f),
       ready: () => !!walkMode && !!playerSpawned && !_loading && !modes?.transitioning && _mode() === 'exterior' && !playerAfloat(),
@@ -13357,7 +13430,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const stood = _standCampEncounter({
       mobileTypes: Array(count).fill(mobileType), fixed: true, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
       minDistance: spotAt ? (farm || fort ? 8 : 0) : 60, maxDistance: spotAt ? (farm || fort ? 22 : 8) : 110,
-      bearingDegrees: Math.random() * 360, spawnOpts: { loose: true, transient: true },
+      bearingDegrees: Math.random() * 360, spawnOpts: { loose: true, transient: true, ...(fort ? { allowThreatScaling: true, allowEliteRoll: true, allowChampionRoll: true, eliteChance: 0.15 } : {}) },
       ownPlace: place,   // FB1029 GRAVE-PACK: a graveyard's hunt stands in its own rect - refused there, it never stood
       // BOUNTY-FARM-CLEAR: never in a farm's or fort's building
       spotOk: (x, z) => !(bountyFarms?.inBuilding?.(x, z) ?? false) && !(bountyForts?.inBuilding?.(x, z) ?? false),
