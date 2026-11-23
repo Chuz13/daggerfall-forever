@@ -24,15 +24,15 @@ let T = 0;
 setTacticsClock(() => T);
 beforeEach(() => { resetTactics(); resetBlows(); T = 0; setPref('enhancedAI', true); });
 
-test('TELL7: the tier - level 10 and up, an elite (either flag), a champion, a revenant at any level; the level read live (mutants: the champion or the revenant left out)', () => {
-  assert.equal(blowTier({ level: 9 }), false);
-  assert.equal(blowTier({ level: 10 }), true);
+test('TELL7: the tier - level 5 and up, an elite (either flag), a champion, a revenant at any level; the level read live (mutants: the champion or the revenant left out)', () => {
+  assert.equal(blowTier({ level: 4 }), false);
+  assert.equal(blowTier({ level: 5 }), true);
   assert.equal(blowTier({ level: 2, eliteFoe: true }), true);
   assert.equal(blowTier({ level: 2, elite: true }), true);
   assert.equal(blowTier({ level: 2, champion: 'mighty' }), true);
   assert.equal(blowTier({ level: 1, revenant: { rank: 1 } }), true, 'a revenant at any level');
   assert.equal(blowTier(null), false);
-  const e = { level: 5, mobileType: M.Orc };
+  const e = { level: 4, mobileType: M.Orc };
   assert.equal(throwsBlows(e), false);
   e.level = 12;   // Meaner Monsters, or any raise after the row
   assert.equal(throwsBlows(e), true, 'the live level');

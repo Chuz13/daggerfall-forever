@@ -42,12 +42,12 @@ test('TELL1: the table is the arc\'s section 27 (mutants: any number moved)', ()
     POISE_ELITE: 1.5, POISE_ELITE_DUNGEON: 1.25, POISE_CHAMPION: 1.25, POISE_STALWART: 1.5, POISE_REVENANT_RANK: 0.1,
     K_BLUNT: 1.5, K_AXE: 1.25, K_LONG_BLADE: 1.0, K_SHORT_BLADE: 0.7, K_HANDS: 0.6, K_CLAWS: 1.0, K_TWO_HANDED: 1.15,
     K_ARROW: 0.5, K_SPELL: 0.75, K_PEER: 1, POISE_BACK: 1.5, BACK_DEG: 110, POISE_WEAK: 2,
-    STAGGER_S: { light: 1.4, medium: 1.2, heavy: 1.0, massive: 0.8 },
-    STAGGER_KNOCK: 1.5, STAGGER_TAKEN: 1.25, STAGGER_IMMUNE: 3,
+    STAGGER_S: { light: 0.9, medium: 0.8, heavy: 0.65, massive: 0.5 },
+    STAGGER_KNOCK: 1.5, STAGGER_TAKEN: 1.1, STAGGER_IMMUNE: 6,
     GLINT_PULSE: 0.9, GLINT_PULSE_S: 0.15, GLINT_STEADY: 0.2, TELL_NOW: 0.2, GLINT_REDUCED: 0.45, RELEASE_LEAD: 0.25,
     WIND_PITCH: 0.85, WIND_CLASS_PITCH: 0.6, WIND_CLASS_VOLUME: 0.6, RELEASE_PITCH: 0.45, NEAR_M: 6, NEAR_FLOOR: 0.6,
     IRON_SHAPES: ['slam', 'ring'], IRON_ELITE: 1 / 3, IRON_EXTRA: 0.2,
-    PUNISH_S: { lunge: 1.0, sweep: 0.8, slam: 1.2, ring: 1.0, charge: 1.4, leap: 1.2 }, PUNISH_IRON: 0.3, PUNISH_TAKEN: 1.3,
+    PUNISH_S: { lunge: 1.0, sweep: 0.8, slam: 1.2, ring: 1.0, charge: 1.4, leap: 1.2 }, PUNISH_IRON: 0.3, PUNISH_TAKEN: 1.12,
     TELL_LATE: 0.25, PERFECT_WINDOW: 1.5, PERFECT_PITCH: 1.25,
     WINDUP_VARY: [0.9, 1.25], WINDUP_ELITE: 0.9, WINDUP_RANK: 0.03, TELL_MIN_WINDUP: 0.55, TRACKERS: ['lunge', 'charge'],
     TRACK_RATE: 120, TRACK_SHARE: 0.5, FEINT_CHANCE: 1 / 5, FEINT_AT: 0.55, FEINT_GAP: 3, FEINT_FADE: 0.15,
@@ -263,7 +263,7 @@ test('TELL1: the weight class sets the length - a giant is staggered 0.8 s (its 
   const t0 = T;
   assert.equal(windupStruck(g.ai, g.ent, 3000, 59.9), 'hold', 'a giant of 100: poise 50, the massive floor 60');   // PIN MOVED (AUDIT TELL: POISE_FLOOR_MASSIVE)
   assert.equal(windupStruck(g.ai, g.ent, 3000, 0.2), 'stagger');
-  assert.ok(Math.abs(g.ai.staggerUntil - (t0 + 0.8)) < 1e-9);
+  assert.ok(Math.abs(g.ai.staggerUntil - (t0 + 0.5)) < 1e-9);
   resetTactics(); resetBlows();
   const e = foe();
   e.ent.eliteFoe = true;
@@ -296,8 +296,8 @@ test('TELL1: a staggered foe takes a quarter more - the registry, the formulas\'
   assert.ok(blowTakenNames().includes('tell-stagger'));
   const ent = { staggerUntil: 5 };
   T = 4;
-  assert.equal(blowTakenScale(null, ent), 1.25);
-  assert.equal(blowTaken(8, null, ent), 10);
+  assert.equal(blowTakenScale(null, ent), 1.1);
+  assert.equal(blowTaken(10, null, ent), 11);
   assert.equal(blowTaken(1, null, ent), 1, 'at least the blow');
   assert.equal(blowTaken(0, null, ent), 0, 'nothing landed stays nothing');
   T = 5;
@@ -311,7 +311,7 @@ test('TELL1: a staggered foe takes a quarter more - the registry, the formulas\'
   const plain = calculateAttackDamage(attacker, { ...target }, opts);
   assert.ok(plain > 0, `a blow that lands (${plain})`);
   const hit = calculateAttackDamage(attacker, { ...target, staggerUntil: 2 }, opts);
-  assert.equal(hit, Math.max(1, Math.round(plain * 1.25)));
+  assert.equal(hit, Math.max(1, Math.round(plain * 1.1)));
   const fm = rd('src/combat/formulas.js');
   assert.match(fm, /const m = mentorDamageTakenMult\(target\);\n\s*if \(m > 1\) damage = Math\.max\(1, Math\.round\(damage \* m\)\);\n\s*\}\n(\s*\/\/[^\n]*\n)*\s*damage = blowTaken\(damage, attacker, target, weapon, /, 'after mentor mode, before the reports');
   const hm = rd('src/scenes/hostMagic.js');
@@ -401,9 +401,9 @@ test('TELL1: THE REAL STREET POOL - a blow on a foe winding up holds (no shove, 
   assert.ok(Math.abs(f.ai.knockbackSpeed - weaponKnockbackSpeed(14, w) * TELL.STAGGER_KNOCK) < 1e-9, 'its shove half again DFU\'s');
   assert.ok(effects.some((e) => e.k === 'clang'), 'the clang spark');
   assert.ok(shakes.includes(0.6), 'the player\'s own blow kicks the camera');
-  // the motor: the shove plays, the Hurt is held through the stagger
+  // the motor: the shove plays, the Hurt is held through the stagger (medium = 0.8s)
   let hurt = 0, n = 0;
-  poolFrames(pool, 1.0, () => { n++; if (f.ai.hurtKnock || f.ai.staggered) hurt++; });
+  poolFrames(pool, 0.75, () => { n++; if (f.ai.hurtKnock || f.ai.staggered) hurt++; });
   assert.equal(hurt, n, 'its Hurt held every frame of its stagger');
 });
 

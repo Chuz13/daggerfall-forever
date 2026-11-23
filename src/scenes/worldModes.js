@@ -168,7 +168,7 @@ import { sparedByPlayer } from '../combat/friendlyFire.js';   // AUDIT CC-B6: th
 import { createHitEffects } from './hitEffects.js';   // HE1: EnemyBlood.ShowBloodSplash, the fourth host
 import { hitSoundFor, ENEMY_HIT_VOLUME, PLAYER_HIT_VOLUME } from '../systems/soundClips.js';   // IF: the blow that lands on the player indoors   // AUDIT 58: DFU's two hit volumes
 import { entityIsParalyzed } from '../systems/effects.js';   // AUDIT 39r: the S19 gate is host-agnostic in DFU - the interior arm owes it too
-import { knockedDown } from '../systems/blowEffects.js';   // TELL6e: knocked down, no swing
+import { knockedDown, playerStaggerLocked } from '../systems/blowEffects.js';   // TELL6e: knocked down, no swing
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 39r: ShowPlayerDamage - an arrow indoors comes through the same door as a blow
 import { sensesContext, subscribeFoePools } from './shared.js';   // IF: the one senses builder every pool is handed; AUDIT 58: and the magic-round fan-out both of them owe
 import { makeInView } from '../player/cameraView.js';   // IF: the swing's in-view test, the guards' own
@@ -11529,7 +11529,7 @@ export function createWorldModes(host) {
     // above-ground hosts pass (WeaponManager.cs:235-239 - ShowWeapons
     // (false) and no swing). This host's interior rig was handed
     // nothing, so a paralysed player indoors kept swinging.
-    for (const ev of (overlayHeld ? [] : interiorWeapon.frame(dt, { paralyzed: paralyzed || knockedDown() }))) {   // TELL6e: knocked down, no swing
+    for (const ev of (overlayHeld ? [] : interiorWeapon.frame(dt, { paralyzed: paralyzed || knockedDown() || playerStaggerLocked() }))) {   // TELL6e: knocked down, no swing
       // AUDIT 23 (combat-2): the bow machine's frame-4 loose sound.
       if (ev === 'bowSound') { audio.playOneShot(SOUND.ArrowShoot, 1.1); continue; }
       if (ev !== 'hit') continue;

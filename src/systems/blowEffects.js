@@ -14,6 +14,7 @@
 // (drainBlowEffects) and ticks the bleed (tickBleed). On the foes' own clock (ai/tacticsClock.js).
 import { tacticsNow } from '../ai/tacticsClock.js';
 import { markPlayerHarm, HARM_MARK_STRUCK_MS } from './harmMark.js';
+import { registerBlowTakenMod } from './blowTaken.js';
 
 export const BLOW_EFFECT = Object.freeze({
   PUSH: Object.freeze({ lunge: 3, charge: 5 }), // m/s (the decay and the edge: player/motor.js BLOW_PUSH_*)
@@ -25,10 +26,18 @@ export const BLOW_EFFECT = Object.freeze({
   BLEED_SHARE: 0.3,
   BLEED_TICKS: 3,
   BLEED_EVERY: 1, // s between ticks - three over 3 s
-  KNOCKDOWN: Object.freeze(['slam', 'ring', 'charge']), // iron's alone
+  KNOCKDOWN: Object.freeze(['slam', 'ring', 'charge', 'lunge', 'sweep']), // iron's alone
   KNOCKDOWN_S: 0.9,
   KNOCKDOWN_GUARD: 5,
   KNOCKDOWN_DROP: 0.6,
+  STAGGER: Object.freeze(['lunge', 'sweep', 'slam', 'ring', 'charge', 'leap']),
+  STAGGER_LOCK_S: 0.45,
+  STAGGER_SLOW_S: 0.55,
+  STAGGER_SLOW_WALK: 0.6,
+  STAGGER_VULN_S: 1.0,
+  STAGGER_TAKEN: 1.15,
+  STAGGER_GUARD: 4.5,
+  STAGGER_SHAKE: 0.35,
 });
 
 /** What a blow of `kind` (iron or not) does when it lands. */
@@ -38,6 +47,7 @@ export function blowEffectOf(kind, iron = false) {
     rattle: BLOW_EFFECT.RATTLE.includes(kind),
     bleed: BLOW_EFFECT.BLEED.includes(kind),
     knockdown: !!iron && BLOW_EFFECT.KNOCKDOWN.includes(kind),
+    stagger: BLOW_EFFECT.STAGGER.includes(kind),
   };
 }
 
@@ -51,32 +61,85 @@ export function queueBlowEffect(fx, dmg, dir, foe) {
 
 let _downUntil = -Infinity,
   _guardUntil = -Infinity,
-  _downMotor = null;
+  _downMotor = null,
+  _staggerLockUntil = -Infinity,
+  _staggerUntil = -Infinity,
+  _staggerGuardUntil = -Infinity;
 /** Is the local player knocked down now? The swing and the cast ask (the hosts' rig gate, scenes/hostMagic.js).
  *  AUDIT TELL L9: while the body the knockdown took is down too - a placement (motor.spawn: a load, a rise, a
  *  teleport) stands it up, and the swing and the cast with it; the clock alone bounds it, so a body a host left is
  *  never down for good. */
 export const knockedDown = (now = tacticsNow()) => now < _downUntil && (_downMotor?.isDown?.() ?? true);
 
+/** Is the player's swing/cast locked by a hard stagger right now? */
+export const playerStaggerLocked = (now = tacticsNow()) => now < _staggerLockUntil;
+
+/** Is the player currently in the 1s stagger vulnerability window? */
+export const playerStaggered = (now = tacticsNow()) => now < _staggerUntil;
+
+/** Live player stagger state snapshot (for HUD, diagnostics, and console commands). */
+export function playerStaggerState(now = tacticsNow()) {
+  return {
+    staggered: now < _staggerUntil,
+    locked: now < _staggerLockUntil,
+    remaining: Math.max(0, _staggerUntil - now),
+    lockRemaining: Math.max(0, _staggerLockUntil - now),
+    guardRemaining: Math.max(0, _staggerGuardUntil - now),
+  };
+}
+
+/** Apply hard player stagger (0.45s swing/cast lock, 0.55s slow unless riding, +15% taken for 1.0s, 4.5s anti-stunlock). */
+export function applyPlayerStagger({ motor = null, entity = null, shake = null, now = tacticsNow(), bypassGuard = false, skipShake = false } = {}) {
+  if (entity && !(entity.health > 0)) return false;
+  if (!bypassGuard && now < _staggerGuardUntil) return false;
+  _staggerLockUntil = now + BLOW_EFFECT.STAGGER_LOCK_S;
+  _staggerUntil = now + BLOW_EFFECT.STAGGER_VULN_S;
+  _staggerGuardUntil = _staggerUntil + BLOW_EFFECT.STAGGER_GUARD;
+  if (entity) entity.playerStaggerUntil = _staggerUntil;
+  if (!motor?.riding) motor?.blowRattle?.(BLOW_EFFECT.STAGGER_SLOW_S, BLOW_EFFECT.STAGGER_SLOW_WALK);
+  if (!skipShake) shake?.(BLOW_EFFECT.STAGGER_SHAKE);
+  return true;
+}
+
+/** Clear active player stagger (console/debug helper; leaves bleed intact). */
+export function clearPlayerStagger(entity = null) {
+  _staggerLockUntil = -Infinity;
+  _staggerUntil = -Infinity;
+  _staggerGuardUntil = -Infinity;
+  if (entity) entity.playerStaggerUntil = 0;
+}
+
+registerBlowTakenMod('player-stagger', (_attacker, target) => (
+  target?.isPlayer && Number.isFinite(target.playerStaggerUntil) && tacticsNow() < target.playerStaggerUntil
+    ? BLOW_EFFECT.STAGGER_TAKEN
+    : 1
+));
+
 /**
  * The host's player frame: every queued landing applied - the motor's push, rattle and knockdown (`motor` the
  * player's PlayerMotor), the camera's dip (`shake(k)`), a bleed begun on `entity`.
  */
 export function drainBlowEffects({ motor = null, entity = null, shake = null, now = tacticsNow() } = {}) {
+  if (entity && entity.playerStaggerUntil > 0 && now >= entity.playerStaggerUntil) {
+    entity.playerStaggerUntil = 0;
+  }
   if (entity && !(entity.health > 0)) {
     _queue.length = 0;
+    entity.playerStaggerUntil = 0;
     return;
   } // AUDIT TELL L1: a dead body takes nothing
   while (_queue.length) {
     const { fx, dmg, dir, foe } = /** @type {any} */ (_queue.shift());
     // AUDIT TELL L4: the body says whether it can go down (a climb, a hold, a mantle, a swim, a levitation cannot) -
     // refused, the guard stands unspent and the blow pushes as any other
+    let didKnockdown = false;
     if (
       fx.knockdown &&
       now >= _guardUntil &&
       motor?.blowKnockDown?.(BLOW_EFFECT.KNOCKDOWN_S, BLOW_EFFECT.KNOCKDOWN_DROP) !== false
     ) {
       // it takes any push with it
+      didKnockdown = true;
       _downUntil = now + BLOW_EFFECT.KNOCKDOWN_S;
       _guardUntil = _downUntil + BLOW_EFFECT.KNOCKDOWN_GUARD;
       _downMotor = motor;
@@ -85,8 +148,11 @@ export function drainBlowEffects({ motor = null, entity = null, shake = null, no
       if (l > 0) motor?.blowPush?.((dir[0] / l) * fx.push, (dir[1] / l) * fx.push);
     }
     if (fx.rattle) {
-      motor?.blowRattle?.(BLOW_EFFECT.RATTLE_S, BLOW_EFFECT.RATTLE_WALK);
+      if (!motor?.riding) motor?.blowRattle?.(BLOW_EFFECT.RATTLE_S, BLOW_EFFECT.RATTLE_WALK);
       shake?.(BLOW_EFFECT.RATTLE_SHAKE);
+    }
+    if (!didKnockdown && fx.stagger) {
+      applyPlayerStagger({ motor, entity, shake, now, skipShake: !!fx.rattle });
     }
     if (fx.bleed && entity && dmg > 0) startBleed(entity, dmg * BLOW_EFFECT.BLEED_SHARE, foe, now);
   }
@@ -141,7 +207,13 @@ export function resetBlowEffects(entity = null) {
   _downUntil = -Infinity;
   _guardUntil = -Infinity;
   _downMotor = null;
-  if (entity) entity.bleed = null;
+  _staggerLockUntil = -Infinity;
+  _staggerUntil = -Infinity;
+  _staggerGuardUntil = -Infinity;
+  if (entity) {
+    entity.bleed = null;
+    entity.playerStaggerUntil = 0;
+  }
 }
 /** Tests: the queue and the knockdown forgotten. */
 export function _resetBlowEffectsForTests() {

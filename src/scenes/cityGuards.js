@@ -394,7 +394,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         ai.makeHostileToPlayer(600, attackerFeet);
         ai.makeEnemyHostileToAttacker?.(PLAYER_TARGET, attackerFeet);
       }
-      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
+      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: () => playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
       // EnemyMotor.cs:131-137 computes hasBowAttack from the MobileEnemy
       // FLAGS, and EnemyBasics.cs:2197-2212 gives Knight_CityWatch
       // HasRangedAttack1 = false / CastsMagic = false - so DFU's

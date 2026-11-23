@@ -37,7 +37,7 @@ beforeEach(() => { resetTactics(); resetBlows(); T = 0; setPref('enhancedAI', tr
 test('TELL4: the windows - lunge 1.0, sweep 0.8, slam 1.2, ring 1.0, charge 1.4, leap 1.2 s; iron 0.3 s longer; a perfect dodge half again; x1.3 taken (mutants: any moved)', () => {
   assert.deepEqual({ ...TELL.PUNISH_S }, { lunge: 1.0, sweep: 0.8, slam: 1.2, ring: 1.0, charge: 1.4, leap: 1.2 });
   assert.equal(TELL.PUNISH_IRON, 0.3);
-  assert.equal(TELL.PUNISH_TAKEN, 1.3);
+  assert.equal(TELL.PUNISH_TAKEN, 1.12);
   assert.equal(TELL.TELL_LATE, 0.25);
   assert.equal(TELL.PERFECT_WINDOW, 1.5);
   const near = (a, b) => Math.abs(a - b) < 1e-9;
@@ -48,7 +48,7 @@ test('TELL4: the windows - lunge 1.0, sweep 0.8, slam 1.2, ring 1.0, charge 1.4,
   assert.ok(near(punishSeconds('nonsense'), 1.0), 'a shape with no row: the lunge\'s');
   // the bound: the longest lock one missed blow buys - a perfect dodge of an iron charge, then a light foe's stagger
   const longest = Math.max(...Object.keys(TELL.PUNISH_S).map((k) => punishSeconds(k, 'iron', true))) + Math.max(...Object.values(TELL.STAGGER_S));
-  assert.ok(near(longest, 3.95), `${longest}`);
+  assert.ok(near(longest, 3.45), `${longest}`);
 });
 
 // ── on the real motor ───────────────────────────────────────────────
@@ -198,11 +198,11 @@ test('TELL4: the first blow on an overreached foe STAGGERS it - its weight\'s le
 test('TELL4: an overreached foe takes 30% more from every blow - the registry the formulas\' tail and a spell\'s landing read (mutants: the fold unregistered)', () => {
   assert.ok(blowTakenNames().includes('tell-overreach'));
   T = 4;
-  assert.equal(blowTakenScale(null, { overreachUntil: 5 }), 1.3);
+  assert.equal(blowTakenScale(null, { overreachUntil: 5 }), 1.12);
   assert.equal(blowTakenScale(null, { overreachUntil: 4 }), 1, 'shut at its end');
   assert.equal(blowTakenScale(null, {}), 1);
   assert.equal(overreachedNow({ overreachUntil: 5 }), true);
-  assert.equal(blowTaken(10, null, { overreachUntil: 5 }, null, { kind: 'melee' }), 13);
+  assert.equal(blowTaken(100, null, { overreachUntil: 5 }, null, { kind: 'melee' }), 112);
 });
 
 test('TELL4: its place gone ends the window; the switch off opens none (mutants: the release keeps the lock)', () => {

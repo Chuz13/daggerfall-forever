@@ -29,7 +29,7 @@ import {
   TELL_IRON_EXTRA,
   TELL_FEINT_FADE as FEINT_FADE,
 } from './blowShapes.js';
-export const BLOW_TIER_LEVEL = 10; // Mac: level 10 and up, or an elite
+export const BLOW_TIER_LEVEL = 5; // Block 3: level 5 and up, or an elite
 export const BLOW_COOLDOWN_MIN = TELL.COOLDOWN.ordinary[0]; // seconds between one foe's blows (TELL7: an ordinary foe's; ai/tells.js blowCooldown by tier)
 export const BLOW_COOLDOWN_MAX = TELL.COOLDOWN.ordinary[1];
 export const BLOW_CHANCE = 1 / 10; // a classic tick in reach with a token: the roll to wind one up

@@ -280,7 +280,7 @@ test('AUDIT TELL L3/L4: a body the motor or the hands hold takes no push, and no
   const mo = fakeMotor(false);
   queueBlowEffect(blowEffectOf('charge', true), 10, [1, 0], null);
   drainBlowEffects({ motor: mo, entity: { health: 30 } });
-  assert.deepEqual(mo.calls, [['down', 0.9, 0.6], ['push', 5, 0]], 'refused, it pushes');
+  assert.deepEqual(mo.calls, [['down', 0.9, 0.6], ['push', 5, 0], ['rattle', 0.55, 0.6]], 'refused, it pushes and staggers');
   assert.equal(knockedDown(T + 0.1), false);
   const ok = fakeMotor(true);
   queueBlowEffect(blowEffectOf('charge', true), 10, [1, 0], null);

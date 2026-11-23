@@ -132,8 +132,19 @@ export { tacticsNow, setTacticsClock, tickTactics };
 const _boards = new Map();
 /** The local player's facing, as its host last noted it (feet and a unit forward, xz) - for the back-turned test. */
 let _me = null;
-/** Each host, each frame: where the local player stands and faces. */
-export function noteLocalPlayer(feet, fwd) {
+let _localReflexes = 2;
+let _reflexesReader = null;
+/** Optional live reflexes reader for tactics wind-ups and cooldowns. */
+export function setTacticsReflexesReader(fn) {
+  _reflexesReader = typeof fn === 'function' ? fn : null;
+}
+function liveReflexes() {
+  const v = _reflexesReader ? _reflexesReader() : _localReflexes;
+  return Number.isFinite(v) ? v : 2;
+}
+/** Each host, each frame: where the local player stands and faces (plus optional live reflexes). */
+export function noteLocalPlayer(feet, fwd, reflexes = null) {
+  if (Number.isFinite(reflexes)) _localReflexes = reflexes;
   if (!feet || !fwd) {
     _me = null;
     return;
@@ -145,6 +156,8 @@ export function noteLocalPlayer(feet, fwd) {
 export function resetTactics() {
   _boards.clear();
   _me = null;
+  _localReflexes = 2;
+  _reflexesReader = null;
 }
 /** AUDIT TACT D3: a floating-origin recentre - the noted player and every live wind-up move with the world. */
 export function offsetTactics(offset) {
@@ -243,7 +256,7 @@ export function releaseTactics(ai) {
 export function breakWindup(ai) {
   const s = ai?._tac;
   if (!s || s.puppet || (s.state !== 'windup' && s.state !== 'dash' && s.state !== 'chain')) return false;
-  const cooled = clock() + blowCooldown(ai.vitals?.());
+  const cooled = clock() + blowCooldown(ai.vitals?.(), Math.random(), liveReflexes());
   setLiveBlow(ai, null);
   s.blow = null;
   s.dash = null;
@@ -303,7 +316,7 @@ export function windupStruck(ai, ent, weight, v) {
   if (b.taken < b.poise) return 'hold';
   shatterBlow(ai, now);
   s.blow = null; // AUDIT TELL (3.2): its mark shatters
-  s.blowReady = now + blowCooldown(ent); // By its tier
+  s.blowReady = now + blowCooldown(ent, Math.random(), liveReflexes()); // By its tier
   clearBlowState(ai);
   dropSwing(ai);
   handOn(ai, s, now);
@@ -848,8 +861,8 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0, sig = null) {
   const guard = sig?.iron ? 'iron' : blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent); // Iron or poise (the kind's own weight - no class throws an iron shape); RVN5: a signature iron from rank 3
   const windup =
     chain > 0
-      ? windupSeconds(TELL.CHAIN_WINDUP, ent, { guard, roll: null, floor: TELL.CHAIN_FLOOR })
-      : windupSeconds(BLOW[shape].windup, ent, { guard });
+      ? windupSeconds(TELL.CHAIN_WINDUP, ent, { guard, roll: null, floor: TELL.CHAIN_FLOOR, reflexes: liveReflexes() })
+      : windupSeconds(BLOW[shape].windup, ent, { guard, reflexes: liveReflexes() });
   const b = fitBlowToGround(
     makeBlow(
       shape,
@@ -934,7 +947,7 @@ export function beginRoar(ai, ent, seconds, now = clock()) {
 /** The wind-up's turn - broken by a knock or a paralysis (a step the motor did not let the brain decide), else
  *  stood, its aim locked, until the landing: where my feet stand decides it, and the swing comes now. */
 function windupTurn(ai, s, now, skipped) {
-  const cooled = now + blowCooldown(ai.vitals?.()); // By its tier
+  const cooled = now + blowCooldown(ai.vitals?.(), Math.random(), liveReflexes()); // By its tier
   if (skipped || ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0) {
     setLiveBlow(ai, null);
     s.blow = null;

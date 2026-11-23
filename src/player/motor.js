@@ -813,7 +813,7 @@ export class PlayerMotor {
    *  AUDIT TELL L4: refused (false) to a body the hands hold (a climb, a hold, a mantle) or the water or the air does
    *  (a swim, a levitation) - nothing there goes down; systems/blowEffects.js pushes it instead. */
   blowKnockDown(seconds, drop) {
-    if (this.climb?.isClimbing || this._wall || this._pkMove || this.swimming || this.levitating) return false;
+    if (this.riding || this.climb?.isClimbing || this._wall || this._pkMove || this.swimming || this.levitating) return false;
     this._downLeft = seconds; this._downFor = seconds; this._downDrop = drop; this._pushX = 0; this._pushZ = 0;
     return true;
   }

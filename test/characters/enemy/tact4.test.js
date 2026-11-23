@@ -29,10 +29,10 @@ beforeEach(() => { resetTactics(); resetBlows(); T = 0; setPref('enhancedAI', tr
 
 // ── the law ─────────────────────────────────────────────────────────
 
-test('TACT4: who telegraphs - level 10 and up or an elite, of a family that has a shape; one or two shapes each', () => {
-  assert.equal(BLOW_TIER_LEVEL, 10);
-  assert.equal(blowTier({ level: 9 }), false);
-  assert.equal(blowTier({ level: 10 }), true);
+test('TACT4: who telegraphs - level 5 and up or an elite, of a family that has a shape; one or two shapes each', () => {
+  assert.equal(BLOW_TIER_LEVEL, 5);
+  assert.equal(blowTier({ level: 4 }), false);
+  assert.equal(blowTier({ level: 5 }), true);
   assert.equal(blowTier({ level: 3, elite: true }), true);
   assert.equal(blowTier({ level: 3, eliteFoe: true }), true);
   assert.equal(blowTier(null), false);
@@ -274,7 +274,7 @@ test('TACT4: one at a time - while another foe winds up near the player, no othe
 });
 
 test('TACT4: never below the tier, never a caster, never with the switch off', () => {
-  for (const [opts, why] of [[{ level: 9 }, 'below the tier'], [{ mobileType: M.Mage }, 'a caster']]) {
+  for (const [opts, why] of [[{ level: 4 }, 'below the tier'], [{ mobileType: M.Mage }, 'a caster']]) {
     resetTactics(); resetBlows();
     const f = foe(opts);
     assert.equal(untilWindup([f], f, [0, 0, 0], 40), null, why);
