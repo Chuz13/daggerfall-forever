@@ -86,7 +86,7 @@ export class EnemyAttack {
     // capture AUDIT 39 fixed for LiveSpeed. Reflexes is set at chargen
     // only, so it stays a plain field.
     this._playerLevel = typeof playerLevel === 'function' ? playerLevel : () => playerLevel;
-    this.reflexes = reflexes;
+    this._reflexes = typeof reflexes === 'function' ? reflexes : () => reflexes;
     this.rolls = rolls;   // ENGINE-PRNG: DoRangedAttack's Random.value + the strike/timer picks
     this.meleeTimer = 0;
     this._classicTimer = 0;
@@ -104,6 +104,10 @@ export class EnemyAttack {
 
   /** EnemyAttack.cs:117 - PlayerEntity.Level, read at every reset. */
   get playerLevel() { return this._playerLevel(); }
+
+  /** Live PlayerEntity.Reflexes, read at every reset and monster multi-attack gate. */
+  get reflexes() { return this._reflexes(); }
+  set reflexes(v) { this._reflexes = typeof v === 'function' ? v : () => v; }
 
   /**
    * @param ai the foe's EnemyAI (senses + yaw + feet)

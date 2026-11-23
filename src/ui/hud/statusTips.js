@@ -277,6 +277,10 @@ export function statusTip(tile, entity, extra = {}) {
     lines.push('An open wound: you lose health with each tick.');
     return { title, meta, lines, foot: tile.foot ? `${tile.foot} ticks left` : null };
   }
+  if (tile.key === 'staggered') {
+    lines.push(t('hud.status.staggeredTip', 'Staggered: brief weapon/spell interruption and +15% damage taken.'));
+    return { title, meta, lines, foot: tile.foot ? `${tile.foot} left` : null };
+  }
   if (String(tile.key).startsWith('disease:')) {
     const id = Number(String(tile.key).slice(8));
     title = DISEASE_NAMES[id] ?? title;

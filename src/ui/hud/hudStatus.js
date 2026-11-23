@@ -57,6 +57,7 @@
 import { DISEASE_NAMES, diseaseIncubating } from '../../systems/diseases.js'; // DISEASE-UNWELL: and the one law of a disease still incubating
 import { HUD_NEED_WORDS, levelSaid } from '../../systems/survival/status.js';
 import { t } from '../../systems/textManager.js'; // DISEASE-UNWELL: the Unwell tile's word in the player's language, read when it is drawn
+import { tacticsNow } from '../../ai/tacticsClock.js';
 
 /** A tile's side: a 16px picture at two to one inside a 2px frame. */
 export const STAT_TILE = 36;
@@ -428,6 +429,28 @@ export const STATUS_GLYPHS = Object.freeze({
       '................',
     ],
   }),
+  // Block 3: amber/crimson impact burst for player stagger
+  staggered: Object.freeze({
+    pal: { a: '#ff9c3a', b: '#fff0a0', r: '#d83a2e' },
+    rows: [
+      '.......kk.......',
+      '......kbbk......',
+      '..kk..kbbk..kk..',
+      '.krrk.kaak.krrk.',
+      '.krbakkaakkbark.',
+      '..kkbkaaaakbkk..',
+      '....kbaaaabk....',
+      'kk..kaabbaak..kk',
+      'kbbkaabbbbaakbbk',
+      'kk..kaabbaak..kk',
+      '....kbaaaabk....',
+      '..kkbkaaaakbkk..',
+      '.krbakkaakkbark.',
+      '.krrk.kaak.krrk.',
+      '..kk..kbbk..kk..',
+      '.......kk.......',
+    ],
+  }),
   // SKILL-READY (2026-10-20, Dudey: "a symbol ... left of the renown bar when skills are ready to level up"): an arrow
   // up in the level's gold - the skills a rest or a journey would raise (ui/hud/hudAdvance.js)
   skillup: Object.freeze({
@@ -618,6 +641,8 @@ export function statusGlyphSrc(name) {
 /** DISEASE-UNWELL: the unnamed tile's word - the English, and as the player reads it. */
 export const UNWELL_TILE_TEXT = 'Unwell';
 export const unwellTileText = () => t('hud.status.unwell', UNWELL_TILE_TEXT);
+export const STAGGERED_TILE_TEXT = 'Staggered';
+export const staggeredTileText = () => t('hud.status.staggered', STAGGERED_TILE_TEXT);
 
 /**
  * The poisons and diseases the widget shows - the Status box's law (systems/healthStatus.js healthStatusRows): ONE
@@ -651,6 +676,10 @@ export function afflictionRows(entity) {
   const bleed = entity?.bleed;
   if (bleed && bleed.left > 0)
     out.push({ key: 'bleed', name: 'Bleeding', glyph: 'bleed', foot: String(bleed.left), blink: bleed.left < 2 });
+  if (Number.isFinite(entity?.playerStaggerUntil) && tacticsNow() < entity.playerStaggerUntil) {
+    const rem = Math.max(0.1, entity.playerStaggerUntil - tacticsNow());
+    out.push({ key: 'staggered', name: staggeredTileText(), glyph: 'staggered', foot: `${rem.toFixed(1)}s`, blink: true });
+  }
   return out;
 }
 

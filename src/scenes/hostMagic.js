@@ -82,7 +82,7 @@ import { tellPlayerCast } from '../systems/playerCasts.js';   // EG15: the playe
 import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: DaggerfallMissile's impact flash
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
 import { markPlayerHarm } from '../systems/harmMark.js';   // REVENANT-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
-import { knockedDown } from '../systems/blowEffects.js';   // TELL6e: knocked down, no cast
+import { knockedDown, playerStaggerLocked } from '../systems/blowEffects.js';   // TELL6e: knocked down, no cast
 import { sparedByPlayer, isShipmate, boutTeammates } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 import { isSparProtected } from '../systems/living/sparSurrender.js';
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
@@ -1358,7 +1358,7 @@ export function createPlayerMagic({
   function castInput(eye, dir) {
     const sp = readiedSpell;
     if (!sp) return false;
-    if (knockedDown()) return false;   // TELL6e: knocked down - the spell stays readied, no cast
+    if (knockedDown() || playerStaggerLocked()) return false;   // TELL6e: knocked down - the spell stays readied, no cast
     if (barredHere()) return false;   // HOME-MAGIC: a spell readied outside is not fired inside another's home
     if (wardedHere(sp)) return false;   // AUDIT-SEATS G5: a spell readied before a battle is not fired in its wards
     // S27 / SilenceCheck (EntityEffectManager :1932-1946). DFU tests

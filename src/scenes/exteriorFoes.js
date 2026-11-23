@@ -620,7 +620,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         hasMagickaToCast: () => hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540); TACT2: the brain reads its health
       });
       pending.feet = ai.feet;   // AUDIT 39: the AI's copy is the live array from here
-      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: playerEntity.reflexes, rolls });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
+      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: () => playerEntity.reflexes, rolls });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
       // X2-slice: the arrow seam exists (the host's onArrow) - bow
       // foes read the SAME ranged-flags law the dungeon build does,
       // and the C-slice 6..51.2 band drives them above ground.

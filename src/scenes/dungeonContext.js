@@ -324,7 +324,7 @@ import { createCamps, FIRE_LIGHT_UP } from './camps.js';   // REST3: a placed fi
 import { campWire, validCampRecord, FIRE_LIGHT_RANGE } from '../systems/survival/camp.js';   // SURV3: the room's memory carries the camps as the wire says them   // HT1: Handheld Torches' dropped lights in the dungeon   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemy/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
 import { flashPlayerDamage, shakePlayerDamage } from '../ui/damageFlash.js';   // WB13d: the gate boss's elemental blows shake, unflashed
-import { knockedDown } from '../systems/blowEffects.js';   // TELL6e: knocked down, no swing
+import { knockedDown, playerStaggerLocked } from '../systems/blowEffects.js';   // TELL6e: knocked down, no swing
 import { resetVitalsDetector } from '../ui/hud/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { activeMemberships } from '../systems/guild/guilds.js';   // F117
 import { avoidDeath, avoidDeathText } from '../systems/guild/guildServices.js';   // F117: Stendarr
@@ -1689,7 +1689,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         canCastRangedSpell: () => rec?.caster?.canCastRangedSpell() ?? false,   // D9: SelectedSpell, from the caster that owns the pick
         hasMagickaToCast: () => foeDeps.hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540) - CurrentMagicka > 0, not the band gate; TACT2: the brain reads its health
       });
-      const attack = new D.EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(D.playerEntity), reflexes: D.playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72 re-reads LiveSpeed per FixedUpdate
+      const attack = new D.EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(D.playerEntity), reflexes: () => D.playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72 re-reads LiveSpeed per FixedUpdate
       // Combat bows: EnemyMotor.cs:131-137 reads the MobileEnemy
       // FLAGS, with zero inventory involvement (AUDIT 18 - minting
       // this from an equipped bow meant no enemy could ever fire one,
@@ -1778,7 +1778,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         canCastRangedSpell: () => rec?.caster?.canCastRangedSpell() ?? false,   // D9: SelectedSpell, from the caster that owns the pick
         hasMagickaToCast: () => foeDeps.hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540) - CurrentMagicka > 0, not the band gate; TACT2: the brain reads its health
       });
-      const attack = new D.EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(D.playerEntity), reflexes: D.playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72 re-reads LiveSpeed per FixedUpdate
+      const attack = new D.EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(D.playerEntity), reflexes: () => D.playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72 re-reads LiveSpeed per FixedUpdate
       // The same EnemyMotor.cs:131-137 flag test the class branch
       // runs - false for all 43 monsters today, but it must not stay
       // undefined (the archer draw/loose path reads it every frame).
@@ -8064,7 +8064,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       animalAmbience.update(dt, eye);   // A4 fold: the shared PlayRandomlyIfPlayerNear pass (was inline A2)
       // C10: the rig owns the gesture consume, the swing-sound edge,
       // and the machine step (paralysis holds all three, S19).
-      for (const ev of weaponRig.frame(dt, { paralyzed: _pParalyzed || knockedDown() })) {   // TELL6e: knocked down, no swing
+      for (const ev of weaponRig.frame(dt, { paralyzed: _pParalyzed || knockedDown() || playerStaggerLocked() })) {   // TELL6e: knocked down, no swing
         // AUDIT 23 (combat-2) - WeaponManager.cs:376-380: the bow's
         // swing sound is ArrowShoot at frame 4 of the release.
         if (ev === 'bowSound') { audio.playOneShot(SOUND.ArrowShoot, 1.1); continue; }

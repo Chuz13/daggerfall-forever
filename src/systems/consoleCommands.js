@@ -215,6 +215,8 @@ import { dumpCombatLog, isInCombat } from './diagnostics/combatLogger.js';
 import { dumpEncounterLog, getRecentSpawns } from './diagnostics/encounterLogger.js';
 import { dumpAllDiagnostics } from './diagnostics/diagnosticsManager.js';
 import { LivingTamrielConfig, PRESENCE } from './living/livingConfig.js';
+import { applyPlayerStagger, clearPlayerStagger, playerStaggerState } from './blowEffects.js';
+import { reflexesWindupMult, reflexesCooldownMult } from '../ai/tells.js';
 import {
   getSocialRep,
   getFactionStanding,
@@ -700,6 +702,66 @@ registerCommand(
     setPref(COMBAT_LETHALITY_PREF, raw);
     const s = COMBAT_LETHALITY_PRESETS[raw];
     return `Combat Lethality set to ${raw} (damage x${s.damage.toFixed(2)}, health x${s.health.toFixed(2)}). Applies to newly spawned foes.`;
+  }
+);
+
+const REFLEX_NAMES = Object.freeze(['Very High', 'High', 'Average', 'Low', 'Very Low']);
+const REFLEX_ALIASES = Object.freeze({
+  veryhigh: 0, 'very-high': 0, vh: 0,
+  high: 1, h: 1,
+  average: 2, avg: 2, normal: 2,
+  low: 3, l: 3,
+  verylow: 4, 'very-low': 4, vl: 4,
+});
+
+registerCommand(
+  'reflexes',
+  'Inspect or set player Reflexes live: reflexes [0..4|veryhigh|high|average|low|verylow]',
+  'reflexes [0..4|veryhigh|high|average|low|verylow]',
+  (args = []) => {
+    const target = getDebugSceneContext()?.playerEntity ?? playerEntity;
+    if (!target) return 'Player entity is unavailable.';
+    const raw = args[0] ? String(args[0]).toLowerCase() : null;
+    if (!raw || raw === 'status') {
+      const cur = Number.isFinite(target.reflexes) ? Math.max(0, Math.min(4, target.reflexes | 0)) : 2;
+      return `Reflexes: ${REFLEX_NAMES[cur]} (${cur}) | windup x${reflexesWindupMult(cur).toFixed(2)}, cooldown x${reflexesCooldownMult(cur).toFixed(2)}`;
+    }
+    let next = null;
+    if (/^[0-4]$/.test(raw)) next = Number(raw);
+    else if (Object.hasOwn(REFLEX_ALIASES, raw)) next = REFLEX_ALIASES[raw];
+    if (next == null) return 'Usage: reflexes [0..4|veryhigh|high|average|low|verylow]';
+    target.reflexes = next;
+    return `Reflexes set to ${REFLEX_NAMES[next]} (${next}) | windup x${reflexesWindupMult(next).toFixed(2)}, cooldown x${reflexesCooldownMult(next).toFixed(2)}`;
+  }
+);
+
+registerCommand(
+  'stagger',
+  'Inspect or test player stagger: stagger [status|me|clear]',
+  'stagger [status|me|clear]',
+  (args = []) => {
+    const sub = args[0] ? String(args[0]).toLowerCase() : 'status';
+    const ctx = getDebugSceneContext();
+    const target = ctx?.playerEntity ?? playerEntity;
+    if (sub === 'me') {
+      const ok = ctx?.staggerPlayer
+        ? ctx.staggerPlayer(true)
+        : applyPlayerStagger({ entity: target, bypassGuard: true });
+      const st = playerStaggerState();
+      return ok
+        ? `Player staggered (lock=${st.lockRemaining.toFixed(2)}s, vuln=${st.remaining.toFixed(2)}s, guard=${st.guardRemaining.toFixed(2)}s).`
+        : 'Player stagger refused (player is dead).';
+    }
+    if (sub === 'clear') {
+      if (ctx?.clearPlayerStagger) ctx.clearPlayerStagger();
+      else clearPlayerStagger(target);
+      return 'Player stagger cleared.';
+    }
+    if (sub === 'status') {
+      const st = playerStaggerState();
+      return `Player Stagger: staggered=${st.staggered}, locked=${st.locked}, rem=${st.remaining.toFixed(2)}s, guard=${st.guardRemaining.toFixed(2)}s`;
+    }
+    return 'Usage: stagger [status|me|clear]';
   }
 );
 

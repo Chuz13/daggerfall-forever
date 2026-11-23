@@ -58,10 +58,10 @@ export const TELL = Object.freeze({
   BACK_DEG: 110, // ...more than this far off it (TACT's BACK_TURNED_DEG)
   POISE_WEAK: 2, // a revenant's weakness
   // the stagger
-  STAGGER_S: Object.freeze({ light: 1.4, medium: 1.2, heavy: 1.0, massive: 0.8 }),
+  STAGGER_S: Object.freeze({ light: 0.9, medium: 0.8, heavy: 0.65, massive: 0.5 }),
   STAGGER_KNOCK: 1.5, // the breaking blow's withheld knockback, written at this
-  STAGGER_TAKEN: 1.25, // every blow a staggered foe takes
-  STAGGER_IMMUNE: 3, // no new stagger for this long after one ends
+  STAGGER_TAKEN: 1.1, // every blow a staggered foe takes
+  STAGGER_IMMUNE: 6, // no new stagger for this long after one ends
   // The tell - the glint on the body, the cues in the ear, the ground near the player
   GLINT_PULSE: 0.9, // the glint's flare as the wind-up begins...
   GLINT_PULSE_S: 0.15, // ...falling to the steady rim over this long
@@ -82,7 +82,7 @@ export const TELL = Object.freeze({
   // The punish window and the perfect dodge
   PUNISH_S: Object.freeze({ lunge: 1.0, sweep: 0.8, slam: 1.2, ring: 1.0, charge: 1.4, leap: 1.2 }), // a missed blow's overreach
   PUNISH_IRON: 0.3, // ...an iron one's, this much longer
-  PUNISH_TAKEN: 1.3, // every blow an overreached foe takes
+  PUNISH_TAKEN: 1.12, // every blow an overreached foe takes
   TELL_LATE: 0.25, // the feet sampled this long before the landing: inside then, outside at it, a perfect dodge
   PERFECT_WINDOW: 1.5, // ...whose window is this much longer
   PERFECT_PITCH: 1.25, // ...and whose parry ring is bright (SOUND.Parry6)
@@ -262,14 +262,25 @@ export const revenantRank = (ent) => (Number.isFinite(ent?.revenant?.rank) ? ent
 /** The higher tier (7.3): an elite, a champion, a revenant of rank 2 or more - never an ordinary level-10 foe. */
 export const higherTier = (ent) => isElite(ent) || !!ent?.champion || revenantRank(ent) >= 2;
 
+/** Live reflexes wind-up multiplier: 0.88 at Very High (0), 1.0 at Average (2), 1.12 at Very Low (4). */
+export function reflexesWindupMult(reflexes = 2) {
+  const r = Number.isFinite(reflexes) ? Math.max(0, Math.min(4, reflexes)) : 2;
+  return 1 + (r - 2) * 0.06;
+}
+/** Live reflexes cooldown multiplier: 0.84 at Very High (0), 1.0 at Average (2), 1.16 at Very Low (4). */
+export function reflexesCooldownMult(reflexes = 2) {
+  const r = Number.isFinite(reflexes) ? Math.max(0, Math.min(4, reflexes)) : 2;
+  return 1 + (r - 2) * 0.08;
+}
+
 /** A wind-up's length - its shape's `base` (s) times U(WINDUP_VARY) (`roll` in [0, 1)), an elite's
  *  x WINDUP_ELITE, a revenant's x(1 - WINDUP_RANK a rank); iron's extra after; never under `floor`. A chain's passes its
  *  own base and floor and `roll` null (no draw: a chain is quick by law). The fill runs on it, so the mark tells the truth.
- *  @param {number} base @param {any} [ent] @param {{ guard?: string, roll?: number|null, floor?: number }} [opts] */
+ *  @param {number} base @param {any} [ent] @param {{ guard?: string, roll?: number|null, floor?: number, reflexes?: number }} [opts] */
 export function windupSeconds(
   base,
   ent = null,
-  { guard = 'poise', roll = Math.random(), floor = TELL.TELL_MIN_WINDUP } = {},
+  { guard = 'poise', roll = Math.random(), floor = TELL.TELL_MIN_WINDUP, reflexes = 2 } = {},
 ) {
   const [lo, hi] = ent?.revenant?.edge?.wind ?? TELL.WINDUP_VARY; // A Patient revenant's wider band
   let w = base * (roll == null ? 1 : lo + (hi - lo) * roll);
@@ -277,6 +288,7 @@ export function windupSeconds(
   const rank = revenantRank(ent);
   if (rank > 0) w *= 1 - TELL.WINDUP_RANK * rank;
   if (ent?.revenant?.p2?.windup > 0) w *= ent.revenant.p2.windup; // Phase two's quicker wind-ups
+  w *= reflexesWindupMult(reflexes);
   if (guard === 'iron') w += TELL.IRON_EXTRA;
   return Math.max(floor, w);
 }
@@ -318,7 +330,7 @@ export { wholeSet };
 /** The seconds before this foe's next telegraphed blow - an ordinary foe's 8-15, a champion's 7-13, an elite's
  *  6-11 (the best of its tiers), a revenant's less 8% a rank (rank 5: 4.8-9 of an ordinary's). `roll` in [0, 1). A last
  *  stand's x0.7 joins with RVN4. */
-export function blowCooldown(ent = null, roll = Math.random()) {
+export function blowCooldown(ent = null, roll = Math.random(), reflexes = 2) {
   const C = TELL.COOLDOWN;
   const [lo, hi] = isElite(ent) ? C.elite : ent?.champion ? C.champion : C.ordinary;
   const rank = revenantRank(ent);
@@ -326,6 +338,7 @@ export function blowCooldown(ent = null, roll = Math.random()) {
     (lo + (hi - lo) * roll) *
     (rank > 0 ? 1 - TELL.COOLDOWN_RANK * rank : 1) *
     (ent?.revenant?.p2?.cooldown > 0 ? ent.revenant.p2.cooldown : 1) *
-    (ent?.shadowBoss ? 1 / 3 : 1)
+    (ent?.shadowBoss ? 1 / 3 : 1) *
+    reflexesCooldownMult(reflexes)
   ); // Phase two's x0.7; Shadow Boss x3 frequency (1/3 cooldown)
 }

@@ -354,7 +354,7 @@ export function arenaLadderBout(tier, bout) {
 // (ai/foeBlows.js BLOW_TIER_LEVEL, or an elite - a champion), its cooldown spent, a roll - at whoever it fights, a
 // player or another fighter. The constants are the brain's, pinned equal.
 /** The level from which a fighter telegraphs (ai/foeBlows.js BLOW_TIER_LEVEL). */
-export const ARENA_BLOW_TIER_LEVEL = 10;
+export const ARENA_BLOW_TIER_LEVEL = 5;
 /** The chance a blow begun is a telegraphed one, when one may be (the relay rolls once a blow, the brain a tick). */
 export const ARENA_BLOW_CHANCE = 0.35;
 /** One fighter's telegraphs apart, ms (ai/foeBlows.js BLOW_COOLDOWN_MIN/MAX in seconds). */

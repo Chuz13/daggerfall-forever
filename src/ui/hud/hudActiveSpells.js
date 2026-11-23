@@ -47,7 +47,8 @@
 // are already a Ledger note on ui/spell/spellIcons.js and stay one.
 
 import { drawSpellIcon, spellIconsLoaded } from '../spell/spellIcons.js';
-import { statusGlyphColor32 } from './hudStatus.js'; // TELL9: the bleed's own icon, the enhanced widget's glyph
+import { statusGlyphColor32, staggeredTileText } from './hudStatus.js'; // TELL9: the bleed's own icon, the enhanced widget's glyph
+import { tacticsNow } from '../../ai/tacticsClock.js';
 import { wildHere, WILD_TEXT } from '../../systems/wild/wildZone.js'; // WILD1: the open zone's own icon
 import { zoneSafe, ZONE_SAFE_TEXT } from '../../systems/wild/zoneSafe.js'; // ZONE-SAFE: named safe in a settlement's streets
 import { uiCanvas, toUiPoint } from '../uiScreen.js'; // RETRO-UI: the HUD's own space under the pillarbox
@@ -179,6 +180,17 @@ export function activeSpellIcons(entity) {
       bundleId: null,
       endable: false,
     });
+  if (Number.isFinite(entity?.playerStaggerUntil) && tacticsNow() < entity.playerStaggerUntil)
+    other.push({
+      iconIndex: BLEED_ICON,
+      glyph: STAGGERED_GLYPH,
+      displayName: staggeredTileText(),
+      poolIndex: poolIndex++,
+      expiring: true,
+      isItem: false,
+      bundleId: null,
+      endable: false,
+    });
   // WILD1 (systems/wild/wildZone.js): the open zone, on the classic row as on the enhanced widget - its own glyph, first of
   // the warnings, while the player stands in it
   if (entity === _zoneEntity && wildHere())
@@ -205,6 +217,7 @@ export function setZoneEntity(entity) {
 export const BLEED_ICON = 0;
 /** TELL9: the bleed's own icon - its glyph on the kit's grid (ui/hud/hudStatus.js STATUS_GLYPHS). */
 export const BLEED_GLYPH = 'bleed';
+export const STAGGERED_GLYPH = 'staggered';
 /** TELL9: a glyph's pixels, made once a name; its texture uploaded once (the renderer keys it). */
 const _glyphPixels = new Map();
 function drawGlyphIcon(renderer, m, name, [dx, dy, dw, dh]) {

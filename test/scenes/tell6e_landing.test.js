@@ -41,15 +41,17 @@ test('TELL6e: the law by shape - the lunge and the charge push, the slam, the ri
   assert.deepEqual([BLOW_EFFECT.BLEED_SHARE, BLOW_EFFECT.BLEED_TICKS, BLOW_EFFECT.BLEED_EVERY], [0.3, 3, 1]);
   assert.deepEqual([BLOW_EFFECT.KNOCKDOWN_S, BLOW_EFFECT.KNOCKDOWN_GUARD, BLOW_EFFECT.KNOCKDOWN_DROP], [0.9, 5, 0.6]);
   const of = (k, iron) => blowEffectOf(k, iron);
-  assert.deepEqual(of('lunge'), { push: 3, rattle: false, bleed: false, knockdown: false });
-  assert.deepEqual(of('charge'), { push: 5, rattle: false, bleed: false, knockdown: false });
-  assert.deepEqual(of('charge', true), { push: 5, rattle: false, bleed: false, knockdown: true });
-  assert.deepEqual(of('slam'), { push: 0, rattle: true, bleed: false, knockdown: false });
-  assert.deepEqual(of('slam', true), { push: 0, rattle: true, bleed: false, knockdown: true });
-  assert.deepEqual(of('ring', true), { push: 0, rattle: true, bleed: false, knockdown: true });
-  assert.deepEqual(of('leap', true), { push: 0, rattle: true, bleed: false, knockdown: false }, 'a leap never knocks down');
-  assert.deepEqual(of('sweep', true), { push: 0, rattle: false, bleed: true, knockdown: false });
-  assert.deepEqual(of('aimed'), { push: 0, rattle: false, bleed: false, knockdown: false });
+  assert.deepEqual(of('lunge'), { push: 3, rattle: false, bleed: false, knockdown: false, stagger: true });
+  assert.deepEqual(of('lunge', true), { push: 3, rattle: false, bleed: false, knockdown: true, stagger: true });
+  assert.deepEqual(of('charge'), { push: 5, rattle: false, bleed: false, knockdown: false, stagger: true });
+  assert.deepEqual(of('charge', true), { push: 5, rattle: false, bleed: false, knockdown: true, stagger: true });
+  assert.deepEqual(of('slam'), { push: 0, rattle: true, bleed: false, knockdown: false, stagger: true });
+  assert.deepEqual(of('slam', true), { push: 0, rattle: true, bleed: false, knockdown: true, stagger: true });
+  assert.deepEqual(of('ring', true), { push: 0, rattle: true, bleed: false, knockdown: true, stagger: true });
+  assert.deepEqual(of('leap', true), { push: 0, rattle: true, bleed: false, knockdown: false, stagger: true }, 'a leap never knocks down');
+  assert.deepEqual(of('sweep'), { push: 0, rattle: false, bleed: true, knockdown: false, stagger: true });
+  assert.deepEqual(of('sweep', true), { push: 0, rattle: false, bleed: true, knockdown: true, stagger: true });
+  assert.deepEqual(of('aimed'), { push: 0, rattle: false, bleed: false, knockdown: false, stagger: false });
 });
 
 // ── the real player motor ───────────────────────────────────────────
@@ -117,8 +119,8 @@ test('TELL6e: the frame - a push along the blow, a rattle and its dip, a bleed b
   queueBlowEffect(blowEffectOf('slam'), 10, [1, 0], null);
   queueBlowEffect(blowEffectOf('sweep'), 10, [1, 0], { id: 'orc' });
   drainBlowEffects({ motor: mo, entity: ent, shake: (k) => shakes.push(k) });
-  assert.deepEqual(mo.calls, [['push', 0, 3], ['rattle', 0.6, 0.6]]);
-  assert.deepEqual(shakes, [BLOW_EFFECT.RATTLE_SHAKE]);
+  assert.deepEqual(mo.calls, [['push', 0, 3], ['rattle', 0.55, 0.6], ['rattle', 0.6, 0.6]]);
+  assert.deepEqual(shakes, [BLOW_EFFECT.STAGGER_SHAKE, BLOW_EFFECT.RATTLE_SHAKE]);
   assert.ok(ent.bleed && near(ent.bleed.per, 1), 'a bleed of 3 over three ticks');
   mo.calls.length = 0;
   queueBlowEffect(blowEffectOf('charge', true), 10, [1, 0], null);
@@ -130,7 +132,7 @@ test('TELL6e: the frame - a push along the blow, a rattle and its dip, a bleed b
   mo.calls.length = 0;
   queueBlowEffect(blowEffectOf('slam', true), 10, [1, 0], null);
   drainBlowEffects({ motor: mo });
-  assert.deepEqual(mo.calls, [['rattle', 0.6, 0.6]], 'inside its 5 s guard: rattled, not down');
+  assert.deepEqual(mo.calls, [['rattle', 0.6, 0.6]], 'inside its 5 s guard: rattled, not down (and inside stagger 4.5s guard)');
   T = 16;
   mo.calls.length = 0;
   queueBlowEffect(blowEffectOf('slam', true), 10, [1, 0], null);
@@ -171,7 +173,7 @@ test('TELL6e: the pools\' word - a fresh telegraphed landing that did damage que
   assert.deepEqual(landBlowEffect(f, 7, [0, 0, 0]), blowEffectOf('lunge'));
   assert.equal(f.ai._blowFx, null, 'spent');
   drainBlowEffects({ motor: mo });
-  assert.deepEqual(mo.calls, [['push', 0, -3]], 'away from its foe');
+  assert.deepEqual(mo.calls, [['push', 0, -3], ['rattle', 0.55, 0.6]], 'away from its foe');
   f.ai._blowFx = { kind: 'lunge', at: 5 };
   assert.equal(landBlowEffect(f, 0, [0, 0, 0]), null, 'a roll of nothing');
   assert.equal(f.ai._blowFx, null);
@@ -215,10 +217,10 @@ test('TELL6e: wired - the four hosts\' player frames, the three pools\' hits, th
     const s = rd(h);
     assert.match(s, /playerBlowFrame\(\{ motor: player, entity: playerEntity, shake: \(k\) => betterAmbience\.weaponKick\(k\), hurt: \(n\) => \{ hurtPlayer\(playerEntity, n\); flashPlayerDamage\(n\); surfacePlayer\(\); \} \}\);[^\n]*\n(?:[^\n]*if \(!overlayHeld\) \{\n(?:\s*\/\/[^\n]*\n)*)?[^\n]*player\.(update|holdFrame)\(/, `${h}: its player frame, before the motor's`);   // PIN MOVED (AUDIT TELL L6: the building's host runs it above its window gate, as the street's do)
   }
-  for (const [h, rig] of [['src/scenes/world.js', 'weaponRig.frame(dt, { paralyzed: paralyzed || knockedDown() })'], ['src/scenes/exterior.js', 'weaponRig.frame(dt, { paralyzed: paralyzed || knockedDown() })'], ['src/scenes/worldModes.js', 'interiorWeapon.frame(dt, { paralyzed: paralyzed || knockedDown() })'], ['src/scenes/dungeonContext.js', 'weaponRig.frame(dt, { paralyzed: _pParalyzed || knockedDown() })']]) {
+  for (const [h, rig] of [['src/scenes/world.js', 'weaponRig.frame(dt, { paralyzed: paralyzed || knockedDown() || playerStaggerLocked() })'], ['src/scenes/exterior.js', 'weaponRig.frame(dt, { paralyzed: paralyzed || knockedDown() || playerStaggerLocked() })'], ['src/scenes/worldModes.js', 'interiorWeapon.frame(dt, { paralyzed: paralyzed || knockedDown() || playerStaggerLocked() })'], ['src/scenes/dungeonContext.js', 'weaponRig.frame(dt, { paralyzed: _pParalyzed || knockedDown() || playerStaggerLocked() })']]) {
     assert.ok(rd(h).includes(rig), `${h}: no swing while down`);
   }
-  assert.match(rd('src/scenes/hostMagic.js'), /function castInput\(eye, dir\) \{\n\s*const sp = readiedSpell;\n\s*if \(!sp\) return false;\n\s*if \(knockedDown\(\)\) return false;/, 'no cast while down');
+  assert.match(rd('src/scenes/hostMagic.js'), /function castInput\(eye, dir\) \{\n\s*const sp = readiedSpell;\n\s*if \(!sp\) return false;\n\s*if \(knockedDown\(\) \|\| playerStaggerLocked\(\)\) return false;/, 'no cast while down');
   for (const [p, v] of [['src/scenes/exteriorFoes.js', 'f'], ['src/scenes/dungeonContext.js', 'f'], ['src/scenes/cityGuards.js', 'g']]) {
     assert.ok(rd(p).includes(`landBlowEffect(${v}, hp0 - playerEntity.health, playerFeet);`), `${p}: its hit asks`);   // PIN MOVED (AUDIT TELL L8: by what reached health)
   }

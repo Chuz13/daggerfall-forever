@@ -56,7 +56,7 @@ import { addItem, spendAmmoFor, carriedWeight, isEnchanted } from '../systems/in
 import { calculateAttackDamage } from '../combat/formulas.js';   // ROAD-G G2: enemy-arrow impacts
 import { bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // ROAD-G G2: an arrow owes the flash too (AUDIT 24 wave 46)
-import { knockedDown } from '../systems/blowEffects.js';   // TELL6e: knocked down, no swing
+import { knockedDown, playerStaggerLocked } from '../systems/blowEffects.js';   // TELL6e: knocked down, no swing
 import { weaponTypeForItem, WEAPON_TYPES } from '../combat/fpsWeapon.js';
 import { targetAimPoint, missileAimDirection } from '../characters/enemy/enemyTargets.js';   // AUDIT WORLD6b-iii(a) C3: the ONE aim law for an enemy missile (the peer's transform, mine otherwise)
 import { playerEntity, surfacePlayer, hurtPlayer, setDeathPresenter, setAvoidDeathHook, playerBlowCameToNothing, staffFrozen } from '../characters/playerEntity.js';
@@ -5279,7 +5279,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // the whole indoor visit, swept only on the first frame back
     // outside. DestroyLightSources_OnTransition is an EVENT in the mod
     // (0x7d1), not a frame-tail chore.
-    noteLocalPlayer(walkMode ? player.pos : cam.pos, [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)]);   // TACT2: where I stand and face - AUDIT TACT D2: before the building's and the dungeon's frames too
+    noteLocalPlayer(walkMode ? player.pos : cam.pos, [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)], playerEntity?.reflexes);   // TACT2: where I stand and face - AUDIT TACT D2: before the building's and the dungeon's frames too
     tickTactics(foeFrameDt(_questBoxHoldsFoes() || (_mode() === 'dungeon' && !!modes?.dungeonCtx?.uiOverlayActive) ? 0 : dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step; AUDIT TELL H1: a dungeon's window holds its foes, and their wind-ups with them
     if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') lefay.destroyAll();   /* LEFAY1: its collider down, never carried in */ _torchesMode = _mode(); }   // HT1
     if (modes.frame(dt, now)) {
@@ -6341,7 +6341,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       }
       // U8h/AUDIT 17e F17: the worn-weapon bind moved INTO createWeaponRig
       // so all four hosts inherit it (the interior host was missing it).
-      for (const ev of weaponRig.frame(dt, { paralyzed: paralyzed || knockedDown() })) {   // TELL6e: knocked down, no swing
+      for (const ev of weaponRig.frame(dt, { paralyzed: paralyzed || knockedDown() || playerStaggerLocked() })) {   // TELL6e: knocked down, no swing
         // AUDIT 23 (combat-2): the bow machine's frame-4 loose sound.
         if (ev === 'bowSound') { audio.playOneShot(SOUND.ArrowShoot, 1.1); continue; }
         if (ev !== 'hit') continue;
