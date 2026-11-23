@@ -315,7 +315,7 @@ import { arenaTemplates, ARENA_LOAD_WAIT_MS } from '../world/arenaLocations.js';
 import { countryTemplates, countryCounts } from '../world/tamrielCountry.js';   // TESA7: the countryside past the Bay
 import { countrysideOn } from './shared.js';   // TESA7: its kill door
 import { capitalsOn } from './shared.js';   // TESA10: the capitals' kill door
-import { capitalBase, cityBlockNames, setCapitalsStanding, isCapitalLandmark, isMultiSliceCapital } from '../world/tamrielCapitals.js';   // TESA10: the capitals, built by hand; BAY-LEFT-SEA: a landmark measured by its footprint
+import { capitalBase, cityBlockNames, setCapitalsStanding, isCapitalLandmark, isMultiSliceCapital, CAPITALS, capitalDims, capitalPlaceId, capitalIndexOfId } from '../world/tamrielCapitals.js';   // TESA10: the capitals, built by hand; BAY-LEFT-SEA: a landmark measured by its footprint
 import { lairTemplates, lairPools, lairCellOf, lairSite, LAIR_CELL } from '../world/tamrielDungeons.js';   // TESA8: the lairs past the Bay
 import { provinceKeyBeyondBay } from '../world/tamriel/tamrielLand.js';   // TESA3: the province a pixel past the Bay stands on
 import { provinceByKey } from '../world/tamriel/tamrielGeography.js';   // TESA3: its name and race
@@ -4242,6 +4242,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     locationRecord: () => _musicLoc,
     playerTravelPixel: () => playerTravelPixel(),
     inLocationRect: () => _musicInLocationRect(),
+    hasCityGates: () => { const p = playerTravelPixel(); return (built.get(`${p.x},${p.y}`)?.cityGates?.length ?? 0) > 0; },
     onRoad: () => _nearRoad(walkMode && playerSpawned ? player.pos : cam.pos, 16) || onTheRoad(),
     climateIndex: () => {
       const px = playerTravelPixel();
@@ -17603,6 +17604,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       townTipAt: (summary) => townEcon.tipAt(summary?.mapID ?? summary?.mapId),   // TOWN-ECON TE1: every town's card - its economy and its guild control
       carriageAt: (summary) => carriageTown(summary?.mapID ?? summary?.mapId),   // OW-HUBS: a carriage town's wheel
       placeSummaryAt: (x, y, forceNamed = true) => tvPlaceSummary(x, y, forceNamed),
+      pixelOfMapId: (id) => {
+        if (id == null || id === -1) return null;
+        const p = worldPlaces?.byMapId?.(Number(id) >>> 0);
+        return p && !onTheBay(p.px, p.py) ? { x: p.px, y: p.py } : null;
+      },
       oreAt: profBook ? oreMapAt : null,   // ORE-MAP: bare ground's ore card - online, where the professions are
       // TO1: the mod itself rides travelFareDeps (above); the reads its additions to this window need follow.
       // AUDIT-TO1 I4: ...and the door ACTS on the refusal it can still get
@@ -17637,6 +17643,29 @@ export async function bootWorld(canvas, renderer, params, status) {
       // a place past the Bay its map id after it).
       discoveredBuildings: (summary) => {
         if (!summary) return [];
+        if (summary.pastBay || (summary.locationIndex == null && summary.mapIndex == null)) {
+          const mapId = summary.mapID ?? summary.mapId ?? null;
+          if (mapId == null) return [];
+          const capK = capitalIndexOfId(mapId);
+          if (capK >= 0 && CAPITALS[capK]) {
+            const d = capitalDims(CAPITALS[capK]);
+            const sliceCount = d.w * d.h;
+            if (sliceCount > 1) {
+              const all = [];
+              const seen = new Set();
+              for (let so = 0; so < sliceCount; so++) {
+                const sliceId = capitalPlaceId(capK, so);
+                const list = discoveredBuildings(townBookId(summary.regionIndex ?? -1, summary.name ?? '', sliceId));
+                for (const b of list) {
+                  const k = `${sliceId}:${b.buildingKey ?? b.displayName}`;
+                  if (!seen.has(k)) { seen.add(k); all.push(b); }
+                }
+              }
+              return all;
+            }
+          }
+          return discoveredBuildings(townBookId(summary.regionIndex ?? -1, summary.name ?? '', mapId));
+        }
         const loc = maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex);
         return loc?.name ? discoveredBuildings(townBookOf(loc)) : [];   // BAY-LEFT-MAPS (C7 = E2): the one key-maker
       },

@@ -1206,7 +1206,7 @@ function provinceLines(ctx, view, paperW, paperH, chains) {
  * @param {{ paperW: number, paperH: number, continent?: boolean, bayFit?: number, band?: string, filters?: any,
  *   inks?: any, placesIn?: ?PlacesIn, tiles?: ?ReturnType<typeof import('./tamrielTiles.js').createTamrielTiles>, dpr?: number,
  *   under?: () => void, part?: 'under' | 'roads' | 'over', settling?: boolean, seatAt?: (city: any) => any, nameless?: ?((c: any) => boolean),
- *   portsOnly?: boolean }} opts -
+ *   portsOnly?: boolean, markedMapId?: number, markColor?: string, markedPixel?: ?{ x: number, y: number } }} opts -
  *   AUDIT TESA II M6: `nameless` a city whose name the window letters itself (the zone map's, inside its zone); `under` painted over the land, the
  *   roads and the borders and under the cities and the names. ZOOM-FAST: `part` paints one third alone - the land under the
  *   roads (the shore, the high ground, the rivers), the roads' tiles, or what stands over them (the borders, the window's
@@ -1287,13 +1287,37 @@ export function paintTamrielInk(ctx, view, ink, opts) {
     if (opts.portsOnly && !c.port) continue;
     const glyph = markKind(bucket);
     const [x, y] = toPaper(view, c.x, c.y);
-    marks.push({ kind: glyph, seat: c.mapId != null ? opts.seatAt?.(c) ?? null : null, x, y, port: all && !!c.port });   // WW7-6: its seat's ring under its glyph
+    const marked = opts.markedMapId != null && opts.markedMapId !== -1 && c.mapId != null && ((c.mapId >>> 0) === (opts.markedMapId >>> 0));
+    marks.push({ kind: glyph, seat: c.mapId != null ? opts.seatAt?.(c) ?? null : null, x, y, port: all && !!c.port, marked });   // WW7-6: its seat's ring under its glyph
     if (!opts.nameless?.(c)) named.push([c, x, y]);   // AUDIT TESA II M6: a name the window letters itself (the zone map's)
   }
   // WW7-6: a seat's ring past the Bay as the Bay rings its own (inkMap paintSeatRing, Seats-Arc 3.3) - under the glyph
   for (const m of marks) if (m.seat) paintSeatRing(ctx, m.x, m.y, markReach(m), seatMapMark(m.seat));
+  let drewMarked = false;
   for (const m of marks) paintGlyph(ctx, m.kind, m.x, m.y, true);
   for (const m of marks) paintGlyph(ctx, m.kind, m.x, m.y, false, opts.inks?.[m.kind]);   // AUDIT TESA II M7: in its classic hue (MAP-KEY)
+  for (const m of marks) {
+    if (m.marked) {
+      drewMarked = true;
+      ctx.save();
+      ctx.strokeStyle = opts.markColor || '#c23a22';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, markReach(m) + 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+  if (!drewMarked && opts.markedPixel && !inBay(opts.markedPixel.x, opts.markedPixel.y) && visible(opts.markedPixel.x, opts.markedPixel.y)) {
+    const [mx, my] = toPaper(view, opts.markedPixel.x, opts.markedPixel.y);
+    ctx.save();
+    ctx.strokeStyle = opts.markColor || '#c23a22';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(mx, my, 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   for (const m of marks) if (m.port) paintHarbour(ctx, m.x, m.y, true);   // BAY-LEFT-MAPS C11: a port's anchor, beside its glyph
   const size = continent ? 11 : 12;
   ctx.font = `${size}px ${NAME_FACE}`;
