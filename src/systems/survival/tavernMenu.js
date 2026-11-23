@@ -102,6 +102,24 @@ export const MENU_KEY_BY_REGION = Object.freeze(
     Object.entries(REGION_MENU).flatMap(([key, names]) => names.map((n) => [REGION_NAMES.indexOf(n), key])),
   ),
 );
+const PROVINCE_REGION_MENU = Object.freeze({
+  n: ['High Rock'],
+  s: ['Hammerfell'],
+  skyrim: ['Skyrim'],
+  morrowind: ['Morrowind'],
+  sumurset: ['Sumurset Isle'],
+  valenwood: ['Valenwood'],
+  elsweyr: ['Elsweyr'],
+  blackmarsh: ['Black Marsh'],
+  cyrodiil: ['Cyrodiil'],
+});
+export const PROVINCE_MENU_KEY_BY_REGION = Object.freeze(
+  Object.fromEntries(
+    Object.entries(PROVINCE_REGION_MENU).flatMap(([key, names]) =>
+      names.map((n) => [REGION_NAMES.indexOf(n), key]).filter(([idx]) => idx >= 0),
+    ),
+  ),
+);
 /** regionMenuDay's SECOND switch, over PlayerGPS.CurrentClimateIndex where the region names none.
  *  FIELD BUGS 2026-09-30 (MENU-CLIMATE; the #bug-reports "Climates & Calories Bugs" thread's Sentinel inn): KEYED BY
  *  THE CLIMATES ENUM'S NAMES, NOT BY NUMBERS - SURV5's table was written as 224 to 233 over climates that run 223 to
@@ -122,7 +140,8 @@ export const MENU_KEY_BY_CLIMATE = Object.freeze({
 });
 export const menuKeyFor = (climateIndex) => MENU_KEY_BY_CLIMATE[climateIndex] ?? 'n';
 /** AUDIT C&C I8: regionMenuDay - the region's key, else the climate's. */
-export const regionMenuDay = (regionIndex, climateIndex) => MENU_KEY_BY_REGION[regionIndex] ?? menuKeyFor(climateIndex);
+export const regionMenuDay = (regionIndex, climateIndex) =>
+  MENU_KEY_BY_REGION[regionIndex] ?? PROVINCE_MENU_KEY_BY_REGION[regionIndex] ?? menuKeyFor(climateIndex);
 /** The tier by the tavern's quality (1-20), DoFood's and Drinks_OnItemPicked's: under 5 low, under 13 mid, else high.
  *  AUDIT C&C I8: it was under 6 - a quality-5 tavern served the low lists the mod serves only under 5. */
 export const menuTier = (quality) => (quality < 5 ? 'low' : quality < 13 ? 'mid' : 'high');
@@ -228,6 +247,135 @@ export const FOOD_MENUS = Object.freeze({
   mid: Object.freeze({ n: 'nMid', ne: 'neMid', se: 'seMid', s: 'sMid', b: 'neMid', o: 'woMid' }),
   high: Object.freeze({ n: 'nHigh', ne: 'neHigh', se: 'seHigh', s: 'sHigh', b: 'balHigh', o: 'neHigh' }),
 });
+export const PROVINCE_TAVERN_DISHES = Object.freeze({
+  skyrimLow: list(d('Horker Loaf', 6), d('Cabbage Potato Soup', 8), d('Grilled Leeks and Venison', 10)),
+  skyrimMid: list(
+    d('Nordic Venison Stew', 7),
+    d('Mammoth Cheese Platter', 10),
+    d('Snowberry Crostata', 12),
+    d('Honey-Glazed Salmon', 15),
+  ),
+  skyrimHigh: list(
+    d('Seared Slaughterfish Steak', 10),
+    d('Spiced Horker Roast', 13),
+    d('Solitude Apple Cabbage Stew', 15),
+    d('Whiterun Venison Chop', 18),
+    d("Jarl's Roast Mammoth Snout", 22),
+  ),
+  morrowindLow: list(d('Kwama Cuttle Porridge', 6), d('Baked Ash Yam', 8), d('Salted Scrib Jerky', 10)),
+  morrowindMid: list(
+    d('Scuttle and Marshmerrow Stew', 7),
+    d('Hound Meat Skewer', 10),
+    d('Roast Nix-Hound Haunch', 12),
+    d('Kagouti Rib Platter', 15),
+  ),
+  morrowindHigh: list(
+    d('Saltrice and Kwama Quiche', 10),
+    d('Spiced Guar Tenderloin', 13),
+    d('Ash-Roasted Cliff Racer', 15),
+    d('House Redoran Feast Platter', 18),
+    d("Vivec Pilgrim's Banquet", 22),
+  ),
+  sumursetLow: list(d('Sun-Dried Figs and Bread', 6), d('Alinor Herb Broth', 8), d('Poached Sea Bass', 10)),
+  sumursetMid: list(
+    d('Honeyed Almond Tart', 7),
+    d('Shimmerene Seafood Bisque', 10),
+    d('Saffron Pheasant Breast', 12),
+    d('Lillandril Glazed Duck', 15),
+  ),
+  sumursetHigh: list(
+    d('Gilded Peach Souffle', 10),
+    d('Firsthold Pearl Oysters', 13),
+    d('Summerset Crystal-Herb Roast', 15),
+    d('Altmeri Swan in Wine Sauce', 18),
+    d("Kinlord's Grand Banquet", 22),
+  ),
+  valenwoodLow: list(d('Charred Boar Strip', 6), d('Roasted Wood-Grubs', 8), d('Smoked Hare Haunch', 10)),
+  valenwoodMid: list(
+    d('Bosmer Meat Pie', 7),
+    d('Spiced Venison Ribs', 10),
+    d('Falinesti Stuffed Quail', 12),
+    d("Green Pact Hunter's Platter", 15),
+  ),
+  valenwoodHigh: list(
+    d('Senche-Venison Tartare', 10),
+    d('Elden Root Roast Stag', 13),
+    d('Honey-Roasted Wild Boar', 15),
+    d('Silvenar Spiced Elk Loin', 18),
+    d("Treethane's Grand Hunt Feast", 22),
+  ),
+  elsweyrLow: list(d('Sweet Moon-Sugar Flatbread', 6), d('Spiced Chickpea Mash', 8), d('Grilled Dune Lizard', 10)),
+  elsweyrMid: list(
+    d('Rimmen Spiced Lamb', 7),
+    d('Elsweyr Fondue', 10),
+    d('Cane-Glazed Poultry', 12),
+    d('Senchal Coconut Curry', 15),
+  ),
+  elsweyrHigh: list(
+    d('Candied Date Pastries', 10),
+    d('Torval Saffron Tagine', 13),
+    d('Pellitine Spiced Mutton', 15),
+    d("Mane's Honeyed Antelope", 18),
+    d('Moon-Sugar Grand Platter', 22),
+  ),
+  blackmarshLow: list(d('Boiled Bog Roots', 6), d('Smoked Swamp Eel', 8), d('Salted Marsh Frog', 10)),
+  blackmarshMid: list(
+    d('Hist-Sap Glazed Perch', 7),
+    d('Spiced Haj Mota Stew', 10),
+    d('Lilmoth Crab Cakes', 12),
+    d('Argonian Pepper-Baked Carp', 15),
+  ),
+  blackmarshHigh: list(
+    d('Gideon Lotus-Root Soup', 10),
+    d('Stormhold Stuffed Gator', 13),
+    d('Black Marsh Spice-Crusted Eel', 15),
+    d('Soulrest Swamp-Truffle Roast', 18),
+    d('Saxhleel River Feast', 22),
+  ),
+  cyrodiilLow: list(d('Colovian Onion Soup', 6), d('Hardtack and Goat Cheese', 8), d('Grilled Nibenese Carp', 10)),
+  cyrodiilMid: list(
+    d('Chorrol Venison Pasty', 7),
+    d('Anvil Crab and Leek Pie', 10),
+    d('Cheydinhal Mushroom Ragout', 12),
+    d('Bravil Spiced Pork Shank', 15),
+  ),
+  cyrodiilHigh: list(
+    d('Skingrad Garlic Beef Roast', 10),
+    d('Leyawiin Spiced Duck', 13),
+    d('Colovian Highland Pheasant', 15),
+    d('Nibenese Saffron Risotto', 18),
+    d('Imperial Ruby Banquet', 22),
+  ),
+});
+export const PROVINCE_FOOD_MENUS = Object.freeze({
+  low: Object.freeze({
+    skyrim: 'skyrimLow',
+    morrowind: 'morrowindLow',
+    sumurset: 'sumursetLow',
+    valenwood: 'valenwoodLow',
+    elsweyr: 'elsweyrLow',
+    blackmarsh: 'blackmarshLow',
+    cyrodiil: 'cyrodiilLow',
+  }),
+  mid: Object.freeze({
+    skyrim: 'skyrimMid',
+    morrowind: 'morrowindMid',
+    sumurset: 'sumursetMid',
+    valenwood: 'valenwoodMid',
+    elsweyr: 'elsweyrMid',
+    blackmarsh: 'blackmarshMid',
+    cyrodiil: 'cyrodiilMid',
+  }),
+  high: Object.freeze({
+    skyrim: 'skyrimHigh',
+    morrowind: 'morrowindHigh',
+    sumurset: 'sumursetHigh',
+    valenwood: 'valenwoodHigh',
+    elsweyr: 'elsweyrHigh',
+    blackmarsh: 'blackmarshHigh',
+    cyrodiil: 'cyrodiilHigh',
+  }),
+});
 export const BREAKFAST_MENUS = Object.freeze({ low: 'breakLow', mid: 'breakMid', high: 'breakHigh' });
 /** AUDIT C&C I8: the mod's drink lists, each by its own name (its woHighDrinks, which no key pours, is not carried). */
 export const TAVERN_DRINKS = Object.freeze({
@@ -311,6 +459,184 @@ export const DRINK_MENUS = Object.freeze({
   low: Object.freeze({ n: 'nLow', ne: 'neLow', se: 'sLow', s: 'sLow', b: 'neLow', o: 'woLow' }),
   mid: Object.freeze({ n: 'nMid', ne: 'neMid', se: 'sMid', s: 'sMid', b: 'neMid', o: 'woMid' }),
   high: Object.freeze({ n: 'nHigh', ne: 'neHigh', se: 'sHigh', s: 'sHigh', b: 'neHigh', o: 'neHigh' }),
+});
+export const PROVINCE_TAVERN_DRINKS = Object.freeze({
+  skyrimLow: list(d('Goats Milk', 1), d('Snowberry Tea', 2), d('Nord Ale', 2), d('Honningbrew Mead', 3), d('Black-Briar Mead', 4)),
+  skyrimMid: list(
+    d('Cows Milk', 2),
+    d('Pine Needle Tea', 4),
+    d('Nord Ale', 4),
+    d('Nord Mead', 6),
+    d('Spiced Wine', 8),
+    d('Alto Wine', 12),
+    d('Nordic Rye Liquor', 14),
+  ),
+  skyrimHigh: list(
+    d('Snowberry Juice', 3),
+    d('Juniper Tea', 6),
+    d('Mint Tea', 6),
+    d('Windhelm Ale', 9),
+    d('Black-Briar Mead', 12),
+    d('Spiced Wine', 18),
+    d('Alto Wine', 21),
+    d('Firebrand Wine', 24),
+    d('Black-Briar Reserve Brandy', 30),
+  ),
+  morrowindLow: list(d('Guar Milk', 1), d('Marshmerrow Tea', 2), d('Shein', 2), d('Greef', 3), d('Sujamma', 4)),
+  morrowindMid: list(
+    d('Comberry Juice', 2),
+    d('Wickwheat Tea', 4),
+    d('Shein', 4),
+    d('Greef', 6),
+    d('Telvanni Wine', 8),
+    d('Mazte', 12),
+    d('Sujamma', 14),
+  ),
+  morrowindHigh: list(
+    d('Comberry Juice', 3),
+    d('Marshmerrow Tea', 6),
+    d('Hackle-Lo Tea', 6),
+    d('Balmora Shein', 9),
+    d('Greef', 12),
+    d('Redoran Wine', 18),
+    d('Telvanni Vintage Wine', 21),
+    d('Mazte', 24),
+    d('Cyrodiilic Flin', 30),
+  ),
+  sumursetLow: list(d('Almond Milk', 1), d('Jasmine Tea', 2), d('Pear Cider', 2), d('Sun-Ale', 3), d('Lillandril Wine', 4)),
+  sumursetMid: list(
+    d('Peach Nectar', 2),
+    d('Blossom Tea', 4),
+    d('Golden Ale', 4),
+    d('Alinor Cider', 6),
+    d('Summerset White Wine', 8),
+    d('Auridon Rose Wine', 12),
+    d('Sunhold Brandy', 14),
+  ),
+  sumursetHigh: list(
+    d('Peach Nectar', 3),
+    d('Jasmine Tea', 6),
+    d('Silver-Leaf Tea', 6),
+    d('Golden Ale', 9),
+    d('Shimmerene Cider', 12),
+    d('Summerset White Wine', 18),
+    d('Alinor Vintage Wine', 21),
+    d('Summerset Wine', 24),
+    d("Sapiarch's Reserve Brandy", 30),
+  ),
+  valenwoodLow: list(d('Berry Juice', 1), d('Fern Tea', 2), d('Rotmeth', 2), d('Jagga', 3), d('Strong Rotmeth', 4)),
+  valenwoodMid: list(
+    d('Wild Berry Juice', 2),
+    d('Bramble Tea', 4),
+    d('Bosmer Ale', 4),
+    d('Jagga', 6),
+    d('Falinesti Wine', 8),
+    d('Elderberry Wine', 12),
+    d('Aged Rotmeth Liquor', 14),
+  ),
+  valenwoodHigh: list(
+    d('Wild Berry Juice', 3),
+    d('Bramble Tea', 6),
+    d('Moss-Mint Tea', 6),
+    d('Elden Root Ale', 9),
+    d('Jagga', 12),
+    d('Rotmeth', 18),
+    d('Silvenar Wine', 21),
+    d('Falinesti Vintage Wine', 24),
+    d('Heartwood Brandy', 30),
+  ),
+  elsweyrLow: list(d('Warm Milk', 1), d('Spiced Chai Tea', 2), d('Cane Beer', 2), d('Date Wine', 3), d('Spiced Rum', 4)),
+  elsweyrMid: list(
+    d('Cane Juice', 2),
+    d('Moon-Sugar Tea', 4),
+    d('Dune Beer', 4),
+    d('Pellitine Cider', 6),
+    d('Date Wine', 8),
+    d('Elsweyr Spiced Wine', 12),
+    d('Senchal Rum', 14),
+  ),
+  elsweyrHigh: list(
+    d('Pomegranate Juice', 3),
+    d('Spiced Chai Tea', 6),
+    d('Moon-Sugar Tea', 6),
+    d('Senchal Wheat Beer', 9),
+    d('Torval Ale', 12),
+    d('Date Wine', 18),
+    d('Elsweyr Spiced Wine', 21),
+    d('Rimmen Reserve Wine', 24),
+    d('Baandari Rum', 30),
+  ),
+  blackmarshLow: list(d('Lotus Nectar', 1), d('Bog-Herb Tea', 2), d('Swamp Beer', 2), d('Fermented Sap', 3), d('Bog Grog', 4)),
+  blackmarshMid: list(
+    d('Lotus Nectar', 2),
+    d('Reed Tea', 4),
+    d('Marsh Ale', 4),
+    d('Swamp Stout', 6),
+    d('Spiced Sap Wine', 8),
+    d('Archon Wine', 12),
+    d('Gideon Rum', 14),
+  ),
+  blackmarshHigh: list(
+    d('Lotus Nectar', 3),
+    d('Reed Tea', 6),
+    d('Root-Mint Tea', 6),
+    d('Lilmoth Ale', 9),
+    d('Soulrest Stout', 12),
+    d('Spiced Sap Wine', 18),
+    d('Archon Amber Wine', 21),
+    d('Gideon Reserve Wine', 24),
+    d('Hist-Spiced Brandy', 30),
+  ),
+  cyrodiilLow: list(d('Cows Milk', 1), d('Herbal Tea', 2), d('Imperial Ale', 2), d('Cheap Wine', 3), d('Colovian Brandy', 4)),
+  cyrodiilMid: list(
+    d('Apple Juice', 2),
+    d('Mint Tea', 4),
+    d('Imperial Ale', 4),
+    d('Nibenese Stout', 6),
+    d('Surilie Brothers Wine', 8),
+    d("Tamika's West Weald Wine", 12),
+    d('Colovian Brandy', 14),
+  ),
+  cyrodiilHigh: list(
+    d('Grape Juice', 3),
+    d('Herbal Tea', 6),
+    d('Mint Tea', 6),
+    d('Chorrol Golden Ale', 9),
+    d('Anvil Harbor Stout', 12),
+    d('Surilie Brothers Wine', 18),
+    d('Tamika Vintage Wine', 21),
+    d('Skingrad Reserve Wine', 24),
+    d('Cyrodiilic Brandy', 30),
+  ),
+});
+export const PROVINCE_DRINK_MENUS = Object.freeze({
+  low: Object.freeze({
+    skyrim: 'skyrimLow',
+    morrowind: 'morrowindLow',
+    sumurset: 'sumursetLow',
+    valenwood: 'valenwoodLow',
+    elsweyr: 'elsweyrLow',
+    blackmarsh: 'blackmarshLow',
+    cyrodiil: 'cyrodiilLow',
+  }),
+  mid: Object.freeze({
+    skyrim: 'skyrimMid',
+    morrowind: 'morrowindMid',
+    sumurset: 'sumursetMid',
+    valenwood: 'valenwoodMid',
+    elsweyr: 'elsweyrMid',
+    blackmarsh: 'blackmarshMid',
+    cyrodiil: 'cyrodiilMid',
+  }),
+  high: Object.freeze({
+    skyrim: 'skyrimHigh',
+    morrowind: 'morrowindHigh',
+    sumurset: 'sumursetHigh',
+    valenwood: 'valenwoodHigh',
+    elsweyr: 'elsweyrHigh',
+    blackmarsh: 'blackmarshHigh',
+    cyrodiil: 'cyrodiilHigh',
+  }),
 });
 /** AUDIT C&C I8: Drinks_OnItemPicked's alcohol, by the row's place in its tier's list (alcoLow, alcoMid, alcoHigh) -
  *  what it adds to the drunk counter, and what it fortifies (I6). Nought is a soft drink. SURV5 had guessed it from the
@@ -400,10 +726,13 @@ export function tavernMenu({
       ? TAVERN_MENU_TEXT.closed
       : TAVERN_MENU_TEXT.closedNight
     : null;
-  const list = breakfastHours(hour) ? BREAKFAST_MENUS[tier] : FOOD_MENUS[tier][key];
+  const list = breakfastHours(hour)
+    ? BREAKFAST_MENUS[tier]
+    : (FOOD_MENUS[tier][key] ?? PROVINCE_FOOD_MENUS[tier]?.[key] ?? FOOD_MENUS[tier].n);
+  const dishEntries = TAVERN_DISHES[list] ?? PROVINCE_TAVERN_DISHES[list] ?? TAVERN_DISHES.nLow;
   const rows = [];
   if (!closed)
-    for (const f of TAVERN_DISHES[list])
+    for (const f of dishEntries)
       rows.push({
         text: `${String(cost(f.price)).padStart(2)} gold   ${f.name}`,
         kind: 'food',
@@ -412,7 +741,9 @@ export function tavernMenu({
         worth: MEAL_WORTH,
       });
   rows.push({ text: TAVERN_MENU_TEXT.drinksHeader, kind: 'header', name: null, price: 0 });
-  const drinks = TAVERN_DRINKS[DRINK_MENUS[tier][key]].map((k, i) => ({ ...k, strength: DRINK_ALCOHOL[tier][i] }));
+  const drinkListKey = DRINK_MENUS[tier][key] ?? PROVINCE_DRINK_MENUS[tier]?.[key] ?? DRINK_MENUS[tier].n;
+  const drinkEntries = TAVERN_DRINKS[drinkListKey] ?? PROVINCE_TAVERN_DRINKS[drinkListKey] ?? TAVERN_DRINKS.nLow;
+  const drinks = drinkEntries.map((k, i) => ({ ...k, strength: DRINK_ALCOHOL[tier][i] }));
   const water = innWaterPrice(drinks); // INN-WATER: first under the header, the kitchen shut or open
   rows.push({
     text: `${String(cost(water)).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`,

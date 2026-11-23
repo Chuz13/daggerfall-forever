@@ -111,6 +111,19 @@ export const REGION_BACKGROUND_CHARS = Object.freeze([
   '3', '5', '5', '5', '5', '1', '3', '3', '3', '2', '0', '0', '2', '3',
 ]);
 
+/** Province open-road geographic backdrops (62..70 -> existing ARENA2 SCBG0<c>I0.IMG). */
+export const PROVINCE_BACKGROUND_CHARS = Object.freeze({
+  62: '0', // High Rock
+  63: '3', // Hammerfell
+  64: '2', // Skyrim
+  65: '1', // Morrowind
+  66: '6', // Sumurset Isle
+  67: '5', // Valenwood
+  68: '3', // Elsweyr
+  69: '5', // Black Marsh
+  70: '6', // Cyrodiil
+});
+
 /**
  * GetPaperDollBackground, verbatim.
  * @param {string} raceBackground - RaceTemplate.PaperDollBackground
@@ -131,7 +144,8 @@ export function paperDollBackground(raceBackground, {
   if (inTown) return CONTEXT_BG.town;
   if (inDungeon) return CONTEXT_BG.dungeon;
   if (inGraveyard) return CONTEXT_BG.graveyard;
-  return bay ? `SCBG0${REGION_BACKGROUND_CHARS[region]}I0.IMG` : raceBackground;
+  const ch = bay ? REGION_BACKGROUND_CHARS[region] : PROVINCE_BACKGROUND_CHARS[region];
+  return ch !== undefined ? `SCBG0${ch}I0.IMG` : raceBackground;
 }
 
 // AUDIT 17e F32/F33: clampArmorVariant + the armor archive rule

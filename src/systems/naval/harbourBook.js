@@ -32,6 +32,8 @@ import { SEA_RING } from '../../world/portSites.js';
 import { TERRAIN_SIZE, sampleKernel, HEIGHTMAP_DIMENSION } from '../../world/terrain/terrainSampler.js';
 import { sampleHeight, isWaterHeight } from '../../world/terrain/terrainTiles.js';
 import { locationWorldRect } from '../../world/streamingWorld.js';
+import { inBay } from '../../world/tamriel/tamrielFrame.js';
+import { inWorldGrid, worldPixelKey } from '../../world/worldWide/worldGrid.js';
 
 /** AUDIT SHIP-LIFE B7: a port whose shore gave no harbour is sounded again after this (s) - the terrain streams in
  *  nearest-first, and a harbour sounded on arrival met unbuilt water. */
@@ -86,10 +88,11 @@ const DRY = new WeakMap();
  * @param {any} woods the loaded WoodsFile @param {number} px @param {number} py
  */
 export function dryPixel(woods, px, py) {
-  if (!woods || !(px >= 0 && py >= 0 && px < 1000 && py < 500)) return false;
+  if (!woods || !inWorldGrid(px, py)) return false;
+  if (!woods.isTamrielGround && !inBay(px, py)) return false;
   let memo = DRY.get(woods);
   if (!memo) DRY.set(woods, (memo = new Map()));
-  const key = py * 1000 + px;
+  const key = worldPixelKey(px, py);
   let d = memo.get(key);
   if (d !== undefined) return d;
   const k = sampleKernel(woods, px, py, HEIGHTMAP_DIMENSION, false);
