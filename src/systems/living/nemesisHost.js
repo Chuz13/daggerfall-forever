@@ -287,8 +287,12 @@ export function createNemesisHunter(playerLevel, nameOrOptions) {
   const name = customName || namePool[Math.floor(rng() * namePool.length)];
   const className = ARCHETYPE_CLASSES[archetype] || 'Assassin';
 
-  const nemesisLevel = Math.min(LEVEL_CAP, Math.max(1, playerLevel + 1));
+  const nemesisLevel = Math.min(LEVEL_CAP, Math.max(3, playerLevel + 2));
   const gearTier = Math.min(9, Math.floor(nemesisLevel / 5) + 1);
+  const tier = nemesisLevel >= 16 ? 3 : nemesisLevel >= 8 ? 2 : 1;
+  const hpMult = tier === 3 ? 2.8 : tier === 2 ? 2.3 : 1.8;
+  const damageMult = tier === 3 ? 1.75 : tier === 2 ? 1.55 : 1.35;
+  const bossTraitCount = tier >= 2 ? 2 : 1;
 
   // Scaled minions based on Nemesis level and encounter scale
   const scale = getLivingEncounterScale();
@@ -317,7 +321,7 @@ export function createNemesisHunter(playerLevel, nameOrOptions) {
     minions.push({
       name: `${role} #${m + 1}`,
       role,
-      level: Math.max(1, nemesisLevel - 3),
+      level: Math.max(1, nemesisLevel - 2),
       gearTier: Math.max(1, gearTier - 1),
     });
   }
@@ -339,6 +343,11 @@ export function createNemesisHunter(playerLevel, nameOrOptions) {
     className,
     level: nemesisLevel,
     gearTier,
+    tier,
+    hpMult,
+    damageMult,
+    bossTraitCount,
+    isNemesis: true,
     contractBounty: nemesisLevel * 250,
     minions,
     escapedCount: 0,

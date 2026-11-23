@@ -24,6 +24,7 @@ import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
 import { equipAdventurerEntity } from './adventurerGear.js';
+import { rollBossTraits } from '../bossTraits.js';
 import { capitalIndexOfId } from '../../world/capitalLane.js';
 import {
   LivingTamrielConfig,
@@ -1026,6 +1027,12 @@ export function buildLivingSiteBlueprint({
         role: 'checkpoint_guard',
         team: SKIRMISH_TEAMS.CITY_WATCH,
         suppressInfighting: true,
+        skirmishLeader: i === 0,
+        allowThreatScaling: true,
+        allowEliteRoll: true,
+        allowChampionRoll: true,
+        eliteChance: i === 0 ? 0.2 : 0.1,
+        ...(i === 0 && playerLevel >= 6 ? { eliteFoe: true } : {}),
       });
     }
   } else if (kind === LIVING_SITE_KINDS.BANDIT_CAMP) {
@@ -1057,6 +1064,12 @@ export function buildLivingSiteBlueprint({
       role: 'bandit_camp',
       team: 'Criminals',
       suppressInfighting: true,
+      skirmishLeader: true,
+      allowThreatScaling: true,
+      allowEliteRoll: true,
+      allowChampionRoll: true,
+      eliteChance: 0.25,
+      ...(playerLevel >= 5 ? { eliteFoe: true } : {}),
     });
 
     // 2. Subordinates scaled by encounter scale ranges
@@ -1096,6 +1109,10 @@ export function buildLivingSiteBlueprint({
         role: 'bandit_camp',
         team: 'Criminals',
         suppressInfighting: true,
+        allowThreatScaling: true,
+        allowEliteRoll: true,
+        allowChampionRoll: true,
+        eliteChance: 0.1,
       });
     }
   } else if (kind === LIVING_SITE_KINDS.TRAVELER_REST) {
@@ -1278,6 +1295,12 @@ export function buildLivingSiteBlueprint({
         team: SKIRMISH_TEAMS.CITY_WATCH,
         campId: 'skirmish_guards',
         factionSide: 'guards',
+        skirmishLeader: i === 0,
+        allowThreatScaling: true,
+        allowEliteRoll: true,
+        allowChampionRoll: true,
+        eliteChance: i === 0 ? 0.2 : 0.1,
+        ...(i === 0 && playerLevel >= 6 ? { eliteFoe: true } : {}),
       });
     }
     const isSwarm = Boolean(plan.event?.swarmAttackers);
@@ -1300,6 +1323,14 @@ export function buildLivingSiteBlueprint({
         team: SKIRMISH_TEAMS.INSURGENTS,
         campId: 'skirmish_rebels',
         factionSide: 'rebels',
+        ...(isSwarm ? {} : {
+          skirmishLeader: i === 0,
+          allowThreatScaling: true,
+          allowEliteRoll: true,
+          allowChampionRoll: true,
+          eliteChance: i === 0 ? 0.2 : 0.1,
+          ...(i === 0 && playerLevel >= 6 ? { eliteFoe: true } : {}),
+        }),
       });
     }
   } else if (kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
@@ -1362,6 +1393,12 @@ export function buildLivingSiteBlueprint({
         team: war.playerStance === 'sideA' ? 'PlayerAlly' : 'WarSideA',
         campId: 'war_side_a',
         factionSide: 'guards',
+        skirmishLeader: i === 0,
+        allowThreatScaling: true,
+        allowEliteRoll: true,
+        allowChampionRoll: true,
+        eliteChance: i === 0 ? 0.2 : 0.1,
+        ...(i === 0 && playerLevel >= 6 ? { eliteFoe: true } : {}),
       });
     }
     for (let i = 0; i < squadCount; i++) {
@@ -1379,6 +1416,12 @@ export function buildLivingSiteBlueprint({
         team: war.playerStance === 'sideB' ? 'PlayerAlly' : 'WarSideB',
         campId: 'war_side_b',
         factionSide: 'rebels',
+        skirmishLeader: i === 0,
+        allowThreatScaling: true,
+        allowEliteRoll: true,
+        allowChampionRoll: true,
+        eliteChance: i === 0 ? 0.2 : 0.1,
+        ...(i === 0 && playerLevel >= 6 ? { eliteFoe: true } : {}),
       });
     }
   } else if (kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH) {
@@ -1417,6 +1460,13 @@ export function buildLivingSiteBlueprint({
       role: 'nemesis_leader',
       team: 'NemesisGang',
       suppressInfighting: true,
+      skirmishLeader: true,
+      allowThreatScaling: true,
+      eliteFoe: true,
+      forcedBossTraits: rollBossTraits(nemesis.bossTraitCount ?? 1, rng),
+      hpMult: nemesis.hpMult ?? 1.8,
+      damageMult: nemesis.damageMult ?? 1.35,
+      nemesis,
     });
 
     const minionTypes = [MOBILE_TYPES.Rogue, MOBILE_TYPES.Archer, MOBILE_TYPES.Warrior];
@@ -1436,6 +1486,10 @@ export function buildLivingSiteBlueprint({
         role: 'nemesis_minion',
         team: 'NemesisGang',
         suppressInfighting: true,
+        allowThreatScaling: true,
+        allowEliteRoll: true,
+        allowChampionRoll: true,
+        eliteChance: 0.15,
       });
     }
   } else if (kind === LIVING_SITE_KINDS.ADVENTURER_MEETING) {
@@ -3989,6 +4043,14 @@ export function createLivingSceneHost(deps) {
           loose: true,
           transient: true,
           managed: true,
+          allowThreatScaling: Boolean(a.allowThreatScaling),
+          allowEliteRoll: Boolean(a.allowEliteRoll),
+          allowChampionRoll: Boolean(a.allowChampionRoll),
+          ...(a.eliteFoe !== undefined ? { eliteFoe: a.eliteFoe } : {}),
+          ...(a.eliteChance != null ? { eliteChance: a.eliteChance } : {}),
+          ...(a.forcedBossTraits ? { forcedBossTraits: a.forcedBossTraits } : {}),
+          ...(a.hpMult > 1 ? { hpMult: a.hpMult } : {}),
+          ...(a.damageMult > 1 ? { damageMult: a.damageMult } : {}),
         }),
       )
         .then((rec) => {
@@ -4004,6 +4066,7 @@ export function createLivingSceneHost(deps) {
           if (rec.entity) {
             rec.entity.name = a.name;
             rec.entity.campId = a.campId;
+            if (a.skirmishLeader) rec.entity.skirmishLeader = true;
             if (a.team) {
               rec.entity.team = a.team;
               rec.entity.mobileTeam = a.team;
@@ -4049,7 +4112,7 @@ export function createLivingSceneHost(deps) {
             // Wilderness / Camps / Checkpoints
             const wildLoot = LivingTamrielConfig.wildernessLootMode;
             if (wildLoot === LIVING_WILDERNESS_LOOT.SUPPLIES && rec.entity?.items?.length) {
-              if (a.role !== 'wandering_adventurer' && a.role !== 'rival_adventurer') {
+              if (a.role !== 'wandering_adventurer' && a.role !== 'rival_adventurer' && a.role !== 'nemesis_leader') {
                 rec.entity.items = rec.entity.items.filter((it) => isGoldPieces(it) || it.isGold || it.isPotion || it.isArrow || it.category === 'Consumables');
               }
             }
@@ -4080,6 +4143,17 @@ export function createLivingSceneHost(deps) {
             if (adv && rec.entity) {
               rec._advRecord = adv;
               equipAdventurerEntity(rec.entity, adv, deps.playerEntity()?.level || 1, rng);
+            }
+          } else if (a.role === 'nemesis_leader') {
+            rec.lootDropped = false;
+            rec._suppressLoot = false;
+            if (rec.entity) {
+              delete rec.entity.lootCap;
+            }
+            const nem = a.nemesis ?? blueprint.meta?.nemesis;
+            if (nem && rec.entity) {
+              rec._nemesisRecord = nem;
+              equipAdventurerEntity(rec.entity, nem, deps.playerEntity()?.level || 1, rng, { replace: true });
             }
           }
           site.foes.push(rec);
