@@ -933,7 +933,7 @@ export class HeldMapWindow {
     // spelling of the ports button (recorded).
     if (code === 'KeyO' && this._travelViewShown()) { this._openTravelView(); return; }   // TV1: the sheet's own key for its Overworld door
     if (this._to) {
-      if (code === 'KeyI' && this._selected && !this._selected.coords) { this._displayLocationInfo(); return; }
+      if (code === 'KeyI' && this._selected && (!this._selected.coords || this._selected.place || this._selected.pastBay)) { this._displayLocationInfo(); return; }
       if (code === 'KeyH') { this._displayHelp(); return; }
       if (code === 'KeyP' && this._portsShown()) { this._togglePorts(); return; }
     }
@@ -1362,6 +1362,9 @@ export class HeldMapWindow {
         const tamOpts = { paperW: env.paperW, paperH: env.paperH, continent: onContinent(env.view.scale, bayFit), bayFit,
           band: env.band, filters: this.filters, inks: this._markInks(), placesIn: this.deps.tamrielPlacesIn ?? null,
           portsOnly: this.portsFilter,   // BAY-LEFT-MAPS (C11): the Ports filter past the Bay too - a port alone, its anchor beside it
+          markedMapId: this._it ? -1 : this.markedMapId,
+          markColor: rgbaCss(this._to?.settings?.markLocationColor),
+          markedPixel: (!this._it && this.markedMapId !== -1) ? (this.deps.pixelOfMapId?.(this.markedMapId) ?? null) : null,
           seatAt: (c) => this.deps.seatAt?.({ mapId: c.mapId }) ?? null,   // WW7-6: a seat past the Bay ringed as the Bay's (its ring moves with the marks' version)
           tiles: (this._pastBayTiles ??= createTamrielTiles({ paint: (c, v, w, h, o, job) => paintPastBay(c, v, { ...o, paperW: w, paperH: h }, job), stamp: pastBayStamp })), dpr: env.dpr, settling };
         // MAP-PAN: the place marks are one layer. A pan shifts it; a zoom, or a pan that
@@ -3039,8 +3042,14 @@ export class HeldMapWindow {
     if (this._it) return;   // AUDIT IT1 C1: CarriageMap has no MarkLocationHandler
     if (!this._onSheet([sx, sy])) return;   // AUDIT-MAP2: off the paper is off the map
     const m = this._markerAt(sx, sy);
-    if (!m) return;
-    const id = m.mapId ?? -1;
+    let id = m?.mapId ?? -1;
+    if (id === -1 && (this._tamriel || this._zoneMap)) {
+      const [mx, my] = toMap(this._view, sx, sy);
+      const past = this._pastBayHover(mx, my);
+      if (past?.on === 'city' && past.city?.mapId != null) id = past.city.mapId;
+      else if (past?.on === 'mark' && past.pixel) id = this.deps.placeSummaryAt?.(past.pixel.x, past.pixel.y, true)?.mapId ?? -1;
+    }
+    if (id === -1) return;
     this.markedMapId = this.markedMapId === id ? -1 : id;
     this._dirty = true;
   }
@@ -3048,8 +3057,23 @@ export class HeldMapWindow {
   /** TO1 (:374-464), DisplayLocationInfo - the I key over a selected
    *  place. The rows are ui/travel/travelMapOptions.js's; this holds the box. */
   _displayLocationInfo() {
-    if (!this._selected || this._selected.coords || this._info) return;
-    const summary = this._selected.summary;
+    if (!this._selected || (this._selected.coords && !this._selected.place && !this._selected.pastBay) || this._info) return;
+    let summary = this._selected.summary ?? null;
+    if (!summary) {
+      const px = Math.floor(this._selected.x);
+      const py = Math.floor(this._selected.y);
+      const ps = this.deps.placeSummaryAt?.(px, py, true) ?? null;
+      const regionIndex = ps?.regionIndex ?? ((this.deps.maps?.getPoliticIndex?.(px, py) ?? -1) - 128);
+      summary = {
+        mapId: ps?.mapId ?? null,
+        mapID: ps?.mapId ?? null,
+        locationType: ps?.locationType ?? this._selected.town?.locationType ?? null,
+        regionIndex,
+        name: ps?.name ?? this._selected.name,
+        pixel: { x: px, y: py },
+        pastBay: true,
+      };
+    }
     const info = locationInfoRows(summary?.locationType,
       this.deps.discoveredBuildings?.(summary) ?? null,
       (t) => this.deps.buildingTypeName?.(t) ?? String(t));
@@ -4516,7 +4540,7 @@ export class HeldMapWindow {
     }
     // AUDIT GUIDE K8/U15: the quests that point here, named on the card - the hover's card is the pointer's; this is
     // where a keyboard (the search, then the pick) and a finger learn them
-    if (!this._selected.coords) {
+    if (!this._selected.coords || this._selected.place || this._selected.pastBay) {
       const at = this._quests.filter((q) => q.px === Math.floor(this._selected.x) && q.py === Math.floor(this._selected.y));
       for (const q of at.flatMap((x) => x.quests ?? [])) card.append(el('p', 'hmquest', q.left ? `${q.title} - ${q.left}` : q.title));
     }

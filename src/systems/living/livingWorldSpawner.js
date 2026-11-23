@@ -24,6 +24,7 @@ import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
 import { equipAdventurerEntity } from './adventurerGear.js';
+import { capitalIndexOfId } from '../../world/capitalLane.js';
 import {
   LivingTamrielConfig,
   PRESENCE,
@@ -1935,6 +1936,26 @@ export function buildRecruitedCompanionChoiceSpec({
       },
     ],
   };
+}
+
+/**
+ * Resolves a stable cooldown key for a settlement. Multi-slice capitals share one `cap_<k>` key
+ * across all slices so urban events don't re-trigger on every district crossing.
+ */
+export function resolveLocationEventKey(loc, regIdx, pPixel = null, feet = null) {
+  if (loc?.capital && Number.isInteger(loc.capital.k)) {
+    return `cap_${loc.capital.k}`;
+  }
+  if (loc?.mapTableData?.mapId != null) {
+    const capK = capitalIndexOfId(loc.mapTableData.mapId);
+    if (capK >= 0) return `cap_${capK}`;
+    return `map_${loc.mapTableData.mapId}`;
+  }
+  if (loc?.name) return `${regIdx}:${loc.name}`;
+  if (pPixel) return `${regIdx}:${pPixel.x},${pPixel.y}`;
+  const fx = feet ? Math.round(feet[0] / 100) : 0;
+  const fz = feet ? Math.round(feet[2] / 100) : 0;
+  return `${regIdx}:${fx}:${fz}`;
 }
 
 export function createLivingSceneHost(deps) {
@@ -4110,16 +4131,16 @@ export function createLivingSceneHost(deps) {
 
     const loc = deps.locationRecord?.() ?? null;
     const pPixel = deps.playerTravelPixel?.() ?? null;
-    const locKey = loc?.mapTableData?.mapId != null
-      ? `map_${loc.mapTableData.mapId}`
-      : (loc?.name ? `${regIdx}:${loc.name}` : (pPixel ? `${regIdx}:${pPixel.x},${pPixel.y}` : `${regIdx}:${Math.round(feet[0] / 100)}:${Math.round(feet[2] / 100)}`));
+    const locKey = resolveLocationEventKey(loc, regIdx, pPixel, feet);
     if (inTown) {
       const lastEventTime = locationEventCooldowns.get(locKey) ?? -999999;
       const canEventHere = (nowMin - lastEventTime) >= getLivingLocationCooldownMinutes();
       if (!canEventHere) return;
 
-      // 1. Priority 1: Plague Quarantine Relief Tent (40% tent, 60% fallthrough to plague skirmish)
-      if (isRegionInQuarantine(regIdx) && rng() < 0.40) {
+      // 1. Priority 1: Plague Quarantine Relief Tent (40% when gated, 100% in open settlements without physical gates)
+      const hasPhysicalGates = typeof deps.hasCityGates === 'function' ? Boolean(deps.hasCityGates()) : true;
+      const quarantineTentChance = hasPhysicalGates ? 0.40 : 1.0;
+      if (isRegionInQuarantine(regIdx) && rng() < quarantineTentChance) {
         const qAngle = rng() * Math.PI * 2;
         const safe = findSafeSiteCenter(deps, feet, 16, qAngle, 4.0);
         if (safe.suitable) {

@@ -245,6 +245,7 @@ export function ensureAdventurerPool(rngOrOptions = Math.random, regionCount = T
     }
     reg.nextId = nextId;
   }
+  upgradeSyntheticProvinceDelves(reg.pool);
   return reg.pool;
 }
 
@@ -283,6 +284,33 @@ export function getRegionalDungeonPool(regionIndex) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Upgrades any legacy or pre-load synthetic province delves (`dungeon_64_x` without map coords)
+ * to real on-map dungeons once `setRegionalDungeonProvider` is active.
+ * @param {any[]} pool
+ */
+export function upgradeSyntheticProvinceDelves(pool) {
+  if (!Array.isArray(pool) || !_regionalDungeonProvider) return 0;
+  let upgraded = 0;
+  for (const adv of pool) {
+    if (!adv || adv.status !== ADVENTURER_STATUS.DELVING) continue;
+    const isSyntheticId = typeof adv.targetLocationId === 'string' && adv.targetLocationId.startsWith('dungeon_');
+    if (!isSyntheticId && adv.targetPixel != null) continue;
+    const realList = getRegionalDungeonPool(adv.currentRegion);
+    if (!realList) continue;
+    const match = isSyntheticId ? /_(\d+)$/.exec(adv.targetLocationId) : null;
+    const slot = match ? Number.parseInt(match[1], 10) : (Math.abs(Number(adv.id) || 0) % realList.length);
+    const desc = getRegionalDungeonDescriptor(adv.currentRegion, slot);
+    if (!desc.isRealMapDungeon) continue;
+    adv.targetLocationId = desc.id;
+    adv.targetLocationName = desc.name;
+    adv.targetDungeonType = desc.type;
+    adv.targetPixel = desc.px != null && desc.py != null ? { x: desc.px, y: desc.py } : null;
+    upgraded++;
+  }
+  return upgraded;
 }
 
 /**
@@ -507,6 +535,7 @@ export function tickAdventurerSimulation({
     reg.pool = reg.pool.filter((a) => a.status !== ADVENTURER_STATUS.DEAD);
   }
   const pool = ensureAdventurerPool(rng);
+  upgradeSyntheticProvinceDelves(pool);
   const allowComp = allowQuestCompetition !== undefined
     ? Boolean(allowQuestCompetition)
     : Boolean(LivingTamrielConfig.allowQuestCompetition);

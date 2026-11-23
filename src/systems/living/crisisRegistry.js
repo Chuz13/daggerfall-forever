@@ -25,6 +25,7 @@ import {
   getBoundRegionConditions,
 } from './regionState.js';
 import { getTotalSettlementProsperityShift } from './settlementProsperity.js';
+import { fabricSliceSites } from '../../world/imperialFabricBuildings.js';
 import {
   LIVING_ROLL_DEGREE,
   resolveLivingRoll,
@@ -62,12 +63,22 @@ export const SKIRMISH_PROP_THEME = Object.freeze({
  */
 export function calculateLocationProsperity(dfLocation, { mapId = null, regionIndex = null } = {}) {
   const buildings = dfLocation?.exterior?.buildings;
-  if (!Array.isArray(buildings) || buildings.length === 0) {
-    return PROSPERITY_TIER.MID;
-  }
   const locMapId = mapId ?? dfLocation?.mapTableData?.mapId ?? null;
   const locReg = regionIndex ?? dfLocation?.regionIndex ?? null;
   const shift = locMapId != null || locReg != null ? getTotalSettlementProsperityShift(locMapId, locReg) : 0;
+
+  if (!Array.isArray(buildings) || buildings.length === 0) {
+    if (dfLocation?.capital?.k === 0 && Number.isInteger(dfLocation.capital.s)) {
+      const fabric = fabricSliceSites(dfLocation.capital.s);
+      if (Array.isArray(fabric) && fabric.length > 0) {
+        const eff = Math.max(1, Math.min(20, 14 + shift));
+        if (eff >= 14) return PROSPERITY_TIER.HIGH;
+        if (eff >= 7) return PROSPERITY_TIER.MID;
+        return PROSPERITY_TIER.LOW;
+      }
+    }
+    return PROSPERITY_TIER.MID;
+  }
   let sum = 0;
   let count = 0;
   for (let i = 0; i < buildings.length; i++) {

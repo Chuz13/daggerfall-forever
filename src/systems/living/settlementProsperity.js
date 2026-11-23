@@ -1,6 +1,7 @@
 // @ts-check
 import { LivingTamrielConfig, PRESENCE } from './livingConfig.js';
 import { getRegionState, CRISIS_TYPE, CRISIS_PHASE } from './regionState.js';
+import { canonicalCapitalMapId } from '../../world/capitalLane.js';
 
 export const SETTLEMENT_PROSPERITY_MIN = -5;
 export const SETTLEMENT_PROSPERITY_MAX = 5;
@@ -11,9 +12,10 @@ export const settlementProsperityMap = new Map();
 
 function normalizeMapKey(mapId) {
   if (mapId == null || mapId === '' || mapId === 0) return null;
-  const n = Number(mapId);
+  const canonical = canonicalCapitalMapId(mapId);
+  const n = Number(canonical);
   if (Number.isFinite(n) && n > 0) return String(Math.trunc(n));
-  return String(mapId);
+  return String(canonical);
 }
 
 /**

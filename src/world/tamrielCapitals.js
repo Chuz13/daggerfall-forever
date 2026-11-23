@@ -72,8 +72,8 @@ import { rumareFlatAt } from './rumareWaters.js';   // AUDIT CAPITAL-CARRIAGES L
 import { onCapitalApproach, capitalApproachCells, capitalGateSlice, APPROACH_TILE } from './capitalApproaches.js';   // ROAD-FOLLOW: the road on from the span's edge to the gate
 
 // The capitals' lane and the test of a map id (AUDIT RELEASE R2-9: a module of their own, the deeds' to read)
-import { CAPITAL_LANE, isCapitalPlaceId } from './capitalLane.js';
-export { CAPITAL_LANE, isCapitalPlaceId };
+import { CAPITAL_LANE, isCapitalPlaceId, capitalIndexOfId, canonicalCapitalMapId } from './capitalLane.js';
+export { CAPITAL_LANE, isCapitalPlaceId, capitalIndexOfId, canonicalCapitalMapId };
 /** The location indices count down from here, past the lairs' (-40,000,000 and down 2^19). */
 export const CAPITAL_INDEX_BASE = 41000000;
 /** The hash's salt. */
