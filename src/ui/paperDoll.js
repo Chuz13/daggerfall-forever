@@ -111,17 +111,17 @@ export const REGION_BACKGROUND_CHARS = Object.freeze([
   '3', '5', '5', '5', '5', '1', '3', '3', '3', '2', '0', '0', '2', '3',
 ]);
 
-/** Province open-road geographic backdrops (62..70 -> existing ARENA2 SCBG0<c>I0.IMG). */
+/** Province open-road geographic backdrops (62..70 -> verified ARENA2 SCBG0<c>I0.IMG). */
 export const PROVINCE_BACKGROUND_CHARS = Object.freeze({
-  62: '0', // High Rock
-  63: '3', // Hammerfell
-  64: '2', // Skyrim
-  65: '1', // Morrowind
-  66: '6', // Sumurset Isle
-  67: '5', // Valenwood
-  68: '3', // Elsweyr
-  69: '5', // Black Marsh
-  70: '6', // Cyrodiil
+  62: '0', // High Rock (SCBG00I0: sunny forest/meadow)
+  63: '1', // Hammerfell (SCBG01I0: desert & cacti)
+  64: '2', // Skyrim (SCBG02I0: northern mountains & pines)
+  65: '3', // Morrowind (SCBG03I0: volcanic cliffs)
+  66: '0', // Sumurset Isle (SCBG00I0: sunny forest/meadow)
+  67: '5', // Valenwood (SCBG05I0: dense autumn/golden woodland)
+  68: '1', // Elsweyr (SCBG01I0: desert & cacti)
+  69: '6', // Black Marsh (SCBG06I0: dark marsh reeds & twilight pines)
+  70: '0', // Cyrodiil (SCBG00I0: sunny forest/meadow)
 });
 
 /**
@@ -253,9 +253,15 @@ let _identity = null;
  *  context and the region live here, so the drift check below can ask
  *  for the entity's identity WHERE the doll already is. */
 let _ident = null;
-/** The art set's key: who the doll is, and where. */
-export const paperDollIdentityKey = ({ race = 'Breton', gender = 'male', faceIndex = 0, context = 'town', where = null } = {}) =>
-  `${race}|${gender}|${faceIndex}|${context}|${where?.region ?? -1}`;
+/** Live world-location provider: `() => ({ context, where })`, registered by world.js so moving between
+ *  town/wilderness/dungeon/graveyard/regions invalidates and reloads the backdrop automatically. */
+let _whereProvider = null;
+export function setPaperDollWhereProvider(fn) {
+  _whereProvider = typeof fn === 'function' ? fn : null;
+}
+/** The art set's key: who the doll is, where, and whether geographic backgrounds are enabled. */
+export const paperDollIdentityKey = ({ race = 'Breton', gender = 'male', faceIndex = 0, context = 'town', where = null, geo = getBool('GUI', 'EnableGeographicBackgrounds') } = {}) =>
+  `${race}|${gender}|${faceIndex}|${context}|${where?.region ?? -1}|${geo ? 1 : 0}`;
 
 /** THE ART FOLLOWS THE ENTITY (Mac, 2026-09-16: "Characters face and
  *  gender completely changed after a few hours of playtime").
@@ -278,15 +284,19 @@ export const paperDollIdentityKey = ({ race = 'Breton', gender = 'male', faceInd
  *  itself asks whether the set it is about to draw is this entity's,
  *  and no host has to know. Returns the ident the set would have to be
  *  loaded with, or null when what is loaded already fits. Pure.
- *  Context and region are the loaded set's own - a load does not move
- *  the player, so only the identity can have drifted. */
-export function paperDollIdentityDrift(entity, ident = _ident) {
+ *  Also queries `_whereProvider` (or `ident` fallback) and live `EnableGeographicBackgrounds` so moving
+ *  between town/wilderness/dungeon/graveyard or toggling the setting refreshes the backdrop. */
+export function paperDollIdentityDrift(entity, ident = _ident, whereProvider = _whereProvider) {
   if (!ident) return null;
+  const live = typeof whereProvider === 'function' ? whereProvider() : null;
   const want = {
     ...ident,
     race: entity?.race ?? 'Breton',
     gender: entity?.gender ?? 'male',
     faceIndex: entity?.faceIndex ?? 0,
+    context: live?.context ?? ident.context ?? 'town',
+    where: live?.where !== undefined ? live.where : ident.where,
+    geo: getBool('GUI', 'EnableGeographicBackgrounds'),
   };
   return paperDollIdentityKey(want) === paperDollIdentityKey(ident) ? null : want;
 }
@@ -358,12 +368,14 @@ const composeScale = () => (dfmodCarriesDollArt() ? PAPERDOLL_HD_SCALE : 1);   /
 
 export async function preloadPaperDollArt(deps, ident = {}) {
   const { race = 'Breton', gender = 'male' } = ident;
-  const key = `${paperDollIdentityKey(ident)}#${dfmodGeneration()}`;   // DFMOD1: attaching or removing a mod rebuilds the art
+  const geo = getBool('GUI', 'EnableGeographicBackgrounds');
+  const fullIdent = { ...ident, geo };
+  const key = `${paperDollIdentityKey(fullIdent)}#${dfmodGeneration()}`;   // DFMOD1: attaching or removing a mod rebuilds the art
   if (_art && _identity === key) return;
   try {
-    _art = await loadArtSet(deps, ident);
+    _art = await loadArtSet(deps, fullIdent);
     _identity = key;
-    _ident = { ...ident };   // what the drift check above compares an entity against
+    _ident = fullIdent;   // what the drift check above compares an entity against
     // AUDIT 17f: _deps carries the identity paperdollItemImage keys
     // off, so it may only advance once the new art is actually in
     // hand - a failed load used to leave a Khajiit _deps addressing

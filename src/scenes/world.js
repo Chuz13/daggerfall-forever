@@ -682,7 +682,7 @@ import { isEnchanted } from '../systems/inventory.js';   // UI1: the use path's 
 import { useQuickslot, swapQuickslot, offHandQuickslot, spellQuickslotPress, offHandOffersSwap, tickQuickslotHold } from '../systems/quickslots.js';   // QS2: the diamond's two performers - the window's own use ladder, and the one equipItem   // QS6: the spell slot's press, the off hand's swap question, and the hold machine the frame drives
 import { createDroppedLoot, droppedLootHooks, containerDropPos } from './droppedLoot.js';   // U8e: the ground piles; G5: the pile's DaggerfallLoot identity
 import { CONTAINER_IMAGES } from '../ui/targetIconPanel.js';   // DW-E3: a fish's DaggerfallLoot keeps the field's default picture (Chest) under its icon
-import { preloadPaperDollArt } from '../ui/paperDoll.js';   // U8f: the avatar base
+import { preloadPaperDollArt, setPaperDollWhereProvider } from '../ui/paperDoll.js';   // U8f: the avatar base
 import { seedStartingEquipment } from '../systems/equip.js';   // U8h: the worn-weapon binding
 import { loadSpellIndex, handHeroGenderToGrammar } from '../systems/chargenSession.js';   // S3c/U9; L10N3g: the hero's gender to the grammar
 import { testEntryById, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT, TEST_SEA, TEST_SEA_TEXT, enableTestSea } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
@@ -7167,7 +7167,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   preloadTravelControlArt({ renderer, fetchBytes, palette }).catch(() => {});
   preloadSpellbookArt({ renderer, fetchBytes, palette })   // U42: SPBK00I0/01I0 + the ICON/MASK sheets warm at boot
     .catch((e) => console.warn('[spellbook] classic spellbook art unavailable:', e?.message ?? e));
-  preloadPaperDollArt({ renderer, fetchBytes, palette, getTexture }, { where: paperDollWhere() });   // U8f/U8g + UI3: SCBG/BODY/FACE + the item-record pipeline ( Breton male 0 is the PRE-chargen default, reloaded on the chosen identity)
+  setPaperDollWhereProvider(() => ({ context: paperDollContext(), where: paperDollWhere() }));
+  preloadPaperDollArt({ renderer, fetchBytes, palette, getTexture }, { context: paperDollContext(), where: paperDollWhere() });   // U8f/U8g + UI3: SCBG/BODY/FACE + the item-record pipeline ( Breton male 0 is the PRE-chargen default, reloaded on the chosen identity)
   preloadPrisonScreenArt({ renderer, fetchBytes, palette })   // PRIS00I0 - the serving-time screen
     .catch((e) => console.warn('[court] prison screen art unavailable:', e?.message ?? e));
   preloadCourtScreenArt({ renderer, fetchBytes, palette })   // ROAD-B B5: CORT01I0 - Setup's courtPanel (:75-84)
@@ -14206,6 +14207,16 @@ export async function bootWorld(canvas, renderer, params, status) {
   function paperDollWhere() {
     const px = playerTravelPixel();
     return { region: maps.getPoliticIndex(px.x, px.y) - 128, regionCount: maps.regionCount };
+  }
+  function paperDollContext() {
+    const m = modes?.mode ?? 'exterior';
+    if (m === 'dungeon') return 'dungeon';
+    if (_musicInLocationRect()) {
+      if (_musicLocationType() === LOCATION_TYPES.Graveyard) return 'graveyard';
+      if (isPlayerInTown(_musicLocationType(), { mustBeInLocationRect: true, mustBeOutside: false, inLocationRect: true, inside: m !== 'exterior' })) return 'town';
+    }
+    if (m === 'interior') return 'town';
+    return 'wilderness';
   }
 
   /** A DECLARATION, not a const: paperDollWhere() reaches it from the

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { paperDollBackground, REGION_BACKGROUND_CHARS } from '../../src/ui/paperDoll.js';
+import { paperDollBackground, paperDollIdentityDrift, setPaperDollWhereProvider, REGION_BACKGROUND_CHARS } from '../../src/ui/paperDoll.js';
 import { setValue, resetToDefaults, LIVE } from '../../src/systems/settings/settings.js';
 import { hostText } from '../hostText.mjs';   // HOST-SPLIT 2 (AUDIT, the second read): its negatives read the host whole
 
@@ -73,12 +73,48 @@ test('UI3: the world host supplies the region, through HOISTED helpers (the boot
   const world = hostText('src/scenes/world.js');
   assert.match(world, /return \{ region: maps\.getPoliticIndex\(px\.x, px\.y\) - 128, regionCount: maps\.regionCount \};/,
     'GetPoliticIndex - 128, as DFU computes it (:214)');
-  assert.match(world, /preloadPaperDollArt\(\{ renderer, fetchBytes, palette, getTexture \}, \{ where: paperDollWhere\(\) \}\)/);
+  assert.match(world, /setPaperDollWhereProvider\(\(\) => \(\{ context: paperDollContext\(\), where: paperDollWhere\(\) \}\)\)/);
+  assert.match(world, /preloadPaperDollArt\(\{ renderer, fetchBytes, palette, getTexture \}, \{ context: paperDollContext\(\), where: paperDollWhere\(\) \}\)/);
   // The boot preload runs at the TOP of bootWorld and reaches both
   // helpers, so neither may be a `const` - that is the temporal dead
   // zone that took the site down the same day.
   assert.match(world, /function paperDollWhere\(\) \{/);
+  assert.match(world, /function paperDollContext\(\) \{/);
   assert.match(world, /function playerTravelPixel\(\) \{/);
   assert.doesNotMatch(world, /const paperDollWhere =/);
+  assert.doesNotMatch(world, /const paperDollContext =/);
   assert.doesNotMatch(world, /const playerTravelPixel =/);
+});
+
+test('paperDollIdentityDrift reacts to live context, region changes, and EnableGeographicBackgrounds toggle', () => {
+  resetToDefaults();
+  let live = { context: 'town', where: { region: 64, regionCount: 62 } };
+  setPaperDollWhereProvider(() => live);
+  try {
+    const baseIdent = { race: 'Nord', gender: 'male', faceIndex: 0, context: 'town', where: { region: 64, regionCount: 62 }, geo: true };
+    const entity = { race: 'Nord', gender: 'male', faceIndex: 0 };
+
+    assert.equal(paperDollIdentityDrift(entity, baseIdent), null, 'same context, region, and geo');
+
+    live = { context: 'wilderness', where: { region: 64, regionCount: 62 } };
+    const wildDrift = paperDollIdentityDrift(entity, baseIdent);
+    assert.equal(wildDrift?.context, 'wilderness', 'leaving town for Skyrim wilderness triggers drift');
+
+    live = { context: 'dungeon', where: { region: 64, regionCount: 62 } };
+    assert.equal(paperDollIdentityDrift(entity, baseIdent)?.context, 'dungeon');
+
+    live = { context: 'graveyard', where: { region: 64, regionCount: 62 } };
+    assert.equal(paperDollIdentityDrift(entity, baseIdent)?.context, 'graveyard');
+
+    live = { context: 'town', where: { region: 65, regionCount: 62 } };
+    assert.equal(paperDollIdentityDrift(entity, baseIdent)?.where?.region, 65, 'region change triggers drift');
+
+    live = { context: 'town', where: { region: 64, regionCount: 62 } };
+    setValue('GUI', 'EnableGeographicBackgrounds', false);
+    const geoOffDrift = paperDollIdentityDrift(entity, baseIdent);
+    assert.equal(geoOffDrift?.geo, false, 'toggling EnableGeographicBackgrounds triggers drift');
+  } finally {
+    setPaperDollWhereProvider(null);
+    resetToDefaults();
+  }
 });

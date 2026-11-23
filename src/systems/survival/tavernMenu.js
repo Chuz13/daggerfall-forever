@@ -377,6 +377,58 @@ export const PROVINCE_FOOD_MENUS = Object.freeze({
   }),
 });
 export const BREAKFAST_MENUS = Object.freeze({ low: 'breakLow', mid: 'breakMid', high: 'breakHigh' });
+export const PROVINCE_BREAKFAST_DISHES = Object.freeze({
+  skyrimBreakLow: list(d('Cold Oats and Dried Fish', 1)),
+  skyrimBreakMid: list(d('Warm Barley Porridge', 2), d('Rye Bread and Eidar Cheese', 5)),
+  skyrimBreakHigh: list(d('Snowberry Oatmeal', 5), d('Honeyed Sweetrolls', 8), d("Jarl's Morning Feast", 10)),
+  morrowindBreakLow: list(d('Ash-Yam Mash', 1)),
+  morrowindBreakMid: list(d('Saltrice Porridge', 2), d('Kwama Egg and Flatbread', 5)),
+  morrowindBreakHigh: list(d('Marshmerrow Oats', 5), d('Spiced Scuttle Cakes', 8), d('Great House Morning Platter', 10)),
+  sumursetBreakLow: list(d('Day-Old Honey Bread', 1)),
+  sumursetBreakMid: list(d('Almond Porridge', 2), d('Soft Curd and Brioche', 5)),
+  sumursetBreakHigh: list(d('Poached Orchard Pears', 5), d('Alinor Honey Pastries', 8), d("Kinlord's Dawn Table", 10)),
+  valenwoodBreakLow: list(d('Cold Smoked Jerky', 1)),
+  valenwoodBreakMid: list(d('Bone Broth', 2), d('Spiced Boar Strips', 5)),
+  valenwoodBreakHigh: list(d('Venison Morning Hash', 5), d('Roast Quail Eggs', 8), d("Green Pact Hunter's Breakfast", 10)),
+  elsweyrBreakLow: list(d('Spiced Millet Mush', 1)),
+  elsweyrBreakMid: list(d('Cane-Sugar Porridge', 2), d('Date Flatbread and Goat Cheese', 5)),
+  elsweyrBreakHigh: list(d('Moon-Sugar Fig Oats', 5), d('Honeyed Sesame Pastries', 8), d("Mane's Sunrise Platter", 10)),
+  blackmarshBreakLow: list(d('Boiled Reed Shoots', 1)),
+  blackmarshBreakMid: list(d('Warm Root Broth', 2), d('Smoked Frog and Marsh Bread', 5)),
+  blackmarshBreakHigh: list(d('Lotus-Seed Porridge', 5), d('Spiced Swamp-Egg Cakes', 8), d('Saxhleel Dawn Feast', 10)),
+  cyrodiilBreakLow: list(d('Day-Old Crust and Broth', 1)),
+  cyrodiilBreakMid: list(d('Colovian Oat Porridge', 2), d('Country Bread and Skingrad Cheese', 5)),
+  cyrodiilBreakHigh: list(d('Apple-Cinnamon Oats', 5), d('Imperial Sweet Buns', 8), d("Elder Council's Morning Plate", 10)),
+});
+export const PROVINCE_BREAKFAST_MENUS = Object.freeze({
+  low: Object.freeze({
+    skyrim: 'skyrimBreakLow',
+    morrowind: 'morrowindBreakLow',
+    sumurset: 'sumursetBreakLow',
+    valenwood: 'valenwoodBreakLow',
+    elsweyr: 'elsweyrBreakLow',
+    blackmarsh: 'blackmarshBreakLow',
+    cyrodiil: 'cyrodiilBreakLow',
+  }),
+  mid: Object.freeze({
+    skyrim: 'skyrimBreakMid',
+    morrowind: 'morrowindBreakMid',
+    sumurset: 'sumursetBreakMid',
+    valenwood: 'valenwoodBreakMid',
+    elsweyr: 'elsweyrBreakMid',
+    blackmarsh: 'blackmarshBreakMid',
+    cyrodiil: 'cyrodiilBreakMid',
+  }),
+  high: Object.freeze({
+    skyrim: 'skyrimBreakHigh',
+    morrowind: 'morrowindBreakHigh',
+    sumurset: 'sumursetBreakHigh',
+    valenwood: 'valenwoodBreakHigh',
+    elsweyr: 'elsweyrBreakHigh',
+    blackmarsh: 'blackmarshBreakHigh',
+    cyrodiil: 'cyrodiilBreakHigh',
+  }),
+});
 /** AUDIT C&C I8: the mod's drink lists, each by its own name (its woHighDrinks, which no key pours, is not carried). */
 export const TAVERN_DRINKS = Object.freeze({
   nLow: list(d('Goats Milk', 1), d('Spruce Tea', 2), d('Apple Cider', 2), d('Ale', 3), d('Moonshine', 4)),
@@ -727,9 +779,10 @@ export function tavernMenu({
       : TAVERN_MENU_TEXT.closedNight
     : null;
   const list = breakfastHours(hour)
-    ? BREAKFAST_MENUS[tier]
+    ? (PROVINCE_BREAKFAST_MENUS[tier]?.[key] ?? BREAKFAST_MENUS[tier])
     : (FOOD_MENUS[tier][key] ?? PROVINCE_FOOD_MENUS[tier]?.[key] ?? FOOD_MENUS[tier].n);
-  const dishEntries = TAVERN_DISHES[list] ?? PROVINCE_TAVERN_DISHES[list] ?? TAVERN_DISHES.nLow;
+  const dishEntries =
+    TAVERN_DISHES[list] ?? PROVINCE_TAVERN_DISHES[list] ?? PROVINCE_BREAKFAST_DISHES[list] ?? TAVERN_DISHES.nLow;
   const rows = [];
   if (!closed)
     for (const f of dishEntries)

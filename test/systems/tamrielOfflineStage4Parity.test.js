@@ -140,10 +140,40 @@ test('Stage 4 C1a: province tavern menus (62..70) serve dedicated dishes, drinks
     .rows.filter((r) => r.kind === 'drink')
     .map((r) => r.price);
   assert.deepEqual(skyrimMidDrinks, [2, 4, 4, 6, 8, 0, 0]);
+
+  // Province breakfasts (06:00-10:59) serve regional dishes instead of Iliac Bay Gruel/Bread and Cheese
+  const solitudeBreakfast = tavernMenu({ regionIndex: 64, climateIndex: CLIMATES.Mountain, quality: 10, hour: 8 });
+  const solitudeFoods = solitudeBreakfast.rows.filter((r) => r.kind === 'food').map((r) => r.name);
+  assert.deepEqual(solitudeFoods, ['Warm Barley Porridge', 'Rye Bread and Eidar Cheese']);
+
+  for (const key of uniqueKeys) {
+    for (const [tier, quality, expectedFoods] of [['low', 3, 1], ['mid', 10, 2], ['high', 15, 3]]) {
+      const bm = tavernMenu({ regionIndex: regionOfKey[key], climateIndex: CLIMATES.Woodlands, quality, hour: 8 });
+      const bFoods = bm.rows.filter((r) => r.kind === 'food');
+      assert.equal(bFoods.length, expectedFoods, `${key} ${tier} breakfast count`);
+      assert.ok(bFoods.every((f) => f.worth === 240), `${key} ${tier} breakfast worth 240`);
+      assert.ok(!bFoods.some((f) => f.name === 'Gruel' || f.name === 'Bread and Cheese'), `${key} ${tier} no Bay Gruel/Bread`);
+    }
+  }
+
+  // Iliac Bay keeps classic breakfast
+  const bayBreakfast = tavernMenu({ regionIndex: 17, climateIndex: CLIMATES.Woodlands, quality: 10, hour: 8 });
+  assert.deepEqual(bayBreakfast.rows.filter((r) => r.kind === 'food').map((r) => r.name), ['Gruel', 'Bread and Cheese']);
 });
 
 test('Stage 4 C1b: Paper Doll province open-road geographic backdrops (62..70)', () => {
   const RACE = 'SCBG00I0.IMG';
+  assert.deepEqual(PROVINCE_BACKGROUND_CHARS, {
+    62: '0',
+    63: '1',
+    64: '2',
+    65: '3',
+    66: '0',
+    67: '5',
+    68: '1',
+    69: '6',
+    70: '0',
+  });
   for (const r of [62, 63, 64, 65, 66, 67, 68, 69, 70]) {
     assert.equal(
       paperDollBackground(RACE, { enabled: true, region: r }),
