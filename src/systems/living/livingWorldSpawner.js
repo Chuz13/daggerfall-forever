@@ -5310,7 +5310,8 @@ export function executeLivingConsoleCommand(args, ctx) {
         `<b>Active Adventurers in Region ${targetReg} (${list.length}):</b>`,
         ...list.map((a, idx) => {
           const name = getAdventurerDisplayName(a);
-          return `- [#${idx} ID:${a.id}] ${name} | Lvl ${a.level} ${a.className} | Gear T${a.gearTier} | Trait: ${a.trait} | Status: ${a.status}${a.targetLocationName ? ` -> ${a.targetLocationName}` : ''} | Duels: ${a.duelsWon ?? 0}W/${a.duelsLost ?? 0}L`;
+          const coordStr = a.targetPixel ? ` (${a.targetPixel.x},${a.targetPixel.y})` : '';
+          return `- [#${idx} ID:${a.id}] ${name} | Lvl ${a.level} ${a.className} | Gear T${a.gearTier} | Trait: ${a.trait} | Status: ${a.status}${a.targetLocationName ? ` -> ${a.targetLocationName}${coordStr}` : ''} | Duels: ${a.duelsWon ?? 0}W/${a.duelsLost ?? 0}L`;
         }),
       ].join('\n');
     }

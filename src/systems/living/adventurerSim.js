@@ -261,53 +261,54 @@ export const REGIONAL_DUNGEON_NAMES = Object.freeze([
   { suffix: 'Vault', type: 'Ruin' },
 ]);
 
-const PROVINCE_ICONIC_DUNGEONS = Object.freeze({
-  62: [
-    { name: 'Crypt of Hearts [Crypt]', type: 'Crypt' },
-    { name: 'Spindleclutch Caverns [Den]', type: 'Den' },
-  ],
-  63: [
-    { name: 'Volenfell Ruins [Ruin]', type: 'Ruin' },
-    { name: 'Fang Lair [Labyrinth]', type: 'Labyrinth' },
-  ],
-  64: [
-    { name: 'Labyrinthian [Labyrinth]', type: 'Labyrinth' },
-    { name: 'Bleak Falls Barrow [Crypt]', type: 'Crypt' },
-  ],
-  65: [
-    { name: 'Arkngthand Ruins [Ruin]', type: 'Ruin' },
-    { name: 'Dagoth Ur Citadel [Keep]', type: 'Keep' },
-  ],
-  66: [
-    { name: 'Crystal Tower Vaults [Keep]', type: 'Keep' },
-    { name: 'Tor-Hame-Khard Ruins [Ruin]', type: 'Ruin' },
-  ],
-  67: [
-    { name: 'Elden Hollow [Den]', type: 'Den' },
-    { name: "Selene's Web [Coven]", type: 'Coven' },
-  ],
-  68: [
-    { name: 'Halls of the Colossus [Labyrinth]', type: 'Labyrinth' },
-    { name: 'Sunspire Vaults [Ruin]', type: 'Ruin' },
-  ],
-  69: [
-    { name: 'Mazzatun Ruins [Ruin]', type: 'Ruin' },
-    { name: 'Blackrose Prison [Keep]', type: 'Keep' },
-  ],
-  70: [
-    { name: 'Sancre Tor [Keep]', type: 'Keep' },
-    { name: 'Vilverin Ruins [Ruin]', type: 'Ruin' },
-  ],
-});
+let _regionalDungeonProvider = null;
+
+/**
+ * Registers a callback returning real on-map dungeons for outer provinces (62..70).
+ * @param {((regionIndex: number) => Array<{ id?: number|string, mapId?: number, name: string, type: string, px?: number, py?: number }>|null) | null} fn
+ */
+export function setRegionalDungeonProvider(fn) {
+  _regionalDungeonProvider = typeof fn === 'function' ? fn : null;
+}
+
+/**
+ * Returns the provider's real on-map dungeon list for `regionIndex`, or null if unavailable.
+ * @param {number} regionIndex
+ */
+export function getRegionalDungeonPool(regionIndex) {
+  if (!_regionalDungeonProvider) return null;
+  try {
+    const list = _regionalDungeonProvider(regionIndex);
+    return Array.isArray(list) && list.length > 0 ? list : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Returns a canonical regional dungeon descriptor with name and dungeon type.
- * Uses iconic canonical DFU dungeons for major regions.
+ * For outer provinces (62..70), uses real on-map dungeons when registered via `setRegionalDungeonProvider`.
  * @param {number} regionIndex
  * @param {number} slotIndex
- * @returns {{ id: string, name: string, type: string }}
+ * @returns {{ id: string|number, mapId?: number, name: string, type: string, px?: number|null, py?: number|null, isRealMapDungeon?: boolean }}
  */
 export function getRegionalDungeonDescriptor(regionIndex, slotIndex) {
+  const realList = getRegionalDungeonPool(regionIndex);
+  if (realList) {
+    const idx = Math.abs(Math.trunc(Number(slotIndex) || 0)) % realList.length;
+    const d = realList[idx];
+    const id = d.mapId ?? d.id ?? `dungeon_${regionIndex}_${idx}`;
+    const type = d.type || 'Labyrinth';
+    return {
+      id,
+      mapId: d.mapId ?? (typeof id === 'number' ? id : undefined),
+      name: `${d.name} [${type}]`,
+      type,
+      px: d.px ?? null,
+      py: d.py ?? null,
+      isRealMapDungeon: true,
+    };
+  }
   const regName = REGION_NAMES[regionIndex] || 'Wilderness';
   const slot = Math.abs(Math.trunc(Number(slotIndex) || 0)) % 10;
   const tmpl = REGIONAL_DUNGEON_NAMES[slot] || REGIONAL_DUNGEON_NAMES[0];
@@ -315,14 +316,6 @@ export function getRegionalDungeonDescriptor(regionIndex, slotIndex) {
   if (regionIndex === 17 && slot === 1) return { id: `dungeon_${regionIndex}_1`, name: "Castle Daggerfall Dungeons [Labyrinth]", type: 'Labyrinth' };
   if (regionIndex === 23 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Wayrest Sewers [Labyrinth]", type: 'Labyrinth' };
   if (regionIndex === 20 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Ruins of Kemel-Ze [Ruin]", type: 'Ruin' };
-  const provIconic = PROVINCE_ICONIC_DUNGEONS[regionIndex]?.[slot];
-  if (provIconic) {
-    return {
-      id: `dungeon_${regionIndex}_${slot}`,
-      name: provIconic.name,
-      type: provIconic.type,
-    };
-  }
   return {
     id: `dungeon_${regionIndex}_${slot}`,
     name: `${regName} ${tmpl.suffix} [${tmpl.type}]`,
@@ -628,6 +621,7 @@ export function tickAdventurerSimulation({
       adv.targetLocationId = null;
       adv.targetLocationName = null;
       adv.targetDungeonType = null;
+      adv.targetPixel = null;
       continue;
     }
 
@@ -640,13 +634,15 @@ export function tickAdventurerSimulation({
     // Currently IDLE: Pick next endeavor (Move or Delve)
     if (rng() < 0.60) {
       // Start a dungeon delve
-      const slot = Math.floor(rng() * 10);
+      const realList = getRegionalDungeonPool(adv.currentRegion);
+      const slot = realList ? Math.floor(rng() * realList.length) : Math.floor(rng() * 10);
       const desc = getRegionalDungeonDescriptor(adv.currentRegion, slot);
       if (!isQuestImmuneLocation(desc.id, activeQuestSites, allowComp)) {
         adv.status = ADVENTURER_STATUS.DELVING;
         adv.targetLocationId = desc.id;
         adv.targetLocationName = desc.name;
         adv.targetDungeonType = desc.type;
+        adv.targetPixel = desc.px != null && desc.py != null ? { x: desc.px, y: desc.py } : null;
         adv.daysRemainingInAction = 2 + Math.floor(rng() * 2);
         events.push(`${adv.name} set out to delve ${desc.name}`);
       }
