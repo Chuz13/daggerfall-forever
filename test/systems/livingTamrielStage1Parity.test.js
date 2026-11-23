@@ -10,6 +10,7 @@ import {
 import {
   getRegionalDungeonDescriptor,
   isQuestImmuneLocation,
+  setRegionalDungeonProvider,
 } from '../../src/systems/living/adventurerSim.js';
 import {
   setRegionCrisis,
@@ -44,16 +45,25 @@ test('Stage1 LT Parity: getEnemyProvinceName returns real neighbors for all prov
   }
 });
 
-test('Stage1 LT Parity: getRegionalDungeonDescriptor returns lore dungeons for provinces 62..70', () => {
-  assert.equal(getRegionalDungeonDescriptor(64, 0).name, 'Labyrinthian [Labyrinth]');
-  assert.equal(getRegionalDungeonDescriptor(64, 1).name, 'Bleak Falls Barrow [Crypt]');
-  assert.equal(getRegionalDungeonDescriptor(65, 0).name, 'Arkngthand Ruins [Ruin]');
-  assert.equal(getRegionalDungeonDescriptor(66, 0).name, 'Crystal Tower Vaults [Keep]');
-  assert.equal(getRegionalDungeonDescriptor(70, 0).name, 'Sancre Tor [Keep]');
-  // Slot >= 2 falls back to procedural regional descriptor
-  const sk2 = getRegionalDungeonDescriptor(64, 2);
-  assert.equal(sk2.id, 'dungeon_64_2');
-  assert.equal(sk2.name, 'Skyrim Labyrinth [Labyrinth]');
+test('Stage1 LT Parity: getRegionalDungeonDescriptor uses real map dungeons via provider and falls back cleanly without fake names', () => {
+  try {
+    setRegionalDungeonProvider((r) =>
+      r === 64
+        ? [{ mapId: 0x90080001, name: 'Frostwind Barrow', type: 'Crypt', px: 1200, py: -50 }]
+        : null,
+    );
+    const skyrimReal = getRegionalDungeonDescriptor(64, 0);
+    assert.equal(skyrimReal.id, 0x90080001);
+    assert.equal(skyrimReal.name, 'Frostwind Barrow [Crypt]');
+    assert.equal(skyrimReal.isRealMapDungeon, true);
+
+    setRegionalDungeonProvider(null);
+    const sk2 = getRegionalDungeonDescriptor(64, 2);
+    assert.equal(sk2.id, 'dungeon_64_2');
+    assert.equal(sk2.name, 'Skyrim Labyrinth [Labyrinth]');
+  } finally {
+    setRegionalDungeonProvider(null);
+  }
 });
 
 test('Stage1 LT Parity: isQuestImmuneLocation matches mapId, locationId, and past-Bay slot keys', () => {

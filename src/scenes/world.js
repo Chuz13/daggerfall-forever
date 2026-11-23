@@ -184,7 +184,8 @@ import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
 import { getActiveCrises, getRegionState, bindLivingRegionConditions, getActiveRegionFlags, CRISIS_TYPE } from '../systems/living/regionState.js';
 import { REGION_FLAGS } from '../systems/region/regionConditions.js';
-import { getActiveAdventurerCompanion } from '../systems/living/adventurerSim.js';
+import { getActiveAdventurerCompanion, setRegionalDungeonProvider } from '../systems/living/adventurerSim.js';
+import { collectProvinceDungeons } from '../systems/living/provinceDungeonPool.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, buildRecruitedCompanionChoiceSpec, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { stockTravelingMerchantTrunk, executeRoadsideFenceSale } from '../systems/living/travelingMerchant.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
@@ -315,7 +316,7 @@ import { countryTemplates, countryCounts } from '../world/tamrielCountry.js';   
 import { countrysideOn } from './shared.js';   // TESA7: its kill door
 import { capitalsOn } from './shared.js';   // TESA10: the capitals' kill door
 import { capitalBase, cityBlockNames, setCapitalsStanding, isCapitalLandmark, isMultiSliceCapital } from '../world/tamrielCapitals.js';   // TESA10: the capitals, built by hand; BAY-LEFT-SEA: a landmark measured by its footprint
-import { lairTemplates, lairPools } from '../world/tamrielDungeons.js';   // TESA8: the lairs past the Bay
+import { lairTemplates, lairPools, lairCellOf, lairSite, LAIR_CELL } from '../world/tamrielDungeons.js';   // TESA8: the lairs past the Bay
 import { provinceKeyBeyondBay } from '../world/tamriel/tamrielLand.js';   // TESA3: the province a pixel past the Bay stands on
 import { provinceByKey } from '../world/tamriel/tamrielGeography.js';   // TESA3: its name and race
 import { provinceNameBank } from '../world/tamrielPeople.js';   // TESA3: its people's names
@@ -3914,6 +3915,32 @@ export async function bootWorld(canvas, renderer, params, status) {
         }
       }
     }
+    return out;
+  });
+
+  const _provinceDungeonCache = { gen: -1, byRegion: new Map() };
+  setRegionalDungeonProvider((regionIndex) => {
+    if (!worldPlaces || !isProvinceRegion(regionIndex)) return null;
+    const gen = worldPlaces.generation();
+    if (_provinceDungeonCache.gen !== gen) {
+      _provinceDungeonCache.gen = gen;
+      _provinceDungeonCache.byRegion.clear();
+    }
+    if (_provinceDungeonCache.byRegion.has(regionIndex)) {
+      return _provinceDungeonCache.byRegion.get(regionIndex);
+    }
+    const theatre = theatreOfRegion(regionIndex);
+    const settlements = theatre >= 0 ? (worldPlaces.inTheatre?.(theatre) ?? []) : [];
+    const list = collectProvinceDungeons(regionIndex, {
+      settlements,
+      placeAt: (px, py) => worldPlaces.at(px, py),
+      lairCellOf,
+      lairSite,
+      cellSize: LAIR_CELL,
+      maxCount: 24,
+    });
+    const out = list.length > 0 ? list : null;
+    _provinceDungeonCache.byRegion.set(regionIndex, out);
     return out;
   });
 
@@ -17120,7 +17147,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     // offering something the player never switched on, so the network
     // is handed over only when it is actually his (`source`, TO1's own
     // field on the network object, terrainGenClient.js).
-    roads: () => { const net = terrainGen.roads(); return net?.source === 'basic-roads' ? net : null; },
+    roads: () => {
+      const net = terrainGen.roads();
+      if (net?.source === 'basic-roads') return net;
+      return !onTheBay(playerTravelPixel().x, playerTravelPixel().y) && arenaRoadsLayer()
+        ? { roads: null, tracks: null, source: 'arena-roads' }
+        : null;
+    },
     onRoad: () => travellerOnRoad(),   // RATE-LAW: a straight walk's ground - the road's rate while it runs along one
     streams: (px, py) => StreamingWorldState.streams(px, py),
     isWater: (x, y) => tvWater(x, y),   // AUDIT DEEP T2-1: a road journey's resume never aims across the sea - AUDIT TAMRIEL-WIDE C5: the ground's own sea, past the Bay too

@@ -47,7 +47,7 @@ import {
   MAX_CIRCUMNAVIGATION_ACCEL, LOC_PAUSE_OFF, LOC_PAUSE_NEAR, LOC_PAUSE_ENTER,
   MID_LO, P_SIZE, MP_WORLD_UNITS, HALF_MP_WORLD_UNITS,
   mapPixelWorldOrigin, normalisedYaw, directionOfYaw, targetPixel, countSetBits,
-  playerOnPathAt, pathsDataPoint, roadsDataPoint, nextPathDirection,
+  playerOnPathAt, pathsDataPoint, roadsDataPoint, nextPathDirection, closestForwardDirection,
 } from './travelPaths.js';
 import { TravelAutopilot, rectOf, rectMinMax, rectContains, rectCentre, ARRIVAL_BUFFER, LANE_CORNER_TURN } from './travelAutopilot.js';
 import { TOWN_PACE_MAX } from './townWalk.js';   // OW-TOWN-WALK: a town's streets walked at a town's pace
@@ -1071,6 +1071,17 @@ export function createTravelOptions(deps = {}) {
         st.destinationName = null;
         beginPathTravel(targetPixel(playerDirection, mp.x, mp.y));
         return true;
+      }
+      // Past the Bay, VOYAGER2 curved roads can run between 45-degree compass octants: pick nearest forward curve edge.
+      if (!inBay(mp.x, mp.y)) {
+        const avail = inLoc ? pathsDataPt : (pathsDataPt & onPath);
+        const curvedDir = closestForwardDirection(avail, yawDeg(), 67.5);
+        if (curvedDir !== 0) {
+          st.road = (roadDataPt & curvedDir) !== 0;
+          st.destinationName = null;
+          beginPathTravel(targetPixel(curvedDir, mp.x, mp.y));
+          return true;
+        }
       }
       // :646-656 - else try the way the player came: this is what
       // turning round on a road does.

@@ -20,7 +20,9 @@
 // world/road/roadNetwork.js DIR carries the identical eight values, and
 // `sameCompass` below is the pin that says so out loud.
 
-import { DIR as NETWORK_DIR, MAP_W, MAP_H } from '../../world/road/roadNetwork.js';
+import { DIR as NETWORK_DIR, DIR_DELTA, MAP_W, MAP_H } from '../../world/road/roadNetwork.js';
+import { curvePolyline, CURVE_STEPS, CURVE_DIM, JUNCTION_R } from '../../world/road/roadCurves.js';
+import { inBay } from '../../world/tamriel/tamrielFrame.js';
 // AUDIT JUNGLE-ROADSIDE DOC-2: the path data - the arrays' order, the compass, the units, the data-point reads - lives in
 // world/road/pathData.js (the terrain worker reads the network by it too); every name is still this module's
 import {
@@ -205,11 +207,134 @@ export function playerOnPath(pathsDataPt, posInMpX, posInMpZ) {
   return onPath;
 }
 
+/** Tile distance threshold for standing on a VOYAGER2 curved road/shoulder outside the Bay. */
+export const CURVE_ON_PATH_TILES = 2.6;
+
+const CURVE_MID = CURVE_DIM / 2;
+const CURVE_EXIT = new Map(DIR_DELTA.map(([bit, dx, dy]) => [bit, [CURVE_MID + CURVE_MID * dx, CURVE_MID - CURVE_MID * dy]]));
+const DIR_YAW_DEG = Object.freeze([
+  [N, 0],
+  [NE, 45],
+  [E, 90],
+  [SE, 135],
+  [S, 180],
+  [SW, 225],
+  [W, 270],
+  [NW, 315],
+]);
+
+function segDist2D(x, y, ax, ay, bx, by) {
+  const ex = bx - ax;
+  const ey = by - ay;
+  const len2 = ex * ex + ey * ey;
+  let t = len2 > 0 ? ((x - ax) * ex + (y - ay) * ey) / len2 : 0;
+  if (t < 0) t = 0;
+  else if (t > 1) t = 1;
+  const dx = x - ax - t * ex;
+  const dy = y - ay - t * ey;
+  return Math.hypot(dx, dy);
+}
+
+/**
+ * Past-Bay counterpart of `playerOnPath`: tests whether `(posInMpX, posInMpZ)` lies on
+ * any VOYAGER2 curved road/track segment in the pixel and returns the mask of connected edges.
+ * @param {number} pathsDataPt
+ * @param {number} posInMpX
+ * @param {number} posInMpZ
+ * @param {number} [toleranceTiles]
+ */
+export function playerOnCurvedPath(pathsDataPt, posInMpX, posInMpZ, toleranceTiles = CURVE_ON_PATH_TILES) {
+  const data = pathsDataPt & 0xff;
+  if (data === 0) return 0;
+
+  const tx = posInMpX / T_SIZE;
+  const tz = posInMpZ / T_SIZE;
+  const ks = [];
+  for (let k = 0; k < 8; k++) if (data & DIR_DELTA[k][0]) ks.push(k);
+
+  let onPath = 0;
+  const checkEnd = (ka) => {
+    const bit = DIR_DELTA[ka][0];
+    const a = CURVE_EXIT.get(bit);
+    if (a && segDist2D(tx, tz, a[0], a[1], CURVE_MID, CURVE_MID) <= toleranceTiles) {
+      onPath |= bit;
+    }
+  };
+  const checkQuad = (ka, kb) => {
+    const bitA = DIR_DELTA[ka][0];
+    const bitB = DIR_DELTA[kb][0];
+    const a = CURVE_EXIT.get(bitA);
+    const b = CURVE_EXIT.get(bitB);
+    if (!a || !b) return;
+    const poly = curvePolyline([a[0], a[1], CURVE_MID, CURVE_MID, b[0], b[1]]);
+    for (let s = 0; s < CURVE_STEPS; s++) {
+      if (segDist2D(tx, tz, poly[2 * s], poly[2 * s + 1], poly[2 * s + 2], poly[2 * s + 3]) <= toleranceTiles) {
+        onPath |= bitA | bitB;
+        break;
+      }
+    }
+  };
+
+  if (ks.length === 1) {
+    checkEnd(ks[0]);
+  } else if (ks.length === 2) {
+    checkQuad(ks[0], ks[1]);
+  } else if (ks.length > 2) {
+    const paired = new Set();
+    for (let i = 0; i < ks.length; i++) {
+      for (let j = i + 1; j < ks.length; j++) {
+        const d = Math.abs(ks[i] - ks[j]);
+        const sep = Math.min(d, 8 - d);
+        if (sep >= 3) {
+          checkQuad(ks[i], ks[j]);
+          paired.add(ks[i]);
+          paired.add(ks[j]);
+        }
+      }
+    }
+    for (const k of ks) if (!paired.has(k)) checkEnd(k);
+    if (Math.hypot(tx - CURVE_MID, tz - CURVE_MID) <= JUNCTION_R + 1.5) {
+      onPath |= data;
+    }
+  }
+
+  return onPath;
+}
+
+/**
+ * Finds the edge bit in `mask` closest to `yawDegrees` within `maxAngleDeg`.
+ * Used on curved past-Bay roads where a curve tangent can sit between compass octants.
+ * @param {number} mask
+ * @param {number} yawDegrees
+ * @param {number} [maxAngleDeg]
+ */
+export function closestForwardDirection(mask, yawDegrees, maxAngleDeg = 67.5) {
+  const m = mask & 0xff;
+  if (m === 0) return 0;
+  const yaw = normalisedYaw(yawDegrees);
+  let bestBit = 0;
+  let bestDiff = maxAngleDeg + 1e-6;
+  for (const [bit, dirDeg] of DIR_YAW_DEG) {
+    if ((m & bit) === 0) continue;
+    let diff = Math.abs(yaw - dirDeg);
+    if (diff > 180) diff = 360 - diff;
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestBit = bit;
+    }
+  }
+  return bestBit;
+}
+
 /** The same, from a WORLD position and the map pixel it stands in -
- *  the shape the mod's caller has (:579-581). */
+ *  the shape the mod's caller has (:579-581). Past the Bay, roads are VOYAGER2 curves. */
 export function playerOnPathAt(pathsDataPt, worldX, worldZ, mapPixelX, mapPixelY) {
   const origin = mapPixelWorldOrigin(mapPixelX, mapPixelY);
-  return playerOnPath(pathsDataPt, worldX - origin.x, worldZ - origin.z);
+  const lx = worldX - origin.x;
+  const lz = worldZ - origin.z;
+  return inBay(mapPixelX, mapPixelY)
+    ? playerOnPath(pathsDataPt, lx, lz)
+    : playerOnCurvedPath(pathsDataPt, lx, lz);
 }
 
 /** TravelOptionsMod.cs:1025-1050, SelectNextPath's junction arm. At a
