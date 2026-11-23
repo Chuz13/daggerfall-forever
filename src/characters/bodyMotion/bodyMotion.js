@@ -184,7 +184,7 @@ export function motionWord({
       ? 'hit'
       : climb > 0.02 || cam?.climb
         ? 'climb'
-        : cam?.seat || cam?.saddle
+        : cam?.seat || cam?.saddle || cam?.kneel
           ? 'seat'
           : null;
   const section = SECTION_OF[upper] ?? null;

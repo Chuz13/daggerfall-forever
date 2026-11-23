@@ -46,6 +46,8 @@ export const MOBILE_TEAMS = Object.freeze([
  *  use, the CombatVoices idiom. Ships True. */
 export const enemyInfightingEnabled = () => getBool('Enhancements', 'EnemyInfighting');
 
+import { isSparProtected, isSparPeaceful } from '../../systems/living/sparSurrender.js';
+
 /** The player's sentinel candidate - one identity so `target ===
  *  PLAYER_TARGET` is DFU's `target == player` reference compare. */
 export const PLAYER_TARGET = Object.freeze({ isPlayer: true });
@@ -237,7 +239,8 @@ export function getTargets(self, candidates, playerFeet, {
     if (c === self || (targetAi && targetAi === ai)) continue;
     // REVENANT-FATE: a beaten revenant on its knees, judged or burning, and COMPANION-PORTAL's body stepping through its
     // portal, are nobody's foe - nothing can reach them, so nothing hunts them (NECRO: nor an undead minion feigning death)
-    if (!isPlayer && (c.yielded || c.executing || c.sparing || c.leaving || c.undeadStance === 'feign_death')) continue;
+    if (!isPlayer && (c.yielded || c.executing || c.sparing || c.leaving || c.undeadStance === 'feign_death' || isSparProtected(c))) continue;
+    if (!isPlayer && isSparPeaceful(c) && (selfTeam === 'PlayerAlly' || selfMobileTeam === 'PlayerAlly' || self.companion != null || self.shipmate || self.livingRole === 'undead_minion' || self.allied)) continue;
     // WATCH-PROTECTS: a townsperson is quarry for a hostile monster alone (huntsCivilians), and no team's - the chain
     // below weighs foes and players
     const civilian = !isPlayer && c.civilian === true;

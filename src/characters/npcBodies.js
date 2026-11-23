@@ -155,6 +155,7 @@ export function npcShown(a) {
     cn: count(a.casts), cr: count(a.castRange),
     ht: count(a.hits),
     dd: count(a.dead),
+    kn: a.kneel ? 1 : 0,
     wb: a.look?.wolf ? 1 : 0,   // MWNPC15: a werewolf's look - the wire's own wolf bit, so PeerBodies builds Bloodmoon's wolf (WEREWOLF1)
   };
 }

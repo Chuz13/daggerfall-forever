@@ -359,7 +359,8 @@ import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, t
 import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand   // AUDIT RENOWN1 GAME-10: a rebuilt foe keeps my blows, a revived one forgets them
 import { reportPlayerKill, killFxOf } from '../systems/playerKills.js';   // SET2: my own kills, told
 import { hearEliteFoesIn } from '../systems/questlines/qlEliteFoe.js';   // QL11: an elite foe of an Elite dungeon, slain - the act's own module (AUDIT QUESTLINES ACTS-8)
-import { sparedByPlayer } from '../combat/friendlyFire.js';   // AUDIT CC-B6: the thrown torch's pass
+import { sparedByPlayer, sparedBySwing } from '../combat/friendlyFire.js';   // AUDIT CC-B6: the thrown torch's pass
+import { beginSparEnd, stepSparSurrender, isSparProtected, isSparKneeling, sparKneelPose } from '../systems/living/sparSurrender.js';
 /** AUDIT SET P-M3: a kill the host's record names me for - its kind, as the exterior owner's `slain` word says it. */
 const REMOTE_KILL = Object.freeze({ kind: 'remote' });
 /** WB8b: a gate Warden's frost, lightning and venom, heard as they land on me - each element's own cast
@@ -4878,7 +4879,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // Backstabbing skill, tallied inside CalculateBackstabChance
     // (FormulaHelper.cs:975-990 - the tally was ported nowhere).
     for (const f of foes) if (!f.dead) f._backFacing = foeDeps.isBackFacing(f.ai.yaw, f.ai.feet, playerFeet);
-    const live = dropFateHeld(foes.filter((f) => !f.dead && f.companion == null));   // REVENANT-FATE (the 2026-10-02 audit): one held by its fate is no swing's. CREW-COMPANIONS: my companion is never the swing's (exteriorFoes' SHIPMATES filter)
+    const live = dropFateHeld(foes.filter((f) => !f.dead && f.companion == null && !sparedBySwing(f)));   // REVENANT-FATE (the 2026-10-02 audit): one held by its fate is no swing's. CREW-COMPANIONS: my companion is never the swing's (exteriorFoes' SHIPMATES filter)
     // WB4b: THE COURT'S BOSS, a body the swing meets as it meets a foe - the same resolveHit and formula, against his
     // stand-in, by his body's SURFACE (bossSight); never in `foes`: what lands goes to the relay (landOnBoss)
     const boss = gateBossBody();
@@ -7068,13 +7069,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (coop?.al === 1) opts.onFoeHit?.({ ...(foe._encId != null ? { i: foe._encId, xs: 1 } : { i: foe._surI ?? pi }), ...coop });
   }
   function damageFoe(foe, damage, playerFeet = null, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null, element = null } = {}) {   // TELL8: `wc` a joiner's blow's class (net/wire.js hitClassOf); RVN3: `element` a spell landing's (its weakness's weight)   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
-    if (fromPlayer && !peer && foe._surrenderedSpar) {
-      setCrimeCommitted(playerEntity, CRIMES.Assault);
-      hudText.add(LIVING_WORDS.adventurerAssaultCrime());
-    }
     // AUDIT 68 S19-damagefoe-dead-reentry: a corpse takes no blow. EnemyDeath runs once; the round sinks tick on
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
-    if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
+    if (foe.dead || isSparProtected(foe) || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
+    if (fromPlayer && !peer && !round && foe._surrenderedSpar) {
+      setCrimeCommitted(playerEntity, CRIMES.Assault);
+      hudText.add(LIVING_WORDS.adventurerAssaultCrime());
+      foe._surrenderedSpar = false;
+    }
     const bout = foe.entity?.bout ?? null;   // ARENA2: a fighter on the arena floor's sand (scenes/arena/arenaBouts.js)
     if (fromPlayer && !peer && !bout) renownFoeStruck(foe);   // RENOWN1: MY blow - a joiner's too, before the divert sends it to the host; ARENA2: no renown on the sand
     if (fromPlayer && !peer && foe.entity) {
@@ -7225,18 +7227,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (bout && healthDamage > 0) bout.hooks?.hurt?.(foe, healthDamage, { fromPlayer: fromPlayer && !peer, striker });   // ARENA2: the blow, to the bout's law
     if (foe._isSparring && foe.entity.health <= Math.max(1, Math.floor((foe.entity.maxHealth || 30) * 0.20))) {
       foe.entity.health = Math.max(1, Math.floor((foe.entity.maxHealth || 30) * 0.20));
-      foe._isSparring = false;
-      foe._surrenderedSpar = true;
-      if (foe.ai) {
-        foe.ai.isHostile = false;
-        foe.ai.target = null;
-        foe.ai.secondaryTarget = null;
-      }
+      beginSparEnd(foe, { playerWon: true, foes, playerEntity, now: Date.now() });
       const wager = Math.max(0, Number(foe._duelWager) || 0);
       if (wager > 0 && playerEntity) {
         playerEntity.goldPieces = Math.max(0, (Number(playerEntity.goldPieces) || 0) + wager);
+        audio.playOneShot(SOUND.GoldPieces, 1);
       }
       foe._duelWager = 0;
+      if (foe.ai?.feet) audio.play3d(SOUND.BodyFall, [foe.ai.feet[0], foe.ai.feet[1], foe.ai.feet[2]], 0.8, { maxDistance: 16 });
       const advName = foe._advRecord?.name || foe.entity?.name || 'Adventurer';
       recordAdventurerGrudge(advName);
       hudText.add(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.PLAYER_WON, advName, wager));
@@ -7492,13 +7490,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const pThreshold = Math.max(1, Math.floor((playerEntity.maxHealth || 100) * 0.15));
       if (playerEntity.health <= pThreshold) {
         if (playerEntity.health < 1) playerEntity.health = 1;
-        f._isSparring = false;
-        f._surrenderedSpar = true;
-        if (f.ai) {
-          f.ai.isHostile = false;
-          f.ai.target = null;
-          f.ai.secondaryTarget = null;
-        }
+        beginSparEnd(f, { playerWon: false, foes, playerEntity, now: Date.now() });
         const wager = Math.max(0, Number(f._duelWager) || 0);
         if (wager > 0 && playerEntity) {
           playerEntity.goldPieces = Math.max(0, (Number(playerEntity.goldPieces) || 0) - wager);
@@ -8153,6 +8145,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const _fPaused = !!(f.mobile?.isPlayingOneShot() && f.mobile.oneShotPauseActionsWhilePlaying());
       const _fateHeld = !!(f.yielded || f.executing || f.sparing || f.leaving);   // REVENANT-FATE / COMPANION-PORTAL: held where it stands - no step, no blow, no cast
       if (_fateHeld && dungeonFateFrame(f, dt, _pf, eye) === 'gone') continue;
+      if (isSparProtected(f)) stepSparSurrender(f, dt);
+      const _sparKneel = isSparKneeling(f);
+      if (_sparKneel) f._mout = sparKneelPose(f, eye, Date.now());
       // WORLD2: a PUPPET - another hosts the room and this layout foe follows its stream (puppetStep): nothing below
       // decides for it (no senses, no pursuit, no swing, no cast, no fall, no door, no bark of its own choosing);
       // the mobile arm past this block still draws it - the walk, the attack clip, the hurt one-shot
@@ -8169,7 +8164,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         tickEnemySound(f.sounds, f.ai.feet, playerFeet || eye, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity), companion: f.companion != null });   // the barks are the foe's, not the frame's
         if (_strikeEdge && f.ai._tac?.state !== 'windup') playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // the streamed swing's own sound; TELL8: a wind-up's is its cues'
       }
-      else if (!_fateHeld) {   // REVENANT-FATE: a held foe decides nothing
+      else if (!_fateHeld && !_sparKneel) {   // REVENANT-FATE: a held foe decides nothing
       // MT-iv: the armed context and the target's feet - exteriorFoes'
       // pair, one spelling. Unarmed (no candidates, or the foe
       // subsystem never loaded) both fall through to the legacy
@@ -8397,7 +8392,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // too - and the port's cache froze the FACING as well as the
         // frame. What stops the blow is EnemyAttack's early return, which
         // is the consume-and-clear below.
-        if (!_fateHeld) {   // REVENANT-FATE: a held foe's pose is its own (dungeonFateFrame) - it is still drawn below
+        if (!_fateHeld && !_sparKneel) {   // REVENANT-FATE: a held foe's pose is its own (dungeonFateFrame) - it is still drawn below
           // A5 - DaedraSeducerMobileBehaviour.Update, a MonoBehaviour
           // Update that runs BEFORE the anim step consumes the state
           // it raises. Its one input is `enemySenses.Target ==
@@ -9065,7 +9060,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!f) return null;
       markFoeHovered(f, lastPlayerFeet, enemyDisplayName(f.mobileType));
       const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands on its health bar alone; a kneeling revenant (still hostile in its motor) is done fighting, so it says so below
-      return t ? { title: f.yielded ? `${t} - beaten` : t, subs: questFoeSubs(f) } : null;   // REVENANT-FATE (the 2026-10-02 audit): a kneeling revenant says so, as the street's does; QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
+      return t ? { title: f.yielded ? `${t} - beaten` : isSparKneeling(f) ? `${t} - ${LIVING_WORDS.adventurerYieldedTag()}` : t, subs: questFoeSubs(f) } : null;   // REVENANT-FATE (the 2026-10-02 audit): a kneeling revenant says so, as the street's does; QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
     }
     if (key.startsWith('door:') || key.startsWith('act:')) {
       const o = actions.objects.get(key) ?? null;

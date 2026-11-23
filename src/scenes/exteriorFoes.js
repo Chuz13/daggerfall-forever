@@ -110,6 +110,7 @@ import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // RVN6: Plac
 import { validSites, validSiteTags, isRiteSite, isStarSite, isColossusSite, WOD_CAMP_PUPPETS_MAX, WOD_STAR_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/worldOfDaggerfall/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
 import { validRaidTags, validAlliedIds, validStaffBossTags, RAID_PUPPETS_MAX } from '../world/raidShared.js';   // RAID2: a town's raid, shared
 import { isShipmate, sparedBySwing } from '../combat/friendlyFire.js';   // SHIPMATES: my crew named on the wire, and never the swing's; AUDIT WORLD-EVENTS L4-5: nor a raid's refugees
+import { beginSparEnd, stepSparSurrender, isSparProtected, isSparKneeling, sparKneelPose } from '../systems/living/sparSurrender.js';
 import { campTagsOf, validCampTags } from '../world/campShared.js';   // OW6: a camp rides tagged, and an heir takes it as a camp
 import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // OW6: a camp taken over sees and wakes as it did
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
@@ -971,11 +972,12 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   }
 
   function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null, weapon = null, round = false, wc = null, element = null } = {}) {   // TELL8: `wc` a peer's blow's class (net/wire.js hitClassOf); RVN3: `element` a spell landing's (its weakness's weight)   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's); TELL1: `weapon` the player's striking item, `round` a spell's later round (the poise meter's weight)
-    if (fromPlayer && !peer && f._surrenderedSpar) {
+    if (f.dead || isSparProtected(f) || (fromPlayer && !peer && sparedBySwing(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
+    if (fromPlayer && !peer && !round && f._surrenderedSpar) {
       setCrimeCommitted(playerEntity, CRIMES.Assault);
       say?.(LIVING_WORDS.adventurerAssaultCrime());
+      f._surrenderedSpar = false;
     }
-    if (f.dead || (fromPlayer && !peer && sparedBySwing(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
     const bout = f.entity?.bout ?? null;   // ARENA2: a fighter on the arena's sand (scenes/arena/arenaBouts.js)
     if (fromPlayer && !peer && !bout) renownFoeStruck(f);   // RENOWN1: MY blow - a puppet's too, before the divert sends it to the owner; ARENA2: never a bout fighter's (no renown on the sand)
     if (fromPlayer && !peer && f.entity) {
@@ -1083,18 +1085,14 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (bout && healthDamage > 0) bout.hooks?.hurt?.(f, healthDamage, { fromPlayer: fromPlayer && !peer, striker });   // ARENA2: the blow, to the bout's law
     if (f._isSparring && f.entity.health <= Math.max(1, Math.floor((f.entity.maxHealth || 30) * 0.20))) {
       f.entity.health = Math.max(1, Math.floor((f.entity.maxHealth || 30) * 0.20));
-      f._isSparring = false;
-      f._surrenderedSpar = true;
-      if (f.ai) {
-        f.ai.isHostile = false;
-        f.ai.target = null;
-        f.ai.secondaryTarget = null;
-      }
+      beginSparEnd(f, { playerWon: true, foes, playerEntity, now: Date.now() });
       const wager = Math.max(0, Number(f._duelWager) || 0);
       if (wager > 0 && playerEntity) {
         playerEntity.goldPieces = Math.max(0, (Number(playerEntity.goldPieces) || 0) + wager);
+        audio?.playOneShot?.(SOUND.GoldPieces, 1);
       }
       f._duelWager = 0;
+      if (f.ai?.feet) audio?.play3d?.(SOUND.BodyFall, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });
       const advName = f._advRecord?.name || f.entity?.name || 'Adventurer';
       recordAdventurerGrudge(advName);
       say?.(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.PLAYER_WON, advName, wager), 5);
@@ -1391,13 +1389,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         const pThreshold = Math.max(1, Math.floor((playerEntity.maxHealth || 100) * 0.15));
         if (playerEntity.health <= pThreshold) {
           if (playerEntity.health < 1) playerEntity.health = 1;
-          f._isSparring = false;
-          f._surrenderedSpar = true;
-          if (f.ai) {
-            f.ai.isHostile = false;
-            f.ai.target = null;
-            f.ai.secondaryTarget = null;
-          }
+          beginSparEnd(f, { playerWon: false, foes, playerEntity, now: Date.now() });
           const wager = Math.max(0, Number(f._duelWager) || 0);
           if (wager > 0 && playerEntity) {
             playerEntity.goldPieces = Math.max(0, (Number(playerEntity.goldPieces) || 0) - wager);
@@ -1766,6 +1758,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // its execution and its oath play out where it knelt. COMPANION-PORTAL: a companion stepping out stands still.
       if (f.yielded || f.executing || f.sparing) { fateFrame(f, dt, playerFeet, eye); continue; }
       if (f.leaving) { leavingFrame(f, eye); continue; }
+      if (isSparProtected(f)) {
+        stepSparSurrender(f, dt);
+        if (isSparKneeling(f)) { f._mout = sparKneelPose(f, eye, Date.now()); continue; }
+      }
       if (f.undeadStance === 'feign_death') {
         if (!f.feignMarker && !f._feignLoading) {
           f._feignLoading = true;
@@ -2219,7 +2215,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (!f) return null;
     markFoeHovered(f, _eye, enemyDisplayName(f.mobileType));
     const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded && !f._pupYield });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands on its health bar alone; a kneeling revenant (mine or a peer's, still hostile in its motor) is done fighting, so it says so below
-    return t ? { title: f.yielded || f._pupYield ? `${t} - beaten` : t, subs: questFoeSubs(f) } : null;   // REVENANT-FATE: a kneeling revenant says so; QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
+    return t ? { title: f.yielded || f._pupYield ? `${t} - beaten` : isSparKneeling(f) ? `${t} - ${LIVING_WORDS.adventurerYieldedTag()}` : t, subs: questFoeSubs(f) } : null;   // REVENANT-FATE: a kneeling revenant says so; QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),
   // not a bulk transfer - `openWindow` is the host's own inventory door.

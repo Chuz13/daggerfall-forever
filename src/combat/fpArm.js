@@ -46,7 +46,7 @@ import { strikingSide, mirrorPlan, counterpartName } from './twoHands/mirrorRig.
 import { createHeldClips, spellHandLimbs, spellHandStanceStep, drawsIntoSpellHand } from './twoHands/spellHandArm.js';   // SPELL-HAND: a spell in the free hand beside the weapon - the arm it lends, the stance it keeps
 import { gunArmOf, blowTypeOf, gunHoldOf, offStanceTypeOf, gunAimShooting, blowWeaponOf, muzzlePieceOf } from './twoHands/mixedArm.js';   // MIXED-PAIR: a blade and a Pistolet - each hand's blow in its own group, the gun held as a gun
 import { climbRequestToRig, climbRequestToFirstPerson } from './climbRig.js';   // CLIMB6: ...and in each rig's space
-import { seatRequestFor, seatedCamera, saddleRequestFor } from '../player/seatPose.js';   // CARDS2b: the seat in the rig's space; WAGONS3: and the body still on it; COATS3D: and astride
+import { seatRequestFor, seatedCamera, saddleRequestFor, kneelRequestFor } from '../player/seatPose.js';   // CARDS2b: the seat in the rig's space; WAGONS3: and the body still on it; COATS3D: and astride
 import { fieldOfView } from '../ui/viewSettings.js';   // CLIMB6: the world lens the arm's hands are matched to
 import { CHAR_SPRITE_RT_SIZE } from '../render/renderer.js';
 import {
@@ -3756,6 +3756,10 @@ export function createFpArm() {
   const climbLaw = new ClimbPose();
   let climbLast = null;
   let climbHands = false;
+  const KNEEL_EASE_S = 0.25;
+  let kneelW = 0;
+  let kneelClock = 0;
+  let kneelLast = null;
   // TWO-HANDS (bible/05-Combat/Two-Hands.md): THE SECOND HAND. How the hands are held - the rig's word every frame
   // (setHands: combat/twoHands/handsLaw.js HANDS_MODE, and the hand that leads) - the hand of the blow in flight, the left
   // hand's weapon (setOffWeapon: its key, a request queued behind a build), the carry each rig's mirror eases its
@@ -4419,9 +4423,20 @@ export function createFpArm() {
     const rs = (built && built.raceScale) || { weight: 1, height: 1 };
     return saddleRequestFor(cam && cam.saddle, { unitsPerMetre: MW_UNITS_PER_METER, weight: rs.weight, height: rs.height });
   }
+  function thirdKneel(cam) {
+    if (dead || !(kneelW > 0)) return null;
+    const spec = (cam && cam.kneel) || kneelLast;
+    if (!spec) return null;
+    const rs = (built && built.raceScale) || { weight: 1, height: 1 };
+    return kneelRequestFor(
+      { feet: spec.feet, yaw: spec.yaw, w: kneelW, breath: Math.sin(kneelClock * 2.2) },
+      { unitsPerMetre: MW_UNITS_PER_METER, weight: rs.weight, height: rs.height },
+    );
+  }
   function thirdClimb(cw, cam) {
     if (cam && cam.seat) { climbLast = null; return thirdSeat(cam); }   // CARDS2b: seated - the seat, over any climb's tail
     if (cam && cam.saddle) { climbLast = null; return thirdSaddle(cam); }   // COATS3D: astride - the saddle, over any climb's tail
+    if ((cam && cam.kneel) || (kneelW > 0 && kneelLast && !dead)) { climbLast = null; return thirdKneel(cam); }
     if (!(cw && cw.w > 0)) { climbLast = null; return null; }
     const snap = cam && cam.climb;
     if (snap && snap.feet) {
@@ -4458,7 +4473,7 @@ export function createFpArm() {
    *  or the dead; up to the aim while it shoots, for RIFLE_EASE.hold after, and while the fight's signal stands. */
   function stepRifle(cam, dt) {
     const wanted = holdsRifle(built) && weaponInHand() && !climbHands && !held && !deathState
-      && upper !== UPPER_BODY.Equipping && upper !== UPPER_BODY.Unequipping && !(cam && (cam.seat || cam.saddle));
+      && upper !== UPPER_BODY.Equipping && upper !== UPPER_BODY.Unequipping && !(cam && (cam.seat || cam.saddle || cam.kneel));
     const g = wanted ? gunHold(built) : null;
     // MIXED-PAIR: the gun's aim comes up for its own hand's shot, never the blade's swing beside it
     rifle = rifleStanceStep(rifle, { wanted, shooting: gunAimShooting({ attacking: attackingNow(), hold: g, dual: handsMode === 'dual', hand: attackHand }), combat: rifleCombat, free: !spellHand, dt });
@@ -6242,6 +6257,7 @@ export function createFpArm() {
       const g = chooseRandomGroup('death', roll);
       const pick = g ? pickAnimSource(rig().sources, g, resetClip, { startPoint, loopCount: 0 }) : null;   // playDeath's loops: 0
       dead = true;
+      kneelW = 0; kneelClock = 0; kneelLast = null;
       actionState = null; actionSource = null; holdWindUp = false; attackType = null; blowPlan = null;
       dropBlowType();   // MIXED-PAIR
       upper = sheathed ? UPPER_BODY.None : UPPER_BODY.WeaponEquipped;
@@ -6257,6 +6273,7 @@ export function createFpArm() {
     revive() {
       if (!dead && !deathState) return;
       dead = false; deathState = null; deathSource = null; hitState = null; hitSource = null;
+      kneelW = 0; kneelClock = 0; kneelLast = null;
       refreshIdle(true);
     },
 
@@ -6426,6 +6443,15 @@ export function createFpArm() {
       // CLIMB6: the climb's limbs, every frame (a frame that does not pose still walks the gait: a peer's travel)
       const climbWorld = climbLaw.update(dt, (cam && cam.climb) || null);
       climbHands = climbWorld.w >= 0.5 && !!(cam && cam.climb);
+      if (cam && cam.kneel && !dead) {
+        kneelLast = cam.kneel;
+        kneelClock += dt;
+        kneelW = Math.min(1, kneelW + dt / KNEEL_EASE_S);
+      } else {
+        kneelW = Math.max(0, kneelW - dt / KNEEL_EASE_S);
+        if (kneelW <= 0) { kneelLast = null; kneelClock = 0; }
+        else kneelClock += dt;
+      }
       stepRunPump(dt);   // TWO-HANDS: the running hands' weight and stride
       stepPairGuard(dt);   // TWO-HANDS AUDIT: the pair's guard
       stepPairSpread(dt);   // TWO-HANDS SPREAD: the pair's arms turned out
