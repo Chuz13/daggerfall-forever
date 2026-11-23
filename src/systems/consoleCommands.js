@@ -170,6 +170,13 @@ import { giveCarried, hasBag } from './materialsBag.js';
 import { BAG_TEMPLATE } from '../net/bagLaw.js';
 import { depositGold, withdrawGold, forgiveLoans, isUnifiedBankActive, SHIP_TYPES } from './banking.js';
 import { getPref, setPref } from './uiPrefs.js';
+import {
+  COMBAT_LETHALITY_ORDER,
+  COMBAT_LETHALITY_PREF,
+  COMBAT_LETHALITY_PRESETS,
+  combatLethalityMode,
+} from './combatLethality.js';
+import { heroThreat } from './heroThreat.js';
 import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.js';
 import { REGION_NAMES } from '../formats/mapsTables.js';
 import { foundFamily, addChild, recordDeath, successors, currentOf, fullNameOf } from './legacy/family.js';
@@ -672,6 +679,27 @@ registerCommand(
       else if (id >= 128 && id <= 146) classes.push(`${id}: ${name}`);
     }
     return `<b>Monsters (0..42):</b>\n${monsters.join(', ')}\n\n<b>Classes (128..146):</b>\n${classes.join(', ')}`;
+  }
+);
+
+registerCommand(
+  'lethality',
+  'Inspect or set offline Combat Lethality preset: lethality [classic|sharp|lethal|brutal]',
+  'lethality [classic|sharp|lethal|brutal]',
+  (args = []) => {
+    const raw = args[0] ? String(args[0]).toLowerCase() : null;
+    if (!raw || raw === 'status') {
+      const mode = combatLethalityMode();
+      const s = COMBAT_LETHALITY_PRESETS[mode];
+      const ht = heroThreat(playerEntity?.level ?? 1);
+      return `Combat Lethality: ${mode} (damage x${s.damage.toFixed(2)}, health x${s.health.toFixed(2)}) | HeroThreat @ Lv.${playerEntity?.level ?? 1}: dmg x${ht.damage.toFixed(2)}, hp x${ht.health.toFixed(2)}`;
+    }
+    if (!COMBAT_LETHALITY_ORDER.includes(raw)) {
+      return `Usage: lethality [${COMBAT_LETHALITY_ORDER.join('|')}]`;
+    }
+    setPref(COMBAT_LETHALITY_PREF, raw);
+    const s = COMBAT_LETHALITY_PRESETS[raw];
+    return `Combat Lethality set to ${raw} (damage x${s.damage.toFixed(2)}, health x${s.health.toFixed(2)}). Applies to newly spawned foes.`;
   }
 );
 

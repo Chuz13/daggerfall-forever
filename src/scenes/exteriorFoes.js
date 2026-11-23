@@ -48,6 +48,7 @@ import { makeEnemyEntity, loadEnemyCareer, KNIGHT_CITYWATCH_ID, applyProgression
 import { recordEntityPlacement } from '../systems/diagnostics/encounterLogger.js';
 import { combatStanding, foeShare, progressionScaling, wildernessShare, placeVeteran, wildernessThreat } from '../systems/skillSoftcap.js';   // SOFTCAP5: tougher foes in the wilds; BAL3: the wilds' own threat
 import { heroThreatOf } from '../systems/heroThreat.js';   // BAL11: the hero's threat
+import { applyCombatLethality } from '../systems/combatLethality.js';
 import { isNight } from '../world/worldClock.js';   // SOFTCAP5: the wilds' night share   // AUDIT WATCH1 A1: the watch's own puppet allowance
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobile/mobileUnit.js';   // A5: the Seducer transform pair + its trigger
 import { spawnEnemyLoot, hasBowAttack, backstabChanceOf, zeroDamageHitSound, enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt, tickEnemySound, playEnemyClip, tryLanguagePacification, applyDamageToNonPlayer, windupDoor, tellCues, takeAimedShot, aimedDirection, aimedArrowMeta, landBlowEffect } from './hostCombat.js';   // C2-slice (combat-9/17); MT-ii: the foe-vs-foe payload; TELL1: the poise door
@@ -521,7 +522,6 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // DW-E4: SetEnemyTeam - Entity.Team alone (the treasure guards' Undead), the MobileEnemy copy kept
       if (team) entity.team = team;
       entity._feudPlace = playerInside ? 'building' : 'street';   // RVN1 (Feud-Arc.md 12): where a fight with it is fought, for its ledger
-      recordEntityPlacement(entity, { pos, team: entity.team, allied, questBehaviour, site, placed, loose, eliteFoe: entity.eliteFoe, champion: entity.championTrait, revenant, zoneGiant, grantKind, eventFoe, puppet });
       if (!allied && !entity.eliteFoe) applyChampion(entity, champion !== undefined ? champion : revenant ? (revenant.trait ? championIndex(revenant.trait) : null) : ((capped || allowChampionRoll) ? rollStreetChampion(pending.feet, mobileType) : null), { own: !puppet });   // LOOT7: a champion - before its loot, which reads the mark
       if (!puppet && !allied) {
         if (Number.isFinite(hpMult) && hpMult > 1) {
@@ -532,7 +532,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         if (Number.isFinite(damageMult) && damageMult > 1) {
           entity.damageScale = (Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1) * damageMult;
         }
+        applyCombatLethality(entity, { online: isOnlinePage() || _net != null });
       }
+      recordEntityPlacement(entity, { pos, team: entity.team, allied, questBehaviour, site, placed, loose, eliteFoe: entity.eliteFoe, champion: entity.championTrait, revenant, zoneGiant, grantKind, eventFoe, puppet });
       if (revenant && !puppet) applyRevenant(entity, revenant, { turned });   // REVENANT: its name and its rank - over its trait or its glow, before its loot; RVN11c: a betrayer's turning is no return
       // WILD1 (systems/wild/wildZone.js): a foe of the open zone - four times its health and its blows, over its elite's, its
       // champion's or its revenant's (a puppet: its blows alone, its maximum is its owner's word); never an ally
