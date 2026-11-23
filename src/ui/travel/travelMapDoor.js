@@ -23,7 +23,8 @@
 // here would buy nothing and cost the one-shot contract.
 // ═══════════════════════════════════════════════════════════════════
 
-import { heldMapWorn, heldMapChosen } from '../map/mapSkin.js';   // MAP-TOGGLE: the skin AND the player's switch
+import { heldMapWorn, heldMapChosen, tamrielMapOn } from '../map/mapSkin.js';   // MAP-TOGGLE: the skin AND the player's switch
+import { inBay } from '../../world/tamriel/tamrielFrame.js';
 import {
   TravelMapWindow, preloadTravelMapArt, travelMapArtLoaded, travelMapPickerData, canFindPlace, placePixelMemo,
 } from './travelMapWindow.js';
@@ -58,12 +59,21 @@ export function travelMapDoorReady() {
  * open; a host with no party (offline, solo, or any host that never
  * heard of the hub) passes none and both maps draw none.
  */
+function pastBayClassicFallback(deps) {
+  if (typeof document === 'undefined' || !tamrielMapOn()) return false;
+  const p = typeof deps?.getPlayerPixel === 'function' ? deps.getPlayerPixel() : null;
+  return !!(p && Number.isFinite(p.x) && Number.isFinite(p.y) && !inBay(p.x, p.y));
+}
+
 export function createTravelMapWindow(deps = {}) {
   noteFirstUse('travel-map');   // TUT1
   // `document` for the reason every fork before this one gives: node
   // drives these hosts headless and keeps the canvas window rather
   // than getting a special case written for it.
   if (heldMapWorn()) {
+    return new HeldMapWindow(deps);
+  }
+  if (pastBayClassicFallback(deps)) {
     return new HeldMapWindow(deps);
   }
   return travelMapArtLoaded() ? new TravelMapWindow(deps) : null;

@@ -50,7 +50,7 @@ import { getStaticDoors } from '../world/staticDoors.js';
 import { getWorldClimateSettings, LOCATION_TYPES } from '../formats/mapsFile.js';
 import { questBoardIndices } from '../systems/bounty/bountyBoard.js';   // BOUNTY1: which boards' places are the bounty half - the siege field's Market is a rumour board's
 import { groundOffPlane, lowestGroundUnder, surfaceHeightAt, walkGroundAt, TERRAIN_SKIRT_DEPTH, TERRAIN_TILE_DIM } from '../world/terrain/terrainSurface.js';   // FLORA-GROUND: walkGroundAt, the ground's one law
-import { hasPort } from '../systems/travel/travelPorts.js';
+import { hasPortFor } from '../systems/travel/travelPorts.js';
 import { portIdOf } from '../world/worldWide/worldPorts.js';   // WW3: a port's one number
 import { HEIGHTMAP_DIMENSION, TERRAIN_SIZE } from '../world/terrain/terrainSampler.js';
 import { HOLD_FLATS, HOLD_MODELS, holdFireLights, holdModelMatrix, PRIVATEERS_HOLD_BLOCK } from '../world/worldOfDaggerfall/wodPrivateersHold.js';
@@ -899,7 +899,7 @@ export function createPixelBuild(host) {
         const livingTown = livingTownAt(px, py) ?? {
           mapId: (dfLocation.mapTableData?.mapId ?? 0) >>> 0, name: dfLocation.name, px, py,
           type: dfLocation.mapTableData?.locationType, region: dfLocation.regionIndex, people: climate?.people,
-          blocks: loc.width * loc.height, port: hasPort(dfLocation.mapTableData?.mapId),
+          blocks: loc.width * loc.height, port: hasPortFor(dfLocation.mapTableData?.mapId),
         };   // LW3: the roads' own record of the town (the same row the trips read - WW1: the world's registry's, wherever it stands), a mod's town its own
         // IC-STUTTER (bible/03-World/Arena-Provinces.md IC-STUTTER): the town's buildings and doors first, and its places
         // made of them a step at a time through the build's breather (livingTown.js livingTownPlaces) - one task of
