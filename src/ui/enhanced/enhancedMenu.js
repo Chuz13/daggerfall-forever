@@ -2812,6 +2812,10 @@ function choiceRow(key, name, note, tiers, { home = false, read = null, write = 
   const found = tiers.findIndex(([v]) => String(v) === cur);
   const at = found >= 0 ? found : Math.max(0, tiers.findIndex(([v]) => String(v) === String(featureForControl('prefs', key)?.control?.default ?? featureForControl('prefs', key)?.control?.initial)));   // BLOOD AUDIT 5: the row's default, not the first tier, for a value that is no tier
   const row = el('div', 'row');
+  if (row?.dataset) {
+    row.dataset.opt = key;
+    if (!read && !write) row.dataset.pref = key;
+  }
   const main = el('button', 'row-main');
   main.append(el('div', 'row-name', name));
   main.append(el('div', 'row-note', note));

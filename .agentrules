@@ -24,6 +24,7 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
 4. **QUALITY GATES & FAST VERIFICATION**:
    - Never run the entire `npm test` suite by default (it is massive and includes thousands of server/scene tests).
    - Use scoped test runs (e.g. `node --test test/ui/brand.test.js`) or fast syntax gates (`npm run lint`, `npm run types`, `npm run gates`).
+   - Any change touching settings, `src/systems/features.js`, `src/systems/uiPrefs.js`, `src/ui/settings/settingsMap.js`, or settings rows in `src/ui/enhanced/enhancedMenu.js` MUST also run `node --test test/systems/org2_options.test.js`.
    - Full `npm test` is strictly reserved for explicit user requests.
    - Always ensure `npm run build` succeeds cleanly before concluding a functional change.
 5. **EXECUTION AUTONOMY**: When the user requests direct execution without prompting, proceed autonomously with high engineering precision, safe atomic edits, and clean verification.
@@ -49,6 +50,23 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
     - **Контракт сцены и AI-моторов (Scene & Motor Seam)**: При спавне через `spawnFoe` всегда валидировать `rec.ai` и `rec.entity`. Координаты моба мутировать только согласованно с мотором `ai.feet` (не отрывать физику от рендера).
     - **Анти-NaN защита в WebGL (Finite & Anti-NaN Guard)**: Любые координаты, размеры, углы yaw перед упаковкой в буферы рендера (`packLight`, `queueCharacterSprite`, `drawRigSpriteBox`) проверять через `Number.isFinite()`.
     - **Безопасность кошелька игрока (Inventory Integrity)**: Любые списания золота оборачивать в `Math.max(0, ...)`, предметы выдавать строго через `mintCondition` и `setItemFields`.
+12. **IN-GAME SETTINGS CONTRACT (Mandatory Checklist for Adding Settings to the Menu)**:
+    - **Never touch DFU's INI store**: `src/systems/settings/settings.js` is strictly pinned to DFU's 171 vanilla keys (`test/ui/settings/settingsUI.test.js`). Every new DFF setting MUST live in `prefs`.
+    - **Default to `feat:<id>` (canonical path — 2 source files + locales)**:
+      1. Declare the entry in `FEATURES` (`src/systems/features.js`) with `control: { store: 'prefs', key, initial, online: 'player', tiers? }`. The default is automatically picked up by `uiPrefs.js` via `FEATURE_PREF_DEFAULTS` (do not duplicate it manually in `PREF_DEFAULTS`), and the row renders automatically in both the main menu and the in-game pause menu with search, `Changed` indicator, and `Restore defaults`.
+      2. For multi-tier options, ALWAYS use the `tier(value, () => t(...))` helper (never `{ value, label }` objects), and ensure `initial` matches one of the tier values. Define `title`, `note`, `effect`, and tier labels as getters calling `t(...)` so live language switching works.
+      3. **Register `'feat:<id>'` in `CATEGORIES` (`src/ui/settings/settingsMap.js`)** under the appropriate tab and section — the menu renders ONLY items present in `settingsMap.js`. New tab/section titles must use `() => t(...)`.
+    - **Use `port:<key>` only for custom controls** (`stepRow` sliders, action buttons, direct entity state such as `playerEntity`, or non-`FEATURES` UI rows):
+      1. Add the default to `PREF_DEFAULTS` (`src/systems/uiPrefs.js`) if pref-backed.
+      2. Build the row in the appropriate `portRows*` builder in `src/ui/enhanced/enhancedMenu.js` wired into `portPool({ pause })`.
+      3. Ensure `row.dataset.opt = '<id>'` (and `row.dataset.pref = '<prefKey>'` for pref-backed rows) is set (`prefRow`, `stepRow`, and `choiceRow` set these automatically; custom DOM rows must set them explicitly or `portPool()` will silently drop the row).
+      4. For in-game settings, do NOT hide the row behind `if (!pause)` and do NOT set `row.dataset.live = '0'`, or it will disappear from the in-game ESC pause menu.
+      5. **Register `'port:<id>'` in `CATEGORIES` (`src/ui/settings/settingsMap.js`)**.
+    - **Live runtime reads**: Gameplay code must read `getPref('<key>')` dynamically (or subscribe via `addPrefListener`) — never cache `getPref(...)` once at module load for in-game toggles.
+    - **Localization**: Add all new `t(...)` keys minimally across all 26 `locales/<lang>/Port_Strings.csv` files.
+    - **Mandatory verification (Definition of Done)**:
+      1. Run `node --test test/systems/org2_options.test.js` (verifies `checkFeatures(FEATURES)` and strict bijection with `settingsMap.js` for all DFU keys, `FEATURES`, and `portPool()` rows).
+      2. In the feature's unit test, assert: (a) `whereIs('feat:<id>' | 'port:<id>')` returns the expected `tab.id` and `section.id`; (b) `checkFeature(entry)` returns `[]` (for `feat:*`) or `portPool({ pause: true }).has('<id>') === true` (for in-game `port:*`); and (c) toggling via `setPref` changes the actual runtime behavior.
    
    
    Also always add any new text in all languages currently present in the game. 
