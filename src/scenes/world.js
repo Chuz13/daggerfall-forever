@@ -187,6 +187,7 @@ import { REGION_FLAGS } from '../systems/region/regionConditions.js';
 import { getActiveAdventurerCompanion, setRegionalDungeonProvider } from '../systems/living/adventurerSim.js';
 import { collectProvinceDungeons } from '../systems/living/provinceDungeonPool.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, buildRecruitedCompanionChoiceSpec, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
+import { composeFortPack } from '../systems/living/tacticalPacks.js';
 import { stockTravelingMerchantTrunk, executeRoadsideFenceSale } from '../systems/living/travelingMerchant.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
@@ -13428,7 +13429,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     // THE CAMP'S OWN STAND (_standCampEncounter above): the anchor on the terrain's floor
     const stood = _standCampEncounter({
-      mobileTypes: Array(count).fill(mobileType), fixed: true, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
+      mobileTypes: fort ? composeFortPack(mobileType, count, effectiveLevel(playerEntity)) : Array(count).fill(mobileType),
+      fixed: true, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
       minDistance: spotAt ? (farm || fort ? 8 : 0) : 60, maxDistance: spotAt ? (farm || fort ? 22 : 8) : 110,
       bearingDegrees: Math.random() * 360, spawnOpts: { loose: true, transient: true, ...(fort ? { allowThreatScaling: true, allowEliteRoll: true, allowChampionRoll: true, eliteChance: 0.15 } : {}) },
       ownPlace: place,   // FB1029 GRAVE-PACK: a graveyard's hunt stands in its own rect - refused there, it never stood
@@ -31151,7 +31153,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     staggerPlayer: (bypassGuard = true) => applyPlayerStagger({ motor: player, entity: playerEntity, shake: (k) => betterAmbience.weaponKick(k), bypassGuard }),
     clearPlayerStagger: () => clearPlayerStagger(playerEntity),
-    spawnFoe: async (mobileType, count = 1) => {
+    spawnFoe: async (mobileType, count = 1, extraOpts = null) => {
       const p = player?.pos ? [...player.pos] : [0, 0, 0];
       const yaw = cam?.yaw ?? 0;
       const fwdX = Math.sin(yaw);
@@ -31160,6 +31162,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const rightZ = -Math.sin(yaw);
       const dCtx = modes?.dungeonCtx;
       const iFoes = modes?.interiorFoes;
+      const extra = extraOpts && typeof extraOpts === 'object' ? extraOpts : {};
       let spawned = 0;
       for (let i = 0; i < count; i++) {
         const offsetDist = 2.5 + Math.floor(i / 3) * 1.5;
@@ -31171,13 +31174,13 @@ export async function bootWorld(canvas, renderer, params, status) {
         ];
         const foeYaw = yaw + Math.PI;
         if (modes?.mode === 'dungeon' && dCtx?.spawnFoe) {
-          await dCtx.spawnFoe(mobileType, pos, { yaw: foeYaw });
+          await dCtx.spawnFoe(mobileType, pos, { yaw: foeYaw, ...extra });
           spawned++;
         } else if (modes?.mode === 'interior' && iFoes?.spawnFoe) {
-          await iFoes.spawnFoe(mobileType, pos, { yaw: foeYaw, loose: true, feetGiven: true });
+          await iFoes.spawnFoe(mobileType, pos, { yaw: foeYaw, loose: true, feetGiven: true, ...extra });
           spawned++;
         } else if (exteriorFoes?.spawnFoe) {
-          await exteriorFoes.spawnFoe(mobileType, pos, { yaw: foeYaw, loose: true, feetGiven: true });
+          await exteriorFoes.spawnFoe(mobileType, pos, { yaw: foeYaw, loose: true, feetGiven: true, ...extra });
           spawned++;
         }
       }

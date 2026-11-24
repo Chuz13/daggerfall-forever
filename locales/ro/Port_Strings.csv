@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Vrăjile de fulger provoacă doar un sfert din daune
 bossTraits.rule.thorned,"O parte din fiecare lovitură de armă care nimerește se întoarce asupra ta."
 bossTraits.rule.venomproof,"Vrăjile de otravă provoacă doar un sfert din daune."
 bossTraits.rule.warded,"Un scut primește mai întâi fiecare lovitură. Crește la loc dacă nu-l mai lovești."
-bossTraits.rule.wrathful,"Lovește mult mai tare după ce lupta durează {s} s."
+bossTraits.rule.wrathful,"Lovește mult mai puternic sub {pct}% viață sau după {s} secunde de luptă."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"{name} își pierde scutul!"

@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Заклинания молнии наносят л�
 bossTraits.rule.thorned,"Часть урона от каждого вашего попадания оружием возвращается к вам."
 bossTraits.rule.venomproof,"Заклинания яда наносят лишь четверть урона."
 bossTraits.rule.warded,"Оберег первым принимает каждый удар. Он восстанавливается, если перестать его бить."
-bossTraits.rule.wrathful,"Бьёт гораздо сильнее, если бой длится дольше {s} сек."
+bossTraits.rule.wrathful,"Бьёт гораздо сильнее при здоровье ниже {pct}% или спустя {s} сек. боя."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"{name} теряет оберег!"

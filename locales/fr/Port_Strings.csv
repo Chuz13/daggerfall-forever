@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Les sorts de foudre n’infligent qu’un quart de l
 bossTraits.rule.thorned,"Une partie de chaque coup d’arme qui porte vous revient."
 bossTraits.rule.venomproof,"Les sorts de poison n’infligent qu’un quart de leurs dégâts."
 bossTraits.rule.warded,"Une protection encaisse chaque coup en premier. Elle se reforme si vous cessez de la frapper."
-bossTraits.rule.wrathful,"Il frappe bien plus fort une fois que le combat dure depuis {s} secondes."
+bossTraits.rule.wrathful,"Frappe beaucoup plus fort sous {pct}% de vie ou après {s} secondes de combat."
 bossTraits.say.learn,"{trait} : {rule}"
 bossTraits.say.met,"{name} : {traits}."
 bossTraits.say.wardBroke,"La protection de {name} se brise !"

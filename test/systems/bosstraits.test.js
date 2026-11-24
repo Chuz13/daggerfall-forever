@@ -6,7 +6,7 @@ import '../modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BOSS_TRAITS, ELEMENT_TRAITS, WARD_SHARE, WARD_REGROW_S, WARD_REFILL_S, RESIST_SHARE, WEAPON_RESIST_SHARE, CURB_SHARE, WRATH_AFTER_S, WRATH_X,
+  BOSS_TRAITS, ELEMENT_TRAITS, WARD_SHARE, WARD_REGROW_S, WARD_REFILL_S, RESIST_SHARE, WEAPON_RESIST_SHARE, CURB_SHARE, CURB_SHARE_ELITE, WRATH_AFTER_S, WRATH_HP_SHARE, WRATH_X,
   THORN_SHARE, BOSS_TRAIT_MASK_MAX, RELAY_BOSS_TRAITS, bossTraitMask, bossTraitsOfMask, rollBossTraits, giveBossTraits, bossWardNow, bossStrike, bossTake,
   bossWrathDue, markBossWrath, bossTraitWords, bossTraitRules, relayBossTraits, eliteTraits, bossStrikeAt, bossTakeAt,
 } from '../../src/systems/bossTraits.js';
@@ -22,7 +22,7 @@ const mace = () => createWeapon(WEAPONS.Mace, 0, () => 0.5);
 test('BOSS-TRAITS THE TABLE: eleven traits in the mask\'s order (append only), the five resistances the spells\' own element order, the numbers the page names; the mask round-trips, an unknown name or bit dropped, and the wire\'s ceiling is the mask\'s (mutants: a trait moved; an element out of order; the ceiling unpinned)', () => {
   assert.deepEqual([...BOSS_TRAITS], ['warded', 'flameproof', 'frostproof', 'venomproof', 'stormproof', 'spellproof', 'bladeturning', 'stoneskin', 'curbing', 'wrathful', 'thorned']);
   assert.deepEqual([...ELEMENT_TRAITS], ['flameproof', 'frostproof', 'venomproof', 'stormproof', 'spellproof'], 'fire, frost, poison, shock, magic - systems/effects.js ELEMENT_EFFECT_FLAG');
-  assert.deepEqual([WARD_SHARE, WARD_REGROW_S, WARD_REFILL_S, RESIST_SHARE, WEAPON_RESIST_SHARE, CURB_SHARE, WRATH_AFTER_S, WRATH_X, THORN_SHARE], [0.3, 10, 4, 0.25, 0.5, 0.05, 75, 1.6, 0.2]);
+  assert.deepEqual([WARD_SHARE, WARD_REGROW_S, WARD_REFILL_S, RESIST_SHARE, WEAPON_RESIST_SHARE, CURB_SHARE, CURB_SHARE_ELITE, WRATH_AFTER_S, WRATH_HP_SHARE, WRATH_X, THORN_SHARE], [0.3, 10, 4, 0.25, 0.5, 0.05, 0.15, 25, 0.45, 1.6, 0.2]);
   assert.equal(BOSS_TRAIT_MASK_MAX, 0x7ff);
   assert.equal(FOE_TRAITS_MAX, BOSS_TRAIT_MASK_MAX, 'net/wire.js holds the same ceiling');
   assert.equal(bossTraitMask(['warded', 'thorned', 'nope']), 1 | (1 << 10));
@@ -78,10 +78,12 @@ test('BOSS-TRAITS THE STRIKER\'S HALF: a spell of its element lands a quarter, a
   assert.deepEqual(bossStrike({}, 40, { kind: 'melee' }), { damage: 40, thorns: 0 }, 'no traits: untouched');
 });
 
-test('BOSS-TRAITS THE OWNER\'S HALF: the curb holds a blow to 5% of its health; the ward takes blows first, breaks once, and grows back whole WARD_REGROW_S after the last blow on it over WARD_REFILL_S; the wrath turns WRATH_AFTER_S after the first wound, once, its blows WRATH_X as hard (mutants: the curb off; the ward skipped; the regrow at once; the wrath twice; the wrath from the first blow\'s second)', () => {
+test('BOSS-TRAITS THE OWNER\'S HALF: the curb holds a blow to 15% of its health (5% for raid leaders); the ward takes blows first, breaks once, and grows back whole WARD_REGROW_S after the last blow on it over WARD_REFILL_S; the wrath turns WRATH_AFTER_S after the first wound or below 45% HP, once, its blows WRATH_X as hard (mutants: the curb off; the ward skipped; the regrow at once; the wrath twice; the wrath from the first blow\'s second)', () => {
   const cb = foe(['curbing'], 2000);
-  assert.deepEqual(bossTake(cb, 500), { damage: 2000 * CURB_SHARE, ward: 0, broke: false });
+  assert.deepEqual(bossTake(cb, 500), { damage: 2000 * CURB_SHARE_ELITE, ward: 0, broke: false });
   assert.equal(bossTake(cb, 40).damage, 40, 'under the curb: whole');
+  const raidCb = { ...foe(['curbing'], 2000), raidLeader: true };
+  assert.deepEqual(bossTake(raidCb, 500), { damage: 2000 * CURB_SHARE, ward: 0, broke: false });
   const w = foe(['warded'], 1000);
   assert.deepEqual(bossWardNow(w, 0), { now: 300, max: 300 });
   assert.deepEqual(bossTake(w, 200, { nowS: 1 }), { damage: 0, ward: 200, broke: false });
@@ -122,6 +124,7 @@ test('BOSS-TRAITS SEEN: the title wears the first trait\'s word before the rest 
   assert.equal(foeTitle(e, 'Orc'), 'Warded Elite Orc');
   assert.deepEqual(bossTraitWords(e), ['Warded', 'Thorned']);
   assert.equal(bossTraitRules(e).length, 2);
-  assert.match(bossTraitRules(foe(['curbing']))[0], /5% of its health/);
+  assert.match(bossTraitRules(foe(['curbing']))[0], /15% of its health/);
+  assert.match(bossTraitRules({ ...foe(['curbing']), raidLeader: true })[0], /5% of its health/);
   assert.equal(foeTitle({ eliteFoe: true }, 'Orc'), 'Elite Orc', 'no traits: as before');
 });

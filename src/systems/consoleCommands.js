@@ -217,6 +217,7 @@ import { dumpAllDiagnostics } from './diagnostics/diagnosticsManager.js';
 import { LivingTamrielConfig, PRESENCE } from './living/livingConfig.js';
 import { applyPlayerStagger, clearPlayerStagger, playerStaggerState } from './blowEffects.js';
 import { reflexesWindupMult, reflexesCooldownMult } from '../ai/tells.js';
+import { BOSS_TRAITS } from './bossTraits.js';
 import {
   getSocialRep,
   getFactionStanding,
@@ -666,6 +667,31 @@ registerCommand(
   async (args = []) => {
     const cmd = getConsoleCommand('spawnfoe');
     return await cmd.callback(args);
+  }
+);
+
+registerCommand(
+  'testtrait',
+  'Spawn an elite foe with a specific Boss Trait: testtrait <trait> [mob]',
+  'testtrait <trait> [mob]',
+  async (args = []) => {
+    const trait = args[0] ? String(args[0]).toLowerCase() : '';
+    if (!trait || !BOSS_TRAITS.includes(trait)) {
+      return `Usage: testtrait <trait> [mob]. Traits: ${BOSS_TRAITS.join(', ')}`;
+    }
+    const mobArg = args[1] || 'warrior';
+    const mob = resolveMobileType(mobArg);
+    if (!mob) return `Unknown mob "${mobArg}".`;
+    const ctx = getDebugSceneContext();
+    if (!ctx?.spawnFoe) return 'Enemy spawning is unavailable in current scene.';
+    const spawned = await ctx.spawnFoe(mob.id, 1, {
+      eliteFoe: true,
+      allowThreatScaling: true,
+      forcedBossTraits: [trait],
+    });
+    return spawned > 0
+      ? `Spawned Elite ${mob.name} (ID: ${mob.id}) with trait [${trait}].`
+      : `Failed to spawn ${mob.name} with trait [${trait}].`;
   }
 );
 

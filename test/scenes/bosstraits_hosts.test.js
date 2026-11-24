@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { createExteriorFoes } from '../../src/scenes/exteriorFoes.js';
 import { chooseRaider } from '../../src/systems/raidingParties.js';
 import { promoteEliteFoe } from '../../src/systems/eliteFoes.js';
-import { giveBossTraits, WARD_SHARE, THORN_SHARE, CURB_SHARE } from '../../src/systems/bossTraits.js';
+import { giveBossTraits, WARD_SHARE, THORN_SHARE, CURB_SHARE, CURB_SHARE_ELITE } from '../../src/systems/bossTraits.js';
 import { createWeapon } from '../../src/combat/enemyEquipment.js';
 import { WEAPONS } from '../../src/characters/weapons.js';
 
@@ -67,7 +67,12 @@ test('BOSS-TRAITS THE OPEN WORLD\'S DOOR, run on the real pool: my sword on a Wa
   cb.entity.maxHealth = 1000; cb.entity.health = 1000;
   giveBossTraits(cb.entity, ['curbing']);
   pool.damageFoe(cb, 400, [0, 0, 0], null, { kind: 'melee', weapon: sword });
-  assert.equal(cb.entity.health, 1000 - 1000 * CURB_SHARE);
+  assert.equal(cb.entity.health, 1000 - 1000 * CURB_SHARE_ELITE);
+  const raidCb = await pool.spawnFoe(ORC, [3, 0, 6], { feetGiven: true, loose: true, transient: true, eliteFoe: false });
+  raidCb.entity.maxHealth = 1000; raidCb.entity.health = 1000; raidCb.entity.raidLeader = true;
+  giveBossTraits(raidCb.entity, ['curbing']);
+  pool.damageFoe(raidCb, 400, [0, 0, 0], null, { kind: 'melee', weapon: sword });
+  assert.equal(raidCb.entity.health, 1000 - 1000 * CURB_SHARE);
   const plain = await pool.spawnFoe(ORC, [4, 0, 6], { feetGiven: true, loose: true, transient: true, eliteFoe: false });
   const h0 = plain.entity.health;
   pool.damageFoe(plain, 3, [0, 0, 0], null, { kind: 'melee', weapon: sword });
