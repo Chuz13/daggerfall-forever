@@ -35,6 +35,8 @@ import { setBountyJournal, BOUNTY_QUEST_PREFIX } from '../systems/bounty/bountyJ
 import { rewardContract } from '../systems/standing.js';   // REP4: a contract finished, the region's law two points better
 import { onContractCompleted } from '../systems/living/bountySync.js';
 import { getRegionCrisisLines, getRegionCrisisRumor } from '../systems/living/crisisPresenter.js';
+import { getRegionRiskLine } from '../systems/regionRisk.js';
+import { isOnlinePage } from '../systems/online/onlineLane.js';
 import { sharedClockOn } from '../systems/worldTick.js';   // AUDIT REST II Q3: the never-lapse build's rows, re-stamped online
 import { festivalBountyPaid } from '../systems/festival/festivalClient.js';   // WITCH1: a bounty paid asks a find
 import { passBountyPaid } from '../systems/pass/passClient.js';   // STOREFRONT: and a Battle Pass find
@@ -348,7 +350,9 @@ export function createBountyHost(deps) {
     if (!town || !Number.isFinite(town.px) || !Number.isFinite(town.py)) return false;
     const reg = Number.isInteger(town.region) ? town.region : (deps.regionAt?.(town.px, town.py) ?? null);
     const t = { px: town.px, py: town.py, name: town.name || deps.townName(town.px, town.py) || 'Town', region: reg };
-    const crisisLines = Number.isInteger(reg) ? getRegionCrisisLines(reg) : [];
+    const crisisLines = Number.isInteger(reg) ? [...getRegionCrisisLines(reg)] : [];
+    const riskLine = Number.isInteger(reg) ? getRegionRiskLine(reg, { online: isOnlinePage() }) : null;
+    if (riskLine) crisisLines.unshift(riskLine);
     const latestRumor = Number.isInteger(reg) ? getRegionCrisisRumor(reg) : null;
     deps.openBoardWindow({
       town: t,

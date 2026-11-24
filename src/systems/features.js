@@ -206,6 +206,12 @@ const COMBAT_LETHALITY_TIERS = Object.freeze([
   tier('brutal', () => t('features.combatLethality.brutal', 'Brutal (1.75x dmg)')),
 ]);
 
+const REGION_RISK_TIERS_UI = Object.freeze([
+  tier('off', () => t('features.regionalRiskZones.off', 'Off (Uniform)')),
+  tier('standard', () => t('features.regionalRiskZones.standard', 'Standard')),
+  tier('harsh', () => t('features.regionalRiskZones.harsh', 'Harsh')),
+]);
+
 /** FT14 (2026-09-15) - WHAT A MOD'S TILE SHOWS, AND WHAT IT DOES NOT.
  *
  *  The eight vendored mods carried 125 settings keys between them when
@@ -2247,6 +2253,15 @@ export const FEATURES = Object.freeze([
     get effect() { return t('features.combatLethality.effect', 'Takes effect for newly spawned enemies.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'combatLethality', initial: 'classic', online: 'player', tiers: COMBAT_LETHALITY_TIERS }),
+  }),
+  Object.freeze({
+    id: 'regional-risk-zones',
+    group: 'combat',
+    get title() { return t('features.regionalRiskZones.title', 'Regional Risk Zones'); },
+    get note() { return t('features.regionalRiskZones.note', 'Scales enemy power and elite odds by region tier from safe heartlands to wild frontiers and perilous provinces.'); },
+    get effect() { return t('features.combatLethality.effect', 'Takes effect for newly spawned enemies.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'regionalRiskZones', initial: 'standard', online: 'player', tiers: REGION_RISK_TIERS_UI }),
   }),
 ]);
 

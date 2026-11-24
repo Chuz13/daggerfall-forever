@@ -210,6 +210,7 @@ export const CATEGORIES = Object.freeze([
       'Enhancements/EnhancedCombatAI',
       'port:reflexes',
       'feat:combat-lethality',
+      'feat:regional-risk-zones',
       'feat:mod-meanermonsters',
       'feat:mod-daggerfall-enemy-expansion',
       'feat:enemy-infighting',

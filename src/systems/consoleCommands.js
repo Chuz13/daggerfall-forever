@@ -176,6 +176,12 @@ import {
   COMBAT_LETHALITY_PRESETS,
   combatLethalityMode,
 } from './combatLethality.js';
+import {
+  REGION_RISK_MODES,
+  REGION_RISK_PREF,
+  regionRiskMode,
+  regionRiskProfile,
+} from './regionRisk.js';
 import { heroThreat } from './heroThreat.js';
 import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.js';
 import { REGION_NAMES } from '../formats/mapsTables.js';
@@ -728,6 +734,29 @@ registerCommand(
     setPref(COMBAT_LETHALITY_PREF, raw);
     const s = COMBAT_LETHALITY_PRESETS[raw];
     return `Combat Lethality set to ${raw} (damage x${s.damage.toFixed(2)}, health x${s.health.toFixed(2)}). Applies to newly spawned foes.`;
+  }
+);
+
+registerCommand(
+  'risk',
+  'Inspect or set offline Regional Risk Zones: risk [status|off|standard|harsh|<regionIndex>]',
+  'risk [status|off|standard|harsh|<regionIndex>]',
+  (args = []) => {
+    const raw = args[0] ? String(args[0]).toLowerCase() : 'status';
+    if (raw === 'off' || raw === 'standard' || raw === 'harsh') {
+      setPref(REGION_RISK_PREF, raw);
+      const curReg = playerEntity?.currentRegionIndex ?? 17;
+      const p = regionRiskProfile(curReg);
+      return `Regional Risk Zones set to ${raw}. Current region ${p.regionName} (${curReg}): Tier ${p.roman} (${p.id}, dmg x${p.damageMult.toFixed(2)}, hp x${p.hpMult.toFixed(2)}, elite +${Math.round(p.eliteBonus * 100)}%).`;
+    }
+    const asNum = Number.parseInt(raw, 10);
+    if (raw !== 'status' && !Number.isFinite(asNum)) {
+      return `Usage: risk [status|${REGION_RISK_MODES.join('|')}|<regionIndex>]`;
+    }
+    const reg = Number.isFinite(asNum) ? asNum : (playerEntity?.currentRegionIndex ?? 17);
+    const mode = regionRiskMode();
+    const p = regionRiskProfile(reg, { mode });
+    return `Regional Risk (${mode}): ${p.regionName} [${p.regionIndex}] -> Tier ${p.roman} (${p.id}) | dmg x${p.damageMult.toFixed(2)}, hp x${p.hpMult.toFixed(2)}, elite +${Math.round(p.eliteBonus * 100)}%, minLv ${p.minLevelFloor} (Examples: 17 Daggerfall, 10 Bantha, 26 Orsinium, 0 Alik'r, 65 Morrowind)`;
   }
 );
 

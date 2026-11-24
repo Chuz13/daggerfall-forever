@@ -188,6 +188,7 @@ import { getActiveAdventurerCompanion, setRegionalDungeonProvider } from '../sys
 import { collectProvinceDungeons } from '../systems/living/provinceDungeonPool.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, buildRecruitedCompanionChoiceSpec, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { composeFortPack } from '../systems/living/tacticalPacks.js';
+import { regionRiskProfile } from '../systems/regionRisk.js';
 import { stockTravelingMerchantTrunk, executeRoadsideFenceSale } from '../systems/living/travelingMerchant.js';
 import { MOBILE_TYPES } from '../characters/mobile/mobileTypes.js';
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
@@ -12013,6 +12014,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const exteriorFoes = createExteriorFoes({
     oneVoice: () => livingWorldOn(),   // HALT-ONE: a peer's watchman calls on his owner's client, not here
     inLocation: () => _musicInLocationRect(),   // SOFTCAP5: only the wilderness scales its foes (towns and cities never)
+    currentRegionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? playerEntity?.currentRegionIndex ?? 0,
     skyMinute: () => Math.floor(skyMinutes()),   // TIME1: the wilds' night is the sky's
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a foe over a pixel not built is held, not stepped
     // REVENANT-FATE: this host opens a beaten revenant's choice; an executed one's pile is the street's dropped loot
@@ -13430,11 +13432,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (d > BOUNTY_GROUP_REACH_M) return { far: true, dx: spotAt[0] - feet[0], dz: spotAt[2] - feet[2] };
     }
     // THE CAMP'S OWN STAND (_standCampEncounter above): the anchor on the terrain's floor
+    const _fortRisk = fort
+      ? regionRiskProfile(_musicLoc?.regionIndex ?? _questRegionIndex() ?? playerEntity?.currentRegionIndex ?? 0, { online: isOnlinePage() })
+      : null;
     const stood = _standCampEncounter({
       mobileTypes: fort ? composeFortPack(mobileType, count, effectiveLevel(playerEntity)) : Array(count).fill(mobileType),
       fixed: true, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
       minDistance: spotAt ? (farm || fort ? 8 : 0) : 60, maxDistance: spotAt ? (farm || fort ? 22 : 8) : 110,
-      bearingDegrees: Math.random() * 360, spawnOpts: { loose: true, transient: true, ...(fort ? { allowThreatScaling: true, allowEliteRoll: true, allowChampionRoll: true, eliteChance: 0.15 } : {}) },
+      bearingDegrees: Math.random() * 360, spawnOpts: { loose: true, transient: true, ...(fort ? { allowThreatScaling: true, allowEliteRoll: true, allowChampionRoll: true, eliteChance: Math.min(0.5, 0.15 + (_fortRisk?.eliteBonus ?? 0)) } : {}) },
       ownPlace: place,   // FB1029 GRAVE-PACK: a graveyard's hunt stands in its own rect - refused there, it never stood
       // BOUNTY-FARM-CLEAR: never in a farm's or fort's building
       spotOk: (x, z) => !(bountyFarms?.inBuilding?.(x, z) ?? false) && !(bountyForts?.inBuilding?.(x, z) ?? false),
