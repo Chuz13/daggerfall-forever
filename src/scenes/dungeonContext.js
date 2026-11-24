@@ -1555,7 +1555,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!puppet && !ally && !_heroStage && typeof applyCombatLethality === 'function') {
       const online = (typeof isOnlinePage === 'function' ? isOnlinePage() : false) || (typeof opts !== 'undefined' && opts?.selfId?.() != null);
       applyCombatLethality(entity, { online });
-      applyRegionRiskToFoe(entity, dfLocation?.regionIndex ?? 0, { online });
+      applyRegionRiskToFoe(entity, dfLocation?.regionIndex ?? null, { online });
     }
   }
   function applyEliteScaling(entity, e) {

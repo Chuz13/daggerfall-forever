@@ -206,11 +206,15 @@ export const CATEGORIES = Object.freeze([
   ]),
   tab('combat', 'Combat', [
     sec('enemies', 'Enemies', [
+      'preset:difficulty',
+      'feat:combat-lethality',
+      'feat:regional-risk-zones',
+      'feat:hero-threat-scaling',
+      'feat:tactical-stagger',
+      'feat:tactical-packs',
       'feat:enhanced-ai',
       'Enhancements/EnhancedCombatAI',
       'port:reflexes',
-      'feat:combat-lethality',
-      'feat:regional-risk-zones',
       'feat:mod-meanermonsters',
       'feat:mod-daggerfall-enemy-expansion',
       'feat:enemy-infighting',

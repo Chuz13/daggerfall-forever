@@ -29,7 +29,21 @@ import {
   TELL_IRON_EXTRA,
   TELL_FEINT_FADE as FEINT_FADE,
 } from './blowShapes.js';
+import { getPref } from '../systems/uiPrefs.js';
+import { isOnlinePage } from '../systems/online/onlineLane.js';
+
+export const TACTICAL_STAGGER_PREF = 'tacticalStagger';
 export const BLOW_TIER_LEVEL = 5; // Block 3: level 5 and up, or an elite
+export const BLOW_TIER_LEVEL_CLASSIC = 10;
+
+export function isTacticalStaggerOn({ online = isOnlinePage() } = {}) {
+  if (online) return true;
+  return String(getPref(TACTICAL_STAGGER_PREF) ?? 'tactical').toLowerCase() !== 'classic';
+}
+
+export function blowTierLevel({ online = isOnlinePage() } = {}) {
+  return isTacticalStaggerOn({ online }) ? BLOW_TIER_LEVEL : BLOW_TIER_LEVEL_CLASSIC;
+}
 export const BLOW_COOLDOWN_MIN = TELL.COOLDOWN.ordinary[0]; // seconds between one foe's blows (TELL7: an ordinary foe's; ai/tells.js blowCooldown by tier)
 export const BLOW_COOLDOWN_MAX = TELL.COOLDOWN.ordinary[1];
 export const BLOW_CHANCE = 1 / 10; // a classic tick in reach with a token: the roll to wind one up
@@ -44,7 +58,7 @@ export const BLOW_STALE = 0.3; // AUDIT TACT D4: a blow whose foe the brain has 
  *  at any level; the level is the entity's live one (Meaner Monsters' too, after its row). */
 export function blowTier(entity) {
   if (!entity) return false;
-  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || isElite(entity) || !!entity.champion || !!entity.revenant;
+  return (entity.level ?? 0) >= blowTierLevel() || isElite(entity) || !!entity.champion || !!entity.revenant;
 }
 /** Does this foe telegraph at all? */
 export const throwsBlows = (entity) => blowTier(entity) && blowShapesOf(entity.mobileType, entity).length > 0;

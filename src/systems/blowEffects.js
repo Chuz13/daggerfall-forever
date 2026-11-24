@@ -13,8 +13,11 @@
 // The pools queue a landing where its damage lands (queueBlowEffect); each host's player frame applies them
 // (drainBlowEffects) and ticks the bleed (tickBleed). On the foes' own clock (ai/tacticsClock.js).
 import { tacticsNow } from '../ai/tacticsClock.js';
+import { isTacticalStaggerOn } from '../ai/foeBlows.js';
 import { markPlayerHarm, HARM_MARK_STRUCK_MS } from './harmMark.js';
 import { registerBlowTakenMod } from './blowTaken.js';
+
+const CLASSIC_KNOCKDOWN = Object.freeze(['slam', 'ring', 'charge']);
 
 export const BLOW_EFFECT = Object.freeze({
   PUSH: Object.freeze({ lunge: 3, charge: 5 }), // m/s (the decay and the edge: player/motor.js BLOW_PUSH_*)
@@ -42,12 +45,13 @@ export const BLOW_EFFECT = Object.freeze({
 
 /** What a blow of `kind` (iron or not) does when it lands. */
 export function blowEffectOf(kind, iron = false) {
+  const tactical = isTacticalStaggerOn();
   return {
     push: BLOW_EFFECT.PUSH[kind] ?? 0,
     rattle: BLOW_EFFECT.RATTLE.includes(kind),
     bleed: BLOW_EFFECT.BLEED.includes(kind),
-    knockdown: !!iron && BLOW_EFFECT.KNOCKDOWN.includes(kind),
-    stagger: BLOW_EFFECT.STAGGER.includes(kind),
+    knockdown: !!iron && (tactical ? BLOW_EFFECT.KNOCKDOWN : CLASSIC_KNOCKDOWN).includes(kind),
+    stagger: tactical && BLOW_EFFECT.STAGGER.includes(kind),
   };
 }
 

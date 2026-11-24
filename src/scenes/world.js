@@ -12014,7 +12014,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const exteriorFoes = createExteriorFoes({
     oneVoice: () => livingWorldOn(),   // HALT-ONE: a peer's watchman calls on his owner's client, not here
     inLocation: () => _musicInLocationRect(),   // SOFTCAP5: only the wilderness scales its foes (towns and cities never)
-    currentRegionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? playerEntity?.currentRegionIndex ?? 0,
+    currentRegionIndex: () => _musicLoc?.regionIndex ?? _questRegionIndex() ?? playerEntity?.currentRegionIndex ?? null,
     skyMinute: () => Math.floor(skyMinutes()),   // TIME1: the wilds' night is the sky's
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a foe over a pixel not built is held, not stepped
     // REVENANT-FATE: this host opens a beaten revenant's choice; an executed one's pile is the street's dropped loot
@@ -13433,7 +13433,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     // THE CAMP'S OWN STAND (_standCampEncounter above): the anchor on the terrain's floor
     const _fortRisk = fort
-      ? regionRiskProfile(_musicLoc?.regionIndex ?? _questRegionIndex() ?? playerEntity?.currentRegionIndex ?? 0, { online: isOnlinePage() })
+      ? regionRiskProfile(_musicLoc?.regionIndex ?? _questRegionIndex() ?? playerEntity?.currentRegionIndex ?? null, { online: isOnlinePage() })
       : null;
     const stood = _standCampEncounter({
       mobileTypes: fort ? composeFortPack(mobileType, count, effectiveLevel(playerEntity)) : Array(count).fill(mobileType),

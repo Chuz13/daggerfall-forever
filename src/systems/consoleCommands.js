@@ -182,6 +182,12 @@ import {
   regionRiskMode,
   regionRiskProfile,
 } from './regionRisk.js';
+import {
+  DIFFICULTY_PRESETS,
+  DIFFICULTY_PRESET_ROWS,
+  difficultyPresetNow,
+} from './difficultyPresets.js';
+import { FEATURES, resolveControl } from './features.js';
 import { heroThreat } from './heroThreat.js';
 import { legalRepOf, changeLegalRep, CRIMES, setCrimeCommitted } from './court.js';
 import { REGION_NAMES } from '../formats/mapsTables.js';
@@ -757,6 +763,35 @@ registerCommand(
     const mode = regionRiskMode();
     const p = regionRiskProfile(reg, { mode });
     return `Regional Risk (${mode}): ${p.regionName} [${p.regionIndex}] -> Tier ${p.roman} (${p.id}) | dmg x${p.damageMult.toFixed(2)}, hp x${p.hpMult.toFixed(2)}, elite +${Math.round(p.eliteBonus * 100)}%, minLv ${p.minLevelFloor} (Examples: 17 Daggerfall, 10 Bantha, 26 Orsinium, 0 Alik'r, 65 Morrowind)`;
+  }
+);
+
+registerCommand(
+  'difficulty',
+  'Inspect or apply modular difficulty preset: difficulty [status|classic|balanced|veteran|hardcore]',
+  'difficulty [status|classic|balanced|veteran|hardcore]',
+  (args = []) => {
+    const raw = args[0] ? String(args[0]).toLowerCase() : 'status';
+    const readRow = (id) => {
+      const f = FEATURES.find((x) => x.id === id);
+      const c = resolveControl(f);
+      return c?.read ? c.read() : getPref(c?.key);
+    };
+    if (raw !== 'status') {
+      const preset = DIFFICULTY_PRESETS.find((p) => p.id === raw);
+      if (!preset) {
+        return `Usage: difficulty [status|${DIFFICULTY_PRESETS.map((p) => p.id).join('|')}]`;
+      }
+      for (const id of DIFFICULTY_PRESET_ROWS) {
+        const f = FEATURES.find((x) => x.id === id);
+        const c = resolveControl(f);
+        if (c?.key) setPref(c.key, preset.values[id]);
+      }
+      return `Difficulty preset set to ${preset.label} (${preset.id}).`;
+    }
+    const active = difficultyPresetNow(readRow);
+    const vals = DIFFICULTY_PRESET_ROWS.map((id) => `${id}=${readRow(id)}`).join(', ');
+    return `Difficulty Preset: ${active ? `${active.label} (${active.id})` : 'Custom'} | ${vals}`;
   }
 );
 

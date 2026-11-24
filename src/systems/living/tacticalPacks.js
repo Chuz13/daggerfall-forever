@@ -14,6 +14,20 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
+import { getPref } from '../uiPrefs.js';
+import { isOnlinePage } from '../online/onlineLane.js';
+
+export const TACTICAL_PACKS_PREF = 'tacticalPacks';
+
+/**
+ * Whether role-balanced tactical enemy packs are enabled (always true online).
+ * @param {{ online?: boolean }} [o]
+ * @returns {boolean}
+ */
+export function isTacticalPacksOn({ online = isOnlinePage() } = {}) {
+  if (online) return true;
+  return getPref(TACTICAL_PACKS_PREF) !== false;
+}
 
 /** @type {Set<number>} */
 const CASTER_CLASS_SET = new Set([
@@ -62,6 +76,13 @@ const DAEDRA_FAMILY = new Set([
  */
 export function composeBanditCampSubordinates(count, playerLevel = 1) {
   const n = Math.max(0, Math.floor(count));
+  if (!isTacticalPacksOn()) {
+    return Array.from({ length: n }, (_, i) => ({
+      mobileType: i % 2 === 0 ? MOBILE_TYPES.Warrior : MOBILE_TYPES.Rogue,
+      name: 'Bandit Marauder',
+      tacticalRole: 'skirmisher',
+    }));
+  }
   const lvl = Math.max(1, Math.floor(playerLevel || 1));
   const pool = [
     { mobileType: MOBILE_TYPES.Warrior, name: 'Deserter Cutthroat', tacticalRole: 'tank' },
@@ -93,6 +114,13 @@ export function composeBanditCampSubordinates(count, playerLevel = 1) {
 export function composeCheckpointGuards(count, playerLevel = 1) {
   const n = Math.max(0, Math.floor(count));
   if (n === 0) return [];
+  if (!isTacticalPacksOn()) {
+    return Array.from({ length: n }, (_, i) => ({
+      mobileType: i === 0 ? MOBILE_TYPES.Knight : MOBILE_TYPES.Warrior,
+      name: i === 0 ? 'Checkpoint Captain' : 'Provincial Watchman',
+      tacticalRole: i === 0 ? 'commander' : 'tank',
+    }));
+  }
   const lvl = Math.max(1, Math.floor(playerLevel || 1));
   /** @type {Array<{ mobileType: number, name: string, tacticalRole: string }>} */
   const out = [{ mobileType: MOBILE_TYPES.Knight, name: 'Checkpoint Captain', tacticalRole: 'commander' }];
@@ -119,6 +147,12 @@ export function composeCheckpointGuards(count, playerLevel = 1) {
  */
 export function composeNemesisMinions(count, playerLevel = 1, leaderMobileType = MOBILE_TYPES.Assassin) {
   const n = Math.max(0, Math.floor(count));
+  if (!isTacticalPacksOn()) {
+    return Array.from({ length: n }, (_, i) => ({
+      mobileType: i % 2 === 0 ? MOBILE_TYPES.Rogue : MOBILE_TYPES.Warrior,
+      tacticalRole: 'skirmisher',
+    }));
+  }
   const lvl = Math.max(1, Math.floor(playerLevel || 1));
   const leaderIsCaster = CASTER_CLASS_SET.has(leaderMobileType);
   const pool = leaderIsCaster
@@ -147,6 +181,15 @@ export function composeNemesisMinions(count, playerLevel = 1, leaderMobileType =
  */
 export function composeWarSquadRoles(count, { warKind = 'mundane', godKind = null, isSideB = false, playerLevel = 1 } = {}) {
   const n = Math.max(0, Math.floor(count));
+  if (!isTacticalPacksOn()) {
+    const uniformType =
+      warKind === 'divine' && godKind === 'daedra'
+        ? MOBILE_TYPES.Daedroth
+        : isSideB
+          ? MOBILE_TYPES.Barbarian
+          : MOBILE_TYPES.Knight;
+    return Array.from({ length: n }, () => ({ mobileType: uniformType, tacticalRole: 'tank' }));
+  }
   const lvl = Math.max(1, Math.floor(playerLevel || 1));
   let pool;
   if (warKind === 'divine' && godKind === 'daedra') {
@@ -196,7 +239,7 @@ export function enrichHumanoidSkirmishPool(basePool, count, { side = 'guards', p
   const list = Array.isArray(basePool) && basePool.length ? basePool : [MOBILE_TYPES.Warrior];
   const allClass = list.every((id) => Number.isInteger(id) && id >= 128);
   const lvl = Math.max(1, Math.floor(playerLevel || 1));
-  if (!allClass || n < 3) {
+  if (!isTacticalPacksOn() || !allClass || n < 3) {
     return Array.from({ length: n }, (_, i) => list[i % list.length]);
   }
   const commander = list[0];
@@ -222,7 +265,7 @@ export function enrichHumanoidSkirmishPool(basePool, count, { side = 'guards', p
  */
 export function composeFortPack(baseMobileType, count, playerLevel = 1) {
   const n = Math.max(0, Math.floor(count));
-  if (n <= 1) return n === 1 ? [baseMobileType] : [];
+  if (!isTacticalPacksOn() || n <= 1) return n === 1 ? [baseMobileType] : (n === 0 ? [] : Array(n).fill(baseMobileType));
   const lvl = Math.max(1, Math.floor(playerLevel || 1));
 
   if (baseMobileType >= 128 && baseMobileType !== MOBILE_TYPES.Knight_CityWatch) {

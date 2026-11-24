@@ -130,7 +130,7 @@ export function regionRiskProfile(regionIndex, { online = false, mode = null } =
   const tier = regionRiskTierOf(regIdx);
   const meta = TIER_META[tier];
   /** @type {RegionRiskMode} */
-  const effectiveMode = online
+  const effectiveMode = online || regIdx < 0 || regIdx >= REGION_NAMES.length
     ? 'off'
     : (mode === 'off' || mode === 'standard' || mode === 'harsh' ? mode : regionRiskMode());
   const scales = MODE_SCALES[effectiveMode][tier];
@@ -158,7 +158,7 @@ export function regionRiskProfile(regionIndex, { online = false, mode = null } =
  */
 export function applyRegionRiskToFoe(entity, regionIndex, { online = false, mode = null } = {}) {
   const profile = regionRiskProfile(regionIndex, { online, mode });
-  if (!entity || online || profile.mode === 'off') return profile;
+  if (!entity || online || profile.mode === 'off' || profile.regionIndex < 0) return profile;
 
   if (profile.hpMult > 1) {
     entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 1) * profile.hpMult));

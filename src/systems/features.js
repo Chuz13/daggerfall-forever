@@ -212,6 +212,17 @@ const REGION_RISK_TIERS_UI = Object.freeze([
   tier('harsh', () => t('features.regionalRiskZones.harsh', 'Harsh')),
 ]);
 
+const HERO_THREAT_TIERS_UI = Object.freeze([
+  tier('off', () => t('features.heroThreatScaling.off', 'Off (Vanilla)')),
+  tier('classic', () => t('features.heroThreatScaling.classic', 'Classic (Lv.10+)')),
+  tier('early', () => t('features.heroThreatScaling.early', 'Early (Lv.5+)')),
+]);
+
+const TACTICAL_STAGGER_TIERS_UI = Object.freeze([
+  tier('classic', () => t('features.tacticalStagger.classic', 'Classic (Lv.10+, Soft)')),
+  tier('tactical', () => t('features.tacticalStagger.tactical', 'Tactical (Lv.5+, Hard)')),
+]);
+
 /** FT14 (2026-09-15) - WHAT A MOD'S TILE SHOWS, AND WHAT IT DOES NOT.
  *
  *  The eight vendored mods carried 125 settings keys between them when
@@ -2262,6 +2273,33 @@ export const FEATURES = Object.freeze([
     get effect() { return t('features.combatLethality.effect', 'Takes effect for newly spawned enemies.'); },
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'regionalRiskZones', initial: 'standard', online: 'player', tiers: REGION_RISK_TIERS_UI }),
+  }),
+  Object.freeze({
+    id: 'hero-threat-scaling',
+    group: 'combat',
+    get title() { return t('features.heroThreatScaling.title', 'Hero Threat Scaling'); },
+    get note() { return t('features.heroThreatScaling.note', 'Scales enemies against high-level heroes from level 5 (Early), level 10 (Classic), or disables hero scaling.'); },
+    get effect() { return t('features.combatLethality.effect', 'Takes effect for newly spawned enemies.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'heroThreatMode', initial: 'early', online: 'player', tiers: HERO_THREAT_TIERS_UI }),
+  }),
+  Object.freeze({
+    id: 'tactical-stagger',
+    group: 'combat',
+    get title() { return t('features.tacticalStagger.title', 'Tactical Stagger & Tells'); },
+    get note() { return t('features.tacticalStagger.note', 'Enables level 5+ enemy telegraphed blows, hard player stagger interrupts, and iron knockdowns.'); },
+    get effect() { return t('features.combatLethality.effect', 'Takes effect for newly spawned enemies.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'tacticalStagger', initial: 'tactical', online: 'player', tiers: TACTICAL_STAGGER_TIERS_UI }),
+  }),
+  Object.freeze({
+    id: 'tactical-packs',
+    group: 'combat',
+    get title() { return t('features.tacticalPacks.title', 'Tactical Enemy Packs'); },
+    get note() { return t('features.tacticalPacks.note', 'Composes camps, forts, checkpoints and skirmishes with mixed tanks, archers, casters and commanders.'); },
+    get effect() { return t('features.tacticalPacks.effect', 'Takes effect for newly spawned encounters and forts.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'tacticalPacks', initial: true, online: 'player' }),
   }),
 ]);
 
