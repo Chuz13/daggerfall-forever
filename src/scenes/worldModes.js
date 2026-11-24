@@ -403,6 +403,7 @@ import { HOME_ENTRIES, homePriceOk, homeOnlinePrice, rentCost, rentDaysLeft, HOM
 import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 import { isOfflineHouseOwned } from '../systems/offlineHomes.js';
 import { getTempleCultDoorSubtitle, createSanctuaryInteriorEntry, spawnCultInteriorGuardians, isPlayerCultSiteOwned, interiorCultAltarTargets, interiorCultAltarHoverName, activateInteriorCultAltar } from './apotheosisCultHost.js';
+import { getApotheosisTempleServiceBlock } from '../systems/apotheosis/apotheosisCult.js';
 import { homeListedPrice } from '../net/homeListingLaw.js';   // FOUNDATION F3: a row's price
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
@@ -6074,6 +6075,16 @@ export function createWorldModes(host) {
     // D2: what it sells alone (its services, its quests, the Reforge's and the temple's rows) - DFU's popup stands, and
     // with it OnPush's rank review, a temple's free healing, the Mages' free recharge, Talk and the join
     const ownTemple = !!(interiorBuilding && interiorBuilding.buildingType === BUILDING_TYPES.Temple && isPlayerCultSiteOwned(playerEntity, homeTownOf(interiorBuilding), interiorBuilding.buildingKey));
+    const isTempleHall = !!(guild?.divine || route?.guildGroup === GUILD_GROUPS.HolyOrder);
+    const apoTempleBlockFor = (svc) => (isTempleHall
+      ? getApotheosisTempleServiceBlock(playerEntity, {
+          building: interiorBuilding,
+          guild,
+          factionDict: dict,
+          service: svc,
+          ownTemple,
+        })
+      : { blocked: false });
     const shutBox = () => (ownTemple ? null : (chapterHallShut(host.chapterHere?.(guild.factionId) ?? null) ? { rows: [CHAPTER_HALL_SHUT_LINE] } : null));
     const shutAtOpen = !!shutBox();   // AUDIT CHAP5 C1: asked as the popup opens - a patron's hall has the guild book look before a price reads it; WAY-BACK: and the way back's words read it (AUDIT WAY-BACK L1-3)
     if (!guildServiceArtLoaded() || !_shopFont) return;   // no art, no window (the U8 idiom)
@@ -6136,8 +6147,8 @@ export function createWorldModes(host) {
       rows,
       // OnPush (:158-205) runs once, on construction.
       steps: () => onPushEffects(playerEntity, guild, memberships, store, ownDate(), {
-        freeHealing: ownTemple || freeHealing(guild, membershipOf(seated(), guild)),
-        freeMagickaRecharge: ownTemple || freeMagickaRecharge(guild, membershipOf(seated(), guild), playerEntity),
+        freeHealing: !apoTempleBlockFor('Push').blocked && (ownTemple || freeHealing(guild, membershipOf(seated(), guild))),
+        freeMagickaRecharge: !apoTempleBlockFor('Push').blocked && (ownTemple || freeMagickaRecharge(guild, membershipOf(seated(), guild), playerEntity)),
         revealLocation,   // G8: the TG/DB map reveals - MACRO-4: through the popup's own wrapper, which keeps the name for %dng
         // F114: OwnsHouse per CURRENT region (DaggerfallBankManager.cs:136).
         ownsHouse: () => ownsHouse(playerEntity.houses ?? [], interiorBuilding?.regionIndex ?? 0),
@@ -6176,6 +6187,10 @@ export function createWorldModes(host) {
       onService: () => {
         const shut = shutBox();   // AUDIT CHAP5 D2
         if (shut) return shut;
+        const apoBlock = apoTempleBlockFor(service);
+        if (apoBlock.blocked) {
+          return { rows: [{ text: apoBlock.message, center: true }] };
+        }
         if (!ownTemple && service === 'BuySoulgems' && !isSoulGemPurchaseAllowed(playerEntity, 0).allowed) {
           return { rows: [{ text: t('rcfMagesGemsRefusal', "The guild magistrate shakes his head. 'Soul gems are restricted to trusted allies of the Guild.'"), center: true }] };
         }
@@ -6222,10 +6237,22 @@ export function createWorldModes(host) {
       reforge: route.guildGroup === GUILD_GROUPS.MagesGuild && service === 'Identify' && lootRarityOn() ? () => shutBox() ?? (openReforge() ? { dispatched: true } : null) : null,
       // LOOT16 (the Loot arc II, bible/06-Systems/Loot-II-Arc.md section 8): a temple's Cure Disease priest lifts a curse
       // too - the popup's row in the Reforge's place, on either skin; a dispatch, as a service's is
-      lift: route.guildGroup === GUILD_GROUPS.HolyOrder && service === 'CureDisease' && lootRarityOn() ? () => shutBox() ?? (openLift() ? { dispatched: true } : null) : null,
+      lift: route.guildGroup === GUILD_GROUPS.HolyOrder && service === 'CureDisease' && lootRarityOn()
+        ? () => {
+            const b = apoTempleBlockFor('CureDisease');
+            if (b.blocked) return { rows: [{ text: b.message, center: true }] };
+            return shutBox() ?? (openLift() ? { dispatched: true } : null);
+          }
+        : null,
       // HEAL-CURSE (the owner: "Add a button to the temple services under heal disease named heal curse"): the Cure
       // Disease priest's second row - the curse's offer as a Yes/No box, its rite paid and done on the Yes
-      healCurse: service === 'CureDisease' ? () => shutBox() ?? healCurseBox(ownTemple) : null,
+      healCurse: service === 'CureDisease'
+        ? () => {
+            const b = apoTempleBlockFor('CureDisease');
+            if (b.blocked) return { rows: [{ text: b.message, center: true }] };
+            return shutBox() ?? healCurseBox(ownTemple);
+          }
+        : null,
     });  win = enhancedWindow(win, 'guild');   // PORT4: the enhanced skin's face; the classic window unchanged
     mountServiceWindow(win);
   }

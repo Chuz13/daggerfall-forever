@@ -20,6 +20,10 @@ import { playerEntity } from '../characters/playerEntity.js';
 import { freeLodgedFeet } from '../characters/foeSpacing.js';
 import {
   APOTHEOSIS_PORTFOLIOS,
+  APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST,
+  getPortfolioSwitchCooldownInfo,
+  selectApotheosisPortfolio,
+  communeAtCultAltar,
   getFaithMax,
   spendApotheosisFaith,
   ensureCultPetition,
@@ -993,6 +997,77 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
         },
       });
     }
+
+    const nextDigitIdx = () => options.length + 1;
+    const curDay = Math.floor(Math.max(0, Number(worldMinutes) || 0) / 1440);
+    const communionDoneToday = entity?.apotheosis?.cult?.lastCommunionDay === curDay;
+    const comDigit = nextDigitIdx();
+    options.push({
+      code: `Digit${comDigit}`,
+      label: `${comDigit} - ${t('apotheosis.cult.btnCommuneAltar', 'Commune at Altar (1/day · Free)')}${communionDoneToday ? ` [${t('apotheosis.cult.doneTodayBadge', 'Done Today')}]` : ''}`,
+      action: () => {
+        const res = communeAtCultAltar(entity, site.siteKey, { nowMinutes: worldMinutes });
+        say(res.ok ? res.message : res.reason);
+      },
+    });
+
+    const swDigit = nextDigitIdx();
+    const swCd = getPortfolioSwitchCooldownInfo(entity, worldMinutes);
+    const curPortId = entity?.apotheosis?.portfolio ?? 'war';
+    options.push({
+      code: `Digit${swDigit}`,
+      label: `${swDigit} - ${t('apotheosis.cult.btnAltarSwitchPortfolio', 'Realign Portfolio at Altar ({cost} Faith — 50% off)', {
+        cost: APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST,
+      })}${swCd.onCooldown ? ` [${swCd.remainingDays}d CD]` : ''}`,
+      action: () => {
+        if (swCd.onCooldown) {
+          say(t('apotheosis.err.switch_cooldown', 'Portfolio realignment is on cooldown ({days} days remaining).', {
+            days: swCd.remainingDays,
+          }));
+          return;
+        }
+        const switchOpts = APOTHEOSIS_PORTFOLIOS
+          .filter((p) => p.id !== curPortId)
+          .map((p, idx) => ({
+            code: `Digit${idx + 1}`,
+            label: `${idx + 1} - ${p.name()} (${APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST} Faith)`,
+            action: () => {
+              openConfirm(
+                [
+                  t('apotheosis.cult.confirmSwitchTitle', 'Realign Portfolio to {name}?', { name: p.name() }),
+                  t('apotheosis.cult.confirmCostLine', 'Cost: {cost} Faith (You have {have})', {
+                    cost: APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST,
+                    have: faithCur,
+                  }),
+                  t('apotheosis.cult.confirmSwitchNote', 'Patrons of your former domain lose -20 standing; 30-day realignment cooldown begins.'),
+                ],
+                t('apotheosis.cult.confirmBtnSpend', 'Confirm ({cost} Faith)', { cost: APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST }),
+                () => {
+                  const res = selectApotheosisPortfolio(entity, p.id, { nowMinutes: worldMinutes, atAltar: true });
+                  say(res.ok
+                    ? t('apotheosis.portfolio.switchedMsg', 'Divine Portfolio attuned to: {name}.', { name: p.name() })
+                    : res.error);
+                },
+              );
+            },
+          }));
+        switchOpts.push({
+          code: 'Escape',
+          label: `Esc - ${t('apotheosis.cult.btnBack', 'Back')}`,
+          action: () => openCultAltarModal(entity, site, modalOpts),
+        });
+        showOverlay(new ChoiceWindow({
+          lines: [
+            t('apotheosis.cult.switchModalTitle', 'Realign Divine Portfolio at Altar (50% Discount)'),
+            t('apotheosis.cult.switchModalSub', 'Cost: {cost} Faith (normally 250) · Your Faith: {have}', {
+              cost: APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST,
+              have: faithCur,
+            }),
+          ],
+          options: switchOpts,
+        }));
+      },
+    });
   }
   options.push({ code: 'Escape', label: `Esc - ${t('apotheosis.close', 'Close')}`, action: () => {} });
   showOverlay(new ChoiceWindow({ lines, options }));

@@ -18,6 +18,7 @@ import {
   APOTHEOSIS_QUEST_STEPS,
   APOTHEOSIS_STAGES,
   AURBIS_COMMAND_CATALOG,
+  PORTFOLIO_FAITH_GUIDE,
   GEOPOLITICS_PEACE_COST,
   GEOPOLITICS_WAR_COST,
   PANTHEON_ALLIANCE_COST,
@@ -42,6 +43,7 @@ import {
   evaluateFateWeight,
   executeAurbisCommand,
   forgeDivineAlliance,
+  getAllCultSites,
   getAurbisRuntime,
   getDeityGraceInfo,
   getFaithMax,
@@ -49,6 +51,7 @@ import {
   getPantheonDeity,
   getPortfolioSwitchCooldownInfo,
   getRegionInfluence,
+  getSanctumCommunionInfo,
   getSpawnCreatureFaithCost,
   igniteRegionWar,
   offerDivineTruce,
@@ -213,6 +216,7 @@ let pantheonGeoB = 23;
 let pantheonLogFilter = 'all';
 let pantheonLogSearch = '';
 let pauseCloser = null;
+let completedTrialsOpen = false;
 
 const SPAWNABLE_MOBILES = Object.entries(MOBILE_TYPES)
   .filter(([name, id]) => name !== 'None' && name !== 'Horse_Invalid' && id < 65535)
@@ -241,6 +245,7 @@ export function releaseApotheosisPane() {
   pantheonRegionQuery = '';
   pantheonLogSearch = '';
   pauseCloser = null;
+  completedTrialsOpen = false;
   resetCultSectionUiState();
 }
 
@@ -268,7 +273,8 @@ function currentSections(trackerShown, entity = null) {
   secs.push(['pantheon_chronicle', t('apotheosis.pantheon.tabChronicle', 'Pantheon Chronicle')]);
   secs.push(['cult', cultLabel]);
   secs.push(['edicts', t('apotheosis.cult.subTabEdicts', 'Regional Edicts')]);
-  if (isAscended && trackerShown) {
+  if (isAscended && trackerShown && (completedTrialsOpen || activeSec === 'meta' || activeSec === 'blood' || activeSec === 'power')) {
+    completedTrialsOpen = true;
     secs.push(['meta', t('apotheosis.sec.meta', 'CHIM & Mind')]);
     secs.push(['blood', t('apotheosis.sec.blood', 'Blood & Crucible')]);
     secs.push(['power', t('apotheosis.sec.power', 'Dominion & World')]);
@@ -470,6 +476,22 @@ function renderPortfolioCards(container, state, entity, repaint) {
       el('div', 'apo-card-desc', p.passivesSummary ? p.passivesSummary() : p.summary()),
       el('div', 'apo-card-desc', p.summary()),
     );
+    const guide = PORTFOLIO_FAITH_GUIDE[p.id];
+    if (guide) {
+      const fBox = el('div', 'apo-meta-row');
+      fBox.style.marginTop = '4px';
+      const lines = [
+        `${t('apotheosis.faithGuide.hdr', 'Faith Sources')}: ${guide.sources().join(' · ')}`,
+      ];
+      const caveat = guide.caveat?.();
+      if (caveat) lines.push(caveat);
+      lines.push(`${t('apotheosis.faithGuide.aligned', 'Aligned Miracles')}: ${guide.alignedMiracles()}`);
+      lines.push(`${t('apotheosis.faithGuide.opposed', 'Opposed')}: ${guide.opposedMiracles()}`);
+      for (const ln of lines) {
+        fBox.append(el('div', 'apo-card-desc', ln));
+      }
+      card.append(fBox);
+    }
     const acts = el('div', 'apo-acts');
     const needsSwitchFee = Boolean(state.ascended && state.portfolio && !isCurrent);
     const onCooldown = needsSwitchFee && switchCd.onCooldown;
@@ -548,18 +570,36 @@ function renderOverview(detail, entity, trackerShown, repaint) {
   }
 
   if (state.ascended && activeDef) {
+    const curGuide = PORTFOLIO_FAITH_GUIDE[state.portfolio];
+    let nowMinOverview = 0;
+    try { nowMinOverview = worldMinutes() || 0; } catch { nowMinOverview = 0; }
+    const communionInfo = getSanctumCommunionInfo(entity, nowMinOverview);
     const godBox = el('div', 'apo-box');
     godBox.append(
       el('h4', null, t('apotheosis.overview.divinityTitle', 'Divine Mantle')),
       el('div', 'apo-card-desc', activeDef.passivesSummary ? activeDef.passivesSummary() : activeDef.summary()),
       el('div', 'apo-meta-row', t('apotheosis.overview.baseBoons', 'Divine Vessel Boons: +500 Max Health · +500 Max Magicka · +500 Max Fatigue · Immortal Rebirth (+1 Day)')),
-      el('div', 'apo-meta-row', t('apotheosis.overview.divinityMeta', 'Source: {source} · Sacrificed Artifacts: {count}', {
+      el('div', 'apo-meta-row', t('apotheosis.overview.divinityMetaWithFate', 'Source: {source} · Sacrificed Artifacts: {count} · Fate Weight: {cur}/{total}', {
         source: state.source === 'mantella'
           ? t('apotheosis.source.mantella', 'Mantella')
           : t('apotheosis.source.artifacts', '13 Daedric Artifacts'),
         count: state.sacrificedArtifacts.length,
+        cur: fate.count,
+        total: fate.total,
       })),
     );
+    if (curGuide) {
+      godBox.append(el('div', 'apo-card-desc', `${t('apotheosis.faithGuide.hdr', 'Faith Sources')}: ${curGuide.sources().join(' · ')}`));
+      const caveat = curGuide.caveat?.();
+      if (caveat) godBox.append(el('div', 'apo-meta-row', caveat));
+    }
+    if (communionInfo) {
+      const hrs = Math.max(1, Math.ceil(communionInfo.minutesLeft / 60));
+      godBox.append(el('div', 'apo-pill ok', t('apotheosis.communion.overviewPill', 'Sanctum Communion Active: +{pct}% Faith Gain & Decay Shield ({hrs}h left)', {
+        pct: communionInfo.bonusPct,
+        hrs,
+      })));
+    }
     const acts = el('div', 'apo-acts');
     const manageBtn = el('button', 'apo-btn primary',
       t('apotheosis.overview.changePortfolioCostBtn', 'Change Portfolio ({cost} Faith)', { cost: APOTHEOSIS_PORTFOLIO_SWITCH_COST }));
@@ -575,6 +615,23 @@ function renderOverview(detail, entity, trackerShown, repaint) {
     acts.append(manageBtn, aurbisBtn);
     godBox.append(acts);
     detail.append(godBox);
+
+    if (getAllCultSites(entity, { ownedOnly: true }).length === 0) {
+      const onb = el('div', 'apo-banner');
+      onb.append(
+        el('div', 'apo-card-title', t('apotheosis.onboarding.firstSanctumTitle', 'Next Step: Claim Your First Sanctuary')),
+        el('div', 'apo-card-desc', t('apotheosis.onboarding.firstSanctumDesc', 'Enter any city Temple and activate its altar to consecrate it, OR open Temples & Underground Sanctuaries to found an Undercroft (350 Faith + 50,000g) — raising your Max Faith cap and unlocking Regional Edicts.')),
+      );
+      const onbActs = el('div', 'apo-acts');
+      const goCultBtn = el('button', 'apo-btn primary', t('apotheosis.onboarding.btnOpenCult', 'Open Temples & Underground Sanctuaries'));
+      goCultBtn.onclick = () => {
+        activeSec = 'cult';
+        repaint({ resetDetailScroll: true });
+      };
+      onbActs.append(goCultBtn);
+      onb.append(onbActs);
+      detail.append(onb);
+    }
 
     const activeSieges = getActiveCultSieges(entity);
     const activeWars = getActiveGodWars(entity);
@@ -613,63 +670,65 @@ function renderOverview(detail, entity, trackerShown, repaint) {
     detail.append(guideBox);
   }
 
-  if (trackerShown) {
-    const fwBox = el('div', 'apo-box');
-    fwBox.append(el('h4', null, t('apotheosis.overview.fwTitle', 'Fate Weight Progress')));
-    const pct = Math.min(100, Math.round((fate.count / fate.total) * 100));
-    const barWrap = el('div', 'apo-bar-wrap');
-    const fill = el('div', 'apo-bar-fill');
-    fill.style.width = `${pct}%`;
-    barWrap.append(fill);
-    fwBox.append(barWrap);
-    fwBox.append(el('div', 'apo-meta-row',
-      t('apotheosis.overview.fwStatus', 'Fulfilled: {cur}/{total} (Ascension requires {req}){debugNote}', {
-        cur: fate.count,
-        total: fate.total,
-        req: fate.required,
-        debugNote: fate.debugBoosted ? t('apotheosis.overview.debugTag', ' · Debug Override') : '',
-      })));
-    detail.append(fwBox);
-  } else {
-    detail.append(el('div', 'apo-box',
-      t('apotheosis.overview.trackerHidden', 'Fate Weight tracker display is currently disabled in Settings › DFF › Apotheosis.')));
-  }
+  if (!state.ascended) {
+    if (trackerShown) {
+      const fwBox = el('div', 'apo-box');
+      fwBox.append(el('h4', null, t('apotheosis.overview.fwTitle', 'Fate Weight Progress')));
+      const pct = Math.min(100, Math.round((fate.count / fate.total) * 100));
+      const barWrap = el('div', 'apo-bar-wrap');
+      const fill = el('div', 'apo-bar-fill');
+      fill.style.width = `${pct}%`;
+      barWrap.append(fill);
+      fwBox.append(barWrap);
+      fwBox.append(el('div', 'apo-meta-row',
+        t('apotheosis.overview.fwStatus', 'Fulfilled: {cur}/{total} (Ascension requires {req}){debugNote}', {
+          cur: fate.count,
+          total: fate.total,
+          req: fate.required,
+          debugNote: fate.debugBoosted ? t('apotheosis.overview.debugTag', ' · Debug Override') : '',
+        })));
+      detail.append(fwBox);
+    } else {
+      detail.append(el('div', 'apo-box',
+        t('apotheosis.overview.trackerHidden', 'Fate Weight tracker display is currently disabled in Settings › DFF › Apotheosis.')));
+    }
 
-  const artBox = el('div', 'apo-box');
-  artBox.append(
-    el('h4', null, t('apotheosis.overview.sacTitle', 'Direct Ascension via Daedric Artifacts')),
-    el('div', 'apo-card-desc',
-      t('apotheosis.overview.sacDesc', 'Gather Fate Weight ({req}/{total}) and shatter {arts} distinct unequipped Daedric artifacts from your pack — or alternatively, seek out a source of great power. Perhaps it is somehow tied to the mission the Emperor gave you?', {
-        req: fate.required,
-        total: fate.total,
-        arts: REQUIRED_ARTIFACTS_COUNT,
-      })),
-    el('div', 'apo-meta-row',
-      t('apotheosis.overview.sacCounts', 'Distinct unequipped in pack: {cur}/{req} · Equipped (protected): {eq}', {
-        cur: artifacts.distinctUnequippedCount,
-        req: REQUIRED_ARTIFACTS_COUNT,
-        eq: artifacts.equippedCount,
-      })),
-  );
-  if (reason) {
-    artBox.append(el('div', 'apo-meta-row', reason));
+    const artBox = el('div', 'apo-box');
+    artBox.append(
+      el('h4', null, t('apotheosis.overview.sacTitle', 'Direct Ascension via Daedric Artifacts')),
+      el('div', 'apo-card-desc',
+        t('apotheosis.overview.sacDesc', 'Gather Fate Weight ({req}/{total}) and shatter {arts} distinct unequipped Daedric artifacts from your pack — or alternatively, seek out a source of great power. Perhaps it is somehow tied to the mission the Emperor gave you?', {
+          req: fate.required,
+          total: fate.total,
+          arts: REQUIRED_ARTIFACTS_COUNT,
+        })),
+      el('div', 'apo-meta-row',
+        t('apotheosis.overview.sacCounts', 'Distinct unequipped in pack: {cur}/{req} · Equipped (protected): {eq}', {
+          cur: artifacts.distinctUnequippedCount,
+          req: REQUIRED_ARTIFACTS_COUNT,
+          eq: artifacts.equippedCount,
+        })),
+    );
+    if (reason) {
+      artBox.append(el('div', 'apo-meta-row', reason));
+    }
+    if (state.mantellaVanillaChosen && !state.ascended && state.stage === APOTHEOSIS_STAGES.MORTAL) {
+      artBox.append(el('div', 'apo-meta-row',
+        t('apotheosis.overview.mantellaMortalChosen', 'The Mantella was yielded to its mortal fate; Ascension now rests solely upon shattering 13 Daedric Artifacts.')));
+    }
+    const acts = el('div', 'apo-acts');
+    const startBtn = el('button', `apo-btn${eligible ? ' primary' : ''}`,
+      t('apotheosis.overview.shatterBtn', 'Select & Shatter 13 Artifacts'));
+    startBtn.disabled = !eligible;
+    startBtn.onclick = () => {
+      selectedItems = autoPickDistinctArtifacts(artifacts.unequippedEntries);
+      pickerOpen = true;
+      repaint();
+    };
+    acts.append(startBtn);
+    artBox.append(acts);
+    detail.append(artBox);
   }
-  if (state.mantellaVanillaChosen && !state.ascended && state.stage === APOTHEOSIS_STAGES.MORTAL) {
-    artBox.append(el('div', 'apo-meta-row',
-      t('apotheosis.overview.mantellaMortalChosen', 'The Mantella was yielded to its mortal fate; Ascension now rests solely upon shattering 13 Daedric Artifacts.')));
-  }
-  const acts = el('div', 'apo-acts');
-  const startBtn = el('button', `apo-btn${eligible ? ' primary' : ''}`,
-    t('apotheosis.overview.shatterBtn', 'Select & Shatter 13 Artifacts'));
-  startBtn.disabled = !eligible;
-  startBtn.onclick = () => {
-    selectedItems = autoPickDistinctArtifacts(artifacts.unequippedEntries);
-    pickerOpen = true;
-    repaint();
-  };
-  acts.append(startBtn);
-  artBox.append(acts);
-  detail.append(artBox);
 }
 
 function renderCategory(detail, category) {
@@ -790,6 +849,21 @@ function renderAurbisPage(detail, entity, repaint) {
       t('apotheosis.aurbis.locked', 'Ascend to Godhood and claim a Divine Portfolio to unlock the Scroll of Aurbis and weave Reality with Faith.')));
     return;
   }
+
+  // UX-1: Witness & Alignment explainer
+  const curGuide = PORTFOLIO_FAITH_GUIDE[state.portfolio];
+  const witBox = el('div', 'apo-box');
+  witBox.append(
+    el('h4', null, t('apotheosis.aurbis.witnessTitle', 'Witnesses & Portfolio Alignment (25m)')),
+    el('div', 'apo-card-desc', t('apotheosis.aurbis.witnessExplain', 'Mortals within 25m witness public decrees: Aligned decrees grant +15 Faith (up to 3/day); Opposed decrees cost -20 Faith. Sneaking or concealing avoids witnesses.')),
+  );
+  if (curGuide) {
+    witBox.append(
+      el('div', 'apo-meta-row', `${t('apotheosis.faithGuide.aligned', 'Aligned Miracles')}: ${curGuide.alignedMiracles()}`),
+      el('div', 'apo-meta-row', `${t('apotheosis.faithGuide.opposed', 'Opposed')}: ${curGuide.opposedMiracles()}`),
+    );
+  }
+  detail.append(witBox);
 
   // Quick Miracles
   const quickBox = el('div', 'apo-box');
@@ -1146,6 +1220,17 @@ function renderPantheonDeitiesView(detail, entity, pantheon, nowMin, repaint) {
   const summary = getGlobalInfluenceSummary(entity);
   const state = ensureApotheosisState(entity);
 
+  // UX-3: Upfront Diplomacy, War & Roadside Shrine rules
+  const rulesBox = el('div', 'apo-box');
+  rulesBox.append(
+    el('h4', null, t('apotheosis.pantheon.rulesTitle', 'Pantheon Diplomacy, Wars & Roadside Shrines')),
+    el('div', 'apo-card-desc', t('apotheosis.pantheon.rulesAllies', '• Allies: +1 Allied God Champion automatically joins every Champion summon.')),
+    el('div', 'apo-card-desc', t('apotheosis.pantheon.rulesTruces', '• Truce Victories (3/3): Winning 3 sieges or Champion battles against a warring deity drops their Divine Truce cost to 0 Faith.')),
+    el('div', 'apo-card-desc', t('apotheosis.pantheon.rulesSkirmishes', '• War Skirmishes (3/3): Pacifying 3 wilderness skirmishes (Diplomacy DC 85) ends a regional war early (+100 Faith & +3% Influence).')),
+    el('div', 'apo-card-desc', t('apotheosis.pantheon.rulesShrines', '• Roadside Shrines: Wild highway shrines pay 3× Desecration rewards (45 Faith & 1.5% Influence) compared to town shrines.')),
+  );
+  detail.append(rulesBox);
+
   const statBox = el('div', 'apo-box');
   statBox.append(
     el('h4', null, t('apotheosis.pantheon.sumTitle', 'Tamrielic Standing & Discord')),
@@ -1251,6 +1336,13 @@ function renderPantheonDeitiesView(detail, entity, pantheon, nowMin, repaint) {
           t('apotheosis.pantheon.alliedBonusNote', 'Allied Bonus: +1 {name} Champion on Summon', { name: d.name }));
         bonusNote.style.alignSelf = 'flex-start';
         card.append(bonusNote);
+      }
+      if (entry.status === 'war' || entry.relation <= -40 || (entry.championsDefeated ?? 0) > 0) {
+        const vic = Math.min(3, Math.max(0, Math.trunc(Number(entry.championsDefeated) || 0)));
+        const vicBadge = el('div', `apo-pill ${vic >= 3 ? 'ok' : 'info'}`,
+          t('apotheosis.pantheon.truceVictoriesBadge', 'Truce Victories: {cur}/3 (0F at 3/3)', { cur: vic }));
+        vicBadge.style.alignSelf = 'flex-start';
+        card.append(vicBadge);
       }
 
       const acts = el('div', 'apo-acts');
@@ -1681,7 +1773,20 @@ function paint(root, { resetDetailScroll = false } = {}) {
         if (id === 'overview') {
           rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.godhood', 'Godhood')));
         } else if (id === 'meta') {
-          rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.completedTrials', 'Completed Trials')));
+          const togBtn = el('button', 'apo-qrail-group-hdr', `${completedTrialsOpen ? '▾' : '▸'} ${t('apotheosis.group.completedTrials', 'Completed Trials')}`);
+          togBtn.style.background = 'none';
+          togBtn.style.border = 'none';
+          togBtn.style.textAlign = 'left';
+          togBtn.style.cursor = 'pointer';
+          togBtn.style.width = '100%';
+          togBtn.onclick = () => {
+            completedTrialsOpen = !completedTrialsOpen;
+            if (!completedTrialsOpen && (activeSec === 'meta' || activeSec === 'blood' || activeSec === 'power')) {
+              activeSec = 'overview';
+            }
+            repaint();
+          };
+          rail.append(togBtn);
         }
       } else if (id === 'overview') {
         rail.append(el('div', 'apo-qrail-group-hdr', t('apotheosis.group.ascension', 'Ascension')));
@@ -1695,6 +1800,19 @@ function paint(root, { resetDetailScroll = false } = {}) {
         repaint({ resetDetailScroll: true });
       };
       rail.append(b);
+    }
+    if (canBadge && trackerShown && !completedTrialsOpen) {
+      const togBtn = el('button', 'apo-qrail-group-hdr', `▸ ${t('apotheosis.group.completedTrials', 'Completed Trials')} (3)`);
+      togBtn.style.background = 'none';
+      togBtn.style.border = 'none';
+      togBtn.style.textAlign = 'left';
+      togBtn.style.cursor = 'pointer';
+      togBtn.style.width = '100%';
+      togBtn.onclick = () => {
+        completedTrialsOpen = true;
+        repaint();
+      };
+      rail.append(togBtn);
     }
     wrap.append(rail);
 
@@ -1725,6 +1843,10 @@ function paint(root, { resetDetailScroll = false } = {}) {
         rootModalParent: root,
         setFeedback,
         closePause: pauseCloser,
+        onOpenSection: (secId) => {
+          activeSec = secId;
+          repaint({ resetDetailScroll: true });
+        },
       });
     } else {
       const fate = evaluateFateWeight(entity);

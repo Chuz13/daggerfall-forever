@@ -356,9 +356,13 @@ export function createApotheosisRoadShrinesHost({
     if (typeof key !== 'string' || !key.startsWith(SHRINE_KEY_PREFIX)) return null;
     const s = _shrines.get(key);
     if (!s) return null;
+    const subs = [t('apotheosis.roadShrine.hoverSub', 'Pray / Donate or Desecrate')];
+    if (s.isWild) {
+      subs.push(t('apotheosis.roadShrine.hoverWildBonus', 'Wild Highway Shrine · 3x Desecration Reward'));
+    }
     return {
       title: s.title,
-      subs: [t('apotheosis.roadShrine.hoverSub', 'Pray / Donate or Desecrate')],
+      subs,
     };
   }
 

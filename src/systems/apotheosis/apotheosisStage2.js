@@ -513,7 +513,16 @@ export function addApotheosisFaith(entity, amount, {
   }
   const maxFaith = getFaithMax(apo);
   const rawDelta = Math.max(0, Math.trunc(Number(amount) || 0));
-  const gainMult = raw ? 1 : getApotheosisFaithGainMultiplier();
+  let gainMult = raw ? 1 : getApotheosisFaithGainMultiplier();
+  if (!raw && gainMult > 0) {
+    const refMin = nowMinutes != null && Number.isFinite(Number(nowMinutes))
+      ? Number(nowMinutes)
+      : (Number.isFinite(Number(entity?._lastWorldMinutes)) ? Number(entity._lastWorldMinutes) : null);
+    const cb = apo.communionBuff;
+    if (refMin != null && cb && typeof cb === 'object' && Number(cb.expiresAtMinutes) > refMin) {
+      gainMult *= 1 + ((Number(cb.bonusPct) || 15) / 100);
+    }
+  }
   const delta = rawDelta > 0 ? Math.max(1, Math.round(rawDelta * gainMult)) : 0;
   const before = apo.faith;
   apo.faith = before >= maxFaith ? before : Math.min(maxFaith, before + delta);
@@ -917,11 +926,19 @@ export function setPantheonTickHook(fn) {
  * a game day without earning Faith in their Portfolio, plus passive Order stewardship
  * if lawful in their current region (`bounty === 0 && legalRep >= 15`).
  */
-export function tickApotheosisMythicDecay(entity, nowMinutes = 0, { daysOverride = null } = {}) {
+export function tickApotheosisMythicDecay(entity, nowMinutes = 0, { daysOverride = null, allowPreAscension = false } = {}) {
   tickApotheosisChampions(nowMinutes);
   const apo = normalizeStage2Fields(entity);
   if (!apo || !isAscendedGod(entity)) {
-    return { decayedDays: 0, faithLost: 0, orderBonus: 0, netDelta: 0, faithBefore: apo?.faith ?? 0, faithAfter: apo?.faith ?? 0 };
+    let pantheon = null;
+    if (entity && allowPreAscension && _pantheonTickHook) {
+      try {
+        pantheon = _pantheonTickHook(entity, nowMinutes, { daysOverride, allowPreAscension: true });
+      } catch (e) {
+        console.warn('[apotheosis] pre-ascension pantheon tick failed:', e);
+      }
+    }
+    return { decayedDays: 0, faithLost: 0, orderBonus: 0, netDelta: 0, faithBefore: apo?.faith ?? 0, faithAfter: apo?.faith ?? 0, pantheon };
   }
   const currentDay = dayIndexFromMinutes(nowMinutes);
   const faithBefore = apo.faith;
@@ -1175,7 +1192,7 @@ export function handleApotheosisQuestFaith(entity, quest = null) {
   return 0;
 }
 
-registerApotheosisEventHandler('mythicDecayTick', ({ entity, nowMinutes }) => tickApotheosisMythicDecay(entity, nowMinutes));
+registerApotheosisEventHandler('mythicDecayTick', ({ entity, nowMinutes }) => tickApotheosisMythicDecay(entity, nowMinutes, { allowPreAscension: true }));
 registerApotheosisEventHandler('bountyPaid', ({ entity, bounty, nowMinutes }) => handleApotheosisBountyPaid(entity, bounty, { nowMinutes }));
 registerApotheosisEventHandler('templeDonation', ({ entity, divineFactionId, amount, nowMinutes }) => handleApotheosisTempleDonation(entity, divineFactionId, amount, { nowMinutes }));
 registerApotheosisEventHandler('magicCraft', ({ entity, craftKind, goldSpent, nowMinutes }) => recordApotheosisMagicCraft(entity, craftKind, { goldSpent, nowMinutes }));

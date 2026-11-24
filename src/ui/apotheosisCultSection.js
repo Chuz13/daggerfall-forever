@@ -915,7 +915,7 @@ function renderSanctuariesView(detail, modalRoot, entity, pantheon, nowMin, repa
   renderSpecializationModal(modalRoot, entity, nowMin, repaint, setFeedback);
 }
 
-function renderEdictsView(detail, entity, nowMin, repaint, setFeedback) {
+function renderEdictsView(detail, entity, nowMin, repaint, setFeedback, onOpenSection = null) {
   const curReg = resolveLiveRegionIndex(entity);
   if (cultEdictRegion == null || cultEdictRegion < 0 || cultEdictRegion >= TAMRIEL_REGION_COUNT) {
     cultEdictRegion = curReg;
@@ -1005,6 +1005,11 @@ function renderEdictsView(detail, entity, nowMin, repaint, setFeedback) {
   statRow.append(uiEl('span', `apo-pill ${elig.ok ? 'ok' : 'bad'}`, elig.ok
     ? t('apotheosis.edict.eligible', 'Eligible ({inf}% Inf • {sites} Sanctums)', { inf: elig.influence.toFixed(1), sites: elig.ownedCount })
     : t('apotheosis.edict.notEligible', 'Needs >=25% Influence or 1 Sanctum ({inf}%)', { inf: elig.influence.toFixed(1) })));
+  if (!elig.ok && typeof onOpenSection === 'function') {
+    const goCult = uiEl('button', 'apo-btn primary', t('apotheosis.onboarding.btnGoSanctums', 'Go to Temples & Sanctuaries'));
+    goCult.onclick = () => onOpenSection('cult');
+    statRow.append(goCult);
+  }
   if (active && REGIONAL_EDICTS[active.edictId]) {
     const sp = REGIONAL_EDICTS[active.edictId];
     statRow.append(uiEl('span', 'apo-pill ok', t('apotheosis.edict.activeBadge', 'Active: {name} ({days}d left)', {
@@ -1070,7 +1075,7 @@ function renderEdictsView(detail, entity, nowMin, repaint, setFeedback) {
 }
 
 /** Renders Milestone 3.2 Cult & Sanctuaries OR 71-Region Edicts view inside Apotheosis Pause UI. */
-export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', rootModalParent = null, setFeedback, closePause = null }) {
+export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', rootModalParent = null, setFeedback, closePause = null, onOpenSection = null }) {
   let nowMin = 0;
   try {
     nowMin = Number(getAurbisRuntime().getWorldMinutes?.() ?? 0) || 0;
@@ -1095,8 +1100,16 @@ export function renderCultPage(detail, entity, repaint, { mode = 'sanctuaries', 
   ensureCultState(entity);
 
   if (mode === 'edicts') {
-    renderEdictsView(detail, entity, nowMin, repaint, setFeedback);
+    renderEdictsView(detail, entity, nowMin, repaint, setFeedback, onOpenSection);
   } else {
+    if (getAllCultSites(entity, { ownedOnly: true }).length === 0) {
+      const onbBox = uiEl('div', 'apo-banner');
+      onbBox.append(
+        uiEl('div', 'apo-card-title', t('apotheosis.onboarding.cultHeaderTitle', 'How to Claim Your First Sanctum')),
+        uiEl('div', 'apo-card-desc', t('apotheosis.onboarding.cultHeaderDesc', 'Enter any city Temple and activate its altar to consecrate it, OR click "Found Underground Undercroft" below (350 Faith + 50,000g) to raise your Faith cap and unlock Regional Edicts. Tip: Wild highway Roadside Shrines pay 3× Desecration rewards!')),
+      );
+      detail.append(onbBox);
+    }
     const rb = getRoadBlessingInfo(entity, nowMin);
     if (rb) {
       const box = uiEl('div', 'apo-box');
