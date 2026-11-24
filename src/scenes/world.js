@@ -30851,6 +30851,122 @@ export async function bootWorld(canvas, renderer, params, status) {
         exteriorFoes.damageFoe(body, 99999, null, null, { fromPlayer: false, bypassShield: true });
       }
     },
+    spawnRevenant: async (r, { hp = null } = {}) => {
+      if (!r) return null;
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      const yaw = cam?.yaw ?? 0;
+      const fwdX = Math.sin(yaw);
+      const fwdZ = Math.cos(yaw);
+      let dist = 3.0;
+      if (collider?.raycastHit) {
+        const hit = collider.raycastHit([p[0], p[1] + 1.2, p[2]], [fwdX, 0, fwdZ], dist + 0.5);
+        if (hit && Number.isFinite(hit.dist) && hit.back !== true && hit.dist < dist) {
+          dist = Math.max(1.2, hit.dist - 0.5);
+        }
+      }
+      const spawnX = p[0] + fwdX * dist;
+      const spawnZ = p[2] + fwdZ * dist;
+      const spawnY = (collider?.heightAt?.(spawnX, spawnZ) ?? p[1]) || p[1];
+      const spawnPos = [spawnX, spawnY, spawnZ];
+      if (typeof lodgedIn === 'function' && lodgedIn(collider, spawnPos)) {
+        if (typeof freeLodgedFeet === 'function') freeLodgedFeet(collider, spawnPos);
+      }
+      const so = revenantSpawnOptions(r, effectiveLevel(playerEntity));
+      const dCtx = modes?.dungeonCtx;
+      let f = null;
+      if (modes?.mode === 'dungeon' && dCtx?.spawnLooseFoe) {
+        f = await dCtx.spawnLooseFoe(r.mobileType, spawnPos, { yawRad: yaw + Math.PI, revenant: r, gender: so.gender, level: so.level });
+      } else if (exteriorFoes?.spawnFoe) {
+        f = await exteriorFoes.spawnFoe(r.mobileType, spawnPos, { yaw: yaw + Math.PI, feetGiven: true, loose: true, band: false, ...so });
+      }
+      if (f && Number.isFinite(hp) && hp > 0 && f.entity) {
+        f.entity.health = Math.max(1, Math.min(f.entity.maxHealth || hp, Math.round(hp)));
+      }
+      return f;
+    },
+    spawnSparDuelist: async ({ wager = 50, level = null, hp = null, mobileType = null, adv = null } = {}) => {
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      const yaw = cam?.yaw ?? 0;
+      const fwdX = Math.sin(yaw);
+      const fwdZ = Math.cos(yaw);
+      let dist = 3.0;
+      if (collider?.raycastHit) {
+        const hit = collider.raycastHit([p[0], p[1] + 1.2, p[2]], [fwdX, 0, fwdZ], dist + 0.5);
+        if (hit && Number.isFinite(hit.dist) && hit.back !== true && hit.dist < dist) {
+          dist = Math.max(1.2, hit.dist - 0.5);
+        }
+      }
+      const spawnX = p[0] + fwdX * dist;
+      const spawnZ = p[2] + fwdZ * dist;
+      const spawnY = (collider?.heightAt?.(spawnX, spawnZ) ?? p[1]) || p[1];
+      const spawnPos = [spawnX, spawnY, spawnZ];
+      if (typeof lodgedIn === 'function' && lodgedIn(collider, spawnPos)) {
+        if (typeof freeLodgedFeet === 'function') freeLodgedFeet(collider, spawnPos);
+      }
+      const lvl = Number.isFinite(level) && level > 0 ? Math.round(level) : effectiveLevel(playerEntity);
+      const mType = Number.isInteger(mobileType) ? mobileType : MOBILE_TYPES.Knight;
+      const dCtx = modes?.dungeonCtx;
+      let f = null;
+      if (modes?.mode === 'dungeon' && dCtx?.spawnLooseFoe) {
+        f = await dCtx.spawnLooseFoe(mType, spawnPos, { yawRad: yaw + Math.PI, level: lvl });
+      } else if (exteriorFoes?.spawnFoe) {
+        f = await exteriorFoes.spawnFoe(mType, spawnPos, { yaw: yaw + Math.PI, feetGiven: true, loose: true, transient: true, managed: true, band: false, level: lvl });
+      }
+      if (f) {
+        f.livingRole = 'rival_adventurer';
+        f._advRecord = adv ?? null;
+        if (adv && f.entity) {
+          f.entity.name = `${adv.name} (${adv.className})`;
+          const { equipAdventurerEntity } = await import('../systems/living/adventurerGear.js');
+          equipAdventurerEntity(f.entity, adv, lvl, Math.random);
+        } else if (f.entity) {
+          f.entity.name = 'Sparring Duelist';
+        }
+        f._isSparring = true;
+        f._duelWager = Math.max(0, Math.round(Number(wager) || 0));
+        f._surrenderedSpar = false;
+        f._sparGraceLeft = 0;
+        f._sparKneeling = false;
+        if (Number.isFinite(hp) && hp > 0 && f.entity) {
+          f.entity.health = Math.max(1, Math.min(f.entity.maxHealth || hp, Math.round(hp)));
+        }
+        if (f.ai) {
+          f.ai.isHostile = true;
+          f.ai.detected = true;
+          f.ai.target = playerEntity;
+          f.ai.secondaryTarget = null;
+          f.ai.makeHostileToPlayer?.(undefined, f.ai.feet);
+          if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
+        }
+      }
+      return f;
+    },
+    getNearestFoe: () => {
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      const yaw = cam?.yaw ?? 0;
+      const fwd = [Math.sin(yaw), 0, Math.cos(yaw)];
+      const activePool = modes?.mode === 'dungeon' ? modes?.dungeonCtx?.foes : modes?.mode === 'interior' ? modes?.interiorFoes?.foes : exteriorFoes?.foes;
+      const list = (activePool ?? []).filter((f) => f && !f.dead && !f.companion);
+      let best = null;
+      let bestScore = Infinity;
+      for (const f of list) {
+        const fPos = f.ai?.feet ?? f.pos;
+        if (!fPos) continue;
+        const dx = fPos[0] - p[0];
+        const dy = fPos[1] - p[1];
+        const dz = fPos[2] - p[2];
+        const dist = Math.hypot(dx, dy, dz);
+        if (dist > 30) continue;
+        const dist2d = Math.hypot(dx, dz) || 1;
+        const dot = (dx * fwd[0] + dz * fwd[2]) / dist2d;
+        const score = dot > 0.2 ? dist - dot * 5 : dist + 20;
+        if (score < bestScore) {
+          bestScore = score;
+          best = f;
+        }
+      }
+      return best;
+    },
     setPlayerPos: (x, y, z) => {
       if (typeof player?.spawn === 'function') player.spawn(x, y, z);
       else if (player?.pos) { player.pos[0] = x; player.pos[1] = y; player.pos[2] = z; }

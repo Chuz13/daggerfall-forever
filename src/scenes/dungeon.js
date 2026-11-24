@@ -678,6 +678,83 @@ export async function bootDungeon(canvas, renderer, params, status) {
       }
       return spawned;
     },
+    spawnRevenant: async (r, { hp = null } = {}) => {
+      if (!r || !ctx?.spawnLooseFoe) return null;
+      const p = player?.pos ? [...player.pos] : [0, 0, 0];
+      const yaw = cam?.yaw ?? 0;
+      const pos = [p[0] + Math.sin(yaw) * 2.8, p[1], p[2] + Math.cos(yaw) * 2.8];
+      const [{ revenantSpawnOptions }, { effectiveLevel }] = await Promise.all([
+        import('../systems/revenant/revenant.js'),
+        import('../systems/mentorMode.js'),
+      ]);
+      const so = revenantSpawnOptions(r, effectiveLevel(playerEntity));
+      const f = await ctx.spawnLooseFoe(r.mobileType, pos, { yawRad: yaw + Math.PI, revenant: r, gender: so.gender, level: so.level });
+      if (f && Number.isFinite(hp) && hp > 0 && f.entity) {
+        f.entity.health = Math.max(1, Math.min(f.entity.maxHealth || hp, Math.round(hp)));
+      }
+      return f;
+    },
+    spawnSparDuelist: async ({ wager = 50, level = null, hp = null, mobileType = null, adv = null } = {}) => {
+      if (!ctx?.spawnLooseFoe) return null;
+      const p = player?.pos ? [...player.pos] : [0, 0, 0];
+      const yaw = cam?.yaw ?? 0;
+      const pos = [p[0] + Math.sin(yaw) * 2.8, p[1], p[2] + Math.cos(yaw) * 2.8];
+      const [{ MOBILE_TYPES }, { effectiveLevel }] = await Promise.all([
+        import('../characters/mobile/mobileTypes.js'),
+        import('../systems/mentorMode.js'),
+      ]);
+      const lvl = Number.isFinite(level) && level > 0 ? Math.round(level) : effectiveLevel(playerEntity);
+      const mType = Number.isInteger(mobileType) ? mobileType : MOBILE_TYPES.Knight;
+      const f = await ctx.spawnLooseFoe(mType, pos, { yawRad: yaw + Math.PI, level: lvl });
+      if (f) {
+        f.livingRole = 'rival_adventurer';
+        f._advRecord = adv ?? null;
+        if (adv && f.entity) {
+          f.entity.name = `${adv.name} (${adv.className})`;
+          const { equipAdventurerEntity } = await import('../systems/living/adventurerGear.js');
+          equipAdventurerEntity(f.entity, adv, lvl, Math.random);
+        } else if (f.entity) {
+          f.entity.name = 'Sparring Duelist';
+        }
+        f._isSparring = true;
+        f._duelWager = Math.max(0, Math.round(Number(wager) || 0));
+        f._surrenderedSpar = false;
+        f._sparGraceLeft = 0;
+        f._sparKneeling = false;
+        if (Number.isFinite(hp) && hp > 0 && f.entity) {
+          f.entity.health = Math.max(1, Math.min(f.entity.maxHealth || hp, Math.round(hp)));
+        }
+        if (f.ai) {
+          f.ai.isHostile = true;
+          f.ai.detected = true;
+          f.ai.target = playerEntity;
+          f.ai.secondaryTarget = null;
+          f.ai.makeHostileToPlayer?.(undefined, f.ai.feet);
+          if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
+        }
+      }
+      return f;
+    },
+    getNearestFoe: () => {
+      const p = player?.pos ?? [0, 0, 0];
+      const yaw = cam?.yaw ?? 0;
+      const fwd = [Math.sin(yaw), 0, Math.cos(yaw)];
+      const list = (ctx?.foes ?? []).filter((f) => f && !f.dead && !f.companion);
+      let best = null;
+      let bestScore = Infinity;
+      for (const f of list) {
+        const fPos = f.ai?.feet ?? f.pos;
+        if (!fPos) continue;
+        const dx = fPos[0] - p[0], dy = fPos[1] - p[1], dz = fPos[2] - p[2];
+        const dist = Math.hypot(dx, dy, dz);
+        if (dist > 30) continue;
+        const dist2d = Math.hypot(dx, dz) || 1;
+        const dot = (dx * fwd[0] + dz * fwd[2]) / dist2d;
+        const score = dot > 0.2 ? dist - dot * 5 : dist + 20;
+        if (score < bestScore) { bestScore = score; best = f; }
+      }
+      return best;
+    },
   });
 
   if (shotMode) {
