@@ -53,6 +53,7 @@ import { BLOW_VERDICT_LIFE } from '../ai/foeBlows.js';   // TELL6e: a landing's 
 import { markFoeThreat, setFoePoiseReader } from '../ui/hud/hudFoeTarget.js';   // TELL9: the bar's foe on a threat, its poise track
 import { HIT_TAGS, tagHit, showWord } from '../ui/hitNumbers.js';   // TELL9: the words on the hit
 import { comprehendLanguagesChance } from '../systems/effects.js';   // X11: the pacification bonus DFU reads inside its own formula
+import { isSparProtected, isSparPeaceful, isPlayerAllyFoe } from '../systems/living/sparSurrender.js';
 
 // ---- DaggerfallUnityItem.GetWeaponSkillUsed / GetWeaponSkillIDAsShort ----
 /** The attack skill is a property of the weapon TEMPLATE, never of its
@@ -657,6 +658,7 @@ export function applyDamageToNonPlayer(attacker, target, {
   onInflictPoison = null, say = null,
 } = {}) {
   if (!target || !attacker) return 0;   // :305-306, `senses.Target == null`
+  if (isSparProtected(target) || (isSparPeaceful(target) && isPlayerAllyFoe(attacker))) return 0;
   const aEnt = attacker.entity, tEnt = target.entity;
   // AUDIT 39: the monster multi-attack gate reads the PLAYER's Reflexes
   // setting even when the player is nowhere in the strike
@@ -729,6 +731,7 @@ export function applyDamageToNonPlayer(attacker, target, {
   const sameTeam = tEnt?.team && aEnt?.team && tEnt.team !== 'PlayerEnemy' && tEnt.team === aEnt.team;
   const bothAllies = tEnt?.team === 'PlayerAlly' && aEnt?.team === 'PlayerAlly';
   if (!sameCamp && !sameTeam && !bothAllies) {
+    if (target._surrenderedSpar) target._surrenderedSpar = false;
     target.ai?.makeEnemyHostileToAttacker?.(attacker, attacker.ai?.feet ?? null);
   }
   return damage;

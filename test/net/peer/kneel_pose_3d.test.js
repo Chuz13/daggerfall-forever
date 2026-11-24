@@ -101,3 +101,24 @@ test('kneel integrates with seatedCamera, motionWord, peerMoving, npcShown, and 
   assert.equal(kneelFor(b, [1, 0, 2], 0.5), k1, 'cached while still');
   assert.notEqual(kneelFor(b, [1.5, 0, 2], 0.5), k1, 'rebuilt on move');
 });
+
+test('non-biped/partial skeleton safety: applyClimbRig skips missing bones without throwing and fpArm guards nonBiped/werewolf kneel', () => {
+  // Partial/quadruped-like skeleton with only a root node (no human thighs/calves/feet/hands)
+  const partialSk = {
+    nodes: new Map([[0, {
+      name: 'Bip01',
+      parent: -1,
+      children: [],
+      rest: { rotation: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), translation: [0, 0, 0], scale: 1 },
+    }]]),
+    byName: new Map([['bip01', 0]]),
+    order: [0],
+  };
+  const pose = poseSkeleton(partialSk, null, null, 0);
+  const req = kneelRequestFor({ feet: [0, 0, 0], yaw: 0, w: 1, breath: 0 }, { unitsPerMetre: U });
+  assert.doesNotThrow(() => applyClimbRig(partialSk, pose, GRAPH_ROOT, skeletonSpaceMatrices, req));
+
+  const fpArmSrc = readFileSync(new URL('../../../src/combat/fpArm.js', import.meta.url), 'utf8');
+  assert.match(fpArmSrc, /bipedKneelOk\s*=\s*\(\)\s*=>\s*!nonBiped\(\)\s*&&\s*!\(built\s*&&\s*built\.werewolf\)/);
+  assert.match(fpArmSrc, /if\s*\(dead\s*\|\|\s*!\(kneelW\s*>\s*0\)\s*\|\|\s*!bipedKneelOk\(\)\)\s*return\s+null/);
+});

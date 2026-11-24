@@ -13,6 +13,8 @@ import {
 import { sparedBySwing, sparedByPlayer } from '../../../src/combat/friendlyFire.js';
 import { foeActor } from '../../../src/characters/foeBodies.js';
 import { MOBILE_TYPES } from '../../../src/characters/mobile/mobileTypes.js';
+import { getTargets, runTargetMachine } from '../../../src/characters/enemy/enemyTargets.js';
+import { applyDamageToNonPlayer } from '../../../src/scenes/hostCombat.js';
 
 function makeFoe(overrides = {}) {
   return {
@@ -176,4 +178,146 @@ test('sparKneelPose holds hurt last frame with periodic breath frame -2', () => 
 test('clearSparCombatEffects handles null/empty activeEffects safely', () => {
   assert.doesNotThrow(() => clearSparCombatEffects(null));
   assert.doesNotThrow(() => clearSparCombatEffects({}));
+});
+
+test('beginSparEnd clears targetSenses, shoot latches, and ranged mobile state on duelist and companion', () => {
+  const foe = makeFoe({
+    mobile: { state: 'ranged', frame: 3, _timer: 0.2, _attackFrames: [1, -1], _iter: 1, shootArrow: true, doMeleeDamage: true },
+  });
+  foe.ai.targetSenses = { ai: {} };
+  foe.ai._targetCandidate = { isPlayer: false };
+  foe.ai.detected = true;
+  foe.ai.inSight = true;
+  foe.ai.lastKnownTargetPos = [1, 0, 2];
+  foe.ai.predictedTargetPos = [1, 0, 2];
+  foe.ai._blowShot = { fired: false };
+  foe.ai._wantAimed = true;
+  foe.attack.firedRanged = true;
+  foe.attack.meleeTimer = 1.5;
+
+  const companion = makeFoe({
+    seq: 2,
+    _isSparring: false,
+    companion: 'c1',
+    entity: { health: 80, maxHealth: 80, team: 'PlayerAlly', mobileTeam: 'PlayerAlly', activeEffects: [] },
+    mobile: { state: 'ranged', frame: 2, _timer: 0.1, _attackFrames: [1, -1], _iter: 0, shootArrow: true, doMeleeDamage: false },
+  });
+  companion.ai.target = foe;
+  companion.ai.secondaryTarget = foe;
+  companion.ai.targetSenses = foe;
+  companion.ai._targetCandidate = foe;
+  companion.ai.detected = true;
+  companion.ai.inSight = true;
+  companion.ai.giveUpTimer = 5;
+  companion.ai.lastKnownTargetPos = [0, 0, 0];
+  companion.attack.firedRanged = true;
+
+  beginSparEnd(foe, { playerWon: true, foes: [foe, companion], now: 1000 });
+
+  assert.equal(foe.ai.targetSenses, null);
+  assert.equal(foe.ai._targetCandidate, null);
+  assert.equal(foe.ai.detected, false);
+  assert.equal(foe.ai.inSight, false);
+  assert.equal(foe.ai.giveUpTimer, 0);
+  assert.equal(foe.ai.lastKnownTargetPos, null);
+  assert.equal(foe.ai.predictedTargetPos, null);
+  assert.equal(foe.ai._blowShot, null);
+  assert.equal(foe.ai._wantAimed, false);
+  assert.equal(foe.attack.firedRanged, false);
+  assert.equal(foe.attack.meleeTimer, 0);
+  assert.equal(foe.mobile.shootArrow, false);
+  assert.equal(foe.mobile.doMeleeDamage, false);
+  assert.equal(foe.mobile.state, 'idle');
+
+  assert.equal(companion.ai.target, null);
+  assert.equal(companion.ai.secondaryTarget, null);
+  assert.equal(companion.ai.targetSenses, null);
+  assert.equal(companion.ai._targetCandidate, null);
+  assert.equal(companion.ai.detected, false);
+  assert.equal(companion.ai.giveUpTimer, 0);
+  assert.equal(companion.attack.firedRanged, false);
+  assert.equal(companion.attack.machine.state, 'Idle');
+  assert.equal(companion.mobile.shootArrow, false);
+  assert.equal(companion.mobile.state, 'idle');
+});
+
+test('getTargets and runTargetMachine prevent surrendered duelist and companions from targeting or recruiting each other', () => {
+  const duelist = makeFoe();
+  beginSparEnd(duelist, { playerWon: true, foes: [duelist], now: 1000 });
+  stepSparSurrender(duelist, 5.5); // standing peacefully post-grace
+  assert.equal(isSparProtected(duelist), false);
+  assert.equal(isSparPeaceful(duelist), true);
+
+  const companion = makeFoe({
+    seq: 2,
+    _isSparring: false,
+    companion: 'c1',
+    entity: { health: 80, maxHealth: 80, team: 'PlayerAlly', mobileTeam: 'PlayerAlly', activeEffects: [] },
+  });
+  companion.ai.isHostile = false;
+  companion.ai.target = duelist;
+  companion.ai.secondaryTarget = duelist;
+  companion.ai.targetSenses = duelist;
+  companion.ai.classicTargetUpdateTimer = 999;
+  companion.ai.wouldBeSpawned = true;
+
+  // Companion drops stale target/targetSenses pointing at peaceful duelist and does not recruit it
+  const compPos = runTargetMachine(companion, [duelist], [0, 0, 0], 1, { infighting: true });
+  assert.equal(compPos, null);
+  assert.equal(companion.ai.target, null);
+  assert.equal(companion.ai.secondaryTarget, null);
+  assert.equal(companion.ai.targetSenses, null);
+  assert.equal(duelist.ai.target, null);
+
+  // Peaceful duelist acquires no targets even with hostile/ally candidates nearby
+  const got = getTargets(duelist, [companion], [0, 0, 0], { infighting: true });
+  assert.equal(got.target, null);
+
+  duelist.ai.target = companion;
+  duelist.ai.targetSenses = companion;
+  const duelPos = runTargetMachine(duelist, [companion], [0, 0, 0], 1, { infighting: true });
+  assert.equal(duelPos, null);
+  assert.equal(duelist.ai.target, null);
+  assert.equal(duelist.ai.targetSenses, null);
+});
+
+test('applyDamageToNonPlayer ignores protected duelists and companion hits on peaceful duelists', () => {
+  const duelist = makeFoe();
+  let hostileCalls = 0;
+  let dmgCalls = 0;
+  duelist.ai.makeEnemyHostileToAttacker = () => { hostileCalls++; };
+
+  const companion = makeFoe({
+    seq: 2,
+    _isSparring: false,
+    companion: 'c1',
+    entity: { health: 80, maxHealth: 80, team: 'PlayerAlly', mobileTeam: 'PlayerAlly', activeEffects: [] },
+  });
+  const monster = makeFoe({ seq: 3, _isSparring: false });
+
+  beginSparEnd(duelist, { playerWon: true, foes: [duelist, companion], now: 1000 });
+
+  // During 5s grace: neither companion nor wild monster can damage or re-aggro duelist
+  assert.equal(applyDamageToNonPlayer(companion, duelist, {
+    bowAttack: true,
+    calculateAttackDamage: () => 25,
+    dealDamage: () => { dmgCalls++; },
+  }), 0);
+  assert.equal(applyDamageToNonPlayer(monster, duelist, {
+    bowAttack: true,
+    calculateAttackDamage: () => 25,
+    dealDamage: () => { dmgCalls++; },
+  }), 0);
+  assert.equal(dmgCalls, 0);
+  assert.equal(hostileCalls, 0);
+
+  // After 5s grace: companion still cannot damage or re-aggro peaceful duelist
+  stepSparSurrender(duelist, 5.5);
+  assert.equal(applyDamageToNonPlayer(companion, duelist, {
+    bowAttack: true,
+    calculateAttackDamage: () => 25,
+    dealDamage: () => { dmgCalls++; },
+  }), 0);
+  assert.equal(dmgCalls, 0);
+  assert.equal(hostileCalls, 0);
 });

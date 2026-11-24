@@ -46,7 +46,7 @@ export const MOBILE_TEAMS = Object.freeze([
  *  use, the CombatVoices idiom. Ships True. */
 export const enemyInfightingEnabled = () => getBool('Enhancements', 'EnemyInfighting');
 
-import { isSparProtected, isSparPeaceful } from '../../systems/living/sparSurrender.js';
+import { isSparProtected, isSparPeaceful, isPlayerAllyFoe } from '../../systems/living/sparSurrender.js';
 
 /** The player's sentinel candidate - one identity so `target ===
  *  PLAYER_TARGET` is DFU's `target == player` reference compare. */
@@ -214,6 +214,9 @@ export function getTargets(self, candidates, playerFeet, {
   playerBout = _playerBout,   // ARENA2: the player's bout (setPlayerBout), or null
 } = {}) {
   const ai = self.ai;
+  if (isSparProtected(self) || isSparPeaceful(self)) {
+    return { target: null, targetInSight: false, distanceToTarget: 0, sawSecondaryTarget: false };
+  }
   const selfTeam = self.entity?.team ?? 'PlayerEnemy';
   const selfMobileTeam = mobileTeamOf(self.entity);
   let highestPriorityTarget = null;
@@ -240,7 +243,7 @@ export function getTargets(self, candidates, playerFeet, {
     // REVENANT-FATE: a beaten revenant on its knees, judged or burning, and COMPANION-PORTAL's body stepping through its
     // portal, are nobody's foe - nothing can reach them, so nothing hunts them (NECRO: nor an undead minion feigning death)
     if (!isPlayer && (c.yielded || c.executing || c.sparing || c.leaving || c.undeadStance === 'feign_death' || isSparProtected(c))) continue;
-    if (!isPlayer && isSparPeaceful(c) && (selfTeam === 'PlayerAlly' || selfMobileTeam === 'PlayerAlly' || self.companion != null || self.shipmate || self.livingRole === 'undead_minion' || self.allied)) continue;
+    if (!isPlayer && isSparPeaceful(c) && isPlayerAllyFoe(self)) continue;
     // WATCH-PROTECTS: a townsperson is quarry for a hostile monster alone (huntsCivilians), and no team's - the chain
     // below weighs foes and players
     const civilian = !isPlayer && c.civilian === true;
@@ -522,6 +525,26 @@ export function runTargetMachine(self, candidates, playerFeet, classicDt, {
   ai.classicTargetUpdateTimer = (ai.classicTargetUpdateTimer ?? 0) + classicDt / SYSTEM_TIMER_UPDATES_DIVISOR;
   // Dead target drops (:315-318)
   if (ai.target && targetHealth(ai.target, playerEntity) <= 0) ai.target = null;
+  if (isSparProtected(self) || isSparPeaceful(self)) {
+    ai.target = null;
+    ai.secondaryTarget = null;
+    ai.targetSenses = null;
+    ai._targetCandidate = null;
+    ai.detected = false;
+    ai.inSight = false;
+    ai.giveUpTimer = 0;
+    ai.lastKnownTargetPos = null;
+    ai.predictedTargetPos = null;
+    return null;
+  }
+  const _sparDrop = (t) => !!t && !isPlayerTarget(t) && (isSparProtected(t) || (isSparPeaceful(t) && isPlayerAllyFoe(self)));
+  if (_sparDrop(ai.target)) {
+    if (ai.targetSenses === ai.target) ai.targetSenses = null;
+    if (ai._targetCandidate === ai.target) ai._targetCandidate = null;
+    ai.target = null;
+  }
+  if (_sparDrop(ai.secondaryTarget)) ai.secondaryTarget = null;
+  if (_sparDrop(ai.targetSenses)) ai.targetSenses = null;
   // Non-hostile mode (:321-327): a pacified foe drops the PLAYER as
   // its target; secondaryTarget likewise.
   if (noTargetMode || !ai.isHostile) {
@@ -603,7 +626,8 @@ export function runTargetMachine(self, candidates, playerFeet, classicDt, {
     // to. Nesting this inside the gate (the port's first cut) lost
     // exactly that: a foe that walked out of the spawn band stopped
     // recruiting the target it was still holding.
-    if (ai.target != null && ai.targetSenses?.ai && (ai.targetSenses.ai.target ?? null) === null) {
+    if (ai.target != null && ai.targetSenses?.ai && (ai.targetSenses.ai.target ?? null) === null
+      && !isSparProtected(ai.targetSenses) && !isSparPeaceful(ai.targetSenses)) {
       ai.targetSenses.ai.target = self;
     }
   }

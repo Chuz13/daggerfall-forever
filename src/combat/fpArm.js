@@ -3930,6 +3930,7 @@ export function createFpArm() {
    *  movement ("Non-biped creatures don't use spellcasting-specific movement animations"): its stances are the bare
    *  groups - idle, walkforward - whatever it has drawn or readied. A Bipedal creature animates as a person does. */
   const nonBiped = () => !!(built && built.ok && built.creature && !built.creature.bipedal);
+  const bipedKneelOk = () => !nonBiped() && !(built && built.werewolf);
   const stanceOf = () => {
     const t = animWeaponType(built.mwType, sheathed, spellReady);
     return nonBiped() && !isRealWeapon(t) ? MW_WEAPON_TYPE.None : t;
@@ -4424,7 +4425,7 @@ export function createFpArm() {
     return saddleRequestFor(cam && cam.saddle, { unitsPerMetre: MW_UNITS_PER_METER, weight: rs.weight, height: rs.height });
   }
   function thirdKneel(cam) {
-    if (dead || !(kneelW > 0)) return null;
+    if (dead || !(kneelW > 0) || !bipedKneelOk()) return null;
     const spec = (cam && cam.kneel) || kneelLast;
     if (!spec) return null;
     const rs = (built && built.raceScale) || { weight: 1, height: 1 };
@@ -4436,7 +4437,7 @@ export function createFpArm() {
   function thirdClimb(cw, cam) {
     if (cam && cam.seat) { climbLast = null; return thirdSeat(cam); }   // CARDS2b: seated - the seat, over any climb's tail
     if (cam && cam.saddle) { climbLast = null; return thirdSaddle(cam); }   // COATS3D: astride - the saddle, over any climb's tail
-    if ((cam && cam.kneel) || (kneelW > 0 && kneelLast && !dead)) { climbLast = null; return thirdKneel(cam); }
+    if (((cam && cam.kneel) || (kneelW > 0 && kneelLast && !dead)) && bipedKneelOk()) { climbLast = null; return thirdKneel(cam); }
     if (!(cw && cw.w > 0)) { climbLast = null; return null; }
     const snap = cam && cam.climb;
     if (snap && snap.feet) {
@@ -6443,7 +6444,7 @@ export function createFpArm() {
       // CLIMB6: the climb's limbs, every frame (a frame that does not pose still walks the gait: a peer's travel)
       const climbWorld = climbLaw.update(dt, (cam && cam.climb) || null);
       climbHands = climbWorld.w >= 0.5 && !!(cam && cam.climb);
-      if (cam && cam.kneel && !dead) {
+      if (cam && cam.kneel && !dead && bipedKneelOk()) {
         kneelLast = cam.kneel;
         kneelClock += dt;
         kneelW = Math.min(1, kneelW + dt / KNEEL_EASE_S);

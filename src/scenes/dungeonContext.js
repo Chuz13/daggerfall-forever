@@ -362,7 +362,7 @@ import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from
 import { reportPlayerKill, killFxOf } from '../systems/playerKills.js';   // SET2: my own kills, told
 import { hearEliteFoesIn } from '../systems/questlines/qlEliteFoe.js';   // QL11: an elite foe of an Elite dungeon, slain - the act's own module (AUDIT QUESTLINES ACTS-8)
 import { sparedByPlayer, sparedBySwing } from '../combat/friendlyFire.js';   // AUDIT CC-B6: the thrown torch's pass
-import { beginSparEnd, stepSparSurrender, isSparProtected, isSparKneeling, sparKneelPose } from '../systems/living/sparSurrender.js';
+import { beginSparEnd, stepSparSurrender, isSparProtected, isSparKneeling, isSparPeaceful, isPlayerAllyFoe, sparKneelPose } from '../systems/living/sparSurrender.js';
 /** AUDIT SET P-M3: a kill the host's record names me for - its kind, as the exterior owner's `slain` word says it. */
 const REMOTE_KILL = Object.freeze({ kind: 'remote' });
 /** WB8b: a gate Warden's frost, lightning and venom, heard as they land on me - each element's own cast
@@ -5262,6 +5262,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           if (!struckPlayer) {
             for (const f of foes) {
               if (f.dead || f === m.shooterFoe) continue;
+              if (isSparProtected(f) || (isSparPeaceful(f) && isPlayerAllyFoe(m.shooterFoe))) continue;
               if (missileHitsFoe(m.pos, f)) { struckFoe = f; break; }
             }
           }
@@ -8348,7 +8349,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // spell branch and DoTouchSpell both sit BELOW TakeAction's
       // return at EnemyMotor.cs:466, so a transforming Seducer - which
       // carries a spell table - casts nothing.
-      if (_tgt && f.caster && !_fParalyzed && !_fPaused && (f.ai.isHostile || f.entity?.team === 'PlayerAlly' || f.livingRole === 'undead_minion' || f.shipmate || f.allied || !!f.ai.target)) {
+      const _sparPeace = isSparPeaceful(f);
+      if (_tgt && f.caster && !_fParalyzed && !_fPaused && !_sparPeace && (f.ai.isHostile || f.entity?.team === 'PlayerAlly' || f.livingRole === 'undead_minion' || f.shipmate || f.allied || !!f.ai.target)) {
         // MT-iv: the decision aims at the SELECTED target and reads
         // that target's own entity, so a foe duelling another foe
         // neither picks its school off the player's effects nor
@@ -8450,7 +8452,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // latched both would loose an arrow AND land a blow in one
           // frame, and would prefer the arrow. (Found by the wave-35
           // re-read.)
-          if ((_tgt || f._pupMine) && !_fParalyzed && f.mobile.doMeleeDamage) { f.mobile.doMeleeDamage = false; resolveFoeMelee(f, _pf, { vsPlayer: !!f._pupMine }); }   // MT-iv: gated on a live TARGET (:136-137), not the player alone; WORLD3: a puppet's blow at ME, my own reach
+          if (isSparPeaceful(f)) {
+            f.mobile.doMeleeDamage = false;
+            f.mobile.shootArrow = false;
+          } else if ((_tgt || f._pupMine) && !_fParalyzed && f.mobile.doMeleeDamage) { f.mobile.doMeleeDamage = false; resolveFoeMelee(f, _pf, { vsPlayer: !!f._pupMine }); }   // MT-iv: gated on a live TARGET (:136-137), not the player alone; WORLD3: a puppet's blow at ME, my own reach
           else if ((_tgt || f._pupTarget != null) && !_fParalyzed && f.mobile.shootArrow) {   // ROAD-H tail: gated on a live TARGET like the melee arm - BowDamage returns at `senses.Target == null` (EnemyAttack.cs:136-137); WORLD3: a puppet's at its streamed target
             f.mobile.shootArrow = false;
             const from = foeDeps.enemyArrowOrigin(f.ai);   // ROAD-H H1: GetAimPosition's ENEMY ARROW arm - the caster's TRANSFORM plus forward*0.6 plus height/3 (DaggerfallMissile.cs:528-539), through the ONE law in enemyTargets so the two pools' loose points cannot drift apart the way their aim points had. `feet + 1.2` was a guess in the player's scale with no forward lean at all

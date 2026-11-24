@@ -1102,6 +1102,28 @@ function handleHealCommand() {
 registerCommand('heal', 'Restore player health, fatigue, and magicka to maximum', 'heal', handleHealCommand);
 registerCommand('player_heal', 'Restore player health, fatigue, and magicka to maximum', 'player_heal', handleHealCommand);
 
+function handleSetHpCommand(args = []) {
+  if (!playerEntity) return 'No player entity found.';
+  if (!args || !args.length) return 'Usage: sethp <value | N%> (e.g. sethp 20, sethp 18%)';
+  const raw = String(args[0]).trim();
+  const maxHp = Math.max(1, Number(playerEntity.maxHealth) || Number(playerEntity.health) || 50);
+  let targetHp = NaN;
+  if (raw.endsWith('%')) {
+    const pct = parseFloat(raw.slice(0, -1));
+    if (Number.isFinite(pct)) targetHp = Math.round((maxHp * pct) / 100);
+  } else {
+    const val = parseFloat(raw);
+    if (Number.isFinite(val)) targetHp = Math.round(val);
+  }
+  if (!Number.isFinite(targetHp)) return 'Usage: sethp <value | N%> (e.g. sethp 20, sethp 18%)';
+  playerEntity.health = Math.max(1, Math.min(maxHp, targetHp));
+  surfacePlayer?.();
+  const godNote = staffPowers().god ? " (Note: God Mode is ON - run 'tgm' to take damage)" : '';
+  return `Player HP set to ${playerEntity.health}/${maxHp}.${godNote}`;
+}
+registerCommand('sethp', 'Set player health for testing: sethp <value | N%>', 'sethp <value | N%>', handleSetHpCommand);
+registerCommand('player_hp', 'Alias for sethp <value | N%>', 'player_hp <value | N%>', handleSetHpCommand);
+
 function handleSetFatigueCommand(args = []) {
   if (!playerEntity) return 'No player entity found.';
   if (!args || !args.length) return 'Usage: set_fatigue <amount|percent%>. Examples: set_fatigue 0, set_fatigue 50, set_fatigue 10%';
@@ -3623,6 +3645,147 @@ registerCommand('finish_errand', 'Complete active revenant errand(s) immediately
 registerCommand('finisherrand', 'Complete active revenant errand(s) immediately: finisherrand [id|name]', 'finisherrand [id|name]', handleFinishErrandCommand);
 registerCommand('complete_errands', 'Complete active revenant errand(s) immediately: complete_errands', 'complete_errands', handleFinishErrandCommand);
 
+async function handleSpawnRevenantCommand(args = []) {
+  const ctx = getDebugSceneContext();
+  if (!ctx?.spawnRevenant) {
+    return 'Hostile revenant spawning with fates requires world or dungeon mode.';
+  }
+  const { rev, basics } = await getRevenantModules();
+  let mobileType = MOBILE_TYPES.Knight ?? 138;
+  let rank = 1;
+  let hp = null;
+  let force = false;
+  const positional = [];
+  for (const raw of args ?? []) {
+    const s = String(raw ?? '').trim();
+    if (!s) continue;
+    if (s.toLowerCase() === 'force') {
+      force = true;
+      continue;
+    }
+    positional.push(s);
+  }
+  if (positional[0] != null) {
+    const a0 = positional[0].toLowerCase().replace(/[\s_-]/g, '');
+    if (REVENANT_MOBILE_TYPES[a0] != null) {
+      mobileType = REVENANT_MOBILE_TYPES[a0];
+    } else {
+      const resolved = resolveMobileType(positional[0]);
+      if (resolved) mobileType = resolved.id;
+    }
+  }
+  if (positional[1] != null) {
+    const rParsed = parseInt(positional[1], 10);
+    if (Number.isFinite(rParsed)) rank = Math.max(1, Math.min(5, rParsed));
+  }
+  if (positional[2] != null) {
+    const hParsed = parseInt(positional[2], 10);
+    if (Number.isFinite(hParsed) && hParsed > 0) hp = hParsed;
+  }
+
+  const minted = rev.mintHostileRevenant(playerEntity, { mobileType, rank, force });
+  if (!minted.ok) {
+    return `Cannot mint hostile revenant: ${minted.count}/${minted.max} hunting revenants already active. Pass 'force' to override or defeat one first.`;
+  }
+  const foe = await ctx.spawnRevenant(minted.revenant, { hp });
+  if (!foe) {
+    minted.revenant.defeated = true;
+    return 'Failed to spawn hostile revenant in current scene.';
+  }
+  const typeName = basics.enemyDisplayName(minted.revenant.mobileType) || 'Revenant';
+  const notes = [];
+  if (!rev.revenantOn()) notes.push('(WARNING: Loot Rarity is OFF - revenant will die instead of kneeling!)');
+  if (rank >= 3) notes.push('(Note: Rank 3+ may trigger Last Stand or Tear Away before kneeling; use rank 1 for immediate kneel.)');
+  notes.push('(Persisted in active save revenant roster.)');
+  return `Spawned hostile revenant "${minted.revenant.name}" (Rank ${minted.revenant.rank} ${typeName}, HP: ${foe.entity?.health ?? '?'}/${foe.entity?.maxHealth ?? '?'}). ${notes.join(' ')}`;
+}
+
+registerCommand('spawn_revenant', 'Spawn a hostile hunting revenant: spawn_revenant [type=knight] [rank=1] [hp] [force]', 'spawn_revenant [type] [rank] [hp] [force]', handleSpawnRevenantCommand);
+registerCommand('spawnrev', 'Alias for spawn_revenant', 'spawnrev [type] [rank] [hp] [force]', handleSpawnRevenantCommand);
+
+async function handleSpawnSparCommand(args = []) {
+  const ctx = getDebugSceneContext();
+  if (!ctx?.spawnSparDuelist) return 'Sparring duelist spawning is unavailable in current scene.';
+  const wager = args?.[0] != null ? Math.max(0, parseInt(String(args[0]), 10) || 0) : 50;
+  const level = args?.[1] != null ? Math.max(1, parseInt(String(args[1]), 10) || 1) : null;
+  const hp = args?.[2] != null ? Math.max(1, parseInt(String(args[2]), 10) || 1) : null;
+
+  let adv = null;
+  let mobileType = null;
+  try {
+    const [{ getAdventurerSimRegistry }, { CLASS_TO_MOBILE_TYPE }] = await Promise.all([
+      import('./living/adventurerSim.js'),
+      import('./living/livingWorldSpawner.js'),
+    ]);
+    const reg = getAdventurerSimRegistry?.();
+    const regionIdx = ctx.getRegionIndex?.() ?? playerEntity?.currentRegionIndex ?? null;
+    const pool = Array.isArray(reg?.adventurers) ? reg.adventurers : [];
+    const alive = pool.filter((a) => a && a.status === 'ALIVE');
+    adv = (regionIdx != null ? alive.find((a) => a.regionIndex === regionIdx) : null) ?? alive[0] ?? null;
+    if (adv && CLASS_TO_MOBILE_TYPE[adv.className] != null) {
+      mobileType = CLASS_TO_MOBILE_TYPE[adv.className];
+    }
+  } catch { /* fallback to default Knight duelist */ }
+
+  const foe = await ctx.spawnSparDuelist({ wager, level, hp, adv, mobileType });
+  if (!foe) return 'Failed to spawn sparring duelist.';
+  const name = foe.entity?.name || 'Sparring Duelist';
+  return `Spawned sparring duelist "${name}" (HP: ${foe.entity?.health ?? '?'}/${foe.entity?.maxHealth ?? '?'}, Wager: ${wager}g).`;
+}
+
+registerCommand('spawn_spar', 'Spawn an active wager-sparring duelist: spawn_spar [wager=50] [level] [hp]', 'spawn_spar [wager] [level] [hp]', handleSpawnSparCommand);
+registerCommand('spar_spawn', 'Alias for spawn_spar', 'spar_spawn [wager] [level] [hp]', handleSpawnSparCommand);
+
+async function handleSparDebugCommand(args = []) {
+  const ctx = getDebugSceneContext();
+  const foe = ctx?.getNearestFoe?.();
+  if (!foe) return 'No live foe found nearby.';
+  const sub = String(args?.[0] ?? '').trim().toLowerCase();
+  let appliedNote = '';
+
+  if (sub === 'dot' && foe.entity) {
+    const { applySpell } = await import('./effects.js');
+    const dotSpell = {
+      element: 0,
+      rangeType: 2,
+      effects: [{
+        type: 1,
+        subType: 0,
+        durationBase: 8,
+        durationMod: 0,
+        durationPerLevel: 1,
+        magnitudeBaseMin: 2,
+        magnitudeBaseMax: 2,
+        magnitudePlusMin: 0,
+        magnitudePlusMax: 0,
+        magnitudePerLevel: 1,
+      }],
+    };
+    applySpell(dotSpell, 1, foe.entity, {}, Math.random, { entity: playerEntity ?? null });
+    appliedNote = ' [Applied canonical continuousDamage DoT]';
+  } else if (sub === 'poison' && foe.entity) {
+    const { inflictPoison } = await import('./poisons.js');
+    const entry = inflictPoison(foe.entity, 128, true, { rolls: Math.random, currentMinute: 0 });
+    appliedNote = entry ? ' [Applied canonical poison]' : ' [Poison resisted/ignored]';
+  }
+
+  const [{ foeActor }, { isSparProtected, isSparKneeling, isSparPeaceful }] = await Promise.all([
+    import('../characters/foeBodies.js'),
+    import('./living/sparSurrender.js'),
+  ]);
+  const actor = foe.ai ? foeActor(foe, foe.seq ?? 1) : { kneel: false, drawn: false };
+  const effects = (foe.entity?.activeEffects ?? []).map((e) => e.kind).join(',') || 'none';
+  const grace = Number(foe._sparGraceLeft || 0).toFixed(2);
+  return [
+    `${foe.entity?.name || 'Foe'} HP=${foe.entity?.health ?? '?'}/${foe.entity?.maxHealth ?? '?'}${appliedNote}`,
+    `hostile=${!!foe.ai?.isHostile} sparring=${!!foe._isSparring} surrendered=${!!foe._surrenderedSpar} protected=${isSparProtected(foe)} graceLeft=${grace}s kneeling=${isSparKneeling(foe)} peaceful=${isSparPeaceful(foe)} yielded=${!!foe.yielded}`,
+    `foeActor: kneel=${!!actor.kneel} drawn=${!!actor.drawn} | effects=[${effects}]`,
+  ].join('\n');
+}
+
+registerCommand('spar_debug', 'Inspect nearest foe spar/kneel state or apply test DoT/poison: spar_debug [dot|poison]', 'spar_debug [dot|poison]', handleSparDebugCommand);
+registerCommand('foe_state', 'Alias for spar_debug', 'foe_state [dot|poison]', handleSparDebugCommand);
+
 const APO_SET_DEFAULTS = {
   kills: 5000,
   quests: 50,
@@ -4621,6 +4784,32 @@ registerCommand(
 );
 
 registerCommand('pview', 'Alias for player_view', 'pview [args...]', (args = []) => getConsoleCommand('player_view').callback(args));
+
+registerCommand(
+  'foe_bodies',
+  'Inspect or switch 2D/3D Morrowind foe bodies: foe_bodies [status | 2d | 3d | off | near | all | toggle]',
+  'foe_bodies [status | 2d | 3d | off | near | all | toggle]',
+  async (args = []) => {
+    const [{ foeBodiesOn }, { morrowindDataCount }] = await Promise.all([
+      import('../characters/npcBodies.js'),
+      import('../scenes/dataSource.js'),
+    ]);
+    const sub = String(args?.[0] ?? 'status').toLowerCase();
+    if (sub === '2d' || sub === 'off') setPref('mwFoeBodies', 'off');
+    else if (sub === '3d' || sub === 'near') setPref('mwFoeBodies', 'near');
+    else if (sub === 'all') setPref('mwFoeBodies', 'all');
+    else if (sub === 'toggle') {
+      const cur = getPref('mwFoeBodies') ?? 'off';
+      setPref('mwFoeBodies', cur === 'off' ? 'near' : 'off');
+    } else if (sub !== 'status') {
+      return 'Usage: foe_bodies [status | 2d | 3d | off | near | all | toggle]';
+    }
+    const mode = getPref('mwFoeBodies') ?? 'off';
+    return `Foe bodies: mwFoeBodies=${mode} | foeBodiesOn=${foeBodiesOn()} | mwData=${morrowindDataCount()}`;
+  },
+);
+registerCommand('fview', 'Alias for foe_bodies', 'fview [args...]', (args = []) => getConsoleCommand('foe_bodies').callback(args));
+registerCommand('mwfoes', 'Alias for foe_bodies', 'mwfoes [args...]', (args = []) => getConsoleCommand('foe_bodies').callback(args));
 
 registerCommand(
   'lycan',

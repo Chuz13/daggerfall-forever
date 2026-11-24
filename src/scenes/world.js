@@ -793,6 +793,7 @@ import { registerCompanionCount, registerCompanionRoster, companionsWithYou, COM
 import { PERSONALITIES } from '../systems/revenant/revenantPersonality.js';   // REVENANT-COMPANION: the party card's word for one
 import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: the player's own crew, spared his blows and wearing their bars
+import { isSparProtected, isSparPeaceful } from '../systems/living/sparSurrender.js';
 import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
 import { hdGlyphName } from '../ui/padGlyphsHD.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
 import { glassPadWords } from './glassPad.js';   // AUDIT CAPTAIN'S SEA S3's helper, moved out (HOST-SPLIT: AUDIT WORLD-REWARDS's merge of main)
@@ -10771,7 +10772,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           let nearest = null;
           let nearestDist = 45;
           for (const f of activePoolFoes) {
-            if (f && !f.dead && f !== rec && f.entity?.team !== 'PlayerAlly' && f.livingRole !== 'undead_minion' && !f.puppet) {
+            if (f && !f.dead && f !== rec && f.entity?.team !== 'PlayerAlly' && f.livingRole !== 'undead_minion' && !f.puppet && !isSparProtected(f) && !isSparPeaceful(f)) {
               const ff = f.ai?.feet ?? f.pos;
               if (ff) {
                 const dist = Math.hypot(ff[0] - pFeet[0], ff[2] - pFeet[2]);
@@ -10814,7 +10815,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (rec.ai) {
           rec.ai.canAct = true;
           const curTgt = rec.ai.target;
-          if (curTgt && (curTgt.isPlayer || curTgt.dead || (curTgt.entity?.health ?? 1) <= 0 || curTgt.entity?.team === 'PlayerAlly' || curTgt.companion != null)) {
+          if (curTgt && (curTgt.isPlayer || curTgt.dead || (curTgt.entity?.health ?? 1) <= 0 || curTgt.entity?.team === 'PlayerAlly' || curTgt.companion != null || isSparProtected(curTgt) || isSparPeaceful(curTgt))) {
             rec.ai.target = null;
             rec.ai.secondaryTarget = null;
           }
@@ -10847,6 +10848,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     f.entity?.mobileTeam !== 'PlayerAlly' &&
     f.entity?.team !== 'Neutral' &&
     f.entity?.mobileTeam !== 'Neutral' &&
+    !isSparProtected(f) &&
+    !isSparPeaceful(f) &&
     f.ai?.isHostile !== false;
 
   const championAshore = createCrewAshore({
@@ -11087,7 +11090,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         let nearestHostile = null;
         let nearestDist = 45;
         for (const e of allFoes) {
-          if (e && !e.dead && !uniqueBodies.includes(e) && e.entity?.team !== 'PlayerAlly' && e.livingRole !== 'undead_minion' && !e.puppet) {
+          if (e && !e.dead && !uniqueBodies.includes(e) && e.entity?.team !== 'PlayerAlly' && e.livingRole !== 'undead_minion' && !e.puppet && !isSparProtected(e) && !isSparPeaceful(e)) {
             const ef = e.ai?.feet ?? e.pos;
             if (ef) {
               const d = Math.hypot(ef[0] - pPos[0], ef[2] - pPos[2]);
@@ -30850,6 +30853,122 @@ export async function bootWorld(canvas, renderer, params, status) {
       } else if (exteriorFoes?.damageFoe) {
         exteriorFoes.damageFoe(body, 99999, null, null, { fromPlayer: false, bypassShield: true });
       }
+    },
+    spawnRevenant: async (r, { hp = null } = {}) => {
+      if (!r) return null;
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      const yaw = cam?.yaw ?? 0;
+      const fwdX = Math.sin(yaw);
+      const fwdZ = Math.cos(yaw);
+      let dist = 3.0;
+      if (collider?.raycastHit) {
+        const hit = collider.raycastHit([p[0], p[1] + 1.2, p[2]], [fwdX, 0, fwdZ], dist + 0.5);
+        if (hit && Number.isFinite(hit.dist) && hit.back !== true && hit.dist < dist) {
+          dist = Math.max(1.2, hit.dist - 0.5);
+        }
+      }
+      const spawnX = p[0] + fwdX * dist;
+      const spawnZ = p[2] + fwdZ * dist;
+      const spawnY = (collider?.heightAt?.(spawnX, spawnZ) ?? p[1]) || p[1];
+      const spawnPos = [spawnX, spawnY, spawnZ];
+      if (typeof lodgedIn === 'function' && lodgedIn(collider, spawnPos)) {
+        if (typeof freeLodgedFeet === 'function') freeLodgedFeet(collider, spawnPos);
+      }
+      const so = revenantSpawnOptions(r, effectiveLevel(playerEntity));
+      const dCtx = modes?.dungeonCtx;
+      let f = null;
+      if (modes?.mode === 'dungeon' && dCtx?.spawnLooseFoe) {
+        f = await dCtx.spawnLooseFoe(r.mobileType, spawnPos, { yawRad: yaw + Math.PI, revenant: r, gender: so.gender, level: so.level });
+      } else if (exteriorFoes?.spawnFoe) {
+        f = await exteriorFoes.spawnFoe(r.mobileType, spawnPos, { yaw: yaw + Math.PI, feetGiven: true, loose: true, band: false, ...so });
+      }
+      if (f && Number.isFinite(hp) && hp > 0 && f.entity) {
+        f.entity.health = Math.max(1, Math.min(f.entity.maxHealth || hp, Math.round(hp)));
+      }
+      return f;
+    },
+    spawnSparDuelist: async ({ wager = 50, level = null, hp = null, mobileType = null, adv = null } = {}) => {
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      const yaw = cam?.yaw ?? 0;
+      const fwdX = Math.sin(yaw);
+      const fwdZ = Math.cos(yaw);
+      let dist = 3.0;
+      if (collider?.raycastHit) {
+        const hit = collider.raycastHit([p[0], p[1] + 1.2, p[2]], [fwdX, 0, fwdZ], dist + 0.5);
+        if (hit && Number.isFinite(hit.dist) && hit.back !== true && hit.dist < dist) {
+          dist = Math.max(1.2, hit.dist - 0.5);
+        }
+      }
+      const spawnX = p[0] + fwdX * dist;
+      const spawnZ = p[2] + fwdZ * dist;
+      const spawnY = (collider?.heightAt?.(spawnX, spawnZ) ?? p[1]) || p[1];
+      const spawnPos = [spawnX, spawnY, spawnZ];
+      if (typeof lodgedIn === 'function' && lodgedIn(collider, spawnPos)) {
+        if (typeof freeLodgedFeet === 'function') freeLodgedFeet(collider, spawnPos);
+      }
+      const lvl = Number.isFinite(level) && level > 0 ? Math.round(level) : effectiveLevel(playerEntity);
+      const mType = Number.isInteger(mobileType) ? mobileType : MOBILE_TYPES.Knight;
+      const dCtx = modes?.dungeonCtx;
+      let f = null;
+      if (modes?.mode === 'dungeon' && dCtx?.spawnLooseFoe) {
+        f = await dCtx.spawnLooseFoe(mType, spawnPos, { yawRad: yaw + Math.PI, level: lvl });
+      } else if (exteriorFoes?.spawnFoe) {
+        f = await exteriorFoes.spawnFoe(mType, spawnPos, { yaw: yaw + Math.PI, feetGiven: true, loose: true, transient: true, managed: true, band: false, level: lvl });
+      }
+      if (f) {
+        f.livingRole = 'rival_adventurer';
+        f._advRecord = adv ?? null;
+        if (adv && f.entity) {
+          f.entity.name = `${adv.name} (${adv.className})`;
+          const { equipAdventurerEntity } = await import('../systems/living/adventurerGear.js');
+          equipAdventurerEntity(f.entity, adv, lvl, Math.random);
+        } else if (f.entity) {
+          f.entity.name = 'Sparring Duelist';
+        }
+        f._isSparring = true;
+        f._duelWager = Math.max(0, Math.round(Number(wager) || 0));
+        f._surrenderedSpar = false;
+        f._sparGraceLeft = 0;
+        f._sparKneeling = false;
+        if (Number.isFinite(hp) && hp > 0 && f.entity) {
+          f.entity.health = Math.max(1, Math.min(f.entity.maxHealth || hp, Math.round(hp)));
+        }
+        if (f.ai) {
+          f.ai.isHostile = true;
+          f.ai.detected = true;
+          f.ai.target = playerEntity;
+          f.ai.secondaryTarget = null;
+          f.ai.makeHostileToPlayer?.(undefined, f.ai.feet);
+          if (typeof f.ai.resumeLive === 'function') f.ai.resumeLive();
+        }
+      }
+      return f;
+    },
+    getNearestFoe: () => {
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      const yaw = cam?.yaw ?? 0;
+      const fwd = [Math.sin(yaw), 0, Math.cos(yaw)];
+      const activePool = modes?.mode === 'dungeon' ? modes?.dungeonCtx?.foes : modes?.mode === 'interior' ? modes?.interiorFoes?.foes : exteriorFoes?.foes;
+      const list = (activePool ?? []).filter((f) => f && !f.dead && !f.companion);
+      let best = null;
+      let bestScore = Infinity;
+      for (const f of list) {
+        const fPos = f.ai?.feet ?? f.pos;
+        if (!fPos) continue;
+        const dx = fPos[0] - p[0];
+        const dy = fPos[1] - p[1];
+        const dz = fPos[2] - p[2];
+        const dist = Math.hypot(dx, dy, dz);
+        if (dist > 30) continue;
+        const dist2d = Math.hypot(dx, dz) || 1;
+        const dot = (dx * fwd[0] + dz * fwd[2]) / dist2d;
+        const score = dot > 0.2 ? dist - dot * 5 : dist + 20;
+        if (score < bestScore) {
+          bestScore = score;
+          best = f;
+        }
+      }
+      return best;
     },
     setPlayerPos: (x, y, z) => {
       if (typeof player?.spawn === 'function') player.spawn(x, y, z);

@@ -889,6 +889,52 @@ export function mintSwornRevenant(player, {
   persist();
   return r;
 }
+/**
+ * Mint a hostile hunting revenant record directly for console testing.
+ * Leaves `out: false` so canonical `applyRevenant` on spawn sets `out: true`, `bodyStood`, and `returns++`.
+ * Refuses when `huntingRevenants().length >= REVENANT_MAX` unless `force` is true so real revenants are not evicted.
+ */
+export function mintHostileRevenant(player, {
+  mobileType = MOBILE_TYPES.Knight,
+  rank = 1,
+  gender = 'male',
+  given = null,
+  epithet = null,
+  force = false,
+} = {}) {
+  ensureMirror(player);
+  const hunting = huntingRevenants();
+  if (!force && hunting.length >= REVENANT_MAX) {
+    return { ok: false, reason: 'cap', max: REVENANT_MAX, count: hunting.length };
+  }
+  const id = mintCharacterId();
+  const mType = Number.isInteger(mobileType) ? mobileType : (MOBILE_TYPES.Knight ?? 138);
+  const g = gender === 'female' ? 'female' : 'male';
+  const givenName = isStr(given) && given ? given : revenantGivenName(id, mType, g);
+  const pName = player?.name ?? '';
+  const rRank = Math.max(1, Math.min(REVENANT_MAX_RANK, Number.isInteger(rank) ? rank : 1));
+  const ep = isStr(epithet) && epithet ? epithet : revenantEpithet('fled', rRank, pName, Math.random, null, '');
+  const now = nowMinutes();
+  const personality = personalityFor(id, mType);
+  const r = {
+    id, rev: 0, mobileType: mType, gender: g, given: givenName,
+    epithet: ep, name: joinName(givenName, ep), rank: rRank, kills: 0, escapes: 0, returns: 0,
+    trait: null, elite: true,
+    born: now, dueAt: now, out: false, outAt: 0, defeated: false, defeatedAt: null, notice: null, history: [],
+    archive: null,
+    personality,
+    person: revenantPerson({ id }),
+    race: null,
+    ...newFeudFields(id, mType, rRank, null),
+    wounds: [], blood: 0, tears: 0, dread: false, trail: 0, omen: 0, woundDay: -1,
+    fate: null, sworn: false, swornAt: null, companion: null,
+  };
+  deed(r, 'fled', now);
+  _state.list.push(r);
+  touch(r);
+  persist();
+  return { ok: true, revenant: r };
+}
 /** REVENANT-COMPANION: change a sworn one's record (its place, its health, its pack) - kept at once, both places. A
  *  `release` ends it: released, it is gone from the player's side for good (the page's Fallen remembers it). */
 export function revenantCompanionUpdate(player, id, change) {
