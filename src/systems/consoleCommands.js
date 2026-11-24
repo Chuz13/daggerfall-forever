@@ -793,15 +793,16 @@ registerCommand(
 
 registerCommand(
   'encounter',
-  'Trigger an immediate Living Tamriel encounter: encounter [random|wild|camp|merchant|adv|bandit|plea|nemesis|checkpoint|skirmish|war|naval]',
-  'encounter [random|wild|camp|merchant|adv|bandit|plea|nemesis|checkpoint|skirmish|war|naval]',
+  'Trigger an immediate Living Tamriel encounter: encounter [random|wild|camp|merchant|adv|bandit|plea|nemesis|checkpoint|skirmish [EVT_ID]|war|naval]',
+  'encounter [random|wild|camp|merchant|adv|bandit|plea|nemesis|checkpoint|skirmish [EVT_ID]|war|naval]',
   (args = []) => {
     const ctx = getDebugSceneContext();
     if (!ctx?.triggerWildernessEncounter) {
       return 'Wilderness encounter trigger is unavailable in current scene (must be in exterior world).';
     }
     const kind = args[0] ? String(args[0]).toLowerCase() : 'random';
-    return ctx.triggerWildernessEncounter(kind);
+    const forcedEventId = args[1] ? String(args[1]).trim() : null;
+    return ctx.triggerWildernessEncounter(kind, forcedEventId);
   }
 );
 
@@ -2743,6 +2744,7 @@ registerCommand(
         `  * Thieves Guild (42): ${getFactionStanding(playerEntity, 42)}`,
         `  * Knightly Order (844): ${getFactionStanding(playerEntity, 844)}`,
         `  * Mages Guild (40): ${getFactionStanding(playerEntity, 40)}`,
+        `  * Fighters Guild (107): ${getFactionStanding(playerEntity, 107)}`,
         `  * Generic Temple (450): ${getFactionStanding(playerEntity, 450)}`,
       ];
       return lines.join('\n');
@@ -2787,6 +2789,8 @@ registerCommand(
         ko: 844,
         mages: 40,
         mg: 40,
+        fighters: 107,
+        fg: 107,
         temple: 450,
         arkay: 21,
         julianos: 22,

@@ -15,7 +15,7 @@ import { isRegionInSkirmishPhase, getActiveCrises } from './regionState.js';
 import {
   matchLivingCrisisEvent,
   calculateLocationProsperity,
-  getEnemyProvinceName,
+  pickEnemyProvince,
   resolveEventAttackersPool,
   PROSPERITY_TIER,
   SKIRMISH_PROP_THEME,
@@ -70,7 +70,7 @@ export function shouldSpawnUrbanSkirmish({
 /**
  * Plans a compact, FPS-safe skirmish roster and prop placements from the event matrix.
  * @param {{ centerX: number, centerZ: number, doorwayPositions?: Array<{x:number,z:number}>, heightSampler?: (x:number,z:number)=>number, rng?: ()=>number, regionIndex?: number, locationType?: number, dfLocation?: any, playerEntity?: any, climateIndex?: number|null, allowMundaneOnly?: boolean, forcedEventId?: string|null }} params
- * @returns {{ guards: Array<{dx:number, dz:number, team:string, mobileType?:number}>, rebels: Array<{dx:number, dz:number, team:string, mobileType?:number}>, props: Array<{id:string, x:number, z:number, y:number}>, propTheme: string, civiliansShouldPanic: boolean, event?: any, faction1Name?: string, faction2Name?: string } | null}
+ * @returns {{ guards: Array<{dx:number, dz:number, team:string, mobileType?:number}>, rebels: Array<{dx:number, dz:number, team:string, mobileType?:number}>, props: Array<{id:string, x:number, z:number, y:number}>, propTheme: string, civiliansShouldPanic: boolean, event?: any, faction1Name?: string, faction2Name?: string, enemyRegionIndex?: number } | null}
  */
 export function planUrbanSkirmish({
   centerX,
@@ -229,9 +229,9 @@ export function planUrbanSkirmish({
     });
   }
 
-  // Faction naming
-  const enemyProv = getEnemyProvinceName(regionIndex, rng);
-  const factionNames = event ? event.getFactionNames(regionIndex, enemyProv) : { f1: 'City Watch', f2: 'Rebels' };
+  // Faction naming & enemy province identity
+  const enemyProv = pickEnemyProvince(regionIndex, rng);
+  const factionNames = event ? event.getFactionNames(regionIndex, enemyProv.name) : { f1: 'City Watch', f2: 'Rebels' };
 
   // 4. Props strictly capped at max 2, placed along the perpendicular axis clear of guard/rebel lines
   const p0x = centerX - 1.8;
@@ -247,6 +247,7 @@ export function planUrbanSkirmish({
     event,
     faction1Name: factionNames.f1,
     faction2Name: factionNames.f2,
+    enemyRegionIndex: enemyProv.regionIndex,
     guards,
     rebels,
     props: propList,

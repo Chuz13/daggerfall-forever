@@ -97,6 +97,32 @@ export function calculateLocationProsperity(dfLocation, { mapId = null, regionIn
 
 export { getRegionNeighbors };
 
+/** Canonical Orsinium Area region index in REGION_NAMES. */
+export const ORSINIUM_REGION_INDEX = 26;
+
+/**
+ * Picks a neighbor or enemy province for interprovincial narrative & reputation routing.
+ * @param {number} regionIndex
+ * @param {() => number} [rng=Math.random]
+ * @returns {{ regionIndex: number, name: string }}
+ */
+export function pickEnemyProvince(regionIndex, rng = Math.random) {
+  const candidates = getRegionNeighbors(regionIndex).filter((id) => id !== regionIndex);
+  if (candidates.length > 0) {
+    const idx = Math.floor(rng() * candidates.length);
+    const regId = candidates[idx];
+    return {
+      regionIndex: regId,
+      name: getLocalizedRegionName(regId, () => REGION_NAMES[regId] ?? ''),
+    };
+  }
+  const fallbackId = regionIndex === ORSINIUM_REGION_INDEX ? 20 : ORSINIUM_REGION_INDEX;
+  return {
+    regionIndex: fallbackId,
+    name: getLocalizedRegionName(fallbackId, () => REGION_NAMES[fallbackId] ?? ''),
+  };
+}
+
 /**
  * Gets a neighbor or enemy province name for interprovincial narrative.
  * @param {number} regionIndex
@@ -104,13 +130,7 @@ export { getRegionNeighbors };
  * @returns {string}
  */
 export function getEnemyProvinceName(regionIndex, rng = Math.random) {
-  const candidates = getRegionNeighbors(regionIndex);
-  if (candidates.length > 0) {
-    const idx = Math.floor(rng() * candidates.length);
-    const regId = candidates[idx];
-    return getLocalizedRegionName(regId, () => REGION_NAMES[regId] ?? '');
-  }
-  return regionIndex === 16 ? getLocalizedRegionName(16, () => 'Sentinel') : 'Orsinium';
+  return pickEnemyProvince(regionIndex, rng).name;
 }
 
 // Localized title of a crisis event.
@@ -228,7 +248,7 @@ export const CRISIS_EVENTS = Object.freeze([
     attackersPool: [MOBILE_TYPES.Rogue, MOBILE_TYPES.Warrior],
     getFactionNames: (reg) => ({ f1: `${REGION_NAMES[reg] ?? 'Crown'} Recruiter`, f2: 'Reluctant Peasants' }),
     getChoices: (f1, f2) => [
-      { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.1', '1. Help the officer [{f1}] round up recruits', { f1 }), stance: 'defenders', goldReward: 60, repF1: 4 },
+      { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.1', '1. Help the officer [{f1}] round up recruits', { f1 }), stance: 'defenders', goldReward: 60, repF1: 4, repF2: -5 },
       { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.2', '2. Defend the townsfolk with steel against pressgang'), stance: 'attackers', repF1: -8, repF2: 8, bountyHostile: true },
       { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.3', '3. Do not intervene in the recruitment'), stance: 'neutral' },
       { text: t('living.choice.EVT_WAR_RECRUITMENT_PRESSGANG.4', '4. Pay an exemption fee for the recruits (80 gold)'), stance: 'peace', goldCost: 80, repF1: 2, repF2: 8, xp: 70 },
@@ -1072,7 +1092,8 @@ export function matchLivingCrisisEvent({
   forcedEventId = null,
 }) {
   if (forcedEventId) {
-    const exact = CRISIS_EVENTS.find((e) => e.id === forcedEventId);
+    const wanted = String(forcedEventId).trim().toUpperCase();
+    const exact = CRISIS_EVENTS.find((e) => e.id.toUpperCase() === wanted);
     if (exact) return exact;
   }
 
