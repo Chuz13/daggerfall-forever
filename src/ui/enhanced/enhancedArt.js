@@ -42,6 +42,12 @@ const cuts = new Map(); // `${name}:${x},${y},${w},${h}` -> dataURL | null
 const cutWaiting = new Map(); // UI2: the same key -> the screens waiting on it, while its sheet loads
 const CUT_WAKE_MAX = 8;
 
+export function _resetArtForTests() {
+  sheets.clear();
+  cuts.clear();
+  cutWaiting.clear();
+}
+
 function loadSheet(name) {
   if (sheets.has(name)) return sheets.get(name);
   const p = (async () => {
@@ -50,12 +56,30 @@ function loadSheet(name) {
         const { APP_ROOT } = await import('../../systems/appRoot.js');
         const root = APP_ROOT ?? globalThis.document?.baseURI ?? 'http://localhost/';
         const src = new URL(`art/${name}`, root).href;
+        if (typeof fetch === 'function' && typeof createImageBitmap === 'function') {
+          const res = await fetch(src);
+          if (!res.ok) return null;
+          const bmp = await createImageBitmap(await res.blob());
+          try {
+            if (!(bmp.width > 0 && bmp.height > 0)) return null;
+            const cv = document.createElement('canvas');
+            cv.width = bmp.width;
+            cv.height = bmp.height;
+            cv.getContext('2d').drawImage(bmp, 0, 0);
+            return cv;
+          } finally {
+            bmp.close?.();
+          }
+        }
         const img = new Image();
         img.src = src;
         await img.decode();
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (!(w > 0 && h > 0)) return null;
         const cv = document.createElement('canvas');
-        cv.width = img.width;
-        cv.height = img.height;
+        cv.width = w;
+        cv.height = h;
         cv.getContext('2d').drawImage(img, 0, 0);
         return cv;
       }
@@ -102,13 +126,18 @@ export function sheetCutUrl(name, [x, y, w, h], scale = 2, onReady = null) {
   loadSheet(name).then((sheet) => {
     cutWaiting.delete(key);
     if (!sheet) return;
-    const out = document.createElement('canvas');
-    out.width = w * scale;
-    out.height = h * scale;
-    const ctx = out.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(sheet, x, y, w, h, 0, 0, out.width, out.height);
-    cuts.set(key, out.toDataURL('image/png'));
+    try {
+      const out = document.createElement('canvas');
+      out.width = w * scale;
+      out.height = h * scale;
+      const ctx = out.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(sheet, x, y, w, h, 0, 0, out.width, out.height);
+      cuts.set(key, out.toDataURL('image/png'));
+    } catch (e) {
+      console.warn('[port] sheet cut failed', e);
+      return;
+    }
     for (const f of wake) {
       try {
         f();
