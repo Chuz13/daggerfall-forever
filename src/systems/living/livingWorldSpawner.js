@@ -73,6 +73,7 @@ import {
   SKIRMISH_TEAMS,
 } from './urbanDirector.js';
 import { resolveCrisisChoiceCheck, getEventDisplayName, SKIRMISH_PROP_THEME } from './crisisRegistry.js';
+import { applySkirmishReputationOutcome } from './skirmishReputation.js';
 import {
   LIVING_ROLL_DEGREE,
   LIVING_FORMULAS,
@@ -1269,6 +1270,7 @@ export function buildLivingSiteBlueprint({
     meta.event = plan.event;
     meta.faction1Name = plan.faction1Name;
     meta.faction2Name = plan.faction2Name;
+    meta.enemyRegionIndex = plan.enemyRegionIndex ?? null;
     meta.propTheme = plan.propTheme;
     const themedProps = buildSkirmishThemeProps(
       plan.propTheme,
@@ -3547,26 +3549,24 @@ export function createLivingSceneHost(deps) {
               deps.say(LIVING_WORDS.notifyGoldGained(checkRes.goldReward), 4);
             }
 
-            if (player) {
-              if (checkRes.repF1Delta) {
-                adjustPlayerRegionalRep(player, regIdx, checkRes.repF1Delta);
-                if (checkRes.repF1Delta > 0) {
-                  deps.say(LIVING_WORDS.notifyRepGained(f1Name, checkRes.repF1Delta), 4);
-                } else {
-                  deps.say(LIVING_WORDS.notifyRepLost(f1Name, checkRes.repF1Delta), 4);
-                }
-              }
-              if (checkRes.repF2Delta) {
-                adjustPlayerRegionalRep(player, regIdx, checkRes.repF2Delta);
-                if (checkRes.repF2Delta > 0) {
-                  deps.say(LIVING_WORDS.notifyRepGained(f2Name, checkRes.repF2Delta), 4);
-                } else {
-                  deps.say(LIVING_WORDS.notifyRepLost(f2Name, checkRes.repF2Delta), 4);
-                }
+            const repOutcome = player
+              ? applySkirmishReputationOutcome(player, {
+                eventId: evt?.id,
+                regionIndex: regIdx,
+                enemyRegionIndex: s.blueprint?.meta?.enemyRegionIndex ?? null,
+                repF1Delta: checkRes.repF1Delta || 0,
+                repF2Delta: checkRes.repF2Delta || 0,
+              })
+              : { applied: [], netLocalLegalDelta: 0 };
+            for (const entry of repOutcome.applied) {
+              if (entry.delta > 0) {
+                deps.say(LIVING_WORDS.notifyRepGained(entry.label, entry.delta), 4);
+              } else if (entry.delta < 0) {
+                deps.say(LIVING_WORDS.notifyRepLost(entry.label, entry.delta), 4);
               }
             }
 
-            const isSkillCheck = Boolean(c.skillCheck);
+            const totalAppliedRep = repOutcome.applied.reduce((sum, entry) => sum + entry.delta, 0);
             recordCrisisChoiceResolution({
               regionIndex: regIdx,
               crisisType: s.blueprint?.meta?.crisisType || 'SKIRMISH',
@@ -3575,15 +3575,13 @@ export function createLivingSceneHost(deps) {
               choiceLabel: c.text,
               predicted: {
                 gold: (c.goldReward ?? 0) - (c.goldCost ?? 0),
-                rep: isSkillCheck
-                  ? (checkRes.repF1Delta || 0) + (checkRes.repF2Delta || 0)
-                  : ((c.repF1 ?? c.repF1Delta ?? 0) + (c.repF2 ?? c.repF2Delta ?? 0)),
+                rep: totalAppliedRep,
                 fatigue: c.fatigueCost ?? 0,
                 xp: 0,
               },
               applied: {
                 goldDelta: (checkRes.goldReward || 0) - (checkRes.goldCost || 0),
-                repDelta: (checkRes.repF1Delta || 0) + (checkRes.repF2Delta || 0),
+                repDelta: totalAppliedRep,
                 fatigueDelta: -(checkRes.fatigueCost || 0),
                 xpGained: 0,
               },

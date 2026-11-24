@@ -4076,7 +4076,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return false;
   }
 
-  function triggerWildernessEncounter(kind = 'random') {
+  function triggerWildernessEncounter(kind = 'random', forcedEventId = null) {
     if (!exteriorFoes?.spawnFoe) return 'Cannot trigger wilderness encounter: exterior foes spawner not ready.';
     const feet = walkMode && playerSpawned ? player.feetAt() : cam.pos;
     const px = playerTravelPixel();
@@ -4210,7 +4210,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
 
     if (targetKind === 'skirmish' || targetKind === 'urban_skirmish' || targetKind === 'war' || targetKind === 'war_skirmish') {
-      const wantUrban = (targetKind === 'urban_skirmish' || (targetKind === 'skirmish' && _musicInLocationRect()));
+      const hasForcedEvt = typeof forcedEventId === 'string' && forcedEventId.length > 0;
+      const wantUrban = (hasForcedEvt || targetKind === 'urban_skirmish' || (targetKind === 'skirmish' && _musicInLocationRect()));
       let bp = wantUrban
         ? buildLivingSiteBlueprint({
           kind: LIVING_SITE_KINDS.URBAN_SKIRMISH,
@@ -4223,6 +4224,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           dfLocation: _musicLoc,
           locationType: _musicLocationType(),
           climateIndex: clim,
+          forcedEventId: hasForcedEvt ? forcedEventId : null,
         })
         : null;
       if (!bp) {
@@ -4237,7 +4239,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         });
       }
       livingSceneHostOf().standBlueprint(bp);
-      return `[Living Tamriel] Spawned ${bp.kind} (${bp?.actors?.length ?? 0} fighters).`;
+      return `[Living Tamriel] Spawned ${bp.kind}${bp?.meta?.event?.id ? ` (${bp.meta.event.id})` : ''} (${bp?.actors?.length ?? 0} fighters).`;
     }
 
     if (targetKind === 'camp' || targetKind === 'pack' || targetKind === 'band') {
@@ -4377,7 +4379,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         })(),
         sceneHost: livingSceneHostOf(),
         dungeonCtx: modes?.dungeonCtx ?? null,
-        triggerEncounter: (kind) => triggerWildernessEncounter(kind),
+        triggerEncounter: (kind, forcedEventId = null) => triggerWildernessEncounter(kind, forcedEventId),
       }),
   );
   const livingRoadsOf = () => (livingRoads ??= createLivingRoads({
@@ -30692,7 +30694,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!ok) hudFade.clearFade();
       return ok ? best : null;
     },
-    triggerWildernessEncounter: (kind) => triggerWildernessEncounter(kind),
+    triggerWildernessEncounter: (kind, forcedEventId = null) => triggerWildernessEncounter(kind, forcedEventId),
     spawnStarfall: (opts) => starfall?.spawnDebugStar?.(opts) ?? null,
     clearStarfall: () => starfall?.clearDebugStar?.(),
     starfallStatus: () => starfall?.debugStatus?.() ?? null,
