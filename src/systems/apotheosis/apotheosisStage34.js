@@ -515,7 +515,7 @@ export function startInterDeityWar(
     regionIndex: targetRegions[0],
     text: msg,
   });
-  hudText(msg, 6);
+  if (isAscendedGod(entity)) hudText(msg, 6);
 
   return { ok: true, war, message: msg };
 }
@@ -1011,8 +1011,10 @@ export function resolveWarSkirmishPacify(
   const now = Number(nowMinutes) || 0;
   const reg = clampReg(warDesc.regIdx);
   const isDivine = warDesc.warKind === 'divine';
+  const ascended = isAscendedGod(entity);
+  const useDivineRules = isDivine && ascended;
 
-  if (isDivine && !force) {
+  if (useDivineRules && !force) {
     const spend = spendApotheosisFaith(entity, DIVINE_SKIRMISH_PACIFY_FAITH_COST, { reason: 'skirmish_pacify' });
     if (!spend.ok) {
       return {
@@ -1058,36 +1060,35 @@ export function resolveWarSkirmishPacify(
 
     if (degree === LIVING_ROLL_DEGREE.TRIUMPH) {
       pacifyIncrement = 2;
-      faithReward = isDivine ? 75 : 25;
-      goldReward = isDivine ? 0 : 150;
-      infReward = 2.5;
+      faithReward = useDivineRules ? 75 : 0;
+      goldReward = useDivineRules ? 0 : 150;
+      infReward = ascended ? 2.5 : 0;
     } else if (degree === LIVING_ROLL_DEGREE.PARTIAL) {
       pacifyIncrement = 1;
-      faithReward = isDivine ? 25 : 0;
+      faithReward = useDivineRules ? 25 : 0;
       goldReward = 0;
-      infReward = 1.0;
+      infReward = ascended ? 1.0 : 0;
       // Extra stamina + Faith/Gold sacrifice for Partial compromise
       if (Number.isFinite(entity.fatigue)) {
         entity.fatigue = Math.max(1, Math.floor(entity.fatigue * 0.5));
       }
-      if (isDivine && !force) {
+      if (useDivineRules && !force) {
         spendApotheosisFaith(entity, 75, { reason: 'skirmish_pacify_partial' });
-      } else if (!isDivine && Number.isFinite(entity.goldPieces)) {
+      } else if (!useDivineRules && Number.isFinite(entity.goldPieces)) {
         entity.goldPieces = Math.max(0, Number(entity.goldPieces) - MUNDANE_WAR_PACIFY_EXTRA_GOLD);
       }
     } else {
       // SUCCESS
       pacifyIncrement = 1;
-      faithReward = isDivine ? 50 : 20;
-      goldReward = isDivine ? 0 : 100;
-      infReward = 1.5;
+      faithReward = useDivineRules ? 50 : 0;
+      goldReward = useDivineRules ? 0 : 100;
+      infReward = ascended ? 1.5 : 0;
     }
 
-    if (faithReward > 0 && entity?.apotheosis) {
+    if (faithReward > 0 && ascended) {
       faithReward = addApotheosisFaith(entity, faithReward, {
         reason: 'skirmish_pacify',
         nowMinutes: now,
-        force: true,
       }).requested;
     }
     if (goldReward > 0) {

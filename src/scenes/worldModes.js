@@ -6167,6 +6167,8 @@ export function createWorldModes(host) {
         // has no branch for it, so the port says nothing rather than
         // guessing a zero.
         if (!store) return null;
+        const apoJoinBlock = apoTempleBlockFor('Join');
+        if (apoJoinBlock.blocked) return { rows: [{ text: apoJoinBlock.message, center: true }] };
         const decision = joinDecision(playerEntity, guild, store);
         if (!decision) return null;
         if (!decision.eligible) return { rows: [...rows(decision.textId), ...(isEnhanced() ? [] : wayBack() ?? [])] };   // WAY-BACK: DFU's refusal, then the way in - on the enhanced skin the hall's well says it (AUDIT WAY-BACK L2-2/4/5)

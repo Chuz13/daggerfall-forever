@@ -3845,26 +3845,27 @@ export function createLivingSceneHost(deps) {
           }
           deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
           const progStr = `${Math.min(WAR_SKIRMISH_PACIFY_GOAL, res.pacifiedCount)}/${WAR_SKIRMISH_PACIFY_GOAL}`;
+          const rewText = isAscendedGod(player)
+            ? `+${res.faithReward} Faith +${res.infReward}% Inf.`
+            : (res.goldReward > 0 ? `+${res.goldReward}g` : t('apotheosis.skirmish.pacifyPeaceWord', 'Truce sealed'));
           if (res.degree === LIVING_ROLL_DEGREE.PARTIAL) {
             deps.say(
-              t('apotheosis.skirmish.pacifyPartial', 'Compromise truce ({score}/{dc}, {prog}) — extra fatigue & resources spent! +{faith} Faith +{inf}% Inf.', {
+              t('apotheosis.skirmish.pacifyPartialMundane', 'Compromise truce ({score}/{dc}, {prog}) — extra fatigue & resources spent! {rew}', {
                 score,
                 dc,
                 prog: progStr,
-                faith: res.faithReward,
-                inf: res.infReward,
+                rew: rewText,
               }),
               6,
             );
           } else {
             deps.say(
-              t('apotheosis.skirmish.pacifyOk', 'Skirmish pacified ({deg} {score}/{dc}, {prog})! +{faith} Faith +{inf}% Inf.', {
+              t('apotheosis.skirmish.pacifyOkMundane', 'Skirmish pacified ({deg} {score}/{dc}, {prog})! {rew}', {
                 deg: res.degree,
                 score,
                 dc,
                 prog: progStr,
-                faith: res.faithReward,
-                inf: res.infReward,
+                rew: rewText,
               }),
               6,
             );
@@ -3896,11 +3897,12 @@ export function createLivingSceneHost(deps) {
         }
 
         const isDivineWar = warDesc?.warKind === 'divine';
-        const rewardTag = isDivineWar
+        const showDivineRewards = isDivineWar && isAscendedGod(player);
+        const rewardTag = showDivineRewards
           ? t('apotheosis.skirmish.winPreviewDivine', '+35 Faith · +1% Inf')
           : t('apotheosis.skirmish.winPreviewMundane', '+150g · Rep');
         const curPac = Number(warDesc?.pacifiedCount ?? 0);
-        const pacifyLabel = isDivineWar
+        const pacifyLabel = showDivineRewards
           ? t('apotheosis.skirmish.optPacifyDivineProgress', 'Reconcile & Pacify ({cost} Faith · DC 85 · {cur}/3)', { cost: DIVINE_SKIRMISH_PACIFY_FAITH_COST, cur: curPac })
           : t('apotheosis.skirmish.optPacifyMundaneProgress', 'Reconcile & Pacify (Hard Diplomacy DC 85 · {cur}/3)', { cur: curPac });
 

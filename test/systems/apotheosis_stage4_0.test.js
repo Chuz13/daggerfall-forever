@@ -22,7 +22,9 @@ import {
   getSanctumCommunionInfo,
   communeAtCultAltar,
   getGlobalInfluenceSummary,
+  resolveWarSkirmishPacify,
 } from '../../src/systems/apotheosis/apotheosisCore.js';
+import { statusTiles } from '../../src/ui/hud/hudStatus.js';
 import { snapshotPlayer, restorePlayer } from '../../src/systems/save/save.js';
 import { _resetForTests as resetOfflineHomes } from '../../src/systems/offlineHomes.js';
 
@@ -211,4 +213,68 @@ test('Phase 4.0: PORTFOLIO_FAITH_GUIDE documents all 4 portfolios and key caveat
   }
   assert.match(PORTFOLIO_FAITH_GUIDE.magic.caveat(), /0 Faith/i);
   assert.match(PORTFOLIO_FAITH_GUIDE.order.sources().join(' '), /\+10 Faith\/day/i);
+  assert.match(PORTFOLIO_FAITH_GUIDE.order.alignedMiracles(), /bounty clear/i);
+  assert.match(PORTFOLIO_FAITH_GUIDE.order.opposedMiracles(), /bounty set/i);
+  assert.doesNotMatch(PORTFOLIO_FAITH_GUIDE.war.alignedMiracles(), /set_attr/i);
+  assert.doesNotMatch(PORTFOLIO_FAITH_GUIDE.magic.alignedMiracles(), /addspell/i);
+});
+
+test('Phase 4.0 Audit: statusTiles keeps distinct keys for road_blessing and sanctum_communion', () => {
+  const roadOnly = statusTiles({
+    blessing: { key: 'road_blessing', active: true, name: 'Blessing of Mara', foot: '2h' },
+  });
+  const communionOnly = statusTiles({
+    blessing: { key: 'sanctum_communion', active: true, name: 'Sanctum Communion', foot: '24h' },
+  });
+  assert.equal(roadOnly[0].key, 'road_blessing');
+  assert.equal(communionOnly[0].key, 'sanctum_communion');
+});
+
+test('Phase 4.0 Audit: Mortal pacifying pre-Ascension divine war skirmish uses gold/diplomacy without Faith', () => {
+  const mortal = makeMortal({ region: 17 });
+  mortal.apotheosis.faith = 0;
+  const warDesc = {
+    warKind: 'divine',
+    warId: 'godwar_akatosh_mehrunes_dagon_1',
+    regIdx: 17,
+    regions: [17],
+    godA: 'akatosh',
+    godB: 'mehrunes_dagon',
+    war: { id: 'godwar_akatosh_mehrunes_dagon_1', regions: [17], regionPacified: {}, pacifiedCount: 0 },
+  };
+  const res = resolveWarSkirmishPacify(mortal, warDesc, { nowMinutes: 5000, forcedDegree: 'SUCCESS' });
+  assert.equal(res.ok, true);
+  assert.equal(res.faithShortage, undefined);
+  assert.equal(res.faithReward, 0);
+  assert.equal(res.goldReward, 100);
+  assert.equal(mortal.apotheosis.faith, 0);
+});
+
+test('Phase 4.0 Audit: communeAtCultAltar syncs currentHealth & selectApotheosisPortfolio distinguishes 250 vs 125 error', () => {
+  resetOfflineHomes();
+  const nowMin = 25 * 1440;
+  const god = makeAscended('war', { region: 17, faith: 100, nowMinutes: nowMin });
+  god.goldPieces = 100000;
+  god.apotheosis.faith = 500;
+  assert.equal(foundPlayerUndergroundSanctuary(god, { mapId: 9002, regionIndex: 17, locationName: 'Wayrest', nowMinutes: nowMin }).ok, true);
+
+  god.health = 25;
+  god.currentHealth = 25;
+  const com = communeAtCultAltar(god, playerHatchSiteKey(9002), { nowMinutes: nowMin });
+  assert.equal(com.ok, true);
+  assert.equal(god.health, god.maxHealth);
+  assert.equal(god.currentHealth, god.maxHealth);
+
+  // Switch failure messages after 30d cooldown
+  god.apotheosis.faith = 100;
+  const later = nowMin + 31 * 1440;
+  const failNormal = selectApotheosisPortfolio(god, 'magic', { nowMinutes: later });
+  assert.equal(failNormal.ok, false);
+  assert.equal(failNormal.requiredFaith, 250);
+  assert.match(failNormal.error, /250 Faith/);
+
+  const failAltar = selectApotheosisPortfolio(god, 'magic', { nowMinutes: later, atAltar: true });
+  assert.equal(failAltar.ok, false);
+  assert.equal(failAltar.requiredFaith, 125);
+  assert.match(failAltar.error, /125 Faith/);
 });

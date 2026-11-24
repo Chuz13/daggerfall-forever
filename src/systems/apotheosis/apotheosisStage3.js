@@ -1015,7 +1015,7 @@ export function applyRegionConditionInfluenceShifts(entity, regionIndex) {
 
 // ── DAILY PANTHEON AI TURN (1 MOVE / GOD / TICK) ──────────────────────────────
 
-function pickDeityTargetRegion(entity, god, rng) {
+function pickDeityTargetRegion(entity, god, rng, playerActive = true) {
   const p = entity.apotheosis.pantheon;
   if (god.kind === 'daedra' && Array.isArray(entity.regionConditions)) {
     const crisisRegs = [];
@@ -1032,7 +1032,7 @@ function pickDeityTargetRegion(entity, god, rng) {
       return crisisRegs[Math.floor(rng() * crisisRegs.length) % crisisRegs.length];
     }
   }
-  if ((p.deities[god.id]?.status === 'war' || p.deities[god.id]?.status === 'hostile')) {
+  if (playerActive && (p.deities[god.id]?.status === 'war' || p.deities[god.id]?.status === 'hostile')) {
     const playerRegs = [];
     for (let r = 0; r < TAMRIEL_REGION_COUNT; r++) {
       if ((p.regionInfluence[r]?.player ?? 0) >= 5) playerRegs.push(r);
@@ -1115,7 +1115,7 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
       if (rng() >= chance) continue;
 
       aiMoves++;
-      const regIdx = pickDeityTargetRegion(entity, d, rng);
+      const regIdx = pickDeityTargetRegion(entity, d, rng, playerActive);
       const regName = getLocalizedRegionName(regIdx, (i) => REGION_NAMES[i] ?? `Region ${i}`);
       const graceActive = entry.graceUntilMinutes != null && simMin < entry.graceUntilMinutes;
       const playerShare = p.regionInfluence[regIdx]?.player ?? 0;

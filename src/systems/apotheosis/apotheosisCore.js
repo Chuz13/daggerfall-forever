@@ -482,8 +482,8 @@ export const PORTFOLIO_FAITH_GUIDE = Object.freeze({
       t('apotheosis.faithGuide.war.guild', 'Fighters Guild quests: +30 Faith'),
     ],
     caveat: () => null,
-    alignedMiracles: () => t('apotheosis.faithGuide.war.aligned', 'kill, killall, summon_champion(s), spawnfoe, set_attr / set_skill / set_level'),
-    opposedMiracles: () => t('apotheosis.faithGuide.war.opposed', 'pacifyall'),
+    alignedMiracles: () => t('apotheosis.faithGuide.war.aligned', 'kill, killall, spawnfoe, summon_champion(s), encounter, dragon, crisis start war'),
+    opposedMiracles: () => t('apotheosis.faithGuide.war.opposed', 'pacifyall, bounty clear, crisis stop war'),
   },
   magic: {
     sources: () => [
@@ -493,7 +493,7 @@ export const PORTFOLIO_FAITH_GUIDE = Object.freeze({
       t('apotheosis.faithGuide.magic.guild', 'Mages Guild quests: +30 Faith'),
     ],
     caveat: () => t('apotheosis.faithGuide.magic.caveat', 'Note: Enchanted weapon "Cast When Strikes" procs have 0 cast cost and grant 0 Faith.'),
-    alignedMiracles: () => t('apotheosis.faithGuide.magic.aligned', 'addspell, portal, divine_shield, lich / archlich, necro_*, weather'),
+    alignedMiracles: () => t('apotheosis.faithGuide.magic.aligned', 'portal, teleport, divine_shield, summon_champion(s), weather, time / advance_time, map_reveal*, lich / archlich, necro_*'),
     opposedMiracles: () => t('apotheosis.faithGuide.magic.opposed', 'None (Arcane decrees align broadly)'),
   },
   shadows: {
@@ -503,8 +503,8 @@ export const PORTFOLIO_FAITH_GUIDE = Object.freeze({
       t('apotheosis.faithGuide.shadows.guild', 'Thieves Guild & Dark Brotherhood quests: +30 Faith'),
     ],
     caveat: () => null,
-    alignedMiracles: () => t('apotheosis.faithGuide.shadows.aligned', 'bounty clear, addgold, stealth/illusion decrees, lich / necro_*'),
-    opposedMiracles: () => t('apotheosis.faithGuide.shadows.opposed', 'heal, legalrep set'),
+    alignedMiracles: () => t('apotheosis.faithGuide.shadows.aligned', 'weather fog (3), night time (20–5), bounty clear, summon_champion(s), lich / archlich, necro_*'),
+    opposedMiracles: () => t('apotheosis.faithGuide.shadows.opposed', 'killall, spawnfoe, crisis start, dragon'),
   },
   order: {
     sources: () => [
@@ -513,8 +513,8 @@ export const PORTFOLIO_FAITH_GUIDE = Object.freeze({
       t('apotheosis.faithGuide.order.donate', 'Temple donations & Temple / Knightly Order quests: up to +30 Faith'),
     ],
     caveat: () => t('apotheosis.faithGuide.order.caveat', 'Note: Passive Sanctuary/Edict income does not pause Mythic Decay (-15/idle day); active deeds or Altar Communion do.'),
-    alignedMiracles: () => t('apotheosis.faithGuide.order.aligned', 'heal, divine_shield, pacifyall, weather 0 (Clear Skies), legalrep'),
-    opposedMiracles: () => t('apotheosis.faithGuide.order.opposed', 'lich / archlich, necro_*, spawnfoe, killall, bounty clear'),
+    alignedMiracles: () => t('apotheosis.faithGuide.order.aligned', 'heal, divine_shield, pacifyall, bounty clear, weather 0/1 (Clear/Cloudy), crisis stop, legalrep, summon_champion(s)'),
+    opposedMiracles: () => t('apotheosis.faithGuide.order.opposed', 'kill, killall, spawnfoe, bounty set, crisis start, lich / archlich, necro_*'),
   },
 });
 
@@ -1863,7 +1863,9 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
     if ((state.faith || 0) < switchCost) {
       return {
         ok: false,
-        error: t('apotheosis.err.switch_faith', 'Not enough Faith to switch Portfolio (requires {cost} Faith).', { cost: switchCost }),
+        error: atAltar
+          ? t('apotheosis.err.switch_faith_altar', 'Not enough Faith to switch Portfolio at Altar (requires {cost} Faith).', { cost: switchCost })
+          : t('apotheosis.err.switch_faith', 'Not enough Faith to switch Portfolio (requires 250 Faith).'),
         requiredFaith: switchCost,
         faith: state.faith || 0,
         state,

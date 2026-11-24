@@ -1529,6 +1529,7 @@ function drawStatus(vitals, opts, live = null) {
     const foot = rb.minutesLeft >= 60 ? `${Math.ceil(rb.minutesLeft / 60)}h` : `${rb.minutesLeft}m`;
     all.unshift(...statusTiles({
       blessing: {
+        key: 'road_blessing',
         active: true,
         name: t('apotheosis.roadShrine.hudName', 'Blessing of {god}', { god: rb.godName }),
         foot,
@@ -1547,6 +1548,7 @@ function drawStatus(vitals, opts, live = null) {
     const foot = cb.minutesLeft >= 60 ? `${Math.ceil(cb.minutesLeft / 60)}h` : `${cb.minutesLeft}m`;
     all.unshift(...statusTiles({
       blessing: {
+        key: 'sanctum_communion',
         active: true,
         name: t('apotheosis.communion.hudName', 'Sanctum Communion'),
         foot,

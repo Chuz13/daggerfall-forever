@@ -16,7 +16,7 @@ import { billboardSize } from '../world/rmbFlats.js';
 import { doorWorldPosition, doorWorldNormal } from '../player/enterExit.js';
 import { ChoiceWindow } from '../ui/talkWindow.js';
 import { exteriorOpenSpellFor, consumeDoorSpell } from './shared.js';
-import { playerEntity } from '../characters/playerEntity.js';
+import { playerEntity, surfacePlayer } from '../characters/playerEntity.js';
 import { freeLodgedFeet } from '../characters/foeSpacing.js';
 import {
   APOTHEOSIS_PORTFOLIOS,
@@ -1007,6 +1007,7 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
       label: `${comDigit} - ${t('apotheosis.cult.btnCommuneAltar', 'Commune at Altar (1/day · Free)')}${communionDoneToday ? ` [${t('apotheosis.cult.doneTodayBadge', 'Done Today')}]` : ''}`,
       action: () => {
         const res = communeAtCultAltar(entity, site.siteKey, { nowMinutes: worldMinutes });
+        if (res.ok) surfacePlayer();
         say(res.ok ? res.message : res.reason);
       },
     });
@@ -1023,6 +1024,12 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
         if (swCd.onCooldown) {
           say(t('apotheosis.err.switch_cooldown', 'Portfolio realignment is on cooldown ({days} days remaining).', {
             days: swCd.remainingDays,
+          }));
+          return;
+        }
+        if (faithCur < APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST) {
+          say(t('apotheosis.err.switch_faith_altar', 'Not enough Faith to switch Portfolio at Altar (requires {cost} Faith).', {
+            cost: APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST,
           }));
           return;
         }
@@ -1044,6 +1051,7 @@ export function openCultAltarModal(entity, site, modalOpts = {}) {
                 t('apotheosis.cult.confirmBtnSpend', 'Confirm ({cost} Faith)', { cost: APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST }),
                 () => {
                   const res = selectApotheosisPortfolio(entity, p.id, { nowMinutes: worldMinutes, atAltar: true });
+                  if (res.ok) surfacePlayer();
                   say(res.ok
                     ? t('apotheosis.portfolio.switchedMsg', 'Divine Portfolio attuned to: {name}.', { name: p.name() })
                     : res.error);

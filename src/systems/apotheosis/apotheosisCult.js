@@ -1692,6 +1692,7 @@ export function communeAtCultAltar(entity, siteKey, { nowMinutes = 0 } = {}) {
 
   if (Number.isFinite(entity.maxHealth) && entity.maxHealth > 0) {
     entity.health = entity.maxHealth;
+    if (typeof entity.currentHealth === 'number') entity.currentHealth = entity.maxHealth;
   }
   if (Number.isFinite(entity.maxMagicka) && entity.maxMagicka > 0) {
     entity.magicka = entity.maxMagicka;
