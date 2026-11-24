@@ -40,7 +40,7 @@ import { bowShotStamp, bowFastDamage, whileShaftLands } from './bowBloom.js';   
 import { orbArchiveFor, ORB_RECORD, noteOrbColour, ORB_SCALE } from '../characters/thunderlockIds.js';   // FIELD-GUN14: what this weapon's shot LOOKS like - the leaf, so no cycle   // FIELD-GUN17: ...and what colour it is, sampled the one moment the texture is in hand   // FIELD-GUN18: ...and how big it is drawn
 import { playerWeaponHitEntity } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher (worldTick never reaches this module - no cycle)
 import { sparedByPlayer } from './friendlyFire.js';   // SHIPMATES: the player's shaft passes their own crew by
-import { isSparProtected } from '../systems/living/sparSurrender.js';
+import { isSparProtected, isSparPeaceful, isPlayerAllyFoe } from '../systems/living/sparSurrender.js';
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 import { blowMult, scaleBlowDamage, playerBody, tellTechniqueLanded } from './technique/techniqueBlow.js';   // TECH1: a technique's shaft - its weight, and never a player's body
 import { takeOwed } from '../systems/playerDoor.js';   // AUDIT MARTIAL L2 F5: the follow-ups a shaft owes a body the relay runs
@@ -169,6 +169,7 @@ export function shaftBodies(m, foeTargets, playerFeet, playerHeight, meetsMe, me
   const out = [];
   for (const t of (m.visual || meetsFoes) ? foeTargets ?? [] : []) {
     if (!t?.feet || t.ref?.dead || (!m.visual && t.ref === m.shooterFoe)) continue;
+    if (!m.visual && m.enemy && (isSparProtected(t.ref) || (isSparPeaceful(t.ref) && isPlayerAllyFoe(m.shooterFoe)))) continue;
     if (!m.visual && m.fromPlayer && (sparedByPlayer(t.ref) || (m.technique && (playerBody(t.ref) || m.technique.struck?.includes(t.ref))))) continue;
     out.push({ feet: t.feet, height: t.ref?.ai?.height });   // the foe's capsule as the sweep below meets it
   }
@@ -347,6 +348,7 @@ export class ArrowFlight {
       if (foeImpact && foeTargets) {
         for (const t of foeTargets) {
           if (!t?.feet || t.ref === m.shooterFoe || t.ref?.dead) continue;
+          if (m.enemy && (isSparProtected(t.ref) || (isSparPeaceful(t.ref) && isPlayerAllyFoe(m.shooterFoe)))) continue;
           if (m.fromPlayer && sparedByPlayer(t.ref)) continue;   // DISC19-F (AUDIT DISC19): the player's shaft flies through the town's defenders, as their spells do (hostMagic.js sparedFromPlayer) - SHIPMATES: and the player's own crew (combat/friendlyFire.js)
           if (m.technique && (playerBody(t.ref) || m.technique.struck?.includes(t.ref))) continue;   // TECH1: a technique's shaft passes a player's body by (TECH law 3), and a piercing shot a foe it has struck
           if (missileHitsCapsule(m.pos, t.feet, t.ref?.ai?.height, undefined, m.fromPlayer ? from : null)) {   // SHAFT-SWEEP: a player's shaft along its whole step (spellcast.js sweptSphereOverlapsCapsule)   // ROAD-H tail: the target's own CAPSULE (REVIEW 2026-09-05 had its centre as a point)

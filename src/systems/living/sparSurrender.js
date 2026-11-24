@@ -21,6 +21,72 @@ export const isSparKneeling = (f) => !!(f && !f.dead && f._sparKneeling && f._sp
 /** Whether `foe` is a surrendered sparring opponent that has not been re-provoked. */
 export const isSparPeaceful = (f) => !!(f && !f.dead && f._surrenderedSpar && !f.ai?.isHostile);
 
+/** Whether `f` is a player-allied body (companion, shipmate, minion, champion, or PlayerAlly team). */
+export function isPlayerAllyFoe(f) {
+  if (!f) return false;
+  const team = f.entity?.team;
+  const mTeam = f.entity?.mobileTeam ?? f.entity?.basics?.team;
+  return team === 'PlayerAlly'
+    || mTeam === 'PlayerAlly'
+    || f.companion != null
+    || !!f.shipmate
+    || f.livingRole === 'undead_minion'
+    || f.livingRole === 'apotheosis_champion'
+    || !!f.allied;
+}
+
+/** Clear active AI/attack/mobile combat latches on `rec` so an ended duel never leaks arrows, swings, or stale `targetSenses`. */
+function resetCombatBody(rec) {
+  if (!rec) return;
+  if (rec.ai) {
+    rec.ai.target = null;
+    rec.ai.secondaryTarget = null;
+    rec.ai.targetSenses = null;
+    rec.ai._targetCandidate = null;
+    rec.ai.detected = false;
+    rec.ai.inSight = false;
+    rec.ai.giveUpTimer = 0;
+    rec.ai.lastKnownTargetPos = null;
+    rec.ai.oldLastKnownTargetPos = null;
+    rec.ai.predictedTargetPos = null;
+    rec.ai._blowShot = null;
+    rec.ai._wantAimed = false;
+    rec.ai._blowWind = false;
+    rec.ai._blowSwing = false;
+    rec.ai._blowHold = false;
+    rec.ai.velX = 0;
+    rec.ai.velZ = 0;
+    rec.ai.moving = false;
+    rec.ai.path = null;
+    breakWindup(rec.ai);
+  }
+  if (rec.attack) {
+    rec.attack.firedRanged = false;
+    rec.attack.meleeTimer = 0;
+    rec.attack._held = false;
+    if (rec.attack.machine) {
+      rec.attack.machine.state = 'Idle';
+      rec.attack.machine.acc = 0;
+    }
+  }
+  if (rec.mobile) {
+    rec.mobile.shootArrow = false;
+    rec.mobile.doMeleeDamage = false;
+    if (rec.mobile.state === 'ranged' || rec.mobile.state === 'attack' || rec.mobile.state === 'spell') {
+      if (typeof rec.mobile._change === 'function') rec.mobile._change('idle');
+      else {
+        rec.mobile.state = 'idle';
+        rec.mobile.frame = 0;
+        rec.mobile._timer = 0;
+        rec.mobile._attackFrames = null;
+        rec.mobile._iter = 0;
+        rec.mobile._underHold = false;
+        rec.mobile._heldSwing = false;
+      }
+    }
+  }
+}
+
 /**
  * Strip lingering hostile DoTs, poisons, and paralysis from `entity.activeEffects` when a spar ends.
  * When `onlyFrom` is provided (for the player on loss), only removes entries cast by `onlyFrom`
@@ -55,21 +121,8 @@ export function beginSparEnd(foe, { playerWon = true, foes = [], playerEntity = 
   foe._sparKneeling = !!playerWon;
   foe._sparYieldAt = now;
 
-  if (foe.ai) {
-    foe.ai.isHostile = false;
-    foe.ai.target = null;
-    foe.ai.secondaryTarget = null;
-    foe.ai.velX = 0;
-    foe.ai.velZ = 0;
-    foe.ai.moving = false;
-    foe.ai.path = null;
-    breakWindup(foe.ai);
-  }
-  if (foe.attack?.machine) {
-    foe.attack.machine.state = 'Idle';
-    foe.attack.machine.acc = 0;
-    foe.attack._held = false;
-  }
+  if (foe.ai) foe.ai.isHostile = false;
+  resetCombatBody(foe);
 
   clearSparCombatEffects(foe.entity);
   if (!playerWon && playerEntity) {
@@ -78,8 +131,52 @@ export function beginSparEnd(foe, { playerWon = true, foes = [], playerEntity = 
 
   for (const ally of foes) {
     if (!ally || ally === foe || ally.dead || !ally.ai) continue;
-    if (ally.ai.target === foe) ally.ai.target = null;
-    if (ally.ai.secondaryTarget === foe) ally.ai.secondaryTarget = null;
+    const hadTarget = ally.ai.target === foe;
+    if (hadTarget || ally.ai.secondaryTarget === foe || ally.ai.targetSenses === foe || ally.ai._targetCandidate === foe) {
+      if (ally.ai.target === foe) ally.ai.target = null;
+      if (ally.ai.secondaryTarget === foe) ally.ai.secondaryTarget = null;
+      if (ally.ai.targetSenses === foe) ally.ai.targetSenses = null;
+      if (ally.ai._targetCandidate === foe) ally.ai._targetCandidate = null;
+      if (hadTarget) {
+        ally.ai.detected = false;
+        ally.ai.inSight = false;
+        ally.ai.giveUpTimer = 0;
+        ally.ai.lastKnownTargetPos = null;
+        ally.ai.oldLastKnownTargetPos = null;
+        ally.ai.predictedTargetPos = null;
+        ally.ai._blowShot = null;
+        ally.ai._wantAimed = false;
+        ally.ai._blowWind = false;
+        ally.ai._blowSwing = false;
+        ally.ai._blowHold = false;
+        breakWindup(ally.ai);
+        if (ally.attack) {
+          ally.attack.firedRanged = false;
+          ally.attack.meleeTimer = 0;
+          ally.attack._held = false;
+          if (ally.attack.machine) {
+            ally.attack.machine.state = 'Idle';
+            ally.attack.machine.acc = 0;
+          }
+        }
+        if (ally.mobile) {
+          ally.mobile.shootArrow = false;
+          ally.mobile.doMeleeDamage = false;
+          if (ally.mobile.state === 'ranged' || ally.mobile.state === 'attack' || ally.mobile.state === 'spell') {
+            if (typeof ally.mobile._change === 'function') ally.mobile._change('idle');
+            else {
+              ally.mobile.state = 'idle';
+              ally.mobile.frame = 0;
+              ally.mobile._timer = 0;
+              ally.mobile._attackFrames = null;
+              ally.mobile._iter = 0;
+              ally.mobile._underHold = false;
+              ally.mobile._heldSwing = false;
+            }
+          }
+        }
+      }
+    }
   }
 }
 

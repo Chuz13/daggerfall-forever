@@ -793,6 +793,7 @@ import { registerCompanionCount, registerCompanionRoster, companionsWithYou, COM
 import { PERSONALITIES } from '../systems/revenant/revenantPersonality.js';   // REVENANT-COMPANION: the party card's word for one
 import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: the player's own crew, spared his blows and wearing their bars
+import { isSparProtected, isSparPeaceful } from '../systems/living/sparSurrender.js';
 import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
 import { hdGlyphName } from '../ui/padGlyphsHD.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
 import { glassPadWords } from './glassPad.js';   // AUDIT CAPTAIN'S SEA S3's helper, moved out (HOST-SPLIT: AUDIT WORLD-REWARDS's merge of main)
@@ -10771,7 +10772,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           let nearest = null;
           let nearestDist = 45;
           for (const f of activePoolFoes) {
-            if (f && !f.dead && f !== rec && f.entity?.team !== 'PlayerAlly' && f.livingRole !== 'undead_minion' && !f.puppet) {
+            if (f && !f.dead && f !== rec && f.entity?.team !== 'PlayerAlly' && f.livingRole !== 'undead_minion' && !f.puppet && !isSparProtected(f) && !isSparPeaceful(f)) {
               const ff = f.ai?.feet ?? f.pos;
               if (ff) {
                 const dist = Math.hypot(ff[0] - pFeet[0], ff[2] - pFeet[2]);
@@ -10814,7 +10815,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (rec.ai) {
           rec.ai.canAct = true;
           const curTgt = rec.ai.target;
-          if (curTgt && (curTgt.isPlayer || curTgt.dead || (curTgt.entity?.health ?? 1) <= 0 || curTgt.entity?.team === 'PlayerAlly' || curTgt.companion != null)) {
+          if (curTgt && (curTgt.isPlayer || curTgt.dead || (curTgt.entity?.health ?? 1) <= 0 || curTgt.entity?.team === 'PlayerAlly' || curTgt.companion != null || isSparProtected(curTgt) || isSparPeaceful(curTgt))) {
             rec.ai.target = null;
             rec.ai.secondaryTarget = null;
           }
@@ -10847,6 +10848,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     f.entity?.mobileTeam !== 'PlayerAlly' &&
     f.entity?.team !== 'Neutral' &&
     f.entity?.mobileTeam !== 'Neutral' &&
+    !isSparProtected(f) &&
+    !isSparPeaceful(f) &&
     f.ai?.isHostile !== false;
 
   const championAshore = createCrewAshore({
@@ -11087,7 +11090,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         let nearestHostile = null;
         let nearestDist = 45;
         for (const e of allFoes) {
-          if (e && !e.dead && !uniqueBodies.includes(e) && e.entity?.team !== 'PlayerAlly' && e.livingRole !== 'undead_minion' && !e.puppet) {
+          if (e && !e.dead && !uniqueBodies.includes(e) && e.entity?.team !== 'PlayerAlly' && e.livingRole !== 'undead_minion' && !e.puppet && !isSparProtected(e) && !isSparPeaceful(e)) {
             const ef = e.ai?.feet ?? e.pos;
             if (ef) {
               const d = Math.hypot(ef[0] - pPos[0], ef[2] - pPos[2]);

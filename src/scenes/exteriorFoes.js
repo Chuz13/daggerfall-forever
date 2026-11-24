@@ -112,7 +112,7 @@ import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // RVN6: Plac
 import { validSites, validSiteTags, isRiteSite, isStarSite, isColossusSite, WOD_CAMP_PUPPETS_MAX, WOD_STAR_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/worldOfDaggerfall/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
 import { validRaidTags, validAlliedIds, validStaffBossTags, RAID_PUPPETS_MAX } from '../world/raidShared.js';   // RAID2: a town's raid, shared
 import { isShipmate, sparedBySwing } from '../combat/friendlyFire.js';   // SHIPMATES: my crew named on the wire, and never the swing's; AUDIT WORLD-EVENTS L4-5: nor a raid's refugees
-import { beginSparEnd, stepSparSurrender, isSparProtected, isSparKneeling, sparKneelPose } from '../systems/living/sparSurrender.js';
+import { beginSparEnd, stepSparSurrender, isSparProtected, isSparKneeling, isSparPeaceful, isPlayerAllyFoe, sparKneelPose } from '../systems/living/sparSurrender.js';
 import { campTagsOf, validCampTags } from '../world/campShared.js';   // OW6: a camp rides tagged, and an heir takes it as a camp
 import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // OW6: a camp taken over sees and wakes as it did
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
@@ -1965,7 +1965,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // ROAD-U: DoRangedAttack's spell branch and DoTouchSpell both sit
       // BELOW TakeAction's pause return (EnemyMotor.cs:466), so a
       // transforming Seducer casts nothing either.
-      if (_tgt && f.caster && !_fParalyzed && !_fPaused && (f.ai.isHostile || f.entity?.team === 'PlayerAlly' || f.livingRole === 'undead_minion' || f.shipmate || f.allied || !!f.ai.target)) {
+      const _sparPeace = isSparPeaceful(f);
+      if (_tgt && f.caster && !_fParalyzed && !_fPaused && !_sparPeace && (f.ai.isHostile || f.entity?.team === 'PlayerAlly' || f.livingRole === 'undead_minion' || f.shipmate || f.allied || !!f.ai.target)) {
         // WORLD6b-iii: the cast at a PEER - the decision runs as at me (AUDIT WORLD6b-ii A1: never gated off, or the pick
         // latches and the stand-off band roots the foe), the missile leaves toward the peer, and the cast rides the
         // stream (c the count, s the spell) so the peer's puppet casts the spell itself at the peer
@@ -2014,7 +2015,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // MELEE FIRST, arrow as the ELSE-IF: EnemyAttack.Update is
       // `if (DoMeleeDamage) {...} else if (ShootArrow) {...}` (:97-105).
       // (Found by the wave-35 re-read.)
-      if (!_fParalyzed && f.mobile.doMeleeDamage && _tgt) {
+      if (_sparPeace) {
+        f.mobile.doMeleeDamage = false;
+        f.mobile.shootArrow = false;
+      } else if (!_fParalyzed && f.mobile.doMeleeDamage && _tgt) {
         f.mobile.doMeleeDamage = false;
         // MT-ii: MeleeDamage's TWO-ARM SPLIT (EnemyAttack.cs:199-209)
         // - `if (Target == PlayerEntityBehaviour) ApplyDamageToPlayer
@@ -2660,6 +2664,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // AUDIT WORLD6b B8: a foe's shaft into a PUPPET is a ghost hit - nobody's; AUDIT CC-E1: but my companion's into
     // another's foe, or my foe's into another's companion, goes to the puppet's owner as the melee blow does
     if (!f || f.dead || !target || (target.puppet && f.companion == null && target.companion == null)) return;
+    if (isSparProtected(target) || (isSparPeaceful(target) && isPlayerAllyFoe(f))) return;
     const dir = [...m.dir];
     applyDamageToNonPlayer(f, target, {
       weapon: m.weapon, direction: dir, bowAttack: true, rolls, calculateAttackDamage,
