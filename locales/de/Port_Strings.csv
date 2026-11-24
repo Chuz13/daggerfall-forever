@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Schockzauber richten nur ein Viertel ihres Schadens 
 bossTraits.rule.thorned,"Von jedem Waffentreffer, der sitzt, fällt ein Teil auf dich zurück."
 bossTraits.rule.venomproof,"Giftzauber richten nur ein Viertel ihres Schadens an."
 bossTraits.rule.warded,"Ein Schutz fängt jeden Treffer zuerst ab. Er wächst nach, wenn du aufhörst, ihn zu treffen."
-bossTraits.rule.wrathful,"Er schlägt viel härter zu, sobald der Kampf {s} Sekunden gedauert hat."
+bossTraits.rule.wrathful,"Schlägt unter {pct}% Gesundheit oder nach {s} Sekunden Kampf deutlich härter zu."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"Der Schutz von {name} bricht!"

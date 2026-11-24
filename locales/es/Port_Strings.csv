@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Los hechizos de rayo solo hacen una cuarta parte de 
 bossTraits.rule.thorned,"Parte de cada golpe de arma que acierta se vuelve contra ti."
 bossTraits.rule.venomproof,"Los hechizos de veneno solo hacen una cuarta parte de su daño."
 bossTraits.rule.warded,"Una guarda recibe primero cada golpe. Vuelve a crecer si dejas de golpearla."
-bossTraits.rule.wrathful,"Golpea mucho más fuerte cuando el combate ya dura {s} segundos."
+bossTraits.rule.wrathful,"Golpea mucho más fuerte por debajo del {pct}% de salud o tras {s} segundos de combate."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"¡La guarda de {name} se rompe!"

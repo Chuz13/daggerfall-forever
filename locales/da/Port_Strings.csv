@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Choktrylleformler gør kun en fjerdedel af deres ska
 bossTraits.rule.thorned,"En del af hvert våbenslag, der rammer, slår tilbage på dig."
 bossTraits.rule.venomproof,"Gifttrylleformler gør kun en fjerdedel af deres skade."
 bossTraits.rule.warded,"Et værn tager hvert slag først. Det vokser tilbage, hvis du holder op med at slå på det."
-bossTraits.rule.wrathful,"Den slår meget hårdere, når kampen har varet i {s} sekunder."
+bossTraits.rule.wrathful,"Slår meget hårdere under {pct}% liv eller efter {s} sekunders kamp."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"Værnet om {name} brister!"

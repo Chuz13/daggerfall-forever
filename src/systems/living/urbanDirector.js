@@ -22,6 +22,7 @@ import {
 } from './crisisRegistry.js';
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { snapPropToGround } from './campInjector.js';
+import { enrichHumanoidSkirmishPool } from './tacticalPacks.js';
 
 export const URBAN_PROP_LIMIT = 2;
 export const MIN_DOORWAY_CLEARANCE_M = 10.0;
@@ -154,8 +155,12 @@ export function planUrbanSkirmish({
     else if (prosperity === PROSPERITY_TIER.LOW) guardCount = Math.max(defMin, guardCount - 1);
   }
 
+  const playerLevel = Number(playerEntity?.level ?? 1);
   // Generate guard positions and mobile types in compact multi-rank formations
   const defPool = event?.defendersPool?.length ? event.defendersPool : [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior];
+  const defRoster = isSingleDefender
+    ? [defPool[0]]
+    : enrichHumanoidSkirmishPool(defPool, guardCount, { side: 'guards', playerLevel });
   const guards = [];
   const baseDefAngle = -Math.PI * 0.75;
   for (let i = 0; i < guardCount; i++) {
@@ -176,7 +181,7 @@ export function planUrbanSkirmish({
       dx: gx,
       dz: gz,
       team: SKIRMISH_TEAMS.CITY_WATCH,
-      mobileType: defPool[i % defPool.length],
+      mobileType: defRoster[i],
     });
   }
 
@@ -185,10 +190,13 @@ export function planUrbanSkirmish({
     ? resolveEventAttackersPool(event, {
       regionIndex,
       climateIndex,
-      playerLevel: Number(playerEntity?.level ?? 1),
+      playerLevel,
     })
     : [];
   const atkPool = resolvedPool.length ? resolvedPool : [MOBILE_TYPES.Rogue, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Warrior];
+  const atkRoster = (isSingleAttacker || isSwarmAttackers)
+    ? Array.from({ length: rebelCount }, (_, i) => atkPool[i % atkPool.length])
+    : enrichHumanoidSkirmishPool(atkPool, rebelCount, { side: 'rebels', playerLevel });
   const rebels = [];
   const baseAtkAngle = Math.PI * 0.25;
   for (let i = 0; i < rebelCount; i++) {
@@ -217,7 +225,7 @@ export function planUrbanSkirmish({
       dx: rx,
       dz: rz,
       team: SKIRMISH_TEAMS.INSURGENTS,
-      mobileType: atkPool[i % atkPool.length],
+      mobileType: atkRoster[i],
     });
   }
 

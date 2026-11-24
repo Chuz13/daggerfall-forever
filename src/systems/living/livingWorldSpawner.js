@@ -161,6 +161,12 @@ import {
 } from './adventurerSim.js';
 import { LIVING_WORDS } from './livingWords.js';
 import { mobTraitChance } from '../bossTraits.js';
+import {
+  composeBanditCampSubordinates,
+  composeCheckpointGuards,
+  composeNemesisMinions,
+  composeWarSquadRoles,
+} from './tacticalPacks.js';
 
 export { LIVING_WORDS };
 
@@ -1011,14 +1017,16 @@ export function buildLivingSiteBlueprint({
       subGuardCount = rollEncounterRange(6, 10, rng);
     }
     const guardCount = 1 + subGuardCount;
-    for (let i = 0; i < guardCount; i++) {
+    const guardRoster = composeCheckpointGuards(guardCount, playerLevel);
+    for (let i = 0; i < guardRoster.length; i++) {
       const rank = Math.floor(i / 4);
       const inRank = i % 4;
       const gx = centerX + (inRank - 1.5) * 2.0;
       const gz = centerZ + (rank === 0 ? (i % 2 === 0 ? 1.5 : -1.0) : (rank * 1.8));
+      const g = guardRoster[i];
       actors.push({
-        mobileType: i === 0 ? MOBILE_TYPES.Knight : (i % 3 === 0 ? MOBILE_TYPES.Archer : MOBILE_TYPES.Warrior),
-        name: i === 0 ? 'Checkpoint Captain' : (i % 3 === 0 ? 'Watch Crossbowman' : 'Provincial Watchman'),
+        mobileType: g.mobileType,
+        name: g.name,
         level: Math.max(3, playerLevel),
         feet: [gx, snapPropToGround(heightAt, gx, gz), gz],
         yaw: Math.PI,
@@ -1083,23 +1091,18 @@ export function buildLivingSiteBlueprint({
       subBanditCount = rollEncounterRange(8, 14, rng);
     }
 
-    const subPool = [
-      { type: MOBILE_TYPES.Archer, name: 'Outlaw Marksman' },
-      { type: MOBILE_TYPES.Warrior, name: 'Deserter Cutthroat' },
-      { type: MOBILE_TYPES.Rogue, name: 'Bandit Cutpurse' },
-      { type: MOBILE_TYPES.Barbarian, name: 'Marauder Raider' },
-    ];
-    for (let i = 0; i < subBanditCount; i++) {
-      const sub = subPool[i % subPool.length];
+    const subRoster = composeBanditCampSubordinates(subBanditCount, playerLevel);
+    for (let i = 0; i < subRoster.length; i++) {
+      const sub = subRoster[i];
       const rank = Math.floor(i / 5);
       const inRank = i % 5;
-      const rankTotal = Math.min(5, subBanditCount - rank * 5);
+      const rankTotal = Math.min(5, subRoster.length - rank * 5);
       const angle = (inRank / Math.max(1, rankTotal)) * Math.PI * 2;
       const dist = 2.5 + rank * 1.8 + (i % 2 === 0 ? 0.3 : -0.3);
       const bx = centerX + Math.cos(angle) * dist;
       const bz = centerZ + Math.sin(angle) * dist;
       actors.push({
-        mobileType: sub.type,
+        mobileType: sub.mobileType,
         name: sub.name,
         level: Math.max(1, playerLevel),
         feet: [bx, snapPropToGround(heightAt, bx, bz), bz],
@@ -1363,26 +1366,24 @@ export function buildLivingSiteBlueprint({
     );
     flats.push({ ...LIVING_FLATS.BRAZIER, feet: [centerX, y0, centerZ] });
 
-    const pickWarSideMob = (godId, idx, isSideB = false) => {
-      if (war.warKind === 'divine' && godId) {
-        const deity = getPantheonDeity(godId);
-        if (deity?.kind === 'daedra') {
-          const dPool = [MOBILE_TYPES.Daedroth, MOBILE_TYPES.DaedraSeducer, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Spellsword];
-          return dPool[idx % dPool.length];
-        }
-        const aPool = [MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage, MOBILE_TYPES.Archer, MOBILE_TYPES.Spellsword];
-        return aPool[idx % aPool.length];
-      }
-      const mPoolA = [MOBILE_TYPES.Knight, MOBILE_TYPES.Warrior, MOBILE_TYPES.Archer];
-      const mPoolB = [MOBILE_TYPES.Barbarian, MOBILE_TYPES.Rogue, MOBILE_TYPES.Archer];
-      return (isSideB ? mPoolB : mPoolA)[idx % 3];
-    };
+    const sideARoles = composeWarSquadRoles(squadCount, {
+      warKind: war.warKind,
+      godKind: war.godA ? getPantheonDeity(war.godA)?.kind ?? null : null,
+      isSideB: false,
+      playerLevel,
+    });
+    const sideBRoles = composeWarSquadRoles(squadCount, {
+      warKind: war.warKind,
+      godKind: war.godB ? getPantheonDeity(war.godB)?.kind ?? null : null,
+      isSideB: true,
+      playerLevel,
+    });
 
     for (let i = 0; i < squadCount; i++) {
       const gx = centerX - 4.5 - (i % 2) * 1.4;
       const gz = centerZ + (i - (squadCount - 1) * 0.5) * 1.8;
       actors.push({
-        mobileType: pickWarSideMob(war.godA, i, false),
+        mobileType: sideARoles[i].mobileType,
         name: war.sideAName,
         level: Math.max(4, playerLevel),
         feet: [gx, snapY(gx, gz), gz],
@@ -1405,7 +1406,7 @@ export function buildLivingSiteBlueprint({
       const rx = centerX + 4.5 + (i % 2) * 1.4;
       const rz = centerZ + (i - (squadCount - 1) * 0.5) * 1.8;
       actors.push({
-        mobileType: pickWarSideMob(war.godB, i, true),
+        mobileType: sideBRoles[i].mobileType,
         name: war.sideBName,
         level: Math.max(4, playerLevel),
         feet: [rx, snapY(rx, rz), rz],
@@ -1469,14 +1470,14 @@ export function buildLivingSiteBlueprint({
       nemesis,
     });
 
-    const minionTypes = [MOBILE_TYPES.Rogue, MOBILE_TYPES.Archer, MOBILE_TYPES.Warrior];
+    const minionRoles = composeNemesisMinions(nemesis.minions.length, playerLevel, leaderType);
     for (let i = 0; i < nemesis.minions.length; i++) {
       const m = nemesis.minions[i];
       const angle = ((i + 1) / (nemesis.minions.length + 1)) * Math.PI - Math.PI / 2;
       const mx = centerX + Math.sin(angle) * 3.0;
       const mz = centerZ + Math.cos(angle) * 2.5;
       actors.push({
-        mobileType: minionTypes[i % minionTypes.length],
+        mobileType: minionRoles[i].mobileType,
         name: m.name,
         level: m.level,
         feet: [mx, snapPropToGround(heightAt, mx, mz), mz],

@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Blesková kouzla způsobují jen čtvrtinu poškozen
 bossTraits.rule.thorned,"Část každého tvého zásahu zbraní se ti vrátí."
 bossTraits.rule.venomproof,"Jedová kouzla způsobují jen čtvrtinu poškození."
 bossTraits.rule.warded,"Záštita zachytí každý úder jako první. Obnoví se, když ji přestaneš zasahovat."
-bossTraits.rule.wrathful,"Když boj trvá déle než {s} s, bije mnohem silněji."
+bossTraits.rule.wrathful,"Udeří mnohem silněji pod {pct} % zdraví nebo po {s} sekundách boje."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"{name} přichází o záštitu!"

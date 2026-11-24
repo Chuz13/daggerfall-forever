@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Заклинанията с мълния нанас�
 bossTraits.rule.thorned,"Част от всеки ваш попаднал удар с оръжие се връща срещу вас."
 bossTraits.rule.venomproof,"Заклинанията с отрова нанасят само четвърт от щетите си."
 bossTraits.rule.warded,"Закрилата поема първа всеки удар. Тя се възстановява, ако спрете да я удряте."
-bossTraits.rule.wrathful,"Удря много по-силно, щом боят продължи {s} секунди."
+bossTraits.rule.wrathful,"Удря много по-силно под {pct}% здраве или след {s} секунди битка."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"Закрилата на {name} се разпада!"

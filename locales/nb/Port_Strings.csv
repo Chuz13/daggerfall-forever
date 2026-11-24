@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Sjokktrolldom gjør bare en fjerdedel av skaden sin.
 bossTraits.rule.thorned,"En del av hvert våpenslag som treffer, slår tilbake på deg."
 bossTraits.rule.venomproof,"Gifttrolldom gjør bare en fjerdedel av skaden sin."
 bossTraits.rule.warded,"Et vern tar hvert slag først. Det vokser tilbake hvis du slutter å slå på det."
-bossTraits.rule.wrathful,"Den slår mye hardere når kampen har vart i {s} sekunder."
+bossTraits.rule.wrathful,"Slår mye hardere under {pct}% helse eller etter {s} sekunder i kamp."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"Vernet rundt {name} brister!"

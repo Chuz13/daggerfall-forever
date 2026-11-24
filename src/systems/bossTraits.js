@@ -69,11 +69,14 @@ export const WARD_REFILL_S = 4;
 export const RESIST_SHARE = 0.25;
 /** What a resisted weapon lands, of itself. */
 export const WEAPON_RESIST_SHARE = 0.5;
-/** The most of its maximum health one blow takes from a curbing foe. */
+/** The most of its maximum health one blow takes from a curbing foe (raid leaders 5%, non-raid elites/Nemeses 15%). */
 export const CURB_SHARE = 0.05;
-/** The wrath: this long after a player's first blow (s), and how much harder it hits then; a fight no player has struck
- *  for WRATH_COOL_S is over, and its clock starts again at the next (AUDIT WORLD-EVENTS L2-5). */
-export const WRATH_AFTER_S = 75;
+export const CURB_SHARE_ELITE = 0.15;
+export const curbShareOf = (entity) => (entity?.raidLeader ? CURB_SHARE : CURB_SHARE_ELITE);
+/** The wrath: this long after a player's first blow (s) OR below WRATH_HP_SHARE health, and how much harder it hits then;
+ *  a fight no player has struck for WRATH_COOL_S is over, and its clock starts again at the next (AUDIT WORLD-EVENTS L2-5). */
+export const WRATH_AFTER_S = 25;
+export const WRATH_HP_SHARE = 0.45;
 export const WRATH_X = 1.6;
 export const WRATH_COOL_S = 30;
 /** The thorns: this share of a weapon blow that lands comes back at its striker. */
@@ -236,7 +239,7 @@ export function bossTake(entity, damage, { whole = false, nowS = 0, blow = true,
   const traits = bossTraitsOf(entity);
   if (!traits.length || whole || !blow || !(damage > 0)) return { damage, ward: 0, broke: false };
   let d = damage;
-  if (traits.includes('curbing')) d = Math.min(d, Math.max(1, Math.round((entity.maxHealth || 1) * CURB_SHARE)));
+  if (traits.includes('curbing')) d = Math.min(d, Math.max(1, Math.round((entity.maxHealth || 1) * curbShareOf(entity))));
   if (mine) {
     bossTraitsTick(entity, nowS);
     entity.bossFoughtS = nowS;
@@ -256,14 +259,16 @@ export function bossTake(entity, damage, { whole = false, nowS = 0, blow = true,
 }
 
 /**
- * THE WRATH: a wrathful foe of mine whose fight a player began WRATH_AFTER_S before `nowS` turns - its blows WRATH_X as
- * hard, once. Answers true on the call it turns (the host says so). A puppet turns on its owner's word (`bw`,
- * `markBossWrath`).
- * @param {any} entity @param {number} nowS
+ * THE WRATH: a wrathful foe of mine whose fight a player began WRATH_AFTER_S before `nowS` OR whose health drops below
+ * WRATH_HP_SHARE turns - its blows WRATH_X as hard, once. Answers true on the call it turns (the host says so).
+ * @param {any} entity @param {number} nowS @param {number} [pendingDamage=0]
  */
-export function bossWrathDue(entity, nowS) {
+export function bossWrathDue(entity, nowS, pendingDamage = 0) {
   if (!entity || entity.bossWrath || !hasBossTrait(entity, 'wrathful') || entity.bossWrathFrom == null) return false;
-  if (nowS - entity.bossWrathFrom < WRATH_AFTER_S) return false;
+  const maxH = Number(entity.maxHealth);
+  const curH = Number(entity.health) - (Number.isFinite(pendingDamage) && pendingDamage > 0 ? pendingDamage : 0);
+  const hpLow = Number.isFinite(maxH) && maxH > 0 && Number.isFinite(curH) && curH > 0 && curH / maxH < WRATH_HP_SHARE;
+  if (!hpLow && nowS - entity.bossWrathFrom < WRATH_AFTER_S) return false;
   return markBossWrath(entity);
 }
 /**
@@ -315,12 +320,13 @@ export const BOSS_TRAIT_RULES = Object.freeze({
   bladeturning: () =>
     t('bossTraits.rule.bladeturning', 'Blades and arrows do half damage. Blunt weapons and fists do full.'),
   stoneskin: () => t('bossTraits.rule.stoneskin', 'Blunt weapons and fists do half damage. Blades do full.'),
-  curbing: () =>
+  curbing: (entity = null) =>
     t('bossTraits.rule.curbing', 'No single blow takes more than {pct}% of its health.', {
-      pct: Math.round(CURB_SHARE * 100),
+      pct: Math.round(curbShareOf(entity) * 100),
     }),
   wrathful: () =>
-    t('bossTraits.rule.wrathful', 'It hits much harder once the fight has gone on for {s} seconds.', {
+    t('bossTraits.rule.wrathful', 'It hits much harder below {pct}% health or after {s} seconds of combat.', {
+      pct: Math.round(WRATH_HP_SHARE * 100),
       s: WRATH_AFTER_S,
     }),
   thorned: () => t('bossTraits.rule.thorned', 'Some of every weapon blow that lands comes back at you.'),
@@ -332,7 +338,7 @@ export const bossTraitWords = (entity) => bossTraitsOf(entity).map((id) => BOSS_
 /** The traits' rules, in their order. */
 export const bossTraitRules = (entity) =>
   bossTraitsOf(entity)
-    .map((id) => BOSS_TRAIT_RULES[id]?.() ?? '')
+    .map((id) => BOSS_TRAIT_RULES[id]?.(entity) ?? '')
     .filter(Boolean);
 /** AUDIT WORLD-EVENTS L5-6: EACH TRAIT TAUGHT ONCE - the rules of a foe's traits this player has not been told yet this
  *  session ("Warded: A ward takes every blow first..."), said by the host at my first blow on it; then never again. */
@@ -345,7 +351,7 @@ export function bossTraitsTaught(entity) {
     out.push(
       t('bossTraits.say.learn', '{trait}: {rule}', {
         trait: BOSS_TRAIT_WORDS[id]?.() ?? id,
-        rule: BOSS_TRAIT_RULES[id]?.() ?? '',
+        rule: BOSS_TRAIT_RULES[id]?.(entity) ?? '',
       }),
     );
   }
@@ -378,7 +384,7 @@ export function bossTakeAt(entity, damage, whole, nowS, say, nameOf, { blow = tr
   if (!bossTraitsOf(entity).length) return damage;
   const tk = bossTake(entity, damage, { whole, nowS, blow, mine });
   if (tk.broke) say?.(bossWardBrokeLine(nameOf()));
-  if (bossWrathDue(entity, nowS)) say?.(bossWrathLine(nameOf()));
+  if (bossWrathDue(entity, nowS, tk.damage)) say?.(bossWrathLine(nameOf()));
   return tk.damage;
 }
 

@@ -1801,7 +1801,7 @@ bossTraits.rule.stormproof,"Gli incantesimi di folgore infliggono solo un quarto
 bossTraits.rule.thorned,"Parte di ogni colpo d’arma andato a segno ricade su di te."
 bossTraits.rule.venomproof,"Gli incantesimi di veleno infliggono solo un quarto del loro danno."
 bossTraits.rule.warded,"Una protezione assorbe per prima ogni colpo. Si riforma se smetti di colpirla."
-bossTraits.rule.wrathful,"Colpisce molto più forte quando lo scontro dura ormai da {s} secondi."
+bossTraits.rule.wrathful,"Colpisce molto più forte sotto il {pct}% di salute o dopo {s} secondi di combattimento."
 bossTraits.say.learn,"{trait}: {rule}"
 bossTraits.say.met,"{name}: {traits}."
 bossTraits.say.wardBroke,"La protezione di {name} si spezza!"
