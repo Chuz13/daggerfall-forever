@@ -8,6 +8,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Balance', link: '/balance/' },
       { text: 'Apotheosis', link: '/apotheosis/' },
       { text: 'Living Tamriel', link: '/living-tamriel/' },
       { text: 'Necromancy', link: '/necromancy/' },
@@ -34,6 +35,7 @@ export default defineConfig({
       {
         text: 'Gameplay Systems',
         items: [
+          { text: 'Combat Balance & Difficulty', link: '/balance/' },
           { text: 'Living Tamriel', link: '/living-tamriel/' },
           { text: 'Necromancy & Lichdom', link: '/necromancy/' },
           { text: 'Racial Overhaul', link: '/racial-overhaul/' }
