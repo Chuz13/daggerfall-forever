@@ -56,7 +56,7 @@ function withRows(fn, { shell = { platform: 'win32' } } = {}) {
   try { return fn(); } finally { delete globalThis.document; delete globalThis.window; delete globalThis.daggerShell; }
 }
 
-const SPECIAL = ['preset:graphics', 'link:overhauls', 'bindings', 'mods-index'];
+const SPECIAL = ['preset:graphics', 'preset:difficulty', 'link:overhauls', 'bindings', 'mods-index'];
 const CARDS = ['card:morrowind', 'card:packs', 'card:peerSprites', 'card:nightSounds'];   // PIN MOVED (TESA1): the Arena card; TESA12: gone with Arena
 
 test('ORG2: the map is TOTAL and DISJOINT over every option - each of DFU\'s keys, each Features row and each of the port\'s own rows stands in exactly one section of one tab (mutant: a row dropped, or placed twice)', () => {

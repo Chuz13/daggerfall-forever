@@ -80,6 +80,13 @@ test('Block 6: applyRegionRiskToFoe scales offline foes and is a no-op online or
   applyRegionRiskToFoe(offEntity, 65, { online: false });
   assert.equal(offEntity.maxHealth, 100);
   assert.equal(offEntity.damageScale, 1);
+
+  // Unknown/null regionIndex must never fall back to region 0 (Alik'r Desert)
+  const unknownEntity = { maxHealth: 100, health: 100, healthMult: 1, damageScale: 1 };
+  const unknownProf = applyRegionRiskToFoe(unknownEntity, null, { online: false, mode: 'harsh' });
+  assert.equal(unknownProf.mode, 'off');
+  assert.equal(unknownEntity.maxHealth, 100);
+  assert.equal(unknownEntity.damageScale, 1);
 });
 
 test('Block 6: getRegionRiskLine formats threat lines offline and returns null online/off', () => {

@@ -490,7 +490,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // location's ground. Off Math.random, not this pool's `rolls`, so the encounter's own dice are not moved.
       // ELITE-RATES: ELITE-RARITY's gate (one standing at a time, a 180-minute gap, never a loose stand) is gone.
       const _online = isOnlinePage() || _net != null;
-      const _regIdx = currentRegionIndex ? currentRegionIndex() : (playerEntity?.currentRegionIndex ?? 0);
+      const _regIdx = currentRegionIndex ? currentRegionIndex() : (playerEntity?.currentRegionIndex ?? null);
       const _risk = regionRiskProfile(_regIdx, { online: _online });
       const eliteEligible = allowEliteRoll
         ? (!puppet && !allied && !questBehaviour && !replacing)

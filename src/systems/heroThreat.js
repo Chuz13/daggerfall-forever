@@ -42,6 +42,11 @@
 import { effectiveLevel } from './mentorMode.js';
 import { sigilRenown } from './sigil/sigil.js';
 import { lootRarityOn } from './loot/lootRarity.js';
+import { getPref } from './uiPrefs.js';
+import { isOnlinePage } from './online/onlineLane.js';
+
+export const HERO_THREAT_PREF = 'heroThreatMode';
+export const HERO_THREAT_MODES = Object.freeze(['off', 'classic', 'early']);
 
 /** THE TUNING TABLE. `from`: the first level that pays nothing; `to`: the last that pays; `damage` and `health`: the
  *  factor each level between them stands on a foe, compounding. */
@@ -50,23 +55,40 @@ export const HERO_THREAT = Object.freeze({
   renown: Object.freeze({ from: 8, to: 50, damage: 1.0085, health: 1.0042 }),
 });
 
+export const HERO_THREAT_CLASSIC = Object.freeze({
+  level: Object.freeze({ from: 10, to: 30, damage: 1.07, health: 1.04 }),
+  renown: Object.freeze({ from: 15, to: 50, damage: 1.01, health: 1.005 }),
+});
+
+/** Current Hero Threat Scaling mode (`off` | `classic` | `early`). Online always uses `early`. */
+export function heroThreatMode({ online = isOnlinePage() } = {}) {
+  if (online) return 'early';
+  const raw = String(getPref(HERO_THREAT_PREF) ?? 'early').toLowerCase();
+  if (raw === 'off' || raw === 'classic') return raw;
+  return 'early';
+}
+
 /** How many of a track's levels pay: `v` past `from`, never past `to` (a whole number; 0 for anything not a number). */
 const stepsOf = (v, { from, to }) =>
   Number.isFinite(v) ? Math.max(0, Math.min(to, Math.trunc(/** @type {number} */ (v))) - from) : 0;
 
 /**
  * The hero's threat at a Daggerfall level and a Renown (null offline, or not yet known): the factors a foe's blows and
- * its health are stood at, each 1 at or under level 10 and Renown 15. Pure.
+ * its health are stood at. Pure.
  * @param {number} level
  * @param {number|null} [renown]
+ * @param {{ mode?: 'off' | 'classic' | 'early' | null }} [o]
  * @returns {{ damage: number, health: number, level: number, renown: number }} `level` and `renown`: the steps paid
  */
-export function heroThreat(level, renown = null) {
-  const L = stepsOf(level, HERO_THREAT.level),
-    R = stepsOf(renown, HERO_THREAT.renown);
+export function heroThreat(level, renown = null, { mode = null } = {}) {
+  const m = mode ?? heroThreatMode();
+  if (m === 'off') return { damage: 1, health: 1, level: 0, renown: 0 };
+  const table = m === 'classic' ? HERO_THREAT_CLASSIC : HERO_THREAT;
+  const L = stepsOf(level, table.level),
+    R = stepsOf(renown, table.renown);
   return {
-    damage: HERO_THREAT.level.damage ** L * HERO_THREAT.renown.damage ** R,
-    health: HERO_THREAT.level.health ** L * HERO_THREAT.renown.health ** R,
+    damage: table.level.damage ** L * table.renown.damage ** R,
+    health: table.level.health ** L * table.renown.health ** R,
     level: L,
     renown: R,
   };
@@ -77,12 +99,12 @@ export function heroThreat(level, renown = null) {
  * around it (a mentor's, the group's), its Renown unless mentoring - or null where none stands (the ladder off, or
  * nothing to pay). `puppet`: another client's foe - its blows alone; its health is its owner's word.
  * @param {any} player
- * @param {{ puppet?: boolean, ignoreLootRarity?: boolean }} [o]
+ * @param {{ puppet?: boolean, ignoreLootRarity?: boolean, online?: boolean, mode?: 'off' | 'classic' | 'early' | null }} [o]
  * @returns {{ damage: number, health: number, level: number, renown: number } | null}
  */
-export function heroThreatOf(player, { puppet = false, ignoreLootRarity = false } = {}) {
+export function heroThreatOf(player, { puppet = false, ignoreLootRarity = false, online = isOnlinePage(), mode = null } = {}) {
   if (!player || (!ignoreLootRarity && !lootRarityOn())) return null;
-  const t = heroThreat(effectiveLevel(player), player._mentor ? null : sigilRenown());
+  const t = heroThreat(effectiveLevel(player), player._mentor ? null : sigilRenown(), { mode: mode ?? heroThreatMode({ online }) });
   if (!(t.damage > 1 || t.health > 1)) return null;
   return puppet ? { ...t, health: 1 } : t;
 }

@@ -119,6 +119,7 @@ import { ARMOR_ENUM } from '../../combat/enemyEquipment.js';
 import { morrowindDataCount, morrowindDataCounted, countMorrowindArchives, assetPickerOpen, textureStoreRegistered, textureStoreSettled } from '../../scenes/dataSource.js';   // MAC1: the boot door counts the store itself; AUDIT 65 XL-6: by NAME - it never reads a stored file   // MW-IMPORT: the attach door; MWFIX: and the modal it opens owns the keyboard
 import { CATEGORIES, keysOf, isSettingItem, optionPath, whereIs } from '../settings/settingsMap.js';   // ORG2: the one map of every option
 import { GRAPHICS_PRESETS, PRESET_ROWS, PRESET_PARTS, presetNow } from '../../systems/graphicsPresets.js';   // ORG2; MEM-AUDIT: and its parts
+import { DIFFICULTY_PRESETS, DIFFICULTY_PRESET_ROWS, difficultyPresetNow } from '../../systems/difficultyPresets.js';
 import { widgetFor, blockedReason, formatValue, stepValue, COLOUR_KEYS, ENUM_LAW, enumWords } from '../settings/settingsLaw.js';   // FT14: the enum's own values are the bar's segments
 import { labelOf, helpOf, INSTEAD, TIER_TEXT } from '../settings/settingsCopy.js';
 import {
@@ -2024,6 +2025,7 @@ function itemText(item, pool) {
   if (item.startsWith('feat:')) { const f = FEATURES.find((x) => x.id === item.slice(5)); return f ? featureSearchText(f) : ''; }
   if (item.startsWith('port:')) return pool.get(item.slice(5))?.textContent ?? '';
   if (item === 'preset:graphics') return presetSearchText();
+  if (item === 'preset:difficulty') return difficultyPresetSearchText();
   if (item === 'link:overhauls') return 'overhauls looks textures vanilla enhanced sounds interface';
   if (item === 'bindings') return 'key bindings keys keyboard rebind controls';
   if (item.startsWith('card:')) return { morrowind: 'morrowind files data body 3d attach', packs: 'packs textures music replacement folder',
@@ -2068,6 +2070,7 @@ function itemNodes(item, ctx) {
   if (item === 'port:language') { const r = pool.get('language'); const pack = r ? translationPackRow() : null; return r ? [mark(r), ...(pack ? [pack] : [])] : []; }   // L10N3b: the translation pack rides under the language row
   if (item.startsWith('port:')) { const r = pool.get(item.slice(5)); return r ? [mark(r)] : []; }
   if (item === 'preset:graphics') return [graphicsPresetRow()];
+  if (item === 'preset:difficulty') return [difficultyPresetRow()];
   if (item === 'link:overhauls') return pause ? [] : [overhaulsLinkRow()];
   if (item === 'mods-index') return modsIndexRows();
   if (item === 'bindings') { const box = el('div', 'opt-bindings'); paneControls(box, { render }); return [box]; }
@@ -2114,7 +2117,7 @@ function tabCount(tab, ctx) {
       else if (item.startsWith('feat:')) { if (FORK_FLAGS.ENABLE_ARMORY || item !== 'feat:armory-others') n++; }
       else if (item.startsWith('port:')) { const r = ctx.pool.get(item.slice(5)); if (r && r.dataset.live !== '0') n++; }   // QREPAIR: a row greyed here is not one that works here
       else if (item === 'mods-index') n += FEATURES.filter((f) => f.kinds.includes('mod')).length;   // every mod has a row in the list
-      else if (item === 'preset:graphics') n++;   // the preset is a choice of its own; the Overhauls door is not
+      else if (item === 'preset:graphics' || item === 'preset:difficulty') n++;   // the preset is a choice of its own; the Overhauls door is not
     }
   }
   return n;
@@ -2402,6 +2405,66 @@ export function applyGraphicsPreset(p) {
   }
   // MEM-AUDIT: and its parts, each written straight as its drawer writes it - one the room decides is left as it is
   for (const k of PRESET_PARTS) if (onlineForcedPref(k) === undefined && String(getPref(k)) !== String(p.parts[k])) setPref(k, p.parts[k]);
+}
+
+const DIFF_PRESET_WORDS = {
+  name: () => t('menu.settings.diffPreset.name', 'Difficulty preset'),
+  note: () => t('menu.settings.diffPreset.note', 'Sets combat lethality, regional risk, hero threat scaling, tactical stagger, enemy packs and mob traits together.'),
+  effect: () => t('menu.settings.diffPreset.effect', 'Applies immediately to newly spawned enemies and encounters.'),
+  custom: () => t('menu.settings.preset.custom', 'Custom'),
+};
+const DIFF_PRESET_LABELS = {
+  classic: () => t('menu.settings.diffPreset.classic', 'Classic DFU'),
+  balanced: () => t('menu.settings.diffPreset.balanced', 'Balanced DFF'),
+  veteran: () => t('menu.settings.diffPreset.veteran', 'Veteran'),
+  hardcore: () => t('menu.settings.diffPreset.hardcore', 'Hardcore'),
+};
+export const difficultyPresetSearchText = () => ['difficulty preset combat lethality regional risk hero threat stagger packs traits',
+  DIFF_PRESET_WORDS.name(), DIFF_PRESET_WORDS.note(), DIFF_PRESET_WORDS.effect(),
+  ...DIFFICULTY_PRESETS.map((p) => DIFF_PRESET_LABELS[p.id]?.() ?? p.label),
+  ...DIFFICULTY_PRESET_ROWS.map((id) => FEATURES.find((f) => f.id === id)?.title ?? '')].join(' ');
+
+export function difficultyPresetRow() {
+  const now = difficultyPresetNow(featureValue);
+  const row = el('div', 'row opt-preset');
+  row.dataset.opt = 'difficultyPreset';
+  const main = el('div', 'row-main');
+  main.append(el('div', 'row-name', DIFF_PRESET_WORDS.name()));
+  main.append(el('div', 'row-note', DIFF_PRESET_WORDS.note()));
+  main.append(el('div', 'row-sub', DIFF_PRESET_WORDS.effect()));
+  row.append(main);
+  const ctl = el('div', 'ctl');
+  const seg = el('div', 'ft-seg');
+  seg.setAttribute('role', 'group');
+  seg.setAttribute('aria-label', DIFF_PRESET_WORDS.name());
+  for (const p of DIFFICULTY_PRESETS) {
+    const b = el('button', 'ft-segb', DIFF_PRESET_LABELS[p.id]?.() ?? p.label);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(now?.id === p.id));
+    b.onclick = (e) => { e.stopPropagation(); applyDifficultyPreset(p); render(); };
+    seg.append(b);
+  }
+  if (!now) { const c = el('span', 'ft-segb custom', DIFF_PRESET_WORDS.custom()); c.setAttribute('aria-current', 'true'); seg.append(c); }
+  ctl.append(seg);
+  row.append(ctl);
+  return row;
+}
+
+export function applyDifficultyPreset(p) {
+  for (const id of DIFFICULTY_PRESET_ROWS) {
+    const f = FEATURES.find((x) => x.id === id);
+    const c = resolveControl(f);
+    const st = f && tileStates(f);
+    if (!st || st.locked || !c) continue;
+    const targetVal = p.values[id];
+    if (c.tiers) {
+      const i = c.tiers.findIndex(([v]) => String(v) === String(targetVal));
+      if (i >= 0 && (i !== st.at || c.write)) st.set(i);
+    } else {
+      const i = targetVal ? 1 : 0;
+      if (i !== st.at) st.set(i);
+    }
+  }
 }
 
 /** ORG2: the Overhauls page's door, on the Graphics tab - the whole looks are chosen there. */
