@@ -207,6 +207,7 @@ import { tierPhrase } from '../systems/dungeon/dungeonTier.js';   // TIER1: a du
 import { TV_WHO_GROUPS, TV_WHO_TEXT, TV_KIN_COLORS, TV_KIN_LEGEND, travelViewWho, toggleTravelViewWho, cycleTravelViewRenown, playerShown, playersOnMaps, toggleTravelViewFilter } from '../systems/travel/travelViewFilters.js';   // OW-WHO / OW-KIN: the players' filters and colours, the Overworld's own
 import { seatInfoLine, seatTipOf } from '../net/townSeatLaw.js';   // SEAT1a: a seat's Charter in the box
 import { getRegionCrisisLines } from '../systems/living/crisisPresenter.js';
+import { getRegionRiskLine } from '../systems/regionRisk.js';
 
 // ── THE SPRITE (Mac's, public/art/held-map.png) ──────────────────
 // THE SITE ROOT lives in systems/appRoot.js now (AUDIT-THUNDERLOCK
@@ -4223,6 +4224,8 @@ export class HeldMapWindow {
     }
     const regionValid = Number.isInteger(region) && region >= 0 && region < REGION_NAMES.length;
     const crisisLines = regionValid ? [...(getRegionCrisisLines(region) ?? [])] : [];
+    const riskLine = regionValid ? getRegionRiskLine(region, { online: this._zoneLaws() }) : null;
+    if (riskLine) crisisLines.unshift(riskLine);
     const apoPlayer = this.deps.playerEntity?.() ?? getActiveApotheosisPlayer?.() ?? null;
     if (regionValid && isAscendedGod(apoPlayer)) {
       const inf = getRegionInfluence(apoPlayer, region);
@@ -4291,7 +4294,13 @@ export class HeldMapWindow {
       // this week's battle (the mark's seat is the one the poll dressed; the EVENT-TIP card shows it). TOWN-ECON
       // (bible/06-Systems/Town-Economy-Arc.md 3): online every town answers with its own - its economy, then its guild
       // control, a seat's lines after the town's (deps.townTipAt, net/townEconLaw.js townTipOf)
-      const card = this.deps.townTipAt?.(m.summary) ?? (m.seat ? seatTipOf(m.seat) : null);
+      const rawCard = this.deps.townTipAt?.(m.summary) ?? (m.seat ? seatTipOf(m.seat) : null);
+      const riskLine = getRegionRiskLine(m.summary.regionIndex, { online: this._zoneLaws() });
+      const card = riskLine
+        ? (rawCard
+          ? { ...rawCard, lines: [riskLine, ...(rawCard.lines ?? [])] }
+          : { title: name, lines: [riskLine] })
+        : rawCard;
       const tip = card ? readTip(card, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX }) : null;
       return { label: (region && name ? `${region} : ${name}` : name) + hub + (tier ? ` (${tier})` : ''), cursor: 'pointer', ...(tip ? { tip } : {}) };
     }
@@ -4320,7 +4329,9 @@ export class HeldMapWindow {
           const cx = past.city?.pixel?.x ?? px, cy = past.city?.pixel?.y ?? py;
           const reg = (this.deps.maps?.getPoliticIndex?.(cx, cy) ?? -1) - 128;
           if (reg >= 0 && reg < REGION_NAMES.length) {
-            const lines = getRegionCrisisLines(reg) ?? [];
+            const lines = [...(getRegionCrisisLines(reg) ?? [])];
+            const riskLine = getRegionRiskLine(reg, { online: this._zoneLaws() });
+            if (riskLine) lines.unshift(riskLine);
             if (lines.length > 0) {
               tip = readTip({ title: past.city?.name || REGION_NAMES[reg] || '', lines }, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX });
             }
@@ -4330,7 +4341,9 @@ export class HeldMapWindow {
         const mxPx = past.pixel?.x ?? px, myPx = past.pixel?.y ?? py;
         const reg = (this.deps.maps?.getPoliticIndex?.(mxPx, myPx) ?? -1) - 128;
         if (reg >= 0 && reg < REGION_NAMES.length) {
-          const lines = getRegionCrisisLines(reg) ?? [];
+          const lines = [...(getRegionCrisisLines(reg) ?? [])];
+          const riskLine = getRegionRiskLine(reg, { online: this._zoneLaws() });
+          if (riskLine) lines.unshift(riskLine);
           if (lines.length > 0) {
             tip = readTip({ title: past.name || REGION_NAMES[reg] || '', lines }, { textMax: SEAT_TIP_TEXT_MAX, linesMax: TOWN_TIP_LINES_MAX });
           }

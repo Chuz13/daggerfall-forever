@@ -49,6 +49,7 @@ import { recordEntityPlacement } from '../systems/diagnostics/encounterLogger.js
 import { combatStanding, foeShare, progressionScaling, wildernessShare, placeVeteran, wildernessThreat } from '../systems/skillSoftcap.js';   // SOFTCAP5: tougher foes in the wilds; BAL3: the wilds' own threat
 import { heroThreatOf } from '../systems/heroThreat.js';   // BAL11: the hero's threat
 import { applyCombatLethality } from '../systems/combatLethality.js';
+import { regionRiskProfile, applyRegionRiskToFoe } from '../systems/regionRisk.js';
 import { isNight } from '../world/worldClock.js';   // SOFTCAP5: the wilds' night share   // AUDIT WATCH1 A1: the watch's own puppet allowance
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobile/mobileUnit.js';   // A5: the Seducer transform pair + its trigger
 import { spawnEnemyLoot, hasBowAttack, backstabChanceOf, zeroDamageHitSound, enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt, tickEnemySound, playEnemyClip, tryLanguagePacification, applyDamageToNonPlayer, windupDoor, tellCues, takeAimedShot, aimedDirection, aimedArrowMeta, landBlowEffect } from './hostCombat.js';   // C2-slice (combat-9/17); MT-ii: the foe-vs-foe payload; TELL1: the poise door
@@ -268,6 +269,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // WILDERNESS scales its foes, so a host that cannot say keeps them all as they were (an interior's pool, the
   // one-location exterior host).
   inLocation = () => true,
+  currentRegionIndex = null,
   playerSinks = null,   // AUDIT 24 (wave 30): the player's damage/drain doors - the nymph and lamia riders need drainFatigue
   regionIndex = () => -1,   // DISC10-D V3: PlayerGPS.CurrentRegionIndex - the infection a vampire's bite starts records it (VampirismInfection.cs:91)
   onArrow = null,   // X2-slice: the host's arrow seam - (from, dir, foe) at the shoot frame
@@ -487,12 +489,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // word, the record's `z`), never an ally, a quest's foe, a retype, a team a spawner set, or anything on a
       // location's ground. Off Math.random, not this pool's `rolls`, so the encounter's own dice are not moved.
       // ELITE-RATES: ELITE-RARITY's gate (one standing at a time, a 180-minute gap, never a loose stand) is gone.
+      const _online = isOnlinePage() || _net != null;
+      const _regIdx = currentRegionIndex ? currentRegionIndex() : (playerEntity?.currentRegionIndex ?? 0);
+      const _risk = regionRiskProfile(_regIdx, { online: _online });
       const eliteEligible = allowEliteRoll
         ? (!puppet && !allied && !questBehaviour && !replacing)
         : (!puppet && !allied && !questBehaviour && !replacing && !team && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null }));
       const eliteRollHit = revenant
         ? revenant.elite
-        : (Number.isFinite(eliteChance) ? Math.random() < eliteChance : rollOverworldElite(Math.random));
+        : (Number.isFinite(eliteChance)
+          ? Math.random() < eliteChance
+          : (rollOverworldElite(Math.random) || (!_online && _risk.eliteBonus > 0 && Math.random() < _risk.eliteBonus)));
       if (eliteFoe === true && !allied) promoteEliteFoe(entity);   // a saved foe's classification, restored before its HP/items overlay - never re-rolled
       else if (eliteFoe === undefined && eliteEligible && eliteRollHit) promoteEliteFoe(entity);   // REVENANT: a returning revenant stands as what it was - an elite's glow where elites stand, never a fresh roll   // BAL4: online, and offline under the loot ladder
       if (Array.isArray(forcedBossTraits) && forcedBossTraits.length && !puppet && !allied && !bossTraitsOf(entity).length) {
@@ -532,7 +539,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         if (Number.isFinite(damageMult) && damageMult > 1) {
           entity.damageScale = (Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1) * damageMult;
         }
-        applyCombatLethality(entity, { online: isOnlinePage() || _net != null });
+        applyCombatLethality(entity, { online: _online });
+        applyRegionRiskToFoe(entity, _regIdx, { online: _online });
       }
       recordEntityPlacement(entity, { pos, team: entity.team, allied, questBehaviour, site, placed, loose, eliteFoe: entity.eliteFoe, champion: entity.championTrait, revenant, zoneGiant, grantKind, eventFoe, puppet });
       if (revenant && !puppet) applyRevenant(entity, revenant, { turned });   // REVENANT: its name and its rank - over its trait or its glow, before its loot; RVN11c: a betrayer's turning is no return
