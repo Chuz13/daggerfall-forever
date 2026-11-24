@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import '../../src/world/landView.js';   // RF4: the lanes register themselves
 import '../../src/world/outdoors.js';
 import '../../src/systems/featureLanes.js';
-import { FEATURES, featureForControl, resolveControl } from '../../src/systems/features.js';
+import { FEATURES, checkFeatures, featureForControl, resolveControl } from '../../src/systems/features.js';
 import { CATEGORIES, CATEGORY_IDS, whereIs, optionPath, isSettingItem, keysOf } from '../../src/ui/settings/settingsMap.js';
 import { GRAPHICS_PRESETS, PRESET_ROWS, PRESET_PARTS, presetNow } from '../../src/systems/graphicsPresets.js';
 import { ALL_KEYS, DEFAULTS, effectiveSettings, setValue, _resetForTests as resetSettings } from '../../src/systems/settings/settings.js';
@@ -284,4 +284,23 @@ test('ORG2 by source: one screen - the rail is the tabs and counts what each dra
   assert.match(restore, /if \(onlineForcedSetting\(sec, k\) !== undefined\) continue;/);
   assert.match(restore, /\{ spendKeep: false \}/);
   assert.match(restore, /onlineForcedPref\(pref\) === undefined\) setPref\(pref, PREF_DEFAULTS\[pref\]\);/);
+});
+
+test('FEATURES rows pass checkFeatures and choiceRow sets dataset.opt and dataset.pref in pause portPool', () => {
+  assert.deepEqual(
+    checkFeatures(FEATURES),
+    [],
+    'every FEATURES row passes checkFeatures (valid tiers, initial, online, unique ids/controls)',
+  );
+  const pausePool = withRows(() => portPool({ pause: true }));
+  for (const key of ['offlineStarfall', 'apotheosisTempleSieges']) {
+    const rowEl = pausePool.get(key);
+    assert.ok(rowEl, `${key} is present in pause portPool`);
+    assert.equal(rowEl.dataset.opt, key, `${key} has dataset.opt`);
+    assert.equal(rowEl.dataset.pref, key, `${key} has dataset.pref`);
+  }
+  const reflexesEl = pausePool.get('reflexes');
+  assert.ok(reflexesEl, 'reflexes is present in pause portPool');
+  assert.equal(reflexesEl.dataset.opt, 'reflexes', 'reflexes has dataset.opt');
+  assert.equal(reflexesEl.dataset.pref, undefined, 'custom read/write choiceRow omits dataset.pref');
 });
