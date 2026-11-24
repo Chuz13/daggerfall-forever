@@ -18,9 +18,17 @@ While major frameworks (**Races & Character** / [Racial Overhaul](/racial-overha
 
 ## Combat › Enemies
 
+See [Combat Balance & Difficulty](/balance/) for full formulas, preset tables, and regional tier breakdowns.
+
 | Setting | Key / Pref | Default | Effect |
 | :--- | :--- | :---: | :--- |
-| **Reflexes** | `port:reflexes` (`playerEntity.reflexes`) | `Average (2)` | 5-tier selector (`Very High` `0` to `Very Low` `4`). Adjusts enemy attack speed and skill advancement rate mid-playthrough (active in pause menu). |
+| **Difficulty Preset** | `preset:difficulty` | `Balanced DFF` | One-click selector (`Classic DFU` \| `Balanced DFF` \| `Veteran` \| `Hardcore` \| `Custom`) coordinating all 7 combat balance rows. |
+| **Combat Lethality** | `feat:combat-lethality` (`combatLethality`) | `Classic (1.0x)` | 4-tier selector (`Classic` \| `Sharp` 1.25x dmg / 1.05x HP \| `Lethal` 1.45x / 1.10x \| `Brutal` 1.75x / 1.20x) for newly spawned foes. |
+| **Regional Risk Zones** | `feat:regional-risk-zones` (`regionalRiskZones`) | `Standard` | 3-tier selector (`Off (Uniform)` \| `Standard` \| `Harsh`) scaling enemy HP/damage, elite odds, and level floors across 4 region tiers (`I Heartland` to `IV Perilous`). |
+| **Hero Threat Scaling** | `feat:hero-threat-scaling` (`heroThreatMode`) | `Early (Lv.5+)` | 3-tier selector (`Off (Vanilla)` \| `Classic (Lv.10+)` \| `Early (Lv.5+)`) scaling foes against high-level/Renown heroes. |
+| **Tactical Stagger & Tells** | `feat:tactical-stagger` (`tacticalStagger`) | `Tactical (Lv.5+, Hard)` | 2-tier selector (`Classic (Lv.10+, Soft)` \| `Tactical (Lv.5+, Hard)`) enabling Lv.5+ telegraphed blows, hard player stagger interrupts, and iron knockdowns. |
+| **Tactical Enemy Packs** | `feat:tactical-packs` (`tacticalPacks`) | `On` | Composes camps, forts, checkpoints, Nemesis squads, and skirmishes with mixed tanks, archers, casters, and commanders. |
+| **Reflexes** | `port:reflexes` (`playerEntity.reflexes`) | `Average (2)` | 5-tier selector (`Very High` `0` to `Very Low` `4`). Adjusts enemy attack speed, telegraphed wind-up (`0.88x`–`1.12x`), cooldown (`0.84x`–`1.16x`), and skill advancement rate mid-playthrough. |
 
 ---
 
