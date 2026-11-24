@@ -123,6 +123,9 @@ Pull requests are welcome, but tbh I somehow don't have much experience with Git
 * Necromancy and Lichdom
 * Additional spell icons
 * Very basic mod support - not DFU mods, but a custom solution
+* Tamriel parity (the same functionality as in the Bay)
+* Apotheosis and 4x-lite gameplay
+* Quite a lot of QoL and polish
 
 ## FAQ
 
@@ -143,15 +146,6 @@ No.
 ### Discord?
 I plan to set up something very simple in Nov 2026.
 
----
-
-## Roadmap
-
-Oh folks, I'm a gamedev producer, I know roadmaps shift. So this is a living one, with preliminary and rough estimations on when I'll deliver things. Things **WILL** change. But the focus won't.
-
-* **Apotheosis** - ascend to godhood, establish your cult, do diplomacy and war with vanilla gods, influence the world on a grand scale. Feb 2027
-* **Coop and Local servers** - this feature is heavy, but I'm going to look into it. Raw ETA is April 2027 for the first release
-* **Then continuous polishing & new features** 
 
 ## Credits
 Based on DFO which is based on DFU which is based on Daggerfall. It's a fan non-commercial project.
