@@ -2301,6 +2301,24 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'tacticalPacks', initial: true, online: 'player' }),
   }),
+  Object.freeze({
+    id: 'aoe-self-friendly-fire',
+    group: 'combat',
+    get title() { return t('features.aoeSelfFriendlyFire.title', 'AoE self friendly fire'); },
+    get note() { return t('features.aoeSelfFriendlyFire.note', 'Allows your own Area at Range spells (such as Fireball) to damage you if you stand inside the blast radius.'); },
+    get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'aoeSelfFriendlyFire', initial: true, online: 'player' }),
+  }),
+  Object.freeze({
+    id: 'aoe-ally-friendly-fire',
+    group: 'combat',
+    get title() { return t('features.aoeAllyFriendlyFire.title', 'AoE ally friendly fire'); },
+    get note() { return t('features.aoeAllyFriendlyFire.note', 'Allows your harmful area spells to damage allies in the blast without provoking aggro or crimes.'); },
+    get effect() { return t('features.effect.immediate', 'Takes effect immediately.'); },
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'aoeAllyFriendlyFire', initial: false, online: 'player' }),
+  }),
 ]);
 
 // ── RF4: the lanes, and what the stores derive ────────────────────

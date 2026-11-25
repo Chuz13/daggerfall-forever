@@ -83,7 +83,7 @@ import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: Daggerfa
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
 import { markPlayerHarm } from '../systems/harmMark.js';   // REVENANT-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
 import { knockedDown, playerStaggerLocked } from '../systems/blowEffects.js';   // TELL6e: knocked down, no cast
-import { sparedByPlayer, isShipmate, boutTeammates } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
+import { sparedByPlayer, isShipmate, boutTeammates, isAoeAlly, aoeSelfFriendlyFireEnabled, aoeAllyFriendlyFireEnabled } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 import { isSparProtected } from '../systems/living/sparSurrender.js';
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 import { groundAt, groundHit, rayHit } from '../player/groundRay.js';   // GROUND-BOLT: the terrain along a ray, the one march (AUDIT TECH1's)
@@ -851,7 +851,7 @@ export function createPlayerMagic({
   // AUDIT 68 S21-strike-landing-dup: `sinks` is the one override - the enchantment door (hostEnchant's
   // applySpellToTarget) lands through HERE with its own membership-routed sinks, where it kept a copy of this
   // landing that dropped the Soul Trap line and the Calm/Charm flag.
-  function applySpellToFoe(spell, casterLevel, foe, caster = null, ctx = undefined, sinks = foeSinks(foe, !caster || caster.entity === playerEntity)) {   // AUDIT WORLD2 B7: a foe's spell is not the player's blow (AUDIT 68 X4: every host's sinks read the second arg)
+  function applySpellToFoe(spell, casterLevel, foe, caster = null, ctx = undefined, sinks = foeSinks(foe, (!caster || caster.entity === playerEntity) && !ctx?.noAggro)) {   // AUDIT WORLD2 B7: a foe's spell is not the player's blow (AUDIT 68 X4: every host's sinks read the second arg)
     // REVENANT-FATE (the 2026-10-02 audit): one held by its fate - kneeling, burning, gathering into a portal - takes no
     // spell: its blow was already refused (the kill door), and a Wabbajack, a paralysis or a drain landed all the same
     if (foe?.yielded || foe?.executing || foe?.sparing || foe?.leaving || foe?.roaring || isSparProtected(foe)) return null;   // RVN4: nor one roaring its last stand
@@ -861,7 +861,8 @@ export function createPlayerMagic({
     // RVN1 (Feud-Arc.md section 12): MY spell's landing goes in the fight's ledger by its element (a later round is
     // systems/effects.js's to write - the round sink's own law); a peer's (its stand-in caster) and a foe's never
     const mine = striker === playerEntity;
-    if (mine && !ctx?.allyCast && typeof ctx?.peerCaster !== 'string' && foe?.entity) {
+    const noAggro = !!ctx?.noAggro;
+    if (mine && !ctx?.allyCast && !noAggro && typeof ctx?.peerCaster !== 'string' && foe?.entity) {
       foe.entity._provokedByPlayer = true;
     }
     // RPT1026-FIGHTS (TRAP-TO-OWNER; a private report: Soul Trap on Daedra Lords in a party member's dungeon said
@@ -880,19 +881,19 @@ export function createPlayerMagic({
     // ally - remembers it as the fight's (skillSoftcap.js noteSkillChallenge, formulas.js's blow's own door), so past 100
     // a school's next uses learn by that foe, as a weapon's do; only a blow ever said so, and a fireball at an Ancient
     // Lich counted as a light cast in an empty room (the quarter, UNCHALLENGED_MAGIC_WEIGHT)
-    if (mine && foe?.entity && foe.entity.team !== 'PlayerAlly') noteSkillChallenge(playerEntity, foe.entity);
+    if (mine && !noAggro && foe?.entity && foe.entity.team !== 'PlayerAlly') noteSkillChallenge(playerEntity, foe.entity);
     let dealt = 0;   // SPELL-NUMBERS: what MY landing struck off the foe, for the damage numbers
     const landing = sinks?.hurt ? { ...sinks, hurt: (n, o) => {
       const d = o?.whole || o?.round ? n : blowTaken(n, striker, foe.entity, null, { kind: 'spell', element: spell?.element ?? null }); if (mine && !o?.round && Number.isFinite(d) && d > 0) dealt += d;   // SPELL-NUMBERS: what it struck, for the number
-      if (mine && !o?.round) noteFeudHarm(foe.entity, elementFeudClass(spell?.element), d);
-      return sinks.hurt(d, { ...(o ?? {}), element: spell?.element ?? null });   // RVN3: the element rides to the door (its weakness's weight)
+      if (mine && !o?.round && !noAggro) noteFeudHarm(foe.entity, elementFeudClass(spell?.element), d);
+      return sinks.hurt(d, { ...(o ?? {}), element: spell?.element ?? null, ...(noAggro ? { fromPlayer: false } : {}) });   // RVN3: the element rides to the door (its weakness's weight)
     } } : sinks;
     const healthBefore = foe?.entity?.health;
     const r = applySpell(spell, casterLevel, foe.entity, landing, rolls, caster, { ...ctx, foe });
     // SCHOOLS3 (bible/06-Systems/Arcane-Specialisations.md section 5): MY OWN cast landed on a foe - the paths' riders
     // answer it (systems/arcanePowers.js). Never a peer's strike spell landed here (its caster is a stand-in), nor a foe's.
     // AUDIT SCHOOLS L1 M6: `took` is what the foe could lose - a 3-point rat takes 3 of a 95-point bolt
-    if (caster?.entity === playerEntity && foe?.entity && r) {
+    if (caster?.entity === playerEntity && foe?.entity && r && !noAggro) {
       tellSpellLanded({ caster: playerEntity, target: foe.entity, foe, spell, r, self: false, took: tookOf(r, healthBefore), cast: caster.cast ?? null });
     }
     // SPELL-NUMBERS (2026-10-28, a player: "they only show on the boss"): MY spell's landing on any foe pops its number
@@ -1076,9 +1077,19 @@ export function createPlayerMagic({
     }
     // SHIPMATES: a blast of the player's own crew passes the player and the rest of the crew by (combat/friendlyFire.js)
     const crewBlast = isShipmate(caster?.foe);
+    const isPlayerBlast = caster?.entity === playerEntity;
+    const isGiftBlast = isPlayerBlast && allyCastable(spell);
+    const allowAllyFf = isPlayerBlast && !isGiftBlast && aoeAllyFriendlyFireEnabled();
     for (const t of sweepFoes(pos, EXPLOSION_RADIUS, foes())) {
       if (excludeFoe && t === excludeFoe) continue;
-      if (caster?.entity === playerEntity && sparedFromPlayer(t)) continue;   // DISC19-F (AUDIT DISC19): my blast passes the defenders by
+      if (isPlayerBlast) {
+        if (isSparProtected(t)) continue;
+        const allyTarget = !isGiftBlast && isAoeAlly(t);
+        if (allyTarget && !allowAllyFf) continue;
+        if (!allyTarget && sparedFromPlayer(t)) continue;
+        applySpellToFoe(spell, casterLevel, t, caster, allyTarget ? { noAggro: true } : undefined);
+        continue;
+      }
       if (crewBlast && isShipmate(t)) continue;
       if (caster?.foe && boutTeammates(caster.foe, t)) continue;   // ARENA-TEAMS: a bout fighter's blast passes its teammate by
       if (t.puppet && caster?.entity && caster.entity !== playerEntity) continue;   // AUDIT WORLD6b-iii(a) C15: a FOE's blast lands nothing on a PUPPET here - its owner's world resolves that foe (my own blast on a puppet still goes to its owner as my hit)
@@ -1100,7 +1111,8 @@ export function createPlayerMagic({
       // their own Fortify at the landing. AREA-CASTER: it landed on me at the cast, as a self-cast (giveAreaToCaster),
       // so the burst passes me by. A blast that is not all gifts (allyCastable), and a foe's, are saved against as before.
       const gift = caster?.entity === playerEntity && allyCastable(spell);
-      if (!gift) applySpellToPlayer(spell, casterLevel, caster);
+      const selfFfBlocked = caster?.entity === playerEntity && !aoeSelfFriendlyFireEnabled();
+      if (!gift && !selfFfBlocked) applySpellToPlayer(spell, casterLevel, caster);
     }
   }
 
@@ -1321,8 +1333,15 @@ export function createPlayerMagic({
       tallyCastSkills(sp);
       surfacePlayer();
       const areaCaster = playerCaster(cast);   // AUDIT SCHOOLS: one cast, however many it sweeps
-      for (const t of sweepFoes(eye, EXPLOSION_RADIUS, playerTargets())) {   // DISC19-F (AUDIT DISC19): nor my area
-        applySpellToFoe(sp, castingLevel(playerEntity), t, areaCaster);
+      const isGiftArea = allyCastable(sp);
+      const allowAllyFf = !isGiftArea && aoeAllyFriendlyFireEnabled();
+      const areaPool = allowAllyFf ? foes() : playerTargets();
+      for (const t of sweepFoes(eye, EXPLOSION_RADIUS, areaPool)) {   // DISC19-F (AUDIT DISC19): nor my area
+        if (isSparProtected(t)) continue;
+        const allyTarget = !isGiftArea && isAoeAlly(t);
+        if (allyTarget && !allowAllyFf) continue;
+        if (!allyTarget && sparedFromPlayer(t)) continue;
+        applySpellToFoe(sp, castingLevel(playerEntity), t, areaCaster, allyTarget ? { noAggro: true } : undefined);
       }
       giveToAllies(sweepFoes(eye, EXPLOSION_RADIUS, allyMarksFor(sp)), sp);   // AID1 onto ALLY-CAST: the mates around me - SPELL-GIFT: one line for all of them
       giveToCompanions(sweepFoes(eye, EXPLOSION_RADIUS, companionMarksFor(sp)), sp);   // COMPANION-KIT: and my companions
@@ -1564,6 +1583,15 @@ export function createPlayerMagic({
    *  through held cover open for it: a foe in a crown for a foe's bolt at me, a town defender for mine). A foe's strikes me
    *  alone, never a shipmate's; mine my targets (never one sparedByPlayer, never me) and the marks its flags meet - a
    *  mate's, my companion's, my duel's at a person's capsule, the court's boss at his own; a peer's drawn one any body. */
+  const missileFoeTargets = (m) => {
+    if (m?.fromPlayer !== false && !m?.visual && !m?.ally && !m?.dragon && m?.spell?.rangeType === 4) {
+      return aoeAllyFriendlyFireEnabled()
+        ? foes().filter((t) => !isSparProtected(t))
+        : foes().filter((t) => !sparedFromPlayer(t) && !isAoeAlly(t));
+    }
+    return playerTargets();
+  };
+
   function missileBodies(m, playerFeet, playerHeight) {
     const person = (feet, height) => ({ ai: { feet, height: height ?? CAPSULE_HEIGHT, radius: PLAYER_BODY_RADIUS } });
     // AUDIT FB1031 II K4: and DEX5's corpse prefabs, which the drawn one and mine (never a dragon's bolt) meet below
@@ -1572,7 +1600,7 @@ export function createPlayerMagic({
     if (byFoe) return flightBodies(null, isShipmate(m.casterFoe) ? null : playerFeet, playerHeight);
     const people = m.ally ? allyMarksFor(m.spell, false).concat(companionMarksFor(m.spell, false)) : [];
     if (m.duel) people.push(...duelMarksFor(m.spell));
-    return flightBodies([...playerTargets(), ...people.map((p) => person(p.ai.feet, p.ai.height)), ...((m.boss ?? m.duel) ? bossMarksFor(m.spell) : []), ...(m.dragon ? [] : corpsePrefabBodies(foes()))], null, playerHeight);
+    return flightBodies([...missileFoeTargets(m), ...people.map((p) => person(p.ai.feet, p.ai.height)), ...((m.boss ?? m.duel) ? bossMarksFor(m.spell) : []), ...(m.dragon ? [] : corpsePrefabBodies(foes()))], null, playerHeight);
   }
 
   /** PLAYER spell missile flight: lifespan, the wall raycast (an
@@ -1758,7 +1786,7 @@ export function createPlayerMagic({
           continue;
         }
       }
-      for (const f of playerTargets()) {   // DISC19-F (AUDIT DISC19): my missile flies through a defender
+      for (const f of missileFoeTargets(m)) {   // DISC19-F (AUDIT DISC19): my missile flies through a defender
         if (f.dead) continue;
         if (missileHitsFoe(m.pos, f)) {   // ROAD-H tail: DaggerfallMissile.cs:339's SphereCast meets the foe's CAPSULE (REVIEW 2026-09-05 had its centre as a point)
           if (hasCorpseExplosion(m.spell)) {
