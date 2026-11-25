@@ -138,6 +138,7 @@ import { masterLinesOfRecord } from '../net/masterLaw.js'; // MASTER-ART: a Mast
 import { itemIsIdentified } from './tradeModes.js'; // CRAFT4: a line the Reforge sees, known
 import { isEquipped } from './equip.js'; // CRAFT4: and never on a worn piece
 import { unitWeightInKg, ARROW_TEMPLATE } from './inventory.js'; // MEND-AIM: the arrow, never mended
+import { isInfiniteArrow } from '../characters/infiniteArrowIds.js';
 import { seededRng } from './wind/wind.js';
 import { createForagingItem } from './foraging/foragingInstall.js';
 import { mintDish, isDish } from './cookItems.js'; // PROF9: the fire's dishes
@@ -528,7 +529,7 @@ export const reforgeItem = (item, index, seed) =>
 /** Whether a kit of metal `m` mends an item: a weapon of the metal, a plate piece of it, and Steel's the chain too.
  *  MEND-AIM: never an arrow - it is shot and spent, and DFU mints it at condition 0, so every kit reached for it first. */
 export function kitMends(m, item) {
-  if (item?.templateIndex === ARROW_TEMPLATE) return false;
+  if (item?.templateIndex === ARROW_TEMPLATE || isInfiniteArrow(item)) return false;
   if (m === FIELD_KIT && item?.maxCondition > 0) return item.group === 'Weapons' || item.group === 'Armor'; // REPAIR-EASE: any metal
   if (!item || !Number.isInteger(m) || !(item.maxCondition > 0)) return false;
   if (item.group === 'Weapons') return item.material === m;

@@ -265,6 +265,7 @@ import { SURVIVAL_PREF, SURVIVAL_NO_WILD_SLEEP_PREF, survivalTier, noWildRoughRe
 import { survivalOf, heartyMeal, DRINK_CATEGORIES, DRINK_BUFF_MINUTES, activeDrinkBuff } from './survival/needs.js';
 import { createSurvivalItem, TEMPLATE } from './survival/items.js';
 import { rollOfflinePreApotheosisSpoils, mintOfflineGun, noteRelicFind } from './offlineRelicLoot.js';
+import { createInfiniteArrow, INFINITE_ARROW_TEMPLATE } from './infiniteArrow.js';
 import {
   AOE_SELF_FF_PREF,
   AOE_ALLY_FF_PREF,
@@ -1276,6 +1277,9 @@ function handleAddItemCommand(args = []) {
     surfacePlayer?.();
     return `Added ${count}x Potion of Elixir of Unlife (Recipe Key: ${ELIXIR_OF_UNLIFE_KEY}) to inventory.`;
   }
+  if (firstClean === 'starflight' || firstClean === 'infinitearrow' || firstClean === 'magicarrow' || firstClean === 'endlessarrow') {
+    return handleGiveInfiniteArrowCommand();
+  }
   if (firstClean === 'lichingredients' || firstClean === 'elixirreagents') {
     const lines = [];
     for (const tpl of ELIXIR_OF_UNLIFE_RECIPE.ingredients) {
@@ -1317,6 +1321,7 @@ function handleAddItemCommand(args = []) {
   const query = rawTokens.join(' ');
   const match = findItemTemplate(query);
   if (!match) return `Item template "${query || args[0]}" not found.`;
+  if (match.index === INFINITE_ARROW_TEMPLATE) return handleGiveInfiniteArrowCommand();
 
   if (material === null && match.detectedMaterial !== undefined) {
     material = match.detectedMaterial;
@@ -2160,6 +2165,12 @@ function handleRelicCommand(args = []) {
     surfacePlayer();
     return `Added ${n} Dwemer Pellets (561).`;
   }
+  if (sub === 'arrow' || sub === 'starflight') {
+    const arrow = createInfiniteArrow({ identified: true });
+    grantRelicItem(arrow, msgs);
+    surfacePlayer();
+    return `Added Legendary ${itemLongName(arrow)} (Template: ${INFINITE_ARROW_TEMPLATE}).`;
+  }
   if (sub === 'set') {
     const q = String(args[1] || 'list').toLowerCase();
     const id = q === 'list' ? null : (AETHERIC_SET_IDS.find((s) => s === q) ?? AETHERIC_SET_IDS.find((s) => s.includes(q)));
@@ -2244,11 +2255,11 @@ function handleRelicCommand(args = []) {
       ? `Worn sigils/sets drank ${xp} XP:\n${drank.lines.join('\n')}`
       : `Worn sigils/sets drank ${xp} XP (no rank-up yet; check Sigils Active & worn items).`;
   }
-  return 'Usage: relic <status|embers|starglass|pellets|set|gilded|gun|lord|card|drink|broker|tp_coven|roll>';
+  return 'Usage: relic <status|embers|starglass|pellets|arrow|set|gilded|gun|lord|card|drink|broker|tp_coven|roll>';
 }
 registerCommand(
   'relic',
-  'QA offline pre-Apotheosis relics & sigils: relic <status|embers|starglass|pellets|set|gilded|gun|lord|card|drink|broker|tp_coven|roll>',
+  'QA offline pre-Apotheosis relics & sigils: relic <status|embers|starglass|pellets|arrow|set|gilded|gun|lord|card|drink|broker|tp_coven|roll>',
   'relic <subcommand>',
   handleRelicCommand,
 );
@@ -3548,6 +3559,25 @@ registerCommand('givegrimoire', 'Add Grimoire of the Worm (585) to inventory', '
 
 registerCommand('give_elixir', 'Add 1x Elixir of Unlife potion to inventory', 'give_elixir', () => handleAddItemCommand(['elixir_unlife', '1']));
 registerCommand('giveelixir', 'Add 1x Elixir of Unlife potion to inventory', 'giveelixir', () => handleAddItemCommand(['elixir_unlife', '1']));
+
+function handleGiveInfiniteArrowCommand() {
+  if (!playerEntity) return 'No player entity found.';
+  playerEntity.items ??= [];
+  const arrow = createInfiniteArrow({ identified: true });
+  addItem(playerEntity.items, arrow);
+  noteRelicFind(arrow);
+  surfacePlayer?.();
+  return `Added Legendary ${itemLongName(arrow)} (Template: ${INFINITE_ARROW_TEMPLATE}) to inventory.`;
+}
+
+for (const cmdName of ['give_infinite_arrow', 'give_magic_arrow', 'give_starflight', 'infinite_arrow', 'endless_arrow']) {
+  registerCommand(
+    cmdName,
+    'Add Legendary Starflight infinite bow arrow (564) to inventory',
+    cmdName,
+    handleGiveInfiniteArrowCommand,
+  );
+}
 
 registerCommand('give_elixir_reagents', 'Add all reagents required to craft the Elixir of Unlife', 'give_elixir_reagents', () => handleAddItemCommand(['lich_ingredients']));
 registerCommand('give_reagents', 'Add all reagents required to craft the Elixir of Unlife', 'give_reagents', () => handleAddItemCommand(['lich_ingredients']));

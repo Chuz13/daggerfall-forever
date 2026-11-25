@@ -88,6 +88,8 @@ import '../thunderlock.js';
 import '../pass/resonantMaul.js';   // STOREFRONT: the Brass Colossus's Legendary, unrolled - lawful where it is held
 import '../pistolet.js';   // PISTOLET: the second gun's row, the Thunderlock's way
 import '../handWraps.js';   // HAND-WRAPS: the fists' weapon's row
+import '../infiniteArrow.js';
+import { INFINITE_ARROW_TEMPLATE, isInfiniteArrow } from '../../characters/infiniteArrowIds.js';
 import '../gate/gateSpoils.js';
 import '../ayleidStones.js';
 import '../gems.js';   // GEM2: the graded gems' rows
@@ -153,7 +155,7 @@ const CLASSIC_GROUPS = (() => {
  *  writes it. Every index not named here is UselessItems2's - the custom items' own group. Pinned by the producer sweep
  *  (test/systems/item/int1_itemlaw.test.js): every custom index a producer mints, in the group it mints it in. */
 export const CUSTOM_TEMPLATE_GROUPS = Object.freeze({
-  Weapons: Object.freeze([513, 514, 560, 561, 562, 563]),   // HAND-WRAPS: 563
+  Weapons: Object.freeze([513, 514, 560, 561, 562, 563, INFINITE_ARROW_TEMPLATE]),   // HAND-WRAPS: 563; INFINITE-ARROW: 564
   Armor: Object.freeze([515, 516, 517, 518, 519, 520, 521, 522, 523, 524, 525, 526]),
   Gems: Object.freeze([570, 571, ...GEM_GRADE_TEMPLATES]),   // GEM2: the graded gems (systems/gems.js)
   Jewellery: Object.freeze([]),
@@ -338,7 +340,7 @@ function tierFindings(/** @type {any} */ item) {
   }
   if (!ROLLED_TIERS.includes(tier)) return ['rarity'];   // 'common' and 'artifact' are the ladder's words for a reading, never written
   if (!TIER_GROUPS.includes(item.group) || item.artifact === true || item.magic === true || item.questItem === true) return ['rarity'];
-  if (item.group === 'Weapons' && isAmmunition(item) && tier !== 'magic') return ['rarity'];   // AUDIT-THUNDERLOCK F4: a Pellet stack rolled Magic before it - kept, never more
+  if (item.group === 'Weapons' && isAmmunition(item) && !(isInfiniteArrow(item) && tier === 'legendary') && tier !== 'magic') return ['rarity'];   // AUDIT-THUNDERLOCK F4: a Pellet stack rolled Magic before it - kept, never more
   // every line: a kind the group may carry, a param the kind names on this piece, a value inside the widest band
   const own = lines.filter((a) => !isGemLine(a));
   const gems = lines.filter(isGemLine);
@@ -588,7 +590,7 @@ function enchantmentFindings(/** @type {any} */ item) {
  *  allows one; no excluded pair; a soul's forced rows whole, beside their soul; and every chosen row's cost - the
  *  catalogue's, never the cost a row says of itself - within the item's power. */
 function makerFindings(/** @type {any} */ item, /** @type {any[]} */ rows, /** @type {any[]} */ maker) {
-  if (!MAKER_GROUPS.includes(item.group) || (item.group === 'Weapons' && item.templateIndex === ARROW_TEMPLATE)) return ['enchantments'];   // the window lists every weapon but the Arrow (itemMakerFilter)
+  if (!MAKER_GROUPS.includes(item.group) || (item.group === 'Weapons' && (item.templateIndex === ARROW_TEMPLATE || isInfiniteArrow(item)))) return ['enchantments'];   // the window lists every weapon but the Arrow (itemMakerFilter)
   if (item.rarity === 'aetheric' && !MAKER_ERA_AETHERIC.has(item.aetheric)) return ['enchantments'];   // MAKER-KEPT: the maker's era's records keep its rows; GILDED-MAKER: a Gilded piece takes them (law 15)
   /** @type {any[]} */
   const chosen = [];

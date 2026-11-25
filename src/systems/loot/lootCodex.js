@@ -65,6 +65,7 @@ import { shardsHeld, spendShards } from '../reforge.js';
 import { sigilOfflineAwake } from '../sigil/sigil.js';
 import { t } from '../textManager.js';
 import { setRelicCodexBridge } from '../offlineRelicLoot.js';
+import { INFINITE_ARROW_ID } from '../../characters/infiniteArrowIds.js';
 
 // ── the record ──────────────────────────────────────────────────────
 /** `{ legendary: { id: day }, aetheric: { id: day }, gilded: { id: day } }` - what this character has found, and the
@@ -212,6 +213,9 @@ function offlineLegendaryHint(id) {
   }
   if (id === 'resonant-maul') {
     return t('codex.legendary.resonantMaulOffline', 'Rare boss trophy in Dwemer Laboratories, Mines, and Dwarven constructs (Lv 16+).');
+  }
+  if (id === INFINITE_ARROW_ID) {
+    return t('codex.legendary.starflightOffline', 'Rare trophy from bosses, archers, and dungeon hoards (Lv 10+).');
   }
   return null;
 }

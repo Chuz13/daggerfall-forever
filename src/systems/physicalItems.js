@@ -37,6 +37,7 @@ import { lockRefuses, lockedText } from './item/itemLock.js';
 import { boundRefusesPut, boundText, isPackOnly, packOnlyText } from './item/itemBound.js';
 import { bagMayLeave } from './materialsBag.js';
 import { itemLongName } from './item/itemInfo.js';
+import { isInfiniteArrow } from '../characters/infiniteArrowIds.js';
 
 export const PHYSICAL_ITEMS_VENDOR = 'physical-items';
 
@@ -92,7 +93,7 @@ export const PI_GROUP_CATEGORY = Object.freeze({
 export function itemCategory(item) {
   if (!item) return 'Other Items';
   if (isPotion(item)) return 'Potions';
-  if (item.group === 'Weapons') return item.templateIndex === TEMPLATES.Arrow ? 'Arrows' : 'Weapons';
+  if (item.group === 'Weapons') return item.templateIndex === TEMPLATES.Arrow || isInfiniteArrow(item) ? 'Arrows' : 'Weapons';
   if (item.group === 'MiscItems') return item.templateIndex === TEMPLATES.Map ? 'Maps' : 'Other Items';
   return PI_GROUP_CATEGORY[item.group] ?? 'Other Items';
 }

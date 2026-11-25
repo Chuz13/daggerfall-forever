@@ -30,6 +30,7 @@ import { cardWorth } from '../net/card/cardWorthLaw.js';   // AUDIT CARDS-6 A6: 
 import { PATRON_COUNTER_MARK, COUNTER_PAID_MARK, COUNTER_VALUE_MARK } from '../net/patronLaw.js';   // AUDIT LW-II-2 S1: a stack keeps the counter's mark (the law imports nothing)
 import { isStolen, markStolen } from './stolenGoods.js';   // STOLEN-GOODS: a stolen piece stacks with stolen kin alone, and a split keeps the mark (a leaf)
 import { sameFoundMark, carryFoundMark } from './item/foundMark.js';   // AUDIT MEND-THIRD: a found stack keeps its mark
+import { hasInfiniteArrow, isInfiniteArrow } from '../characters/infiniteArrowIds.js';
 
 /** DaggerfallUnityItem.IsEnchanted verbatim
  *  (DaggerfallUnityItem.cs:266-269): DERIVED from the enchantment
@@ -178,6 +179,7 @@ export const isSummoned = (item) => (item?.timeForItemToDisappear ?? 0) !== 0;
  *  ingredient arm cannot stand in for either: templates 83 and 277
  *  both ship isIngredient false. */
 export function isStackable(item) {
+  if (isInfiniteArrow(item)) return false;
   // X11b: DFU's FIRST clause, ahead of the three below
   // (DaggerfallUnityItem.cs:682-689): a summoned item does not stack
   // AT ALL unless it is an arrow - "Only allowing summoned arrows to
@@ -512,6 +514,10 @@ export const spendArrow = (list) => removeOne(list, ARROW_TEMPLATE,
  */
 export function spendAmmoFor(list, weapon, shot = null) {
   const template = ammoTemplateFor(weapon) ?? ARROW_TEMPLATE;
+  if (template === ARROW_TEMPLATE && hasInfiniteArrow(list)) {
+    if (shot) shot.summoned = true;   // Anti-farm: never sticks in walls or lodges in enemy corpses
+    return true;
+  }
   const opts = { group: 'Weapons', allowQuestItem: false, priorityToConjured: true };
   // ARENA-ARROWS: a REAL round spent is a shot the bout's tally counts (systems/shotTally.js) - asked before it goes
   const real = !isSummoned(getItem(list, opts.group, template, opts));
@@ -527,6 +533,7 @@ export function ammoCountFor(list, weapon) {
   const template = ammoTemplateFor(weapon) ?? ARROW_TEMPLATE;
   let n = 0;
   for (const it of list ?? []) if (it?.templateIndex === template) n += Math.max(0, it.stackCount ?? 1);
+  if (template === ARROW_TEMPLATE && hasInfiniteArrow(list)) return Math.max(n, 12);
   return n;
 }
 

@@ -54,6 +54,7 @@ import {
 } from '../formats/morrowind/mwAnim.js';
 import { accumRootRef, buildSkeleton, GRAPH_ROOT } from '../formats/morrowind/mwSkin.js';
 import { nodeTransformOf } from '../formats/morrowind/mwCharacter.js';
+import { isInfiniteArrow } from '../characters/infiniteArrowIds.js';
 import { parseNif } from '../formats/morrowind/mwNifFile.js';
 import { flattenNif } from '../formats/morrowind/mwNifMesh.js';
 import {
@@ -4111,6 +4112,9 @@ export function createFpArm() {
         // classic picture stood
         const own = ownWeaponModelFor(item);
         if (own) return { id: own.id, model: own.model };
+        if (isInfiniteArrow(item)) {
+          return pickWeaponRecord(cat.weapons, MW_WEAPON_TYPE.Arrow, 'Daedric', { has: archiveHas(cat.archives) });
+        }
         const mwType = dfWeaponToMw(item, WEAPONS);
         return mwType !== MW_WEAPON_TYPE.None ? pickWeaponRecord(cat.weapons, mwType, materialName(item), { shape: dfWeaponShape(item, WEAPONS) }) : null;
       }

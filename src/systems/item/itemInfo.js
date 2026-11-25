@@ -61,6 +61,7 @@ import { getLocalizedItemName, getLocalizedMagicItemName, getLocalizedEnemyName 
 import { getMagicItemTemplates } from '../loot/loot.js';   // L10N3e: the MAGIC.DEF template a magic item's name came from
 import { makerMark, PROVENANCE_RE } from '../../net/recipeLaw.js';   // AUDIT 30 C7: a maker's mark as the law writes it
 import { isHandWraps } from '../../characters/handWrapsIds.js';   // HAND-WRAPS: its name says no metal
+import { isInfiniteArrow } from '../../characters/infiniteArrowIds.js';
 /** RPT1026-CLIENT (private reports: Weir Keys that seemed to vanish, and one back again at the next sign-in): the Weir Keys are the
  *  account's balance (Elite-Gates.md section 5), shared by every character on it, and nothing the player saw said so. The
  *  card's second line - EG_TEXT's own lines ride the relay's bundle, so this one is the card's. */
@@ -604,8 +605,9 @@ export function shownItemName(item) {
   const raw = item?.name;
   if (raw == null) return raw;
   const name = maskedItemName(String(raw));
-  const t = templateByIndex(item.templateIndex);
-  if (t && name === t.name) return getLocalizedItemName(t.index, name);
+  if (isInfiniteArrow(item) && name === 'Starflight') return t('item.starflight.name', 'Starflight');
+  const t_ = templateByIndex(item.templateIndex);
+  if (t_ && name === t_.name) return getLocalizedItemName(t_.index, name);
   const artifact = !!item.artifact;
   const m = (getMagicItemTemplates() ?? []).find((mt) => mt?.name === name && (mt.type !== 0) === artifact);
   return m ? getLocalizedMagicItemName(m.index, name) : name;

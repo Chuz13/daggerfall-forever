@@ -52,6 +52,7 @@ import { HudFlickerController } from './hudFlicker.js';   // AUDIT 28 W2d: the n
 import { lastHealthLost, lastHealthLostPercent, hudHealth } from './hudVitals.js';   // BLOOD2e: HealthLostPercent, as CameraRecoiler reads it
 import { getBool } from '../../systems/settings/settings.js';   // AUDIT 28 W2: EnableArrowCounter, BowLeftHandWithSwitching
 import { getItem, isSummoned, ARROW_TEMPLATE } from '../../systems/inventory.js';   // AUDIT 28 W2: GetItem(Arrow, priorityToConjured)
+import { hasInfiniteArrow } from '../../characters/infiniteArrowIds.js';
 import { EQUIP_SLOTS } from '../../systems/equip.js';   // AUDIT 28 W2: the bow hand
 import { nativeMetrics } from '../native/nativePanel.js';
 import { uiCanvas, onUiScreen } from '../uiScreen.js';   // RETRO-UI: the HUD in the pillarbox, as DFU's CustomScreenRect lays it
@@ -425,6 +426,7 @@ export const BOW_TEMPLATES = Object.freeze([129, 130]);
 /** DaggerfallHUD.cs:27-28 - the two label colours. */
 export const REAL_ARROWS_COLOR = Object.freeze([0.6, 0.6, 0.6, 1]);
 export const CONJURED_ARROWS_COLOR = Object.freeze([0.18, 0.32, 0.48, 0.5]);
+export const INFINITE_ARROWS_COLOR = Object.freeze([224 / 255, 122 / 255, 46 / 255, 1]);
 
 /**
  * AUDIT 28 W2: THE ARROW COUNTER (DaggerfallHUD.cs:270-292), a
@@ -446,6 +448,9 @@ export function arrowCountLabel(entity, weaponSheathed, {
   const slot = leftHand ? EQUIP_SLOTS.LeftHand : EQUIP_SLOTS.RightHand;
   const held = entity?.equip?.slots?.[slot] ?? null;
   if (!held || held.group !== 'Weapons' || !BOW_TEMPLATES.includes(held.templateIndex)) return null;
+  if (hasInfiniteArrow(entity?.items)) {
+    return { text: 'INF', color: INFINITE_ARROWS_COLOR };
+  }
   const arrows = getItem(entity?.items ?? [], 'Weapons', ARROW_TEMPLATE, { allowQuestItem: false, priorityToConjured: true });
   return {
     text: arrows ? String(arrows.stackCount ?? 1) : '0',

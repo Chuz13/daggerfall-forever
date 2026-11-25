@@ -1289,6 +1289,7 @@ export function powerFits(item, power) {
   if (power.kind === 'chain' || power.kind === 'hammerfall' || power.kind === 'broadside') return shoots;   // KETCH: the Ketch's two ring and mark off a shot
   if (power.kind === 'quake') return item.group === 'Weapons' && !shoots;
   if (power.kind === 'hood') return hoodCapable(item);   // LOOT15: Unseen answers a hood, and a garment with none never raises one
+  if (power.kind === 'infiniteArrow') return false;
   return true;
 }
 /** LOOT10: an imprint only as the Reforge makes one - on a Rare, a Legendary record of the piece's own group, with a
