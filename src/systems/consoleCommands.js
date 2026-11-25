@@ -3796,7 +3796,7 @@ const APO_SET_DEFAULTS = {
   maxhp: 500,
   hp: 500,
   renown: 25,
-  stars: 50,
+  stars: 90,
   home: 1,
   ship: 1,
   skill200: 200,

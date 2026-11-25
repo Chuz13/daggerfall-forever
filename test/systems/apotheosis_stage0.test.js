@@ -198,10 +198,10 @@ test('All 24 Fate Weight triggers + boundary conditions + progression hooks work
   assert.equal(findTr('tr20_renowned_legend').natural, true);
   assert.equal(findTr('tr05_firmament_child').natural, false);
 
-  // tr05: 50 Firmament stars only
-  setFirmamentTree({ start: 's0', keys: Array.from({ length: 49 }, (_, i) => `k${i}`) });
+  // tr05: 90 Firmament stars only
+  setFirmamentTree({ start: 's0', keys: Array.from({ length: 89 }, (_, i) => `k${i}`) });
   assert.equal(findTr('tr05_firmament_child').natural, false);
-  setFirmamentTree({ start: 's0', keys: Array.from({ length: 50 }, (_, i) => `k${i}`) });
+  setFirmamentTree({ start: 's0', keys: Array.from({ length: 90 }, (_, i) => `k${i}`) });
   assert.equal(findTr('tr05_firmament_child').natural, true);
 
   // tr06: 50 quests only (failed quests ignored; Mantella does not shortcut Fate Weight)
@@ -508,7 +508,7 @@ test('Console commands (`apotheosis` / `apo`) manage debug Fate Weight, artifact
     assert.match(await executeConsoleCommand('apo', ['set', 'discover']), /Set discover=75/);
     assert.match(await executeConsoleCommand('apo', ['set', 'maxhp']), /Set maxhp=500/);
     assert.match(await executeConsoleCommand('apo', ['set', 'renown']), /Set renown=25/);
-    assert.match(await executeConsoleCommand('apo', ['set', 'stars']), /Set stars=50/);
+    assert.match(await executeConsoleCommand('apo', ['set', 'stars']), /Set stars=90/);
     assert.match(await executeConsoleCommand('apo', ['set', 'home']), /Set home=1/);
     assert.match(await executeConsoleCommand('apo', ['set', 'ship']), /Set ship=1/);
     assert.match(await executeConsoleCommand('apo', ['set', 'skill200']), /Set skill200=200/);

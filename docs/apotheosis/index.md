@@ -27,7 +27,7 @@ Fate Weight is evaluated dynamically from live character stats, gear, property, 
 | `tr02_tower_scholar` | **Tower Scholar** | `>= 25` distinct books read or collected. |
 | `tr03_speaker_oblivion` | **Speaker in Oblivion** | `Daedric` language skill `>= 100`. |
 | `tr04_mystic_weave` | **Weave of the Mystics** | Any magic school (`Destruction`, `Restoration`, `Illusion`, `Alteration`, `Thaumaturgy`, `Mysticism`) `>= 100`. |
-| `tr05_firmament_child` | **Child of the Firmament** | `>= 50` Firmament stars attuned. |
+| `tr05_firmament_child` | **Child of the Firmament** | `>= 90` Firmament stars attuned. |
 | `tr20_renowned_legend` | **Herald of Renown** | Renown level `>= 25`. |
 | `tr24_specialization` | **Twin-Art Specialization** | Any arcane (`pathOf`) or martial (`martialPathOf`) dual-skill specialization active. |
 
