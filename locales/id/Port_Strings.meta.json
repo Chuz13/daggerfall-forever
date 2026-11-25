@@ -27839,6 +27839,56 @@
   "tr": "d9f2bda5f62b",
   "by": "claude-in-session"
  },
+ "living.roadIntel.hudAria": {
+  "en": "72b4d51ec76d",
+  "tr": "d493e325583d",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.hudAriaRegion": {
+  "en": "e9eb8db5d5d0",
+  "tr": "9bc2d570e1e0",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.hudFoot": {
+  "en": "6c33b41b97b0",
+  "tr": "3d683aa22626",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.hudMeta": {
+  "en": "c2de6d5d47a3",
+  "tr": "530ae3e3bca2",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.hudName": {
+  "en": "197bc3007c65",
+  "tr": "fa57c4f931a9",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.hudTipAmbush": {
+  "en": "d2a8179bea4f",
+  "tr": "9c6d90f0dcb7",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.hudTipRegion": {
+  "en": "e730bf8e8647",
+  "tr": "2c18d1e910a1",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.hudTipStealth": {
+  "en": "34eb39aacdcb",
+  "tr": "a419f08d9abc",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.timerHours": {
+  "en": "cb2812d1f580",
+  "tr": "925258c2f1f2",
+  "by": "claude-in-session"
+ },
+ "living.roadIntel.timerMinutes": {
+  "en": "b1603e91839f",
+  "tr": "1a4e258515db",
+  "by": "claude-in-session"
+ },
  "living.roll.criticalFailure": {
   "en": "f0f041892a9e",
   "tr": "6dd151486ac8",

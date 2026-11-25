@@ -56,6 +56,8 @@ import { liveBundles, canEndBundle } from '../../systems/mysticism.js'; // BUFF-
 import { shownSpellName } from '../../systems/loot/loot.js'; // L10N3e: the bundle's Name, which DFU gave a stock spell in the player's language
 import { getString } from '../../systems/settings/settings.js';
 import { nativeMetrics, pointToNative } from '../native/nativePanel.js';
+import { buildRoadIntelHudChip } from '../../systems/living/travelDirector.js';
+import { skyMinutes } from '../../systems/worldTick.js';
 
 /** blinkInterval (:28) - four times a second. */
 export const BLINK_INTERVAL = 0.25;
@@ -193,6 +195,21 @@ export function activeSpellIcons(entity) {
     });
   // WILD1 (systems/wild/wildZone.js): the open zone, on the classic row as on the enhanced widget - its own glyph, first of
   // the warnings, while the player stands in it
+  if (entity === _zoneEntity) {
+    const riChip = buildRoadIntelHudChip(skyMinutes());
+    if (riChip) {
+      self.push({
+        iconIndex: BLEED_ICON,
+        glyph: ROAD_INTEL_GLYPH,
+        displayName: `${riChip.name} (${riChip.foot})`,
+        poolIndex: poolIndex++,
+        expiring: riChip.blink,
+        isItem: false,
+        bundleId: null,
+        endable: false,
+      });
+    }
+  }
   if (entity === _zoneEntity && wildHere())
     other.unshift({
       iconIndex: BLEED_ICON,
@@ -206,6 +223,7 @@ export function activeSpellIcons(entity) {
     });
   return { self, other };
 }
+export const ROAD_INTEL_GLYPH = 'road_intel';
 /** WILD1: the zone's glyph (ui/hud/hudStatus.js STATUS_GLYPHS), and the one entity it is shown for - the player's (the
  *  world host says which; a foe's row never wears it). */
 export const WILD_GLYPH = 'wild';

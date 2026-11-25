@@ -18,10 +18,18 @@ import {
 import {
   grantRoadIntelBuff,
   getActiveRoadIntelBuff,
+  buildRoadIntelHudChip,
   evaluateTravelInterruption,
   evaluateAmbushStealthRoll,
   ROAD_INTEL_DURATION_MINUTES,
 } from '../../../src/systems/living/travelDirector.js';
+import {
+  statusTiles,
+  STATUS_GLYPHS,
+  statusGlyphSvg,
+  statusGlyphColor32,
+} from '../../../src/ui/hud/hudStatus.js';
+import { statusTip } from '../../../src/ui/hud/statusTips.js';
 import {
   restoreLivingSaveData,
   getLivingSaveData,
@@ -378,6 +386,16 @@ test('all 26 locales have translated non-English strings and preserved placehold
     'living.roadAdv.optionIntelRoad',
     'living.roadAdv.optionIntelSkirmish',
     'living.roadAdv.optionIntelSpoils',
+    'living.roadIntel.hudAria',
+    'living.roadIntel.hudAriaRegion',
+    'living.roadIntel.hudFoot',
+    'living.roadIntel.hudMeta',
+    'living.roadIntel.hudName',
+    'living.roadIntel.hudTipAmbush',
+    'living.roadIntel.hudTipRegion',
+    'living.roadIntel.hudTipStealth',
+    'living.roadIntel.timerHours',
+    'living.roadIntel.timerMinutes',
   ];
   const rdMap = (loc) =>
     new Map(parseStringTableCsv(readFileSync(new URL(`../../../locales/${loc}/Port_Strings.csv`, import.meta.url), 'utf8')));
@@ -398,4 +416,63 @@ test('all 26 locales have translated non-English strings and preserved placehold
       }
     }
   }
+});
+
+test('HUD buff chip: buildRoadIntelHudChip, statusTiles, 16x16 glyph, and statusTip card work end-to-end', () => {
+  restoreLivingSaveData(null);
+  resetLivingConfig();
+
+  assert.equal(buildRoadIntelHudChip(1000), null, 'inactive buff returns null');
+
+  const startMin = 5000;
+  grantRoadIntelBuff(17, startMin);
+
+  // Freshly granted: 24h, not blinking
+  const fresh = buildRoadIntelHudChip(startMin);
+  assert.ok(fresh);
+  assert.equal(fresh.active, true);
+  assert.equal(fresh.foot, '24h');
+  assert.equal(fresh.blink, false);
+  assert.equal(fresh.regionName, 'Daggerfall');
+
+  // Final hour (45m left): switches to minutes and blinks
+  const ending = buildRoadIntelHudChip(startMin + ROAD_INTEL_DURATION_MINUTES - 45);
+  assert.ok(ending);
+  assert.equal(ending.foot, '45m');
+  assert.equal(ending.blink, true);
+
+  // Outer province (region 64 - Skyrim)
+  restoreLivingSaveData(null);
+  grantRoadIntelBuff(64, startMin);
+  const prov = buildRoadIntelHudChip(startMin);
+  assert.ok(prov);
+  assert.ok(prov.regionName && prov.regionName.length > 0);
+
+  // Expired returns null
+  assert.equal(buildRoadIntelHudChip(startMin + ROAD_INTEL_DURATION_MINUTES), null);
+
+  // Glyph is strictly 16x16 and renders SVG + Color32
+  const glyph = STATUS_GLYPHS.road_intel;
+  assert.ok(glyph);
+  assert.equal(glyph.rows.length, 16);
+  for (const row of glyph.rows) assert.equal(row.length, 16);
+  assert.ok(statusGlyphSvg('road_intel')?.includes('<svg'));
+  assert.equal(statusGlyphColor32('road_intel')?.width, 16);
+
+  // statusTiles + statusTip
+  const tiles = statusTiles({ roadIntel: fresh });
+  assert.equal(tiles.length, 1);
+  assert.equal(tiles[0].key, 'road_intel');
+  assert.equal(tiles[0].kind, 'buff');
+  assert.equal(tiles[0].glyph, 'road_intel');
+  assert.equal(tiles[0].foot, '24h');
+
+  const tip = statusTip(tiles[0], null);
+  assert.ok(tip);
+  assert.equal(tip.title, LIVING_WORDS.roadIntelHudName());
+  assert.equal(tip.meta, LIVING_WORDS.roadIntelHudMeta());
+  assert.ok(tip.lines.some((l) => l.includes('Halves road ambush')));
+  assert.ok(tip.lines.some((l) => l.includes('+15 Stealth')));
+  assert.ok(tip.lines.some((l) => l.includes('Daggerfall')));
+  assert.equal(tip.foot, '24h remaining');
 });

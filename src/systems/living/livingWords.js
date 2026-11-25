@@ -277,6 +277,26 @@ export const LIVING_WORDS = Object.freeze({
     t('living.roadAdv.notifySafeRoad', 'Road warnings active: lower ambush risk for {hours}h', { hours }),
   roadAdvNotifySkill: (skill = 'Etiquette') =>
     t('living.roadAdv.notifySkill', 'Skill practiced: {skill}', { skill }),
+  roadIntelHudName: () =>
+    t('living.roadIntel.hudName', 'Road Intel'),
+  roadIntelHudMeta: () =>
+    t('living.roadIntel.hudMeta', 'Road Buff'),
+  roadIntelHudTipAmbush: () =>
+    t('living.roadIntel.hudTipAmbush', 'Halves road ambush and travel interruption risk.'),
+  roadIntelHudTipStealth: () =>
+    t('living.roadIntel.hudTipStealth', '+15 Stealth bonus when spotting road ambushes.'),
+  roadIntelHudTipRegion: (region = 'Region') =>
+    t('living.roadIntel.hudTipRegion', 'Extra road safety while traveling in {region}.', { region }),
+  roadIntelHudFoot: (left = '24h') =>
+    t('living.roadIntel.hudFoot', '{left} remaining', { left }),
+  roadIntelTimerHours: (hours = 24) =>
+    t('living.roadIntel.timerHours', '{hours}h', { hours }),
+  roadIntelTimerMinutes: (minutes = 30) =>
+    t('living.roadIntel.timerMinutes', '{minutes}m', { minutes }),
+  roadIntelHudAria: (left = '24h') =>
+    t('living.roadIntel.hudAria', 'Road Intel ({left}): halves ambush risk, +15 Stealth vs ambushes.', { left }),
+  roadIntelHudAriaRegion: (region = 'Region', left = '24h') =>
+    t('living.roadIntel.hudAriaRegion', 'Road Intel ({region}, {left}): halves ambush risk, +15 Stealth vs ambushes.', { region, left }),
   roadAdvRecruited: (name = 'Adventurer') =>
     t('living.roadAdv.recruited', '{name} salutes and falls in beside you: "My blade is with you along this road!"', { name }),
   roadAdvNoGold: (gold = 200) =>

@@ -22,6 +22,7 @@ import { SD_REZ_MS } from '../../net/superDungeon/sdLaw.js'; // SD-REZ: the Hour
 import { SD_REZ_PAGE_SLACK_MS } from '../../systems/superDungeon/sdSlots.js'; // AUDIT WORLD-EVENTS L1-5: the page's own part of it
 import { mentorTipCard } from '../../systems/mentorText.js'; // MENTOR2: the mentor's tile, in its own words
 import { EG_DOWN_MS } from '../../net/eliteGates/egBrain.js'; // AUDIT WORLD-EVENTS L1-4: a fall's window to be raised in (the Ketch's KT_DOWN_MS pinned equal)
+import { LIVING_WORDS } from '../../systems/living/livingWords.js';
 
 /** The attributes as the sheet names them. */
 export const STAT_WORDS = Object.freeze({
@@ -268,6 +269,17 @@ export function statusTip(tile, entity, extra = {}) {
   if (tile.key === 'rested') {
     lines.push('You have slept through a night. This is how long until another night of sleep counts.');
     return { title, meta, lines, foot: tile.foot ? `${tile.foot} left` : null };
+  }
+  if (tile.key === 'road_intel') {
+    lines.push(LIVING_WORDS.roadIntelHudTipAmbush());
+    lines.push(LIVING_WORDS.roadIntelHudTipStealth());
+    if (tile.regionName) lines.push(LIVING_WORDS.roadIntelHudTipRegion(tile.regionName));
+    return {
+      title: title || LIVING_WORDS.roadIntelHudName(),
+      meta: LIVING_WORDS.roadIntelHudMeta(),
+      lines,
+      foot: tile.foot ? LIVING_WORDS.roadIntelHudFoot(tile.foot) : null,
+    };
   }
   if (tile.key === 'poison') {
     lines.push('Poison is in your blood and works on you over time.', 'A Cure Poison spell or potion stops it.');

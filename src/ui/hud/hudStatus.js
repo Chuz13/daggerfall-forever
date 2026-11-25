@@ -585,6 +585,27 @@ export const STATUS_GLYPHS = Object.freeze({
       '................',
     ],
   }),
+  road_intel: Object.freeze({
+    pal: { a: '#d4a64a', b: '#fff0b8', c: '#7a5422', d: '#5ec8e8' },
+    rows: [
+      '......kkkk......',
+      '.....kbbabk.....',
+      '....kbaaaabk....',
+      '...kbaaddaaak...',
+      '..kbaaddddaaak..',
+      '.kbaaddbbddaabk.',
+      'kbaaddbccbddaaak',
+      'kbaadbc..cbdaabk',
+      'kbaadbc..cbdaabk',
+      'kbaaddbccbddaaak',
+      '.kbaaddbbddaabk.',
+      '..kbaaddddaaak..',
+      '...kbaaddaaak...',
+      '....kbaaaabk....',
+      '.....kcccck.....',
+      '......kkkk......',
+    ],
+  }),
 });
 /** The kit's outline black (ui/enhanced/enhancedFrame.js FRAME_TONES.outline). */
 const OUTLINE = '#050608';
@@ -719,6 +740,7 @@ export function statusTiles({
   rules = null,
   mentor = null,
   blessing = null,
+  roadIntel = null,
 } = {}) {
   /** @type {StatusTile[]} */
   const out = [];
@@ -762,6 +784,17 @@ export function statusTiles({
       foot: blessing.foot ?? null,
       blink: !!blessing.blink,
       say: blessing.say ?? null,
+    });
+  if (roadIntel?.active)
+    tile({
+      key: 'road_intel',
+      kind: 'buff',
+      name: String(roadIntel.name ?? ''),
+      glyph: 'road_intel',
+      foot: roadIntel.foot ?? null,
+      blink: !!roadIntel.blink,
+      say: roadIntel.say ?? null,
+      regionName: roadIntel.regionName ?? null,
     });
   spells.forEach((e, i) =>
     tile({

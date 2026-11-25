@@ -11,6 +11,9 @@ import { getRegionState } from './regionState.js';
 import { getLivingDirectorState } from './livingDirector.js';
 import { SKILLS } from '../skills.js';
 import { resolveLivingRoll, resolveLivingSurrender } from './livingRolls.js';
+import { REGION_NAMES } from '../../formats/mapsTables.js';
+import { getLocalizedRegionName } from '../textManager.js';
+import { LIVING_WORDS } from './livingWords.js';
 
 export const TRAVEL_EVENT_TYPE = Object.freeze({
   PEACEFUL_CARAVAN: 'PEACEFUL_CARAVAN', // Friendly merchants, pilgrims, bards
@@ -78,6 +81,38 @@ export function getActiveRoadIntelBuff(nowMinutes = 0) {
     remainingMinutes: active ? until - now : 0,
     regionIndex: Number.isInteger(travel?.roadIntelRegion) ? travel.roadIntelRegion : null,
     untilMinute: until,
+  };
+}
+
+/**
+ * Builds the localized HUD buff-chip descriptor for active Road Intel, or `null` when inactive.
+ *
+ * @param {number} [nowMinutes=0]
+ */
+export function buildRoadIntelHudChip(nowMinutes = 0) {
+  const ri = getActiveRoadIntelBuff(nowMinutes);
+  if (!ri.active) return null;
+  const mins = Math.max(1, Math.ceil(ri.remainingMinutes));
+  const foot =
+    mins >= 60
+      ? LIVING_WORDS.roadIntelTimerHours(Math.ceil(mins / 60))
+      : LIVING_WORDS.roadIntelTimerMinutes(mins);
+  const regionName =
+    ri.regionIndex != null
+      ? getLocalizedRegionName(ri.regionIndex, () => REGION_NAMES[ri.regionIndex] ?? '')
+      : '';
+  const name = LIVING_WORDS.roadIntelHudName();
+  return {
+    active: true,
+    name,
+    foot,
+    blink: mins <= 60,
+    remainingMinutes: mins,
+    regionIndex: ri.regionIndex,
+    regionName: regionName || null,
+    say: regionName
+      ? LIVING_WORDS.roadIntelHudAriaRegion(regionName, foot)
+      : LIVING_WORDS.roadIntelHudAria(foot),
   };
 }
 

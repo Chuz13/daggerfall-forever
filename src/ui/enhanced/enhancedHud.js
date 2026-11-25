@@ -70,6 +70,7 @@ import { overlayOpen } from './enhancedOverlays.js';
 import { getPref } from '../../systems/uiPrefs.js';   // PX30c: the port's own prefs, not DFU's settings
 import { t } from '../../systems/textManager.js';
 import { getRoadBlessingInfo } from '../../systems/apotheosis/apotheosisStage33.js';
+import { buildRoadIntelHudChip } from '../../systems/living/travelDirector.js';
 import { hudRenown } from '../hud/hudRenown.js';   // RENOWN4: my own Renown, under the vitals
 import { survivalHudChips } from '../../systems/survival/status.js';   // SURV5: the needs (UI3: tiles in the status widget)
 import { statusTiles, afflictionRows, statusGlyphSrc, statRoom, statSide, statPlace, statOverflow, STAT_TILE, STAT_GAP, STAT_METRICS, STAT_SHORT_QUERY, STAT_MIDDLE_CLEAR } from '../hud/hudStatus.js';   // UI3: the status widget
@@ -80,7 +81,7 @@ import { survivalOn, survivalRules } from '../../systems/survival/switch.js';   
 import { temperatureReadout, levelSaid } from '../../systems/survival/status.js';   // TEMP-UI: the temperature plate's reading; AUDIT C&C S14: its level in words
 import { feltNow } from '../../systems/survival/env.js';   // TEMP-UI: live, where the body stands this frame
 
-import { ownMinutes, sharedClockOn } from '../../systems/worldTick.js';   // LIVED1: the needs' strip reads the character's own clock   // REST1: and the Next night tile is online's
+import { ownMinutes, sharedClockOn, skyMinutes } from '../../systems/worldTick.js';   // LIVED1: the needs' strip reads the character's own clock   // REST1: and the Next night tile is online's
 import { nightRealMinutesLeft } from '../../systems/rest/restAct.js';   // REST1: the night interval's minutes left
 import { compassScroll, breathShortThreshold, compassMarkerLerp, DETECT_MARKER_RGB } from '../hud/hud.js';
 import { PARTY_GREEN_CSS } from '../../net/social.js';   // COMPASS-PARTY: the party's one green
@@ -1540,6 +1541,10 @@ function drawStatus(vitals, opts, live = null) {
         }),
       },
     }));
+  }
+  const roadIntelChip = buildRoadIntelHudChip(skyMinutes());
+  if (roadIntelChip) {
+    all.unshift(...statusTiles({ roadIntel: roadIntelChip }));
   }
   // a new window size or HUD scale is a new band at once (AUDIT UI C: a rotation left the old band for half a second)
   const vp = `${globalThis.innerWidth}x${globalThis.innerHeight}x${last.scale ?? 1}`;
