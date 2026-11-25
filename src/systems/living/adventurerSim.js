@@ -994,7 +994,9 @@ export function getDungeonActiveAdventurer(locationId, regionIndex = null) {
       ? `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`
       : String(locationId);
 
-  const interceptedHit = findInterceptedQuestAt(locationId, regionIndex);
+  const interceptedHit = LivingTamrielConfig.allowQuestCompetition
+    ? findInterceptedQuestAt(locationId, regionIndex)
+    : null;
   if (interceptedHit) {
     const rec = interceptedHit.record;
     const poolAdv = (reg.pool || []).find((a) => a.id === rec.adventurerId && a.status !== ADVENTURER_STATUS.DEAD);

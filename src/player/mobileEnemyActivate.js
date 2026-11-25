@@ -165,7 +165,10 @@ export function activateMobileEnemy(
       foe.livingRole === 'recruited_companion' ||
       foe.livingRole === 'traveler' ||
       foe.livingRole === 'traveler_guard' ||
-      foe.entity?.name === 'Wayfaring Merchant')
+      foe.entity?.name === 'Wayfaring Merchant' ||
+      ((foe.livingRole === 'wandering_adventurer' || foe.livingRole === 'rival_adventurer') &&
+        !foe.ai?.isHostile &&
+        !foe._isSparring))
   ) {
     const far = distance > TREASURE_ACTIVATION_DISTANCE;
     if (far) {

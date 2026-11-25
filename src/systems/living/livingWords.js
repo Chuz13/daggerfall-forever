@@ -151,6 +151,14 @@ export const LIVING_WORDS = Object.freeze({
   adventurerAssaultCrime: () =>
     t('living.adventurer.assaultCrime', 'Crime reported: Assault! You struck a surrendered sparring opponent!'),
   adventurerYieldedTag: () => t('living.adventurer.yieldedTag', 'yielded'),
+  adventurerReTalkAfterWin: () =>
+    t('living.adventurer.reTalkAfterWin', 'A fair bout - you bested me cleanly. What else is on your mind?'),
+  adventurerReTalkAfterLoss: () =>
+    t('living.adventurer.reTalkAfterLoss', 'You held your own, though the wager is mine. Need something else?'),
+  adventurerReTalkPeaceful: () =>
+    t('living.adventurer.reTalkPeaceful', 'Still here, traveler? What else did you want to discuss?'),
+  adventurerSettledCold: (name = 'Adventurer') =>
+    t('living.adventurer.settledCold', '{name} gives a brief nod: "Our business here is finished, traveler."', { name }),
   adventurerQuestIntercepted: () =>
     t('living.adventurer.questIntercepted', 'A rival adventurer cleared the dungeon ahead of you and claimed the objective!'),
   adventurerReclaimSuccess: () =>
@@ -265,6 +273,8 @@ export const LIVING_WORDS = Object.freeze({
     t('living.roadAdv.compFallen', '{name} has fallen in battle.', { name }),
   roadAdvExtorted: (name) =>
     t('living.roadAdv.extorted', '{name} backs down with a scowl and tosses you a pouch of dungeon spoils.', { name }),
+  roadAdvExtortedCold: (name = 'Adventurer') =>
+    t('living.roadAdv.extortedCold', '{name} glares at you coldly: "You already took what you came for. Move along."', { name }),
   roadAdvDeclined: () =>
     t('living.roadAdv.declined', '"I walk my own path today, wanderer. Perhaps when your purse or renown is heavier."'),
   roadAdvParted: () =>

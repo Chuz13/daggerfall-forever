@@ -25844,6 +25844,21 @@
   "tr": "2df59725ffcb",
   "by": "claude-in-session"
  },
+ "living.adventurer.reTalkAfterLoss": {
+  "en": "d0763fb40da6",
+  "tr": "b79c0de3e20c",
+  "by": "claude-in-session"
+ },
+ "living.adventurer.reTalkAfterWin": {
+  "en": "70fe00f29438",
+  "tr": "e7f8fe0b3727",
+  "by": "claude-in-session"
+ },
+ "living.adventurer.reTalkPeaceful": {
+  "en": "c472bc3c32c9",
+  "tr": "3ce2307da67e",
+  "by": "claude-in-session"
+ },
  "living.adventurer.reclaimFailed": {
   "en": "ffd8d4c1d155",
   "tr": "ffd8d4c1d155",
@@ -25852,6 +25867,11 @@
  "living.adventurer.reclaimSuccess": {
   "en": "52a363caacc8",
   "tr": "52a363caacc8",
+  "by": "claude-in-session"
+ },
+ "living.adventurer.settledCold": {
+  "en": "6d799aad147b",
+  "tr": "f4869e5d1532",
   "by": "claude-in-session"
  },
  "living.checkpoint.compromise": {
@@ -27567,6 +27587,11 @@
  "living.roadAdv.extorted": {
   "en": "d6b03e6462f7",
   "tr": "d6b03e6462f7",
+  "by": "claude-in-session"
+ },
+ "living.roadAdv.extortedCold": {
+  "en": "b338b4b3ded4",
+  "tr": "9ff47b1c28dd",
   "by": "claude-in-session"
  },
  "living.roadAdv.hireDays": {
