@@ -142,6 +142,7 @@ import {
   RECLAIM_OUTCOME,
   ensureAdventurerPool,
   getAdventurerSimRegistry,
+  getAdventurerEcosystemStats,
   evaluateAdventurerTension,
   resolveAdventurerEncounter,
   confrontInterceptingAdventurer,
@@ -5847,16 +5848,32 @@ export function executeLivingConsoleCommand(args, ctx) {
     const reg = getAdventurerSimRegistry();
     const pool = reg?.pool ?? [];
     if (act === 'list') {
-      const targetReg = cleanArgs[2] ? parseInt(cleanArgs[2], 10) : regIdx;
-      const list = pool.filter((a) => !targetReg || a.currentRegion === targetReg || pool.length <= 15).slice(0, 15);
+      const parsedReg = cleanArgs[2] != null ? parseInt(cleanArgs[2], 10) : NaN;
+      const targetReg = Number.isInteger(parsedReg) ? parsedReg : regIdx;
+      const list = pool
+        .filter((a) => a.currentRegion === targetReg && a.status !== ADVENTURER_STATUS.DEAD)
+        .sort((a, b) => (b.level || 1) - (a.level || 1));
       if (list.length === 0) return `[Living Tamriel] No active adventurers found in Region ${targetReg}.`;
+      const eliteCount = list.filter((a) => (a.level || 1) >= 25).length;
       return [
-        `<b>Active Adventurers in Region ${targetReg} (${list.length}):</b>`,
+        `<b>Active Adventurers in Region ${targetReg} (${list.length}, Lv25+ elites: ${eliteCount}):</b>`,
         ...list.map((a, idx) => {
           const name = getAdventurerDisplayName(a);
           const coordStr = a.targetPixel ? ` (${a.targetPixel.x},${a.targetPixel.y})` : '';
           return `- [#${idx} ID:${a.id}] ${name} | Lvl ${a.level} ${a.className} | Gear T${a.gearTier} | Trait: ${a.trait} | Status: ${a.status}${a.targetLocationName ? ` -> ${a.targetLocationName}${coordStr}` : ''} | Duels: ${a.duelsWon ?? 0}W/${a.duelsLost ?? 0}L`;
         }),
+      ].join('\n');
+    }
+    if (act === 'stats') {
+      const parsedReg = cleanArgs[2] != null ? parseInt(cleanArgs[2], 10) : NaN;
+      const targetReg = Number.isInteger(parsedReg) ? parsedReg : regIdx;
+      const st = getAdventurerEcosystemStats(targetReg);
+      return [
+        `<b>[Living Tamriel Ecosystem Stats — Day ${st.simDay}]</b>`,
+        `Pool: ${st.totalAlive} alive (${st.poolPerRegion}/region) | Max Lvl: ${st.maxLevel} | Retired Legends: ${st.retiredCount}`,
+        `Global Elites (Lv25+): ${st.globalElites25} (${st.avgElitesPerRegion}/region across ${st.regionsWithElites}/71 regions) | Lv35+: ${st.globalLegends35} | Lv45: ${st.globalCap45}`,
+        `Cooldowns: ${st.cooldownCount} (${st.cooldownPct}%) | Fallen Remains: ${st.remainsCount}`,
+        `Region ${targetReg}: ${st.regionAlive} alive | Lv25+ elites: ${st.regionElites25} | Lv35+: ${st.regionLegends35} | Max Lvl: ${st.regionMaxLevel} | Cooldowns: ${st.regionCooldowns} | Remains: ${st.regionRemains}`,
       ].join('\n');
     }
     if (act === 'setlevel') {

@@ -114,7 +114,7 @@ This is the complete reference for all console commands currently implemented in
 * `living encounter [kind]` - Triggers an LT wilderness encounter.
 * `living quest` - Accepts or completes the regional crisis contract.
 * `living formulas` / `living roll [Skill] [DC] [Formula]` (aliases `formula`, `check`) - Lists or tests LT roll formulas.
-* `living adv list [region]` | `living adv tick <1..365>` | `living adv kill_in_dungeon [region]`
+* `living adv list [region]` | `living adv stats [region]` | `living adv tick <1..365>` | `living adv kill_in_dungeon [region]`
 * `living adv setlevel <name|id|index> <1..45>` *(supports substring match)*
 * `living adv settrait <name|id|index> <trait>` *(supports substring match; `HONORABLE`, `ARROGANT`, `ENVIOUS`, `CUTTHROAT`, `DUELIST`, `MERCENARY`, `CAUTIOUS`)*
 * `living adv quote [name|id|index] [days]` *(supports substring match; `1..14` days)* - Prints full companion hire quote breakdown (base, haggled, Mercantile/Personality/Taint/Disguise/RCF/Festival/Wartime).

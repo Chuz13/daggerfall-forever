@@ -29,8 +29,8 @@ test('LT-04: Adventurer pool initializes across all 71 Tamriel regions with zero
   resetLivingConfig();
 
   const pool = ensureAdventurerPool();
-  // 13 per region * 71 regions = 923 adventurers
-  assert.equal(pool.length, 13 * 71);
+  // 30 per region * 71 regions = 2130 adventurers
+  assert.equal(pool.length, 30 * 71);
   assert.ok(pool.some((a) => a.currentRegion === 62), 'outer provinces (62+) are populated');
   assert.ok(pool.some((a) => a.currentRegion === 70), 'Cyrodiil (70) is populated');
 
@@ -127,14 +127,14 @@ test('LT-04: Legacy 62-region adventurer pool upgrades cleanly to 71 regions and
 
   // Simulate legacy 62-region save
   const legacyPool = ensureAdventurerPool(Math.random, 62);
-  assert.equal(legacyPool.length, 13 * 62);
+  assert.equal(legacyPool.length, 30 * 62);
   const firstLegacyName = legacyPool[0].name;
 
   // Upgrading to full Tamriel preserves existing 0..61 adventurers and fills 62..70
   const upgraded = ensureAdventurerPool();
-  assert.equal(upgraded.length, 13 * 71);
+  assert.equal(upgraded.length, 30 * 71);
   assert.equal(upgraded[0].name, firstLegacyName);
-  assert.equal(upgraded.filter((a) => a.currentRegion === 70).length, 13);
+  assert.equal(upgraded.filter((a) => a.currentRegion === 70).length, 30);
 
   // Verify geographical neighbor travel across all 71 regions (including Bay -> Province border crossings)
   const reg61Adv = upgraded.find((a) => a.currentRegion === 61);

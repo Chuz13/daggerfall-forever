@@ -226,7 +226,7 @@ export const LivingTamrielConfig = {
   },
 
   // Tunables & Thresholds
-  adventurerPoolPerRegion: 13,      // Default 13, configurable up to 30 for stress-tests
+  adventurerPoolPerRegion: 30,      // Default 30 per region
   navalSpawnDistanceMeters: 250,    // Spawn radius for naval encounters (200-300m)
   bountyWildernessWeight: 0.70,     // 70% wilderness / 30% dungeons
   bountyRewardWildMult: 4.0,        // x3 - x5 baseline reward
@@ -302,7 +302,7 @@ export function resetLivingConfig() {
   setPref('livingAdventurerLootMode', LIVING_ADVENTURER_LOOT.FULL);
   setPref('livingLocationCooldown', LIVING_LOCATION_COOLDOWN.DAYS_3);
 
-  LivingTamrielConfig.adventurerPoolPerRegion = 13;
+  LivingTamrielConfig.adventurerPoolPerRegion = 30;
   LivingTamrielConfig.navalSpawnDistanceMeters = 250;
   LivingTamrielConfig.bountyWildernessWeight = 0.70;
   LivingTamrielConfig.bountyRewardWildMult = 4.0;

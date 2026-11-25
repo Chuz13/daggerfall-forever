@@ -35,7 +35,7 @@ test('LT-01: LivingTamrielConfig provides canonical defaults and presence tiers'
   assert.equal(LivingTamrielConfig.quarantine, PRESENCE.HIGH);
   assert.equal(LivingTamrielConfig.bounties, PRESENCE.MID);
 
-  assert.equal(LivingTamrielConfig.adventurerPoolPerRegion, 13);
+  assert.equal(LivingTamrielConfig.adventurerPoolPerRegion, 30);
   assert.equal(LivingTamrielConfig.navalSpawnDistanceMeters, 250);
   assert.equal(LivingTamrielConfig.bountyWildernessWeight, 0.70);
   assert.equal(LivingTamrielConfig.bountyRewardWildMult, 4.0);

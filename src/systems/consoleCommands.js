@@ -203,6 +203,7 @@ import {
 } from './living/regionState.js';
 import {
   ADVENTURER_TRAITS,
+  ensureAdventurerPool,
   tickAdventurerSimulation,
   killAdventurerInDungeon,
   setAdventurerLevel,
@@ -212,6 +213,7 @@ import {
   getCompanionRemainingMinutes,
   dismissAdventurerCompanion,
   getAdventurerSimRegistry,
+  getAdventurerEcosystemStats,
   ADVENTURER_STATUS,
 } from './living/adventurerSim.js';
 import { REGION_FLAGS, turnOnConditionFlag, turnOffConditionFlag } from './region/regionConditions.js';
@@ -2824,8 +2826,8 @@ registerCommand(
 
 registerCommand(
   'living',
-  'Living Tamriel simulation controls: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region]>',
-  'living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region]>',
+  'Living Tamriel simulation controls: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region] | stats [region]>',
+  'living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region] | stats [region]>',
   (args = []) => {
     const scope = String(args[0] || '').toLowerCase();
     if (scope === 'adv' || scope === 'adventurer') {
@@ -2905,19 +2907,36 @@ registerCommand(
         return `[Living Tamriel] Active Companion: ${comp.displayName || comp.name} (${comp.className}, Lv.${comp.level}, T${comp.gearTier}, Trait: ${comp.trait}) | ${remHours}h remaining | Rate: ${q.dailyCost}g/day`;
       }
       if (sub === 'list') {
+        ensureAdventurerPool();
         const reg = getAdventurerSimRegistry();
         const pool = reg?.pool || [];
-        const regIdx = args[2] != null ? parseInt(args[2], 10) : (playerEntity?.currentRegionIndex ?? 0);
-        const filtered = pool.filter((a) => a.currentRegion === regIdx && a.status !== ADVENTURER_STATUS.DEAD);
-        const lines = [`Adventurers in Region ${regIdx} (${REGION_NAMES[regIdx] || 'Unknown'}): ${filtered.length}`];
+        const parsedReg = args[2] != null ? parseInt(args[2], 10) : NaN;
+        const regIdx = Number.isInteger(parsedReg) ? parsedReg : (playerEntity?.currentRegionIndex ?? 0);
+        const filtered = pool
+          .filter((a) => a.currentRegion === regIdx && a.status !== ADVENTURER_STATUS.DEAD)
+          .sort((a, b) => (b.level || 1) - (a.level || 1));
+        const eliteCount = filtered.filter((a) => (a.level || 1) >= 25).length;
+        const lines = [`Adventurers in Region ${regIdx} (${REGION_NAMES[regIdx] || 'Unknown'}): ${filtered.length} (Lv25+ elites: ${eliteCount})`];
         for (const a of filtered) {
           lines.push(` - [ID ${a.id}] ${a.name} (${a.className}, Lv.${a.level}, T${a.gearTier}) [${a.trait}] Status: ${a.status}${a.targetLocationName ? ` -> ${a.targetLocationName}` : ''}`);
         }
         return lines.join('\n');
       }
-      return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region]>';
+      if (sub === 'stats') {
+        const parsedReg = args[2] != null ? parseInt(args[2], 10) : NaN;
+        const regIdx = Number.isInteger(parsedReg) ? parsedReg : (playerEntity?.currentRegionIndex ?? 0);
+        const st = getAdventurerEcosystemStats(regIdx);
+        return [
+          `[Living Tamriel Ecosystem Stats — Day ${st.simDay}]`,
+          `Pool: ${st.totalAlive} alive (${st.poolPerRegion}/region) | Max Lvl: ${st.maxLevel} | Retired Legends: ${st.retiredCount}`,
+          `Global Elites (Lv25+): ${st.globalElites25} (${st.avgElitesPerRegion}/region across ${st.regionsWithElites}/71 regions) | Lv35+: ${st.globalLegends35} | Lv45: ${st.globalCap45}`,
+          `Cooldowns: ${st.cooldownCount} (${st.cooldownPct}%) | Fallen Remains: ${st.remainsCount}`,
+          `Region ${regIdx}: ${st.regionAlive} alive | Lv25+ elites: ${st.regionElites25} | Lv35+: ${st.regionLegends35} | Max Lvl: ${st.regionMaxLevel} | Cooldowns: ${st.regionCooldowns} | Remains: ${st.regionRemains}`,
+        ].join('\n');
+      }
+      return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region] | stats [region]>';
     }
-    return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region]>';
+    return 'Usage: living adv <tick <days> | kill_in_dungeon [region] | setlevel <name|id> <level> | settrait <name|id> <trait> | quote [name|id] [days] | companion [status|dismiss] | list [region] | stats [region]>';
   }
 );
 

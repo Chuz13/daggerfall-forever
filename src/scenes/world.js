@@ -184,7 +184,7 @@ import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
 import { getActiveCrises, getRegionState, bindLivingRegionConditions, getActiveRegionFlags, CRISIS_TYPE } from '../systems/living/regionState.js';
 import { REGION_FLAGS } from '../systems/region/regionConditions.js';
-import { getActiveAdventurerCompanion, setRegionalDungeonProvider, getRegionalDungeonPool } from '../systems/living/adventurerSim.js';
+import { getActiveAdventurerCompanion, setRegionalDungeonProvider, getRegionalDungeonPool, ILIAC_BAY_DUNGEON_SLOTS } from '../systems/living/adventurerSim.js';
 import { collectProvinceDungeons } from '../systems/living/provinceDungeonPool.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, buildRecruitedCompanionChoiceSpec, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { composeFortPack } from '../systems/living/tacticalPacks.js';
@@ -4415,7 +4415,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         picked = candidates.find((c) => Number(c.mapId) === numId) || null;
       }
       if (!picked && slotIndex != null && Number.isInteger(slotIndex)) {
-        const slotMatches = candidates.filter((c) => Math.abs(Math.trunc(Number(c.mapId))) % 10 === slotIndex);
+        let slotMatches = candidates.filter((c) => Math.abs(Math.trunc(Number(c.mapId))) % ILIAC_BAY_DUNGEON_SLOTS === slotIndex);
+        if (slotMatches.length === 0 && slotIndex < 10) {
+          slotMatches = candidates.filter((c) => Math.abs(Math.trunc(Number(c.mapId))) % 10 === slotIndex);
+        }
         if (slotMatches.length > 0) {
           const pool = preferUndiscovered ? slotMatches.filter((c) => !c.discovered) : slotMatches;
           const list = pool.length > 0 ? pool : slotMatches;
