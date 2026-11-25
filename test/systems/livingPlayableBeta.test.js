@@ -122,7 +122,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     tickAdventurerSimulation({ rng: () => 0.99 });
 
     assert.equal(pool[0].status, 'DEAD', 'adventurer should fall on failed delve roll');
-    const numericMapId = 5003; // 5003 % 10 === 3 -> matches dungeon_0_3 in region 0
+    const numericMapId = 6003; // 6003 % 60 === 3 -> matches dungeon_0_3 in region 0
 
     const claimed = claimFallenAdventurerRemains(numericMapId, 0);
     assert.ok(Array.isArray(claimed) && claimed.length === 1, 'numeric mapId in region 0 should match fallen adventurer slot');
@@ -136,9 +136,9 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     tickAdventurerSimulation({ rng: () => 0.01 });
 
     const allAfterClear = ensureAdventurerPool();
-    assert.equal(allAfterClear.length, 13 * 71, `total pool size should stay at 923 without dead bloat (got ${allAfterClear.length})`);
+    assert.equal(allAfterClear.length, 30 * 71, `total pool size should stay at 2130 without dead bloat (got ${allAfterClear.length})`);
     assert.equal(allAfterClear.filter((a) => a.status === 'DEAD').length, 0, 'previous-day DEAD records should be pruned');
-    assert.equal(isDungeonInCooldown(9007, 0), true, 'numeric mapId 9007 should match dungeon cooldown slot 7 in region 0');
+    assert.equal(isDungeonInCooldown(6007, 0), true, 'numeric mapId 6007 should match dungeon cooldown slot 7 in region 0');
   });
 
   it('Step 1d: savestate round-trips nemesis, allowQuestCompetition, and pleas state', () => {
@@ -500,7 +500,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     delver.targetLocationId = 'dungeon_17_4';
     delver.trait = 'HONORABLE';
 
-    const activeHit = getDungeonActiveAdventurer(8004, 17); // 8004 % 10 === 4 -> dungeon_17_4
+    const activeHit = getDungeonActiveAdventurer(6004, 17); // 6004 % 60 === 4 -> dungeon_17_4
     assert.ok(activeHit && activeHit.adv.id === delver.id);
     assert.equal(activeHit.intercepted, null);
 
@@ -511,7 +511,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     const delverSpec = buildDungeonAdventurerChoiceSpec({
       adv: activeHit.adv,
       intercepted: null,
-      locationId: 8004,
+      locationId: 6004,
       regionIndex: 17,
       playerEntity: player,
       foeRecord,
@@ -527,14 +527,14 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     const paidSpec = buildDungeonAdventurerChoiceSpec({
       adv: activeHit.adv,
       intercepted: null,
-      locationId: 8004,
+      locationId: 6004,
       regionIndex: 17,
       playerEntity: paidHirePlayer,
       foeRecord,
       nowMinutes: 600,
       rng: () => 0.1,
     });
-    paidSpec.options[4].action();
+    paidSpec.options[paidSpec.options.length - 2].action();
     assert.equal(foeRecord.entity.team, 'PlayerAlly', 'paid dungeon hire joins PlayerAlly team');
     assert.equal(foeRecord.livingRole, 'recruited_companion');
     dismissAdventurerCompanion();
@@ -542,7 +542,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
     // 4. In-Dungeon Intercepted Quest Rival -> Buyout reclaims quest trophy into player.items!
     const reg = getAdventurerSimRegistry();
     reg.interceptedQuests['dungeon_17_4'] = {
-      questId: 8004,
+      questId: 6004,
       locationId: 'dungeon_17_4',
       adventurerId: delver.id,
       adventurerName: delver.name,
@@ -553,7 +553,7 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
       claimedByAdventurer: true,
     };
 
-    const interceptedHit = getDungeonActiveAdventurer(8004, 17);
+    const interceptedHit = getDungeonActiveAdventurer(6004, 17);
     assert.ok(interceptedHit && interceptedHit.intercepted);
 
     const interceptSpec = buildDungeonAdventurerChoiceSpec({

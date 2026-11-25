@@ -39,8 +39,8 @@
 * At sea, naval squadrons (`LAW` vs `PIRATES`) clash `200–300m` from the player (`1–2` ships/side on Light, `2–4` or `5` at war on Mid, `3–6` on High). Approaching within `40m` prompts a side-allegiance choice.
 
 ### 5. Adventurer Simulation, Duels & Loot
-* A pool of virtual adventurers (`13` per region default, up to `30`) across 12 classes and 7 traits (`HONORABLE`, `ARROGANT`, `ENVIOUS`, `CUTTHROAT`, `DUELIST`, `MERCENARY`, `CAUTIOUS`) delves dungeons, levels up to `45`, and gears up across tiers `1–9`.
-* Cleared dungeons enter a `3–5` day cooldown. Failed delves (`25%` base demise chance) leave `fallenRemains` loot in boss chests.
+* A pool of virtual adventurers (`30` per region default) across 12 classes and 7 traits (`HONORABLE`, `ARROGANT`, `ENVIOUS`, `CUTTHROAT`, `DUELIST`, `MERCENARY`, `CAUTIOUS`) delves `60` Iliac Bay dungeon slots and real province dungeons, leveling up to `45` with a regional elite soft-cap (`Lv 25+`) and legend retirement at `Lv 45`.
+* Cleared dungeons enter a `3–5` day cooldown. Failed delves leave bounded `fallenRemains` loot (max `2` per dungeon slot, `14`-day TTL) in boss chests.
 * **Quest Protection:** `allowQuestCompetition` is disabled - active quest dungeons and main story dungeons are immune to adventurer interference.
 * **Wandering Road Adventurers & Multi-Day Companion Contracts:** Meet non-hostile adventurers on highways, at camps, fighting monsters, or returning with spoils. You can share intel, wager on a spar, extort spoils, or hire them on **multi-day contracts** (`1` / `3` / `7` days, extendable up to `14` days max, with replacement confirmation). Hiring uses a grounded `200g / level / day` base rate shaped by the adventurer's trait haggle quality (`16..20`), your Mercantile & Personality, regional wartime demand, Merchants Festival (`-50%`), RCF reputation, and Necromancy Taint/Disguise. Fallen hired companions drop no exploitable gear or gold. Defeated wager-sparring duelists cleanly exit combat (clearing active DoTs, poisons, and ally targets), drop into a 2D/3D surrender kneel pose, and gain a `5s` grace protection window.
 

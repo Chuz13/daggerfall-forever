@@ -11,6 +11,7 @@ import {
   getRegionalDungeonDescriptor,
   isQuestImmuneLocation,
   setRegionalDungeonProvider,
+  ILIAC_BAY_DUNGEON_SLOTS,
 } from '../../src/systems/living/adventurerSim.js';
 import {
   setRegionCrisis,
@@ -68,7 +69,7 @@ test('Stage1 LT Parity: getRegionalDungeonDescriptor uses real map dungeons via 
 
 test('Stage1 LT Parity: isQuestImmuneLocation matches mapId, locationId, and past-Bay slot keys', () => {
   const skyrimLairId = 0x90001234;
-  const slotKey = `dungeon_64_${skyrimLairId % 10}`;
+  const slotKey = `dungeon_64_${skyrimLairId % ILIAC_BAY_DUNGEON_SLOTS}`;
   const sites = [{ locationId: skyrimLairId, regionIndex: 64, isMainQuest: false }];
   assert.equal(isQuestImmuneLocation(skyrimLairId, sites, false), true);
   assert.equal(isQuestImmuneLocation(slotKey, sites, false), true);

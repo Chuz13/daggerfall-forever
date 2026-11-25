@@ -10,6 +10,9 @@ import {
   evaluateAdventurerTension,
   resolveAdventurerEncounter,
   confrontInterceptingAdventurer,
+  recruitAdventurerCompanion,
+  getDelvesRequiredForLevel,
+  getAdventurerEcosystemStats,
   ADVENTURER_STATUS,
   ADVENTURER_TRAITS,
   CHALLENGE_TYPE,
@@ -19,7 +22,7 @@ import {
   getAdventurerSimRegistry,
 } from '../../src/systems/living/adventurerSim.js';
 
-import { restoreLivingSaveData } from '../../src/systems/living/livingDirector.js';
+import { restoreLivingSaveData, getLivingSaveData } from '../../src/systems/living/livingDirector.js';
 import { LivingTamrielConfig, resetLivingConfig } from '../../src/systems/living/livingConfig.js';
 import { LEVEL_CAP } from '../../src/systems/levelCap.js';
 import { SKILLS } from '../../src/systems/skills.js';
@@ -60,6 +63,7 @@ test('LT-09: Adventurers scale level up to LEVEL_CAP (45) and gear tiers 1..9', 
   adv.level = 44;
   adv.gearTier = 8;
   adv.delveSuccessCount = 1;
+  adv.delveLevelProgress = getDelvesRequiredForLevel(44) - 1;
   adv.status = ADVENTURER_STATUS.DELVING;
   adv.targetLocationId = 'dungeon_high_level';
   adv.daysRemainingInAction = 1;
@@ -186,5 +190,73 @@ test('LT-09: Quest competition toggle shields main story while allowing radiant 
   assert.equal(buybackResult.recovered, true);
   assert.ok(buybackResult.goldCost > 0 && buybackResult.goldCost <= 500);
   assert.equal(reg.interceptedQuests['side_cave_88'].recovered, true);
+});
+
+test('LT-09: 30/region pool initializes with seeded level pyramid and 2130 total adventurers', () => {
+  restoreLivingSaveData(null);
+  resetLivingConfig();
+
+  const pool = ensureAdventurerPool();
+  assert.equal(pool.length, 30 * 71);
+  assert.ok(pool[0].level >= 1 && pool[0].level <= 4);
+  assert.equal(pool[0].gearTier, 1);
+
+  const stats = getAdventurerEcosystemStats(17);
+  assert.equal(stats.regionAlive, 30);
+  assert.ok(stats.regionMaxLevel >= 24, `expected a regional champion Lv 24+, got ${stats.regionMaxLevel}`);
+});
+
+test('LT-09: 365-day simulation keeps 1-3 elites/region, bounded remains/cooldowns, and <950 KB save', () => {
+  restoreLivingSaveData(null);
+  resetLivingConfig();
+
+  let s = 12345 >>> 0;
+  const rng = () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
+
+  ensureAdventurerPool(rng);
+  for (let d = 0; d < 365; d++) {
+    tickAdventurerSimulation({ rng });
+  }
+
+  const stats = getAdventurerEcosystemStats(17);
+  assert.ok(stats.avgElitesPerRegion >= 0.5 && stats.avgElitesPerRegion <= 4.0, `avgElitesPerRegion=${stats.avgElitesPerRegion}`);
+  assert.equal(Object.keys(stats.traitCountsAt25).length, 7, 'all 7 traits represented among Lv 25+ elites');
+  assert.ok(stats.cooldownPct < 45, `cooldownPct=${stats.cooldownPct}% should stay < 45%`);
+  assert.ok(stats.remainsCount < 600, `remainsCount=${stats.remainsCount} should stay bounded`);
+
+  const reg = getAdventurerSimRegistry();
+  for (const list of Object.values(reg.fallenRemains)) {
+    assert.ok(list.length <= 2, 'max 2 fallen remains per dungeon slot');
+  }
+
+  const saveBytes = JSON.stringify(getLivingSaveData()).length;
+  assert.ok(saveBytes < 950 * 1024, `saveBytes=${saveBytes} should stay < 950 KB`);
+});
+
+test('LT-09: Lv 45 legend retirement cycles cap adventurers without remains, while active companion is protected', () => {
+  restoreLivingSaveData(null);
+  resetLivingConfig();
+
+  const reg = getAdventurerSimRegistry();
+  const capAdv = createVirtualAdventurer(501, 17, () => 0.5, 45);
+  capAdv.status = ADVENTURER_STATUS.DELVING;
+  capAdv.targetLocationId = 'dungeon_17_2';
+  capAdv.daysRemainingInAction = 1;
+
+  const compAdv = createVirtualAdventurer(502, 17, () => 0.5, 20);
+  compAdv.status = ADVENTURER_STATUS.DELVING;
+  compAdv.targetLocationId = 'dungeon_17_3';
+  compAdv.daysRemainingInAction = 1;
+
+  reg.pool = [capAdv, compAdv];
+  recruitAdventurerCompanion(compAdv, 1000, 3);
+
+  // rng=0.01 triggers delve success AND cap retirement (< 0.08)
+  tickAdventurerSimulation({ rng: () => 0.01 });
+
+  assert.equal(capAdv.status, ADVENTURER_STATUS.DEAD, 'Lv 45 legend retires');
+  assert.equal(reg.retiredCount, 1);
+  assert.equal(reg.fallenRemains['dungeon_17_2'], undefined, 'retired legend leaves no fallenRemains');
+  assert.equal(compAdv.status, ADVENTURER_STATUS.DELVING, 'active hired companion is protected from background sim');
 });
 

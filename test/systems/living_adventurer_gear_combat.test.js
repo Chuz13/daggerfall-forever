@@ -139,17 +139,17 @@ describe('Living Tamriel Adventurer Gear & Combat Systems', () => {
   it('calculateDelveOutcome factors in traits and crises', () => {
     const advCautious = { level: 20, trait: 'CAUTIOUS' };
     const resCautious = calculateDelveOutcome(advCautious, 'Crypt', 'PEACE', 10, () => 0.99);
-    // On failure, CAUTIOUS has only 5% demise chance
-    assert.equal(resCautious.demiseChanceOnFail, 0.05);
+    // On failure, CAUTIOUS has 9% demise chance
+    assert.equal(resCautious.demiseChanceOnFail, 0.09);
 
     const advArrogant = { level: 20, trait: 'ARROGANT' };
     const resArrogant = calculateDelveOutcome(advArrogant, 'Crypt', 'PEACE', 10, () => 0.99);
-    // On failure, ARROGANT has 50% demise chance
-    assert.equal(resArrogant.demiseChanceOnFail, 0.50);
+    // On failure, ARROGANT has 21% demise chance
+    assert.equal(resArrogant.demiseChanceOnFail, 0.21);
 
     const advCutthroat = { level: 20, trait: 'CUTTHROAT' };
     const resCutthroat = calculateDelveOutcome(advCutthroat, 'Ruin', 'PEACE', 10, () => 0.50);
-    assert.ok(resCutthroat.baseSuccess > 0.90);
+    assert.ok(resCutthroat.baseSuccess > 0.80 && resCutthroat.baseSuccess <= 0.88);
   });
 
   it('setAdventurerLevel updates level and gearTier', () => {

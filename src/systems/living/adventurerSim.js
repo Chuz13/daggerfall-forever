@@ -45,6 +45,30 @@ import {
 } from './livingRolls.js';
 
 export const TOTAL_REGION_COUNT = REGION_NAMES.length;
+export const ILIAC_BAY_DUNGEON_SLOTS = 60;
+export const MAX_FALLEN_REMAINS_PER_SLOT = 2;
+export const FALLEN_REMAINS_TTL_DAYS = 14;
+export const REGIONAL_ELITE_LEVEL = 25;
+export const REGIONAL_ELITE_SOFT_CAP = 2;
+export const CAP_RETIREMENT_CHANCE = 0.08;
+
+/** @param {number|string} locationId */
+export function getDungeonSlotIndex(locationId) {
+  return Math.abs(Math.trunc(Number(locationId))) % ILIAC_BAY_DUNGEON_SLOTS;
+}
+
+/**
+ * @param {number} regionIndex
+ * @param {number|string} locationId
+ */
+export function getDungeonSlotKey(regionIndex, locationId) {
+  return `dungeon_${regionIndex}_${getDungeonSlotIndex(locationId)}`;
+}
+
+/** @param {number} level */
+export function getDelvesRequiredForLevel(level) {
+  return 2 + Math.floor(Math.max(0, Math.trunc(Number(level) || 1)) / 10);
+}
 
 export const ADVENTURER_CLASSES = Object.freeze([
   'Warrior', 'Knight', 'Barbarian', 'Rogue', 'Thief', 'Assassin',
@@ -122,7 +146,7 @@ export function matchesQuestSite(site, locationId) {
   const target = String(locationId);
   if (String(siteId) === target) return true;
   if (site.regionIndex != null && Number.isFinite(Number(siteId))) {
-    const slotKey = `dungeon_${site.regionIndex}_${Math.abs(Math.trunc(Number(siteId))) % 10}`;
+    const slotKey = getDungeonSlotKey(site.regionIndex, siteId);
     if (slotKey === target) return true;
   }
   return false;
@@ -158,12 +182,16 @@ export function isQuestImmuneLocation(
  * @param {number} id Unique identifier
  * @param {number} regionIndex Region of origin (0..70)
  * @param {() => number} [rng]
+ * @param {number|null} [initialLevel]
  */
-export function createVirtualAdventurer(id, regionIndex, rng = Math.random) {
+export function createVirtualAdventurer(id, regionIndex, rng = Math.random, initialLevel = null) {
   const classIndex = Math.floor(rng() * ADVENTURER_CLASSES.length);
   const className = ADVENTURER_CLASSES[classIndex];
   const trait = ADVENTURER_TRAITS[Math.floor(rng() * ADVENTURER_TRAITS.length)];
-  const level = 1 + Math.floor(rng() * 4); // Initial levels 1..4
+  const level = initialLevel != null
+    ? Math.max(1, Math.min(LEVEL_CAP, Math.trunc(initialLevel)))
+    : 1 + Math.floor(rng() * 4);
+  const gearTier = Math.min(9, Math.floor(level / 5) + 1);
   const idNum = Math.abs(Number(id) || Math.floor(rng() * ADVENTURER_FORENAMES.length));
   const forename = ADVENTURER_FORENAMES[idNum % ADVENTURER_FORENAMES.length];
   const name = `${forename} the ${className}`;
@@ -174,15 +202,24 @@ export function createVirtualAdventurer(id, regionIndex, rng = Math.random) {
     className,
     trait,
     level,
-    gearTier: 1, // Iron / Steel tier (scales 1..9 up to level 45)
+    gearTier,
     currentRegion: regionIndex,
     targetLocationId: null,
     status: ADVENTURER_STATUS.IDLE,
     daysRemainingInAction: 0,
     delveSuccessCount: 0,
+    delveLevelProgress: 0,
     duelsWon: 0,
     duelsLost: 0,
   };
+}
+
+function rollSeededPyramidLevel(slotInRegion, poolPerRegion, rng) {
+  if (poolPerRegion < 10) return null;
+  if (slotInRegion < Math.floor(poolPerRegion * 0.67)) return 1 + Math.floor(rng() * 4);
+  if (slotInRegion < Math.floor(poolPerRegion * 0.87)) return 5 + Math.floor(rng() * 10);
+  if (slotInRegion < poolPerRegion - 1) return 15 + Math.floor(rng() * 9);
+  return 24 + Math.floor(rng() * 9);
 }
 
 /**
@@ -207,6 +244,8 @@ export function getAdventurerSimRegistry() {
   if (!adv.interceptedQuests || typeof adv.interceptedQuests !== 'object') {
     adv.interceptedQuests = {};
   }
+  if (!Number.isFinite(adv.simDay)) adv.simDay = 0;
+  if (!Number.isFinite(adv.retiredCount)) adv.retiredCount = 0;
   return adv;
 }
 
@@ -233,7 +272,7 @@ export function ensureAdventurerPool(rngOrOptions = Math.random, regionCount = T
     reg.pool = [];
   }
 
-  const poolPerRegion = LivingTamrielConfig.adventurerPoolPerRegion || 13;
+  const poolPerRegion = LivingTamrielConfig.adventurerPoolPerRegion || 30;
   const targetTotal = poolPerRegion * count;
 
   if (reg.pool.length < targetTotal) {
@@ -243,7 +282,8 @@ export function ensureAdventurerPool(rngOrOptions = Math.random, regionCount = T
         (a) => a.currentRegion === r && a.status !== ADVENTURER_STATUS.DEAD
       ).length;
       for (let i = currentInRegion; i < poolPerRegion; i++) {
-        reg.pool.push(createVirtualAdventurer(nextId++, r, rng));
+        const seededLvl = rollSeededPyramidLevel(i, poolPerRegion, rng);
+        reg.pool.push(createVirtualAdventurer(nextId++, r, rng, seededLvl));
       }
     }
     reg.nextId = nextId;
@@ -341,8 +381,8 @@ export function getRegionalDungeonDescriptor(regionIndex, slotIndex) {
     };
   }
   const regName = REGION_NAMES[regionIndex] || 'Wilderness';
-  const slot = Math.abs(Math.trunc(Number(slotIndex) || 0)) % 10;
-  const tmpl = REGIONAL_DUNGEON_NAMES[slot] || REGIONAL_DUNGEON_NAMES[0];
+  const slot = Math.abs(Math.trunc(Number(slotIndex) || 0)) % ILIAC_BAY_DUNGEON_SLOTS;
+  const tmpl = REGIONAL_DUNGEON_NAMES[slot % REGIONAL_DUNGEON_NAMES.length] || REGIONAL_DUNGEON_NAMES[0];
   if (regionIndex === 17 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Privateer's Hold [Keep]", type: 'Keep' };
   if (regionIndex === 17 && slot === 1) return { id: `dungeon_${regionIndex}_1`, name: "Castle Daggerfall Dungeons [Labyrinth]", type: 'Labyrinth' };
   if (regionIndex === 23 && slot === 0) return { id: `dungeon_${regionIndex}_0`, name: "Wayrest Sewers [Labyrinth]", type: 'Labyrinth' };
@@ -354,58 +394,81 @@ export function getRegionalDungeonDescriptor(regionIndex, slotIndex) {
   };
 }
 
+function recordFallenRemains(reg, locId, entry) {
+  if (!locId) return;
+  if (!reg.fallenRemains[locId]) reg.fallenRemains[locId] = [];
+  reg.fallenRemains[locId].push({
+    ...entry,
+    simDay: Number(reg.simDay || 0),
+  });
+  while (reg.fallenRemains[locId].length > MAX_FALLEN_REMAINS_PER_SLOT) {
+    reg.fallenRemains[locId].shift();
+  }
+}
+
 /**
- * Calculates concrete delve success and survival probabilities based on traits,
- * dungeon types, regional crises, and level.
- *
+ * Calculates delve success and survival probabilities.
  * @param {Object} adv
  * @param {string} dungeonType
  * @param {string} [regionCrisis]
  * @param {number} [playerLevel=1]
  * @param {Function} [rng=Math.random]
- * @returns {{ success: boolean, demise: boolean, baseSuccess: number, demiseChanceOnFail: number }}
+ * @param {number} [regionalElites=0]
  */
-export function calculateDelveOutcome(adv, dungeonType, regionCrisis = null, playerLevel = 1, rng = Math.random) {
-  let baseSuccess = 0.55 + Math.min(0.35, (adv.level || 1) * 0.02);
-  let demiseChanceOnFail = 0.25; // 25% base death rate on delve failure
+export function calculateDelveOutcome(adv, dungeonType, regionCrisis = null, playerLevel = 1, rng = Math.random, regionalElites = 0) {
+  const lvl = adv.level || 1;
+  let baseSuccess = 0.56 + Math.min(0.30, lvl * 0.02);
+  if (lvl > 20) {
+    baseSuccess -= Math.min(0.04, (lvl - 20) * 0.002);
+  }
+  let demiseChanceOnFail = 0.14;
 
   switch (adv.trait) {
     case 'CAUTIOUS':
-      baseSuccess -= 0.05; // Prudent: avoids reckless gambits
-      demiseChanceOnFail = 0.05; // 95% survival rate on failure!
+      baseSuccess -= 0.04;
+      demiseChanceOnFail -= 0.05;
       break;
     case 'ARROGANT':
-      baseSuccess += 0.05; // Reckless bravado
-      demiseChanceOnFail = 0.50; // Double mortality if outmatched
+      baseSuccess += 0.05;
+      demiseChanceOnFail += 0.07;
       break;
     case 'ENVIOUS':
-      if (playerLevel > (adv.level || 1)) {
-        baseSuccess += 0.08; // Pushed to the limit to outdo the player
-        demiseChanceOnFail = 0.40;
+      if (playerLevel > lvl) {
+        baseSuccess += 0.06;
+        demiseChanceOnFail += 0.06;
       }
       break;
     case 'CUTTHROAT':
       if (dungeonType === 'Ruin' || dungeonType === 'Crypt' || dungeonType === 'Den') {
-        baseSuccess += 0.10; // Ruthless ambush and survival tactics in tight ruins
+        baseSuccess += 0.07;
       }
-      demiseChanceOnFail = 0.15; // Escape tricks
+      demiseChanceOnFail -= 0.02;
       break;
     case 'HONORABLE':
       if (dungeonType === 'Crypt' || dungeonType === 'Catacombs') {
-        baseSuccess += 0.10; // Righteous fortitude against undead
+        baseSuccess += 0.08;
       }
       break;
     case 'DUELIST':
       if (dungeonType === 'Keep' || dungeonType === 'Labyrinth') {
-        baseSuccess += 0.10; // Martial prowess in fortified halls
+        baseSuccess += 0.08;
       }
       break;
     case 'MERCENARY':
       if (dungeonType === 'Mine' || dungeonType === 'Vault') {
-        baseSuccess += 0.10; // Gold-motivated efficiency
+        baseSuccess += 0.07;
       }
-      demiseChanceOnFail = 0.10; // Pragmatic: withdraws when blood costs exceed coin
+      demiseChanceOnFail -= 0.03;
       break;
+  }
+
+  // Regional elite soft-cap: when region already has >= 2 elites (Lv 25+),
+  // challengers face steeper contest so only a few dominate each region.
+  if (lvl >= 18 && regionalElites >= REGIONAL_ELITE_SOFT_CAP) {
+    const excess = Math.min(4, regionalElites - REGIONAL_ELITE_SOFT_CAP + 1);
+    const scale = lvl >= 30 ? 0.45 : 1.0;
+    baseSuccess -= 0.05 * excess * scale;
+    demiseChanceOnFail += 0.05 * excess * scale;
   }
 
   // Regional Crisis Modifiers
@@ -417,7 +480,8 @@ export function calculateDelveOutcome(adv, dungeonType, regionCrisis = null, pla
     demiseChanceOnFail += 0.05;
   }
 
-  baseSuccess = Math.max(0.15, Math.min(0.95, baseSuccess));
+  baseSuccess = Math.max(0.15, Math.min(0.88, baseSuccess));
+  demiseChanceOnFail = Math.round(Math.max(0.08, Math.min(0.65, demiseChanceOnFail)) * 1000) / 1000;
   const success = rng() < baseSuccess;
   const demise = !success && rng() >= (1 - demiseChanceOnFail);
 
@@ -438,13 +502,12 @@ export function killAdventurerInDungeon(regionIndex = null) {
 
   target.status = ADVENTURER_STATUS.DEAD;
   target.daysRemainingInAction = 0;
-  const slot = Math.floor(Math.random() * 10);
+  const slot = Math.floor(Math.random() * ILIAC_BAY_DUNGEON_SLOTS);
   const desc = getRegionalDungeonDescriptor(target.currentRegion, slot);
   const locId = target.targetLocationId || desc.id;
   const dungeonName = target.targetLocationName || desc.name;
 
-  if (!reg.fallenRemains[locId]) reg.fallenRemains[locId] = [];
-  reg.fallenRemains[locId].push({
+  recordFallenRemains(reg, locId, {
     adventurerName: target.name,
     className: target.className,
     trait: target.trait,
@@ -470,16 +533,16 @@ export function killAdventurerInDungeon(regionIndex = null) {
 export function setAdventurerLevel(identifier, newLevel) {
   ensureAdventurerPool();
   const reg = getAdventurerSimRegistry();
-  const pool = reg.pool || [];
+  const alive = (reg.pool || []).filter((a) => a && a.status !== ADVENTURER_STATUS.DEAD);
   const level = Math.max(1, Math.min(LEVEL_CAP, Math.trunc(Number(newLevel) || 1)));
   let found = null;
   if (Number.isFinite(Number(identifier))) {
     const idNum = Number(identifier);
-    found = pool.find((a) => a.id === idNum) || pool[idNum];
+    found = alive.find((a) => a.id === idNum) || alive[idNum];
   }
   if (!found && typeof identifier === 'string') {
     const q = identifier.toLowerCase();
-    found = pool.find((a) => a.name.toLowerCase().includes(q));
+    found = alive.find((a) => a.name.toLowerCase().includes(q));
   }
   if (!found) return null;
   found.level = level;
@@ -498,15 +561,15 @@ export function setAdventurerTrait(identifier, newTrait) {
   if (!ADVENTURER_TRAITS.includes(trait)) return null;
   ensureAdventurerPool();
   const reg = getAdventurerSimRegistry();
-  const pool = reg.pool || [];
+  const alive = (reg.pool || []).filter((a) => a && a.status !== ADVENTURER_STATUS.DEAD);
   let found = null;
   if (Number.isFinite(Number(identifier))) {
     const idNum = Number(identifier);
-    found = pool.find((a) => a.id === idNum) || pool[idNum];
+    found = alive.find((a) => a.id === idNum) || alive[idNum];
   }
   if (!found && typeof identifier === 'string') {
     const q = identifier.toLowerCase();
-    found = pool.find((a) => a.name.toLowerCase().includes(q));
+    found = alive.find((a) => a.name.toLowerCase().includes(q));
   }
   if (!found) return null;
   found.trait = trait;
@@ -532,6 +595,7 @@ export function tickAdventurerSimulation({
   if (tier === PRESENCE.OFF) return { events };
 
   const reg = getAdventurerSimRegistry();
+  reg.simDay = (Number(reg.simDay) || 0) + 1;
   // Prune any dead records from previous days before today's simulation step
   // so the pool never grows unbounded across long campaigns.
   if (Array.isArray(reg.pool) && reg.pool.some((a) => a.status === ADVENTURER_STATUS.DEAD)) {
@@ -543,7 +607,7 @@ export function tickAdventurerSimulation({
     ? Boolean(allowQuestCompetition)
     : Boolean(LivingTamrielConfig.allowQuestCompetition);
 
-  // 1. Tick dungeon cooldowns down
+  // 1. Tick dungeon cooldowns down & expire old stamped fallenRemains
   if (reg.dungeonCooldowns) {
     for (const [locId, days] of Object.entries(reg.dungeonCooldowns)) {
       if (days <= 1) {
@@ -553,12 +617,39 @@ export function tickAdventurerSimulation({
       }
     }
   }
+  if (reg.fallenRemains) {
+    for (const [locId, list] of Object.entries(reg.fallenRemains)) {
+      if (!Array.isArray(list) || list.length === 0) {
+        delete reg.fallenRemains[locId];
+        continue;
+      }
+      const kept = list.filter(
+        (e) => !Number.isFinite(e?.simDay) || (reg.simDay - e.simDay) <= FALLEN_REMAINS_TTL_DAYS,
+      );
+      if (kept.length === 0) delete reg.fallenRemains[locId];
+      else if (kept.length !== list.length) reg.fallenRemains[locId] = kept;
+    }
+  }
+
+  // Track regional Lv25+ elites for soft-cap pressure & protect hired companion
+  const eliteCounts = new Int32Array(TOTAL_REGION_COUNT);
+  for (const a of pool) {
+    if (a.status !== ADVENTURER_STATUS.DEAD && (a.level || 1) >= REGIONAL_ELITE_LEVEL) {
+      if (a.currentRegion >= 0 && a.currentRegion < TOTAL_REGION_COUNT) {
+        eliteCounts[a.currentRegion]++;
+      }
+    }
+  }
+  const activeCompId = reg.activeCompanion?.id ?? null;
 
   // 2. Process each adventurer's action
   const initialPoolLength = pool.length;
   for (let i = 0; i < initialPoolLength; i++) {
     const adv = pool[i];
     if (adv.status === ADVENTURER_STATUS.DEAD) {
+      continue;
+    }
+    if (activeCompId != null && String(adv.id) === String(activeCompId)) {
       continue;
     }
 
@@ -572,25 +663,35 @@ export function tickAdventurerSimulation({
       const locId = adv.targetLocationId;
       const isImmune = isQuestImmuneLocation(locId, activeQuestSites, allowComp);
 
-      const slot = Math.abs(parseInt(String(locId).replace(/\D/g, ''), 10) || 0) % 10;
+      const locMatch = /^dungeon_\d+_(\d+)$/.exec(String(locId));
+      const slot = locMatch
+        ? Number(locMatch[1]) % ILIAC_BAY_DUNGEON_SLOTS
+        : Math.abs(parseInt(String(locId).replace(/\D/g, ''), 10) || 0) % ILIAC_BAY_DUNGEON_SLOTS;
       const desc = getRegionalDungeonDescriptor(adv.currentRegion, slot);
       const dungName = adv.targetLocationName || desc.name;
       const dungeonType = adv.targetDungeonType || desc.type;
       const regCrisis = getRegionState(adv.currentRegion)?.crisis;
       const pLevel = Number(playerEntity?.level || 1);
-      const outcome = calculateDelveOutcome(adv, dungeonType, regCrisis, pLevel, rng);
+      const regElites = (adv.currentRegion >= 0 && adv.currentRegion < TOTAL_REGION_COUNT)
+        ? eliteCounts[adv.currentRegion]
+        : 0;
+      const outcome = calculateDelveOutcome(adv, dungeonType, regCrisis, pLevel, rng, regElites);
 
       if (outcome.success && !isImmune) {
         adv.status = ADVENTURER_STATUS.IDLE;
         adv.delveSuccessCount++;
+        adv.delveLevelProgress = (Number(adv.delveLevelProgress) || 0) + 1;
         adv.daysRemainingInAction = 0;
 
         let lvlMsg = '';
-        // Level up & gear upgrade up to LEVEL_CAP (45 parity)
-        if (adv.delveSuccessCount % 2 === 0 && adv.level < LEVEL_CAP) {
+        if (adv.delveLevelProgress >= getDelvesRequiredForLevel(adv.level) && adv.level < LEVEL_CAP) {
+          adv.delveLevelProgress = 0;
+          const wasElite = adv.level >= REGIONAL_ELITE_LEVEL;
           adv.level++;
-          // Gear tiers 1..9 (Iron/Steel to Daedric/Artifact)
           adv.gearTier = Math.min(9, Math.floor(adv.level / 5) + 1);
+          if (!wasElite && adv.level >= REGIONAL_ELITE_LEVEL && adv.currentRegion >= 0 && adv.currentRegion < TOTAL_REGION_COUNT) {
+            eliteCounts[adv.currentRegion]++;
+          }
           lvlMsg = ` (Leveled up to ${adv.level}!)`;
         }
         events.push(`${adv.name} (${adv.className}) cleared ${dungName}${lvlMsg}`);
@@ -619,27 +720,36 @@ export function tickAdventurerSimulation({
             }
           }
         }
+
+        // Legend retirement at cap (Lv 45): peacefully retires without leaving remains
+        if (adv.level >= LEVEL_CAP && rng() < CAP_RETIREMENT_CHANCE) {
+          if (adv.currentRegion >= 0 && adv.currentRegion < TOTAL_REGION_COUNT) {
+            eliteCounts[adv.currentRegion] = Math.max(0, eliteCounts[adv.currentRegion] - 1);
+          }
+          adv.status = ADVENTURER_STATUS.DEAD;
+          adv.daysRemainingInAction = 0;
+          reg.retiredCount = (Number(reg.retiredCount) || 0) + 1;
+          reg.nextId = (reg.nextId || pool.length) + 1;
+          const newcomer = createVirtualAdventurer(reg.nextId, adv.currentRegion, rng);
+          pool.push(newcomer);
+          events.push(`${adv.name} retired as a legend! Newcomer ${newcomer.name} arrived in region.`);
+        }
       } else if (outcome.demise) {
-        // Demise in dungeon: Leave gear as loot in boss chest
+        if (adv.level >= REGIONAL_ELITE_LEVEL && adv.currentRegion >= 0 && adv.currentRegion < TOTAL_REGION_COUNT) {
+          eliteCounts[adv.currentRegion] = Math.max(0, eliteCounts[adv.currentRegion] - 1);
+        }
         adv.status = ADVENTURER_STATUS.DEAD;
         adv.daysRemainingInAction = 0;
 
-        if (locId) {
-          if (!reg.fallenRemains[locId]) {
-            reg.fallenRemains[locId] = [];
-          }
-          reg.fallenRemains[locId].push({
-            adventurerName: adv.name,
-            className: adv.className,
-            trait: adv.trait,
-            level: adv.level,
-            gearTier: adv.gearTier,
-            dungeonName: dungName,
-          });
-        }
+        recordFallenRemains(reg, locId, {
+          adventurerName: adv.name,
+          className: adv.className,
+          trait: adv.trait,
+          level: adv.level,
+          gearTier: adv.gearTier,
+          dungeonName: dungName,
+        });
 
-        // IMMEDIATELY RESPAWN A FRESH NEWCOMER INTO THIS REGION!
-        // Preserves ecosystem density so Tamriel never feels depopulated
         reg.nextId = (reg.nextId || pool.length) + 1;
         const newcomer = createVirtualAdventurer(reg.nextId, adv.currentRegion, rng);
         pool.push(newcomer);
@@ -667,7 +777,7 @@ export function tickAdventurerSimulation({
     if (rng() < 0.60) {
       // Start a dungeon delve
       const realList = getRegionalDungeonPool(adv.currentRegion);
-      const slot = realList ? Math.floor(rng() * realList.length) : Math.floor(rng() * 10);
+      const slot = realList ? Math.floor(rng() * realList.length) : Math.floor(rng() * ILIAC_BAY_DUNGEON_SLOTS);
       const desc = getRegionalDungeonDescriptor(adv.currentRegion, slot);
       if (!isQuestImmuneLocation(desc.id, activeQuestSites, allowComp)) {
         adv.status = ADVENTURER_STATUS.DELVING;
@@ -684,6 +794,10 @@ export function tickAdventurerSimulation({
       const neighborRegion = neighbors.length > 0
         ? neighbors[Math.floor(rng() * neighbors.length)]
         : (adv.currentRegion + 1) % TOTAL_REGION_COUNT;
+      if (adv.level >= REGIONAL_ELITE_LEVEL) {
+        if (adv.currentRegion >= 0 && adv.currentRegion < TOTAL_REGION_COUNT) eliteCounts[adv.currentRegion] = Math.max(0, eliteCounts[adv.currentRegion] - 1);
+        if (neighborRegion >= 0 && neighborRegion < TOTAL_REGION_COUNT) eliteCounts[neighborRegion]++;
+      }
       adv.status = ADVENTURER_STATUS.TRAVELING;
       adv.currentRegion = neighborRegion;
       adv.daysRemainingInAction = 1 + Math.floor(rng() * 2);
@@ -696,8 +810,7 @@ export function tickAdventurerSimulation({
 
 /**
  * Checks whether a dungeon is currently in cleared cooldown (monsters suppressed).
- * Supports both direct locationId match and deterministic regional dungeon slot matching
- * (`dungeon_<regionIndex>_<mapId % 10>`) for real MAPS.BSA dungeons.
+ * Supports both direct locationId match and deterministic regional dungeon slot matching.
  * @param {string|number} locationId
  * @param {number|null} [regionIndex=null]
  * @returns {boolean}
@@ -706,7 +819,7 @@ export function isDungeonInCooldown(locationId, regionIndex = null) {
   const reg = getAdventurerSimRegistry();
   if (typeof reg.dungeonCooldowns?.[locationId] === 'number') return true;
   if (regionIndex != null && Number.isFinite(Number(locationId))) {
-    const slotKey = `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`;
+    const slotKey = getDungeonSlotKey(regionIndex, locationId);
     if (typeof reg.dungeonCooldowns?.[slotKey] === 'number') return true;
   }
   return false;
@@ -727,7 +840,7 @@ export function claimFallenAdventurerRemains(locationId, regionIndex = null) {
     return loot;
   }
   if (regionIndex != null && Number.isFinite(Number(locationId))) {
-    const slotKey = `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`;
+    const slotKey = getDungeonSlotKey(regionIndex, locationId);
     if (reg.fallenRemains?.[slotKey]?.length) {
       const loot = [...reg.fallenRemains[slotKey]];
       delete reg.fallenRemains[slotKey];
@@ -973,7 +1086,7 @@ export function findInterceptedQuestAt(locationId, regionIndex = null) {
     return { key: String(locationId), record: reg.interceptedQuests[locationId] };
   }
   if (regionIndex != null && Number.isFinite(Number(locationId))) {
-    const slotKey = `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`;
+    const slotKey = getDungeonSlotKey(regionIndex, locationId);
     if (reg.interceptedQuests[slotKey] && !reg.interceptedQuests[slotKey].recovered) {
       return { key: slotKey, record: reg.interceptedQuests[slotKey] };
     }
@@ -994,7 +1107,7 @@ export function getDungeonActiveAdventurer(locationId, regionIndex = null) {
   const reg = getAdventurerSimRegistry();
   const slotKey =
     regionIndex != null && Number.isFinite(Number(locationId))
-      ? `dungeon_${regionIndex}_${Math.abs(Math.trunc(Number(locationId))) % 10}`
+      ? getDungeonSlotKey(regionIndex, locationId)
       : String(locationId);
 
   const interceptedHit = LivingTamrielConfig.allowQuestCompetition
@@ -1179,6 +1292,13 @@ const ADVENTURER_FORENAMES = Object.freeze([
   'Kaelen', 'Valen', 'Barenziah', 'Gothryd', 'Morgiah', 'Aubk-i',
   'Cyrus', 'Lhotun', 'Eadwyre', 'Nulfaga', 'Medora', 'Symmachus',
   'Arctus', 'Dralsi', 'Sorcalin', 'Thulgeg', 'Varnis', 'Elysana',
+  'Alaric', 'Bram', 'Cassian', 'Dorian', 'Elowen', 'Faelar',
+  'Garrick', 'Haldor', 'Ildari', 'Jorund', 'Kharjo', 'Liriel',
+  'Maeror', 'Naryu', 'Orin', 'Pelladil', 'Quentin', 'Ralof',
+  'Seryn', 'Teldryn', 'Ulfr', 'Velsa', 'Wulfgar', 'Ysolda',
+  'Zara', 'Aerin', 'Balgruuf', 'Calcelmo', 'Delvin', 'Erdi',
+  'Farkas', 'Ghorbash', 'Hroki', 'Idgrod', 'Jaree', 'Karliah',
+  'Lydia', 'Marcurio', 'Neloth', 'Ondolemar', 'Proventus', 'Rikke',
 ]);
 
 /**
@@ -2112,6 +2232,83 @@ export function dismissAdventurerCompanion() {
   if (reg) {
     reg.activeCompanion = null;
   }
+}
+
+/**
+ * Returns global and optional per-region adventurer ecosystem telemetry.
+ * @param {number|null} [regionIndex=null]
+ */
+export function getAdventurerEcosystemStats(regionIndex = null) {
+  const pool = ensureAdventurerPool();
+  const reg = getAdventurerSimRegistry();
+  const poolPerRegion = LivingTamrielConfig.adventurerPoolPerRegion || 30;
+  const alive = pool.filter((a) => a && a.status !== ADVENTURER_STATUS.DEAD);
+  const byRegionElites = new Set();
+  const traitCountsAt25 = {};
+  let globalElites25 = 0;
+  let globalLegends35 = 0;
+  let globalCap45 = 0;
+  let maxLevel = 0;
+
+  let regionAlive = 0;
+  let regionElites25 = 0;
+  let regionLegends35 = 0;
+  let regionMaxLevel = 0;
+
+  for (const a of alive) {
+    const lvl = a.level || 1;
+    if (lvl > maxLevel) maxLevel = lvl;
+    if (lvl >= REGIONAL_ELITE_LEVEL) {
+      globalElites25++;
+      byRegionElites.add(a.currentRegion);
+      traitCountsAt25[a.trait] = (traitCountsAt25[a.trait] || 0) + 1;
+    }
+    if (lvl >= 35) globalLegends35++;
+    if (lvl >= LEVEL_CAP) globalCap45++;
+    if (regionIndex != null && a.currentRegion === regionIndex) {
+      regionAlive++;
+      if (lvl > regionMaxLevel) regionMaxLevel = lvl;
+      if (lvl >= REGIONAL_ELITE_LEVEL) regionElites25++;
+      if (lvl >= 35) regionLegends35++;
+    }
+  }
+
+  const cdEntries = Object.entries(reg.dungeonCooldowns || {});
+  const remEntries = Object.entries(reg.fallenRemains || {});
+  const cooldownCount = cdEntries.length;
+  const cooldownPct = Math.round((cooldownCount / (TOTAL_REGION_COUNT * ILIAC_BAY_DUNGEON_SLOTS)) * 1000) / 10;
+  const remainsCount = remEntries.reduce((acc, [, list]) => acc + (Array.isArray(list) ? list.length : 0), 0);
+
+  let regionCooldowns = 0;
+  let regionRemains = 0;
+  if (regionIndex != null) {
+    const prefix = `dungeon_${regionIndex}_`;
+    for (const [k] of cdEntries) if (k.startsWith(prefix)) regionCooldowns++;
+    for (const [k, list] of remEntries) if (k.startsWith(prefix) && Array.isArray(list)) regionRemains += list.length;
+  }
+
+  return {
+    poolPerRegion,
+    simDay: Number(reg.simDay || 0),
+    totalAlive: alive.length,
+    retiredCount: Number(reg.retiredCount || 0),
+    cooldownCount,
+    cooldownPct,
+    remainsCount,
+    globalElites25,
+    globalLegends35,
+    globalCap45,
+    maxLevel,
+    avgElitesPerRegion: Math.round((globalElites25 / TOTAL_REGION_COUNT) * 100) / 100,
+    regionsWithElites: byRegionElites.size,
+    traitCountsAt25,
+    regionAlive,
+    regionElites25,
+    regionLegends35,
+    regionMaxLevel,
+    regionCooldowns,
+    regionRemains,
+  };
 }
 
 

@@ -290,8 +290,9 @@ export function restoreLivingSaveData(data) {
  * Advances the living world simulation across elapsed world minutes.
  * Ensures discrete time step execution (Governor) to prevent frame freezing during long sleeps/travel.
  * @param {number} nowMinutes Current classic world minutes
+ * @param {any} [playerEntity=null] Active player entity for level-aware interactions
  */
-export function onLivingWorldTick(nowMinutes) {
+export function onLivingWorldTick(nowMinutes, playerEntity = null) {
   if (!Number.isFinite(nowMinutes)) return;
   enableLivingBountyScaling(true);
 
@@ -304,13 +305,11 @@ export function onLivingWorldTick(nowMinutes) {
   const delta = current - _state.lastWorldTickMinute;
   if (delta <= 0) return;
 
-  // Maximum discrete daily steps to process at once (e.g. after a 10-day fast travel),
-  // preventing runaway loops.
   const MINUTES_PER_DAY = 1440;
   const daysPassed = Math.floor(delta / MINUTES_PER_DAY);
 
   if (daysPassed > 0) {
-    const cappedDays = Math.min(daysPassed, 3); // Max 3 days catch-up simulation
+    const cappedDays = Math.min(daysPassed, 10);
     let activeQuestSites = [];
     if (_questSitesProvider) {
       try {
@@ -321,7 +320,7 @@ export function onLivingWorldTick(nowMinutes) {
     }
     for (let day = 0; day < cappedDays; day++) {
       tickAllRegions();
-      tickAdventurerSimulation({ activeQuestSites });
+      tickAdventurerSimulation({ activeQuestSites, playerEntity });
     }
     tickSettlementProsperityDecay(Math.floor(current / MINUTES_PER_DAY));
     _state.lastWorldTickMinute = current;

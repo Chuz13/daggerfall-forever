@@ -593,7 +593,7 @@ export function runDayChange({ entity, lastMinutes, nowMinutes, rolls = Math.ran
     if (Array.isArray(entity?.regionConditions)) {
       bindLivingRegionConditions(entity.regionConditions, entity.factionRep ?? null);
     }
-    onLivingWorldTick(nowMinutes);
+    onLivingWorldTick(nowMinutes, entity ?? null);
   }
   if (!ownHalf) return { daysPast, loanReminders: [], loanDefaults: [] };   // LIVED1: the world's half alone
 
