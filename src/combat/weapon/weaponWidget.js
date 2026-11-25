@@ -378,6 +378,7 @@ export function createWeaponWidget({
             // texture IS double size; a plain name that answered through the
             // DW1 fall-through is not, and doubled it drew at twice its size
             cache.set(name, {
+              name,
               tex,
               width: img.width,
               height: img.height,
@@ -1126,7 +1127,8 @@ export function createWeaponWidget({
       custom.ext = null;
       return null;
     }
-    const tex = ctx.renderer.uploadTexture('img', `ww:ext:${w.currentWeaponType}:${record}:${frame}`, ext);
+    const key = custom.name ? `ww:${custom.name}:ext` : `ww:ext:${w.currentWeaponType}:${record}:${frame}`;
+    const tex = ctx.renderer.uploadTexture('img', key, ext);
     custom.ext = { tex, pad: ext.pad, origSize: [ext.origW, ext.origH] };
     return custom.ext;
   }
@@ -1250,7 +1252,7 @@ export function createWeaponWidget({
               frame: f,
               numFrames: rec.frames.length,
               isBow: ctx.weaponType === T.Bow,
-              isUnarmed: ctx.weaponType === T.Melee || ctx.weaponType === T.Werecreature,
+              isUnarmed: false,
               dir,
             })
           : null;

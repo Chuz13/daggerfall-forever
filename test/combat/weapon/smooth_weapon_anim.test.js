@@ -18,6 +18,7 @@ import {
 import { extendFrameEdges, expandedRectForPad } from '../../../src/combat/weapon/extendEdges.js';
 import { WEAPON_TYPES, drawFpsWeapon } from '../../../src/combat/fpsWeapon.js';
 import { LEFT_UNARMED_ANIMS } from '../../../src/characters/weaponStates.js';
+import { createWeaponWidget } from '../../../src/combat/weapon/weaponWidget.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -231,6 +232,254 @@ test('drawFpsWeapon with smoothWeaponAnim disabled draws exact unshifted rect', 
       smooth: { t: 0.5, dir: 1, dt: 0.016 },
     });
     assert.deepEqual(quads[0], { x: 270, y: 130, w: 50, h: 70 });
+  } finally {
+    _resetForTests();
+  }
+});
+
+test('Regression: Weapon Widget unarmed StrikeLeft advances linearly (isUnarmed: false) toward frame 2, not backward to frame 0', () => {
+  assert.equal(nextSwingFrame({ state: 'StrikeLeft', frame: 1, numFrames: 5, isUnarmed: false, dir: 1 }), 2);
+
+  _resetForTests();
+  setPref('smoothWeaponAnim', true);
+  setPref('smoothWeaponEdges', false);
+  const quads = [];
+  const renderer = {
+    uploadTexture: (_a, rec) => rec,
+    drawScreenQuad: (tex, dst) => quads.push({ tex, dst }),
+  };
+  const canvas = { width: 320, height: 200 };
+  const mkMeta = (cx) => ({
+    cx,
+    cy: 0.5,
+    minX: 0.2,
+    maxX: 0.8,
+    minY: 0.2,
+    maxY: 0.8,
+    cutL: false,
+    cutR: false,
+    cutB: false,
+    axisAngle: 0,
+    elongation: 0.2,
+  });
+  // Frame 0 is on the right (cx=0.8), frame 1 in the middle (cx=0.5), frame 2 on the left (cx=0.2)
+  const art = {
+    weaponType: WEAPON_TYPES.Melee,
+    anims: [
+      { Record: 0, NumFrames: 1, FramePerSecond: 10, Alignment: 2, Offset: 0 },
+      { Record: 1, NumFrames: 5, FramePerSecond: 10, Alignment: 1, Offset: 0 },
+      { Record: 2, NumFrames: 5, FramePerSecond: 10, Alignment: 1, Offset: 0 },
+      { Record: 3, NumFrames: 5, FramePerSecond: 10, Alignment: 1, Offset: 0 },
+    ],
+    records: [
+      { width: 40, height: 60, frames: ['idle'], meta: [mkMeta(0.5)] },
+      { width: 40, height: 60, frames: ['d0', 'd1', 'd2', 'd3', 'd4'], meta: [mkMeta(0.5), mkMeta(0.5), mkMeta(0.5), mkMeta(0.5), mkMeta(0.5)] },
+      { width: 40, height: 60, frames: ['dl0', 'dl1', 'dl2', 'dl3', 'dl4'], meta: [mkMeta(0.5), mkMeta(0.5), mkMeta(0.5), mkMeta(0.5), mkMeta(0.5)] },
+      { width: 100, height: 60, frames: ['l0', 'l1', 'l2', 'l3', 'l4'], meta: [mkMeta(0.8), mkMeta(0.5), mkMeta(0.2), mkMeta(0.2), mkMeta(0.2)] },
+    ],
+  };
+
+  try {
+    const widget = createWeaponWidget({
+      settings: () => ({
+        enabled: true,
+        swing: false,
+        ambidexterity: false,
+        bob: false,
+        offset: false,
+        stepTransforms: false,
+        inertia: false,
+        doubleScale: false,
+        trueSize: false,
+        recoil: false,
+        swingWindup: 0,
+        swingRecovery: 0,
+        swingSpeed: 1,
+        swingAlignmentOverride: false,
+        swingRecoveryOverride: false,
+        swingNoDaggerRight: false,
+        offsetSpeed: 10,
+        bobLength: 1,
+        bobOffset: 0,
+        bobSizeXMod: 1,
+        bobSizeYMod: 1,
+        moveSmoothSpeed: 1,
+        bobSmoothSpeed: 1,
+        bobShape: 0,
+        bobWhileIdle: false,
+        inertiaScale: 0,
+        inertiaSpeed: 0,
+        inertiaForwardScale: 0,
+        inertiaForwardSpeed: 0,
+        stepLength: 0,
+        stepCondition: 0,
+        recoilChance: 0,
+        recoilCondition: 0,
+        recoilEnvironment: false,
+        playMissVFXEntity: false,
+        playMissVFXEnvironment: false,
+        playMissVFXPos: 0,
+        mirrorBows: false,
+        mirrorTwoHandedSwords: false,
+        mirrorTwoHandedAxes: false,
+        mirrorTwoHandedBlunts: false,
+        textureScaleFactor: 1,
+      }),
+      handedness: () => false,
+    });
+    const machine = { state: 'StrikeLeft', frame: 1, isBow: false, isUnarmed: true };
+    const ctx = {
+      renderer,
+      canvas,
+      art,
+      weapon: null,
+      weaponType: WEAPON_TYPES.Melee,
+      material: 0,
+      machine,
+      sheathed: false,
+      usingRightHand: true,
+      shown: true,
+      thirdPerson: false,
+      motion: { grounded: true, standing: true, speedRatio: 0 },
+    };
+    widget.lateUpdate(0.016, ctx);
+    // Advance coroutine to frame 1 with half-tick remaining
+    widget._w.weaponState = 3;
+    widget._w.currentFrame = 1;
+    widget._w.animating = { gen: (function* () {})(), wait: 0.1, waitTotal: 0.2, stepDir: 1, isFirstAttackFrame: false };
+    widget.draw(renderer, canvas);
+    assert.equal(quads.length, 1);
+    // Base center x = 110; frame 2 has cx=0.2 (to the LEFT), frame 0 has cx=0.8 (to the RIGHT).
+    // Sliding toward frame 2 must move x < 110!
+    assert.ok(quads[0].dst.x < 110, `expected StrikeLeft frame 1 to slide left toward frame 2 (x < 110), got ${quads[0].dst.x}`);
+  } finally {
+    _resetForTests();
+  }
+});
+
+test('Regression: Weapon Widget extended-edge textures key by custom texture name rather than weaponType/record/frame', () => {
+  _resetForTests();
+  setPref('smoothWeaponAnim', true);
+  setPref('smoothWeaponEdges', true);
+  const uploadedKeys = [];
+  const renderer = {
+    uploadTexture: (_a, rec) => {
+      uploadedKeys.push(rec);
+      return rec;
+    },
+    drawScreenQuad: () => {},
+  };
+  const solid4x4 = makeFrame(4, 4, () => RGBA(200, 180, 160));
+  const cutMeta = analyzeWeaponFrame(solid4x4);
+  try {
+    const widget = createWeaponWidget({
+      handedness: () => false,
+      settings: () => ({
+        enabled: true,
+        swing: false,
+        ambidexterity: false,
+        bob: false,
+        offset: false,
+        stepTransforms: false,
+        inertia: false,
+        doubleScale: false,
+        trueSize: false,
+        recoil: false,
+        swingWindup: 0,
+        swingRecovery: 0,
+        swingSpeed: 1,
+        swingAlignmentOverride: false,
+        swingRecoveryOverride: false,
+        swingNoDaggerRight: false,
+        offsetSpeed: 10,
+        bobLength: 1,
+        bobOffset: 0,
+        bobSizeXMod: 1,
+        bobSizeYMod: 1,
+        moveSmoothSpeed: 1,
+        bobSmoothSpeed: 1,
+        bobShape: 0,
+        bobWhileIdle: false,
+        inertiaScale: 0,
+        inertiaSpeed: 0,
+        inertiaForwardScale: 0,
+        inertiaForwardSpeed: 0,
+        stepLength: 0,
+        stepCondition: 0,
+        recoilChance: 0,
+        recoilCondition: 0,
+        recoilEnvironment: false,
+        playMissVFXEntity: false,
+        playMissVFXEnvironment: false,
+        playMissVFXPos: 0,
+        mirrorBows: false,
+        mirrorTwoHandedSwords: false,
+        mirrorTwoHandedAxes: false,
+        mirrorTwoHandedBlunts: false,
+        textureScaleFactor: 1,
+      }),
+    });
+    const art = {
+      weaponType: WEAPON_TYPES.LongBlade,
+      anims: [
+        { Record: 0, NumFrames: 1, FramePerSecond: 10, Alignment: 2, Offset: 0 },
+        { Record: 1, NumFrames: 5, FramePerSecond: 10, Alignment: 2, Offset: 0 },
+      ],
+      records: [
+        { width: 4, height: 4, frames: ['idle'], meta: [cutMeta] },
+        { width: 4, height: 4, frames: ['s0', 's1', 's2', 's3', 's4'], meta: [cutMeta, cutMeta, cutMeta, cutMeta, cutMeta] },
+      ],
+    };
+    const canvas = { width: 320, height: 200 };
+    const baseCtx = {
+      renderer,
+      canvas,
+      art,
+      weaponType: WEAPON_TYPES.LongBlade,
+      material: 1,
+      machine: { state: 'StrikeDown', frame: 1, isBow: false, isUnarmed: false },
+      sheathed: false,
+      usingRightHand: true,
+      shown: true,
+      thirdPerson: false,
+      motion: { grounded: true, standing: true, speedRatio: 0 },
+    };
+
+    // Weapon 1: Steel Longsword (templateIndex 120)
+    widget.lateUpdate(0.016, { ...baseCtx, weapon: { templateIndex: 120, material: 1 } });
+    widget._w.weaponState = 1;
+    widget._w.currentFrame = 1;
+    widget._w.animating = { gen: (function* () {})(), wait: 0.1, waitTotal: 0.2, stepDir: 1, isFirstAttackFrame: false };
+    widget._w.curCustomTexture = {
+      name: 'LONGSWORD.CIF_1-1_Steel',
+      tex: 't_longsword',
+      width: 4,
+      height: 4,
+      doubled: false,
+      meta: cutMeta,
+      src: solid4x4,
+      ext: undefined,
+    };
+    widget.draw(renderer, canvas);
+
+    // Weapon 2: Daedric Katana (templateIndex 121, material 9)
+    widget.lateUpdate(0.016, { ...baseCtx, material: 9, weapon: { templateIndex: 121, material: 9 } });
+    widget._w.weaponState = 1;
+    widget._w.currentFrame = 1;
+    widget._w.curCustomTexture = {
+      name: 'KATANA.CIF_1-1_Daedric',
+      tex: 't_katana',
+      width: 4,
+      height: 4,
+      doubled: false,
+      meta: cutMeta,
+      src: solid4x4,
+      ext: undefined,
+    };
+    widget.draw(renderer, canvas);
+
+    const extKeys = uploadedKeys.filter((k) => k.endsWith(':ext'));
+    assert.deepEqual(extKeys, ['ww:LONGSWORD.CIF_1-1_Steel:ext', 'ww:KATANA.CIF_1-1_Daedric:ext']);
   } finally {
     _resetForTests();
   }

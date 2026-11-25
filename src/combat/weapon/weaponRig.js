@@ -538,6 +538,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   };
   const widget = createWeaponWidget({ audio, envHit: envCast, missEffect, settings: widgetSettings });
   const smoothTracker = createSmoothTracker();
+  let _lastSmoothWeapon = null;
   let _lastDt = 0;
   // TWO-HANDS (bible/05-Combat/Two-Hands.md): both fists up and a pair of weapons - the left hand's clone beside the
   // right's (the widget above is the one hand's, and a pair's right hand), the guard, and the running hands. The one
@@ -2662,6 +2663,10 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       const art = c && artFor(playerWeapon.weapon);
       const m = playerWeapon.machine, offsetHeight = c ? weaponOffsetHeight() - climbDrop(_climbLower, c.height) : 0;
       const spellDrop = art && _spellGuard.weapon > 0 ? guardDrop(_spellGuard.weapon, fpsWeaponQuad(c, art, m.state, m.frame, { offsetHeight })?.rect.h ?? 0) : 0;
+      if (playerWeapon.sheathed || playerWeapon.weapon !== _lastSmoothWeapon) {
+        smoothTracker.reset();
+        _lastSmoothWeapon = playerWeapon.weapon;
+      }
       if (art && spriteShown()) {
         const tick = m.tick ?? (m.isBow ? CLASSIC_UPDATE_INTERVAL : getMeleeWeaponAnimTime(playerWeapon.liveSpeed, playerWeapon.animCtx?.()));
         const classicT = m.state !== 'Idle' && tick > 0 ? Math.max(0, Math.min(1, m.acc / tick)) : 0;
