@@ -34,7 +34,14 @@
 // the run takes the fist at once.
 
 import { createWeaponWidget } from '../weapon/weaponWidget.js';
-import { fpsWeaponQuad, getWeaponAnims, STATE_INDEX, WEAPON_TYPES, NATIVE_W, NATIVE_H } from '../fpsWeapon.js';
+import { fpsWeaponQuad, getWeaponAnims, STATE_INDEX, WEAPON_TYPES, NATIVE_W, NATIVE_H, getExtendedRecordFrame } from '../fpsWeapon.js';
+import {
+  nextSwingFrame,
+  smoothSlide,
+  smoothWeaponConfig,
+  createSmoothTracker,
+  drawSmoothedWeapon,
+} from '../weapon/smoothWeaponAnim.js';
 import {
   HANDS_MODE,
   twoHanded,
@@ -69,6 +76,7 @@ const MELEE_ANIMS = getWeaponAnims(WEAPON_TYPES.Melee);
 export function createTwoHands({ audio = null, envHit = null, missEffect = null, settings } = {}) {
   /** The left hand's clone. Never flipped by Handedness: a pair's hand is drawn as a right hand and mirrored whole. */
   const offWidget = createWeaponWidget({ audio, envHit, missEffect, settings, handedness: () => false, hidden: true }); // AUDIT 2: born resting out of sight - single-hand play never steps it
+  const smoothTrackers = { R: createSmoothTracker(), L: createSmoothTracker() };
   const st = {
     mode: HANDS_MODE.Single,
     machine: null,
@@ -197,16 +205,74 @@ export function createTwoHands({ audio = null, envHit = null, missEffect = null,
    * One hand of a pair through the CLASSIC sprite - FPSWeapon's own placement of its picture's frame, unflipped, the
    * mirror over it when the picture asks one and the guard on the screen. Returns the rect it drew, or null.
    */
-  function drawClassicHand(renderer, canvas, hand, art, { tint = null, offsetHeight = 0, glow = null } = {}) {
+  function drawClassicHand(renderer, canvas, hand, art, { tint = null, offsetHeight = 0, glow = null, t = 0, dt = 0 } = {}) {
     const v = views[hand];
     const q = fpsWeaponQuad(canvas, art, v.state, v.frame, { flipHorizontal: false, offsetHeight });
     if (!q) return null;
     const mirror = mirrorOf(hand, painted(v.state));
-    const rect = moved(
-      mirror ? mirrorRect(q.rect, canvas.width) : q.rect,
-      nudge(hand, canvas, q.rect.h, v.state !== 'Idle'),
-    );
+    const n = nudge(hand, canvas, q.rect.h, v.state !== 'Idle');
+    const rect = moved(mirror ? mirrorRect(q.rect, canvas.width) : q.rect, n);
     const uv = mirror ? MIRROR_UV : q.uv;
+    const f = Math.min(v.frame, q.rec.frames.length - 1);
+    const currMeta = q.rec.meta?.[f] ?? null;
+    const tracker = smoothTrackers[hand];
+    if (v.state === 'Idle') {
+      tracker.recordIdle(rect, currMeta);
+    }
+    const cfg = smoothWeaponConfig();
+    if (cfg.enabled && v.state !== 'Idle' && currMeta) {
+      tracker.checkAttackKey(`${art.weaponType}:${v.state}:${hand}`);
+      const m = st.machine;
+      const nextF = nextSwingFrame({
+        state: v.state,
+        frame: f,
+        numFrames: q.rec.frames.length,
+        isBow: !!m?.isBow,
+        isUnarmed: !!m?.isUnarmed,
+        animIndex: m?.animIndex ?? 0,
+        dir: 1,
+        hold: m?.hold ?? 0,
+      });
+      const nq = nextF != null ? fpsWeaponQuad(canvas, art, v.state, nextF, { flipHorizontal: false, offsetHeight }) : null;
+      const nextRect = nq ? moved(mirror ? mirrorRect(nq.rect, canvas.width) : nq.rect, n) : null;
+      const nextMeta = nq ? (nq.rec.meta?.[nextF] ?? null) : null;
+      const slid = smoothSlide({
+        currRect: rect,
+        currMeta,
+        nextRect,
+        nextMeta,
+        prevIdleRect: tracker.idleRect,
+        prevIdleMeta: tracker.idleMeta,
+        mirror,
+        t,
+        isFirstFrame: f === 0,
+        config: cfg,
+        weaponType: art.weaponType,
+        screenW: canvas.width,
+        screenH: canvas.height,
+      });
+      const ext = cfg.extendEdges ? getExtendedRecordFrame(renderer, q.rec, f) : null;
+      drawSmoothedWeapon(renderer, canvas, {
+        tex: q.tex,
+        extendedTex: ext?.tex ?? null,
+        pad: ext?.pad ?? null,
+        origSize: ext?.origSize ?? null,
+        rect: slid.rect,
+        baseRect: rect,
+        uv,
+        mirror,
+        tint,
+        glow,
+        glowArt: [q.rec.width, q.rec.height],
+        rotate: slid.rotate,
+        tracker,
+        config: cfg,
+        attacking: true,
+        dt,
+        offsetHeight,
+      });
+      return slid.rect;
+    }
     renderer.drawScreenQuad(q.tex, rect, uv, tint ?? undefined);
     // WEAPON-GLOW1 (bible/05-Combat/Weapon-Glow.md): this hand's own weapon's element, its outline over its own picture -
     // the mirror's rect and source, measured in the record's own pixels (drawFpsWeapon's line)
@@ -240,10 +306,12 @@ export function createTwoHands({ audio = null, envHit = null, missEffect = null,
       offsetHeight = 0,
       running = st.run.w > 0,
       only = null,
+      t = 0,
+      dt = 0,
     } = {},
   ) {
     if (!renderer || !canvas || !twoHanded(st.mode)) return false;
-    // the running hands own the fists (drawRun, before this) - all but a punch thrown on the run, drawn here over them
+    // the running hands own the fists (drawRun, before this) - all but a punch on the run, drawn here over them
     for (const hand of drawOrder()) {
       if ((running && hand !== st.strikeHand) || (only && hand !== only)) continue;
       const clone = hand === 'R' ? widget : offWidget;
@@ -254,10 +322,11 @@ export function createTwoHands({ audio = null, envHit = null, missEffect = null,
         clone?.draw(renderer, canvas, tint, {
           transform: (r) => moved(r, nudgeBefore(hand, canvas, mirror, r.h, shows !== 0)),
           mirror,
+          tracker: smoothTrackers[hand],
         })
       )
         continue;
-      if (shown) drawClassicHand(renderer, canvas, hand, artFor(hand), { tint, offsetHeight, glow: glowFor(hand) });
+      if (shown) drawClassicHand(renderer, canvas, hand, artFor(hand), { tint, offsetHeight, glow: glowFor(hand), t, dt });
     }
     return true;
   }

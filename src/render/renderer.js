@@ -5187,7 +5187,8 @@ void main() {
     this._open2D(this._screenQuadVao);
     const aw = Math.max(1, Math.round(frame?.art?.[0] ?? (dst.w * 320) / gl.drawingBufferWidth));
     const ah = Math.max(1, Math.round(frame?.art?.[1] ?? (dst.h * 200) / gl.drawingBufferHeight));
-    const cutL = dst.x <= 0.5, cutR = dst.x + dst.w >= (frame?.view?.[0] ?? Infinity) - 0.5;
+    const cutL = frame?.cut ? !!frame.cut.l : dst.x <= 0.5;
+    const cutR = frame?.cut ? !!frame.cut.r : dst.x + dst.w >= (frame?.view?.[0] ?? Infinity) - 0.5;
     const mirror = src.u1 < src.u0;   // the field is the TEXTURE's: a mirrored frame's screen-left is its right
     const field = this._glowField(tex, glow, aw, ah, mirror ? cutR : cutL, mirror ? cutL : cutR);
     const [wx, , down] = glow.win;
@@ -5206,6 +5207,10 @@ void main() {
     gl.uniform1f(u.dmax, glowFieldReach(glow.look));
     gl.uniform1f(u.reachMax, GLOW_REACH_MAX[glow.look]);
     gl.uniform3fv(u.ramp, glow.ramp);
+    const rot = frame?.rotate ?? null;
+    const rotOn = rot && Number.isFinite(rot.rad) && Number.isFinite(rot.px) && Number.isFinite(rot.py) ? 1 : 0;
+    if (u.rotOn) gl.uniform1i(u.rotOn, rotOn);
+    if (rotOn && u.rot) gl.uniform4f(u.rot, Math.cos(rot.rad), Math.sin(rot.rad), rot.px + ox, rot.py + oy);
     this._bindEmission(field);   // unit 1, the field; unit 0 left active
     this._bindTex0(tex);
     gl.enable(gl.BLEND);
@@ -5294,6 +5299,7 @@ void main() {
     this._wgq = {
       dst: at('uDst'), canvas: at('uCanvas'), src: at('uSrc'), pad: at('uPad'), art: at('uArt'), fieldAt: at('uFieldAt'),
       look: at('uLook'), level: at('uLevel'), time: at('uTime'), ramp: at('uRamp'), dmax: at('uDmax'), reachMax: at('uReachMax'),
+      rot: at('uRot'), rotOn: at('uRotOn'),
     };
     this._use(p);
     gl.uniform1i(at('uTex'), 0);

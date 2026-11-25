@@ -261,6 +261,8 @@ uniform vec4 uDst;
 uniform vec2 uCanvas;
 uniform vec4 uPad;
 uniform ivec2 uArt;
+uniform vec4 uRot;
+uniform int uRotOn;
 out vec2 vQ;
 void main() {
   vec2 p = aPos * 0.5 + 0.5;
@@ -268,6 +270,10 @@ void main() {
   vec2 q = mix(-uPad.xy / art, 1.0 + uPad.zw / art, p);
   vQ = q;
   vec2 px = uDst.xy + q * uDst.zw;
+  if (uRotOn == 1) {
+    vec2 d = px - uRot.zw;
+    px = uRot.zw + vec2(d.x * uRot.x - d.y * uRot.y, d.x * uRot.y + d.y * uRot.x);
+  }
   gl_Position = vec4(px.x / uCanvas.x * 2.0 - 1.0, 1.0 - px.y / uCanvas.y * 2.0, 0.0, 1.0);
 }`;
 
