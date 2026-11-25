@@ -25,6 +25,7 @@ import {
   resolveWarSkirmishPacify,
 } from '../../src/systems/apotheosis/apotheosisCore.js';
 import { statusTiles } from '../../src/ui/hud/hudStatus.js';
+import { statusTip } from '../../src/ui/hud/statusTips.js';
 import { snapshotPlayer, restorePlayer } from '../../src/systems/save/save.js';
 import { _resetForTests as resetOfflineHomes } from '../../src/systems/offlineHomes.js';
 
@@ -277,4 +278,54 @@ test('Phase 4.0 Audit: communeAtCultAltar syncs currentHealth & selectApotheosis
   assert.equal(failAltar.ok, false);
   assert.equal(failAltar.requiredFaith, 125);
   assert.match(failAltar.error, /125 Faith/);
+});
+
+test('Phase 4.0 Fix: Sanctum Communion shields next-day Mythic Decay & statusTip renders Communion/Blessing lines', () => {
+  resetOfflineHomes();
+  const day20 = 20 * 1440 + 600;
+  const god = makeAscended('magic', { region: 17, faith: 500, nowMinutes: day20 });
+  god.goldPieces = 100000;
+  assert.equal(foundPlayerUndergroundSanctuary(god, { mapId: 9003, regionIndex: 17, locationName: 'Sentinel', nowMinutes: day20 }).ok, true);
+
+  const com = communeAtCultAltar(god, playerHatchSiteKey(9003), { nowMinutes: day20 });
+  assert.equal(com.ok, true);
+
+  // apo decay 1 (daysOverride: 1 -> day 21) is shielded by 24h Sanctum Communion
+  const d1 = tickApotheosisMythicDecay(god, day20, { daysOverride: 1 });
+  assert.equal(d1.decayedDays, 0);
+  assert.equal(d1.faithLost, 0);
+
+  // apo decay 2 (daysOverride: 2 -> day 21 shielded, day 22 decays 15)
+  const d2 = tickApotheosisMythicDecay(god, day20, { daysOverride: 2 });
+  assert.equal(d2.decayedDays, 1);
+  assert.equal(d2.faithLost, 15);
+
+  // Real day rollover (day 20 -> day 21) is also shielded
+  god.apotheosis.lastFaithDecayDay = 20;
+  const realRoll = tickApotheosisMythicDecay(god, day20 + 1440);
+  assert.equal(realRoll.decayedDays, 0);
+  assert.equal(realRoll.faithLost, 0);
+
+  // statusTip exposes tile.say for sanctum_communion and road_blessing
+  const communionTip = statusTip({
+    key: 'sanctum_communion',
+    kind: 'buff',
+    name: 'Sanctum Communion',
+    foot: '24h',
+    say: '+15% Faith gain & Mythic Decay Shield for the next day (24h left).',
+  }, god);
+  assert.equal(communionTip.title, 'Sanctum Communion');
+  assert.equal(communionTip.foot, '24h');
+  assert.deepEqual(communionTip.lines, ['+15% Faith gain & Mythic Decay Shield for the next day (24h left).']);
+
+  const roadTip = statusTip({
+    key: 'road_blessing',
+    kind: 'buff',
+    name: 'Blessing of Mara',
+    foot: '2h',
+    say: 'Blessing of Mara: +3/min Fatigue, +10° Weather Resist, +10% Elemental Resist (2h left)',
+  }, god);
+  assert.equal(roadTip.title, 'Blessing of Mara');
+  assert.equal(roadTip.foot, '2h');
+  assert.deepEqual(roadTip.lines, ['Blessing of Mara: +3/min Fatigue, +10° Weather Resist, +10% Elemental Resist (2h left)']);
 });

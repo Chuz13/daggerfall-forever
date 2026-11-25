@@ -281,6 +281,10 @@ export function statusTip(tile, entity, extra = {}) {
       foot: tile.foot ? LIVING_WORDS.roadIntelHudFoot(tile.foot) : null,
     };
   }
+  if (tile.key === 'sanctum_communion' || tile.key === 'road_blessing') {
+    if (tile.say) lines.push(String(tile.say));
+    return { title, meta, lines, foot: tile.foot ?? null };
+  }
   if (tile.key === 'poison') {
     lines.push('Poison is in your blood and works on you over time.', 'A Cure Poison spell or potion stops it.');
     return { title, meta, lines, foot: null };

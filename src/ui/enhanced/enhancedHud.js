@@ -1554,7 +1554,7 @@ function drawStatus(vitals, opts, live = null) {
         name: t('apotheosis.communion.hudName', 'Sanctum Communion'),
         foot,
         blink: cb.minutesLeft <= 30,
-        say: t('apotheosis.communion.hudTip', 'Sanctum Communion: +{pct}% Faith Gain & Decay Shield ({left} left)', {
+        say: t('apotheosis.communion.hudTip', '+{pct}% Faith gain & Mythic Decay Shield for the next day ({left} left).', {
           pct: cb.bonusPct,
           left: foot,
         }),
