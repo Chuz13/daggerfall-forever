@@ -971,9 +971,19 @@ export function tickApotheosisMythicDecay(entity, nowMinutes = 0, { daysOverride
   const maxFaith = getFaithMax(apo);
   const decayMult = getApotheosisFaithDecayMultiplier();
   const flatDecay = Math.max(0, Math.round(APOTHEOSIS_MYTHIC_DECAY_FLAT * decayMult));
+  const cb = apo.communionBuff;
+  const communionEndMin = cb && typeof cb === 'object' ? Number(cb.expiresAtMinutes) : Number.NaN;
+  const communionStartMin = cb && typeof cb === 'object' ? Number(cb.startedAtMinutes) : Number.NaN;
+  const communionEndDay = Number.isFinite(communionEndMin) && communionEndMin > 0
+    ? dayIndexFromMinutes(communionEndMin)
+    : null;
+  const communionStartDay = Number.isFinite(communionStartMin) && communionStartMin >= 0
+    ? dayIndexFromMinutes(communionStartMin)
+    : communionEndDay;
 
   for (let d = startDay; d <= endDay; d++) {
-    if (flatDecay > 0 && (apo.lastFaithGainDay == null || apo.lastFaithGainDay < d)) {
+    const shieldedByCommunion = communionEndDay != null && d >= communionStartDay && d <= communionEndDay;
+    if (flatDecay > 0 && !shieldedByCommunion && (apo.lastFaithGainDay == null || apo.lastFaithGainDay < d)) {
       decayedDays++;
       const loss = Math.min(apo.faith, flatDecay);
       apo.faith -= loss;

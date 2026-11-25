@@ -11127,3 +11127,5 @@ item.starflight.powerBrief,"Les arcs ne consomment pas de flèches (dans le sac)
 item.starflight.powerText,"Tant qu'elle est dans votre inventaire, les arcs courts et longs tirent sans consommer de flèches. Sans effet sur les armes à feu dwemers."
 item.starflight.lore,"Empennée de lumière éthérée. Tant qu'elle se trouve dans votre sac, vos arcs tirent à l'infini sans dépenser une seule flèche."
 codex.legendary.starflightOffline,"Trophée rare sur les boss, archers et trésors de donjon (Niv. 10+)."
+apotheosis.communion.hudName,"Communion du Sanctuaire"
+apotheosis.communion.hudTip,"+{pct}% de gain de Foi et bouclier contre le Déclin Mythique pour le lendemain ({left} restant)."
