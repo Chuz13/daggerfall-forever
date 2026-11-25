@@ -33,6 +33,7 @@ import { SKILLS, WEAPON_SKILL } from './skills.js';   // S23: the weapon partiti
 import { EQUIP_DELAY_TIMES } from '../characters/weaponStates.js';   // CH3 (characters-13): the swap-pause table gains its consumer
 import { startingProvisions } from './survival/items.js';   // SURV2: the new character's kit
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
+import { isInfiniteArrow } from '../characters/infiniteArrowIds.js';
 import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { ARMOR_BITS_SHIFT } from './specialAdvantages.js';   // the armour field's place, one home
 import { recordItemBroken, suppressHudTextOnce } from './gameLog.js';
@@ -251,7 +252,7 @@ export function equipItem(entity, item, hand = null) {
   const slots = equipTableOf(entity);
   const slot = hand == null ? getEquipSlot(entity, item) : mayHold(item, hand) ? hand : EQUIP_SLOTS.None;   // computed ONCE up front (the DFU order)
   if (slot === EQUIP_SLOTS.None) return null;
-  if (item.group === 'Weapons' && item.templateIndex === WEAPONS.Arrow) return null;   // cannot equip arrows
+  if (item.group === 'Weapons' && (item.templateIndex === WEAPONS.Arrow || isInfiniteArrow(item))) return null;   // cannot equip arrows
   // AUDIT 63 F23: NO condition gate here. ItemEquipTable.cs:94-154
   // has none; the refusal is the inventory WINDOW's (:1330-1341) and
   // lives at the two window callers - see isBrokenItem above.

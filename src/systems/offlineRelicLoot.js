@@ -35,6 +35,7 @@ import { mintIliacCard } from './iliac/iliacItems.js';
 import { applyRarity, legendaryById, lootRarityOn, stampWonWeapons, corpseSource } from './loot/lootRarity.js';
 import { ENEMY_BASICS } from '../characters/enemy/enemyBasics.js';
 import { registerLootSupply, titledFoe } from './foeLootCap.js';
+import { createInfiniteArrow, INFINITE_ARROW_ID, isInfiniteArrow } from './infiniteArrow.js';
 
 /** @type {(kind: string, id: string) => number | null} */
 let _foundDay = () => null;
@@ -60,7 +61,11 @@ export const noteRelicFind = (item, opts) => _noteFind(item, opts);
 // Ensure rare offline currencies / ammo are never pruned by capFoeLoot's 3-item plain-foe limit.
 registerLootSupply(
   'offlineRelicCurrencies',
-  (it) => isSigilStone(it) || isStarglass(it) || (it?.group === 'Weapons' && it.templateIndex === PELLET_TEMPLATE),
+  (it) =>
+    isSigilStone(it) ||
+    isStarglass(it) ||
+    isInfiniteArrow(it) ||
+    (it?.group === 'Weapons' && it.templateIndex === PELLET_TEMPLATE),
 );
 
 const SET_RECORDS = (() => {
@@ -109,6 +114,17 @@ const WITCH_FOE_MOBILES = new Set([
 const KNIGHT_FOE_MOBILES = new Set([MOBILE_TYPES.Warrior, MOBILE_TYPES.Knight, MOBILE_TYPES.Battlemage]);
 /** @type {Set<number>} */
 const ROGUE_FOE_MOBILES = new Set([MOBILE_TYPES.Rogue, MOBILE_TYPES.Burglar, MOBILE_TYPES.Thief, MOBILE_TYPES.Assassin]);
+/** @type {Set<number>} */
+const ARCHER_FOE_MOBILES = new Set([MOBILE_TYPES.Archer, MOBILE_TYPES.Ranger]);
+/** @type {Set<number>} */
+const STARFLIGHT_DUNGEONS = new Set([
+  DUNGEON_TYPES.Coven,
+  DUNGEON_TYPES.DesecratedTemple,
+  DUNGEON_TYPES.RuinedCastle,
+  DUNGEON_TYPES.VolcanicCaves,
+  DUNGEON_TYPES.DragonsDen,
+  DUNGEON_TYPES.HumanStronghold,
+]);
 
 /** Pre-Apotheosis thematic Aetheric sets per dungeon type (all unlock at Lv 12+). */
 export const DUNGEON_AETHERIC_SETS = Object.freeze({
@@ -415,6 +431,29 @@ export function rollOfflinePreApotheosisSpoils(ctx = { source: 'foe' }, rolls = 
         const arm = lordKey ? egLordArm(lordKey, level, rolls) : null;
         if (arm) out.push(arm);
       }
+    }
+  }
+
+  // ── 5. Lv 10+: Starflight (legendary infinite bow arrow) ────────────
+  if (level >= 10 && _foundDay('legendary', INFINITE_ARROW_ID) == null) {
+    const arrowChance =
+      source === 'foe'
+        ? titled
+          ? 0.025
+          : ARCHER_FOE_MOBILES.has(mobileType)
+            ? 0.02
+            : isBoss
+              ? 0.015
+              : 0
+        : source === 'pile'
+          ? STARFLIGHT_DUNGEONS.has(dungeonType)
+            ? 0.012
+            : 0
+          : source === 'sea'
+            ? 0.015
+            : 0;
+    if (arrowChance > 0 && rolls() < arrowChance * eliteMult) {
+      out.push(createInfiniteArrow({ identified: false, rolls }));
     }
   }
 
