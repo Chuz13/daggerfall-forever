@@ -16,7 +16,12 @@ import { getDivine } from '../guild/guildVariants.js';
 import { inheritOfflineHome } from '../offlineHomes.js';
 import { SKILLS, skillValue } from '../skills.js';
 import { liveStat } from '../statMods.js';
-import { isAscendedGod } from './apotheosisLive.js';
+import {
+  isAscendedGod,
+  APOTHEOSIS_COMMUNION_DURATION_MINUTES,
+  APOTHEOSIS_COMMUNION_FAITH_BONUS_PCT,
+} from './apotheosisLive.js';
+import { BUILDING_TYPES } from '../../world/buildingNames.js';
 import {
   addApotheosisFaith,
   spendApotheosisFaith,
@@ -1548,6 +1553,192 @@ export function tickCultAndEdictsDay(entity, simMin = 0, simDay = null) {
   }
 
   return { faithEarned: dailyFaith, goldEarned: dailyGold, expiredEdicts };
+}
+
+const NEGATIVE_COMMUNION_EFFECT_KINDS = new Set([
+  'poison',
+  'disease',
+  'drainAttribute',
+  'drainSkill',
+  'paralyze',
+  'silence',
+  'damageHealth',
+  'continuousDamage',
+  'continuousDamageSpellPoints',
+  'continuousDamageFatigue',
+]);
+
+/**
+ * Checks whether an Aedra Temple refuses services to an Ascended God based on Pantheon standing.
+ * - `war`: blocks all services including `Donate`.
+ * - `hostile`: blocks all services except `Donate` (so the player can still appease).
+ * - Mortal players, `ownTemple`, and `supremeGod` are never blocked.
+ */
+export function getApotheosisTempleServiceBlock(entity, {
+  building = null,
+  guild = null,
+  factionDict = null,
+  service = null,
+  ownTemple = false,
+} = {}) {
+  if (!entity || !isAscendedGod(entity) || ownTemple || entity.apotheosis?.supremeGod === true) {
+    return { blocked: false };
+  }
+
+  let godId = null;
+  if (typeof guild?.divine === 'string' && guild.divine.trim()) {
+    const cand = guild.divine.trim().toLowerCase();
+    if (AEDRA_IDS.includes(cand)) godId = cand;
+  }
+  if (!godId) {
+    const fid = Number(guild?.factionId ?? building?.factionId ?? 0) || 0;
+    if (AEDRA_FACTION_TO_GOD[fid]) {
+      godId = AEDRA_FACTION_TO_GOD[fid];
+    } else if (factionDict && fid) {
+      const divName = getDivine(factionDict, fid);
+      if (divName && AEDRA_IDS.includes(divName.toLowerCase())) {
+        godId = divName.toLowerCase();
+      }
+    } else if (building?.buildingType === BUILDING_TYPES.Temple) {
+      godId = resolveTemplePatronGodId(fid, building?.buildingKey ?? 0, building?.mapId ?? 0, factionDict);
+    }
+  }
+  if (!godId || !AEDRA_IDS.includes(godId)) {
+    return { blocked: false };
+  }
+
+  const entry = entity.apotheosis?.pantheon?.deities?.[godId];
+  const status = entry?.status ?? null;
+  if (status !== 'war' && status !== 'hostile') {
+    return { blocked: false };
+  }
+
+  const deityDef = getPantheonDeity(godId);
+  const godName = deityDef?.name ?? godId;
+
+  if (status === 'war') {
+    return {
+      blocked: true,
+      status: 'war',
+      godId,
+      godName,
+      message: t(
+        'apotheosis.temple.refuseWar',
+        "The priests of {god} bar your way. 'We are at Holy War with your heresy — not even your gold is welcome here!'",
+        { god: godName },
+      ),
+    };
+  }
+
+  if (service === 'Donate') {
+    return { blocked: false };
+  }
+
+  return {
+    blocked: true,
+    status: 'hostile',
+    godId,
+    godName,
+    message: t(
+      'apotheosis.temple.refuseHostile',
+      "The priests of {god} turn away in scorn. 'Our temple denies all rites to a hostile upstart. Make an offering if you seek penance.'",
+      { god: godName },
+    ),
+  };
+}
+
+/** Returns active Sanctum Communion buff details if currently active at `nowMinutes`. */
+export function getSanctumCommunionInfo(entity, nowMinutes = 0) {
+  const cb = entity?.apotheosis?.communionBuff;
+  if (!cb || typeof cb !== 'object') return null;
+  const left = Math.trunc(Number(cb.expiresAtMinutes) - Number(nowMinutes));
+  if (!(left > 0)) return null;
+  return {
+    active: true,
+    minutesLeft: left,
+    bonusPct: Number(cb.bonusPct) || APOTHEOSIS_COMMUNION_FAITH_BONUS_PCT,
+    siteName: cb.siteName || 'Sanctum',
+    expiresAtMinutes: Number(cb.expiresAtMinutes),
+  };
+}
+
+/**
+ * Communes at an owned Cult Altar (1/day, free):
+ * - Restores Health, Magicka, and Fatigue and purges negative effects;
+ * - Shields against Mythic Decay for the current day;
+ * - Clears 1 Apostasy stack if active;
+ * - Grants 24h Sanctum Communion (+15% Faith gain).
+ */
+export function communeAtCultAltar(entity, siteKey, { nowMinutes = 0 } = {}) {
+  if (!entity || !isAscendedGod(entity)) {
+    return { ok: false, reason: t('apotheosis.err.notAscendedFaith', 'Ascend to Godhood before wielding Faith.') };
+  }
+  const cult = ensureCultState(entity);
+  const site = getCultSite(entity, siteKey);
+  if (!cult || !site || site.ownerId !== 'player') {
+    return { ok: false, reason: t('apotheosis.cult.err.notOwnedAltar', 'You must consecrate this Sanctuary before communing here.') };
+  }
+
+  const now = Math.trunc(Number(nowMinutes) || 0);
+  const curDay = dayFromMinutes(now);
+  if (cult.lastCommunionDay === curDay) {
+    return {
+      ok: false,
+      alreadyUsed: true,
+      reason: t('apotheosis.cult.err.communionDone', 'You have already communed at your Altar today. Return tomorrow.'),
+    };
+  }
+  cult.lastCommunionDay = curDay;
+
+  if (Number.isFinite(entity.maxHealth) && entity.maxHealth > 0) {
+    entity.health = entity.maxHealth;
+    if (typeof entity.currentHealth === 'number') entity.currentHealth = entity.maxHealth;
+  }
+  if (Number.isFinite(entity.maxMagicka) && entity.maxMagicka > 0) {
+    entity.magicka = entity.maxMagicka;
+  }
+  if (Number.isFinite(entity.maxFatigue) && entity.maxFatigue > 0) {
+    entity.fatigue = entity.maxFatigue;
+  }
+  if ('bleeding' in entity) entity.bleeding = 0;
+  if (Array.isArray(entity.activeEffects)) {
+    for (const eff of entity.activeEffects) {
+      if (eff && !eff.ended && NEGATIVE_COMMUNION_EFFECT_KINDS.has(eff.kind)) {
+        eff.ended = true;
+      }
+    }
+  }
+
+  const apo = entity.apotheosis;
+  apo.lastFaithGainDay = Math.max(apo.lastFaithGainDay ?? -1, curDay);
+
+  let clearedApostasy = false;
+  if ((apo.apostasyCount || 0) > 0) {
+    apo.apostasyCount = Math.max(0, apo.apostasyCount - 1);
+    clearedApostasy = true;
+  }
+
+  apo.communionBuff = {
+    startedAtMinutes: now,
+    expiresAtMinutes: now + APOTHEOSIS_COMMUNION_DURATION_MINUTES,
+    bonusPct: APOTHEOSIS_COMMUNION_FAITH_BONUS_PCT,
+    siteName: site.name || 'Sanctum',
+  };
+
+  const message = clearedApostasy
+    ? t('apotheosis.cult.communionApostasyHud', 'Sanctum Communion: Vitals restored, Mythic Decay warded, 1 Apostasy cleared, +{pct}% Faith (24h)!', {
+        pct: APOTHEOSIS_COMMUNION_FAITH_BONUS_PCT,
+      })
+    : t('apotheosis.cult.communionHud', 'Sanctum Communion: Vitals restored, Mythic Decay warded, +{pct}% Faith gain (24h)!', {
+        pct: APOTHEOSIS_COMMUNION_FAITH_BONUS_PCT,
+      });
+
+  return {
+    ok: true,
+    communionBuff: apo.communionBuff,
+    clearedApostasy,
+    message,
+  };
 }
 
 // Register daily cult tick & Stage 2 edict hooks cleanly without circular imports.

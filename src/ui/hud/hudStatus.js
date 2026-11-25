@@ -777,7 +777,7 @@ export function statusTiles({
     tile({ key: 'mentor', kind: 'buff', name: String(mentor.name ?? ''), glyph: 'mentor', foot: mentor.foot ?? null }); // MENTOR2: mentoring, or a mentor beside me
   if (blessing?.active)
     tile({
-      key: 'road_blessing',
+      key: blessing.key || 'road_blessing',
       kind: 'buff',
       name: String(blessing.name ?? ''),
       glyph: 'blessing',

@@ -62,6 +62,9 @@ import {
   APOTHEOSIS_INITIAL_FAITH,
   APOTHEOSIS_REBIRTH_FAITH_COST,
   APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+  APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST,
+  APOTHEOSIS_COMMUNION_DURATION_MINUTES,
+  APOTHEOSIS_COMMUNION_FAITH_BONUS_PCT,
   APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_DAYS,
   APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES,
   APOTHEOSIS_CHAMPION_DURATION_MINUTES,
@@ -133,6 +136,7 @@ import {
   getPantheonDeity,
   resolveRegionPatronDeityId,
   ensurePantheonState,
+  initializePlayerIntoPantheon,
   applyPantheonPortfolioSwitch,
   getDeityGraceInfo,
   changeDeityRelation,
@@ -226,6 +230,9 @@ export {
   getRegionalEdictChampionDamageMultiplier,
   getRegionalEdictBountyMultiplier,
   tickCultAndEdictsDay,
+  getApotheosisTempleServiceBlock,
+  getSanctumCommunionInfo,
+  communeAtCultAltar,
 } from './apotheosisCult.js';
 
 export {
@@ -309,6 +316,9 @@ export {
   APOTHEOSIS_INITIAL_FAITH,
   APOTHEOSIS_REBIRTH_FAITH_COST,
   APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+  APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST,
+  APOTHEOSIS_COMMUNION_DURATION_MINUTES,
+  APOTHEOSIS_COMMUNION_FAITH_BONUS_PCT,
   APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_DAYS,
   APOTHEOSIS_PORTFOLIO_SWITCH_COOLDOWN_MINUTES,
   APOTHEOSIS_CHAMPION_DURATION_MINUTES,
@@ -376,6 +386,7 @@ export {
   getPantheonDeity,
   resolveRegionPatronDeityId,
   ensurePantheonState,
+  initializePlayerIntoPantheon,
   applyPantheonPortfolioSwitch,
   getDeityGraceInfo,
   changeDeityRelation,
@@ -459,6 +470,54 @@ export const APOTHEOSIS_PORTFOLIOS = Object.freeze([
 
 const PORTFOLIO_IDS = new Set(APOTHEOSIS_PORTFOLIOS.map((p) => p.id));
 
+/**
+ * Unified declarative Faith-earning & Scroll of Aurbis alignment guide per Portfolio.
+ * Consumed by Portfolio cards, Overview mantle, and Scroll of Aurbis witness explainer (UX-1).
+ */
+export const PORTFOLIO_FAITH_GUIDE = Object.freeze({
+  war: {
+    sources: () => [
+      t('apotheosis.faithGuide.war.kills', 'Non-spell kills: +5 Faith (normal) / +15 Faith (elite, boss, or Lv 15+)'),
+      t('apotheosis.faithGuide.war.bounty', 'Bounty contracts: +15 × tier Faith'),
+      t('apotheosis.faithGuide.war.guild', 'Fighters Guild quests: +30 Faith'),
+    ],
+    caveat: () => null,
+    alignedMiracles: () => t('apotheosis.faithGuide.war.aligned', 'kill, killall, spawnfoe, summon_champion(s), encounter, dragon, crisis start war'),
+    opposedMiracles: () => t('apotheosis.faithGuide.war.opposed', 'pacifyall, bounty clear, crisis stop war'),
+  },
+  magic: {
+    sources: () => [
+      t('apotheosis.faithGuide.magic.casts', 'Real Magicka-cost spell casts: 2–25 Faith (floor(cost / 15))'),
+      t('apotheosis.faithGuide.magic.kills', 'Spell kills: +10 Faith (normal) / +20 Faith (elite/boss)'),
+      t('apotheosis.faithGuide.magic.craft', 'Potion / Spell / Enchant crafting: +10 / +14 / +18 Faith (+10 per 500g)'),
+      t('apotheosis.faithGuide.magic.guild', 'Mages Guild quests: +30 Faith'),
+    ],
+    caveat: () => t('apotheosis.faithGuide.magic.caveat', 'Note: Enchanted weapon "Cast When Strikes" procs have 0 cast cost and grant 0 Faith.'),
+    alignedMiracles: () => t('apotheosis.faithGuide.magic.aligned', 'portal, teleport, divine_shield, summon_champion(s), weather, time / advance_time, map_reveal*, lich / archlich, necro_*'),
+    opposedMiracles: () => t('apotheosis.faithGuide.magic.opposed', 'None (Arcane decrees align broadly)'),
+  },
+  shadows: {
+    sources: () => [
+      t('apotheosis.faithGuide.shadows.kills', 'Stealth / unaware kills: +12 Faith (normal) / +20 Faith (elite/boss)'),
+      t('apotheosis.faithGuide.shadows.thief', 'Lockpicking & Pickpocketing: +6 to +12 Faith per deed'),
+      t('apotheosis.faithGuide.shadows.guild', 'Thieves Guild & Dark Brotherhood quests: +30 Faith'),
+    ],
+    caveat: () => null,
+    alignedMiracles: () => t('apotheosis.faithGuide.shadows.aligned', 'weather fog (3), night time (20–5), bounty clear, summon_champion(s), lich / archlich, necro_*'),
+    opposedMiracles: () => t('apotheosis.faithGuide.shadows.opposed', 'killall, spawnfoe, crisis start, dragon'),
+  },
+  order: {
+    sources: () => [
+      t('apotheosis.faithGuide.order.lawful', 'Lawful Daily Stewardship: +10 Faith/day (0 regional bounty & Legal Rep >= 15)'),
+      t('apotheosis.faithGuide.order.pacify', 'Pacify All Foes (pacifyall): +20 Faith (or +10 with active combat)'),
+      t('apotheosis.faithGuide.order.donate', 'Temple donations & Temple / Knightly Order quests: up to +30 Faith'),
+    ],
+    caveat: () => t('apotheosis.faithGuide.order.caveat', 'Note: Passive Sanctuary/Edict income does not pause Mythic Decay (-15/idle day); active deeds or Altar Communion do.'),
+    alignedMiracles: () => t('apotheosis.faithGuide.order.aligned', 'heal, divine_shield, pacifyall, bounty clear, weather 0/1 (Clear/Cloudy), crisis stop, legalrep, summon_champion(s)'),
+    opposedMiracles: () => t('apotheosis.faithGuide.order.opposed', 'kill, killall, spawnfoe, bounty set, crisis start, lich / archlich, necro_*'),
+  },
+});
+
 const FATE_CATEGORY_DEFS = Object.freeze([
   {
     id: 'meta',
@@ -539,6 +598,9 @@ export function defaultApotheosisState() {
     lastPortfolioSwitchMinutes: null,
     pantheon: null,
     cult: null,
+    roadBlessing: null,
+    communionBuff: null,
+    apostasyCount: 0,
     journalAscendedSynced: false,
   };
 }
@@ -666,6 +728,11 @@ export function ensureApotheosisState(entity) {
       : null,
     pantheon: prev.pantheon && typeof prev.pantheon === 'object' ? prev.pantheon : null,
     cult: prev.cult && typeof prev.cult === 'object' ? prev.cult : null,
+    roadBlessing: prev.roadBlessing && typeof prev.roadBlessing === 'object' ? prev.roadBlessing : null,
+    communionBuff: prev.communionBuff && typeof prev.communionBuff === 'object' ? prev.communionBuff : null,
+    apostasyCount: Number.isFinite(Number(prev.apostasyCount)) && Number(prev.apostasyCount) > 0
+      ? Math.trunc(Number(prev.apostasyCount))
+      : 0,
     journalAscendedSynced: !!prev.journalAscendedSynced,
   };
   return entity.apotheosis;
@@ -1761,7 +1828,7 @@ export function getPortfolioSwitchCooldownInfo(entity, nowMinutes = null) {
  * First Ascension is free and grants APOTHEOSIS_INITIAL_FAITH (500).
  * Switching Portfolios while already Ascended costs 250 Faith and incurs a 30-day cooldown (unless `{ free: true }`).
  */
-export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = null, free = false } = {}) {
+export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = null, free = false, atAltar = false } = {}) {
   const state = ensureApotheosisState(entity);
   if (!PORTFOLIO_IDS.has(portfolioId)) {
     return { ok: false, error: t('apotheosis.err.unknownPortfolio', 'Unknown Divine Portfolio.'), state };
@@ -1775,6 +1842,7 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
   const resolvedMinutes = resolveApotheosisNowMinutes(entity, nowMinutes);
   const wasAscended = isAscendedGod(entity);
   const switching = Boolean(state.ascended && state.portfolio && state.portfolio !== portfolioId);
+  const switchCost = atAltar ? APOTHEOSIS_PORTFOLIO_ALTAR_SWITCH_COST : APOTHEOSIS_PORTFOLIO_SWITCH_COST;
   if (switching && !free) {
     const cd = getPortfolioSwitchCooldownInfo(entity, resolvedMinutes);
     if (cd.onCooldown) {
@@ -1792,16 +1860,18 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
         state,
       };
     }
-    if ((state.faith || 0) < APOTHEOSIS_PORTFOLIO_SWITCH_COST) {
+    if ((state.faith || 0) < switchCost) {
       return {
         ok: false,
-        error: t('apotheosis.err.switch_faith', 'Not enough Faith to switch Portfolio (requires 250 Faith).'),
-        requiredFaith: APOTHEOSIS_PORTFOLIO_SWITCH_COST,
+        error: atAltar
+          ? t('apotheosis.err.switch_faith_altar', 'Not enough Faith to switch Portfolio at Altar (requires {cost} Faith).', { cost: switchCost })
+          : t('apotheosis.err.switch_faith', 'Not enough Faith to switch Portfolio (requires 250 Faith).'),
+        requiredFaith: switchCost,
         faith: state.faith || 0,
         state,
       };
     }
-    state.faith = Math.max(0, (state.faith || 0) - APOTHEOSIS_PORTFOLIO_SWITCH_COST);
+    state.faith = Math.max(0, (state.faith || 0) - switchCost);
   }
   if (!switching && (!state.ascended || !state.portfolio)) {
     if ((state.faith || 0) <= 0) {
@@ -1823,6 +1893,9 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
     state.lastPortfolioSwitchMinutes = resolvedMinutes;
   }
   ensurePantheonState(entity, { nowMinutes: resolvedMinutes });
+  if (!wasAscended || entity.apotheosis?.pantheon?.playerJoinedPantheon === false) {
+    initializePlayerIntoPantheon(entity, resolvedMinutes);
+  }
   if (switching) {
     applyPantheonPortfolioSwitch(entity, prevPortfolio, portfolioId, { free, nowMinutes: resolvedMinutes });
   }

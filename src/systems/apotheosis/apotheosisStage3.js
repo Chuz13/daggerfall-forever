@@ -588,12 +588,16 @@ export function ensurePantheonState(entity, { nowMinutes = null } = {}) {
       chronicle: [],
       lastPantheonTickDay: dayFromMinutes(refMin),
       initializedPortfolio: portfolio,
+      playerJoinedPantheon: isAscendedGod(entity),
       _seq: 0,
     };
     createdNow = true;
   }
 
   const p = apo.pantheon;
+  if (typeof p.playerJoinedPantheon !== 'boolean') {
+    p.playerJoinedPantheon = isAscendedGod(entity);
+  }
   if (!p.deities || typeof p.deities !== 'object') p.deities = {};
   if (!p.interGodRelations || typeof p.interGodRelations !== 'object') p.interGodRelations = {};
   if (!p.regionWars || typeof p.regionWars !== 'object') p.regionWars = {};
@@ -640,7 +644,7 @@ export function ensurePantheonState(entity, { nowMinutes = null } = {}) {
     }
   }
 
-  if (createdNow && isAscendedGod(entity)) {
+  if (createdNow && p.playerJoinedPantheon) {
     pushChronicle(p, {
       day: dayFromMinutes(refMin),
       minutes: refMin,
@@ -651,6 +655,61 @@ export function ensurePantheonState(entity, { nowMinutes = null } = {}) {
       ),
     });
   }
+
+  return p;
+}
+
+/**
+ * Transitions a pre-Ascension simulated Pantheon into active Ascended Godhood:
+ * preserves accumulated regional influence, inter-god relations, active wars, and chronicle,
+ * while computing fresh `personalHistory`, 30-day Grace Periods, and a 10% foothold.
+ */
+export function initializePlayerIntoPantheon(entity, nowMinutes = null) {
+  const p = ensurePantheonState(entity, { nowMinutes });
+  if (!p) return null;
+  if (p.playerJoinedPantheon === true) return p;
+
+  const apo = entity.apotheosis;
+  const portfolio = apo.portfolio || 'war';
+  const refMin = nowMinutes != null && Number.isFinite(Number(nowMinutes))
+    ? Math.trunc(Number(nowMinutes))
+    : (apo.ascendedAtMinutes ?? 0);
+
+  p.playerJoinedPantheon = true;
+  p.initializedPortfolio = portfolio;
+
+  for (const d of PANTHEON_DEITIES) {
+    const entry = p.deities[d.id];
+    if (!entry) continue;
+    const personalHistory = computeUpstartHistory(entity, d);
+    const relation = clamp(personalHistory + (d.portfolioAffinity[portfolio] ?? 0), -100, 100);
+    const hasGrace = relation > -40 && relation < 20;
+    entry.personalHistory = personalHistory;
+    entry.relation = relation;
+    entry.graceUntilMinutes = hasGrace ? refMin + APOTHEOSIS_GRACE_PERIOD_MINUTES : null;
+    entry.status = computeStatusFromEntry(entry, relation, refMin);
+  }
+
+  const ascReg = Number.isInteger(entity?.currentRegionIndex) && entity.currentRegionIndex >= 0 && entity.currentRegionIndex < TAMRIEL_REGION_COUNT
+    ? entity.currentRegionIndex
+    : 17;
+  const shares = p.regionInfluence?.[ascReg];
+  if (shares && (shares.player ?? 0) < 10) {
+    const prevKeys = Object.keys(shares).filter((k) => k !== 'player');
+    for (const k of prevKeys) shares[k] = round1(shares[k] * 0.9);
+    shares.player = 10;
+    normalizeShareMap(shares);
+  }
+
+  pushChronicle(p, {
+    day: dayFromMinutes(refMin),
+    minutes: refMin,
+    category: 'diplomacy',
+    text: t(
+      'apotheosis.pantheon.logStart',
+      'A new divinity ascends across Tamriel. Wary Aedra and Daedra grant a 30-day Grace Period; rivals stir at once.',
+    ),
+  });
 
   return p;
 }
@@ -947,7 +1006,7 @@ export function applyRegionConditionInfluenceShifts(entity, regionIndex) {
     for (const deityId of rule.deities) {
       shiftRegionInfluence(entity, regionIndex, deityId, rule.delta);
     }
-    if (rule.portfolio && rule.portfolio === portfolio && hasPlayerPresence) {
+    if (rule.portfolio && rule.portfolio === portfolio && hasPlayerPresence && isAscendedGod(entity)) {
       shiftRegionInfluence(entity, regionIndex, 'player', rule.delta * 0.6);
     }
   }
@@ -956,7 +1015,7 @@ export function applyRegionConditionInfluenceShifts(entity, regionIndex) {
 
 // ── DAILY PANTHEON AI TURN (1 MOVE / GOD / TICK) ──────────────────────────────
 
-function pickDeityTargetRegion(entity, god, rng) {
+function pickDeityTargetRegion(entity, god, rng, playerActive = true) {
   const p = entity.apotheosis.pantheon;
   if (god.kind === 'daedra' && Array.isArray(entity.regionConditions)) {
     const crisisRegs = [];
@@ -973,7 +1032,7 @@ function pickDeityTargetRegion(entity, god, rng) {
       return crisisRegs[Math.floor(rng() * crisisRegs.length) % crisisRegs.length];
     }
   }
-  if ((p.deities[god.id]?.status === 'war' || p.deities[god.id]?.status === 'hostile')) {
+  if (playerActive && (p.deities[god.id]?.status === 'war' || p.deities[god.id]?.status === 'hostile')) {
     const playerRegs = [];
     for (let r = 0; r < TAMRIEL_REGION_COUNT; r++) {
       if ((p.regionInfluence[r]?.player ?? 0) >= 5) playerRegs.push(r);
@@ -1013,10 +1072,15 @@ export function setStage34DailyTickHook(fn) {
  * 1) Applies all 26 `REGION_FLAGS` shifts in every region;
  * 2) Gives each of the 16 deities at most 1 global strategic move per day (`apotheosisPantheonActivity`).
  */
-export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, rng = Math.random } = {}) {
-  if (!entity || !isAscendedGod(entity)) return { daysProcessed: 0, aiMoves: 0 };
+export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, rng = Math.random, allowPreAscension = false } = {}) {
+  const ascended = isAscendedGod(entity);
+  if (!entity || (!ascended && !allowPreAscension)) return { daysProcessed: 0, aiMoves: 0 };
+  if (!ascended && allowPreAscension && (!entity.apotheosis || typeof entity.apotheosis !== 'object')) {
+    entity.apotheosis = {};
+  }
   const p = ensurePantheonState(entity, { nowMinutes });
   if (!p) return { daysProcessed: 0, aiMoves: 0 };
+  const playerActive = ascended && p.playerJoinedPantheon !== false;
 
   const currentDay = dayFromMinutes(nowMinutes);
   let daysToRun = 0;
@@ -1051,13 +1115,13 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
       if (rng() >= chance) continue;
 
       aiMoves++;
-      const regIdx = pickDeityTargetRegion(entity, d, rng);
+      const regIdx = pickDeityTargetRegion(entity, d, rng, playerActive);
       const regName = getLocalizedRegionName(regIdx, (i) => REGION_NAMES[i] ?? `Region ${i}`);
       const graceActive = entry.graceUntilMinutes != null && simMin < entry.graceUntilMinutes;
       const playerShare = p.regionInfluence[regIdx]?.player ?? 0;
 
       // 1 global strategic move per deity per tick:
-      if (!graceActive && (entry.status === 'war' || entry.status === 'hostile') && playerShare >= 2) {
+      if (playerActive && !graceActive && (entry.status === 'war' || entry.status === 'hostile') && playerShare >= 2) {
         const pressure = round1(Math.min(playerShare, (1.5 + rng() * 1.5) * hostMult));
         shiftRegionInfluence(entity, regIdx, 'player', -pressure);
         shiftRegionInfluence(entity, regIdx, d.id, pressure);
@@ -1073,7 +1137,7 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
             { name: d.name, region: regName, pct: pressure },
           ),
         });
-      } else if (entry.status === 'allied' && rng() < 0.45) {
+      } else if (playerActive && entry.status === 'allied' && rng() < 0.45) {
         const aid = 1.5;
         shiftRegionInfluence(entity, regIdx, 'player', aid);
         pushChronicle(p, {
@@ -1128,8 +1192,10 @@ export function tickPantheonDay(entity, nowMinutes = 0, { daysOverride = null, r
       }
     }
 
-    _cultDailyTickHook?.(entity, simMin, simDay, rng);
-    _stage34DailyTickHook?.(entity, simMin, simDay, rng);
+    if (playerActive) {
+      _cultDailyTickHook?.(entity, simMin, simDay, rng);
+    }
+    _stage34DailyTickHook?.(entity, simMin, simDay, rng, null, { preAscension: !playerActive });
   }
 
   return { daysProcessed: daysToRun, aiMoves };

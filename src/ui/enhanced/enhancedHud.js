@@ -71,6 +71,7 @@ import { getPref } from '../../systems/uiPrefs.js';   // PX30c: the port's own p
 import { t } from '../../systems/textManager.js';
 import { getRoadBlessingInfo } from '../../systems/apotheosis/apotheosisStage33.js';
 import { buildRoadIntelHudChip } from '../../systems/living/travelDirector.js';
+import { getSanctumCommunionInfo } from '../../systems/apotheosis/apotheosisCult.js';
 import { hudRenown } from '../hud/hudRenown.js';   // RENOWN4: my own Renown, under the vitals
 import { survivalHudChips } from '../../systems/survival/status.js';   // SURV5: the needs (UI3: tiles in the status widget)
 import { statusTiles, afflictionRows, statusGlyphSrc, statRoom, statSide, statPlace, statOverflow, STAT_TILE, STAT_GAP, STAT_METRICS, STAT_SHORT_QUERY, STAT_MIDDLE_CLEAR } from '../hud/hudStatus.js';   // UI3: the status widget
@@ -1529,6 +1530,7 @@ function drawStatus(vitals, opts, live = null) {
     const foot = rb.minutesLeft >= 60 ? `${Math.ceil(rb.minutesLeft / 60)}h` : `${rb.minutesLeft}m`;
     all.unshift(...statusTiles({
       blessing: {
+        key: 'road_blessing',
         active: true,
         name: t('apotheosis.roadShrine.hudName', 'Blessing of {god}', { god: rb.godName }),
         foot,
@@ -1537,6 +1539,23 @@ function drawStatus(vitals, opts, live = null) {
           god: rb.godName,
           fat: rb.fatiguePerMin,
           deg: rb.warmthDegrees,
+          left: foot,
+        }),
+      },
+    }));
+  }
+  const cb = getSanctumCommunionInfo(vitals, ownMinutes());
+  if (cb) {
+    const foot = cb.minutesLeft >= 60 ? `${Math.ceil(cb.minutesLeft / 60)}h` : `${cb.minutesLeft}m`;
+    all.unshift(...statusTiles({
+      blessing: {
+        key: 'sanctum_communion',
+        active: true,
+        name: t('apotheosis.communion.hudName', 'Sanctum Communion'),
+        foot,
+        blink: cb.minutesLeft <= 30,
+        say: t('apotheosis.communion.hudTip', 'Sanctum Communion: +{pct}% Faith Gain & Decay Shield ({left} left)', {
+          pct: cb.bonusPct,
           left: foot,
         }),
       },

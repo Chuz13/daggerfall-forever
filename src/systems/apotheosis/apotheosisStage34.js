@@ -515,7 +515,7 @@ export function startInterDeityWar(
     regionIndex: targetRegions[0],
     text: msg,
   });
-  hudText(msg, 6);
+  if (isAscendedGod(entity)) hudText(msg, 6);
 
   return { ok: true, war, message: msg };
 }
@@ -624,21 +624,26 @@ export function enforceGodWarTruce(entity, warId, { nowMinutes = 0, force = fals
  * expires overdue sieges, starts new temple/sanctuary sieges, shifts influence
  * in active wars, and ignites new wars when mutual standing drops below -75.
  */
-export function tickStage34Daily(entity, simMin = 0, simDay = 0, rng = Math.random, tierOverride = null) {
-  if (!entity || !isAscendedGod(entity)) return { expiredSieges: 0, startedSieges: 0, startedWars: 0 };
+export function tickStage34Daily(entity, simMin = 0, simDay = 0, rng = Math.random, tierOverride = null, { preAscension = false } = {}) {
+  const ascended = isAscendedGod(entity);
+  if (!entity || (!ascended && !preAscension)) return { expiredSieges: 0, startedSieges: 0, startedWars: 0 };
   const p = ensurePantheonState(entity, { nowMinutes: simMin });
-  const cult = ensureCultState(entity);
-  if (!p || !cult) return { expiredSieges: 0, startedSieges: 0, startedWars: 0 };
+  if (!p) return { expiredSieges: 0, startedSieges: 0, startedWars: 0 };
+  const playerActive = ascended && !preAscension;
+  const cult = playerActive ? ensureCultState(entity) : null;
+  if (playerActive && !cult) return { expiredSieges: 0, startedSieges: 0, startedWars: 0 };
 
   let expiredSieges = 0;
   let startedSieges = 0;
   let startedWars = 0;
 
-  // 1) Resolve overdue sieges first regardless of toggle
-  for (const site of getActiveCultSieges(entity)) {
-    if (simMin >= Number(site.siege?.expiresAtMinutes ?? Infinity)) {
-      const res = resolveCultSiegeOutcome(entity, site.siteKey, 'failed', { nowMinutes: simMin });
-      if (res.ok) expiredSieges++;
+  if (playerActive) {
+    // 1) Resolve overdue sieges first regardless of toggle
+    for (const site of getActiveCultSieges(entity)) {
+      if (simMin >= Number(site.siege?.expiresAtMinutes ?? Infinity)) {
+        const res = resolveCultSiegeOutcome(entity, site.siteKey, 'failed', { nowMinutes: simMin });
+        if (res.ok) expiredSieges++;
+      }
     }
   }
 
@@ -647,22 +652,24 @@ export function tickStage34Daily(entity, simMin = 0, simDay = 0, rng = Math.rand
     return { expiredSieges, startedSieges, startedWars };
   }
 
-  // 2) Warring deities try to lay siege to player Temples / Sanctuaries
-  let activeCount = getActiveCultSieges(entity).length;
-  for (const d of PANTHEON_DEITIES) {
-    if (activeCount >= cfg.maxActiveSieges) break;
-    if (p.deities?.[d.id]?.status !== 'war') continue;
-    const lastDay = cult.lastSiegeStartedDay ?? -999;
-    if ((simDay - lastDay) < cfg.siegeCooldownDays) continue;
-    if (rng() >= cfg.dailySiegeChance) continue;
+  if (playerActive) {
+    // 2) Warring deities try to lay siege to player Temples / Sanctuaries
+    let activeCount = getActiveCultSieges(entity).length;
+    for (const d of PANTHEON_DEITIES) {
+      if (activeCount >= cfg.maxActiveSieges) break;
+      if (p.deities?.[d.id]?.status !== 'war') continue;
+      const lastDay = cult.lastSiegeStartedDay ?? -999;
+      if ((simDay - lastDay) < cfg.siegeCooldownDays) continue;
+      if (rng() >= cfg.dailySiegeChance) continue;
 
-    const candidates = getAllCultSites(entity, { ownedOnly: true }).filter((s) => !s.siege);
-    if (!candidates.length) break;
-    const pick = candidates[Math.floor(rng() * candidates.length) % candidates.length];
-    const started = startCultSiteSiege(entity, pick.siteKey, d.id, { nowMinutes: simMin, tierOverride });
-    if (started.ok) {
-      startedSieges++;
-      activeCount++;
+      const candidates = getAllCultSites(entity, { ownedOnly: true }).filter((s) => !s.siege);
+      if (!candidates.length) break;
+      const pick = candidates[Math.floor(rng() * candidates.length) % candidates.length];
+      const started = startCultSiteSiege(entity, pick.siteKey, d.id, { nowMinutes: simMin, tierOverride });
+      if (started.ok) {
+        startedSieges++;
+        activeCount++;
+      }
     }
   }
 
@@ -1004,8 +1011,10 @@ export function resolveWarSkirmishPacify(
   const now = Number(nowMinutes) || 0;
   const reg = clampReg(warDesc.regIdx);
   const isDivine = warDesc.warKind === 'divine';
+  const ascended = isAscendedGod(entity);
+  const useDivineRules = isDivine && ascended;
 
-  if (isDivine && !force) {
+  if (useDivineRules && !force) {
     const spend = spendApotheosisFaith(entity, DIVINE_SKIRMISH_PACIFY_FAITH_COST, { reason: 'skirmish_pacify' });
     if (!spend.ok) {
       return {
@@ -1051,36 +1060,35 @@ export function resolveWarSkirmishPacify(
 
     if (degree === LIVING_ROLL_DEGREE.TRIUMPH) {
       pacifyIncrement = 2;
-      faithReward = isDivine ? 75 : 25;
-      goldReward = isDivine ? 0 : 150;
-      infReward = 2.5;
+      faithReward = useDivineRules ? 75 : 0;
+      goldReward = useDivineRules ? 0 : 150;
+      infReward = ascended ? 2.5 : 0;
     } else if (degree === LIVING_ROLL_DEGREE.PARTIAL) {
       pacifyIncrement = 1;
-      faithReward = isDivine ? 25 : 0;
+      faithReward = useDivineRules ? 25 : 0;
       goldReward = 0;
-      infReward = 1.0;
+      infReward = ascended ? 1.0 : 0;
       // Extra stamina + Faith/Gold sacrifice for Partial compromise
       if (Number.isFinite(entity.fatigue)) {
         entity.fatigue = Math.max(1, Math.floor(entity.fatigue * 0.5));
       }
-      if (isDivine && !force) {
+      if (useDivineRules && !force) {
         spendApotheosisFaith(entity, 75, { reason: 'skirmish_pacify_partial' });
-      } else if (!isDivine && Number.isFinite(entity.goldPieces)) {
+      } else if (!useDivineRules && Number.isFinite(entity.goldPieces)) {
         entity.goldPieces = Math.max(0, Number(entity.goldPieces) - MUNDANE_WAR_PACIFY_EXTRA_GOLD);
       }
     } else {
       // SUCCESS
       pacifyIncrement = 1;
-      faithReward = isDivine ? 50 : 20;
-      goldReward = isDivine ? 0 : 100;
-      infReward = 1.5;
+      faithReward = useDivineRules ? 50 : 0;
+      goldReward = useDivineRules ? 0 : 100;
+      infReward = ascended ? 1.5 : 0;
     }
 
-    if (faithReward > 0 && entity?.apotheosis) {
+    if (faithReward > 0 && ascended) {
       faithReward = addApotheosisFaith(entity, faithReward, {
         reason: 'skirmish_pacify',
         nowMinutes: now,
-        force: true,
       }).requested;
     }
     if (goldReward > 0) {
@@ -1205,4 +1213,6 @@ export function shouldInterruptFastTravelForWar(
 }
 
 // Register daily Stage 3.4 tick into `tickPantheonDay` cleanly without import cycles.
-setStage34DailyTickHook((entity, simMin, simDay, rng) => tickStage34Daily(entity, simMin, simDay, rng));
+setStage34DailyTickHook((entity, simMin, simDay, rng, tierOverride = null, opts = {}) =>
+  tickStage34Daily(entity, simMin, simDay, rng, tierOverride, opts),
+);

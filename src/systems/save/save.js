@@ -544,6 +544,9 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
       ...(entity.apotheosis.cult !== undefined
         ? { cult: entity.apotheosis.cult && typeof entity.apotheosis.cult === 'object' ? structuredClone(entity.apotheosis.cult) : null }
         : {}),
+      ...(entity.apotheosis.communionBuff !== undefined
+        ? { communionBuff: entity.apotheosis.communionBuff && typeof entity.apotheosis.communionBuff === 'object' ? { ...entity.apotheosis.communionBuff } : null }
+        : {}),
       ...(entity.apotheosis.roadBlessing !== undefined
         ? { roadBlessing: entity.apotheosis.roadBlessing && typeof entity.apotheosis.roadBlessing === 'object' ? structuredClone(entity.apotheosis.roadBlessing) : null }
         : {}),
@@ -1082,6 +1085,9 @@ export function restorePlayer(entity, snap, spellsByIndex = null, { dryRun = fal
         : {}),
       ...(snap.apotheosis.cult !== undefined
         ? { cult: snap.apotheosis.cult && typeof snap.apotheosis.cult === 'object' ? structuredClone(snap.apotheosis.cult) : null }
+        : {}),
+      ...(snap.apotheosis.communionBuff !== undefined
+        ? { communionBuff: snap.apotheosis.communionBuff && typeof snap.apotheosis.communionBuff === 'object' ? { ...snap.apotheosis.communionBuff } : null }
         : {}),
       ...(snap.apotheosis.roadBlessing !== undefined
         ? { roadBlessing: snap.apotheosis.roadBlessing && typeof snap.apotheosis.roadBlessing === 'object' ? structuredClone(snap.apotheosis.roadBlessing) : null }
