@@ -11179,3 +11179,8 @@ item.starflight.lore,"Fletched with aetherial light. While carried in your pack,
 codex.legendary.starflightOffline,"Rare trophy from bosses, archers, and dungeon hoards (Lv 10+)."
 apotheosis.communion.hudName,"Sanctum Communion"
 apotheosis.communion.hudTip,"+{pct}% Faith gain & Mythic Decay Shield for the next day ({left} left)."
+apotheosis.orrery.noSave,"You cannot save in the Orrery."
+apotheosis.orrery.noMap,"You cannot map the Orrery."
+apotheosis.orrery.noMark,"You cannot set a Mark in the Orrery."
+apotheosis.orrery.noRecall,"Nothing answers a Recall in the Orrery."
+apotheosis.siege.noSave,"You cannot save during the siege of Direnni Tower."

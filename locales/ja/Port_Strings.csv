@@ -11129,3 +11129,8 @@ item.starflight.lore,"エーテルの光で羽飾りされた矢。荷物に入�
 codex.legendary.starflightOffline,"ボス、射手、ダンジョンの財宝からの希少な戦利品（Lv 10+）。"
 apotheosis.communion.hudName,"聖域の聖餐"
 apotheosis.communion.hudTip,"信仰獲得+{pct}%＆翌日の神話的衰退を防ぐ加護（残り{left}）。"
+apotheosis.orrery.noSave,"オラリィ内ではセーブできません。"
+apotheosis.orrery.noMap,"オラリィでは地図を作成できません。"
+apotheosis.orrery.noMark,"オラリィではマークを設定できません。"
+apotheosis.orrery.noRecall,"オラリィではリコールに応答するものがありません。"
+apotheosis.siege.noSave,"ディレニの塔の包囲戦中はセーブできません。"

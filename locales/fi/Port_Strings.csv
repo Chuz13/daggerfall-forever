@@ -11129,3 +11129,8 @@ item.starflight.lore,"Sulitettu eetterivalolla. Niin kauan kuin se on repussasi,
 codex.legendary.starflightOffline,"Harvinainen saalis pomoilta, jousiampujilta ja luolastoaarteista (taso 10+)."
 apotheosis.communion.hudName,"Pyhäkön ehtoollinen"
 apotheosis.communion.hudTip,"+{pct}% Uskon kertymä ja suoja Myyttiseltä rappeutumiselta seuraavaksi päiväksi ({left} jäljellä)."
+apotheosis.orrery.noSave,"Et voi tallentaa Orreryssa."
+apotheosis.orrery.noMap,"Et voi kartoittaa Orrerya."
+apotheosis.orrery.noMark,"Et voi asettaa Merkkiä Orreryssa."
+apotheosis.orrery.noRecall,"Mikään ei vastaa Kutsuun Orreryssa."
+apotheosis.siege.noSave,"Et voi tallentaa Dirennin tornin piirityksen aikana."

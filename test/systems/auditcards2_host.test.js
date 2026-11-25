@@ -150,7 +150,7 @@ test('AUDIT CARDS-2 H1: a load\'s road pays nothing - the chips belonged to the 
   // PIN MOVED (HOST-SPLIT, at the merge of main into TESA): the save is scenes/worldQuickSave.js's, the host's live names read through host
   assert.match(body(read('src/scenes/worldQuickSave.js'), 'worldQuickSave'), /if \(host\.modes\?\.cardTableLive\?\.\(\)\) \{ if \(!quiet\) townTalk\.say\('You cannot save with chips on the table\.'\); return false; \}/);
   // PIN MOVED (CARDS10): the pause's Save also waits on a card staked at Iliac Hand
-  assert.match(W, /savingPrevented: \(\) => !!naval\?\.saveRefused\?\.\(\) \|\| !!modes\?\.cardTableLive\?\.\(\) \|\| !!modes\?\.gambitStaked\?\.\(\) \|\| !!modes\?\.iliacStaked\?\.\(\),/);   // PIN MOVED (KG3): and gold staked on The King's Gambit
+  assert.match(W, /savingPrevented: \(\) => (?:!!ohAbyss\?\.entering \|\| !!_traveling \|\| )?!!naval\?\.saveRefused\?\.\(\) \|\| (?:!!direnniSiege\?\.active \|\| )?!!modes\?\.cardTableLive\?\.\(\) \|\| !!modes\?\.gambitStaked\?\.\(\) \|\| !!modes\?\.iliacStaked\?\.\(\)(?: \|\| !!modes\?\.isPrivateVisit\?\.\(\))?,/);   // PIN MOVED (KG3): and gold staked on The King's Gambit
 });
 
 test('AUDIT CARDS-2 M2: a purse that shrank since the seat is asked again - never emptied by a press it cannot pay', () => {

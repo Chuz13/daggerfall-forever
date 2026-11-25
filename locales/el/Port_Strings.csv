@@ -11129,3 +11129,8 @@ item.starflight.lore,"Φτερωμένη με αιθέριο φως. Όσο τη
 codex.legendary.starflightOffline,"Σπάνιο τρόπαιο από αρχηγούς, τοξότες και θησαυρούς μπουντρουμιών (Επ. 10+)."
 apotheosis.communion.hudName,"Κοινωνία του Ιερού"
 apotheosis.communion.hudTip,"+{pct}% κέρδος Πίστης & Ασπίδα κατά της Μυθικής Φθοράς για την επόμενη μέρα (απομένουν {left})."
+apotheosis.orrery.noSave,"Δεν μπορείτε να αποθηκεύσετε στο Orrery."
+apotheosis.orrery.noMap,"Δεν μπορείτε να χαρτογραφήσετε το Orrery."
+apotheosis.orrery.noMark,"Δεν μπορείτε να ορίσετε Σημάδι στο Orrery."
+apotheosis.orrery.noRecall,"Τίποτα δεν απαντά στην Ανάκληση στο Orrery."
+apotheosis.siege.noSave,"Δεν μπορείτε να αποθηκεύσετε κατά την πολιορκία του Πύργου Ντιρένι."

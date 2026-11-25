@@ -4,7 +4,7 @@
 // use as `host.<name>` - as the code read them where it was.
 import { composeSessionState, snapshotPlayer } from '../systems/save/save.js';
 import { layoutStampOfPixel, stampLayout } from '../systems/layoutPins.js';
-import { localizedText } from '../systems/textManager.js';
+import { localizedText, t } from '../systems/textManager.js';
 import { mergeWeaponPose, weaponPoseOf } from '../combat/playerWeapon.js';
 import { modSaveRecords } from '../systems/modSaveData.js';
 import { mwViewSaveCamera } from '../player/mwView.js';
@@ -50,6 +50,8 @@ export function createWorldQuickSave(host) {
     // CARDS10: nor with a card staked on a game of Iliac Hand - the card it may cost is in no save
     if (host.modes?.iliacStaked?.()) { if (!quiet) townTalk.say('You cannot save with a card staked on the table.'); return false; }
     if (host.modes?.gambitStaked?.()) { if (!quiet) townTalk.say(stakedSaveRefusal()); return false; }   // KG3: gold staked on The King's Gambit (Kings-Gambit.md 5.7)
+    if (host.direnniSiege?.active) { if (!quiet) townTalk.say(t('apotheosis.siege.noSave', 'You cannot save during the siege of Direnni Tower.')); return false; }
+    if (host.modes?.isPrivateVisit?.()) { if (!quiet) townTalk.say(localizedText('cannotSaveNow', 'You cannot save now.')); return false; }
     const pf = walkMode && host.playerSpawned ? player.pos : cam.pos;
     const wc = state.worldCoords(pf);
     // IS1 (AUDIT 26 F221): the inside-building half (SerializablePlayer

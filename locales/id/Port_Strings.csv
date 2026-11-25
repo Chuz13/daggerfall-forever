@@ -11129,3 +11129,8 @@ item.starflight.lore,"Berbulu cahaya aetherial. Selama dibawa di tasmu, busurmu 
 codex.legendary.starflightOffline,"Trofi langka dari bos, pemanah, dan harta ruang bawah tanah (Lv 10+)."
 apotheosis.communion.hudName,"Komuni Tempat Suci"
 apotheosis.communion.hudTip,"+{pct}% perolehan Iman & Perisai Pelapukan Mitos untuk hari berikutnya (tersisa {left})."
+apotheosis.orrery.noSave,"Anda tidak dapat menyimpan di Orrery."
+apotheosis.orrery.noMap,"Anda tidak dapat memetakan Orrery."
+apotheosis.orrery.noMark,"Anda tidak dapat memasang Tanda di Orrery."
+apotheosis.orrery.noRecall,"Tidak ada yang menjawab Panggilan Kembali di Orrery."
+apotheosis.siege.noSave,"Anda tidak dapat menyimpan selama pengepungan Menara Direnni."

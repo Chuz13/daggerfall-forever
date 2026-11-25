@@ -11129,3 +11129,8 @@ item.starflight.lore,"Mit ätherischem Licht befiedert. Solange er in Eurem Gep�
 codex.legendary.starflightOffline,"Seltene Trophäe von Bossen, Bogenschützen und Verlies-Schätzen (St. 10+)."
 apotheosis.communion.hudName,"Kommunion im Heiligtum"
 apotheosis.communion.hudTip,"+{pct}% Glaubensgewinn & Schutz vor Mythischem Verfall für den nächsten Tag (noch {left})."
+apotheosis.orrery.noSave,"Ihr könnt im Orrery nicht speichern."
+apotheosis.orrery.noMap,"Ihr könnt das Orrery nicht kartieren."
+apotheosis.orrery.noMark,"Ihr könnt im Orrery keine Markierung setzen."
+apotheosis.orrery.noRecall,"Im Orrery antwortet nichts auf einen Rückruf."
+apotheosis.siege.noSave,"Ihr könnt während der Belagerung des Direnni-Turms nicht speichern."

@@ -11129,3 +11129,8 @@ item.starflight.lore,"Befjedret med æterisk lys. Så længe den ligger i din ta
 codex.legendary.starflightOffline,"Sjældent trofæ fra bosser, bueskytter og fangekældreskatter (niv. 10+)."
 apotheosis.communion.hudName,"Helligdommens nadver"
 apotheosis.communion.hudTip,"+{pct}% Trosgevinst og skjold mod Mytisk forfald næste dag ({left} tilbage)."
+apotheosis.orrery.noSave,"Du kan ikke gemme i Orrery."
+apotheosis.orrery.noMap,"Du kan ikke kortlægge Orrery."
+apotheosis.orrery.noMark,"Du kan ikke sætte et Mærke i Orrery."
+apotheosis.orrery.noRecall,"Intet svarer på en Tilbagekaldelse i Orrery."
+apotheosis.siege.noSave,"Du kan ikke gemme under belejringen af Direnni-tårnet."

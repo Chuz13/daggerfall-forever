@@ -11129,3 +11129,8 @@ item.starflight.lore,"Eterik ışıkla tüylenmiş. Çantanızda taşıdığın�
 codex.legendary.starflightOffline,"Elebaşlarından, okçulardan ve zindan hazinelerinden nadir ganimet (Sv 10+)."
 apotheosis.communion.hudName,"Tapınak Ayini"
 apotheosis.communion.hudTip,"+{pct}% İnanç kazanımı ve ertesi gün için Mitos Çürümesi Kalkanı ({left} kaldı)."
+apotheosis.orrery.noSave,"Orrery içinde kayıt yapamazsınız."
+apotheosis.orrery.noMap,"Orrery haritasını çıkaramazsınız."
+apotheosis.orrery.noMark,"Orrery içinde İşaret koyamazsınız."
+apotheosis.orrery.noRecall,"Orrery içinde Geri Çağırmaya hiçbir şey yanıt vermez."
+apotheosis.siege.noSave,"Direnni Kulesi kuşatması sırasında kayıt yapamazsınız."
