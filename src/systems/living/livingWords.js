@@ -229,6 +229,20 @@ export const LIVING_WORDS = Object.freeze({
     t('living.roadAdv.spoils', '{name} guards a heavy chest of dungeon spoils: "Cleared the crypt ahead. A profitable day for bold steel!"', { name }),
   roadAdvOptionIntel: () =>
     t('living.roadAdv.optionIntel', 'Trade road news, dungeon intel, and share the camp.'),
+  roadAdvOptionIntelCamp: () =>
+    t('living.roadAdv.optionIntelCamp', 'Rest by the fire, share road news, and trade dungeon intel.'),
+  roadAdvOptionIntelSkirmish: () =>
+    t('living.roadAdv.optionIntelSkirmish', 'Discuss the ambush, trade road news, and claim thanks.'),
+  roadAdvOptionIntelSpoils: () =>
+    t('living.roadAdv.optionIntelSpoils', 'Trade road news and ask about cleared dungeons.'),
+  roadAdvOptionIntelRoad: () =>
+    t('living.roadAdv.optionIntelRoad', 'Trade road news and dungeon intel.'),
+  roadAdvOptionIntelFor: (situation) => {
+    if (situation === 'ROADSIDE_CAMP') return LIVING_WORDS.roadAdvOptionIntelCamp();
+    if (situation === 'SKIRMISH_WITH_MONSTERS') return LIVING_WORDS.roadAdvOptionIntelSkirmish();
+    if (situation === 'RETURNING_WITH_SPOILS') return LIVING_WORDS.roadAdvOptionIntelSpoils();
+    return LIVING_WORDS.roadAdvOptionIntelRoad();
+  },
   roadAdvOptionRecruit: (gold = 200) =>
     t('living.roadAdv.optionRecruit', 'Hire to travel and fight alongside you ({gold}g/day).', { gold }),
   roadAdvOptionSpar: (gold) =>
@@ -237,6 +251,32 @@ export const LIVING_WORDS = Object.freeze({
     t('living.roadAdv.optionExtort', 'Intimidate (Streetwise + Personality roll): demand a share of their dungeon spoils.'),
   roadAdvIntelShared: () =>
     t('living.roadAdv.intelShared', 'You exchange maps and road warnings over the fire, feeling refreshed for the journey ahead.'),
+  roadAdvIntelCamp: (name = 'Adventurer') =>
+    t('living.roadAdv.intelCamp', "You share a warm meal by {name}'s campfire and compare notes on the region.", { name }),
+  roadAdvIntelSkirmish: (name = 'Adventurer') =>
+    t('living.roadAdv.intelSkirmish', '{name} claps your shoulder in gratitude, sharing coin and warnings about the road ahead.', { name }),
+  roadAdvIntelSpoils: (name = 'Adventurer') =>
+    t('living.roadAdv.intelSpoils', '{name} unrolls a stained parchment, pointing out recent delves and dangers nearby.', { name }),
+  roadAdvIntelRoad: (name = 'Adventurer') =>
+    t('living.roadAdv.intelRoad', 'You pause along the road with {name} to swap travel warnings and local rumors.', { name }),
+  roadAdvIntelGuarded: (name = 'Adventurer') =>
+    t('living.roadAdv.intelGuarded', '{name} eyes you warily and offers only brief word of the road ahead.', { name }),
+  roadAdvIntelFallen: (fallen = 'Adventurer', level = 1, dungeon = 'Dungeon') =>
+    t('living.roadAdv.intelFallen', 'Dungeon intel: {fallen} (Lv.{level}) perished in {dungeon}; their gear may still lie inside.', { fallen, level, dungeon }),
+  roadAdvIntelCleared: (dungeon = 'Dungeon', days = 1) =>
+    t('living.roadAdv.intelCleared', 'Dungeon intel: {dungeon} was recently cleared (fewer foes for ~{days}d).', { dungeon, days }),
+  roadAdvIntelDiscovered: (dungeon = 'Dungeon') =>
+    t('living.roadAdv.intelDiscovered', 'Dungeon intel: {dungeon} has been marked on your regional map.', { dungeon }),
+  roadAdvIntelIntercepted: (rival = 'Rival', dungeon = 'Dungeon') =>
+    t('living.roadAdv.intelIntercepted', 'Rival intel: {rival} was spotted carrying a prize from {dungeon}.', { rival, dungeon }),
+  roadAdvNewsLine: (rumor = 'Roads are quiet.') =>
+    t('living.roadAdv.newsLine', 'Road news: {rumor}', { rumor }),
+  roadAdvNotifyMapUpdated: (dungeon = 'Dungeon') =>
+    t('living.roadAdv.notifyMapUpdated', 'Map updated: {dungeon}', { dungeon }),
+  roadAdvNotifySafeRoad: (hours = 24) =>
+    t('living.roadAdv.notifySafeRoad', 'Road warnings active: lower ambush risk for {hours}h', { hours }),
+  roadAdvNotifySkill: (skill = 'Etiquette') =>
+    t('living.roadAdv.notifySkill', 'Skill practiced: {skill}', { skill }),
   roadAdvRecruited: (name = 'Adventurer') =>
     t('living.roadAdv.recruited', '{name} salutes and falls in beside you: "My blade is with you along this road!"', { name }),
   roadAdvNoGold: (gold = 200) =>
@@ -444,10 +484,14 @@ export const LIVING_WORDS = Object.freeze({
     t('living.notify.repGained', '+{delta} Reputation: {faction}', { faction, delta }),
   notifyRepLost: (faction, delta) =>
     t('living.notify.repLost', '{delta} Reputation: {faction}', { faction, delta }),
-  notifyFatigueLost: (fatigue) =>
+  notifyFatigueLost: (fatigue = 0) =>
     t('living.notify.fatigueLost', '-{fatigue} Fatigue', { fatigue }),
-  notifyHealthLost: (health) =>
+  notifyFatigueGained: (fatigue = 0) =>
+    t('living.notify.fatigueGained', '+{fatigue} Fatigue', { fatigue }),
+  notifyHealthLost: (health = 0) =>
     t('living.notify.healthLost', '-{health} Health', { health }),
+  notifyHealthGained: (health = 0) =>
+    t('living.notify.healthGained', '+{health} Health', { health }),
 
   // Factions & Urban Skirmishes
   skirmishAlert: (event, f1, f2) =>

@@ -33,7 +33,7 @@ class LivingDirectorState {
       // Dynamic modules will attach their scalar payloads here
       regions: {},
       adventurers: {},
-      travel: { lastInterruptMinute: -999999 },
+      travel: { lastInterruptMinute: -999999, roadIntelUntilMinute: 0, roadIntelRegion: null },
       pleas: { lastPleaMinute: -999999 },
       nemesis: { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false },
       checkpoints: { passesByRegion: {} },
@@ -47,7 +47,7 @@ class LivingDirectorState {
     this.seed = Math.floor(Math.random() * 0x7fffffff);
     this.subsystems.regions = {};
     this.subsystems.adventurers = {};
-    this.subsystems.travel = { lastInterruptMinute: -999999 };
+    this.subsystems.travel = { lastInterruptMinute: -999999, roadIntelUntilMinute: 0, roadIntelRegion: null };
     this.subsystems.pleas = { lastPleaMinute: -999999 };
     this.subsystems.nemesis = { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
     this.subsystems.checkpoints = { passesByRegion: {} };
@@ -103,7 +103,7 @@ export function newLivingSaveData() {
     subsystems: {
       regions: {},
       adventurers: {},
-      travel: { lastInterruptMinute: -999999 },
+      travel: { lastInterruptMinute: -999999, roadIntelUntilMinute: 0, roadIntelRegion: null },
       pleas: { lastPleaMinute: -999999 },
       nemesis: { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false },
       checkpoints: { passesByRegion: {} },
@@ -147,6 +147,10 @@ export function getLivingSaveData() {
       adventurers: _state.subsystems.adventurers || {},
       travel: {
         lastInterruptMinute: Number(_state.subsystems.travel?.lastInterruptMinute) || -999999,
+        roadIntelUntilMinute: Math.max(0, Number(_state.subsystems.travel?.roadIntelUntilMinute) || 0),
+        roadIntelRegion: Number.isInteger(_state.subsystems.travel?.roadIntelRegion)
+          ? _state.subsystems.travel.roadIntelRegion
+          : null,
       },
       pleas: {
         lastPleaMinute: Number(_state.subsystems.pleas?.lastPleaMinute) || -999999,
@@ -238,6 +242,14 @@ export function restoreLivingSaveData(data) {
       if (data.subsystems.travel && typeof data.subsystems.travel === 'object') {
         _state.subsystems.travel.lastInterruptMinute =
           Number(data.subsystems.travel.lastInterruptMinute) || -999999;
+        _state.subsystems.travel.roadIntelUntilMinute = Number.isFinite(
+          Number(data.subsystems.travel.roadIntelUntilMinute),
+        )
+          ? Math.max(0, Number(data.subsystems.travel.roadIntelUntilMinute))
+          : 0;
+        _state.subsystems.travel.roadIntelRegion = Number.isInteger(data.subsystems.travel.roadIntelRegion)
+          ? data.subsystems.travel.roadIntelRegion
+          : null;
       }
       if (data.subsystems.pleas && typeof data.subsystems.pleas === 'object') {
         _state.subsystems.pleas = {

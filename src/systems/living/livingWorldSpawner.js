@@ -24,6 +24,7 @@ import { sphereAabb } from '../../render/frustum.js';
 import { drawSeen } from '../../scenes/decor/decorRoom.js';
 import { GLOBAL_SCALE } from '../../player/activate.js';
 import { equipAdventurerEntity } from './adventurerGear.js';
+import { getActiveRoadIntelBuff } from './travelDirector.js';
 import { rollBossTraits } from '../bossTraits.js';
 import { capitalIndexOfId } from '../../world/capitalLane.js';
 import {
@@ -972,6 +973,7 @@ export function buildLivingSiteBlueprint({
   forcedEventId = null,
   plea: passedPlea = null,
   forcedPleaType = null,
+  forcedSituation = null,
 }) {
   const playerLevel = Math.max(1, Number(playerEntity?.level ?? 1));
   const h0 = typeof heightAt === 'function' ? heightAt(centerX, centerZ) : 0;
@@ -1543,10 +1545,14 @@ export function buildLivingSiteBlueprint({
       rng,
     });
     const adv = passedAdv ?? wandering.adv;
-    const situation = passedAdv ? ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP : wandering.situation;
+    const validForcedSit =
+      forcedSituation && Object.values(ROAD_ADVENTURER_SITUATION).includes(forcedSituation)
+        ? forcedSituation
+        : null;
+    const situation = validForcedSit ?? (passedAdv ? ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP : wandering.situation);
     const displayName = getAdventurerDisplayName(adv);
     adv.name = displayName;
-    meta = { ...meta, ...wandering, adv, displayName };
+    meta = { ...meta, ...wandering, adv, displayName, situation };
 
     const advType = CLASS_TO_MOBILE_TYPE[adv.className] ?? MOBILE_TYPES.Warrior;
 
@@ -3254,6 +3260,10 @@ export function createLivingSceneHost(deps) {
         openChoice: deps.openChoice,
         playSound: deps.playSound,
         say: deps.say,
+        resolveRegionDungeon: deps.resolveRegionDungeon,
+        discoverDungeon: deps.discoverDungeon,
+        addNote: deps.addNote,
+        surfacePlayer: deps.surfacePlayer,
         onHostile: () => {
           for (const f of s.foes) {
             if (f?.livingRole === 'wandering_adventurer' && f.ai) {
@@ -4884,6 +4894,10 @@ export function createLivingSceneHost(deps) {
               openChoice: deps.openChoice,
               playSound: deps.playSound,
               say: deps.say,
+              resolveRegionDungeon: deps.resolveRegionDungeon,
+              discoverDungeon: deps.discoverDungeon,
+              addNote: deps.addNote,
+              surfacePlayer: deps.surfacePlayer,
               onHostile: () => {
                 if (onStoodSite) {
                   setSiteHostile(stood, true);
@@ -4907,6 +4921,10 @@ export function createLivingSceneHost(deps) {
               openChoice: deps.openChoice,
               playSound: deps.playSound,
               say: deps.say,
+              resolveRegionDungeon: deps.resolveRegionDungeon,
+              discoverDungeon: deps.discoverDungeon,
+              addNote: deps.addNote,
+              surfacePlayer: deps.surfacePlayer,
               onHostile: () => {
                 if (onStoodSite) {
                   setSiteHostile(stood, true);
@@ -5150,6 +5168,10 @@ export function buildWanderingAdventurerChoiceSpec({
   playSound = null,
   onHostile = null,
   onHired = null,
+  resolveRegionDungeon = null,
+  discoverDungeon = null,
+  addNote = null,
+  surfacePlayer = null,
   say = () => {},
   rng = Math.random,
 }) {
@@ -5172,18 +5194,76 @@ export function buildWanderingAdventurerChoiceSpec({
 
   if (!dlg.used.intel) {
     rawOptions.push({
-      labelText: LIVING_WORDS.roadAdvOptionIntel(),
+      labelText: LIVING_WORDS.roadAdvOptionIntelFor(situation),
       action: () => {
         dlg.used.intel = true;
-        resolveWanderingAdventurerInteraction({
+        const res = resolveWanderingAdventurerInteraction({
           adv,
           situation,
           playerEntity,
           action: 'SHARE_INTEL',
           regionIndex: safeRegion,
+          nowMinutes,
+          resolveRegionDungeon,
+          discoverDungeon,
           rng,
         });
-        say(LIVING_WORDS.roadAdvIntelShared(), 6);
+        if (res.healthRestored > 0 || res.fatigueRestored > 0) {
+          surfacePlayer?.();
+        }
+        const flavorLine =
+          res.traitTone === 'GUARDED' && !res.dungeonIntel && !res.roadNews
+            ? LIVING_WORDS.roadAdvIntelGuarded(adv.name)
+            : situation === ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP
+              ? LIVING_WORDS.roadAdvIntelCamp(adv.name)
+              : situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS
+                ? LIVING_WORDS.roadAdvIntelSkirmish(adv.name)
+                : situation === ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS
+                  ? LIVING_WORDS.roadAdvIntelSpoils(adv.name)
+                  : LIVING_WORDS.roadAdvIntelRoad(adv.name);
+        say(flavorLine, 6);
+        if (res.roadNews?.rumor) {
+          say(LIVING_WORDS.roadAdvNewsLine(res.roadNews.rumor), 6);
+        }
+        if (res.dungeonIntel) {
+          const di = res.dungeonIntel;
+          let intelLine = '';
+          if (di.type === 'FALLEN_REMAINS') {
+            intelLine = LIVING_WORDS.roadAdvIntelFallen(di.fallenName, di.fallenLevel, di.dungeonName);
+          } else if (di.type === 'CLEARED_COOLDOWN') {
+            intelLine = LIVING_WORDS.roadAdvIntelCleared(di.dungeonName, di.daysLeft);
+          } else if (di.type === 'INTERCEPTED_QUEST') {
+            intelLine = LIVING_WORDS.roadAdvIntelIntercepted(di.rivalName, di.dungeonName);
+          } else {
+            intelLine = LIVING_WORDS.roadAdvIntelDiscovered(di.dungeonName);
+          }
+          if (intelLine) {
+            say(intelLine, 6);
+            addNote?.(`${adv.name}: ${intelLine}`);
+          }
+          if (di.newlyDiscovered && di.dungeonName) {
+            say(LIVING_WORDS.roadAdvNotifyMapUpdated(di.dungeonName), 5);
+          }
+        }
+        if (res.goldDelta > 0) {
+          playSound?.(LIVING_SOUNDS.GOLD_COINS);
+          say(LIVING_WORDS.notifyGoldGained(res.goldDelta), 5);
+        }
+        if (res.healthRestored > 0) {
+          say(LIVING_WORDS.notifyHealthGained(res.healthRestored), 5);
+        }
+        if (res.fatigueRestored > 0) {
+          say(LIVING_WORDS.notifyFatigueGained(res.fatigueRestored), 5);
+        }
+        if (res.repDelta > 0) {
+          say(LIVING_WORDS.notifyRepGained(res.regionName || 'Region', res.repDelta), 5);
+        }
+        if (res.roadWarningGranted) {
+          say(LIVING_WORDS.roadAdvNotifySafeRoad(res.roadIntelHours || 24), 5);
+        }
+        if (res.practicedSkill) {
+          say(LIVING_WORDS.roadAdvNotifySkill(res.practicedSkill), 4);
+        }
       },
     });
   }
@@ -5646,10 +5726,14 @@ export function executeLivingConsoleCommand(args, ctx) {
       activeCrises.length > 0
         ? activeCrises.map((c) => `${c.type} (${c.phase}, ${c.phaseDaysRemaining}d)`).join(', ')
         : 'PEACE';
+    const roadIntel = getActiveRoadIntelBuff(ctx?.nowMinutes ?? 0);
+    const roadIntelStr = roadIntel.active
+      ? `, roadIntel=${Math.max(1, Math.ceil(roadIntel.remainingMinutes / 60))}h`
+      : '';
     return (
       `[Living Tamriel] Region ${regIdx} (${regState.regionName}): crises=[${crisisStr}], ` +
       `tension=${regState.tension.toFixed(1)}, ` +
-      `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}, cooldown=${getLivingLocationCooldownMinutes()}m, prosperity=${getSettlementProsperityDelta(ctx?.mapId)}`
+      `companion=${comp ? comp.displayName : 'none'}, contract=${contract ? contract.questType : 'none'}, cooldown=${getLivingLocationCooldownMinutes()}m, prosperity=${getSettlementProsperityDelta(ctx?.mapId)}${roadIntelStr}`
     );
   }
 
@@ -5976,10 +6060,20 @@ export function executeLivingConsoleCommand(args, ctx) {
     const heightAt = ctx?.heightAt ?? (() => feet[1] || 0);
     const spawnDist = validKind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ? 8 : 14;
     const safe = findSafeSiteCenter(ctx, feet, spawnDist, Math.PI * 0.25, 4.0);
+    const advSitAliasMap = {
+      camp: ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP,
+      road: ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+      skirmish: ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS,
+      spoils: ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS,
+    };
     const rawDetail = cleanArgs[2] ? String(cleanArgs[2]).trim() : null;
     const resolvedPlea = rawDetail
       ? (pleaAliasMap[rawDetail.toLowerCase()] ?? rawDetail.toUpperCase())
       : null;
+    const resolvedAdvSituation =
+      validKind === LIVING_SITE_KINDS.WANDERING_ADVENTURER && rawDetail
+        ? (advSitAliasMap[rawDetail.toLowerCase()] ?? rawDetail.toUpperCase())
+        : null;
     const bp = buildLivingSiteBlueprint({
       kind: validKind,
       centerX: safe.x,
@@ -5992,6 +6086,7 @@ export function executeLivingConsoleCommand(args, ctx) {
       climateIndex: ctx?.climateIndex ?? null,
       forcedEventId: validKind === LIVING_SITE_KINDS.URBAN_SKIRMISH && rawDetail ? rawDetail.toUpperCase() : null,
       forcedPleaType: validKind === LIVING_SITE_KINDS.PLEA_ENCOUNTER ? resolvedPlea : null,
+      forcedSituation: resolvedAdvSituation,
     });
     if (!bp) {
       return `[Living Tamriel] Could not spawn ${validKind} at current spot (terrain steep or not streamed).`;
@@ -6002,6 +6097,8 @@ export function executeLivingConsoleCommand(args, ctx) {
       detailTag = ` [${bp.meta?.event?.id ?? 'default'} / ${bp.meta?.propTheme ?? 'default'}]`;
     } else if (validKind === LIVING_SITE_KINDS.PLEA_ENCOUNTER) {
       detailTag = ` [${bp.meta?.plea?.type ?? 'default'}]`;
+    } else if (validKind === LIVING_SITE_KINDS.WANDERING_ADVENTURER) {
+      detailTag = ` [${bp.meta?.situation ?? 'default'}]`;
     }
     return `[Living Tamriel] Spawned ${validKind}${detailTag} (${bp.meshes.length} meshes, ${bp.flats.length} flats, ${bp.actors.length} actors).`;
   }

@@ -21,6 +21,65 @@ export const TRAVEL_EVENT_TYPE = Object.freeze({
 });
 
 export const TRAVEL_INTERRUPT_COOLDOWN_MINUTES = 720; // 12 game hours
+export const ROAD_INTEL_DURATION_MINUTES = 1440; // 24 game hours
+
+/**
+ * Grants a temporary "Road Intel" travel safety buff (24 in-game hours by default)
+ * after exchanging road news and warnings with a wandering adventurer.
+ *
+ * @param {number|null|undefined} regionIndex
+ * @param {number} [nowMinutes=0]
+ * @param {number} [durationMinutes=ROAD_INTEL_DURATION_MINUTES]
+ * @returns {{ untilMinute: number, regionIndex: number|null, durationHours: number }}
+ */
+export function grantRoadIntelBuff(
+  regionIndex,
+  nowMinutes = 0,
+  durationMinutes = ROAD_INTEL_DURATION_MINUTES,
+) {
+  const root = getLivingDirectorState();
+  if (!root.subsystems.travel || typeof root.subsystems.travel !== 'object') {
+    root.subsystems.travel = { lastInterruptMinute: -999999, roadIntelUntilMinute: 0, roadIntelRegion: null };
+  }
+  const baseNow =
+    Number.isFinite(nowMinutes) && nowMinutes > 0
+      ? nowMinutes
+      : Number(root.lastWorldTickMinute) || 0;
+  const safeDuration = Math.max(60, Number(durationMinutes) || ROAD_INTEL_DURATION_MINUTES);
+  const prevUntil = Number(root.subsystems.travel.roadIntelUntilMinute) || 0;
+  const untilMinute = Math.max(prevUntil, baseNow + safeDuration);
+  const safeRegion = Number.isInteger(regionIndex) ? regionIndex : null;
+  root.subsystems.travel.roadIntelUntilMinute = untilMinute;
+  root.subsystems.travel.roadIntelRegion = safeRegion;
+  return {
+    untilMinute,
+    regionIndex: safeRegion,
+    durationHours: Math.max(1, Math.round(safeDuration / 60)),
+  };
+}
+
+/**
+ * Returns whether the temporary "Road Intel" buff is currently active.
+ *
+ * @param {number} [nowMinutes=0]
+ * @returns {{ active: boolean, remainingMinutes: number, regionIndex: number|null, untilMinute: number }}
+ */
+export function getActiveRoadIntelBuff(nowMinutes = 0) {
+  const root = getLivingDirectorState();
+  const travel = root?.subsystems?.travel;
+  const until = Number(travel?.roadIntelUntilMinute) || 0;
+  const now =
+    Number.isFinite(nowMinutes) && nowMinutes >= 0
+      ? nowMinutes
+      : Number(root?.lastWorldTickMinute) || 0;
+  const active = until > 0 && now < until;
+  return {
+    active,
+    remainingMinutes: active ? until - now : 0,
+    regionIndex: Number.isInteger(travel?.roadIntelRegion) ? travel.roadIntelRegion : null,
+    untilMinute: until,
+  };
+}
 
 /**
  * Calculates whether a fast travel segment should be intercepted.
@@ -87,7 +146,12 @@ export function evaluateTravelInterruption({
   const campMod = sleepModeInn ? 0 : 8;
   const paceMod = speedCautious ? 0 : 6;
 
-  const netChance = Math.max(4, Math.min(65, baseDanger + tensionModifier + campMod + paceMod - luckReduction));
+  let netChance = Math.max(4, Math.min(65, baseDanger + tensionModifier + campMod + paceMod - luckReduction));
+  const roadIntel = getActiveRoadIntelBuff(nowMinutes);
+  if (roadIntel.active && !sailing) {
+    const regionalExtra = roadIntel.regionIndex === regionIndex ? 5 : 0;
+    netChance = Math.max(2, Math.round(netChance * 0.5) - regionalExtra);
+  }
   const numRolls = Math.max(1, Math.min(maxInterrupts, Math.ceil(tripDays / 2)));
 
   let triggered = false;
@@ -99,7 +163,13 @@ export function evaluateTravelInterruption({
   }
 
   if (!triggered) {
-    return { shouldInterrupt: false, eventType: null, reason: 'Journey proceeded safely', rolls: numRolls };
+    return {
+      shouldInterrupt: false,
+      eventType: null,
+      reason: 'Journey proceeded safely',
+      rolls: numRolls,
+      roadIntelActive: roadIntel.active,
+    };
   }
 
   // Interruption occurs: Record timestamp
@@ -125,6 +195,7 @@ export function evaluateTravelInterruption({
     shouldInterrupt: true,
     eventType,
     rolls: numRolls,
+    roadIntelActive: roadIntel.active,
     reason: `Journey interrupted by ${eventType}`,
   };
 }
@@ -135,18 +206,22 @@ export function evaluateTravelInterruption({
  * @param {any} playerOrStealth Player entity or numeric Stealth skill value
  * @param {number} [luck=50] Player Luck fallback
  * @param {() => number} [rng=Math.random]
+ * @param {{ nowMinutes?: number } | null} [opts=null]
  */
-export function evaluateAmbushStealthRoll(playerOrStealth, luck = 50, rng = Math.random) {
+export function evaluateAmbushStealthRoll(playerOrStealth, luck = 50, rng = Math.random, opts = null) {
   const playerEntity =
     typeof playerOrStealth === 'number'
       ? { skills: { [SKILLS.Stealth]: playerOrStealth }, stats: { Luck: luck, Agility: 50 } }
       : playerOrStealth;
+  const roadIntelBonus =
+    opts?.nowMinutes != null && getActiveRoadIntelBuff(opts.nowMinutes).active ? 15 : 0;
   return resolveLivingRoll({
     formulaId: 'STEALTH_INFILTRATION',
     playerEntity,
     skillId: SKILLS.Stealth,
     statName: 'agility',
     difficulty: 0,
+    contextBonus: roadIntelBonus,
     allowLuckReroll: false,
     rng,
   });
@@ -157,10 +232,11 @@ export function evaluateAmbushStealthRoll(playerOrStealth, luck = 50, rng = Math
  * @param {number|any} stealthSkill Player Stealth skill value or player entity
  * @param {number} [luck=50] Player Luck
  * @param {() => number} [rng]
+ * @param {{ nowMinutes?: number } | null} [opts=null]
  * @returns {boolean} True if player spots and evades the threat peacefully
  */
-export function canEvadeAmbushWithStealth(stealthSkill, luck = 50, rng = Math.random) {
-  const res = evaluateAmbushStealthRoll(stealthSkill, luck, rng);
+export function canEvadeAmbushWithStealth(stealthSkill, luck = 50, rng = Math.random, opts = null) {
+  const res = evaluateAmbushStealthRoll(stealthSkill, luck, rng, opts);
   return res.margin > 0;
 }
 

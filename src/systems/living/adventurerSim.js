@@ -34,6 +34,9 @@ import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { getEffectiveTradeTaint, applyTaintDisposition } from '../necromancy/necroTaint.js';
 import { isPlayerDisguised } from '../necromancy/lichdomStatus.js';
 import { getReputationPriceModifier } from './reputationConsequences.js';
+import { maxFatigue, FATIGUE_MULTIPLIER } from '../statMods.js';
+import { getRegionCrisisRumor, getRegionCrisisEconomyLine } from './crisisPresenter.js';
+import { grantRoadIntelBuff } from './travelDirector.js';
 import {
   resolveLivingRoll,
   computeRoleplayBribeMultiplier,
@@ -1424,6 +1427,8 @@ export function pickWanderingAdventurerEncounter({
  * @param {number} [params.regionIndex=0]
  * @param {number} [params.nowMinutes=0]
  * @param {number} [params.days=1]
+ * @param {((opts: { regionIndex: number, locationId?: number|string|null, slotIndex?: number|null, preferUndiscovered?: boolean, rng?: () => number }) => any)|null} [params.resolveRegionDungeon=null]
+ * @param {((opts: { mapId: number, name?: string, regionName?: string, regionIndex?: number }) => any)|null} [params.discoverDungeon=null]
  * @param {() => number} [params.rng=Math.random]
  * @returns {any}
  */
@@ -1435,6 +1440,8 @@ export function resolveWanderingAdventurerInteraction({
   regionIndex = 0,
   nowMinutes = 0,
   days = 1,
+  resolveRegionDungeon = null,
+  discoverDungeon = null,
   rng = Math.random,
 }) {
   const advLevel = Math.max(1, Number(adv?.level ?? 1));
@@ -1474,6 +1481,8 @@ export function resolveWanderingAdventurerInteraction({
     let goldDelta = 0;
     let repDelta = 1;
     let healed = false;
+    let healthRestored = 0;
+    let fatigueRestored = 0;
 
     if (situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS) {
       // Grateful adventurer shares coin after fighting off roadside beasts/bandits together
@@ -1483,20 +1492,286 @@ export function resolveWanderingAdventurerInteraction({
         playerEntity.goldPieces += goldDelta;
       }
     } else if (situation === ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP) {
-      // Resting by the adventurer's campfire restores player health
+      // Resting by the adventurer's campfire restores player health (+15) and fatigue
       healed = true;
       if (playerEntity && typeof playerEntity.health === 'number') {
-        const maxH = Number(playerEntity.maxHealth || playerEntity.health + 15);
-        playerEntity.health = Math.min(maxH, playerEntity.health + 15);
+        const beforeH = playerEntity.health;
+        const maxH = Number(playerEntity.maxHealth || beforeH + 15);
+        playerEntity.health = Math.min(maxH, beforeH + 15);
+        healthRestored = Math.max(0, Math.round(playerEntity.health - beforeH));
+      }
+      if (playerEntity && typeof playerEntity.fatigue === 'number') {
+        const computedMaxF = playerEntity?.stats ? maxFatigue(playerEntity) : 0;
+        const maxF =
+          Number.isFinite(playerEntity?.maxFatigue) && playerEntity.maxFatigue > 0
+            ? playerEntity.maxFatigue
+            : computedMaxF > 0
+              ? computedMaxF
+              : Number(playerEntity.fatigue) || 0;
+        if (maxF > 0) {
+          const rawGain = maxF >= FATIGUE_MULTIPLIER * 4 ? Math.round(maxF * 0.25) : 30;
+          const beforeF = playerEntity.fatigue;
+          playerEntity.fatigue = Math.min(maxF, beforeF + rawGain);
+          const restoredRaw = Math.max(0, playerEntity.fatigue - beforeF);
+          fatigueRestored =
+            maxF >= FATIGUE_MULTIPLIER * 4
+              ? restoredRaw > 0
+                ? Math.max(1, Math.round(restoredRaw / FATIGUE_MULTIPLIER))
+                : 0
+              : Math.round(restoredRaw);
+        }
       }
     }
 
     applyRep(repDelta);
+
+    // Trait disposition & social check
+    const etiquette = readPlayerSkill(playerEntity, SKILLS.Etiquette, 25);
+    const streetwise = readPlayerSkill(playerEntity, SKILLS.Streetwise, 25);
+    const personality = readPlayerStat(playerEntity, 'personality', 50);
+    const trait = adv?.trait;
+    let traitTone = 'GENEROUS';
+    let sharesDeepIntel = true;
+    if (trait === 'ARROGANT' || trait === 'DUELIST') {
+      traitTone = 'BOASTFUL';
+    } else if (trait === 'MERCENARY') {
+      traitTone = 'PRAGMATIC';
+      sharesDeepIntel = etiquette >= 35 || streetwise >= 35 || personality >= 55;
+    } else if (trait === 'ENVIOUS' || trait === 'CUTTHROAT') {
+      traitTone = 'GUARDED';
+      sharesDeepIntel = streetwise >= 45 || personality >= 60;
+    }
+
+    // Practice Etiquette or Streetwise
+    let practicedSkill = null;
+    if (Array.isArray(playerEntity?.skillUses)) {
+      const skillId =
+        situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS ||
+        trait === 'CUTTHROAT' ||
+        trait === 'MERCENARY' ||
+        trait === 'ENVIOUS'
+          ? SKILLS.Streetwise
+          : SKILLS.Etiquette;
+      tallySkill(playerEntity, skillId, 1);
+      practicedSkill = skillId === SKILLS.Streetwise ? 'Streetwise' : 'Etiquette';
+    }
+
+    // Grant 24-hour Road Intel travel safety buff
+    let roadWarningGranted = false;
+    let roadIntelHours = 0;
+    if (
+      situation === ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD ||
+      situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS ||
+      traitTone === 'GENEROUS'
+    ) {
+      const buff = grantRoadIntelBuff(regionIndex, nowMinutes);
+      roadWarningGranted = true;
+      roadIntelHours = buff.durationHours;
+    }
+
+    // Road News: current region crisis/economy, or nearest neighbor in crisis
+    let roadNews = null;
+    const checkRegionNews = (rIdx) => {
+      const rumor = getRegionCrisisRumor(rIdx);
+      if (!rumor) return null;
+      return {
+        regionIndex: rIdx,
+        regionName: REGION_NAMES[rIdx] || `Region ${rIdx}`,
+        isNeighbor: rIdx !== regionIndex,
+        rumor,
+        economyLine: getRegionCrisisEconomyLine(rIdx),
+      };
+    };
+    roadNews = checkRegionNews(regionIndex);
+    if (!roadNews) {
+      const neighbors = getRegionNeighbors(regionIndex);
+      for (const nIdx of neighbors) {
+        roadNews = checkRegionNews(nIdx);
+        if (roadNews) break;
+      }
+    }
+
+    // Dungeon Intel (supports both Iliac Bay slots and Outer Provinces numeric mapIds)
+    const reg = getAdventurerSimRegistry();
+    const provincePool = getRegionalDungeonPool(regionIndex);
+    const parseSimLocationKey = (key, targetRegion) => {
+      const sKey = String(key ?? '');
+      const m = /^dungeon_(\d+)_(\d+)$/.exec(sKey);
+      if (m) {
+        if (Number(m[1]) !== targetRegion) return null;
+        return { locationId: sKey, slotIndex: Number(m[2]), isNumeric: false };
+      }
+      if (/^\d+$/.test(sKey)) {
+        const numId = Number(sKey);
+        if (provincePool?.some((d) => String(d.mapId ?? d.id) === sKey)) {
+          return { locationId: numId, slotIndex: null, isNumeric: true };
+        }
+        const resolved = resolveRegionDungeon?.({
+          regionIndex: targetRegion,
+          locationId: numId,
+          preferUndiscovered: false,
+          rng,
+        });
+        if (resolved) {
+          return { locationId: numId, slotIndex: null, isNumeric: true };
+        }
+      }
+      return null;
+    };
+
+    const resolveAndReveal = ({ locationId = null, slotIndex = null, fallbackName = '', preferUndiscovered = true }) => {
+      let resolved =
+        typeof resolveRegionDungeon === 'function'
+          ? resolveRegionDungeon({ regionIndex, locationId, slotIndex, preferUndiscovered, rng })
+          : null;
+      if (!resolved && provincePool?.length) {
+        let match = null;
+        if (locationId != null && Number.isFinite(Number(locationId))) {
+          match = provincePool.find((d) => Number(d.mapId ?? d.id) === Number(locationId)) || null;
+        }
+        if (!match && slotIndex != null && provincePool.length > 0) {
+          match = provincePool[Math.abs(slotIndex) % provincePool.length];
+        }
+        if (!match) {
+          match = provincePool[Math.floor(rng() * provincePool.length)];
+        }
+        if (match) {
+          resolved = {
+            mapId: match.mapId ?? match.id,
+            name: match.name,
+            shown: match.name,
+            regionName: REGION_NAMES[regionIndex] || '',
+          };
+        }
+      }
+      let discovered = null;
+      if (resolved?.mapId != null && typeof discoverDungeon === 'function') {
+        discovered = discoverDungeon({
+          mapId: resolved.mapId,
+          name: resolved.name,
+          regionName: resolved.regionName || REGION_NAMES[regionIndex] || '',
+          regionIndex,
+        });
+      }
+      return {
+        dungeonName: discovered?.shown || resolved?.shown || resolved?.name || fallbackName,
+        mapId: resolved?.mapId ?? null,
+        newlyDiscovered: Boolean(discovered?.newlyDiscovered),
+      };
+    };
+
+    const tryInterceptedQuest = () => {
+      if (!LivingTamrielConfig.allowQuestCompetition || !reg.interceptedQuests) return null;
+      for (const [locKey, iq] of Object.entries(reg.interceptedQuests)) {
+        if (!iq || iq.recovered || iq.forfeited) continue;
+        const parsed = parseSimLocationKey(locKey, regionIndex);
+        if (!parsed && adv?.currentRegion !== regionIndex) continue;
+        const rev = resolveAndReveal({
+          locationId: parsed?.isNumeric ? parsed.locationId : iq.questId ?? null,
+          slotIndex: parsed?.slotIndex ?? null,
+          fallbackName: String(iq.locationId || locKey),
+          preferUndiscovered: false,
+        });
+        return {
+          type: 'INTERCEPTED_QUEST',
+          rivalName: iq.adventurerName || 'Rival Adventurer',
+          dungeonName: rev.dungeonName,
+          mapId: rev.mapId,
+          newlyDiscovered: rev.newlyDiscovered,
+        };
+      }
+      return null;
+    };
+
+    const tryFallenRemains = () => {
+      if (!reg.fallenRemains) return null;
+      for (const [locKey, list] of Object.entries(reg.fallenRemains)) {
+        if (!Array.isArray(list) || list.length === 0) continue;
+        const parsed = parseSimLocationKey(locKey, regionIndex);
+        if (!parsed) continue;
+        const fallen = list[0];
+        const rev = resolveAndReveal({
+          locationId: parsed.isNumeric ? parsed.locationId : null,
+          slotIndex: parsed.slotIndex,
+          fallbackName: fallen.dungeonName || locKey,
+          preferUndiscovered: true,
+        });
+        return {
+          type: 'FALLEN_REMAINS',
+          fallenName: fallen.adventurerName || 'Fallen Adventurer',
+          fallenClass: fallen.className || 'Adventurer',
+          fallenLevel: Number(fallen.level || 5),
+          dungeonName: rev.dungeonName,
+          mapId: rev.mapId,
+          newlyDiscovered: rev.newlyDiscovered,
+        };
+      }
+      return null;
+    };
+
+    const tryClearedCooldown = () => {
+      if (!reg.dungeonCooldowns) return null;
+      for (const [locKey, daysLeft] of Object.entries(reg.dungeonCooldowns)) {
+        if (!(Number(daysLeft) >= 1)) continue;
+        const parsed = parseSimLocationKey(locKey, regionIndex);
+        if (!parsed) continue;
+        const desc = getRegionalDungeonDescriptor(regionIndex, parsed.slotIndex ?? 0);
+        const rev = resolveAndReveal({
+          locationId: parsed.isNumeric ? parsed.locationId : null,
+          slotIndex: parsed.slotIndex,
+          fallbackName: desc.name,
+          preferUndiscovered: false,
+        });
+        return {
+          type: 'CLEARED_COOLDOWN',
+          daysLeft: Number(daysLeft),
+          dungeonName: rev.dungeonName,
+          mapId: rev.mapId,
+          newlyDiscovered: rev.newlyDiscovered,
+        };
+      }
+      return null;
+    };
+
+    const tryDiscoveredDungeon = () => {
+      const rev = resolveAndReveal({ preferUndiscovered: true });
+      if (!rev.dungeonName) return null;
+      return {
+        type: 'DISCOVERED_DUNGEON',
+        dungeonName: rev.dungeonName,
+        mapId: rev.mapId,
+        newlyDiscovered: rev.newlyDiscovered,
+      };
+    };
+
+    let dungeonIntel = null;
+    if (sharesDeepIntel) {
+      dungeonIntel = tryInterceptedQuest() || tryFallenRemains();
+      if (!dungeonIntel) {
+        if (situation === ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS || traitTone === 'BOASTFUL') {
+          dungeonIntel = tryClearedCooldown() || tryDiscoveredDungeon();
+        } else {
+          dungeonIntel = tryDiscoveredDungeon() || tryClearedCooldown();
+        }
+      }
+    } else if (situation === ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS) {
+      dungeonIntel = tryClearedCooldown();
+    }
+
     return {
       outcome: WANDERING_OUTCOME.INTEL_SHARED,
       goldDelta,
       repDelta,
       healed,
+      healthRestored,
+      fatigueRestored,
+      regionName: REGION_NAMES[regionIndex] || `Region ${regionIndex}`,
+      traitTone,
+      practicedSkill,
+      roadWarningGranted,
+      roadIntelHours,
+      roadNews,
+      dungeonIntel,
       allied: situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS,
       hostile: false,
       spoilsItem: false,

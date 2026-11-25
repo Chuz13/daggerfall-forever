@@ -184,7 +184,7 @@ import { LIVING_WORDS } from '../systems/living/livingWords.js';
 import { getSettlementEntryNotification, getLivingQuestLogEntries } from '../systems/living/crisisPresenter.js';
 import { getActiveCrises, getRegionState, bindLivingRegionConditions, getActiveRegionFlags, CRISIS_TYPE } from '../systems/living/regionState.js';
 import { REGION_FLAGS } from '../systems/region/regionConditions.js';
-import { getActiveAdventurerCompanion, setRegionalDungeonProvider } from '../systems/living/adventurerSim.js';
+import { getActiveAdventurerCompanion, setRegionalDungeonProvider, getRegionalDungeonPool } from '../systems/living/adventurerSim.js';
 import { collectProvinceDungeons } from '../systems/living/provinceDungeonPool.js';
 import { rollLivingWildernessEncounter, rollLivingChunkCampRoster, createLivingSceneHost, buildLivingSiteBlueprint, buildRecruitedCompanionChoiceSpec, executeLivingConsoleCommand, LIVING_SITE_KINDS } from '../systems/living/livingWorldSpawner.js';
 import { composeFortPack } from '../systems/living/tacticalPacks.js';
@@ -1149,7 +1149,7 @@ const RACE_BY_NAME_BANK = Object.freeze(Object.fromEntries(
   Object.entries(BANK_TYPES).map(([race, bank]) => [bank, race])));
 import { startDisease, endDisease, diseaseCount } from '../systems/diseases.js';   // AUDIT 24: the quest bridge's MakePcDiseased / CurePcDisease seams; U41: the popup's diseased warning
 import { poisonCount } from '../systems/poisons.js';   // U41: the warning's other half
-import { discoverRandomLocation, discoverLocation, undiscoverBuilding, discoverBuilding, discoveredBuildings, setDiscoveredBuildingCustomName, getDiscoveredBuilding, pruneDiscoveryLayouts, townBookOf, townBookId } from '../systems/discovery.js';   // G8 + TV: the guild map reveals + the entry writer; TK-ii: the quest-residence undiscover; AUDIT DISC28 QS-K2: the town map's re-stamp
+import { discoverRandomLocation, discoverLocation, undiscoverBuilding, discoverBuilding, discoveredBuildings, setDiscoveredBuildingCustomName, getDiscoveredBuilding, pruneDiscoveryLayouts, townBookOf, townBookId, BAKED_KNOWN_TYPES, hasDiscoveredLocationId } from '../systems/discovery.js';   // G8 + TV: the guild map reveals + the entry writer; TK-ii: the quest-residence undiscover; AUDIT DISC28 QS-K2: the town map's re-stamp
 import { scryRows } from '../systems/loot/lootScry.js';   // LOOT19: the region a scrying reads
 import {
   WEATHER_TYPES, fogForWeather, scaleFogForDistance, skyOffsetForWeather, weatherSunlightScale,
@@ -4359,6 +4359,99 @@ export async function bootWorld(canvas, renderer, params, status) {
     onCompanionChanged: (comp) => {
       dropEscortFace(_livingCompanionFace);
       if (comp) addEscortFace(_livingCompanionFace);
+    },
+    surfacePlayer: () => surfacePlayer(),
+    addNote: (text) => {
+      if (text) questBridge?.notebook?.addNote?.(text);
+    },
+    resolveRegionDungeon: ({
+      regionIndex: rIdx,
+      locationId = null,
+      slotIndex = null,
+      preferUndiscovered = true,
+      rng = Math.random,
+    }) => {
+      if (!Number.isInteger(rIdx) || rIdx < 0) return null;
+      const region = questWorld?.maps?.getRegion?.(rIdx) ?? null;
+      const seenIds = new Set();
+      const candidates = [];
+      if (region && Array.isArray(region.mapTable)) {
+        for (let i = 0; i < region.mapTable.length; i++) {
+          const row = region.mapTable[i];
+          if (!row || row.mapId == null) continue;
+          if (BAKED_KNOWN_TYPES.has(row.locationType) || isMainStoryDungeon(row.mapId)) continue;
+          if (seenIds.has(row.mapId)) continue;
+          seenIds.add(row.mapId);
+          candidates.push({
+            mapId: row.mapId,
+            name: region.mapNames?.[i] || `Dungeon #${row.mapId}`,
+            regionName: region.name || REGION_NAMES[rIdx] || '',
+            discovered: Boolean(row.discovered || hasDiscoveredLocationId(row.mapId)),
+          });
+        }
+      }
+      if (isProvinceRegion(rIdx)) {
+        const provPool = getRegionalDungeonPool(rIdx);
+        if (Array.isArray(provPool)) {
+          for (const d of provPool) {
+            const mId = d?.mapId ?? d?.id;
+            if (mId == null || !Number.isFinite(Number(mId)) || isMainStoryDungeon(mId)) continue;
+            if (seenIds.has(mId)) continue;
+            seenIds.add(mId);
+            candidates.push({
+              mapId: mId,
+              name: d.name || `Dungeon #${mId}`,
+              regionName: region?.name || REGION_NAMES[rIdx] || '',
+              discovered: hasDiscoveredLocationId(mId),
+            });
+          }
+        }
+      }
+      if (candidates.length === 0) return null;
+
+      let picked = null;
+      if (locationId != null && Number.isFinite(Number(locationId))) {
+        const numId = Number(locationId);
+        picked = candidates.find((c) => Number(c.mapId) === numId) || null;
+      }
+      if (!picked && slotIndex != null && Number.isInteger(slotIndex)) {
+        const slotMatches = candidates.filter((c) => Math.abs(Math.trunc(Number(c.mapId))) % 10 === slotIndex);
+        if (slotMatches.length > 0) {
+          const pool = preferUndiscovered ? slotMatches.filter((c) => !c.discovered) : slotMatches;
+          const list = pool.length > 0 ? pool : slotMatches;
+          picked = list[Math.floor(rng() * list.length)];
+        }
+      }
+      if (!picked) {
+        const undiscovered = candidates.filter((c) => !c.discovered);
+        if (preferUndiscovered) {
+          picked = undiscovered.length > 0 ? undiscovered[Math.floor(rng() * undiscovered.length)] : null;
+        } else {
+          const list = undiscovered.length > 0 ? undiscovered : candidates;
+          picked = list[Math.floor(rng() * list.length)];
+        }
+      }
+      if (!picked) return null;
+      return {
+        mapId: picked.mapId,
+        name: picked.name,
+        shown: getLocalizedLocationName(picked.mapId, picked.name),
+        regionName: picked.regionName,
+        discovered: picked.discovered,
+      };
+    },
+    discoverDungeon: ({ mapId, name, regionName }) => {
+      if (mapId == null) return null;
+      const newlyDiscovered = discoverLocation(mapId, {
+        regionName: regionName || '',
+        locationName: name || '',
+      });
+      return {
+        mapId,
+        name,
+        shown: getLocalizedLocationName(mapId, name),
+        newlyDiscovered,
+      };
     },
     renderer, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
   }));
@@ -16058,7 +16151,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const playerLuck = liveStat(playerEntity, 'luck') || 50;
         const ambushDetectedByStealth =
           interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH &&
-          canEvadeAmbushWithStealth(stealthSkill, playerLuck);
+          canEvadeAmbushWithStealth(stealthSkill, playerLuck, Math.random, { nowMinutes: worldMinutes() });
         livingSceneHostOf().standBlueprint(buildLivingSiteBlueprint({
           kind: interruptKind,
           centerX: pf[0] + Math.sin(cam.yaw) * 14,
