@@ -853,6 +853,53 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'weaponGlow', initial: true, online: 'player' }),   // WEAPON-GLOW1: systems/weaponGlow.js WEAPON_GLOW_PREF
   }),
+  // Sub-frame 2D first-person weapon interpolation, procedural edge extension,
+  // and optional motion blur across all 2D weapon lanes.
+  Object.freeze({
+    id: 'smooth-weapon-anim',
+    group: 'sight',
+    get title() { return t('features.smoothWeaponAnim.title', 'Smooth weapon animation'); },
+    get note() { return t('features.smoothWeaponAnim.note', 'Smoothly slides 2D first-person weapons between swing frames with soft start, optional motion blur and extended screen edges. Keeps classic hit timing. Off restores stepped frames.'); },
+    get effect() { return t('features.effect.atOnce', 'Takes effect at once.'); },
+    kinds: Object.freeze(['enhanced', 'classic']),
+    control: Object.freeze({
+      store: 'prefs', key: 'smoothWeaponAnim', initial: true, online: 'player',
+      also: Object.freeze([
+        Object.freeze({ store: 'prefs', key: 'smoothWeaponStrength', initial: 'normal', online: 'player' }),
+        Object.freeze({ store: 'prefs', key: 'smoothWeaponStart', initial: true, online: 'player' }),
+        Object.freeze({ store: 'prefs', key: 'smoothWeaponBlur', initial: 'subtle', online: 'player' }),
+        Object.freeze({ store: 'prefs', key: 'smoothWeaponEdges', initial: true, online: 'player' }),
+      ]),
+      parts: Object.freeze([
+        Object.freeze({
+          key: 'smoothWeaponStrength',
+          get label() { return t('features.smoothWeaponAnim.strength', 'Strength'); },
+          tiers: Object.freeze([
+            tier('subtle', () => t('features.smoothWeaponAnim.strength.subtle', 'Subtle')),
+            tier('normal', () => t('features.smoothWeaponAnim.strength.normal', 'Normal')),
+            tier('full', () => t('features.smoothWeaponAnim.strength.full', 'Full')),
+          ]),
+        }),
+        Object.freeze({
+          key: 'smoothWeaponStart',
+          get label() { return t('features.smoothWeaponAnim.start', 'Smooth start'); },
+        }),
+        Object.freeze({
+          key: 'smoothWeaponBlur',
+          get label() { return t('features.smoothWeaponAnim.blur', 'Motion blur'); },
+          tiers: Object.freeze([
+            tier('off', OFF),
+            tier('subtle', () => t('features.smoothWeaponAnim.blur.subtle', 'Subtle')),
+            tier('strong', () => t('features.smoothWeaponAnim.blur.strong', 'Strong')),
+          ]),
+        }),
+        Object.freeze({
+          key: 'smoothWeaponEdges',
+          get label() { return t('features.smoothWeaponAnim.edges', 'Extend edges'); },
+        }),
+      ]),
+    }),
+  }),
   // RESOURCE-HIGHLIGHTS (2026-10-26, the owner: "Reintroduce resource highlights as an option" - bible/06-Systems/
   // Professions-Arc.md section 54): what lights a gathering node - NODE-GLINT's glints on its own picture (the default, the
   // owner's choice of 2026-10-20 after players found the ring unimmersive), NODE-OUTLINE's ring round it in its profession's

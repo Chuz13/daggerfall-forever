@@ -94,7 +94,25 @@ import {
   MELEE_NUM_FRAMES,
   BOW_NUM_FRAMES,
 } from '../../characters/weaponStates.js';
-import { WEAPON_TYPES, STATE_INDEX, ALIGN, NATIVE_W, NATIVE_H, WEAPON_FILE, weaponTypeForItem } from '../fpsWeapon.js';
+import {
+  WEAPON_TYPES,
+  STATE_INDEX,
+  ALIGN,
+  NATIVE_W,
+  NATIVE_H,
+  WEAPON_FILE,
+  weaponTypeForItem,
+  getExtendedRecordFrame,
+} from '../fpsWeapon.js';
+import {
+  analyzeWeaponFrame,
+  nextSwingFrame,
+  smoothSlide,
+  smoothWeaponConfig,
+  createSmoothTracker,
+  drawSmoothedWeapon,
+} from './smoothWeaponAnim.js';
+import { extendFrameEdges } from './extendEdges.js';
 import { weaponOffsetHeight } from '../../ui/hud/hudLarge.js';
 import { swingSoundFor } from '../../systems/soundClips.js';
 import { isEnchanted } from '../../systems/inventory.js';
@@ -212,10 +230,12 @@ export function createWeaponWidget({
     flipHorizontal: false,
     isInThirdPerson: false,
     time: 0,
+    dt: 0,
     specificWeapon: null,
     art: null,
     s: settings(),
   };
+  const defaultSmoothTracker = createSmoothTracker();
   let ctx = null; // the frame's inputs (lateUpdate's argument), read by the coroutines
   const machineStateIndex = () => STATE_INDEX[ctx?.machine?.state ?? 'Idle'] ?? 0;
   const machineIsAttacking = () => !!ctx?.machine && ctx.machine.state !== 'Idle';
@@ -352,11 +372,21 @@ export function createWeaponWidget({
               return;
             }
             const tex = ctx.renderer.uploadTexture('img', `ww:${name}`, img);
+            const meta = analyzeWeaponFrame(img);
             // AUDIT-DW F3: WHICH name answered rides the hit. The clone doubles
             // a custom idle's box under DoubleScaleTextures because a `w_`
             // texture IS double size; a plain name that answered through the
             // DW1 fall-through is not, and doubled it drew at twice its size
-            cache.set(name, { tex, width: img.width, height: img.height, doubled: name.startsWith('w_') });
+            cache.set(name, {
+              name,
+              tex,
+              width: img.width,
+              height: img.height,
+              doubled: name.startsWith('w_'),
+              meta,
+              src: meta.cutL || meta.cutR || meta.cutB ? img : null,
+              ext: undefined,
+            });
           })
           .catch((e) => {
             misses.add(name);
@@ -792,12 +822,14 @@ export function createWeaponWidget({
     if (w.currentWeaponType === T.Bow) gen = playBowAnimation();
     else if (w.s.swing) gen = playWeaponAnimation(state);
     else gen = playVanillaWeaponAnimation(state);
-    const a = { gen, wait: 0 };
+    const a = { gen, wait: 0, waitTotal: 0, stepDir: 0, isFirstAttackFrame: false };
     w.animating = a;
     w.hasCurrentAttackHit = false;
     resume(a);
   }
   function resume(a) {
+    const prevState = w.weaponState;
+    const prevFrame = w.currentFrame;
     let r;
     try {
       r = a.gen.next();
@@ -810,7 +842,28 @@ export function createWeaponWidget({
       if (w.animating === a) w.animating = null;
       return;
     }
-    a.wait = r.value === FRAME ? FRAME : Math.max(0, Number(r.value) || 0);
+    if (r.value === FRAME) {
+      a.wait = FRAME;
+      a.waitTotal = 0;
+      a.stepDir = 0;
+    } else {
+      const wait = Math.max(0, Number(r.value) || 0);
+      a.wait = wait;
+      a.waitTotal = wait;
+      if (w.weaponState === S.Idle || w.currentFrame < 0) {
+        a.stepDir = 0;
+        a.isFirstAttackFrame = false;
+      } else if (w.currentFrame > prevFrame || prevState === S.Idle) {
+        a.stepDir = 1;
+        a.isFirstAttackFrame = prevState === S.Idle && w.currentFrame === 0 && w.s.swingWindup !== WINDUP.Idle;
+      } else if (w.currentFrame < prevFrame) {
+        a.stepDir = -1;
+        a.isFirstAttackFrame = false;
+      } else {
+        a.stepDir = 0;
+        a.isFirstAttackFrame = false;
+      }
+    }
   }
   /** Unity's clock for the coroutines: a `yield seconds` resumes ahead
    *  of the frame's LateUpdate once its wait has run out (the remainder
@@ -852,6 +905,7 @@ export function createWeaponWidget({
   function lateUpdate(dt, c) {
     ctx = c;
     c.dt = dt;
+    w.dt = dt;
     w.s = settings();
     // TWO-HANDS (AUDIT 2): `clockOf` - the clone whose clock this one keeps (a pair's left hand keeps the right's): the
     // Bob's phase is the clone's own time, and a left clone left resting through single-hand play woke on a clock seconds
@@ -1061,10 +1115,79 @@ export function createWeaponWidget({
     updateWeapon();
   }
 
+  function getExtendedCustom(custom, record, frame) {
+    if (!custom) return null;
+    if (custom.ext !== undefined) return custom.ext;
+    if (!custom.src || !custom.meta || !ctx?.renderer) {
+      custom.ext = null;
+      return null;
+    }
+    const ext = extendFrameEdges(custom.src, custom.meta, { artWidth: custom.width, artHeight: custom.height });
+    if (!ext) {
+      custom.ext = null;
+      return null;
+    }
+    const key = custom.name ? `ww:${custom.name}:ext` : `ww:ext:${w.currentWeaponType}:${record}:${frame}`;
+    const tex = ctx.renderer.uploadTexture('img', key, ext);
+    custom.ext = { tex, pad: ext.pad, origSize: [ext.origW, ext.origH] };
+    return custom.ext;
+  }
+
+  /** Compute un-transformed base placement rect for any (stateIdx, frameIdx) in the current atlas. */
+  function baseRectFor(stateIdx, frameIdx) {
+    const art = w.art,
+      a = anims();
+    if (!art || !a || !ctx) return null;
+    const isBow = ctx.weaponType === T.Bow;
+    const record = isBow ? 0 : a[stateIdx]?.Record;
+    const rec = art.records[record];
+    if (!rec) return null;
+    const custom = customTexture(record, Math.max(0, frameIdx));
+    const anim = { ...a[stateIdx] };
+    if (w.s.swingAlignmentOverride && w.specificWeapon && (stateIdx === S.StrikeDown || stateIdx === S.StrikeUp)) {
+      const t = w.currentWeaponType;
+      if (!(t === T.Bow || t === T.Melee || t === T.Dagger || t === T.Dagger_Magic || t === T.Warhammer || t === T.Warhammer_Magic)) {
+        anim.Alignment = ALIGN.Center;
+      }
+    }
+    let width = rec.width,
+      height = rec.height;
+    if (custom) {
+      if (w.s.trueSize) {
+        width = custom.width / w.s.textureScaleFactor;
+        height = custom.height / w.s.textureScaleFactor;
+      } else if (w.s.doubleScale && custom.doubled !== false) {
+        if ((w.currentWeaponType === T.Bow && frameIdx === 0) || (w.currentWeaponType !== T.Bow && stateIdx === S.Idle)) {
+          width *= 2;
+          height *= 2;
+        }
+      }
+    }
+    const sx = w.screenRect.width / NATIVE_W;
+    const sy = w.screenRect.height / NATIVE_H;
+    const rw = width * sx,
+      rh = height * sy;
+    const ry = w.screenRect.y + w.screenRect.height - rh - w.weaponOffsetHeight;
+    let rx;
+    if (anim.Alignment === ALIGN.Left) {
+      rx = w.screenRect.x + w.screenRect.width * anim.Offset;
+    } else if (anim.Alignment === ALIGN.Center) {
+      const mid = w.screenRect.x + w.screenRect.width / 2;
+      rx = anim.Alignment === ALIGN.Center && w.s.swingAlignmentOverride && w.specificWeapon && (stateIdx === S.StrikeDown || stateIdx === S.StrikeUp) && !(w.currentWeaponType === T.Bow || w.currentWeaponType === T.Melee || w.currentWeaponType === T.Dagger || w.currentWeaponType === T.Dagger_Magic || w.currentWeaponType === T.Warhammer || w.currentWeaponType === T.Warhammer_Magic)
+        ? (w.flipHorizontal ? mid - rw : mid)
+        : mid - rw / 2;
+    } else if (w.flipHorizontal && MIRROR_STATES.includes(stateIdx)) {
+      rx = w.screenRect.x + w.screenRect.width * anim.Offset;
+    } else {
+      rx = w.screenRect.x + w.screenRect.width * (1 - anim.Offset) - rw;
+    }
+    return { x: rx, y: ry, w: rw, h: rh };
+  }
+
   /** OnGUI's repaint (IL 0x1424-0x1582): with the Offset module the
    *  sprite draws whatever the show clocks say (the slide takes it off
    *  screen); without it, only while the rig would show it. */
-  function draw(renderer, canvas, tint = null, { transform = null, mirror = false } = {}) {
+  function draw(renderer, canvas, tint = null, { transform = null, mirror = false, tracker = defaultSmoothTracker } = {}) {
     // MAC-I: the room's light, as the sprite this clone stands in for takes it; TWO-HANDS: a pair's hand - its guard (`transform`, on the rect) and the mirror
     if (!ctx || !w.art || !renderer || !canvas) return false;
     if (ctx.weaponType === T.None) return false;
@@ -1081,38 +1204,116 @@ export function createWeaponWidget({
     // the page's deliberately-not-carried list) and this return IS that
     // hide. Only genuine NOT-APPLICABLE - no ctx or art, no anim, record
     // or texture data - may fall through to the classic sprite.
-    if (w.currentFrame === -1 || !w.showWeapon || ctx.thirdPerson) return true;
-    if (!w.s.offset && !ctx.shown) return true;
+    if (w.currentFrame === -1 || !w.showWeapon || ctx.thirdPerson) {
+      tracker?.clearTrail?.();
+      return true;
+    }
+    if (!w.s.offset && !ctx.shown) {
+      tracker?.reset?.();
+      return true;
+    }
     const a = anims();
     if (!a) return false;
     const record = ctx.weaponType === T.Bow ? 0 : a[w.weaponState].Record;
     const rec = w.art.records[record];
     if (!rec) return false;
-    const tex = w.curCustomTexture?.tex ?? rec.frames[Math.min(Math.max(0, w.currentFrame), rec.frames.length - 1)];
+    const f = Math.min(Math.max(0, w.currentFrame), rec.frames.length - 1);
+    const tex = w.curCustomTexture?.tex ?? rec.frames[f];
     if (!tex) return false;
-    if (!transform && !mirror) {
-      renderer.drawScreenQuad(tex, getWeaponRect(), w.curAnimRect, tint ?? undefined);
-      if (ctx.glow)
-        renderer.drawScreenQuadGlow?.(tex, getWeaponRect(), w.curAnimRect, ctx.glow, {
-          art: [rec.width, rec.height],
-          view: [canvas.width, canvas.height],
-        }); // WEAPON-GLOW1: the element's outline, as the sprite it stands in for draws it (the rig's ctx says it each frame), in the record's own pixels
-      return true;
-    }
-    // TWO-HANDS: a hand of a pair - its guard on the rect, then the mirror about the screen's middle, its source read
-    // right to left (the one hand above is the mod's own line, untouched)
-    let rect = pairRect(mirror);
-    if (transform) rect = transform(rect);
-    if (mirror) rect = mirrorRect(rect, w.screenRect.width, w.screenRect.x);
+
+    const placeRect = (base) => {
+      if (!transform && !mirror) return transformRect(base);
+      let r = mirror ? transformRect(base, { position: [w.swayDx.bob - w.swayDx.inertia, w.position[1]] }) : transformRect(base);
+      if (transform) r = transform(r);
+      if (mirror) r = mirrorRect(r, w.screenRect.width, w.screenRect.x);
+      return r;
+    };
+
+    const baseRect = !transform && !mirror ? getWeaponRect() : placeRect(w.weaponPosition);
     const uv = mirror
       ? { u0: w.curAnimRect.u1, v0: w.curAnimRect.v0, u1: w.curAnimRect.u0, v1: w.curAnimRect.v1 }
       : w.curAnimRect;
-    renderer.drawScreenQuad(tex, rect, uv, tint ?? undefined);
+    const currMeta = w.curCustomTexture?.meta ?? rec.meta?.[f] ?? null;
+
+    if (w.weaponState === S.Idle) {
+      tracker?.recordIdle?.(baseRect, currMeta);
+    }
+
+    const cfg = smoothWeaponConfig();
+    if (cfg.enabled && w.weaponState !== S.Idle && currMeta) {
+      tracker?.checkAttackKey?.(`${ctx.weaponType}:${w.weaponState}:${mirror ? 'M' : 'R'}`);
+      const anim = w.animating;
+      const t = anim && anim.wait !== FRAME && anim.waitTotal > 0 ? clamp(1 - anim.wait / anim.waitTotal, 0, 1) : 0;
+      const dir = anim?.stepDir ?? 0;
+      const nextF =
+        dir !== 0
+          ? nextSwingFrame({
+              state: STATE_NAMES[w.weaponState],
+              frame: f,
+              numFrames: rec.frames.length,
+              isBow: ctx.weaponType === T.Bow,
+              isUnarmed: false,
+              dir,
+            })
+          : null;
+      let nextRect = null,
+        nextMeta = null;
+      if (nextF != null) {
+        const nb = baseRectFor(w.weaponState, nextF);
+        if (nb) {
+          nextRect = placeRect(nb);
+          nextMeta = customTexture(record, nextF)?.meta ?? rec.meta?.[nextF] ?? null;
+        }
+      }
+      const uvMirrored = uv.u1 < uv.u0;
+      const slid = smoothSlide({
+        currRect: baseRect,
+        currMeta,
+        nextRect,
+        nextMeta,
+        prevIdleRect: tracker?.idleRect ?? null,
+        prevIdleMeta: tracker?.idleMeta ?? null,
+        mirror: uvMirrored,
+        t,
+        isFirstFrame: !!anim?.isFirstAttackFrame && f === 0,
+        config: cfg,
+        weaponType: ctx.weaponType,
+        screenW: canvas.width,
+        screenH: canvas.height,
+      });
+      const ext = cfg.extendEdges
+        ? w.curCustomTexture
+          ? getExtendedCustom(w.curCustomTexture, record, f)
+          : getExtendedRecordFrame(renderer, rec, f)
+        : null;
+      drawSmoothedWeapon(renderer, canvas, {
+        tex,
+        extendedTex: ext?.tex ?? null,
+        pad: ext?.pad ?? null,
+        origSize: ext?.origSize ?? null,
+        rect: slid.rect,
+        baseRect,
+        uv,
+        mirror: uvMirrored,
+        tint,
+        glow: ctx.glow ?? null,
+        glowArt: [rec.width, rec.height],
+        rotate: slid.rotate,
+        tracker,
+        config: cfg,
+        attacking: true,
+        dt: w.dt ?? 0,
+        offsetHeight: w.weaponOffsetHeight,
+      });
+      return true;
+    }
+
+    renderer.drawScreenQuad(tex, baseRect, uv, tint ?? undefined);
     if (ctx.glow)
-      renderer.drawScreenQuadGlow?.(tex, rect, uv, ctx.glow, {
+      renderer.drawScreenQuadGlow?.(tex, baseRect, uv, ctx.glow, {
         art: [rec.width, rec.height],
         view: [canvas.width, canvas.height],
-      }); // WEAPON-GLOW1: this hand's own element, on its own rect and source
+      }); // WEAPON-GLOW1: the element's outline, as the sprite it stands in for draws it (the rig's ctx says it each frame), in the record's own pixels
     return true;
   }
   /** AUDIT SPELL-HAND L2-1: the clone has the weapon this frame - a context, its art, a weapon type - whether or not it

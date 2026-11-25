@@ -36,6 +36,14 @@ import { isHandWraps } from '../characters/handWrapsIds.js'; // HAND-WRAPS: the 
 import { THUNDERLOCK_STRIP } from './gun/thunderlockStrip.js'; // THUNDERLOCK-ART2: each gun's cycle its strip's own frame count - leaves both
 import { PISTOL_STRIP } from './gun/pistolStrip.js';
 import { applyDyeToIndex, DYE_TARGETS } from '../characters/dyes.js';
+import {
+  analyzeWeaponFrame,
+  nextSwingFrame,
+  smoothSlide,
+  smoothWeaponConfig,
+  drawSmoothedWeapon,
+} from './weapon/smoothWeaponAnim.js';
+import { extendFrameEdges } from './weapon/extendEdges.js';
 
 // WeaponTypes (DaggerfallUnityEnums), the animation-set ids.
 export const WEAPON_TYPES = Object.freeze({
@@ -425,6 +433,9 @@ export async function loadFpsWeaponArt(
   for (let r = 0; r < cif.recordCount; r++) {
     const size = cif.getSize(r);
     const frames = [];
+    const meta = [];
+    const sources = [];
+    const extended = [];
     for (let f = 0; f < cif.getFrameCount(r); f++) {
       const name = frameName(askName, r, f, metal);
       // a hit replaces THIS FRAME in the atlas and nothing else: the
@@ -435,11 +446,38 @@ export async function loadFpsWeaponArt(
       // and that is the other lane.
       const custom = customs[r][f];
       const c32 = custom ?? frameToColor32(cif.getDFBitmap(r, f), palette, dye);
-      frames.push(renderer.uploadTexture('img', custom ? `fpw:${name}` : `fpw:${fileName}:${material}:${r}:${f}`, c32));
+      const key = custom ? `fpw:${name}` : `fpw:${fileName}:${material}:${r}:${f}`;
+      frames.push(renderer.uploadTexture('img', key, c32));
+      const m = analyzeWeaponFrame(c32);
+      meta.push(m);
+      sources.push(m.cutL || m.cutR || m.cutB ? { c32, key } : null);
+      extended.push(undefined);
     }
-    records.push({ width: size.width, height: size.height, frames });
+    records.push({ width: size.width, height: size.height, frames, meta, sources, extended });
   }
   return { weaponType, anims: getWeaponAnims(weaponType), records };
+}
+
+/** Lazily compute and upload an edge-extended texture for a cut record frame. */
+export function getExtendedRecordFrame(renderer, rec, frameIdx) {
+  if (!rec?.extended || !rec.sources || !rec.meta || !renderer) return null;
+  const cached = rec.extended[frameIdx];
+  if (cached !== undefined) return cached;
+  const src = rec.sources[frameIdx];
+  const m = rec.meta[frameIdx];
+  if (!src || !m) {
+    rec.extended[frameIdx] = null;
+    return null;
+  }
+  const ext = extendFrameEdges(src.c32, m, { artWidth: rec.width, artHeight: rec.height });
+  if (!ext) {
+    rec.extended[frameIdx] = null;
+    return null;
+  }
+  const tex = renderer.uploadTexture('img', `${src.key}:ext`, ext);
+  const entry = { tex, pad: ext.pad, origSize: [ext.origW, ext.origH] };
+  rec.extended[frameIdx] = entry;
+  return entry;
 }
 
 /** TryImportCifRci's spelling for one frame - GetNameCifRci
@@ -520,6 +558,8 @@ export function drawFpsWeapon(
     // WEAPON-GLOW1: the element's outline over the frame (systems/weaponGlow.js spriteGlow; render/renderer.js
     // drawScreenQuadGlow) - null draws none, which is every weapon without one.
     glow = null,
+    // Optional sub-frame smoothing context ({ t, dir, animIndex, hold, tracker, dt })
+    smooth = null,
   } = {},
 ) {
   const q = fpsWeaponQuad(canvas, art, state, frame, { flipHorizontal, offsetHeight });
@@ -530,6 +570,65 @@ export function drawFpsWeapon(
     uv: src,
     rec,
   } = q;
+  const f = Math.min(frame, rec.frames.length - 1);
+  const currMeta = rec.meta?.[f] ?? null;
+  if (smooth?.tracker && state === 'Idle') {
+    smooth.tracker.recordIdle(q.rect, currMeta);
+  }
+  const cfg = smooth ? smoothWeaponConfig() : null;
+  if (cfg?.enabled && state !== 'Idle' && currMeta) {
+    const tracker = smooth.tracker ?? null;
+    if (tracker) tracker.checkAttackKey(`${art.weaponType}:${state}`);
+    const nextF = nextSwingFrame({
+      state,
+      frame: f,
+      numFrames: rec.frames.length,
+      isBow: art.weaponType === WEAPON_TYPES.Bow,
+      isUnarmed: art.weaponType === WEAPON_TYPES.Melee || art.weaponType === WEAPON_TYPES.Werecreature,
+      animIndex: smooth.animIndex ?? 0,
+      dir: smooth.dir ?? 1,
+      hold: smooth.hold ?? 0,
+    });
+    const nq = nextF != null ? fpsWeaponQuad(canvas, art, state, nextF, { flipHorizontal, offsetHeight }) : null;
+    const nextMeta = nq ? (nq.rec.meta?.[nextF] ?? null) : null;
+    const mirror = !!src && src.u1 < src.u0;
+    const slid = smoothSlide({
+      currRect: q.rect,
+      currMeta,
+      nextRect: nq?.rect ?? null,
+      nextMeta,
+      prevIdleRect: tracker?.idleRect ?? null,
+      prevIdleMeta: tracker?.idleMeta ?? null,
+      mirror,
+      t: smooth.t ?? 0,
+      isFirstFrame: f === 0,
+      config: cfg,
+      weaponType: art.weaponType,
+      screenW: canvas.width,
+      screenH: canvas.height,
+    });
+    const ext = cfg.extendEdges ? getExtendedRecordFrame(renderer, rec, f) : null;
+    drawSmoothedWeapon(renderer, canvas, {
+      tex,
+      extendedTex: ext?.tex ?? null,
+      pad: ext?.pad ?? null,
+      origSize: ext?.origSize ?? null,
+      rect: slid.rect,
+      baseRect: q.rect,
+      uv: src,
+      mirror,
+      tint,
+      glow,
+      glowArt: [rec.width, rec.height],
+      rotate: slid.rotate,
+      tracker,
+      config: cfg,
+      attacking: true,
+      dt: smooth.dt ?? 0,
+      offsetHeight,
+    });
+    return;
+  }
   renderer.drawScreenQuad(tex, { x, y, w, h }, src, tint ?? undefined); // MAC-I: Tint
   if (glow)
     renderer.drawScreenQuadGlow?.(tex, { x, y, w, h }, src, glow, {

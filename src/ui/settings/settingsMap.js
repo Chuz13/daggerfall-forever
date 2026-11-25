@@ -229,6 +229,7 @@ export const CATEGORIES = Object.freeze([
     ]),
     sec('weapons', 'Weapons in hand', [
       'feat:weapon-glow',
+      'feat:smooth-weapon-anim',
       'feat:mod-weapon-widget',
       'feat:mod-shield-widget',
       'feat:mod-readied-spellcasting-hands',

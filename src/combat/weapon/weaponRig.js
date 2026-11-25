@@ -73,6 +73,8 @@ import { SOUND } from '../../systems/soundClips.js';
 import { equipSoundFor } from '../../characters/weapons.js';   // F023: GetEquipSound
 import { setMidScreenText } from '../../ui/midScreenText.js'; import { weaponOffsetHeight } from '../../ui/hud/hudLarge.js';   // AUDIT 64 F34: FPSWeapon.cs:365's mid-screen line; CLIMB4: OnGUI's own offset, the climb's drop under it
 import { createWeaponWidget } from './weaponWidget.js';
+import { createSmoothTracker } from './smoothWeaponAnim.js';
+import { getMeleeWeaponAnimTime, CLASSIC_UPDATE_INTERVAL } from '../../characters/weaponStates.js';
 import { createTwoHands } from '../twoHands/twoHands.js';   // TWO-HANDS: the sprite lane's second hand, its guard and the running hands
 import { atlasFileName } from '../diverseWeapons/diverseWeapons.js';   // DW1: the art cache's third key
 // SW1: SHIELD WIDGET. The sibling, beside the weapon's clone and driven
@@ -535,6 +537,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     return s;
   };
   const widget = createWeaponWidget({ audio, envHit: envCast, missEffect, settings: widgetSettings });
+  const smoothTracker = createSmoothTracker();
+  let _lastSmoothWeapon = null;
+  let _lastDt = 0;
   // TWO-HANDS (bible/05-Combat/Two-Hands.md): both fists up and a pair of weapons - the left hand's clone beside the
   // right's (the widget above is the one hand's, and a pair's right hand), the guard, and the running hands. The one
   // component every host's rig owns, as the clone is.
@@ -2076,6 +2081,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         fpArm.update(dt);
       }
       if (paralyzed) return [];
+      _lastDt = dt;
       // MW-D42 (Mac: the bow "damages on click instead of following the
       // bow animation"): THE LOOSE WAITS FOR THE ARM. The machine's
       // 'hit' for a bow is frame 5 of the classic 7-frame release, and
@@ -2566,7 +2572,10 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // mirror and its guard under the shot). Taken where both pairs' branches are; through the holster's slide too.
       if (c && pistolsUp() && playerWeapon.mixedPair && pairUp() && !eotbHidesWeapon() && !fpArm.active() && !sheetWindowUp() && (shown() || gunSliding)) {
         const gh = playerWeapon.gunHand;
-        const o = { widget, widgetOn: widgetOn(), shown: spriteShown(), tint: fpTint, offsetHeight: weaponOffsetHeight() - climbDrop(_climbLower, c.height), running: false };
+        const m = playerWeapon.machine;
+        const tick = m.tick ?? (m.isBow ? CLASSIC_UPDATE_INTERVAL : getMeleeWeaponAnimTime(playerWeapon.liveSpeed, playerWeapon.animCtx?.()));
+        const classicT = m.state !== 'Idle' && tick > 0 ? Math.max(0, Math.min(1, m.acc / tick)) : 0;
+        const o = { widget, widgetOn: widgetOn(), shown: spriteShown(), tint: fpTint, offsetHeight: weaponOffsetHeight() - climbDrop(_climbLower, c.height), running: false, t: classicT, dt: _lastDt };
         for (const h of twoHands.drawOrder()) {
           if (h !== gh) { twoHands.drawPair(renderer, c, { ...o, only: h, artFor: (hand) => artFor(playerWeapon.handItem(hand)), glowFor: handGlowOf }); continue; }
           const art = artFor(playerWeapon.handItem(gh));
@@ -2577,7 +2586,10 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         return;
       }
       if (c && !eotbHidesWeapon() && !fpArm.active() && !sheetWindowUp() && (runDrawn || (pairUp() && shown()))) {
-        const o = { widget, widgetOn: widgetOn(), shown: spriteShown(), tint: fpTint, offsetHeight: weaponOffsetHeight() - climbDrop(_climbLower, c.height) };   // CLIMB4: lowered for the climb, as the one sprite is
+        const m = playerWeapon.machine;
+        const tick = m.tick ?? (m.isBow ? CLASSIC_UPDATE_INTERVAL : getMeleeWeaponAnimTime(playerWeapon.liveSpeed, playerWeapon.animCtx?.()));
+        const classicT = m.state !== 'Idle' && tick > 0 ? Math.max(0, Math.min(1, m.acc / tick)) : 0;
+        const o = { widget, widgetOn: widgetOn(), shown: spriteShown(), tint: fpTint, offsetHeight: weaponOffsetHeight() - climbDrop(_climbLower, c.height), t: classicT, dt: _lastDt };   // CLIMB4: lowered for the climb, as the one sprite is
         // TWO-HANDS (AUDIT): the running fists first, then the pair over them - a punch thrown on the run is drawn from its
         // first frame, over the other fist easing from the pump to its guard (drawRun leaves the striking hand to drawPair)
         if (runDrawn) twoHands.drawRun(renderer, c, artFor(null), { ...(pairUp() && shown() ? o : { ...o, shown: false }), glowFor: handGlowOf });   // HAND-WRAPS: the running fists in their wraps' glow
@@ -2651,7 +2663,22 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       const art = c && artFor(playerWeapon.weapon);
       const m = playerWeapon.machine, offsetHeight = c ? weaponOffsetHeight() - climbDrop(_climbLower, c.height) : 0;
       const spellDrop = art && _spellGuard.weapon > 0 ? guardDrop(_spellGuard.weapon, fpsWeaponQuad(c, art, m.state, m.frame, { offsetHeight })?.rect.h ?? 0) : 0;
-      if (art && spriteShown()) drawFpsWeapon(renderer, c, art, m.state, m.frame, { tint: fpTint, offsetHeight: offsetHeight - spellDrop, glow: heldGlowNow() });   // CLIMB4: lowered for the climb (0: OnGUI's own offset); WEAPON-GLOW1: the element's outline, the held weapon's own
+      if (playerWeapon.sheathed || playerWeapon.weapon !== _lastSmoothWeapon) {
+        smoothTracker.reset();
+        _lastSmoothWeapon = playerWeapon.weapon;
+      }
+      if (art && spriteShown()) {
+        const tick = m.tick ?? (m.isBow ? CLASSIC_UPDATE_INTERVAL : getMeleeWeaponAnimTime(playerWeapon.liveSpeed, playerWeapon.animCtx?.()));
+        const classicT = m.state !== 'Idle' && tick > 0 ? Math.max(0, Math.min(1, m.acc / tick)) : 0;
+        drawFpsWeapon(renderer, c, art, m.state, m.frame, {
+          tint: fpTint,
+          offsetHeight: offsetHeight - spellDrop,
+          glow: heldGlowNow(),
+          smooth: { t: classicT, dir: 1, animIndex: m.animIndex, hold: m.hold, tracker: smoothTracker, dt: _lastDt },
+        });   // CLIMB4: lowered for the climb (0: OnGUI's own offset); WEAPON-GLOW1: the element's outline, the held weapon's own
+      } else {
+        smoothTracker.clearTrail();
+      }
     }
   }
 }
