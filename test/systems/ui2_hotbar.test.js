@@ -18,7 +18,8 @@ import { setItemFields, mintCondition } from '../../src/systems/item/itemTemplat
 import { ARMOR_MATERIAL } from '../../src/systems/armorMaterials.js';
 import { createSurvivalItem } from '../../src/systems/survival/items.js';
 import { TEMPLATE as SURV } from '../../src/systems/survival/food.js';
-import { spellIconPicture, sheetCutUrl } from '../../src/ui/enhanced/enhancedArt.js';
+import { spellIconPicture, sheetCutUrl, _resetArtForTests } from '../../src/ui/enhanced/enhancedArt.js';
+import { SPELL_ICON_COUNT } from '../../src/systems/spell/spellMaker.js';
 import { _fittedKeys } from '../../src/ui/textureCanvas.js';
 import { fitCanvas } from '../../src/ui/bitmapCanvas.js';
 
@@ -67,29 +68,52 @@ test('UI2 spell entries: a slot keeps its spell\'s ICON00I0 icon, so a spell gon
   try {
     HB.clearQuickslots();
     const fire = { index: 7, name: 'Fireball', icon: 12, element: 1, rangeType: 2 };
+    const extraLow = { index: 9, name: 'Arcane Bolt', icon: 69, element: 4, rangeType: 2 };
+    const extraOverByte = { index: 10, name: 'Solar Flare', icon: 256, element: 0, rangeType: 2 };
+    const extraMid = { index: 11, name: 'Nova', icon: 300, element: 0, rangeType: 2 };
+    const extraLast = { index: 12, name: 'Void', icon: SPELL_ICON_COUNT - 1, element: 4, rangeType: 2 };
     assert.deepEqual(HB.hotbarEntryForSpell(fire), { type: 'spell', index: 7, name: 'Fireball', icon: 12 });
+    assert.deepEqual(HB.hotbarEntryForSpell(extraOverByte), { type: 'spell', index: 10, name: 'Solar Flare', icon: 256 });
+    assert.deepEqual(HB.hotbarEntryForSpell(extraLast), { type: 'spell', index: 12, name: 'Void', icon: SPELL_ICON_COUNT - 1 });
     assert.deepEqual(HB.hotbarEntryForSpell({ index: 8, name: 'Heal' }), { type: 'spell', index: 8, name: 'Heal' }, 'a record with no icon: none');
-    assert.deepEqual(HB.hotbarEntryForSpell({ index: 8, name: 'Heal', icon: 300 }), { type: 'spell', index: 8, name: 'Heal' }, 'not a byte: none');
+    assert.deepEqual(HB.hotbarEntryForSpell({ index: 8, name: 'Heal', icon: -1 }), { type: 'spell', index: 8, name: 'Heal' }, 'negative: none');
+    assert.deepEqual(HB.hotbarEntryForSpell({ index: 8, name: 'Heal', icon: SPELL_ICON_COUNT }), { type: 'spell', index: 8, name: 'Heal' }, 'past SPELL_ICON_COUNT: none');
     HB.setHotbarSlot(0, HB.hotbarEntryForSpell(fire));
-    const me = body([]); me.spells = [fire];
+    HB.setHotbarSlot(3, HB.hotbarEntryForSpell(extraLow));
+    HB.setHotbarSlot(4, HB.hotbarEntryForSpell(extraOverByte));
+    HB.setHotbarSlot(5, HB.hotbarEntryForSpell(extraMid));
+    HB.setHotbarSlot(6, HB.hotbarEntryForSpell(extraLast));
+    const me = body([]); me.spells = [fire, extraLow, extraOverByte, extraMid, extraLast];
     assert.equal(HB.hotbarView(me)[0].icon, 12, 'the book\'s own');
+    assert.equal(HB.hotbarView(me)[3].icon, 69, 'extra icon below 256');
+    assert.equal(HB.hotbarView(me)[4].icon, 256, 'extra icon at 256');
+    assert.equal(HB.hotbarView(me)[5].icon, 300, 'extra icon above 255');
+    assert.equal(HB.hotbarView(me)[6].icon, SPELL_ICON_COUNT - 1, 'last extra icon');
     me.spells = [];
     const gone = HB.hotbarView(me)[0];
     assert.equal(gone.ghost, true); assert.equal(gone.icon, 12, 'the one it was slotted with');
+    assert.equal(HB.hotbarView(me)[4].ghost, true);
+    assert.equal(HB.hotbarView(me)[4].icon, 256, 'ghost extra icon kept');
+    assert.equal(HB.hotbarView(me)[6].icon, SPELL_ICON_COUNT - 1, 'ghost last extra icon kept');
     // the save: the icon, and a wear and a use slot, come back; a bogus kind and a bogus icon do not
     const cuirass = armour(102);
     HB.setHotbarSlot(1, HB.hotbarEntryForItem(cuirass));
     HB.setHotbarSlot(2, HB.hotbarEntryForItem(book()));
     const saved = HB.quickslotSaveData();
     assert.equal(saved.hotbar[0].icon, 12);
+    assert.equal(saved.hotbar[4].icon, 256);
+    assert.equal(saved.hotbar[6].icon, SPELL_ICON_COUNT - 1);
     HB.clearQuickslots();
     HB.restoreQuickslotSaveData(JSON.parse(JSON.stringify(saved)));
     assert.deepEqual(HB.hotbarEntry(0), { type: 'spell', index: 7, name: 'Fireball', icon: 12 });
+    assert.deepEqual(HB.hotbarEntry(4), { type: 'spell', index: 10, name: 'Solar Flare', icon: 256 });
+    assert.deepEqual(HB.hotbarEntry(6), { type: 'spell', index: 12, name: 'Void', icon: SPELL_ICON_COUNT - 1 });
     assert.equal(HB.hotbarEntry(1).kind, 'wear');
     assert.equal(HB.hotbarEntry(2).kind, 'use');
-    HB.restoreQuickslotSaveData({ hotbar: [{ type: 'item', kind: 'throw', key: 'k', name: 'Rock' }, { type: 'spell', index: 3, name: 'X', icon: 'big' }] });
+    HB.restoreQuickslotSaveData({ hotbar: [{ type: 'item', kind: 'throw', key: 'k', name: 'Rock' }, { type: 'spell', index: 3, name: 'X', icon: 'big' }, { type: 'spell', index: 4, name: 'Y', icon: SPELL_ICON_COUNT }] });
     assert.equal(HB.hotbarEntry(0), null, 'a kind the bar does not know');
-    assert.deepEqual(HB.hotbarEntry(1), { type: 'spell', index: 3, name: 'X' }, 'an icon that is not a byte');
+    assert.deepEqual(HB.hotbarEntry(1), { type: 'spell', index: 3, name: 'X' }, 'an icon that is not an integer');
+    assert.deepEqual(HB.hotbarEntry(2), { type: 'spell', index: 4, name: 'Y' }, 'an icon past SPELL_ICON_COUNT');
   } finally { HB.clearQuickslots(); }
 });
 
@@ -229,12 +253,16 @@ test('UI2 the hosts: every host hands its quick use the pack\'s own three window
 
 test('UI2 spell icons: a spell\'s icon is ICON00I0\'s 16px tile FITTED to its slot, whole and untrimmed - an index past the sheet is none (mutants: a spell icon trimmed; an index past the sheet cut)', () => {
   assert.equal(spellIconPicture(-1, { box: 38 }), null);
-  assert.equal(spellIconPicture(69, { box: 38 }), null, 'sixty-nine icons: 0-68');
+  assert.equal(spellIconPicture(SPELL_ICON_COUNT, { box: 38 }), null, '508 icons: 0-507');
   assert.equal(spellIconPicture(1.5, { box: 38 }), null);
   assert.equal(spellIconPicture(undefined, { box: 38 }), null);
   assert.equal(spellIconPicture(12, { box: 38, dpr: 1 }), null, 'null while the sheet loads (node has none)');
+  assert.equal(spellIconPicture(69, { box: 38, dpr: 1 }), null, 'extra icon null while the sheet loads');
+  assert.equal(spellIconPicture(300, { box: 38, dpr: 1 }), null, 'extra icon over 255 null while the sheet loads');
   assert.ok(_fittedKeys().includes('spellicon12@38x1c4w'), 'asked whole (untrimmed) at the slot\'s box');
-  assert.ok(!_fittedKeys().some((k) => k.startsWith('spellicon69@')), 'no ask past the sheet');
+  assert.ok(_fittedKeys().includes('spellicon69@38x1c4w'), 'extra icon asked at the slot\'s box');
+  assert.ok(_fittedKeys().includes('spellicon300@38x1c4w'), 'extra icon over 255 asked at the slot\'s box');
+  assert.ok(!_fittedKeys().some((k) => k.startsWith(`spellicon${SPELL_ICON_COUNT}@`)), 'no ask past the sheet');
   // the untrimmed fit: the whole 16px tile, its dark border and all
   const made = [];
   const saved = globalThis.document;
@@ -276,7 +304,7 @@ test('UI2 wiring: the bar\'s slots draw fitted pictures at a measured box - an i
   assert.match(hud, /const QUICK_BOX = 40, QUICK_BOX_NARROW = 28;\nconst QUICK_NARROW = '\(max-width: 860px\)';/);
   assert.match(hud, /const key = `\$\{iconKeyOf\(item\)\}@\$\{box\}x\$\{dpr\}`;/, 'a new size or scale draws it anew');
   const art = read('src/ui/enhanced/enhancedArt.js');
-  assert.match(art, /return requestFittedPicture\(`spellicon\$\{index\}`, \(wake\) => sheetCutUrl\('ICON00I0\.IMG', rect, 1, wake\), \{\n\s*box,\n\s*dpr,\n\s*trim: false,\n\s*onReady,\n\s*\}\);/);
+  assert.match(art, /const sheet = index < CLASSIC_SPELL_ICON_COUNT \? 'ICON00I0\.IMG' : 'spell-icons-eleazzaar\.png';\r?\n\s*return requestFittedPicture\(`spellicon\$\{index\}`, \(wake\) => sheetCutUrl\(sheet, rect, 1, wake\), \{\r?\n\s*box,\r?\n\s*dpr,\r?\n\s*trim: false,\r?\n\s*onReady,\r?\n\s*\}\);/);
 });
 
 test('UI2 the sheet cutter tells every screen that waited on it: a spell icon is cut from ICON00I0 once its sheet lands, and each asker hears it once - a fitted icon asks second (mutant: a waiter not heard)', async () => {
@@ -291,6 +319,7 @@ test('UI2 the sheet cutter tells every screen that waited on it: a spell icon is
   };
   globalThis.ImageData = class { constructor(data, w, h) { this.data = data; this.width = w; this.height = h; } };
   globalThis.document = { createElement: () => { const c = { width: 0, height: 0 }; c.getContext = () => ({ putImageData() {}, drawImage() {}, imageSmoothingEnabled: true }); c.toDataURL = () => `data:image/png;cut-${c.width}x${c.height}`; return c; } };
+  _resetArtForTests();
   try {
     const told = { a: 0, b: 0, c: 0 };
     assert.equal(sheetCutUrl('ICON00I0.IMG', [16, 0, 16, 16], 1, () => told.a++), null, 'cold');
@@ -302,6 +331,43 @@ test('UI2 the sheet cutter tells every screen that waited on it: a spell icon is
     assert.equal(told.c, 0, 'a warm cut tells no one');
   } finally {
     globalThis.fetch = saved.fetch; globalThis.ImageData = saved.ImageData;
+    if (saved.hadDoc) globalThis.document = saved.document; else delete globalThis.document;
+  }
+});
+
+test('UI2 PNG sheet cutter loads extra spell icon atlas via fetch + createImageBitmap and notifies waiters once', async () => {
+  const saved = {
+    fetch: globalThis.fetch,
+    createImageBitmap: globalThis.createImageBitmap,
+    hadBitmap: 'createImageBitmap' in globalThis,
+    document: globalThis.document,
+    hadDoc: 'document' in globalThis,
+  };
+  let closed = false;
+  globalThis.fetch = async (url) => (String(url).includes('spell-icons-eleazzaar.png') ? { ok: true, status: 200, blob: async () => new Blob([new Uint8Array([1])]) } : { ok: false, status: 404 });
+  globalThis.createImageBitmap = async () => ({ width: 320, height: 352, close() { closed = true; } });
+  globalThis.document = {
+    createElement: () => {
+      const c = { width: 0, height: 0 };
+      c.getContext = () => ({ drawImage() {}, imageSmoothingEnabled: true });
+      c.toDataURL = () => `data:image/png;cut-${c.width}x${c.height}`;
+      return c;
+    },
+  };
+  _resetArtForTests();
+  try {
+    const told = { a: 0, b: 0, c: 0 };
+    assert.equal(sheetCutUrl('spell-icons-eleazzaar.png', [0, 0, 16, 16], 1, () => told.a++), null, 'cold');
+    assert.equal(sheetCutUrl('spell-icons-eleazzaar.png', [0, 0, 16, 16], 1, () => told.b++), null, 'in flight');
+    for (let i = 0; i < 40 && told.a === 0; i++) await new Promise((r) => setTimeout(r, 5));
+    assert.deepEqual(told, { a: 1, b: 1, c: 0 }, 'both waiters notified once');
+    assert.equal(closed, true, 'bitmap closed after draw');
+    assert.equal(sheetCutUrl('spell-icons-eleazzaar.png', [0, 0, 16, 16], 1, () => told.c++), 'data:image/png;cut-16x16', 'warm cut returned synchronously');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(told.c, 0, 'warm cut notifies no one');
+  } finally {
+    globalThis.fetch = saved.fetch;
+    if (saved.hadBitmap) globalThis.createImageBitmap = saved.createImageBitmap; else delete globalThis.createImageBitmap;
     if (saved.hadDoc) globalThis.document = saved.document; else delete globalThis.document;
   }
 });

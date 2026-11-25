@@ -76,6 +76,7 @@ import { BOOK_TEMPLATE } from './books.js'; // AUDIT CARDS-5 C3: a book keyed by
 import { hotbarInForce } from './uiSkin.js'; // AUDIT CONTRIB H1: the diamond put away while the hotbar is
 import { noteFirstUse } from './tutorials.js'; // TUT1: the first touch of a system pops its tutorial page
 import { CAST_PRESS } from '../combat/twoHands/spellHand.js'; // SPELL-HAND: the hotbar's press is a cast's own
+import { SPELL_ICON_COUNT } from './spell/spellMaker.js';
 /** The slots a player fills. The two consumables are what the diamond's
  *  top and bottom cells show; `swap` is the second weapon the off-hand
  *  cell offers when the off hand is empty. */
@@ -1248,7 +1249,8 @@ export function hotbarEntryForItem(item) {
 
 /** UI2: a spell's ICON00I0 icon, as its record carries it (SPELLS.STD's `icon` byte; a made spell's SetIcon), riding
  *  its hotbar entry so a spell that has left the book keeps the picture it was slotted with. `{ icon }` or nothing. */
-const iconOf = (sp) => (Number.isInteger(sp?.icon) && sp.icon >= 0 && sp.icon <= 255 ? { icon: sp.icon } : {});
+const iconOf = (sp) =>
+  Number.isInteger(sp?.icon) && sp.icon >= 0 && sp.icon < SPELL_ICON_COUNT ? { icon: sp.icon } : {};
 
 export function hotbarEntryForSpell(sp) {
   if (!keyedSpell(sp)) return null;
