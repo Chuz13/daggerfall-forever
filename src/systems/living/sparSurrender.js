@@ -120,6 +120,13 @@ export function beginSparEnd(foe, { playerWon = true, foes = [], playerEntity = 
   foe._sparGraceLeft = SPAR_GRACE_SECONDS;
   foe._sparKneeling = !!playerWon;
   foe._sparYieldAt = now;
+  const outcome = playerWon ? 'PLAYER_WON' : 'PLAYER_LOST';
+  foe._lastSparOutcome = outcome;
+  if (foe._advDialog) {
+    foe._advDialog.used = foe._advDialog.used ?? {};
+    foe._advDialog.used.wager = true;
+    foe._advDialog.sparOutcome = outcome;
+  }
 
   if (foe.ai) foe.ai.isHostile = false;
   resetCombatBody(foe);

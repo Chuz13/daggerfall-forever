@@ -2110,9 +2110,61 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       f._advRecord = hit.adv;
       equipAdventurerEntity(f.entity, hit.adv, effectiveLevel(playerEntity), Math.random);
     }
+    f.livingRole = 'rival_adventurer';
     if (f.ai) { f.ai.isHostile = false; f.ai.detected = false; f.ai.target = null; }
     _livingDungeonAdv = { foe: f, adv: hit.adv, intercepted: hit.intercepted, interacted: false };
     return f;
+  }
+  function openDungeonAdventurerDialog(rec) {
+    if (!rec || rec.dead || rec.ai?.isHostile || rec._isSparring || rec.livingRole === 'recruited_companion') {
+      return false;
+    }
+    const isTracked = _livingDungeonAdv && rec === _livingDungeonAdv.foe;
+    const adv = (isTracked ? _livingDungeonAdv.adv : null) ?? rec._advDialog?.adv ?? rec._advRecord ?? {
+      id: 9990,
+      name: rec.entity?.name || 'Sparring Duelist',
+      className: 'Knight',
+      level: rec.entity?.level || effectiveLevel(playerEntity),
+      trait: 'DUELIST',
+      currentRegion: _dungeonRegion,
+    };
+    const intercepted = isTracked ? _livingDungeonAdv.intercepted : (rec._advDialog?.intercepted ?? null);
+    const spec = buildDungeonAdventurerChoiceSpec({
+      adv,
+      intercepted,
+      locationId: _dungeonId,
+      regionIndex: _dungeonRegion,
+      playerEntity,
+      foeRecord: rec,
+      nowMinutes: skyMinutes(),
+      state: rec._advDialog ?? null,
+      openChoice: (ch) => pushDungeonWindow(new ChoiceWindow({ lines: ch.lines, options: ch.options })),
+      playSound: (id) => audio?.playOneShot?.(id, 0.75),
+      onHired: (comp, hiredRec) => {
+        if (_livingDungeonCompanion && _livingDungeonCompanion !== hiredRec) {
+          const prev = _livingDungeonCompanion;
+          _livingDungeonCompanion = null;
+          removeLooseFoe(prev);
+        }
+        if (hiredRec && comp) {
+          applyCompanionEntityStamp(
+            hiredRec,
+            comp,
+            () => lastPlayerFeet ?? [hiredRec.ai?.feet?.[0] ?? 0, hiredRec.ai?.feet?.[1] ?? 0, hiredRec.ai?.feet?.[2] ?? 0],
+          );
+          if (hiredRec.ai) hiredRec.ai.detected = true;
+          _livingDungeonCompanion = hiredRec;
+          _livingDungeonCompanionName = comp.displayName || comp.name || 'Adventurer';
+        }
+      },
+      say: (l) => hudText.add(l),
+    });
+    if (!spec) {
+      hudText.add(LIVING_WORDS.adventurerSettledCold(adv.name));
+      return true;
+    }
+    pushDungeonWindow(new ChoiceWindow({ lines: spec.lines, options: spec.options }));
+    return true;
   }
   function tickDungeonLivingAdventurer(playerFeet) {
     if (_livingDungeonCompanion?.dead) {
@@ -2140,36 +2192,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const d = Math.hypot(playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]);
     if (d <= 12) {
       _livingDungeonAdv.interacted = true;
-      const spec = buildDungeonAdventurerChoiceSpec({
-        adv: _livingDungeonAdv.adv,
-        intercepted: _livingDungeonAdv.intercepted,
-        locationId: _dungeonId,
-        regionIndex: _dungeonRegion,
-        playerEntity,
-        foeRecord: f,
-        nowMinutes: skyMinutes(),
-        openChoice: (ch) => pushDungeonWindow(new ChoiceWindow({ lines: ch.lines, options: ch.options })),
-        playSound: (id) => audio?.playOneShot?.(id, 0.75),
-        onHired: (comp, rec) => {
-          if (_livingDungeonCompanion && _livingDungeonCompanion !== rec) {
-            const prev = _livingDungeonCompanion;
-            _livingDungeonCompanion = null;
-            removeLooseFoe(prev);
-          }
-          if (rec && comp) {
-            applyCompanionEntityStamp(
-              rec,
-              comp,
-              () => lastPlayerFeet ?? playerFeet ?? [rec.ai?.feet?.[0] ?? 0, rec.ai?.feet?.[1] ?? 0, rec.ai?.feet?.[2] ?? 0],
-            );
-            if (rec.ai) rec.ai.detected = true;
-            _livingDungeonCompanion = rec;
-            _livingDungeonCompanionName = comp.displayName || comp.name || 'Adventurer';
-          }
-        },
-        say: (l) => hudText.add(l),
-      });
-      pushDungeonWindow(new ChoiceWindow({ lines: spec.lines, options: spec.options }));
+      openDungeonAdventurerDialog(f);
     }
   }
   /** RVN6's band, underground (scenes/exteriorFoes.js standBand's law): placed about it, loose (the dungeon's save
@@ -9753,6 +9776,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       return old ? removeLooseFoe(old) : false;
     },
     getLivingCompanionFoe: () => _livingDungeonCompanion,
+    openLivingAdventurer: openDungeonAdventurerDialog,
     arenaPit: _undercroftHall?.pit ?? null,   // ARENA-FIX 4: the training pit's centre (scenes/worldModes.js arenaPitStage)
     arenaPitAxis: _undercroftHall?.pitAxis ?? null,   // ...and its passage's way
     arenaHall: _undercroftHall?.hall ?? null,   // ARENA5: the Hall of Champions' place - its plaque wall hangs about it (scenes/worldModes.js standArenaWall)

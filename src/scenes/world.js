@@ -4075,6 +4075,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       townTalk.say('"Keep your hands off your weapon, wanderer. The merchant is under my protection."', 5);
       return true;
     }
+    if (rec.livingRole === 'wandering_adventurer' || rec.livingRole === 'rival_adventurer') {
+      return Boolean(livingSceneHostOf()?.openAdventurerDialog?.(rec));
+    }
     return false;
   }
 
@@ -30188,7 +30191,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     onPreTransition: () => { const n = handOverFoes(); if (n) console.info(`[foes] handed ${n} foe(s) at the door`); doorToken.entering(); },   // AUDIT PSCALE1 NET-3: a door out of the open country hands my foes to the players outside   // DOOR-TOKEN: and the room behind it has its token minted while the place builds
     horseCartSave: () => hccRuntime.getSaveData(),   // AUDIT HCC H3: the record a dungeon save carries (DFU's per-mod slot, whatever the switch says)
     deepCleared: (loc, stops, entry) => livingDeepCleared(loc, stops, entry),   // LW14: the stops a company left, at a dungeon's build
-    openLivingDiver: (rec) => (rec?.livingRole === 'recruited_companion' ? openRecruitedCompanionDialog(rec, { inDungeon: true }) : (livingWorldOn() && rec?.living ? !!livingDivers?.offers(rec, () => modes?.dungeonCtx?.hudSay?.(`${firstNameOf(rec.living.res?.name ?? '')}: "Keep your blade up down here."`)) : false)),   // LW14: a company below, pressed
+    openLivingDiver: (rec) => (
+    rec?.livingRole === 'recruited_companion'
+      ? openRecruitedCompanionDialog(rec, { inDungeon: true })
+      : (rec?.livingRole === 'rival_adventurer' || rec?.livingRole === 'wandering_adventurer')
+        ? Boolean(modes?.dungeonCtx?.openLivingAdventurer?.(rec))
+        : (livingWorldOn() && rec?.living ? !!livingDivers?.offers(rec, () => modes?.dungeonCtx?.hudSay?.(`${firstNameOf(rec.living.res?.name ?? '')}: "Keep your blade up down here."`)) : false)
+  ),   // LW14: a company below, pressed
     outerCampsSave: () => camps.snapshot(campToRecord),   // AUDIT REST II H6: my camps standing outside, for a dungeon's own save; AUDIT LANDFORMS C1: DFU's frame
     outerCampsLoad: (extras) => standSavedOuterCamps(extras),   // AUDIT REST III A1: and the save's stood again by the dungeon's own load
     horseCartLoad: (rec) => { hccRuntime.handleStartLoad(); upkeep.reset(); if (rec) hccRuntime.restoreSaveData(rec); },   // AUDIT HCC H3: a same-dungeon load's OnStartLoad and RestoreSaveData

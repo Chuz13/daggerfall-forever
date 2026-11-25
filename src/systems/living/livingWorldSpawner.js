@@ -1787,7 +1787,16 @@ export function applyCompanionEntityStamp(foe, comp, followFeetFn = null) {
     foe.entity.name = comp.displayName || comp.name;
     foe.entity.team = 'PlayerAlly';
     foe.entity.mobileTeam = 'PlayerAlly';
+    if (Number.isFinite(foe.entity.maxHealth) && foe.entity.maxHealth > 0) {
+      foe.entity.health = foe.entity.maxHealth;
+      if ('currentHealth' in foe.entity) foe.entity.currentHealth = foe.entity.maxHealth;
+    }
   }
+  foe._isSparring = false;
+  foe._surrenderedSpar = false;
+  foe._sparGraceLeft = 0;
+  foe._sparKneeling = false;
+  foe._duelWager = 0;
   if (foe.ai) {
     foe.ai.isHostile = false;
     foe.ai.target = null;
@@ -1810,6 +1819,73 @@ export function applyCompanionEntityStamp(foe, comp, followFeetFn = null) {
   foe.lootDropped = true;
   foe._suppressLoot = true;
   return foe;
+}
+
+/**
+ * Ensures a persistent per-actor dialog state on `foeRecord._advDialog` (or creates a standalone state).
+ * @param {any} foeRecord
+ * @param {any} defaults
+ */
+export function ensureAdventurerDialogState(foeRecord, defaults = {}) {
+  const existing = foeRecord?._advDialog;
+  if (existing) {
+    if (foeRecord?._surrenderedSpar) {
+      existing.used = existing.used ?? {};
+      existing.used.wager = true;
+      existing.talkedOnce = true;
+      if (!existing.sparOutcome) {
+        existing.sparOutcome = foeRecord._lastSparOutcome ?? 'PLAYER_WON';
+      }
+    }
+    return existing;
+  }
+  const surrendered = Boolean(foeRecord?._surrenderedSpar);
+  const state = {
+    kind: defaults.kind ?? 'ADVENTURER_MEETING',
+    adv: defaults.adv ?? foeRecord?._advRecord ?? null,
+    situation: defaults.situation ?? ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+    tension: defaults.tension ?? null,
+    wager: defaults.wager ?? 50,
+    intercepted: defaults.intercepted ?? null,
+    locationId: defaults.locationId ?? null,
+    regionIndex: defaults.regionIndex ?? 0,
+    used: {
+      wager: surrendered,
+      intel: false,
+      extort: false,
+      etiquette: false,
+      intimidate: false,
+      ...(defaults.used ?? {}),
+    },
+    sparOutcome: surrendered ? (foeRecord?._lastSparOutcome ?? 'PLAYER_WON') : (defaults.sparOutcome ?? null),
+    extorted: Boolean(defaults.extorted),
+    talkedOnce: Boolean(defaults.talkedOnce ?? surrendered),
+  };
+  if (foeRecord) foeRecord._advDialog = state;
+  return state;
+}
+
+function numberChoiceOptions(rawOptions) {
+  return rawOptions.map((opt, idx) => ({
+    code: `Digit${idx + 1}`,
+    label: `${idx + 1}. ${opt.labelText}`,
+    action: opt.action,
+  }));
+}
+
+function adventurerDialogHeader(adv, state, initialLines) {
+  if (!state.talkedOnce) {
+    state.talkedOnce = true;
+    return initialLines;
+  }
+  const tag = `${adv.name} (${adv.className || 'Warrior'}, Lv.${adv.level || 1})`;
+  if (state.sparOutcome === 'PLAYER_WON') {
+    return [`${tag}: "${LIVING_WORDS.adventurerReTalkAfterWin()}"`];
+  }
+  if (state.sparOutcome === 'PLAYER_LOST') {
+    return [`${tag}: "${LIVING_WORDS.adventurerReTalkAfterLoss()}"`];
+  }
+  return [`${tag}: "${LIVING_WORDS.adventurerReTalkPeaceful()}"`];
 }
 
 /**
@@ -2051,9 +2127,12 @@ export function createLivingSceneHost(deps) {
     if (wasActive) deps.onCompanionChanged?.(null);
   }
 
-  function adoptSiteCompanion(site, role, comp) {
+  function adoptSiteCompanion(site, role, comp, candidateFoe = null) {
     if (!comp) return;
-    const candidate = site?.foes?.find?.((f) => f?.livingRole === role || f?.livingRole === 'recruited_companion') || null;
+    const candidate =
+      candidateFoe ||
+      site?.foes?.find?.((f) => f?.livingRole === role || f?.livingRole === 'recruited_companion') ||
+      null;
     if (companionFoe && companionFoe !== candidate) {
       const old = companionFoe;
       companionFoe = null;
@@ -2826,144 +2905,28 @@ export function createLivingSceneHost(deps) {
       const adv = s.blueprint.meta?.adv;
       const tension = s.blueprint.meta?.tension;
       if (!adv) return;
-      const wager = tension?.wagerGold ?? 50;
-      const meetingOptions = [
-        {
-          code: 'Digit1',
-          label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
-          action: () => {
-            deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
-            const foe = s.foes.find((f) => f?.livingRole === 'rival_adventurer' || f?.livingRole === 'wandering_adventurer');
-            if (foe && (foe.motor || (foe.entity && foe.ai))) {
-              foe._isSparring = true;
-              foe._duelWager = wager;
-              foe._advRecord = adv;
-              foe._surrenderedSpar = false;
-              foe._sparGraceLeft = 0;
-              foe._sparKneeling = false;
-              if (foe.ai) {
-                foe.ai.isHostile = true;
-                foe.ai.detected = true;
-                foe.ai.target = player;
-                foe.ai.secondaryTarget = null;
-                foe.ai.makeHostileToPlayer?.(undefined, foe.ai.feet);
-                if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
-              }
-              deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
-            } else {
-              const res = resolveAdventurerEncounter({
-                adv,
-                playerEntity: player,
-                action: 'ACCEPT_DARE',
-                wagerGold: wager,
-                rng,
-              });
-              if (player && res.goldDelta) {
-                player.goldPieces = Math.max(0, Number(player.goldPieces ?? 0) + res.goldDelta);
-              }
-              if (res.outcome === DUEL_OUTCOME.PLAYER_WON) {
-                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                recordAdventurerGrudge(adv.name);
-              }
-              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)), 5);
-            }
-          },
-        },
-        {
-          code: 'Digit2',
-          label: `2. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
-          action: () => {
-            const res = resolveAdventurerEncounter({
-              adv,
-              playerEntity: player,
-              action: 'APPEAL_ETIQUETTE',
-              wagerGold: wager,
-              rng,
-            });
-            if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) {
-              setSiteHostile(s, true);
-              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
-            } else if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
-              adjustPlayerRegionalRep(player, regIdx, 1);
-              setSiteHostile(s, false);
-              deps.say(LIVING_WORDS.adventurerPeaceParted(adv.name), 5);
-            } else {
-              deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
-            }
-          },
-        },
-        {
-          code: 'Digit3',
-          label: `3. ${LIVING_WORDS.adventurerOptionIntimidate()}`,
-          action: () => {
-            const res = resolveAdventurerEncounter({
-              adv,
-              playerEntity: player,
-              action: 'INTIMIDATE',
-              wagerGold: wager,
-              rng,
-            });
-            if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) setSiteHostile(s, true);
-            deps.say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
-          },
-        },
-      ];
-
-      if (adv.trait !== 'CUTTHROAT') {
-        const dailyQuote = calculateAdventurerHireQuote(adv, player, {
-          days: 1,
-          regionIndex: regIdx,
-          nowMinutes: nowMin,
-        });
-        meetingOptions.push({
-          code: `Digit${meetingOptions.length + 1}`,
-          label: `${meetingOptions.length + 1}. ${LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost)}`,
-          action: () => {
-            deps.openChoice(
-              buildAdventurerHireSubmenuSpec({
-                adv,
-                playerEntity: player,
-                regionIndex: regIdx,
-                nowMinutes: nowMin,
-                situation: ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
-                openChoice: deps.openChoice,
-                say: deps.say,
-                playSound: deps.playSound,
-                onHired: (comp) => adoptSiteCompanion(s, 'rival_adventurer', comp),
-                rng,
-              }),
-            );
-          },
-        });
+      const foe = s.foes.find((f) => f?.livingRole === 'rival_adventurer' || f?.livingRole === 'wandering_adventurer') ?? null;
+      const spec = buildAdventurerMeetingChoiceSpec({
+        adv,
+        tension,
+        playerEntity: player,
+        foeRecord: foe,
+        regionIndex: regIdx,
+        nowMinutes: nowMin,
+        openChoice: deps.openChoice,
+        playSound: deps.playSound,
+        say: deps.say,
+        onHostile: () => setSiteHostile(s, true),
+        onPeaceful: () => setSiteHostile(s, false),
+        onForfeit: () => releaseSite(),
+        onHired: (comp) => adoptSiteCompanion(s, 'rival_adventurer', comp, foe),
+        rng,
+      });
+      if (spec) {
+        deps.openChoice(spec);
+      } else {
+        deps.say(LIVING_WORDS.adventurerSettledCold(adv.name), 5);
       }
-
-      meetingOptions.push({
-        code: `Digit${meetingOptions.length + 1}`,
-        label: `${meetingOptions.length + 1}. ${LIVING_WORDS.adventurerOptionDecline()}`,
-        action: () => {
-          deps.say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0), 4);
-        },
-      });
-      meetingOptions.push({
-        code: `Digit${meetingOptions.length + 1}`,
-        label: `${meetingOptions.length + 1}. ${LIVING_WORDS.surrenderOptionForfeitDuel(wager)}`,
-        action: () => {
-          if (player) {
-            const currentGold = Number(player.goldPieces ?? 0);
-            const forfeitPaid = Math.min(currentGold, wager);
-            player.goldPieces = Math.max(0, currentGold - forfeitPaid);
-          }
-          deps.say(LIVING_WORDS.surrenderOutcomeConceded(), 5);
-          releaseSite();
-        },
-      });
-
-      deps.openChoice({
-        lines: [
-          `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, wager)}"`,
-        ],
-        options: meetingOptions,
-      });
     } else if (s.kind === LIVING_SITE_KINDS.TRAVELER_REST) {
       const merchantActor = s.foes.find((f) => f?.livingRole === 'traveler');
       const lines = [
@@ -3280,149 +3243,35 @@ export function createLivingSceneHost(deps) {
       const adv = s.blueprint.meta?.adv;
       const situation = s.blueprint.meta?.situation ?? ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD;
       if (!adv) return;
-      const wager = Math.max(25, (adv.level || 3) * 15);
-      const dailyQuote = calculateAdventurerHireQuote(adv, player, {
-        days: 1,
+      const foe = s.foes.find((f) => f?.livingRole === 'wandering_adventurer' || f?.livingRole === 'rival_adventurer') ?? null;
+      const spec = buildWanderingAdventurerChoiceSpec({
+        adv,
+        situation,
+        playerEntity: player,
+        foeRecord: foe,
         regionIndex: regIdx,
         nowMinutes: nowMin,
+        openChoice: deps.openChoice,
+        playSound: deps.playSound,
+        say: deps.say,
+        onHostile: () => {
+          for (const f of s.foes) {
+            if (f?.livingRole === 'wandering_adventurer' && f.ai) {
+              f.ai.isHostile = true;
+              f.ai.detected = true;
+            }
+          }
+        },
+        onHired: (comp) => adoptSiteCompanion(s, 'wandering_adventurer', comp, foe),
+        rng,
       });
-      const introLine =
-        situation === ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP
-          ? LIVING_WORDS.roadAdvCamp(adv.name)
-          : situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS
-            ? LIVING_WORDS.roadAdvSkirmish(adv.name)
-            : situation === ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS
-              ? LIVING_WORDS.roadAdvSpoils(adv.name)
-              : LIVING_WORDS.roadAdvTraveling(adv.name);
-
-      deps.openChoice({
-        lines: [
-          introLine,
-          `${adv.name} (${adv.className}, Lv.${adv.level})`,
-        ],
-        options: [
-          {
-            code: 'Digit1',
-            label: `1. ${LIVING_WORDS.roadAdvOptionIntel()}`,
-            action: () => {
-              resolveWanderingAdventurerInteraction({
-                adv,
-                situation,
-                playerEntity: player,
-                action: 'SHARE_INTEL',
-                regionIndex: regIdx,
-                rng,
-              });
-              deps.say(LIVING_WORDS.roadAdvIntelShared(), 6);
-            },
-          },
-          {
-            code: 'Digit2',
-            label: `2. ${LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost)}`,
-            action: () => {
-              deps.openChoice(
-                buildAdventurerHireSubmenuSpec({
-                  adv,
-                  playerEntity: player,
-                  regionIndex: regIdx,
-                  nowMinutes: nowMin,
-                  situation,
-                  openChoice: deps.openChoice,
-                  say: deps.say,
-                  playSound: deps.playSound,
-                  onHired: (comp) => adoptSiteCompanion(s, 'wandering_adventurer', comp),
-                  rng,
-                }),
-              );
-            },
-          },
-          {
-            code: 'Digit3',
-            label: `3. ${LIVING_WORDS.roadAdvOptionSpar(wager)}`,
-            action: () => {
-              deps.playSound?.(LIVING_SOUNDS.SWORD_CLINK);
-              const foe = s.foes.find((f) => f?.livingRole === 'wandering_adventurer' || f?.livingRole === 'rival_adventurer');
-              if (foe && (foe.motor || (foe.entity && foe.ai))) {
-                foe._isSparring = true;
-                foe._duelWager = wager;
-                foe._advRecord = adv;
-                foe._surrenderedSpar = false;
-                foe._sparGraceLeft = 0;
-                foe._sparKneeling = false;
-                if (foe.ai) {
-                  foe.ai.isHostile = true;
-                  foe.ai.detected = true;
-                  foe.ai.target = player;
-                  foe.ai.secondaryTarget = null;
-                  foe.ai.makeHostileToPlayer?.(undefined, foe.ai.feet);
-                  if (typeof foe.ai.resumeLive === 'function') foe.ai.resumeLive();
-                }
-                deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
-              } else {
-                const res = resolveWanderingAdventurerInteraction({
-                  adv,
-                  situation,
-                  playerEntity: player,
-                  action: 'WAGER_SPAR',
-                  regionIndex: regIdx,
-                  rng,
-                });
-                if (res.outcome === WANDERING_OUTCOME.SPAR_WON) {
-                  deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                  recordAdventurerGrudge(adv.name);
-                }
-                deps.say(
-                  LIVING_WORDS.adventurerOutcome(
-                    res.outcome === WANDERING_OUTCOME.SPAR_WON ? DUEL_OUTCOME.PLAYER_WON : DUEL_OUTCOME.PLAYER_LOST,
-                    adv.name,
-                    Math.abs(res.goldDelta),
-                  ),
-                  5,
-                );
-              }
-            },
-          },
-          {
-            code: 'Digit4',
-            label: `4. ${LIVING_WORDS.roadAdvOptionExtort()}`,
-            action: () => {
-              const res = resolveWanderingAdventurerInteraction({
-                adv,
-                situation,
-                playerEntity: player,
-                action: 'EXTORT_SPOILS',
-                regionIndex: regIdx,
-                rng,
-              });
-              if (res.outcome === WANDERING_OUTCOME.EXTORTED_SPOILS) {
-                deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
-                recordAdventurerGrudge(adv.name);
-                deps.say(
-                  res.messageKey === 'living.roadAdv.extortPartial'
-                    ? LIVING_WORDS.roadAdvExtortPartial(adv.name)
-                    : LIVING_WORDS.roadAdvExtorted(adv.name),
-                  5,
-                );
-              } else if (res.hostile) {
-                for (const f of s.foes) {
-                  if (f?.livingRole === 'wandering_adventurer' && f.ai) {
-                    f.ai.isHostile = true;
-                    f.ai.detected = true;
-                  }
-                }
-                deps.say(LIVING_WORDS.adventurerDuelChallenge(), 5);
-              }
-            },
-          },
-          {
-            code: 'Digit5',
-            label: `5. ${LIVING_WORDS.adventurerOptionDecline()}`,
-            action: () => {
-              deps.say(LIVING_WORDS.roadAdvParted(), 4);
-            },
-          },
-        ],
-      });
+      if (spec) {
+        deps.openChoice(spec);
+      } else if (foe?._advDialog?.extorted) {
+        deps.say(LIVING_WORDS.roadAdvExtortedCold(adv.name), 5);
+      } else {
+        deps.say(LIVING_WORDS.adventurerSettledCold(adv.name), 5);
+      }
     } else if (s.kind === LIVING_SITE_KINDS.BANDIT_CAMP && s.blueprint.meta?.ambushDetectedByStealth) {
       const ransomCalc = calculateSurrenderRansom(player, Number(player?.level ?? 1));
       deps.openChoice({
@@ -4979,6 +4828,111 @@ export function createLivingSceneHost(deps) {
 
     getCompanionFoe: () => companionFoe,
     dismissCompanionBody,
+    openAdventurerDialog(rec) {
+      if (!rec || rec.dead || rec.ai?.isHostile || rec._isSparring || rec.livingRole === 'recruited_companion') {
+        return false;
+      }
+      if (!deps.openChoice) return false;
+      const player = deps.playerEntity();
+      const regIdx = deps.regionIndex();
+      const nowMin = deps.clock();
+      const rng = deps.rng ?? Math.random;
+      const onStoodSite = Boolean(stood && stood.foes?.includes?.(rec));
+      const siteMeta = onStoodSite ? stood.blueprint?.meta : null;
+
+      let state = rec._advDialog ?? null;
+      if (!state) {
+        const isWandering =
+          rec.livingRole === 'wandering_adventurer' ||
+          (onStoodSite && stood.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER);
+        const adv = siteMeta?.adv ?? rec._advRecord ?? {
+          id: 9990,
+          name: rec.entity?.name || 'Sparring Duelist',
+          className: 'Knight',
+          level: rec.entity?.level || Number(player?.level ?? 5),
+          trait: 'DUELIST',
+          currentRegion: regIdx,
+        };
+        const tension = siteMeta?.tension ?? evaluateAdventurerTension(adv, player);
+        state = ensureAdventurerDialogState(rec, {
+          kind: isWandering ? 'WANDERING_ADVENTURER' : 'ADVENTURER_MEETING',
+          adv,
+          situation: siteMeta?.situation ?? ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+          tension,
+          wager: tension?.wagerGold ?? Math.max(25, (adv.level || 3) * 15),
+          regionIndex: regIdx,
+        });
+      }
+
+      const adv = state.adv;
+      if (!adv) return false;
+      if (state.extorted) {
+        deps.say(LIVING_WORDS.roadAdvExtortedCold(adv.name), 5);
+        return true;
+      }
+
+      const spec =
+        state.kind === 'WANDERING_ADVENTURER'
+          ? buildWanderingAdventurerChoiceSpec({
+              adv,
+              situation: state.situation,
+              playerEntity: player,
+              foeRecord: rec,
+              regionIndex: state.regionIndex ?? regIdx,
+              nowMinutes: nowMin,
+              state,
+              openChoice: deps.openChoice,
+              playSound: deps.playSound,
+              say: deps.say,
+              onHostile: () => {
+                if (onStoodSite) {
+                  setSiteHostile(stood, true);
+                } else if (rec.ai) {
+                  rec.ai.isHostile = true;
+                  rec.ai.detected = true;
+                  rec.ai.target = player;
+                }
+              },
+              onHired: (comp) => adoptSiteCompanion(onStoodSite ? stood : null, rec.livingRole, comp, rec),
+              rng,
+            })
+          : buildAdventurerMeetingChoiceSpec({
+              adv,
+              tension: state.tension,
+              playerEntity: player,
+              foeRecord: rec,
+              regionIndex: state.regionIndex ?? regIdx,
+              nowMinutes: nowMin,
+              state,
+              openChoice: deps.openChoice,
+              playSound: deps.playSound,
+              say: deps.say,
+              onHostile: () => {
+                if (onStoodSite) {
+                  setSiteHostile(stood, true);
+                } else if (rec.ai) {
+                  rec.ai.isHostile = true;
+                  rec.ai.detected = true;
+                  rec.ai.target = player;
+                }
+              },
+              onPeaceful: () => {
+                if (onStoodSite) setSiteHostile(stood, false);
+              },
+              onForfeit: () => {
+                if (onStoodSite) releaseSite();
+              },
+              onHired: (comp) => adoptSiteCompanion(onStoodSite ? stood : null, rec.livingRole, comp, rec),
+              rng,
+            });
+
+      if (!spec) {
+        deps.say(LIVING_WORDS.adventurerSettledCold(adv.name), 5);
+        return true;
+      }
+      deps.openChoice(spec);
+      return true;
+    },
 
     /** Clears any active site and releases all spawned actors and batches. */
     clear() {
@@ -4986,6 +4940,386 @@ export function createLivingSceneHost(deps) {
       checkTimer = 0;
     },
   };
+}
+
+/**
+ * Builds an interactive ChoiceWindow spec for an ADVENTURER_MEETING rival camp encounter.
+ * Returns `null` when no actionable options remain (caller should show a cold closing line).
+ * @param {any} params
+ */
+export function buildAdventurerMeetingChoiceSpec({
+  adv,
+  tension = null,
+  playerEntity,
+  foeRecord = null,
+  regionIndex = 0,
+  nowMinutes = 0,
+  state = null,
+  openChoice = null,
+  playSound = null,
+  onHostile = null,
+  onPeaceful = null,
+  onForfeit = null,
+  onHired = null,
+  say = () => {},
+  rng = Math.random,
+}) {
+  if (!adv) return null;
+  const resolvedTension = tension ?? evaluateAdventurerTension(adv, playerEntity);
+  const wager = resolvedTension?.wagerGold ?? 50;
+  const safeRegion = Number.isFinite(regionIndex) ? regionIndex : 0;
+  const dlg =
+    state ??
+    ensureAdventurerDialogState(foeRecord, {
+      kind: 'ADVENTURER_MEETING',
+      adv,
+      tension: resolvedTension,
+      wager,
+      regionIndex: safeRegion,
+    });
+
+  const rawOptions = [];
+  const wagerDone = Boolean(dlg.used.wager || foeRecord?._surrenderedSpar);
+
+  if (!wagerDone) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.adventurerOptionDuel(wager),
+      action: () => {
+        dlg.used.wager = true;
+        playSound?.(LIVING_SOUNDS.SWORD_CLINK);
+        if (foeRecord && (foeRecord.motor || (foeRecord.entity && foeRecord.ai))) {
+          foeRecord._isSparring = true;
+          foeRecord._duelWager = wager;
+          foeRecord._advRecord = adv;
+          foeRecord._advDialog = dlg;
+          foeRecord._surrenderedSpar = false;
+          foeRecord._sparGraceLeft = 0;
+          foeRecord._sparKneeling = false;
+          if (foeRecord.ai) {
+            foeRecord.ai.isHostile = true;
+            foeRecord.ai.detected = true;
+            foeRecord.ai.target = playerEntity;
+            foeRecord.ai.secondaryTarget = null;
+            foeRecord.ai.makeHostileToPlayer?.(undefined, foeRecord.ai.feet);
+            if (typeof foeRecord.ai.resumeLive === 'function') foeRecord.ai.resumeLive();
+          }
+          say(LIVING_WORDS.adventurerDuelChallenge(), 5);
+        } else {
+          const res = resolveAdventurerEncounter({
+            adv,
+            playerEntity,
+            action: 'ACCEPT_DARE',
+            wagerGold: wager,
+            rng,
+          });
+          if (playerEntity && res.goldDelta) {
+            playerEntity.goldPieces = Math.max(0, Number(playerEntity.goldPieces ?? 0) + res.goldDelta);
+          }
+          const won = res.outcome === DUEL_OUTCOME.PLAYER_WON || res.outcome === DUEL_OUTCOME.LUCK_REVERSAL;
+          dlg.sparOutcome = won ? 'PLAYER_WON' : 'PLAYER_LOST';
+          if (res.outcome === DUEL_OUTCOME.PLAYER_WON) {
+            playSound?.(LIVING_SOUNDS.GOLD_COINS);
+            recordAdventurerGrudge(adv.name);
+          }
+          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, Math.abs(res.goldDelta)), 5);
+        }
+      },
+    });
+  }
+
+  if (!dlg.used.etiquette) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.adventurerOptionEtiquette(),
+      action: () => {
+        dlg.used.etiquette = true;
+        const res = resolveAdventurerEncounter({
+          adv,
+          playerEntity,
+          action: 'APPEAL_ETIQUETTE',
+          wagerGold: wager,
+          rng,
+        });
+        if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) {
+          onHostile?.();
+          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
+        } else if (res.outcome === DUEL_OUTCOME.DIPLOMACY_PEACE) {
+          adjustPlayerRegionalRep(playerEntity, safeRegion, 1);
+          onPeaceful?.();
+          say(LIVING_WORDS.adventurerPeaceParted(adv.name), 5);
+        } else {
+          say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
+        }
+      },
+    });
+  }
+
+  if (!dlg.used.intimidate) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.adventurerOptionIntimidate(),
+      action: () => {
+        dlg.used.intimidate = true;
+        const res = resolveAdventurerEncounter({
+          adv,
+          playerEntity,
+          action: 'INTIMIDATE',
+          wagerGold: wager,
+          rng,
+        });
+        if (res.outcome === DUEL_OUTCOME.HOSTILE_DRAW) onHostile?.();
+        say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0), 5);
+      },
+    });
+  }
+
+  if (adv.trait !== 'CUTTHROAT') {
+    const dailyQuote = calculateAdventurerHireQuote(adv, playerEntity, {
+      days: 1,
+      regionIndex: safeRegion,
+      nowMinutes,
+    });
+    rawOptions.push({
+      labelText: LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost),
+      action: () => {
+        const subSpec = buildAdventurerHireSubmenuSpec({
+          adv,
+          playerEntity,
+          regionIndex: safeRegion,
+          nowMinutes,
+          situation: ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+          openChoice,
+          say,
+          playSound,
+          onHired: (comp, res) => onHired?.(comp, foeRecord, res),
+          rng,
+        });
+        if (typeof openChoice === 'function') {
+          openChoice(subSpec);
+        } else {
+          subSpec.options[0]?.action?.();
+        }
+      },
+    });
+  }
+
+  if (rawOptions.length === 0) {
+    return null;
+  }
+
+  rawOptions.push({
+    labelText: LIVING_WORDS.adventurerOptionDecline(),
+    action: () => {
+      say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0), 4);
+    },
+  });
+
+  if (!wagerDone && !dlg.used.etiquette && !dlg.used.intimidate) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.surrenderOptionForfeitDuel(wager),
+      action: () => {
+        if (playerEntity) {
+          const currentGold = Number(playerEntity.goldPieces ?? 0);
+          const forfeitPaid = Math.min(currentGold, wager);
+          playerEntity.goldPieces = Math.max(0, currentGold - forfeitPaid);
+        }
+        say(LIVING_WORDS.surrenderOutcomeConceded(), 5);
+        onForfeit?.();
+      },
+    });
+  }
+
+  const lines = adventurerDialogHeader(adv, dlg, [
+    `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, wager)}"`,
+  ]);
+  return { lines, options: numberChoiceOptions(rawOptions) };
+}
+
+/**
+ * Builds an interactive ChoiceWindow spec for a WANDERING_ADVENTURER road/wilderness encounter.
+ * Returns `null` when extorted or when no actionable options remain.
+ * @param {any} params
+ */
+export function buildWanderingAdventurerChoiceSpec({
+  adv,
+  situation = ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD,
+  playerEntity,
+  foeRecord = null,
+  regionIndex = 0,
+  nowMinutes = 0,
+  state = null,
+  openChoice = null,
+  playSound = null,
+  onHostile = null,
+  onHired = null,
+  say = () => {},
+  rng = Math.random,
+}) {
+  if (!adv) return null;
+  const safeRegion = Number.isFinite(regionIndex) ? regionIndex : 0;
+  const wager = Math.max(25, (adv.level || 3) * 15);
+  const dlg =
+    state ??
+    ensureAdventurerDialogState(foeRecord, {
+      kind: 'WANDERING_ADVENTURER',
+      adv,
+      situation,
+      wager,
+      regionIndex: safeRegion,
+    });
+
+  if (dlg.extorted) return null;
+
+  const rawOptions = [];
+
+  if (!dlg.used.intel) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.roadAdvOptionIntel(),
+      action: () => {
+        dlg.used.intel = true;
+        resolveWanderingAdventurerInteraction({
+          adv,
+          situation,
+          playerEntity,
+          action: 'SHARE_INTEL',
+          regionIndex: safeRegion,
+          rng,
+        });
+        say(LIVING_WORDS.roadAdvIntelShared(), 6);
+      },
+    });
+  }
+
+  const dailyQuote = calculateAdventurerHireQuote(adv, playerEntity, {
+    days: 1,
+    regionIndex: safeRegion,
+    nowMinutes,
+  });
+  rawOptions.push({
+    labelText: LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost),
+    action: () => {
+      const subSpec = buildAdventurerHireSubmenuSpec({
+        adv,
+        playerEntity,
+        regionIndex: safeRegion,
+        nowMinutes,
+        situation,
+        openChoice,
+        say,
+        playSound,
+        onHired: (comp, res) => onHired?.(comp, foeRecord, res),
+        rng,
+      });
+      if (typeof openChoice === 'function') {
+        openChoice(subSpec);
+      } else {
+        subSpec.options[0]?.action?.();
+      }
+    },
+  });
+
+  if (!dlg.used.wager && !foeRecord?._surrenderedSpar) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.roadAdvOptionSpar(wager),
+      action: () => {
+        dlg.used.wager = true;
+        playSound?.(LIVING_SOUNDS.SWORD_CLINK);
+        if (foeRecord && (foeRecord.motor || (foeRecord.entity && foeRecord.ai))) {
+          foeRecord._isSparring = true;
+          foeRecord._duelWager = wager;
+          foeRecord._advRecord = adv;
+          foeRecord._advDialog = dlg;
+          foeRecord._surrenderedSpar = false;
+          foeRecord._sparGraceLeft = 0;
+          foeRecord._sparKneeling = false;
+          if (foeRecord.ai) {
+            foeRecord.ai.isHostile = true;
+            foeRecord.ai.detected = true;
+            foeRecord.ai.target = playerEntity;
+            foeRecord.ai.secondaryTarget = null;
+            foeRecord.ai.makeHostileToPlayer?.(undefined, foeRecord.ai.feet);
+            if (typeof foeRecord.ai.resumeLive === 'function') foeRecord.ai.resumeLive();
+          }
+          say(LIVING_WORDS.adventurerDuelChallenge(), 5);
+        } else {
+          const res = resolveWanderingAdventurerInteraction({
+            adv,
+            situation,
+            playerEntity,
+            action: 'WAGER_SPAR',
+            regionIndex: safeRegion,
+            rng,
+          });
+          dlg.sparOutcome = res.outcome === WANDERING_OUTCOME.SPAR_WON ? 'PLAYER_WON' : 'PLAYER_LOST';
+          if (res.outcome === WANDERING_OUTCOME.SPAR_WON) {
+            playSound?.(LIVING_SOUNDS.GOLD_COINS);
+            recordAdventurerGrudge(adv.name);
+          }
+          say(
+            LIVING_WORDS.adventurerOutcome(
+              res.outcome === WANDERING_OUTCOME.SPAR_WON ? DUEL_OUTCOME.PLAYER_WON : DUEL_OUTCOME.PLAYER_LOST,
+              adv.name,
+              Math.abs(res.goldDelta),
+            ),
+            5,
+          );
+        }
+      },
+    });
+  }
+
+  if (!dlg.used.extort) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.roadAdvOptionExtort(),
+      action: () => {
+        dlg.used.extort = true;
+        const res = resolveWanderingAdventurerInteraction({
+          adv,
+          situation,
+          playerEntity,
+          action: 'EXTORT_SPOILS',
+          regionIndex: safeRegion,
+          rng,
+        });
+        if (res.outcome === WANDERING_OUTCOME.EXTORTED_SPOILS) {
+          dlg.extorted = true;
+          playSound?.(LIVING_SOUNDS.GOLD_COINS);
+          recordAdventurerGrudge(adv.name);
+          say(
+            res.messageKey === 'living.roadAdv.extortPartial'
+              ? LIVING_WORDS.roadAdvExtortPartial(adv.name)
+              : LIVING_WORDS.roadAdvExtorted(adv.name),
+            5,
+          );
+        } else if (res.hostile) {
+          onHostile?.();
+          say(LIVING_WORDS.adventurerDuelChallenge(), 5);
+        }
+      },
+    });
+  }
+
+  if (rawOptions.length === 0) return null;
+
+  rawOptions.push({
+    labelText: LIVING_WORDS.adventurerOptionDecline(),
+    action: () => {
+      say(LIVING_WORDS.roadAdvParted(), 4);
+    },
+  });
+
+  const introLine =
+    situation === ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP
+      ? LIVING_WORDS.roadAdvCamp(adv.name)
+      : situation === ROAD_ADVENTURER_SITUATION.SKIRMISH_WITH_MONSTERS
+        ? LIVING_WORDS.roadAdvSkirmish(adv.name)
+        : situation === ROAD_ADVENTURER_SITUATION.RETURNING_WITH_SPOILS
+          ? LIVING_WORDS.roadAdvSpoils(adv.name)
+          : LIVING_WORDS.roadAdvTraveling(adv.name);
+
+  const lines = adventurerDialogHeader(adv, dlg, [
+    introLine,
+    `${adv.name} (${adv.className}, Lv.${adv.level})`,
+  ]);
+  return { lines, options: numberChoiceOptions(rawOptions) };
 }
 
 /**
@@ -5000,6 +5334,7 @@ export function buildDungeonAdventurerChoiceSpec({
   playerEntity,
   foeRecord = null,
   nowMinutes = 0,
+  state = null,
   openChoice = null,
   playSound = null,
   onHired = null,
@@ -5007,6 +5342,9 @@ export function buildDungeonAdventurerChoiceSpec({
   rng = Math.random,
 }) {
   if (intercepted) {
+    if (intercepted.recovered || intercepted.forfeited) {
+      return null;
+    }
     const buyoutGold = Math.max(100, (adv.level || 5) * 35);
     return {
       lines: [
@@ -5127,15 +5465,30 @@ export function buildDungeonAdventurerChoiceSpec({
   const tension = evaluateAdventurerTension(adv, playerEntity);
   const wager = tension.wagerGold ?? 50;
   const safeRegion = Number.isFinite(regionIndex) ? regionIndex : 0;
-  const options = [
-    {
-      code: 'Digit1',
-      label: `1. ${LIVING_WORDS.adventurerOptionDuel(wager)}`,
+  const dlg =
+    state ??
+    ensureAdventurerDialogState(foeRecord, {
+      kind: 'DUNGEON_ADVENTURER',
+      adv,
+      tension,
+      wager,
+      locationId,
+      regionIndex: safeRegion,
+    });
+
+  const rawOptions = [];
+  const wagerDone = Boolean(dlg.used.wager || foeRecord?._surrenderedSpar);
+
+  if (!wagerDone) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.adventurerOptionDuel(wager),
       action: () => {
+        dlg.used.wager = true;
         if (foeRecord) {
           foeRecord._isSparring = true;
           foeRecord._duelWager = wager;
           foeRecord._advRecord = adv;
+          foeRecord._advDialog = dlg;
           foeRecord._surrenderedSpar = false;
           foeRecord._sparGraceLeft = 0;
           foeRecord._sparKneeling = false;
@@ -5148,11 +5501,14 @@ export function buildDungeonAdventurerChoiceSpec({
         }
         say(LIVING_WORDS.adventurerDuelChallenge());
       },
-    },
-    {
-      code: 'Digit2',
-      label: `2. ${LIVING_WORDS.adventurerOptionEtiquette()}`,
+    });
+  }
+
+  if (!dlg.used.etiquette) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.adventurerOptionEtiquette(),
       action: () => {
+        dlg.used.etiquette = true;
         const res = resolveAdventurerEncounter({
           adv,
           playerEntity,
@@ -5173,11 +5529,14 @@ export function buildDungeonAdventurerChoiceSpec({
         }
         say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0));
       },
-    },
-    {
-      code: 'Digit3',
-      label: `3. ${LIVING_WORDS.adventurerOptionIntimidate()}`,
+    });
+  }
+
+  if (!dlg.used.intimidate) {
+    rawOptions.push({
+      labelText: LIVING_WORDS.adventurerOptionIntimidate(),
       action: () => {
+        dlg.used.intimidate = true;
         const res = resolveAdventurerEncounter({
           adv,
           playerEntity,
@@ -5191,15 +5550,8 @@ export function buildDungeonAdventurerChoiceSpec({
         }
         say(LIVING_WORDS.adventurerOutcome(res.outcome, adv.name, 0));
       },
-    },
-    {
-      code: 'Digit4',
-      label: `4. ${LIVING_WORDS.adventurerOptionDecline()}`,
-      action: () => {
-        say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0));
-      },
-    },
-  ];
+    });
+  }
 
   if (adv.trait !== 'CUTTHROAT') {
     const dailyQuote = calculateAdventurerHireQuote(adv, playerEntity, {
@@ -5207,9 +5559,8 @@ export function buildDungeonAdventurerChoiceSpec({
       regionIndex: safeRegion,
       nowMinutes,
     });
-    options.push({
-      code: 'Digit5',
-      label: `5. ${LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost)}`,
+    rawOptions.push({
+      labelText: LIVING_WORDS.roadAdvOptionRecruit(dailyQuote.dailyCost),
       action: () => {
         const subSpec = buildAdventurerHireSubmenuSpec({
           adv,
@@ -5238,12 +5589,21 @@ export function buildDungeonAdventurerChoiceSpec({
     });
   }
 
-  return {
-    lines: [
-      `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, wager)}"`,
-    ],
-    options,
-  };
+  if (rawOptions.length === 0) {
+    return null;
+  }
+
+  rawOptions.push({
+    labelText: LIVING_WORDS.adventurerOptionDecline(),
+    action: () => {
+      say(LIVING_WORDS.adventurerOutcome(DUEL_OUTCOME.DECLINED, adv.name, 0));
+    },
+  });
+
+  const lines = adventurerDialogHeader(adv, dlg, [
+    `${adv.name} (${adv.className}, Lv.${adv.level}): "${LIVING_WORDS.adventurerGreeting(adv.trait, wager)}"`,
+  ]);
+  return { lines, options: numberChoiceOptions(rawOptions) };
 }
 
 /**
