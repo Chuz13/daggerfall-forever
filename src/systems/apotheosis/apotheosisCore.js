@@ -1212,9 +1212,9 @@ export function evaluateFateWeight(entity) {
       id: 'tr05_firmament_child',
       category: 'meta',
       name: t('apotheosis.tr.tr05.name', 'Child of the Firmament'),
-      desc: t('apotheosis.tr.tr05.desc', 'Attune 50 stars in the Firmament.'),
-      progressText: t('apotheosis.tr.tr05.prog', 'Stars {stars}/50', { stars: firm.stars }),
-      natural: firm.stars >= 50,
+      desc: t('apotheosis.tr.tr05.desc', 'Attune 90 stars in the Firmament.'),
+      progressText: t('apotheosis.tr.tr05.prog', 'Stars {stars}/90', { stars: firm.stars }),
+      natural: firm.stars >= 90,
     },
     {
       id: 'tr20_renowned_legend',
