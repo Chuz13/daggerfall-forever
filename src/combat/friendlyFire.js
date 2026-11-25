@@ -17,6 +17,32 @@
 // and quest companions keep DFU friendly fire.
 
 import { isSparProtected } from '../systems/living/sparSurrender.js';
+import { getPref } from '../systems/uiPrefs.js';
+
+export const AOE_SELF_FF_PREF = 'aoeSelfFriendlyFire';
+export const AOE_ALLY_FF_PREF = 'aoeAllyFriendlyFire';
+
+/** Whether the player's own AreaAtRange spells can damage the player. */
+export const aoeSelfFriendlyFireEnabled = () => getPref(AOE_SELF_FF_PREF) !== false;
+
+/** Whether the player's harmful AoE spells can damage allies (without aggro). */
+export const aoeAllyFriendlyFireEnabled = () => getPref(AOE_ALLY_FF_PREF) === true;
+
+/** Whether `t` is a living player ally subject to the AoE ally friendly-fire setting.
+ *  @param {any} t */
+export const isAoeAlly = (t) =>
+  !!t &&
+  !t.dead &&
+  (t.entity?.team === 'PlayerAlly' ||
+    t.entity?.mobileTeam === 'PlayerAlly' ||
+    t.defender === true ||
+    t.companion != null ||
+    t.shipmate === true ||
+    t.refugee === true ||
+    t.allied === true ||
+    t.livingRole === 'undead_minion' ||
+    t.livingRole === 'apotheosis_champion' ||
+    t.livingRole === 'cult_siege_defender');
 
 /** Whether `t` (a pool's foe) is a shipmate or spared ally. */
 export const isShipmate = (t) =>

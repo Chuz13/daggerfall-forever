@@ -223,6 +223,8 @@ export const CATEGORIES = Object.freeze([
     sec('rules', 'Rules & armour', [
       'feat:mod-pcaao',
       'MeleeAttacks/MeleeAttackFriendlyProtection',
+      'feat:aoe-self-friendly-fire',
+      'feat:aoe-ally-friendly-fire',
       'MeleeAttacks/MeleeAttackDetection',
     ]),
     sec('weapons', 'Weapons in hand', [

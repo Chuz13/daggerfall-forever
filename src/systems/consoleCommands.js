@@ -265,6 +265,12 @@ import { SURVIVAL_PREF, SURVIVAL_NO_WILD_SLEEP_PREF, survivalTier, noWildRoughRe
 import { survivalOf, heartyMeal, DRINK_CATEGORIES, DRINK_BUFF_MINUTES, activeDrinkBuff } from './survival/needs.js';
 import { createSurvivalItem, TEMPLATE } from './survival/items.js';
 import { rollOfflinePreApotheosisSpoils, mintOfflineGun, noteRelicFind } from './offlineRelicLoot.js';
+import {
+  AOE_SELF_FF_PREF,
+  AOE_ALLY_FF_PREF,
+  aoeSelfFriendlyFireEnabled,
+  aoeAllyFriendlyFireEnabled,
+} from '../combat/friendlyFire.js';
 
 let _sceneContext = null;
 /** Register active scene debug context (player control, enemy pools, travel). */
@@ -1678,13 +1684,94 @@ registerCommand(
   }
 );
 
+const aoeFireballSpell = () => ({
+  index: -1101,
+  name: 'Fireball',
+  icon: 0,
+  rangeType: 4, // AreaAtRange
+  element: 0,   // Fire
+  custom: true,
+  effects: [
+    {
+      type: 4,
+      subType: 0,
+      durationBase: 0,
+      durationMod: 0,
+      durationPerLevel: 1,
+      chanceBase: 100,
+      chanceMod: 0,
+      chancePerLevel: 1,
+      magnitudeBaseLow: 15,
+      magnitudeBaseHigh: 25,
+      magnitudeLevelBase: 0,
+      magnitudeLevelHigh: 0,
+      magnitudePerLevel: 1,
+    },
+  ],
+});
+
+const aoeFirestormSpell = () => ({
+  index: -1102,
+  name: 'Fire Storm',
+  icon: 0,
+  rangeType: 3, // AreaAroundCaster
+  element: 0,   // Fire
+  custom: true,
+  effects: [
+    {
+      type: 4,
+      subType: 0,
+      durationBase: 0,
+      durationMod: 0,
+      durationPerLevel: 1,
+      chanceBase: 100,
+      chanceMod: 0,
+      chancePerLevel: 1,
+      magnitudeBaseLow: 15,
+      magnitudeBaseHigh: 25,
+      magnitudeLevelBase: 0,
+      magnitudeLevelHigh: 0,
+      magnitudePerLevel: 1,
+    },
+  ],
+});
+
+const aoeFireballDotSpell = () => ({
+  index: -1103,
+  name: 'Fireball (DoT)',
+  icon: 0,
+  rangeType: 4, // AreaAtRange
+  element: 0,   // Fire
+  custom: true,
+  effects: [
+    {
+      type: 1,
+      subType: 0,
+      durationBase: 3,
+      durationMod: 0,
+      durationPerLevel: 1,
+      chanceBase: 100,
+      chanceMod: 0,
+      chancePerLevel: 1,
+      magnitudeBaseLow: 8,
+      magnitudeBaseHigh: 12,
+      magnitudeLevelBase: 0,
+      magnitudeLevelHigh: 0,
+      magnitudePerLevel: 1,
+    },
+  ],
+});
+
 registerCommand(
   'addspell',
-  'Add necromancy spell(s) to player spellbook: addspell <animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
-  'addspell <animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
+  'Add spell(s) to player spellbook: addspell <fireball|firestorm|fireball_dot|animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
+  'addspell <fireball|firestorm|fireball_dot|animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
   (args = []) => {
     const key = String(args[0] || 'all_necro').toLowerCase().replace(/[\s_-]/g, '');
     const map = {
+      fireball: aoeFireballSpell,
+      firestorm: aoeFirestormSpell,
+      fireballdot: aoeFireballDotSpell,
       animatedead: animateDeadSpell,
       corpseexplosion: corpseExplosionSpell,
       lifetap: lifeTapSpell,
@@ -1733,8 +1820,46 @@ registerCommand(
       surfacePlayer?.();
       return `Added spell "${name}" to spellbook.`;
     }
-    return 'Usage: addspell <animate_dead | corpse_explosion | life_tap | bone_armor | arch_lichdom | paralyzing_touch | dark_flight | control_undead | disguise | all_necro>';
+    return 'Usage: addspell <fireball | firestorm | fireball_dot | animate_dead | corpse_explosion | life_tap | bone_armor | arch_lichdom | paralyzing_touch | dark_flight | control_undead | disguise | all_necro>';
   }
+);
+
+function handleAoeFfCommand(args = []) {
+  const sub = args[0] ? String(args[0]).toLowerCase() : 'status';
+  const formatState = () =>
+    `AoE Friendly Fire: self=${aoeSelfFriendlyFireEnabled() ? 'ON' : 'OFF'}, allies=${aoeAllyFriendlyFireEnabled() ? 'ON' : 'OFF'}`;
+  if (sub === 'status') return formatState();
+  if (sub === 'on' || sub === 'off') {
+    const val = sub === 'on';
+    setPref(AOE_SELF_FF_PREF, val);
+    setPref(AOE_ALLY_FF_PREF, val);
+    return formatState();
+  }
+  if (sub === 'self' || sub === 'allies' || sub === 'ally') {
+    const isSelf = sub === 'self';
+    const pref = isSelf ? AOE_SELF_FF_PREF : AOE_ALLY_FF_PREF;
+    const cur = isSelf ? aoeSelfFriendlyFireEnabled() : aoeAllyFriendlyFireEnabled();
+    const valArg = args[1] ? String(args[1]).toLowerCase() : 'toggle';
+    if (valArg === 'on') setPref(pref, true);
+    else if (valArg === 'off') setPref(pref, false);
+    else if (valArg === 'toggle') setPref(pref, !cur);
+    else return 'Usage: aoe_ff [status | on | off | self <on|off|toggle> | allies <on|off|toggle>]';
+    return formatState();
+  }
+  return 'Usage: aoe_ff [status | on | off | self <on|off|toggle> | allies <on|off|toggle>]';
+}
+
+registerCommand(
+  'aoe_ff',
+  'Inspect or toggle AoE friendly fire options: aoe_ff [status | on | off | self <on|off|toggle> | allies <on|off|toggle>]',
+  'aoe_ff [status | on | off | self <on|off|toggle> | allies <on|off|toggle>]',
+  handleAoeFfCommand,
+);
+registerCommand(
+  'aoeff',
+  'Alias for aoe_ff',
+  'aoeff [status | on | off | self <on|off|toggle> | allies <on|off|toggle>]',
+  handleAoeFfCommand,
 );
 
 registerCommand(
