@@ -458,6 +458,18 @@ import { keepOffBodies } from './bodyClamp.js';   // PROP-BODIES: the flats' bod
 import { MAX_TERRAIN_HEIGHT, STREAMING_TERRAIN_SCALE } from '../world/terrain/terrainSampler.js';   // FALL-KEPT: the world's tallest drop bounds a carried fall
 import { staffNoclip } from '../characters/playerEntity.js';
 
+/**
+ * Lightweight observer for PlayerMotor.update (no imports, zero cycles).
+ * @param {(motor: any, dt: number) => void} fn
+ * @returns {() => void}
+ */
+const _motorStepListeners = new Set();
+export function onMotorStep(fn) {
+  if (typeof fn !== 'function') return () => {};
+  _motorStepListeners.add(fn);
+  return () => _motorStepListeners.delete(fn);
+}
+
 /** PlayerSpeedChanger.GetWalkSpeed, verbatim (audit 2026-08-16e F1):
  *  drag = 0.5 x (100 - max(30, LiveSpeed)) rides the WALK base only -
  *  the pre-audit port dropped the term and walked ~14% fast at SPD
@@ -1744,6 +1756,15 @@ export class PlayerMotor {
     this._alpha = Math.min(1, this._acc / step);
     this._smoothEyeFeet(frameDt);   // MAC1: once per RENDER frame, like the bob and the look
     this._stepBodyYaw(frameDt, yaw);   // CLIMB5: the body turns to the wall it holds, and back
+    if (_motorStepListeners.size > 0) {
+      for (const fn of [..._motorStepListeners]) {
+        try {
+          fn(this, dt);
+        } catch (e) {
+          console.warn('[motor] step listener threw:', e?.message ?? e);
+        }
+      }
+    }
   }
 
   /** CLIMB5: ease the body's yaw toward the climb's facing (on the wall, in a move), and back to the view's after -

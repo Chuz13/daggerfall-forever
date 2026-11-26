@@ -1,0 +1,10 @@
+{
+  "id": "stealth-auto-steal",
+  "name": "Stealth Auto-Steal",
+  "version": "1.0.0",
+  "author": "13",
+  "description": "Automatically switches interaction mode to Steal when crouching or sneaking, and restores the previous interaction mode when standing back up. Respects manual F1-F4 mode overrides.",
+  "enabled": false,
+  "locales": "locales.json",
+  "entry": "plugin.js"
+}

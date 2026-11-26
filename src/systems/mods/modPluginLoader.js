@@ -5,7 +5,7 @@
 // Passes isolated `api` context to mod's `init(api)` function.
 
 import { getActiveMods, readModFile } from './modRegistry.js';
-import { createModApi, unregisterModPerks } from './modPluginApi.js';
+import { createModApi, unregisterModPerks, cleanupModResources } from './modPluginApi.js';
 import { removeModListeners } from './modEventBus.js';
 import { unregisterPerk } from '../perks/perkRegistry.js';
 
@@ -91,6 +91,7 @@ export function unloadModPlugins() {
     removeModListeners(modId);
     unregisterPerk(modId);
     unregisterModPerks(modId);
+    cleanupModResources(modId);
   }
   _loadedPluginIds.clear();
 }

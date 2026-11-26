@@ -338,6 +338,19 @@ export function statusTip(tile, entity, extra = {}) {
     if (tile.endable && extra.endHint) lines.push(extra.endHint);
     return { title, meta, lines, foot };
   }
+  if (String(tile.key).startsWith('mod:')) {
+    const modLines = Array.isArray(tile.modLines) && tile.modLines.length
+      ? tile.modLines
+      : tile.say
+        ? [String(tile.say)]
+        : [];
+    return {
+      title,
+      meta: tile.modMeta || t('hud.modEffect', 'Mod effect'),
+      lines: modLines,
+      foot: tile.modFoot ?? tile.foot ?? null,
+    };
+  }
   return { title, meta, lines, foot: tile.foot ?? null };
 }
 

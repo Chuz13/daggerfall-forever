@@ -1,0 +1,262 @@
+{
+  "en": {
+    "df.chip.name": "Duelist's Flow",
+    "df.chip.meta": "Combat combo",
+    "df.chip.tranceName": "Duelist's Trance",
+    "df.chip.tranceMeta": "Combat feat",
+    "df.chip.line.streak": "Active streak: {streak} consecutive hit(s) ({sec}s left).",
+    "df.chip.line.milestones": "Milestones: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Duelist's Trance active: +5% hit chance, halved miss penalty (-5 FP).",
+    "df.chip.line.tranceOff": "Reach x10 streak to unlock Duelist's Trance (+5% hit chance)."
+  },
+  "ru": {
+    "df.chip.name": "Поток дуэлянта",
+    "df.chip.meta": "Боевое комбо",
+    "df.chip.tranceName": "Транс дуэлянта",
+    "df.chip.tranceMeta": "Боевой подвиг",
+    "df.chip.line.streak": "Активная серия: {streak} удар(а/ов) подряд (осталось {sec}с).",
+    "df.chip.line.milestones": "Этапы: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Транс дуэлянта активен: +5% к попаданию, штраф срыва вдвое меньше (-5 FP).",
+    "df.chip.line.tranceOff": "Набейте серию x10, чтобы открыть Транс дуэлянта (+5% к попаданию)."
+  },
+  "uk": {
+    "df.chip.name": "Потік дуелянта",
+    "df.chip.meta": "Бойове комбо",
+    "df.chip.tranceName": "Транс дуелянта",
+    "df.chip.tranceMeta": "Бойовий подвиг",
+    "df.chip.line.streak": "Активна серія: {streak} удар(ів) поспіль (лишилось {sec}с).",
+    "df.chip.line.milestones": "Етапи: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Транс дуелянта активний: +5% до влучності, штраф зриву вдвічі менший (-5 FP).",
+    "df.chip.line.tranceOff": "Набийте серію x10, щоб відкрити Транс дуелянта (+5% до влучності)."
+  },
+  "bg": {
+    "df.chip.name": "Поток на дуелиста",
+    "df.chip.meta": "Бойно комбо",
+    "df.chip.tranceName": "Транс на дуелиста",
+    "df.chip.tranceMeta": "Боен подвиг",
+    "df.chip.line.streak": "Активна серия: {streak} пореден(и) удар(а) (остават {sec}с).",
+    "df.chip.line.milestones": "Нива: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Трансът е активен: +5% точност, половин наказание при пропуск (-5 FP).",
+    "df.chip.line.tranceOff": "Достигнете серия x10 за Транс на дуелиста (+5% точност)."
+  },
+  "cs": {
+    "df.chip.name": "Proud duelista",
+    "df.chip.meta": "Bojové kombo",
+    "df.chip.tranceName": "Duelistův trans",
+    "df.chip.tranceMeta": "Bojový čin",
+    "df.chip.line.streak": "Aktivní série: {streak} zásah(ů) v řadě (zbývá {sec}s).",
+    "df.chip.line.milestones": "Milníky: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Duelistův trans aktivní: +5% šance na zásah, poloviční postih (-5 FP).",
+    "df.chip.line.tranceOff": "Dosáhněte série x10 pro odemčení Duelistova transu (+5% zásah)."
+  },
+  "da": {
+    "df.chip.name": "Duellantens strøm",
+    "df.chip.meta": "Kampkombo",
+    "df.chip.tranceName": "Duellantens trance",
+    "df.chip.tranceMeta": "Kampbedrift",
+    "df.chip.line.streak": "Aktiv stime: {streak} træffere i træk ({sec}s tilbage).",
+    "df.chip.line.milestones": "Milepæle: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Duellantens trance aktiv: +5% træfchance, halveret straf (-5 FP).",
+    "df.chip.line.tranceOff": "Nå x10 stime for at låse op for Duellantens trance (+5% træf)."
+  },
+  "de": {
+    "df.chip.name": "Fluss des Duellanten",
+    "df.chip.meta": "Kampf-Kombo",
+    "df.chip.tranceName": "Trance des Duellanten",
+    "df.chip.tranceMeta": "Kampftalent",
+    "df.chip.line.streak": "Aktive Serie: {streak} Treffer in Folge ({sec}s übrig).",
+    "df.chip.line.milestones": "Meilensteine: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Trance aktiv: +5% Trefferchance, halbierte Strafe (-5 FP).",
+    "df.chip.line.tranceOff": "Erreiche x10 Serie für Trance des Duellanten (+5% Trefferchance)."
+  },
+  "el": {
+    "df.chip.name": "Ροή Μονομάχου",
+    "df.chip.meta": "Κόμπο μάχης",
+    "df.chip.tranceName": "Έκσταση Μονομάχου",
+    "df.chip.tranceMeta": "Άθλος μάχης",
+    "df.chip.line.streak": "Ενεργό σερί: {streak} συνεχόμενα χτυπήματα ({sec}δ απομένουν).",
+    "df.chip.line.milestones": "Ορόσημα: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Έκσταση ενεργή: +5% ευστοχία, μισή ποινή αστοχίας (-5 FP).",
+    "df.chip.line.tranceOff": "Φτάστε σερί x10 για να ξεκλειδώσετε την Έκσταση Μονομάχου (+5% ευστοχία)."
+  },
+  "es": {
+    "df.chip.name": "Flujo del Duelista",
+    "df.chip.meta": "Combo de combate",
+    "df.chip.tranceName": "Trance del Duelista",
+    "df.chip.tranceMeta": "Hazaña de combate",
+    "df.chip.line.streak": "Racha activa: {streak} golpe(s) seguido(s) (quedan {sec}s).",
+    "df.chip.line.milestones": "Hitos: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Trance activo: +5% probabilidad de impacto, mitad de penalización (-5 FP).",
+    "df.chip.line.tranceOff": "Alcanza racha x10 para desbloquear Trance del Duelista (+5% impacto)."
+  },
+  "fi": {
+    "df.chip.name": "Kaksintaistelijan virta",
+    "df.chip.meta": "Taistelukombo",
+    "df.chip.tranceName": "Kaksintaistelijan transsi",
+    "df.chip.tranceMeta": "Taistelusaavutus",
+    "df.chip.line.streak": "Aktiivinen sarja: {streak} osumaa peräkkäin ({sec}s jäljellä).",
+    "df.chip.line.milestones": "Virstanpylväät: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Transsi aktiivinen: +5% osumatarkkuus, puolitettu rangaistus (-5 FP).",
+    "df.chip.line.tranceOff": "Saavuta x10 sarja avataksesi Kaksintaistelijan transsin (+5% osuma)."
+  },
+  "fr": {
+    "df.chip.name": "Flux du Duelliste",
+    "df.chip.meta": "Combo de combat",
+    "df.chip.tranceName": "Transe du Duelliste",
+    "df.chip.tranceMeta": "Exploit de combat",
+    "df.chip.line.streak": "Série active : {streak} coup(s) d'affilée ({sec}s restantes).",
+    "df.chip.line.milestones": "Paliers : x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Transe active : +5% chances de toucher, pénalité réduite de moitié (-5 FP).",
+    "df.chip.line.tranceOff": "Atteignez une série x10 pour débloquer la Transe (+5% toucher)."
+  },
+  "hu": {
+    "df.chip.name": "Párbajozó áramlása",
+    "df.chip.meta": "Harci kombó",
+    "df.chip.tranceName": "Párbajozó transza",
+    "df.chip.tranceMeta": "Harci hőstett",
+    "df.chip.line.streak": "Aktív sorozat: {streak} egymást követő találat ({sec} mp van hátra).",
+    "df.chip.line.milestones": "Mérföldkövek: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Transz aktív: +5% találati esély, felezett büntetés (-5 FP).",
+    "df.chip.line.tranceOff": "Érj el x10 sorozatot a Párbajozó transza feloldásához (+5% találat)."
+  },
+  "id": {
+    "df.chip.name": "Aliran Duelist",
+    "df.chip.meta": "Kombo pertarungan",
+    "df.chip.tranceName": "Trans Duelist",
+    "df.chip.tranceMeta": "Prestasi tarung",
+    "df.chip.line.streak": "Rangkaian aktif: {streak} serangan beruntun (sisa {sec}d).",
+    "df.chip.line.milestones": "Target: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Trans Duelist aktif: +5% peluang kena, penalti meleset setengah (-5 FP).",
+    "df.chip.line.tranceOff": "Capai x10 beruntun untuk membuka Trans Duelist (+5% peluang kena)."
+  },
+  "it": {
+    "df.chip.name": "Flusso del Duellante",
+    "df.chip.meta": "Combo di combattimento",
+    "df.chip.tranceName": "Trance del Duellante",
+    "df.chip.tranceMeta": "Impresa marziale",
+    "df.chip.line.streak": "Serie attiva: {streak} colpi consecutivi ({sec}s rimasti).",
+    "df.chip.line.milestones": "Soglie: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Trance attiva: +5% probabilità di colpire, penalità dimezzata (-5 FP).",
+    "df.chip.line.tranceOff": "Raggiungi una serie x10 per sbloccare Trance del Duellante (+5% colpire)."
+  },
+  "ja": {
+    "df.chip.name": "決闘者の流儀",
+    "df.chip.meta": "戦闘コンボ",
+    "df.chip.tranceName": "決闘者のトランス",
+    "df.chip.tranceMeta": "戦闘の極意",
+    "df.chip.line.streak": "現在の連続命中: {streak} 回 (残り {sec}秒)。",
+    "df.chip.line.milestones": "達成報酬: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP)。",
+    "df.chip.line.tranceOn": "トランス発動中: 命中率 +5%、ミス時の消費半減 (-5 FP)。",
+    "df.chip.line.tranceOff": "x10 連続命中で決闘者のトランスを習得 (命中率 +5%)。"
+  },
+  "ko": {
+    "df.chip.name": "결투가의 흐름",
+    "df.chip.meta": "전투 콤보",
+    "df.chip.tranceName": "결투가의 무아지경",
+    "df.chip.tranceMeta": "전투 업적",
+    "df.chip.line.streak": "현재 연속 명중: {streak}회 ({sec}초 남음).",
+    "df.chip.line.milestones": "단계 보상: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "무아지경 활성: 명중률 +5%, 빗나감 페널티 절반 (-5 FP).",
+    "df.chip.line.tranceOff": "x10 연속 명중 시 결투가의 무아지경 해금 (명중률 +5%)."
+  },
+  "nb": {
+    "df.chip.name": "Duellantens flyt",
+    "df.chip.meta": "Kampkombo",
+    "df.chip.tranceName": "Duellantens transe",
+    "df.chip.tranceMeta": "Kampbragd",
+    "df.chip.line.streak": "Aktiv rekke: {streak} treff på rad ({sec}s igjen).",
+    "df.chip.line.milestones": "Milepæler: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Transe aktiv: +5% treffsjanse, halvert bomstraff (-5 FP).",
+    "df.chip.line.tranceOff": "Nå x10 rekke for å låse opp Duellantens transe (+5% treff)."
+  },
+  "nl": {
+    "df.chip.name": "Stroom van de Duellist",
+    "df.chip.meta": "Gevechtscombo",
+    "df.chip.tranceName": "Trance van de Duellist",
+    "df.chip.tranceMeta": "Gevechtskunst",
+    "df.chip.line.streak": "Actieve reeks: {streak} treffers op rij ({sec}s over).",
+    "df.chip.line.milestones": "Mijlpalen: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Trance actief: +5% raakkans, gehalveerde misstraf (-5 FP).",
+    "df.chip.line.tranceOff": "Bereik een reeks van x10 om Trance te ontgrendelen (+5% raakkans)."
+  },
+  "pl": {
+    "df.chip.name": "Przepływ Pojedynkowicza",
+    "df.chip.meta": "Kombo bojowe",
+    "df.chip.tranceName": "Trans Pojedynkowicza",
+    "df.chip.tranceMeta": "Wyczyn bojowy",
+    "df.chip.line.streak": "Aktywna seria: {streak} celne(ych) uderzenie(ń) (zostało {sec}s).",
+    "df.chip.line.milestones": "Progi: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Trans aktywny: +5% szansy trafienia, połowa kary za pudło (-5 FP).",
+    "df.chip.line.tranceOff": "Osiągnij serię x10, aby odblokować Trans Pojedynkowicza (+5% trafienia)."
+  },
+  "pt-BR": {
+    "df.chip.name": "Fluxo do Duelista",
+    "df.chip.meta": "Combo de combate",
+    "df.chip.tranceName": "Transe do Duelista",
+    "df.chip.tranceMeta": "Feito de combate",
+    "df.chip.line.streak": "Sequência ativa: {streak} acerto(s) consecutivo(s) ({sec}s restantes).",
+    "df.chip.line.milestones": "Marcos: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Transe ativo: +5% chance de acerto, penalidade reduzida pela metade (-5 FP).",
+    "df.chip.line.tranceOff": "Alcance x10 para desbloquear Transe do Duelista (+5% acerto)."
+  },
+  "ro": {
+    "df.chip.name": "Fluxul Duelistului",
+    "df.chip.meta": "Combo de luptă",
+    "df.chip.tranceName": "Transa Duelistului",
+    "df.chip.tranceMeta": "Ispravă de luptă",
+    "df.chip.line.streak": "Serie activă: {streak} lovitură(i) la rând ({sec}s rămase).",
+    "df.chip.line.milestones": "Praguri: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Transă activă: +5% șansă de lovire, penalizare înjumătățită (-5 FP).",
+    "df.chip.line.tranceOff": "Atinge seria x10 pentru a debloca Transa Duelistului (+5% lovire)."
+  },
+  "sv": {
+    "df.chip.name": "Duellantens flöde",
+    "df.chip.meta": "Stridskombo",
+    "df.chip.tranceName": "Duellantens trans",
+    "df.chip.tranceMeta": "Stridsbedrift",
+    "df.chip.line.streak": "Aktiv svit: {streak} träff(ar) i rad ({sec}s kvar).",
+    "df.chip.line.milestones": "Milstolpar: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Trans aktiv: +5% träffchans, halverat missstraff (-5 FP).",
+    "df.chip.line.tranceOff": "Nå x10 svit för att låsa upp Duellantens trans (+5% träff)."
+  },
+  "tr": {
+    "df.chip.name": "Düellocunun Akışı",
+    "df.chip.meta": "Savaş kombosu",
+    "df.chip.tranceName": "Düellocu Transı",
+    "df.chip.tranceMeta": "Savaş başarımı",
+    "df.chip.line.streak": "Aktif seri: art arda {streak} vuruş ({sec}sn kaldı).",
+    "df.chip.line.milestones": "Eşikler: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Trans aktif: +%5 isabet şansı, yarıya inmiş ıska cezası (-5 FP).",
+    "df.chip.line.tranceOff": "Düellocu Transını açmak için x10 seriye ulaş (+%5 isabet)."
+  },
+  "vi": {
+    "df.chip.name": "Dòng Chảy Đấu Sĩ",
+    "df.chip.meta": "Liên hoàn chiến đấu",
+    "df.chip.tranceName": "Xuất Thần Đấu Sĩ",
+    "df.chip.tranceMeta": "Chiến tích",
+    "df.chip.line.streak": "Chuỗi hiện tại: {streak} đòn trúng liên tiếp (còn {sec}s).",
+    "df.chip.line.milestones": "Mốc thưởng: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).",
+    "df.chip.line.tranceOn": "Xuất Thần kích hoạt: +5% chính xác, giảm nửa phạt hụt (-5 FP).",
+    "df.chip.line.tranceOff": "Đạt chuỗi x10 để mở khóa Xuất Thần Đấu Sĩ (+5% chính xác)."
+  },
+  "zh-Hans": {
+    "df.chip.name": "决斗者之流",
+    "df.chip.meta": "战斗连击",
+    "df.chip.tranceName": "决斗者入神",
+    "df.chip.tranceMeta": "战斗专长",
+    "df.chip.line.streak": "当前连击：连续命中 {streak} 次（剩余 {sec}秒）。",
+    "df.chip.line.milestones": "阶段奖励：x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP)。",
+    "df.chip.line.tranceOn": "入神生效中：+5% 命中率，失手惩罚减半 (-5 FP)。",
+    "df.chip.line.tranceOff": "达成 x10 连击即可解锁决斗者入神（+5% 命中率）。"
+  },
+  "zh-Hant": {
+    "df.chip.name": "決鬥者之流",
+    "df.chip.meta": "戰鬥連擊",
+    "df.chip.tranceName": "決鬥者入神",
+    "df.chip.tranceMeta": "戰鬥專長",
+    "df.chip.line.streak": "當前連擊：連續命中 {streak} 次（剩餘 {sec}秒）。",
+    "df.chip.line.milestones": "階段獎勵：x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP)。",
+    "df.chip.line.tranceOn": "入神生效中：+5% 命中率，失手懲罰減半 (-5 FP)。",
+    "df.chip.line.tranceOff": "達成 x10 連擊即可解鎖決鬥者入神（+5% 命中率）。"
+  }
+}

@@ -12,9 +12,28 @@ import { hudText } from '../notify.js';
 import { setMidScreenText } from '../../ui/midScreenText.js';
 import { t } from '../textManager.js';
 import { hurtPlayer, surfacePlayer } from '../../characters/playerEntity.js';
-import { FATIGUE_MULTIPLIER, maxFatigue } from '../statMods.js';
+import { FATIGUE_MULTIPLIER, maxFatigue, liveStat } from '../statMods.js';
+import { skillValue } from '../skills.js';
 import { SOUND } from '../soundClips.js';
 import { audio } from '../audio.js';
+import { computeEntityMods, registerEntityFold, registerWeaponBlowMod, EMPTY_MODS } from '../entityMods.js';
+import { registerBlowTakenMod } from '../blowTaken.js';
+import { registerSwingPaceMod } from '../../characters/weaponStates.js';
+import { registerSpellCostMod, registerSpellFreeCast } from '../spellcost.js';
+import { registerSpellPowerMod, registerSpellPierceMod, registerSpellLandedListener } from '../spell/spellPower.js';
+import { registerCastSpeedMod } from '../castSpeed.js';
+import { registerAbsorptionChance } from '../absorption.js';
+import { registerEnemyLootExtra, registerTabledLootHandler } from '../loot/loot.js';
+import { registerContainerLootHandler } from '../containerLoot.js';
+import { registerModPreventRestCondition, clearModPreventRestConditions } from '../rest/restSession.js';
+import { registerPlayerCastListener } from '../playerCasts.js';
+import { registerPlayerKillListener } from '../playerKills.js';
+import { registerPlayerStruckListener } from '../../combat/formulas.js';
+import { registerTakeListener, goldPiecesOf, addGoldPieces, addItem } from '../inventory.js';
+import { getInteractionMode, setInteractionMode, interactionModeText, onInteractionModeChange } from '../../player/interactionMode.js';
+import { onMotorStep } from '../../player/motor.js';
+import { currentWeather, currentWeatherEnum } from '../weather/weatherSim.js';
+import { dateFromClassicMinutes } from '../gameDate.js';
 
 /** @type {Map<string, Record<string, any>>} */
 const _modStorageStore = new Map();
@@ -75,6 +94,189 @@ export function getPlayerMaxFatigue(entity) {
 let _playerRef = null;
 let _worldRef = null;
 
+/** @type {Map<string, Set<() => void>>} */
+const _modCleanups = new Map();
+
+/** @type {Map<string, Map<string, any>>} */
+const _modStatusChips = new Map();
+let _modStatusChipsVersion = 0;
+
+/** @type {Set<string>} */
+var _activeModCommands;
+function activeModCommands() {
+  return (_activeModCommands ??= new Set());
+}
+
+var _consoleBridge;
+/** @type {Array<{ name: string, description: string, usage: string, fn: Function, cmdKey: string }>} */
+var _pendingModCommands;
+function pendingModCommands() {
+  return (_pendingModCommands ??= []);
+}
+
+/**
+ * Late-bind consoleCommands registry to avoid circular TDZ on bundled boot.
+ * @param {{ registerCommand: Function, gateConsoleCommand?: Function }} bridge
+ */
+export function bindModConsoleBridge(bridge) {
+  if (!bridge || typeof bridge.registerCommand !== 'function') return;
+  _consoleBridge = bridge;
+  const pending = pendingModCommands();
+  const active = activeModCommands();
+  while (pending.length > 0) {
+    const entry = pending.shift();
+    if (!entry || !active.has(entry.cmdKey)) continue;
+    _consoleBridge.registerCommand(entry.name, entry.description, entry.usage, entry.fn);
+    _consoleBridge.gateConsoleCommand?.(entry.name, () => active.has(entry.cmdKey));
+  }
+}
+
+let _movementState = {
+  crouching: false,
+  sneaking: false,
+  running: false,
+  grounded: true,
+  swimming: false,
+  riding: false,
+  levitating: false,
+};
+let _secondAccum = 0;
+let _bridgesWired = false;
+
+function addModCleanup(modId, fn) {
+  let set = _modCleanups.get(modId);
+  if (!set) {
+    set = new Set();
+    _modCleanups.set(modId, set);
+  }
+  set.add(fn);
+}
+
+/**
+ * Update tracked movement state and emit crouch/sneak transition events.
+ * @param {Partial<typeof _movementState>} nextState
+ */
+export function setModMovementState(nextState) {
+  if (!nextState || typeof nextState !== 'object') return;
+  const prevCrouching = _movementState.crouching;
+  const prevSneaking = _movementState.sneaking;
+  _movementState = {
+    crouching: nextState.crouching !== undefined ? !!nextState.crouching : _movementState.crouching,
+    sneaking: nextState.sneaking !== undefined ? !!nextState.sneaking : _movementState.sneaking,
+    running: nextState.running !== undefined ? !!nextState.running : _movementState.running,
+    grounded: nextState.grounded !== undefined ? !!nextState.grounded : _movementState.grounded,
+    swimming: nextState.swimming !== undefined ? !!nextState.swimming : _movementState.swimming,
+    riding: nextState.riding !== undefined ? !!nextState.riding : _movementState.riding,
+    levitating: nextState.levitating !== undefined ? !!nextState.levitating : _movementState.levitating,
+  };
+  if (_movementState.crouching !== prevCrouching) {
+    emitModEvent('player:crouchChanged', { crouching: _movementState.crouching, prev: prevCrouching });
+  }
+  if (_movementState.sneaking !== prevSneaking) {
+    emitModEvent('player:sneakChanged', {
+      sneaking: _movementState.sneaking,
+      crouching: _movementState.crouching,
+      prev: prevSneaking,
+    });
+  }
+}
+
+/**
+ * Wire core engine listeners once (idempotent) to forward gameplay events onto modEventBus.
+ */
+export function ensureModEngineBridges() {
+  if (_bridgesWired) return;
+  _bridgesWired = true;
+
+  onInteractionModeChange((evt) => {
+    emitModEvent('player:interactionModeChanged', evt);
+  });
+
+  onMotorStep((motor, dt) => {
+    setModMovementState({
+      crouching: !!motor?.crouching,
+      sneaking: !!motor?.isSneaking,
+      running: !!motor?.isRunning,
+      grounded: !!motor?.grounded,
+      swimming: !!motor?.isPlayerSwimming,
+      riding: !!motor?.riding,
+      levitating: !!motor?.levitating,
+    });
+    const clampedDt = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 0.25) : 0;
+    if (clampedDt > 0) {
+      _secondAccum += clampedDt;
+      while (_secondAccum >= 1.0) {
+        _secondAccum -= 1.0;
+        emitModEvent('secondTick', { dt: 1 });
+      }
+    }
+  });
+
+  registerPlayerCastListener('__modBridge', (entity, spell, cost) => {
+    emitModEvent('playerCast', { entity, spell, cost });
+  });
+  registerSpellLandedListener('__modBridge', (info) => {
+    emitModEvent('spellLanded', info);
+  });
+  registerPlayerStruckListener('__modBridge', (attacker, target, damage) => {
+    emitModEvent('playerStruck', { attacker, target, damage });
+  });
+  registerPlayerKillListener('__modBridge', (entity, info) => {
+    emitModEvent('playerKill', { target: entity, ...info });
+  });
+  registerTakeListener('__modBridge', (item) => {
+    emitModEvent('itemTaken', { item });
+  });
+}
+
+export function getModStatusChips() {
+  const out = [];
+  for (const [modId, map] of _modStatusChips.entries()) {
+    for (const [chipId, def] of map.entries()) {
+      out.push({
+        key: `mod:${modId}:${chipId}`,
+        modId,
+        id: chipId,
+        ...def,
+      });
+    }
+  }
+  return out;
+}
+
+export function getModStatusChipsVersion() {
+  return _modStatusChipsVersion;
+}
+
+/**
+ * Clean up all modifiers, HUD chips, rest gates, and console commands registered by a mod.
+ * @param {string} modId
+ */
+export function cleanupModResources(modId) {
+  const cleanups = _modCleanups.get(modId);
+  if (cleanups) {
+    for (const fn of cleanups) {
+      try {
+        fn();
+      } catch (e) {
+        console.warn(`[ModPluginApi] Cleanup error for '${modId}':`, e?.message ?? e);
+      }
+    }
+    _modCleanups.delete(modId);
+  }
+  if (_modStatusChips.delete(modId)) {
+    _modStatusChipsVersion++;
+  }
+  if (_playerRef) {
+    try {
+      computeEntityMods(_playerRef);
+      surfacePlayer?.();
+    } catch {
+      // ignore on partial test mocks
+    }
+  }
+}
+
 export function setModApiContext({ player = null, world = null } = {}) {
   if (player) _playerRef = player;
   if (world) _worldRef = world;
@@ -85,6 +287,8 @@ export function setModApiContext({ player = null, world = null } = {}) {
  * @param {string} modId
  */
 export function createModApi(modId) {
+  ensureModEngineBridges();
+
   // Ensure mod save slot is registered with core save system
   if (!_modStorageStore.has(modId)) {
     _modStorageStore.set(modId, {});
@@ -101,8 +305,13 @@ export function createModApi(modId) {
     });
   }
 
+  const regModKey = (name) => `mod:${modId}:${String(name ?? 'default')}`;
+
   return {
     modId,
+
+    log: (...args) => console.log(`[Mod:${modId}]`, ...args),
+    warn: (...args) => console.warn(`[Mod:${modId}]`, ...args),
 
     events: {
       /**
@@ -199,6 +408,55 @@ export function createModApi(modId) {
               (effectKey === 'resistFrost' && e?.kind === 'elementalResistance' && e?.element === 1)),
         );
       },
+      getVitals: () => {
+        const health = _playerRef?.health ?? 0;
+        const maxHealth = _playerRef?.maxHealth ?? 100;
+        const maxF = getPlayerMaxFatigue(_playerRef);
+        const scale = maxF > 200 ? FATIGUE_MULTIPLIER : 1;
+        const fatigue = Math.round((_playerRef?.fatigue ?? 0) / scale);
+        const maxFatigueDisplay = Math.round(maxF / scale);
+        const magicka = _playerRef?.magicka ?? 0;
+        const maxMagicka = _playerRef?.maxMagicka ?? _playerRef?.stats?.intelligence ?? 100;
+        return {
+          health,
+          maxHealth,
+          fatigue,
+          maxFatigue: maxFatigueDisplay,
+          rawFatigue: _playerRef?.fatigue ?? 0,
+          rawMaxFatigue: maxF,
+          magicka,
+          maxMagicka,
+        };
+      },
+      getInteractionMode: () => getInteractionMode(),
+      setInteractionMode: (mode, { notify = false } = {}) => {
+        const ok = setInteractionMode(mode, { source: 'mod' });
+        if (ok && notify && typeof setMidScreenText === 'function') {
+          setMidScreenText(interactionModeText(mode), 1.2);
+        }
+        return ok;
+      },
+      isCrouching: () => _movementState.crouching,
+      isSneaking: () => _movementState.sneaking,
+      isRunning: () => _movementState.running,
+      getMovementState: () => ({ ..._movementState }),
+      getGold: () => goldPiecesOf(_playerRef),
+      addGold: (amount) => {
+        if (!_playerRef || !Number.isFinite(amount)) return goldPiecesOf(_playerRef);
+        const next = addGoldPieces(_playerRef, Math.trunc(amount));
+        surfacePlayer?.();
+        return next;
+      },
+      getStat: (statName) => (_playerRef ? liveStat(_playerRef, statName) : 0),
+      getSkill: (skillId) => (_playerRef ? skillValue(_playerRef, skillId) : 0),
+      getEquipped: () => ({ ...(_playerRef?.equip?.slots ?? {}) }),
+      giveItem: (item) => {
+        if (!_playerRef || !item) return false;
+        _playerRef.items = _playerRef.items || [];
+        addItem(_playerRef.items, item);
+        surfacePlayer?.();
+        return true;
+      },
     },
 
     world: {
@@ -210,6 +468,23 @@ export function createModApi(modId) {
       },
       isInterior: () => !!_worldRef?.isInterior,
       getCurrentBiome: () => _worldRef?.biome ?? 'temperate',
+      getWeather: () => ({
+        index: currentWeatherEnum(),
+        name: currentWeather() ?? 'sunny',
+      }),
+      isRaining: () => {
+        const idx = currentWeatherEnum();
+        return idx === 4 || idx === 5;
+      },
+      isSnowing: () => currentWeatherEnum() === 6,
+      getSeason: () => {
+        const mins = _worldRef?.gameMinutes ?? _playerRef?.lastGameMinutes ?? 0;
+        const month = dateFromClassicMinutes(mins).month;
+        if (month === 11 || month <= 1) return 'winter';
+        if (month <= 4) return 'spring';
+        if (month <= 7) return 'summer';
+        return 'autumn';
+      },
     },
 
     ui: {
@@ -244,6 +519,159 @@ export function createModApi(modId) {
        * @returns {string}
        */
       t: (key, fallbackEn, vars) => t(key, fallbackEn, vars),
+      /**
+       * Create or update a native HUD status chip with hover tooltip description.
+       * @param {string} chipId
+       * @param {{ name: string, kind?: 'buff'|'debuff'|'set'|'warn'|'danger', foot?: string|null, glyph?: string, meta?: string, lines?: string[], say?: string, tipFoot?: string|null, blink?: boolean }} def
+       */
+      setStatusChip: (chipId, def) => {
+        if (!chipId || !def) return;
+        let map = _modStatusChips.get(modId);
+        if (!map) {
+          map = new Map();
+          _modStatusChips.set(modId, map);
+        }
+        map.set(String(chipId), { ...def });
+        _modStatusChipsVersion++;
+      },
+      /**
+       * Remove a mod's HUD status chip.
+       * @param {string} chipId
+       */
+      clearStatusChip: (chipId) => {
+        const map = _modStatusChips.get(modId);
+        if (map && map.delete(String(chipId))) {
+          _modStatusChipsVersion++;
+        }
+      },
+    },
+
+    audio: {
+      play: (soundKeyOrId, volume = 0.8) => {
+        const clip = typeof soundKeyOrId === 'string' ? SOUND[soundKeyOrId] : soundKeyOrId;
+        if (clip == null) return false;
+        try {
+          audio?.playOneShot?.(clip, volume);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    },
+
+    console: {
+      register: (name, description, usage, fn) => {
+        if (!name || typeof fn !== 'function') return;
+        const cmdKey = String(name).toLowerCase();
+        const active = activeModCommands();
+        active.add(cmdKey);
+        if (_consoleBridge) {
+          _consoleBridge.registerCommand(name, description ?? '', usage ?? name, fn);
+          _consoleBridge.gateConsoleCommand?.(name, () => active.has(cmdKey));
+        } else {
+          pendingModCommands().push({ name, description: description ?? '', usage: usage ?? name, fn, cmdKey });
+        }
+        addModCleanup(modId, () => {
+          active.delete(cmdKey);
+        });
+      },
+    },
+
+    modifiers: {
+      entityFold: (name, fn) => {
+        const key = regModKey(name);
+        if (typeof fn !== 'function') {
+          registerEntityFold(key, null);
+          return;
+        }
+        registerEntityFold(key, (entity) => {
+          try {
+            return fn(entity) ?? EMPTY_MODS;
+          } catch {
+            return EMPTY_MODS;
+          }
+        });
+        addModCleanup(modId, () => registerEntityFold(key, null));
+        if (_playerRef) {
+          try {
+            computeEntityMods(_playerRef);
+            surfacePlayer?.();
+          } catch {}
+        }
+      },
+      weaponBlow: (name, fn) => {
+        const key = regModKey(name);
+        registerWeaponBlowMod(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerWeaponBlowMod(key, null));
+      },
+      blowTaken: (name, fn) => {
+        const key = regModKey(name);
+        registerBlowTakenMod(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerBlowTakenMod(key, null));
+      },
+      swingPace: (name, fn) => {
+        const key = regModKey(name);
+        registerSwingPaceMod(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerSwingPaceMod(key, null));
+      },
+      spellCost: (name, fn) => {
+        const key = regModKey(name);
+        registerSpellCostMod(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerSpellCostMod(key, null));
+      },
+      spellFreeCast: (name, fn) => {
+        const key = regModKey(name);
+        registerSpellFreeCast(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerSpellFreeCast(key, null));
+      },
+      spellPower: (name, fn) => {
+        const key = regModKey(name);
+        registerSpellPowerMod(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerSpellPowerMod(key, null));
+      },
+      spellPierce: (name, fn) => {
+        const key = regModKey(name);
+        registerSpellPierceMod(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerSpellPierceMod(key, null));
+      },
+      castSpeed: (name, fn) => {
+        const key = regModKey(name);
+        registerCastSpeedMod(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerCastSpeedMod(key, null));
+      },
+      absorption: (name, fn) => {
+        const key = regModKey(name);
+        registerAbsorptionChance(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerAbsorptionChance(key, null));
+      },
+      enemyLoot: (name, fn) => {
+        const key = regModKey(name);
+        registerEnemyLootExtra(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerEnemyLootExtra(key, null));
+      },
+      tabledLoot: (name, fn) => {
+        const key = regModKey(name);
+        registerTabledLootHandler(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerTabledLootHandler(key, null));
+      },
+      containerLoot: (name, fn) => {
+        const key = regModKey(name);
+        registerContainerLootHandler(key, fn);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerContainerLootHandler(key, null));
+      },
+      preventRest: (name, fn, message) => {
+        const key = regModKey(name);
+        registerModPreventRestCondition(key, fn, message);
+        if (typeof fn === 'function') addModCleanup(modId, () => registerModPreventRestCondition(key, null));
+      },
+      refresh: () => {
+        if (_playerRef) {
+          try {
+            computeEntityMods(_playerRef);
+            surfacePlayer?.();
+          } catch {}
+        }
+      },
     },
 
     perks: {
@@ -364,6 +792,25 @@ export function createModApi(modId) {
  * Reset all mod API storage state (for testing).
  */
 export function _resetModPluginApi() {
+  for (const modId of [..._modCleanups.keys()]) {
+    cleanupModResources(modId);
+  }
+  _modCleanups.clear();
+  _modStatusChips.clear();
+  _modStatusChipsVersion++;
+  activeModCommands().clear();
+  pendingModCommands().length = 0;
+  clearModPreventRestConditions();
+  _movementState = {
+    crouching: false,
+    sneaking: false,
+    running: false,
+    grounded: true,
+    swimming: false,
+    riding: false,
+    levitating: false,
+  };
+  _secondAccum = 0;
   _modStorageStore.clear();
   _registeredPerks.clear();
   clearDynamicPerks();
