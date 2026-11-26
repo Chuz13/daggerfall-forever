@@ -59,6 +59,7 @@ import { auditRacialOverhaulState, verifyRacialSaveRoundTrip, verifyRacialToggle
 import { recordTimelineEvent } from './diagnostics/eventTimeline.js';
 import {
   animateDeadSpell,
+  massAnimateDeadSpell,
   corpseExplosionSpell,
   lifeTapSpell,
   boneArmorSpell,
@@ -1772,8 +1773,8 @@ const aoeFireballDotSpell = () => ({
 
 registerCommand(
   'addspell',
-  'Add spell(s) to player spellbook: addspell <fireball|firestorm|fireball_dot|animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
-  'addspell <fireball|firestorm|fireball_dot|animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
+  'Add spell(s) to player spellbook: addspell <fireball|firestorm|fireball_dot|animate_dead|mass_animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
+  'addspell <fireball|firestorm|fireball_dot|animate_dead|mass_animate_dead|corpse_explosion|life_tap|bone_armor|suture_cadaver|finger_of_death|arch_lichdom|paralyzing_touch|dark_flight|control_undead|disguise|all_necro>',
   (args = []) => {
     const key = String(args[0] || 'all_necro').toLowerCase().replace(/[\s_-]/g, '');
     const map = {
@@ -1781,6 +1782,9 @@ registerCommand(
       firestorm: aoeFirestormSpell,
       fireballdot: aoeFireballDotSpell,
       animatedead: animateDeadSpell,
+      massanimatedead: massAnimateDeadSpell,
+      massraisedead: massAnimateDeadSpell,
+      massanimate: massAnimateDeadSpell,
       corpseexplosion: corpseExplosionSpell,
       lifetap: lifeTapSpell,
       bonearmor: boneArmorSpell,
@@ -1800,6 +1804,7 @@ registerCommand(
     };
     const coreSuite = [
       animateDeadSpell,
+      massAnimateDeadSpell,
       corpseExplosionSpell,
       lifeTapSpell,
       boneArmorSpell,

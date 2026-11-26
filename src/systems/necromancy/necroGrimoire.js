@@ -14,6 +14,7 @@ import { playerEntity, surfacePlayer } from '../../characters/playerEntity.js';
 import { recordBookRead, NECRO_GRIMOIRE_BOOK_ID } from '../apotheosis/apotheosisCore.js';
 import {
   animateDeadSpell,
+  massAnimateDeadSpell,
   corpseExplosionSpell,
   lifeTapSpell,
   boneArmorSpell,
@@ -74,6 +75,7 @@ export const hasReadGrimoire = (entity) => !!(entity?.NecroGrimoireRead || entit
 export function getAllNecroSpells() {
   return [
     animateDeadSpell(),
+    massAnimateDeadSpell(),
     corpseExplosionSpell(),
     lifeTapSpell(),
     boneArmorSpell(),

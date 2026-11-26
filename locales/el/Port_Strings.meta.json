@@ -15164,6 +15164,16 @@
   "tr": "da9602df503e",
   "by": "claude-in-session"
  },
+ "credits.smoothWeaponAnim.terms": {
+  "en": "fa9f760440fe",
+  "tr": "532d422a51ac",
+  "by": "human"
+ },
+ "credits.smoothWeaponAnim.what": {
+  "en": "4ee5db313df7",
+  "tr": "a248d04b1dc4",
+  "by": "human"
+ },
  "credits.spellIcons.terms": {
   "en": "f4749ad8c89a",
   "tr": "f4749ad8c89a",
@@ -19236,7 +19246,7 @@
  },
  "features.smoothWeaponAnim.note": {
   "en": "96e05431bf02",
-  "tr": "2ef7ee9c5b73",
+  "tr": "b7b2df0a2632",
   "by": "human"
  },
  "features.smoothWeaponAnim.start": {
@@ -31159,6 +31169,11 @@
   "tr": "f388dbfb78ec",
   "by": "claude-in-session"
  },
+ "menu.credits.inspiredBy": {
+  "en": "71406c444b20",
+  "tr": "e25fc3af0ec6",
+  "by": "human"
+ },
  "menu.credits.title": {
   "en": "bfac50d6424b",
   "tr": "60713fbb157a",
@@ -31717,6 +31732,21 @@
  "menu.mods.rescan": {
   "en": "84661f6a90cc",
   "tr": "84661f6a90cc",
+  "by": "human"
+ },
+ "menu.mods.resetDefaults": {
+  "en": "ddefe47d697b",
+  "tr": "15b33cf74f7c",
+  "by": "human"
+ },
+ "menu.mods.scriptError": {
+  "en": "db54505af4da",
+  "tr": "e1696bbbdb47",
+  "by": "human"
+ },
+ "menu.mods.settings": {
+  "en": "c7f73bb54d92",
+  "tr": "dc637c01ae52",
   "by": "human"
  },
  "menu.mods.title": {
@@ -53074,6 +53104,11 @@
   "tr": "7f1560ce63cd",
   "by": "human"
  },
+ "spell.necro.massAnimateDead": {
+  "en": "4e4e477bc413",
+  "tr": "04c6459c595b",
+  "by": "claude-in-session"
+ },
  "spell.necro.mortalDisguise": {
   "en": "e15aa5849264",
   "tr": "5ec79824e82a",
@@ -55607,6 +55642,71 @@
  "features.combatLethality.brutal": {
   "en": "7634bcf9a5d2",
   "tr": "bcaba8a5764f",
+  "by": "human"
+ },
+ "item.starflight.name": {
+  "en": "53bb8b63a822",
+  "tr": "e2dedf3da7c5",
+  "by": "human"
+ },
+ "item.starflight.powerName": {
+  "en": "6303de28d77b",
+  "tr": "5f658de3111a",
+  "by": "human"
+ },
+ "item.starflight.powerBrief": {
+  "en": "20eae1cbcc8d",
+  "tr": "36d6ed825ce3",
+  "by": "human"
+ },
+ "item.starflight.powerText": {
+  "en": "39d014ca4439",
+  "tr": "e7ba556e378e",
+  "by": "human"
+ },
+ "item.starflight.lore": {
+  "en": "3a43e64c154d",
+  "tr": "bccb0e9cc4e6",
+  "by": "human"
+ },
+ "codex.legendary.starflightOffline": {
+  "en": "c372b3ec91aa",
+  "tr": "705341e36164",
+  "by": "human"
+ },
+ "apotheosis.communion.hudName": {
+  "en": "4181f3ce5e9a",
+  "tr": "7f8810bffcd6",
+  "by": "human"
+ },
+ "apotheosis.communion.hudTip": {
+  "en": "162bdbc1f7d5",
+  "tr": "dd1aad7fe6f3",
+  "by": "human"
+ },
+ "apotheosis.orrery.noSave": {
+  "en": "2a25346ca113",
+  "tr": "ce09f8aabc64",
+  "by": "human"
+ },
+ "apotheosis.orrery.noMap": {
+  "en": "611ffe6e9daf",
+  "tr": "0a4310b65f20",
+  "by": "human"
+ },
+ "apotheosis.orrery.noMark": {
+  "en": "8af3dc2c7601",
+  "tr": "61b055cd66b5",
+  "by": "human"
+ },
+ "apotheosis.orrery.noRecall": {
+  "en": "9745c5bf3c4c",
+  "tr": "f46f92c8f1f4",
+  "by": "human"
+ },
+ "apotheosis.siege.noSave": {
+  "en": "1a2fbb1b3936",
+  "tr": "5b784060cd5d",
   "by": "human"
  }
 }

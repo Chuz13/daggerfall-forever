@@ -114,6 +114,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '52,255': row(SKILLS.Mysticism, {}), // Arch-Lichdom ritual (Mysticism)
   '53,255': row(SKILLS.Mysticism, { duration: costs(12, 24), chance: costs(10, 20), magnitude: costs(10, 20) }), // ControlUndead (Mysticism)
   '55,255': row(SKILLS.Mysticism, { chance: costs(40, 100), magnitude: costs(40, 120) }), // SutureCadaver (Mysticism)
+  '56,255': row(SKILLS.Mysticism, { chance: costs(60, 300, 3500), magnitude: costs(80, 400, 4500) }), // MassAnimateDead (Mysticism)
   '44,255': row(SKILLS.Mysticism, { duration: costs(60, 68), chance: costs(40, 68) }), // ComprehendLanguages
 
   // ---- Restoration ----

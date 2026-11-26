@@ -49,7 +49,7 @@ import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify match
 import { breakNormalPowerConcealment, handleAttackFromSource } from './concealment.js';
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
-import { castAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor, castControlUndead, castSutureCadaver, isNonDisguiseNecroSpell } from './necromancy/necromanticSpells.js';
+import { castAnimateDead, castMassAnimateDead, castCorpseExplosion, castLifeTap, castBoneArmor, castControlUndead, castSutureCadaver, isNonDisguiseNecroSpell } from './necromancy/necromanticSpells.js';
 import { performArchLichdomRitual, performLichdomRitual } from './necromancy/lichdomRitual.js';
 import { lichdomMagicRound, breakMortalDisguise } from './necromancy/lichdomStatus.js';
 import { mitigateShadowDamage } from './apotheosis/apotheosisLive.js';
@@ -274,6 +274,7 @@ export const MAGIC_ONLY_KEYS = new Set([
   '53,255',   // NECROMANCY: Control Undead (Mysticism)
   '54,255',   // NECROMANCY: Mortal Disguise (Illusion)
   '55,255',   // NECROMANCY: Suture Cadaver (Mysticism)
+  '56,255',   // NECROMANCY: Mass Animate Dead (Mysticism)
 ]);
 
 /** THE BUFF LANDING ALERTS - every line DFU speaks on the frame a
@@ -1634,6 +1635,45 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         sinks?.say?.(failMsg);
       }
       pushInstantMarker(target, 'sutureCadaver', e);
+      continue;
+    }
+    if (e.type === 56 && classicSub(e) === 255) {
+      const actualCaster = caster?.entity ?? target;
+      if (ctx.massAnimateDead) {
+        ctx.massAnimateDead(e, target);
+        breakMortalDisguise(actualCaster, { say: sinks?.say });
+        out.massAnimateDead = (out.massAnimateDead ?? 0) + 1;
+      } else {
+        const res = castMassAnimateDead({
+          casterEntity: actualCaster,
+          chance: ctx.bypassChance === true ? 100 : chanceValue(e, casterLevel),
+          rollMagnitude: () => magnitude(e),
+          rolls,
+          say: sinks?.say,
+        });
+        out.massAnimateDeadRadius = res?.radius ?? 2;
+        if (res?.raisedCount > 0) {
+          out.massAnimateDead = (out.massAnimateDead ?? 0) + 1;
+          out.massAnimateDeadRaised = (out.massAnimateDeadRaised ?? 0) + res.raisedCount;
+          out.massAnimateDeadMinions = [...(out.massAnimateDeadMinions ?? []), ...(res.raised ?? [])];
+          if (typeof sinks?.say === 'function') {
+            if (res.raisedCount === 1 && res.raised?.[0]) {
+              sinks.say(`You raise ${res.raised[0].name} from the remains!`);
+            } else {
+              const capNote = res.stoppedByCapacity ? ' (undead capacity reached)' : '';
+              sinks.say(`You raise ${res.raisedCount} undead minions within ${res.radius.toFixed(1)}m${capNote}!`);
+            }
+          }
+        } else {
+          if (res?.failedChanceCount > 0) {
+            out.chanceFailed = (out.chanceFailed ?? 0) + res.failedChanceCount;
+          }
+          if (res?.reason && typeof sinks?.say === 'function') {
+            sinks.say(res.reason);
+          }
+        }
+      }
+      pushInstantMarker(target, 'massAnimateDead', e);
       continue;
     }
     // X1: SPELL ABSORPTION (20) and SPELL RESISTANCE (22) - both are

@@ -100,6 +100,7 @@ const SELF_TARGET_KEYS = new Set([
   '46,255', // PARTY-MAP: Shared Cartography, the port's own - the caster's map is the one shared
   '51,255', // NECROMANCY: Bone Armor (CasterOnly buff)
   '54,255', // NECROMANCY: Mortal Disguise (CasterOnly buff)
+  '56,255', // NECROMANCY: Mass Animate Dead (CasterOnly AoE around caster)
 ]);
 const OTHER_TARGET_KEYS = new Set([
   '0,255',

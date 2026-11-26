@@ -78,10 +78,11 @@ test('Necro spells: Grimoire grants Arch-Lichdom along with core spells, but exc
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Dark Flight'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Control Undead'));
   assert.ok(dummyPlayer.spells.some((s) => s.name === 'Suture Cadaver'));
+  assert.ok(dummyPlayer.spells.some((s) => s.name === 'Mass Animate Dead'));
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Paralyzing Touch'));
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Mortal Disguise'));
   assert.ok(!dummyPlayer.spells.some((s) => s.name === 'Finger of Death'));
-  assert.equal(dummyPlayer.spells.length, 8, '4 standard necro spells + Arch-Lichdom + Dark Flight + Control Undead + Suture Cadaver');
+  assert.equal(dummyPlayer.spells.length, 9, '4 standard necro spells + Mass Animate Dead + Arch-Lichdom + Dark Flight + Control Undead + Suture Cadaver');
 
   // Verify Elixir of Unlife Potion Recipe is granted to items
   assert.equal(dummyPlayer.items.length, 1);

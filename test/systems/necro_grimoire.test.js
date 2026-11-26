@@ -116,10 +116,11 @@ test('NecroGrimoire 6 & 8: Reading grimoire sets NecroGrimoireRead and grants al
   assert.equal(res.kind, 'text');
   assert.equal(dummyPlayer.NecroGrimoireRead, true, 'NecroGrimoireRead flag must be true');
   assert.equal(dummyPlayer.necroGrimoireRead, true, 'necroGrimoireRead flag must be true');
-  assert.equal(dummyPlayer.spells.length, 8, 'Must have granted all 8 grimoire spells (including Arch-Lichdom, Dark Flight, Control Undead, Suture Cadaver)');
+  assert.equal(dummyPlayer.spells.length, 9, 'Must have granted all 9 grimoire spells (including Mass Animate Dead, Arch-Lichdom, Dark Flight, Control Undead, Suture Cadaver)');
 
   const names = dummyPlayer.spells.map((s) => s.name);
   assert.ok(names.includes('Animate Dead'));
+  assert.ok(names.includes('Mass Animate Dead'));
   assert.ok(names.includes('Corpse Explosion'));
   assert.ok(names.includes('Life Tap'));
   assert.ok(names.includes('Bone Armor'));
@@ -138,7 +139,7 @@ test('NecroGrimoire 6 & 8: Reading grimoire sets NecroGrimoireRead and grants al
 
   // Reading again should not duplicate spells
   const res2 = useItem(item, [item], { entity: dummyPlayer });
-  assert.equal(dummyPlayer.spells.length, 8);
+  assert.equal(dummyPlayer.spells.length, 9);
   assert.ok(res2.text.includes('already deciphered'));
 });
 
@@ -181,12 +182,14 @@ test('NecroGrimoire 9: Spell Maker blocks necro effects without NecroGrimoireRea
   // 1. Groups check without grimoire
   const groupsLocked = spellMakerGroups(uninitiated);
   assert.ok(!groupsLocked.includes('Animate Dead'), 'Animate Dead must be hidden');
+  assert.ok(!groupsLocked.includes('Mass Animate Dead'), 'Mass Animate Dead must be hidden');
   assert.ok(!groupsLocked.includes('Corpse Explosion'), 'Corpse Explosion must be hidden');
   assert.ok(!groupsLocked.includes('Life Tap'), 'Life Tap must be hidden');
   assert.ok(!groupsLocked.includes('Bone Armor'), 'Bone Armor must be hidden');
 
   // 2. Validate purchase check without grimoire
   const necroSlot = { type: 47, subType: 255 }; // Animate Dead
+  const massNecroSlot = { type: 56, subType: 255 }; // Mass Animate Dead
   const buyResLocked = validateSpellPurchase({
     entity: uninitiated,
     slots: [necroSlot],
@@ -195,6 +198,13 @@ test('NecroGrimoire 9: Spell Maker blocks necro effects without NecroGrimoireRea
   });
   assert.equal(buyResLocked.ok, false, 'Must fail purchase validation');
   assert.ok(buyResLocked.text.includes('Grimoire'), 'Must mention Grimoire in error');
+  const massBuyLocked = validateSpellPurchase({
+    entity: uninitiated,
+    slots: [massNecroSlot],
+    goldCost: 100,
+    name: 'Forbidden Mass Summon',
+  });
+  assert.equal(massBuyLocked.ok, false, 'Mass Animate Dead must fail purchase validation without Grimoire');
 
   // 3. Initiate player with Grimoire
   const initiated = {
@@ -207,6 +217,7 @@ test('NecroGrimoire 9: Spell Maker blocks necro effects without NecroGrimoireRea
   // Groups check with grimoire
   const groupsUnlocked = spellMakerGroups(initiated);
   assert.ok(groupsUnlocked.includes('Animate Dead'), 'Animate Dead must appear');
+  assert.ok(groupsUnlocked.includes('Mass Animate Dead'), 'Mass Animate Dead must appear');
   assert.ok(groupsUnlocked.includes('Corpse Explosion'), 'Corpse Explosion must appear');
   assert.ok(groupsUnlocked.includes('Life Tap'), 'Life Tap must appear');
   assert.ok(groupsUnlocked.includes('Bone Armor'), 'Bone Armor must appear');
@@ -215,6 +226,9 @@ test('NecroGrimoire 9: Spell Maker blocks necro effects without NecroGrimoireRea
   const subs = spellMakerSubgroups('Animate Dead', initiated);
   assert.equal(subs.length, 1);
   assert.equal(subs[0].key, '47,255');
+  const massSubs = spellMakerSubgroups('Mass Animate Dead', initiated);
+  assert.equal(massSubs.length, 1);
+  assert.equal(massSubs[0].key, '56,255');
 
   // Validate purchase check with grimoire
   const buyResUnlocked = validateSpellPurchase({
@@ -224,6 +238,13 @@ test('NecroGrimoire 9: Spell Maker blocks necro effects without NecroGrimoireRea
     name: 'Forbidden Summon',
   });
   assert.equal(buyResUnlocked.ok, true, 'Purchase validation must pass when grimoire read');
+  const massBuyUnlocked = validateSpellPurchase({
+    entity: initiated,
+    slots: [massNecroSlot],
+    goldCost: 100,
+    name: 'Forbidden Mass Summon',
+  });
+  assert.equal(massBuyUnlocked.ok, true, 'Mass Animate Dead purchase validation must pass when grimoire read');
 });
 
 test('NecroGrimoire 10: Console commands can spawn Grimoire of the Worm', () => {
