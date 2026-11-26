@@ -143,6 +143,8 @@ const ROWS = [
   [54, 255, 'Mortal Disguise', '', [D]],
   // 55,255: Suture Cadaver (Mysticism) - stitches 3-5 nearby corpses into a Flesh Colossus
   [55, 255, 'Suture Cadaver', '', [C, M]],
+  // 56,255: Mass Animate Dead (Mysticism) - raises all viable corpses in a Mysticism-scaled radius
+  [56, 255, 'Mass Animate Dead', '', [C, M]],
   [30, 255, 'Water Breathing', '', [D]],
   [31, 255, 'Water Walking', '', [D]],
   [33, 0, 'Pacify', 'Animal', [C]],
@@ -223,6 +225,7 @@ const GROUP_NAMES = localizedTable({
   'Control Undead': ['controlUndead', 'Control Undead'],
   'Mortal Disguise': ['mortalDisguise', 'Mortal Disguise'],
   'Suture Cadaver': ['sutureCadaver', 'Suture Cadaver'],
+  'Mass Animate Dead': ['massAnimateDead', 'Mass Animate Dead'],
 });
 const SUBGROUP_NAMES = localizedTable({
   Health: ['health', 'Health'],
@@ -352,6 +355,7 @@ export const PORTED_KEYS = new Set([
   '53,255', // Control Undead (NECROMANCY)
   '54,255', // Mortal Disguise (NECROMANCY)
   '55,255', // Suture Cadaver (NECROMANCY)
+  '56,255', // Mass Animate Dead (NECROMANCY)
   '30,255', // Water Breathing
   '31,255', // Water Walking
   '6,0',
@@ -452,7 +456,7 @@ export const SPELL_MAKER_EFFECTS = Object.freeze(
   })(),
 );
 
-export const NECRO_EFFECT_KEYS = Object.freeze(new Set(['47,255', '48,255', '49,255', '51,255', '53,255', '54,255', '55,255']));
+export const NECRO_EFFECT_KEYS = Object.freeze(new Set(['47,255', '48,255', '49,255', '51,255', '53,255', '54,255', '55,255', '56,255']));
 export const isNecroEffectKey = (key) => NECRO_EFFECT_KEYS.has(key);
 export const isNecroEffect = (type, subType) => {
   const k = `${type},${subType ?? 255}`;
@@ -764,6 +768,15 @@ export const PORT_EFFECT_DESCRIPTIONS = new Map([
       'Stitches 3 to 5 nearby corpses together into a',
       'towering Flesh Colossus whose heavy blows sunder',
       'enemy armor on impact.',
+    ]),
+  ],
+  [
+    '56,255',
+    Object.freeze([
+      'Mass Animate Dead',
+      'Binds every viable corpse within a Mysticism-scaled',
+      'radius (2m to 30m) into undead minions at once,',
+      'up to your current undead control capacity.',
     ]),
   ],
 ]);

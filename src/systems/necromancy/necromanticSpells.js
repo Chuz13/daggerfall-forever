@@ -7,12 +7,13 @@
 
 import { FORK_FLAGS } from '../../config/forkFlags.js';
 import { getCorpse, consumeCorpse, corpsesNear, CORPSE_STATE } from './corpseRegistry.js';
-import { canAffordUndead, removeUndeadMinion } from './undeadCapacity.js';
+import { canAffordUndead, removeUndeadMinion, calculateUndeadCapacity, usedUndeadPoints } from './undeadCapacity.js';
 import { spawnMinion, allSpawnedMinions, detonateMinion } from './minionController.js';
-import { skillValue, SKILLS } from '../skills.js';
+import { skillValue, displaySkillValue, realSkillValue, SKILLS } from '../skills.js';
 import { liveStat } from '../statMods.js';
 import { NecroConfig, CORPSE_REQ_MODES } from './necroConfig.js';
 import { breakMortalDisguise } from './lichdomStatus.js';
+import { dice100 } from '../../combat/formulas.js';
 
 export const UNDEAD_LADDER = Object.freeze([
   'skeleton',
@@ -81,12 +82,13 @@ export const NECRO_SPELL_KEYS = Object.freeze({
   CONTROL_UNDEAD: '53,255',
   DISGUISE: '54,255',
   SUTURE_CADAVER: '55,255',
+  MASS_ANIMATE_DEAD: '56,255',
 });
 
 export const NON_DISGUISE_NECRO_INDEXES = Object.freeze(
-  new Set([-47, -48, -49, -50, -51, -52, -53, -55, -56, -57, -58]),
+  new Set([-47, -48, -49, -50, -51, -52, -53, -55, -56, -57, -58, -59]),
 );
-export const NON_DISGUISE_NECRO_EFFECT_TYPES = Object.freeze(new Set([47, 48, 49, 50, 51, 52, 53, 55]));
+export const NON_DISGUISE_NECRO_EFFECT_TYPES = Object.freeze(new Set([47, 48, 49, 50, 51, 52, 53, 55, 56]));
 
 /**
  * Returns true if the spell is a necromantic spell (innate, grimoire, ritual, or custom Spell Maker)
@@ -569,6 +571,66 @@ export function fingerOfDeathSpell() {
   };
 }
 
+export const MASS_ANIMATE_DEAD_MIN_RADIUS = 2;
+export const MASS_ANIMATE_DEAD_MAX_RADIUS = 30;
+export const MASS_ANIMATE_DEAD_RADIUS_PER_MYSTICISM = 0.1;
+
+/**
+ * Calculates Mass Animate Dead search radius in meters from uncompressed Mysticism.
+ * Scales linearly at 0.1m per point (1m per 10 points), clamped to [2m, 30m],
+ * and continues scaling past 100 without effectiveSkill softcap.
+ * @param {object} casterEntity
+ * @returns {number}
+ */
+export function calculateMassAnimateDeadRadius(casterEntity) {
+  const myst = casterEntity
+    ? Math.max(
+        displaySkillValue(casterEntity, SKILLS.Mysticism),
+        realSkillValue(casterEntity, SKILLS.Mysticism),
+        skillValue(casterEntity, SKILLS.Mysticism),
+        casterEntity.skills?.[SKILLS.Mysticism] ?? 0,
+      )
+    : 0;
+  const raw = Math.max(0, Number(myst) || 0) * MASS_ANIMATE_DEAD_RADIUS_PER_MYSTICISM;
+  return Math.max(MASS_ANIMATE_DEAD_MIN_RADIUS, Math.min(MASS_ANIMATE_DEAD_MAX_RADIUS, raw));
+}
+
+/**
+ * Creates a ready-made spell record for Mass Animate Dead (56,255).
+ * CasterOnly AoE around the caster with Mysticism-scaled radius (2m..30m).
+ * @returns {object}
+ */
+export function massAnimateDeadSpell() {
+  return {
+    index: -59,
+    name: 'Mass Animate Dead',
+    icon: 25,
+    rangeType: 0, // CasterOnly
+    element: 4,   // Magic
+    tag: 'некро',
+    tags: ['некро', 'necro'],
+    necro: true,
+    custom: true,
+    effects: [
+      {
+        type: 56,
+        subType: 255,
+        durationBase: 0,
+        durationMod: 0,
+        durationPerLevel: 1,
+        chanceBase: 0,
+        chanceMod: 4,
+        chancePerLevel: 1,
+        magnitudeBaseLow: 0,
+        magnitudeBaseHigh: 0,
+        magnitudeLevelBase: 5,
+        magnitudeLevelHigh: 5,
+        magnitudePerLevel: 1,
+      },
+    ],
+  };
+}
+
 /**
  * Executes Animate Dead on a targeted corpse.
  * @param {object} caster Entity casting the spell
@@ -597,12 +659,28 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
     if (!canAffordUndead(casterEntity, 'skeleton')) {
       return { success: false, reason: 'Insufficient undead control capacity' };
     }
-    const spawnPos = casterEntity?.position ? [...casterEntity.position] : [0, 0, 0];
+    const rawPos =
+      casterEntity?.position ||
+      casterEntity?.pos ||
+      casterEntity?.feet ||
+      globalThis.__sceneContext?.getPlayerPos?.() ||
+      [0, 0, 0];
+    const spawnPos = Array.isArray(rawPos) ? [...rawPos] : [0, 0, 0];
     const minion = spawnMinion({
       type: 'skeleton',
       position: spawnPos,
       masterEntity: casterEntity,
     });
+    if (minion && typeof globalThis.__sceneContext?.spawnUndeadMinion === 'function') {
+      const maybeBody = globalThis.__sceneContext.spawnUndeadMinion('skeleton', spawnPos, minion.name);
+      if (maybeBody && typeof maybeBody.then === 'function') {
+        maybeBody.then((body) => {
+          if (body) minion.sceneBody = body;
+        }).catch(() => {});
+      } else if (maybeBody) {
+        minion.sceneBody = maybeBody;
+      }
+    }
     breakMortalDisguise(casterEntity, { say: opts?.say ?? opts?.sinks?.say });
     return { success: true, minion };
   }
@@ -1220,6 +1298,165 @@ export function castSutureCadaver(caster, targetCorpse = null, options = {}) {
     minion,
     consumedCount: toConsume.length,
     consumedCorpses: toConsume,
+  };
+}
+
+/**
+ * Executes Mass Animate Dead: raises all viable corpses within a Mysticism-scaled radius
+ * (2m..30m, 0.1m per Mysticism point, scaling past 100) using castAnimateDead's per-corpse
+ * tier, reagent upgrade, capacity fallback, and 3D spawn rules.
+ * In Abstract mode with no corpses nearby, conjures skeletons up to remaining control capacity.
+ * @param {object} caster
+ * @param {object|Array<number>|null} [targetOrigin]
+ * @param {object} [options]
+ * @returns {{ success: boolean, raised: Array<object>, raisedCount: number, failedChanceCount: number, radius: number, stoppedByCapacity: boolean, reason?: string }}
+ */
+export function castMassAnimateDead(caster, targetOrigin = null, options = {}) {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY) {
+    return {
+      success: false,
+      raised: [],
+      raisedCount: 0,
+      failedChanceCount: 0,
+      radius: MASS_ANIMATE_DEAD_MIN_RADIUS,
+      stoppedByCapacity: false,
+      reason: 'Necromancy is disabled',
+    };
+  }
+
+  let opts = options;
+  if (caster && typeof caster === 'object' && !targetOrigin && 'casterEntity' in caster) {
+    opts = { ...caster, ...options };
+    targetOrigin = opts.position || null;
+    caster = opts.casterEntity;
+  }
+
+  const rolls = opts.rolls || Math.random;
+  const casterEntity = caster?.entity || caster;
+  const radius = Number(opts?.radius) > 0 ? Number(opts.radius) : calculateMassAnimateDeadRadius(casterEntity);
+
+  const rawPos =
+    opts?.position ||
+    (Array.isArray(targetOrigin) ? targetOrigin : (targetOrigin?.position || targetOrigin?.pos || targetOrigin?.feet)) ||
+    casterEntity?.position ||
+    casterEntity?.pos ||
+    casterEntity?.feet ||
+    globalThis.__sceneContext?.getPlayerPos?.() ||
+    [0, 0, 0];
+  const searchPos = Array.isArray(rawPos) ? [...rawPos] : [0, 0, 0];
+
+  const chance = opts?.chance != null ? Math.max(0, Math.min(100, Number(opts.chance))) : 100;
+  const saySink = opts?.say ?? opts?.sinks?.say;
+
+  if (!canAffordUndead(casterEntity, 'skeleton')) {
+    return {
+      success: false,
+      raised: [],
+      raisedCount: 0,
+      failedChanceCount: 0,
+      radius,
+      stoppedByCapacity: true,
+      reason: 'Insufficient undead control capacity',
+    };
+  }
+
+  const candidates = corpsesNear(searchPos, radius).filter((c) => c && !c.consumed && c.corpseState);
+  const raised = [];
+  let failedChanceCount = 0;
+  let stoppedByCapacity = false;
+
+  if (candidates.length === 0) {
+    if (NecroConfig.corpseRequirement === CORPSE_REQ_MODES.ABSTRACT) {
+      const remainingSlots = Math.max(0, calculateUndeadCapacity(casterEntity) - usedUndeadPoints());
+      const limit = Math.min(remainingSlots, 256);
+      for (let i = 0; i < limit; i++) {
+        if (!canAffordUndead(casterEntity, 'skeleton')) {
+          stoppedByCapacity = true;
+          break;
+        }
+        if (chance < 100 && !dice100(chance, rolls())) {
+          failedChanceCount++;
+          continue;
+        }
+        const res = castAnimateDead(casterEntity, null, {
+          rolls,
+          say: raised.length === 0 ? saySink : null,
+        });
+        if (res?.success && res.minion) {
+          raised.push(res.minion);
+        } else {
+          stoppedByCapacity = true;
+          break;
+        }
+      }
+    } else {
+      return {
+        success: false,
+        raised: [],
+        raisedCount: 0,
+        failedChanceCount: 0,
+        radius,
+        stoppedByCapacity: false,
+        reason: `No viable corpses within ${radius.toFixed(1)}m.`,
+      };
+    }
+  } else {
+    for (const corpse of candidates) {
+      if (!corpse || corpse.consumed) continue;
+      if (!canAffordUndead(casterEntity, 'skeleton')) {
+        stoppedByCapacity = true;
+        break;
+      }
+      if (chance < 100 && !dice100(chance, rolls())) {
+        failedChanceCount++;
+        continue;
+      }
+      const mag = typeof opts?.rollMagnitude === 'function' ? opts.rollMagnitude() : (opts?.spellMagnitude ?? opts?.magnitude);
+      const res = castAnimateDead(casterEntity, corpse, {
+        spellMagnitude: mag,
+        rolls,
+        say: raised.length === 0 ? saySink : null,
+      });
+      if (res?.success && res.minion) {
+        raised.push(res.minion);
+      } else if (res?.reason === 'Insufficient undead control capacity') {
+        stoppedByCapacity = true;
+        break;
+      }
+    }
+  }
+
+  if (raised.length > 0) {
+    return {
+      success: true,
+      raised,
+      raisedCount: raised.length,
+      failedChanceCount,
+      radius,
+      stoppedByCapacity,
+    };
+  }
+
+  if (failedChanceCount > 0) {
+    return {
+      success: false,
+      raised: [],
+      raisedCount: 0,
+      failedChanceCount,
+      radius,
+      stoppedByCapacity,
+      reason: 'The necrotic rite failed to bind the remains.',
+    };
+  }
+
+  return {
+    success: false,
+    raised: [],
+    raisedCount: 0,
+    failedChanceCount: 0,
+    radius,
+    stoppedByCapacity,
+    reason: stoppedByCapacity ? 'Insufficient undead control capacity' : `No viable corpses within ${radius.toFixed(1)}m.`,
   };
 }
 

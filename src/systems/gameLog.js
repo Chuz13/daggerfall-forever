@@ -464,6 +464,7 @@ export function recordSpellEvent(payload) {
     (out.attrHealed ?? 0) > 0 ||
     (out.fatigueHealed ?? 0) > 0 ||
     (out.animateDead ?? 0) > 0 ||
+    (out.massAnimateDead ?? 0) > 0 ||
     (out.corpseExplosion ?? 0) > 0 ||
     (out.controlUndead ?? 0) > 0 ||
     (out.sutureCadaver ?? 0) > 0 ||

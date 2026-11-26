@@ -1286,6 +1286,12 @@ export function createPlayerMagic({
       if (r?.sutureCadaverFailed && cost > 0) {
         playerEntity.magicka = Math.min(playerEntity.maxMagicka ?? Infinity, (playerEntity.magicka ?? 0) + cost);
       }
+      if (r?.massAnimateDead > 0 && eye) {
+        const fxR = Math.max(2, Math.min(30, r.massAnimateDeadRadius ?? EXPLOSION_RADIUS));
+        const at = [eye[0], eye[1] - 1, eye[2]];
+        mwFx.area(sp, _doorFeet ?? at, fxR);
+        landFx(fxKindOf(sp), at, { power: 1.2, area: fxR, areaFrom: eye, heard: 40, shake: 2 });
+      }
       // AUDIT 24 scenes: PlayerSpellCasting_OnReleaseFrame assigns the
       // CasterOnly bundle at :2117 and only stamps
       // `lastReadySpellCastingCost = readySpellCastingCost` at :2138 -
