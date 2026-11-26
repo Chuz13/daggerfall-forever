@@ -23,7 +23,7 @@ See [Combat Balance & Difficulty](/balance/) for full formulas, preset tables, a
 | Setting | Key / Pref | Default | Effect |
 | :--- | :--- | :---: | :--- |
 | **Difficulty Preset** | `preset:difficulty` | `Balanced DFF` | One-click selector (`Classic DFU` \| `Balanced DFF` \| `Veteran` \| `Hardcore` \| `Custom`) coordinating all 7 combat balance rows. |
-| **Combat Lethality** | `feat:combat-lethality` (`combatLethality`) | `Classic (1.0x)` | 4-tier selector (`Classic` \| `Sharp` 1.25x dmg / 1.05x HP \| `Lethal` 1.45x / 1.10x \| `Brutal` 1.75x / 1.20x) for newly spawned foes. |
+| **Combat Lethality** | `feat:combat-lethality` (`combatLethality`) | `Classic (1.0x)` | 5-tier selector (`Easy` 0.5x dmg / 0.5x HP \| `Classic` \| `Sharp` 1.25x dmg / 1.05x HP \| `Lethal` 1.45x / 1.10x \| `Brutal` 1.75x / 1.20x) for newly spawned foes. |
 | **Regional Risk Zones** | `feat:regional-risk-zones` (`regionalRiskZones`) | `Standard` | 3-tier selector (`Off (Uniform)` \| `Standard` \| `Harsh`) scaling enemy HP/damage, elite odds, and level floors across 4 region tiers (`I Heartland` to `IV Perilous`). |
 | **Hero Threat Scaling** | `feat:hero-threat-scaling` (`heroThreatMode`) | `Early (Lv.5+)` | 3-tier selector (`Off (Vanilla)` \| `Classic (Lv.10+)` \| `Early (Lv.5+)`) scaling foes against high-level/Renown heroes. |
 | **Tactical Stagger & Tells** | `feat:tactical-stagger` (`tacticalStagger`) | `Tactical (Lv.5+, Hard)` | 2-tier selector (`Classic (Lv.10+, Soft)` \| `Tactical (Lv.5+, Hard)`) enabling Lv.5+ telegraphed blows, hard player stagger interrupts, and iron knockdowns. |

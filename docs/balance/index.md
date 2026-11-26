@@ -26,6 +26,7 @@ Raises enemy damage while keeping enemy health multipliers modest so high-tier c
 
 | Preset | Enemy Damage | Enemy Health |
 | :--- | :---: | :---: |
+| **`Easy`** | `0.50x` | `0.50x` |
 | **`Classic`** *(Default)* | `1.00x` | `1.00x` |
 | **`Sharp`** | `1.25x` | `1.05x` |
 | **`Lethal`** | `1.45x` | `1.10x` |
@@ -119,7 +120,7 @@ Elites, Nemesis hunters, and trait-rolled regular mobs can carry up to 1–2 tra
 | Command | Syntax | Purpose |
 | :--- | :--- | :--- |
 | `difficulty` | `difficulty [status\|classic\|balanced\|veteran\|hardcore]` | Inspect or apply a modular difficulty preset. |
-| `lethality` | `lethality [status\|classic\|sharp\|lethal\|brutal]` | Inspect or set Combat Lethality and view Hero Threat multipliers. |
+| `lethality` | `lethality [status\|easy\|classic\|sharp\|lethal\|brutal]` | Inspect or set Combat Lethality and view Hero Threat multipliers. |
 | `risk` | `risk [status\|off\|standard\|harsh\|<regionIndex>]` | Inspect or set Regional Risk Zones, or check any region (`0..70`). |
 | `reflexes` | `reflexes [status\|0..4\|veryhigh\|high\|average\|low\|verylow]` | Inspect or set player Reflexes live with wind-up/cooldown multipliers. |
 | `stagger` | `stagger [status\|me\|clear]` | Inspect, trigger, or clear hard player stagger state. |

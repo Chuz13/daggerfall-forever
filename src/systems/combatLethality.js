@@ -2,16 +2,17 @@
 import { getPref } from './uiPrefs.js';
 
 export const COMBAT_LETHALITY_PREF = 'combatLethality';
-export const COMBAT_LETHALITY_ORDER = Object.freeze(['classic', 'sharp', 'lethal', 'brutal']);
+export const COMBAT_LETHALITY_ORDER = Object.freeze(['easy', 'classic', 'sharp', 'lethal', 'brutal']);
 
 export const COMBAT_LETHALITY_PRESETS = Object.freeze({
+  easy: Object.freeze({ id: 'easy', damage: 0.5, health: 0.5 }),
   classic: Object.freeze({ id: 'classic', damage: 1.0, health: 1.0 }),
   sharp: Object.freeze({ id: 'sharp', damage: 1.25, health: 1.05 }),
   lethal: Object.freeze({ id: 'lethal', damage: 1.45, health: 1.1 }),
   brutal: Object.freeze({ id: 'brutal', damage: 1.75, health: 1.2 }),
 });
 
-/** Current offline Combat Lethality preset id (`classic` | `sharp` | `lethal` | `brutal`). */
+/** Current offline Combat Lethality preset id (`easy` | `classic` | `sharp` | `lethal` | `brutal`). */
 export function combatLethalityMode() {
   const raw = String(getPref(COMBAT_LETHALITY_PREF) ?? 'classic').toLowerCase();
   return raw in COMBAT_LETHALITY_PRESETS ? raw : 'classic';
@@ -27,12 +28,12 @@ export function combatLethalityScale({ online = false } = {}) {
 export function applyCombatLethality(entity, { online = false } = {}) {
   if (!entity || online) return COMBAT_LETHALITY_PRESETS.classic;
   const s = combatLethalityScale({ online });
-  if (s.health > 1) {
+  if (s.health !== 1) {
     entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 1) * s.health));
     entity.health = entity.maxHealth;
     entity.healthMult = (entity.healthMult ?? 1) * s.health;
   }
-  if (s.damage > 1) {
+  if (s.damage !== 1) {
     entity.damageScale =
       (Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1) * s.damage;
   }

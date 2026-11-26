@@ -733,8 +733,8 @@ registerCommand(
 
 registerCommand(
   'lethality',
-  'Inspect or set offline Combat Lethality preset: lethality [classic|sharp|lethal|brutal]',
-  'lethality [classic|sharp|lethal|brutal]',
+  'Inspect or set offline Combat Lethality preset: lethality [easy|classic|sharp|lethal|brutal]',
+  'lethality [easy|classic|sharp|lethal|brutal]',
   (args = []) => {
     const raw = args[0] ? String(args[0]).toLowerCase() : null;
     if (!raw || raw === 'status') {
