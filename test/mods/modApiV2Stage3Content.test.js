@@ -21,6 +21,7 @@ import {
   registerVirtualPluginHandler,
   loadActiveModPlugins,
   unloadModPlugins,
+  getPluginError,
   _resetModPluginLoader,
 } from '../../src/systems/mods/modPluginLoader.js';
 import {
@@ -251,4 +252,36 @@ test("Stage 3 Showcase: wayfarers-kit end-to-end (items, spells, legendaries, co
   assert.equal(templateByIndex(WAYFARER_TONIC_TEMPLATE), null);
   assert.equal(legendaryById(WAYFARER_SIGNET_ID), null);
   assert.equal(itemUseHandler(WAYFARER_TONIC_TEMPLATE), null);
+});
+
+test('Stage 3: file-backed plugin.js with named export const executes without Unexpected token export', async () => {
+  resetAll();
+
+  const manifest = JSON.parse(fs.readFileSync('mods/examples/wayfarers-kit/manifest.json', 'utf8'));
+  const files = {
+    'items.json': fs.readFileSync('mods/examples/wayfarers-kit/items.json', 'utf8'),
+    'spells.json': fs.readFileSync('mods/examples/wayfarers-kit/spells.json', 'utf8'),
+    'legendaries.json': fs.readFileSync('mods/examples/wayfarers-kit/legendaries.json', 'utf8'),
+    'locales.json': fs.readFileSync('mods/examples/wayfarers-kit/locales.json', 'utf8'),
+    'plugin.js': fs.readFileSync('mods/examples/wayfarers-kit/plugin.js', 'utf8'),
+  };
+
+  const commands = new Map();
+  bindModConsoleBridge({
+    registerCommand: (name, _desc, _usage, fn) => commands.set(name, fn),
+    gateConsoleCommand: () => false,
+  });
+
+  const player = { health: 50, maxHealth: 100, fatigue: 50, maxFatigue: 100, items: [], spells: [] };
+  setModApiContext({ player });
+
+  registerVirtualMod(manifest, files);
+  discoverMods();
+  syncModData();
+  await loadActiveModPlugins();
+
+  assert.equal(getPluginError('wayfarers-kit'), null);
+  assert.equal(typeof commands.get('wayfarer_give'), 'function');
+  const out = commands.get('wayfarer_give')([]);
+  assert.ok(out.includes('tonic=x3'));
 });

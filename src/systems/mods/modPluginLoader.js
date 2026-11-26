@@ -83,11 +83,13 @@ export async function loadActiveModPlugins() {
       }
 
       try {
-        // Strip ES module syntax if present (e.g. export default function / export function)
+        // Strip ES module syntax if present (default & named exports)
         let executableCode = code
-          .replace(/^\s*export\s+default\s+function\s+/m, 'function ')
-          .replace(/^\s*export\s+function\s+/m, 'function ')
-          .replace(/^\s*export\s+default\s+/m, '');
+          .replace(/^\s*export\s+default\s+(async\s+)?function\s+/gm, '$1function ')
+          .replace(/^\s*export\s+(async\s+)?function\s+/gm, '$1function ')
+          .replace(/^\s*export\s+(const|let|var|class)\s+/gm, '$1 ')
+          .replace(/^\s*export\s+default\s+/gm, '')
+          .replace(/^\s*export\s*\{[^}]*\}\s*;?\s*$/gm, '');
 
         // Execute plugin function safely passing api
         const runner = new Function('api', `
