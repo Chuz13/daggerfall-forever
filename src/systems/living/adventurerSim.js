@@ -1100,9 +1100,14 @@ export function findInterceptedQuestAt(locationId, regionIndex = null) {
  *
  * @param {string|number} locationId
  * @param {number|null} [regionIndex=null]
+ * @param {boolean} [allowQuestCompetition=LivingTamrielConfig.allowQuestCompetition]
  * @returns {{ adv: any, intercepted: any|null, slotKey: string }|null}
  */
-export function getDungeonActiveAdventurer(locationId, regionIndex = null) {
+export function getDungeonActiveAdventurer(
+  locationId,
+  regionIndex = null,
+  allowQuestCompetition = LivingTamrielConfig.allowQuestCompetition,
+) {
   if (Number(LivingTamrielConfig.adventurers) <= PRESENCE.OFF) return null;
   const reg = getAdventurerSimRegistry();
   const slotKey =
@@ -1110,7 +1115,7 @@ export function getDungeonActiveAdventurer(locationId, regionIndex = null) {
       ? getDungeonSlotKey(regionIndex, locationId)
       : String(locationId);
 
-  const interceptedHit = LivingTamrielConfig.allowQuestCompetition
+  const interceptedHit = allowQuestCompetition
     ? findInterceptedQuestAt(locationId, regionIndex)
     : null;
   if (interceptedHit) {

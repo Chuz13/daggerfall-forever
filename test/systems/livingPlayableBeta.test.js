@@ -553,13 +553,16 @@ describe('Living Tamriel Playable Beta — Steps 1–3 Wiring', () => {
       claimedByAdventurer: true,
     };
 
-    const interceptedHit = getDungeonActiveAdventurer(6004, 17);
+    const mutedHit = getDungeonActiveAdventurer(6004, 17);
+    assert.equal(mutedHit?.intercepted ?? null, null, 'quest interception stays muted by default');
+
+    const interceptedHit = getDungeonActiveAdventurer(6004, 17, true);
     assert.ok(interceptedHit && interceptedHit.intercepted);
 
     const interceptSpec = buildDungeonAdventurerChoiceSpec({
       adv: interceptedHit.adv,
       intercepted: interceptedHit.intercepted,
-      locationId: 8004,
+      locationId: 6004,
       regionIndex: 17,
       playerEntity: player,
       foeRecord,
