@@ -49,7 +49,7 @@ This is the complete reference for all console commands currently implemented in
 | `testtrait` | - | `testtrait <trait> [mob]` | Spawns an elite foe (default `warrior`) with a specific `BOSS_TRAITS` trait (`warded`, `flameproof`, `frostproof`, `venomproof`, `stormproof`, `spellproof`, `bladeturning`, `stoneskin`, `curbing`, `wrathful`, `thorned`). |
 | `spawnlist` | - | `spawnlist` | Lists all monster (`0..42`) and class (`128..146`) IDs and names. |
 | `difficulty` | - | `difficulty [status\|classic\|balanced\|veteran\|hardcore]` | Inspects or applies a modular difficulty preset across all 7 combat balance rows. |
-| `lethality` | - | `lethality [status\|classic\|sharp\|lethal\|brutal]` | Inspects or sets offline Combat Lethality preset and prints active Hero Threat multipliers. |
+| `lethality` | - | `lethality [status\|easy\|classic\|sharp\|lethal\|brutal]` | Inspects or sets offline Combat Lethality preset and prints active Hero Threat multipliers. |
 | `risk` | - | `risk [status\|off\|standard\|harsh\|<regionIndex>]` | Inspects or sets Regional Risk Zones mode, or prints the threat tier and multipliers for any region (`0..70`). |
 | `reflexes` | - | `reflexes [status\|0..4\|veryhigh\|high\|average\|low\|verylow]` | Inspects or sets player Reflexes live (`0..4` or aliases `vh`/`h`/`avg`/`normal`/`l`/`vl`), showing wind-up and cooldown multipliers. |
 | `stagger` | - | `stagger [status\|me\|clear]` | Inspects, triggers, or clears hard player stagger state. |

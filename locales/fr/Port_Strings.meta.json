@@ -55584,6 +55584,11 @@
   "tr": "a220ca9634c6",
   "by": "human"
  },
+ "features.combatLethality.easy": {
+  "en": "1bd464564a85",
+  "tr": "a8fc2c778f37",
+  "by": "claude-in-session"
+ },
  "features.combatLethality.classic": {
   "en": "a206497a3535",
   "tr": "c76446012b5b",

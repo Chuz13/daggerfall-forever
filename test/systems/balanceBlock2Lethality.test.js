@@ -6,6 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { heroThreat } from '../../src/systems/heroThreat.js';
 import {
   COMBAT_LETHALITY_PREF,
+  COMBAT_LETHALITY_ORDER,
   COMBAT_LETHALITY_PRESETS,
   combatLethalityMode,
   combatLethalityScale,
@@ -15,6 +16,8 @@ import {
 import { applyDirenniForcedTraits } from '../../src/systems/apotheosis/apotheosisStage1.js';
 import { setPref, _resetForTests } from '../../src/systems/uiPrefs.js';
 import { getConsoleCommand } from '../../src/systems/consoleCommands.js';
+import { FEATURES, checkFeature } from '../../src/systems/features.js';
+import { whereIs } from '../../src/ui/settings/settingsMap.js';
 
 afterEach(() => {
   _resetForTests();
@@ -71,6 +74,36 @@ test('Block 2: Direnni Hard-Mode attenuates extra damage when Combat Lethality i
   assert.ok(Math.abs(foe.damageScale - 1.45 * att) < 1e-6);
 });
 
+test('Block 2: Easy Combat Lethality scales offline foes to 0.5x HP and damage with 1 HP floor and no-op online', () => {
+  _resetForTests();
+  assert.equal(COMBAT_LETHALITY_ORDER[0], 'easy');
+  assert.deepEqual(COMBAT_LETHALITY_PRESETS.easy, { id: 'easy', damage: 0.5, health: 0.5 });
+
+  setPref(COMBAT_LETHALITY_PREF, 'easy');
+  assert.equal(combatLethalityMode(), 'easy');
+  assert.deepEqual(combatLethalityScale(), COMBAT_LETHALITY_PRESETS.easy);
+
+  const offlineFoe = { maxHealth: 100, health: 100, damageScale: 1 };
+  applyCombatLethality(offlineFoe, { online: false });
+  assert.equal(offlineFoe.maxHealth, 50);
+  assert.equal(offlineFoe.health, 50);
+  assert.equal(offlineFoe.healthMult, 0.5);
+  assert.equal(offlineFoe.damageScale, 0.5);
+  assert.equal(offlineFoe.combatLethality, 'easy');
+
+  const tinyFoe = { maxHealth: 1, health: 1, damageScale: 1 };
+  applyCombatLethality(tinyFoe, { online: false });
+  assert.equal(tinyFoe.maxHealth, 1);
+  assert.equal(tinyFoe.health, 1);
+
+  const onlineFoe = { maxHealth: 100, health: 100, damageScale: 1 };
+  applyCombatLethality(onlineFoe, { online: true });
+  assert.equal(onlineFoe.maxHealth, 100);
+  assert.equal(onlineFoe.damageScale, 1);
+
+  assert.equal(direnniDamageScaleForLethality(1.3), 1.3);
+});
+
 test('Block 2: lethality console command inspects and switches presets', () => {
   _resetForTests();
   const cmd = getConsoleCommand('lethality');
@@ -79,6 +112,22 @@ test('Block 2: lethality console command inspects and switches presets', () => {
   assert.match(out, /sharp/i);
   assert.equal(combatLethalityMode(), 'sharp');
   assert.match(cmd.callback([]), /sharp/i);
+
+  const easyOut = cmd.callback(['easy']);
+  assert.match(easyOut, /easy/i);
+  assert.match(easyOut, /0\.50/);
+  assert.equal(combatLethalityMode(), 'easy');
+  const easyStatus = cmd.callback([]);
+  assert.match(easyStatus, /easy/i);
+  assert.match(easyStatus, /0\.50/);
+});
+
+test('Block 2: combat-lethality settings contract', () => {
+  const place = whereIs('feat:combat-lethality');
+  assert.equal(place?.tab?.id, 'combat');
+  assert.equal(place?.section?.id, 'enemies');
+  const entry = FEATURES.find((f) => f.id === 'combat-lethality');
+  assert.deepEqual(checkFeature(entry), []);
 });
 
 test('Block 2: all 26 locales define features.combatLethality.* keys', () => {
@@ -86,6 +135,7 @@ test('Block 2: all 26 locales define features.combatLethality.* keys', () => {
     'features.combatLethality.title',
     'features.combatLethality.note',
     'features.combatLethality.effect',
+    'features.combatLethality.easy',
     'features.combatLethality.classic',
     'features.combatLethality.sharp',
     'features.combatLethality.lethal',

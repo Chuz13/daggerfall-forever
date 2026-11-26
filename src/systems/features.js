@@ -200,6 +200,7 @@ const LT_LOCATION_COOLDOWN_TIERS = Object.freeze([
 ]);
 
 const COMBAT_LETHALITY_TIERS = Object.freeze([
+  tier('easy', () => t('features.combatLethality.easy', 'Easy (0.5x)')),
   tier('classic', () => t('features.combatLethality.classic', 'Classic (1.0x)')),
   tier('sharp', () => t('features.combatLethality.sharp', 'Sharp (1.25x dmg)')),
   tier('lethal', () => t('features.combatLethality.lethal', 'Lethal (1.45x dmg)')),
