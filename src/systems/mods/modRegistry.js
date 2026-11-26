@@ -67,12 +67,15 @@ export function clearVirtualMods() {
 /** @type {string[]|null} */
 let _inMemoryLoadOrder = null;
 const _inMemoryModToggles = new Map();
+/** @type {Map<string, Map<string, any>>} */
+const _inMemoryModSettings = new Map();
 
 /**
  * Storage key for user mod toggle preference.
  * @param {string} modId
  */
 const modPrefKey = (modId) => `dagger.mods.${modId}.enabled`;
+const modSettingKey = (modId, key) => `dagger.mods.${modId}.setting.${key}`;
 const MOD_LOAD_ORDER_KEY = 'dagger.mods.loadOrder';
 
 function readModStorage(key) {
@@ -305,6 +308,126 @@ export function getMod(modId) {
 }
 
 /**
+ * Coerce and clamp a raw setting value according to its manifest schema entry.
+ * @param {Record<string, any>} schema
+ * @param {any} raw
+ */
+function coerceModSetting(schema, raw) {
+  if (!schema) return raw;
+  if (raw === undefined || raw === null) return schema.default;
+
+  if (schema.type === 'boolean') {
+    if (typeof raw === 'boolean') return raw;
+    if (raw === 'true' || raw === '1' || raw === 1) return true;
+    if (raw === 'false' || raw === '0' || raw === 0) return false;
+    return Boolean(schema.default);
+  }
+
+  if (schema.type === 'number') {
+    let n = Number(raw);
+    if (!Number.isFinite(n)) n = Number(schema.default) || 0;
+    const min = Number(schema.min);
+    const max = Number(schema.max);
+    if (Number.isFinite(min)) n = Math.max(min, n);
+    if (Number.isFinite(max)) n = Math.min(max, n);
+    const step = Number(schema.step);
+    if (Number.isFinite(step) && step > 0) {
+      const base = Number.isFinite(min) ? min : 0;
+      n = Math.round((n - base) / step) * step + base;
+      if (Number.isFinite(min)) n = Math.max(min, n);
+      if (Number.isFinite(max)) n = Math.min(max, n);
+      n = Number(n.toFixed(6));
+    }
+    return n;
+  }
+
+  if (schema.type === 'select') {
+    const opts = Array.isArray(schema.options) ? schema.options : [];
+    for (const opt of opts) {
+      const optVal = opt && typeof opt === 'object' ? opt.value : opt;
+      if (optVal === raw || String(optVal) === String(raw)) {
+        return optVal;
+      }
+    }
+    return schema.default;
+  }
+
+  return raw;
+}
+
+/**
+ * Get the declared settings schema array from a mod's manifest.
+ * @param {string} modId
+ * @returns {Array<Record<string, any>>}
+ */
+export function getModSettingsSchema(modId) {
+  const mod = getMod(modId);
+  const raw = mod?.manifest?.settings;
+  return Array.isArray(raw) ? raw : [];
+}
+
+/**
+ * Read a mod setting value (falling back to manifest default, coerced by schema).
+ * @param {string} modId
+ * @param {string} key
+ * @returns {any}
+ */
+export function getModSetting(modId, key) {
+  const schema = getModSettingsSchema(modId).find((s) => s && s.key === key) || null;
+  let stored;
+  const memMap = _inMemoryModSettings.get(modId);
+  if (memMap && memMap.has(key)) {
+    stored = memMap.get(key);
+  } else {
+    const raw = readModStorage(modSettingKey(modId, key));
+    if (raw !== undefined && raw !== null) {
+      stored = raw;
+      if (!memMap) {
+        _inMemoryModSettings.set(modId, new Map([[key, raw]]));
+      } else {
+        memMap.set(key, raw);
+      }
+    }
+  }
+  if (stored === undefined) stored = schema?.default;
+  return schema ? coerceModSetting(schema, stored) : stored;
+}
+
+/**
+ * Persist a mod setting value (coerced/clamped if schema entry exists).
+ * @param {string} modId
+ * @param {string} key
+ * @param {any} value
+ * @returns {any}
+ */
+export function setModSetting(modId, key, value) {
+  const schema = getModSettingsSchema(modId).find((s) => s && s.key === key) || null;
+  const finalVal = schema ? coerceModSetting(schema, value) : value;
+  let memMap = _inMemoryModSettings.get(modId);
+  if (!memMap) {
+    memMap = new Map();
+    _inMemoryModSettings.set(modId, memMap);
+  }
+  memMap.set(key, finalVal);
+  writeModStorage(modSettingKey(modId, key), String(finalVal));
+  return finalVal;
+}
+
+/**
+ * Reset all declared settings of a mod back to their manifest defaults.
+ * @param {string} modId
+ * @returns {Record<string, any>}
+ */
+export function resetModSettings(modId) {
+  const out = {};
+  for (const schema of getModSettingsSchema(modId)) {
+    if (!schema?.key) continue;
+    out[schema.key] = setModSetting(modId, schema.key, schema.default);
+  }
+  return out;
+}
+
+/**
  * Reset all registry state (for testing).
  */
 export function _resetModRegistry() {
@@ -313,5 +436,6 @@ export function _resetModRegistry() {
   _virtualRegistry.clear();
   _inMemoryLoadOrder = null;
   _inMemoryModToggles.clear();
+  _inMemoryModSettings.clear();
 }
 

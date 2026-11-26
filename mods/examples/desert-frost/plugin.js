@@ -6,11 +6,12 @@ function init(api) {
 
     if (isNight && !isInterior && (biome === 'desert' || biome === 'mountain')) {
       if (!api.player.hasEffect('resistFrost')) {
-        api.player.damageFatigue(5);
+        const drain = Number(api.settings?.get?.('frostFatigueDrain')) || 5;
+        api.player.damageFatigue(drain);
         const coldCount = (api.storage.get('freezeTicks', 0)) + 1;
         api.storage.set('freezeTicks', coldCount);
 
-        if (coldCount % 6 === 1) {
+        if (api.settings?.get?.('enableAlerts') !== false && coldCount % 6 === 1) {
           api.ui.notify('The freezing night wind bites at your skin! Seek shelter or warmth.');
         }
       }

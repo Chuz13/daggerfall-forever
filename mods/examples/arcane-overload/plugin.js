@@ -3,26 +3,29 @@
 // Author: 13
 
 export default function init(api) {
-  let charges = 0; // 0..4
+  let charges = 0; // 0..maxCharges
   let decaySeconds = 0;
-  const MAX_CHARGES = 4;
   const DECAY_DURATION = 15;
+  const getMaxCharges = () => Math.max(2, Number(api.settings?.get?.('maxStacks')) || 4);
+  const getPowerPerStack = () => Math.max(1, Number(api.settings?.get?.('powerPerStack')) || 10);
+  const isChipVisible = () => api.settings?.get?.('showChip') !== false;
 
   function syncChip() {
-    if (charges <= 0) {
+    if (charges <= 0 || !isChipVisible()) {
       api.ui.clearStatusChip('overload');
       return;
     }
-    const power = charges * 10;
+    const maxCharges = getMaxCharges();
+    const power = charges * getPowerPerStack();
     const speed = charges * 8;
     const cost = charges * 15;
-    const isFree = charges >= MAX_CHARGES;
+    const isFree = charges >= maxCharges;
 
     api.ui.setStatusChip('overload', {
       name: api.ui.t('ao.chip.name', 'Arcane Overload'),
       kind: isFree ? 'set' : 'buff',
       glyph: 'arcane',
-      foot: isFree ? 'FREE' : `${charges}/${MAX_CHARGES}`,
+      foot: isFree ? 'FREE' : `${charges}/${maxCharges}`,
       blink: isFree,
       meta: api.ui.t('ao.chip.meta', 'Arcane state'),
       lines: [
@@ -38,15 +41,22 @@ export default function init(api) {
 
   // Register live spellcasting modifiers (auto-removed when mod is disabled)
   api.modifiers.castSpeed('overload', () => charges * 8);
-  api.modifiers.spellPower('overload', () => charges * 10);
+  api.modifiers.spellPower('overload', () => charges * getPowerPerStack());
   api.modifiers.spellCost('overload', (_entity, sp) =>
-    charges > 0 && charges < MAX_CHARGES ? Math.round(sp * (1 + charges * 0.15)) : sp,
+    charges > 0 && charges < getMaxCharges() ? Math.round(sp * (1 + charges * 0.15)) : sp,
   );
-  api.modifiers.spellFreeCast('overload', () => charges >= MAX_CHARGES);
+  api.modifiers.spellFreeCast('overload', () => charges >= getMaxCharges());
+
+  api.settings?.onChange?.(() => {
+    const maxCharges = getMaxCharges();
+    if (charges > maxCharges) charges = maxCharges;
+    syncChip();
+  });
 
   // Build charge or discharge on player spell cast
   api.events.on('playerCast', () => {
-    if (charges >= MAX_CHARGES) {
+    const maxCharges = getMaxCharges();
+    if (charges >= maxCharges) {
       charges = 0;
       decaySeconds = 0;
       syncChip();
@@ -55,14 +65,14 @@ export default function init(api) {
       return;
     }
 
-    charges = Math.min(MAX_CHARGES, charges + 1);
+    charges = Math.min(maxCharges, charges + 1);
     decaySeconds = DECAY_DURATION;
 
-    if (charges >= MAX_CHARGES) {
+    if (charges >= maxCharges) {
       api.ui.showMidScreen(api.ui.t('ao.mid.free', '⚡ ARCANE OVERCHARGE!'), 1.5);
       api.ui.notify(
         api.ui.t('ao.notify.ready', 'Arcane Overload x4: Next spell is FREE (+{power}% power)!', {
-          power: charges * 10,
+          power: charges * getPowerPerStack(),
         }),
       );
       api.audio.play('ArenaFanfareLevelUp', 0.5);
@@ -92,17 +102,18 @@ export default function init(api) {
   // Console commands for fast testing
   api.console.register(
     'overload_set',
-    'Set Arcane Overload stacks (0..4): overload_set <n>',
-    'overload_set <0..4>',
+    'Set Arcane Overload stacks (0..max): overload_set <n>',
+    'overload_set <0..max>',
     (args = []) => {
+      const maxCharges = getMaxCharges();
       const n = Number.parseInt(String(args[0] ?? ''), 10);
-      if (!Number.isFinite(n) || n < 0 || n > MAX_CHARGES) {
-        return `Usage: overload_set <0..${MAX_CHARGES}>`;
+      if (!Number.isFinite(n) || n < 0 || n > maxCharges) {
+        return `Usage: overload_set <0..${maxCharges}>`;
       }
       charges = n;
       decaySeconds = n > 0 ? DECAY_DURATION : 0;
       syncChip();
-      return `Arcane Overload set to ${charges}/${MAX_CHARGES} (power +${charges * 10}%, castSpeed +${charges * 8}%, freeCast=${charges >= MAX_CHARGES}).`;
+      return `Arcane Overload set to ${charges}/${maxCharges} (power +${charges * getPowerPerStack()}%, castSpeed +${charges * 8}%, freeCast=${charges >= maxCharges}).`;
     },
   );
 
@@ -110,7 +121,9 @@ export default function init(api) {
     'overload_status',
     'Show current Arcane Overload stacks and modifiers',
     'overload_status',
-    () =>
-      `Arcane Overload: ${charges}/${MAX_CHARGES}, decay=${decaySeconds}s, power=+${charges * 10}%, speed=+${charges * 8}%, cost=+${charges > 0 && charges < MAX_CHARGES ? charges * 15 : 0}%, freeCast=${charges >= MAX_CHARGES}.`,
+    () => {
+      const maxCharges = getMaxCharges();
+      return `Arcane Overload: ${charges}/${maxCharges}, decay=${decaySeconds}s, power=+${charges * getPowerPerStack()}%, speed=+${charges * 8}%, cost=+${charges > 0 && charges < maxCharges ? charges * 15 : 0}%, freeCast=${charges >= maxCharges}.`;
+    },
   );
 }

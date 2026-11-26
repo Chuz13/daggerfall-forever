@@ -5,5 +5,37 @@
   "author": "13",
   "description": "Martial feat: slaying 5 enemies in melee combat unlocks the Blood-Tithe perk (+15 HP, +30 SP life siphon on kills).",
   "enabled": true,
-  "entry": "plugin.js"
+  "entry": "plugin.js",
+  "settings": [
+    {
+      "key": "healOnKill",
+      "type": "number",
+      "label": "Heal on Kill",
+      "description": "Health restored per melee kill once Blood-Tithe is unlocked.",
+      "min": 5,
+      "max": 50,
+      "step": 5,
+      "default": 15
+    },
+    {
+      "key": "fatigueOnKill",
+      "type": "number",
+      "label": "Fatigue Restore on Kill",
+      "description": "Fatigue restored per melee kill once Blood-Tithe is unlocked.",
+      "min": 5,
+      "max": 60,
+      "step": 5,
+      "default": 30
+    },
+    {
+      "key": "milestoneKills",
+      "type": "number",
+      "label": "Milestone Kill Threshold",
+      "description": "Melee kills required to unlock the Blood-Tithe perk.",
+      "min": 3,
+      "max": 20,
+      "step": 1,
+      "default": 5
+    }
+  ]
 }

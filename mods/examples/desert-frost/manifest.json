@@ -5,5 +5,24 @@
   "author": "13",
   "description": "Exposes outdoor adventurers to freezing nocturnal desert and mountain winds unless protected by frost resistance.",
   "enabled": true,
-  "entry": "plugin.js"
+  "entry": "plugin.js",
+  "settings": [
+    {
+      "key": "frostFatigueDrain",
+      "type": "number",
+      "label": "Night Fatigue Drain",
+      "description": "Fatigue lost per freezing night tick without frost protection.",
+      "min": 1,
+      "max": 15,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "key": "enableAlerts",
+      "type": "boolean",
+      "label": "Freezing Notifications",
+      "description": "Show HUD warnings when freezing winds drain your stamina.",
+      "default": true
+    }
+  ]
 }

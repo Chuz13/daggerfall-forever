@@ -9,7 +9,10 @@
     "ao.mid.free": "⚡ ARCANE OVERCHARGE!",
     "ao.mid.discharge": "⚡ OVERLOAD DISCHARGED!",
     "ao.notify.burn": "Arcane Overload seared you for {dmg} HP!",
-    "ao.notify.ready": "Arcane Overload x4: Next spell is FREE (+{power}% power)!"
+    "ao.notify.ready": "Arcane Overload x4: Next spell is FREE (+{power}% power)!",
+    "ao.cfg.maxStacks": "Max Overload Stacks",
+    "ao.cfg.powerPerStack": "Spell Power % per Stack",
+    "ao.cfg.showChip": "Show HUD Status Chip"
   },
   "ru": {
     "ao.chip.name": "Магический перегруз",
@@ -21,7 +24,10 @@
     "ao.mid.free": "⚡ МАГИЧЕСКАЯ ПЕРЕГРУЗКА!",
     "ao.mid.discharge": "⚡ РАЗРЯД ПЕРЕГРУЗА!",
     "ao.notify.burn": "Магический перегруз обжёг вас на {dmg} ОЗ!",
-    "ao.notify.ready": "Магический перегруз x4: Следующий каст БЕСПЛАТНЫЙ (+{power}% силы)!"
+    "ao.notify.ready": "Магический перегруз x4: Следующий каст БЕСПЛАТНЫЙ (+{power}% силы)!",
+    "ao.cfg.maxStacks": "Макс. зарядов перегрузки",
+    "ao.cfg.powerPerStack": "Сила заклинаний % за заряд",
+    "ao.cfg.showChip": "Показывать HUD-чип"
   },
   "uk": {
     "ao.chip.name": "Магічне перевантаження",
@@ -33,7 +39,10 @@
     "ao.mid.free": "⚡ МАГІЧНЕ ПЕРЕВАНТАЖЕННЯ!",
     "ao.mid.discharge": "⚡ РОЗРЯД ПЕРЕВАНТАЖЕННЯ!",
     "ao.notify.burn": "Магічне перевантаження обпекло вас на {dmg} ОЗ!",
-    "ao.notify.ready": "Магічне перевантаження x4: Наступний каст БЕЗКОШТОВНИЙ (+{power}% сили)!"
+    "ao.notify.ready": "Магічне перевантаження x4: Наступний каст БЕЗКОШТОВНИЙ (+{power}% сили)!",
+    "ao.cfg.maxStacks": "Макс. зарядів перевантаження",
+    "ao.cfg.powerPerStack": "Сила заклять % за заряд",
+    "ao.cfg.showChip": "Показувати HUD-чип"
   },
   "bg": {
     "ao.chip.name": "Магическо претоварване",
@@ -45,7 +54,10 @@
     "ao.mid.free": "⚡ МАГИЧЕСКО ПРЕТОВАРВАНЕ!",
     "ao.mid.discharge": "⚡ ПРЕТОВАРВАНЕТО РАЗРЕДЕНО!",
     "ao.notify.burn": "Магическото претоварване ви изгори за {dmg} ОЗ!",
-    "ao.notify.ready": "Претоварване x4: Следващата магия е БЕЗПЛАТНА (+{power}% сила)!"
+    "ao.notify.ready": "Претоварване x4: Следващата магия е БЕЗПЛАТНА (+{power}% сила)!",
+    "ao.cfg.maxStacks": "Макс. стакове презареждане",
+    "ao.cfg.powerPerStack": "Сила на магията % на стак",
+    "ao.cfg.showChip": "Показвай HUD чип"
   },
   "cs": {
     "ao.chip.name": "Arkánní přetížení",
@@ -57,7 +69,10 @@
     "ao.mid.free": "⚡ ARKÁNNÍ PŘETÍŽENÍ!",
     "ao.mid.discharge": "⚡ PŘETÍŽENÍ VYBITO!",
     "ao.notify.burn": "Arkánní přetížení vás popálilo za {dmg} ŽV!",
-    "ao.notify.ready": "Přetížení x4: Další kouzlo je ZDARMA (+{power}% síly)!"
+    "ao.notify.ready": "Přetížení x4: Další kouzlo je ZDARMA (+{power}% síly)!",
+    "ao.cfg.maxStacks": "Max. nabití přetížení",
+    "ao.cfg.powerPerStack": "Síla kouzel % za nabití",
+    "ao.cfg.showChip": "Zobrazit HUD ikonu"
   },
   "da": {
     "ao.chip.name": "Arkan overbelastning",
@@ -69,7 +84,10 @@
     "ao.mid.free": "⚡ ARKAN OVERLADNING!",
     "ao.mid.discharge": "⚡ OVERBELASTNING UDLADET!",
     "ao.notify.burn": "Arkan overbelastning brændte dig for {dmg} HP!",
-    "ao.notify.ready": "Overbelastning x4: Næste besværgelse er GRATIS (+{power}% kraft)!"
+    "ao.notify.ready": "Overbelastning x4: Næste besværgelse er GRATIS (+{power}% kraft)!",
+    "ao.cfg.maxStacks": "Maks. overbelastningsstakke",
+    "ao.cfg.powerPerStack": "Tryllekraft % pr. stak",
+    "ao.cfg.showChip": "Vis HUD-chip"
   },
   "de": {
     "ao.chip.name": "Arkane Überladung",
@@ -81,7 +99,10 @@
     "ao.mid.free": "⚡ ARKANE ÜBERLADUNG!",
     "ao.mid.discharge": "⚡ ÜBERLADUNG ENTLADEN!",
     "ao.notify.burn": "Arkane Überladung versengt euch für {dmg} LP!",
-    "ao.notify.ready": "Überladung x4: Nächster Zauber ist KOSTENLOS (+{power}% Macht)!"
+    "ao.notify.ready": "Überladung x4: Nächster Zauber ist KOSTENLOS (+{power}% Macht)!",
+    "ao.cfg.maxStacks": "Max. Überladungs-Stapel",
+    "ao.cfg.powerPerStack": "Zauberkraft % pro Stapel",
+    "ao.cfg.showChip": "HUD-Chip anzeigen"
   },
   "el": {
     "ao.chip.name": "Αρκανική Υπερφόρτιση",
@@ -93,7 +114,10 @@
     "ao.mid.free": "⚡ ΑΡΚΑΝΙΚΗ ΥΠΕΡΦΟΡΤΙΣΗ!",
     "ao.mid.discharge": "⚡ ΕΚΦΟΡΤΙΣΗ ΥΠΕΡΦΟΡΤΙΣΗΣ!",
     "ao.notify.burn": "Η Αρκανική Υπερφόρτιση σας έκαψε για {dmg} HP!",
-    "ao.notify.ready": "Υπερφόρτιση x4: Το επόμενο ξόρκι είναι ΔΩΡΕΑΝ (+{power}% ισχύς)!"
+    "ao.notify.ready": "Υπερφόρτιση x4: Το επόμενο ξόρκι είναι ΔΩΡΕΑΝ (+{power}% ισχύς)!",
+    "ao.cfg.maxStacks": "Μέγιστες στοίβες υπερφόρτωσης",
+    "ao.cfg.powerPerStack": "Ισχύς ξορκιού % ανά στοίβα",
+    "ao.cfg.showChip": "Εμφάνιση HUD chip"
   },
   "es": {
     "ao.chip.name": "Sobrecarga Arcana",
@@ -105,7 +129,10 @@
     "ao.mid.free": "⚡ ¡SOBRECARGA ARCANA!",
     "ao.mid.discharge": "⚡ ¡SOBRECARGA DESCARGADA!",
     "ao.notify.burn": "¡La Sobrecarga Arcana te quemó por {dmg} PV!",
-    "ao.notify.ready": "Sobrecarga x4: ¡El próximo hechizo es GRATIS (+{power}% poder)!"
+    "ao.notify.ready": "Sobrecarga x4: ¡El próximo hechizo es GRATIS (+{power}% poder)!",
+    "ao.cfg.maxStacks": "Cargas máx. de sobrecarga",
+    "ao.cfg.powerPerStack": "Poder mágico % por carga",
+    "ao.cfg.showChip": "Mostrar chip de HUD"
   },
   "fi": {
     "ao.chip.name": "Arkaaninen ylikuormitus",
@@ -117,7 +144,10 @@
     "ao.mid.free": "⚡ ARKAANINEN YLIKUORMITUS!",
     "ao.mid.discharge": "⚡ YLIKUORMITUS PURETTU!",
     "ao.notify.burn": "Arkaaninen ylikuormitus poltti sinua {dmg} HP!",
-    "ao.notify.ready": "Ylikuormitus x4: Seuraava loitsu on ILMAINEN (+{power}% teho)!"
+    "ao.notify.ready": "Ylikuormitus x4: Seuraava loitsu on ILMAINEN (+{power}% teho)!",
+    "ao.cfg.maxStacks": "Ylikuormituksen enimmäispinot",
+    "ao.cfg.powerPerStack": "Loitsuteho % per pino",
+    "ao.cfg.showChip": "Näytä HUD-siru"
   },
   "fr": {
     "ao.chip.name": "Surcharge Arcanique",
@@ -129,7 +159,10 @@
     "ao.mid.free": "⚡ SURCHARGE ARCANIQUE !",
     "ao.mid.discharge": "⚡ SURCHARGE DÉCHARGÉE !",
     "ao.notify.burn": "La Surcharge Arcanique vous brûle de {dmg} PV !",
-    "ao.notify.ready": "Surcharge x4 : Prochain sort GRATUIT (+{power}% puissance) !"
+    "ao.notify.ready": "Surcharge x4 : Prochain sort GRATUIT (+{power}% puissance) !",
+    "ao.cfg.maxStacks": "Charges max. de surcharge",
+    "ao.cfg.powerPerStack": "Puissance magique % par charge",
+    "ao.cfg.showChip": "Afficher la puce HUD"
   },
   "hu": {
     "ao.chip.name": "Arkán túltöltés",
@@ -141,7 +174,10 @@
     "ao.mid.free": "⚡ ARKÁN TÚLTÖLTÉS!",
     "ao.mid.discharge": "⚡ TÚLTÖLTÉS KISÜTVE!",
     "ao.notify.burn": "Az arkán túltöltés {dmg} ÉP-vel megégetett!",
-    "ao.notify.ready": "Túltöltés x4: A következő varázslat INGYENES (+{power}% erő)!"
+    "ao.notify.ready": "Túltöltés x4: A következő varázslat INGYENES (+{power}% erő)!",
+    "ao.cfg.maxStacks": "Max. túltöltés jelzők",
+    "ao.cfg.powerPerStack": "Varázserő % jelzőnként",
+    "ao.cfg.showChip": "HUD chip megjelenítése"
   },
   "id": {
     "ao.chip.name": "Kelebihan Beban Arkana",
@@ -153,7 +189,10 @@
     "ao.mid.free": "⚡ KELEBIHAN BEBAN ARKANA!",
     "ao.mid.discharge": "⚡ DAYA DILEPASKAN!",
     "ao.notify.burn": "Kelebihan Beban Arkana membakarmu {dmg} HP!",
-    "ao.notify.ready": "Overload x4: Mantra berikutnya GRATIS (+{power}% kekuatan)!"
+    "ao.notify.ready": "Overload x4: Mantra berikutnya GRATIS (+{power}% kekuatan)!",
+    "ao.cfg.maxStacks": "Tumpukan Maks. Overload",
+    "ao.cfg.powerPerStack": "Kekuatan Sihir % per Tumpukan",
+    "ao.cfg.showChip": "Tampilkan Chip HUD"
   },
   "it": {
     "ao.chip.name": "Sovraccarico Arcano",
@@ -165,7 +204,10 @@
     "ao.mid.free": "⚡ SOVRACCARICO ARCANO!",
     "ao.mid.discharge": "⚡ SOVRACCARICO SCARICATO!",
     "ao.notify.burn": "Il Sovraccarico Arcano ti ha ustionato per {dmg} PS!",
-    "ao.notify.ready": "Sovraccarico x4: Prossimo incantesimo GRATIS (+{power}% potenza)!"
+    "ao.notify.ready": "Sovraccarico x4: Prossimo incantesimo GRATIS (+{power}% potenza)!",
+    "ao.cfg.maxStacks": "Cariche max. sovraccarico",
+    "ao.cfg.powerPerStack": "Potenza magica % per carica",
+    "ao.cfg.showChip": "Mostra chip HUD"
   },
   "ja": {
     "ao.chip.name": "アルケイン過負荷",
@@ -177,7 +219,10 @@
     "ao.mid.free": "⚡ アルケイン過負荷！",
     "ao.mid.discharge": "⚡ 過負荷放出！",
     "ao.notify.burn": "アルケイン過負荷で {dmg} HP の火傷を負った！",
-    "ao.notify.ready": "過負荷 x4: 次の呪文が消費0 (威力 +{power}%)！"
+    "ao.notify.ready": "過負荷 x4: 次の呪文が消費0 (威力 +{power}%)！",
+    "ao.cfg.maxStacks": "最大オーバーロードスタック",
+    "ao.cfg.powerPerStack": "スタック毎の魔法威力 %",
+    "ao.cfg.showChip": "HUDチップを表示"
   },
   "ko": {
     "ao.chip.name": "비전 과부하",
@@ -189,7 +234,10 @@
     "ao.mid.free": "⚡ 비전 과부하!",
     "ao.mid.discharge": "⚡ 과부하 방출!",
     "ao.notify.burn": "비전 과부하로 {dmg} HP 화상을 입었습니다!",
-    "ao.notify.ready": "비전 과부하 x4: 다음 주문 무료 (위력 +{power}%)!"
+    "ao.notify.ready": "비전 과부하 x4: 다음 주문 무료 (위력 +{power}%)!",
+    "ao.cfg.maxStacks": "최대 과부하 중첩",
+    "ao.cfg.powerPerStack": "중첩당 주문 위력 %",
+    "ao.cfg.showChip": "HUD 칩 표시"
   },
   "nb": {
     "ao.chip.name": "Arkan overbelastning",
@@ -201,7 +249,10 @@
     "ao.mid.free": "⚡ ARKAN OVERLADNING!",
     "ao.mid.discharge": "⚡ OVERBELASTNING UTLADET!",
     "ao.notify.burn": "Arkan overbelastning brant deg for {dmg} HP!",
-    "ao.notify.ready": "Overbelastning x4: Neste formel er GRATIS (+{power}% kraft)!"
+    "ao.notify.ready": "Overbelastning x4: Neste formel er GRATIS (+{power}% kraft)!",
+    "ao.cfg.maxStacks": "Maks. overbelastningsstabler",
+    "ao.cfg.powerPerStack": "Tryllekraft % per stabel",
+    "ao.cfg.showChip": "Vis HUD-brikke"
   },
   "nl": {
     "ao.chip.name": "Arcane Overbelasting",
@@ -213,7 +264,10 @@
     "ao.mid.free": "⚡ ARCANE OVERBELASTING!",
     "ao.mid.discharge": "⚡ OVERBELASTING ONTLADEN!",
     "ao.notify.burn": "Arcane Overbelasting verbrandde je voor {dmg} HP!",
-    "ao.notify.ready": "Overbelasting x4: Volgende spreuk is GRATIS (+{power}% kracht)!"
+    "ao.notify.ready": "Overbelasting x4: Volgende spreuk is GRATIS (+{power}% kracht)!",
+    "ao.cfg.maxStacks": "Max. overbelasting-stapels",
+    "ao.cfg.powerPerStack": "Spreukkracht % per stapel",
+    "ao.cfg.showChip": "HUD-chip tonen"
   },
   "pl": {
     "ao.chip.name": "Tajemne Przeciążenie",
@@ -225,7 +279,10 @@
     "ao.mid.free": "⚡ TAJEMNE PRZECIĄŻENIE!",
     "ao.mid.discharge": "⚡ PRZECIĄŻENIE ROZŁADOWANE!",
     "ao.notify.burn": "Tajemne Przeciążenie poparzyło cię za {dmg} PŻ!",
-    "ao.notify.ready": "Przeciążenie x4: Następne zaklęcie DARMOWE (+{power}% mocy)!"
+    "ao.notify.ready": "Przeciążenie x4: Następne zaklęcie DARMOWE (+{power}% mocy)!",
+    "ao.cfg.maxStacks": "Maks. ładunki przeciążenia",
+    "ao.cfg.powerPerStack": "Moc zaklęć % za ładunek",
+    "ao.cfg.showChip": "Pokaż ikonę HUD"
   },
   "pt-BR": {
     "ao.chip.name": "Sobrecarga Arcana",
@@ -237,7 +294,10 @@
     "ao.mid.free": "⚡ SOBRECARGA ARCANA!",
     "ao.mid.discharge": "⚡ SOBRECARGA DESCARREGADA!",
     "ao.notify.burn": "A Sobrecarga Arcana queimou você em {dmg} PV!",
-    "ao.notify.ready": "Sobrecarga x4: Próxima magia GRÁTIS (+{power}% poder)!"
+    "ao.notify.ready": "Sobrecarga x4: Próxima magia GRÁTIS (+{power}% poder)!",
+    "ao.cfg.maxStacks": "Cargas máx. de sobrecarga",
+    "ao.cfg.powerPerStack": "Poder mágico % por carga",
+    "ao.cfg.showChip": "Mostrar chip no HUD"
   },
   "ro": {
     "ao.chip.name": "Supraîncărcare Arcană",
@@ -249,7 +309,10 @@
     "ao.mid.free": "⚡ SUPRAÎNCĂRCARE ARCANĂ!",
     "ao.mid.discharge": "⚡ SUPRAÎNCĂRCARE DESCĂRCATĂ!",
     "ao.notify.burn": "Supraîncărcarea Arcană te-a ars cu {dmg} PV!",
-    "ao.notify.ready": "Supraîncărcare x4: Următoarea vrajă e GRATUITĂ (+{power}% putere)!"
+    "ao.notify.ready": "Supraîncărcare x4: Următoarea vrajă e GRATUITĂ (+{power}% putere)!",
+    "ao.cfg.maxStacks": "Stive max. supraîncărcare",
+    "ao.cfg.powerPerStack": "Putere magică % per stivă",
+    "ao.cfg.showChip": "Afișează chip HUD"
   },
   "sv": {
     "ao.chip.name": "Arkan överbelastning",
@@ -261,7 +324,10 @@
     "ao.mid.free": "⚡ ARKAN ÖVERBELASTNING!",
     "ao.mid.discharge": "⚡ ÖVERBELASTNING URLADDAD!",
     "ao.notify.burn": "Arkan överbelastning brände dig för {dmg} HP!",
-    "ao.notify.ready": "Överbelastning x4: Nästa besvärjelse är GRATIS (+{power}% kraft)!"
+    "ao.notify.ready": "Överbelastning x4: Nästa besvärjelse är GRATIS (+{power}% kraft)!",
+    "ao.cfg.maxStacks": "Max överbelastningsstaplar",
+    "ao.cfg.powerPerStack": "Trollkraft % per stapel",
+    "ao.cfg.showChip": "Visa HUD-bricka"
   },
   "tr": {
     "ao.chip.name": "Gizemli Aşırı Yük",
@@ -273,7 +339,10 @@
     "ao.mid.free": "⚡ GİZEMLİ AŞIRI YÜK!",
     "ao.mid.discharge": "⚡ AŞIRI YÜK BOŞALDI!",
     "ao.notify.burn": "Gizemli Aşırı Yük seni {dmg} HP yaktı!",
-    "ao.notify.ready": "Aşırı Yük x4: Sonraki büyü ÜCRETSİZ (+{power}% güç)!"
+    "ao.notify.ready": "Aşırı Yük x4: Sonraki büyü ÜCRETSİZ (+{power}% güç)!",
+    "ao.cfg.maxStacks": "Maks. Aşırı Yük Yığını",
+    "ao.cfg.powerPerStack": "Yığın Başına Büyü Gücü %",
+    "ao.cfg.showChip": "HUD Çipini Göster"
   },
   "vi": {
     "ao.chip.name": "Quá Tải Ma Pháp",
@@ -285,7 +354,10 @@
     "ao.mid.free": "⚡ QUÁ TẢI MA PHÁP!",
     "ao.mid.discharge": "⚡ XẢ QUÁ TẢI!",
     "ao.notify.burn": "Quá Tải Ma Pháp thiêu đốt bạn {dmg} HP!",
-    "ao.notify.ready": "Quá Tải x4: Phép tiếp theo MIỄN PHÍ (+{power}% sức mạnh)!"
+    "ao.notify.ready": "Quá Tải x4: Phép tiếp theo MIỄN PHÍ (+{power}% sức mạnh)!",
+    "ao.cfg.maxStacks": "Số cộng dồn quá tải tối đa",
+    "ao.cfg.powerPerStack": "Sức mạnh phép % mỗi cộng dồn",
+    "ao.cfg.showChip": "Hiện thẻ HUD"
   },
   "zh-Hans": {
     "ao.chip.name": "奥术过载",
@@ -297,7 +369,10 @@
     "ao.mid.free": "⚡ 奥术过载！",
     "ao.mid.discharge": "⚡ 过载释放！",
     "ao.notify.burn": "奥术过载灼伤了你 {dmg} 点生命！",
-    "ao.notify.ready": "奥术过载 x4：下一个法术免费 (+{power}% 强度)！"
+    "ao.notify.ready": "奥术过载 x4：下一个法术免费 (+{power}% 强度)！",
+    "ao.cfg.maxStacks": "最大过载层数",
+    "ao.cfg.powerPerStack": "每层法术强度 %",
+    "ao.cfg.showChip": "显示 HUD 状态徽章"
   },
   "zh-Hant": {
     "ao.chip.name": "奧術過載",
@@ -309,6 +384,9 @@
     "ao.mid.free": "⚡ 奧術過載！",
     "ao.mid.discharge": "⚡ 過載釋放！",
     "ao.notify.burn": "奧術過載灼傷了你 {dmg} 點生命！",
-    "ao.notify.ready": "奧術過載 x4：下一個法術免費 (+{power}% 強度)！"
+    "ao.notify.ready": "奧術過載 x4：下一個法術免費 (+{power}% 強度)！",
+    "ao.cfg.maxStacks": "最大過載層數",
+    "ao.cfg.powerPerStack": "每層法術強度 %",
+    "ao.cfg.showChip": "顯示 HUD 狀態徽章"
   }
 }

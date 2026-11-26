@@ -15,6 +15,26 @@ const _loadedPluginIds = new Set();
 /** @type {Map<string, Function>} */
 const _virtualInitHandlers = new Map();
 
+/** @type {Map<string, string>} */
+const _pluginErrors = new Map();
+
+/**
+ * Get the last runtime/load error message for a mod plugin, if any.
+ * @param {string} modId
+ * @returns {string|null}
+ */
+export function getPluginError(modId) {
+  return _pluginErrors.get(modId) || null;
+}
+
+/**
+ * Get a map of all mod plugin runtime/load errors keyed by modId.
+ * @returns {Record<string, string>}
+ */
+export function getAllPluginErrors() {
+  return Object.fromEntries(_pluginErrors);
+}
+
 /**
  * Register a virtual script handler for unit tests or web demos.
  * @param {string} modId
@@ -45,7 +65,10 @@ export async function loadActiveModPlugins() {
       try {
         await virtualHandler(api);
         _loadedPluginIds.add(mod.id);
+        _pluginErrors.delete(mod.id);
       } catch (err) {
+        const msg = err?.message ? String(err.message) : String(err);
+        _pluginErrors.set(mod.id, msg);
         console.error(`[ModPluginLoader] Error initializing virtual plugin '${mod.id}':`, err);
       }
       continue;
@@ -76,7 +99,10 @@ export async function loadActiveModPlugins() {
         `);
         await runner(api);
         _loadedPluginIds.add(mod.id);
+        _pluginErrors.delete(mod.id);
       } catch (err) {
+        const msg = err?.message ? String(err.message) : String(err);
+        _pluginErrors.set(mod.id, msg);
         console.error(`[ModPluginLoader] Error executing plugin '${mod.id}':`, err);
       }
     }
@@ -94,6 +120,7 @@ export function unloadModPlugins() {
     cleanupModResources(modId);
   }
   _loadedPluginIds.clear();
+  _pluginErrors.clear();
 }
 
 /**

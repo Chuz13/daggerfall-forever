@@ -34,9 +34,34 @@ import { getInteractionMode, setInteractionMode, interactionModeText, onInteract
 import { onMotorStep } from '../../player/motor.js';
 import { currentWeather, currentWeatherEnum } from '../weather/weatherSim.js';
 import { dateFromClassicMinutes } from '../gameDate.js';
+import { getModSetting, setModSetting, getModSettingsSchema } from './modRegistry.js';
 
 /** @type {Map<string, Record<string, any>>} */
 const _modStorageStore = new Map();
+
+var _modSettingListeners;
+function modSettingListeners() {
+  return (_modSettingListeners ??= new Map());
+}
+
+/**
+ * Notify a mod's registered `api.settings.onChange` listeners when a setting changes.
+ * @param {string} modId
+ * @param {string} key
+ * @param {any} value
+ */
+export function notifyModSettingChanged(modId, key, value) {
+  const listeners = modSettingListeners().get(modId);
+  if (!listeners || listeners.size === 0) return;
+  for (const entry of [...listeners]) {
+    if (entry.key !== null && entry.key !== key) continue;
+    try {
+      entry.fn(value, key);
+    } catch (err) {
+      console.warn(`[ModPluginApi] Settings listener error for '${modId}.${key}':`, err?.message ?? err);
+    }
+  }
+}
 
 /** @type {Map<string, Map<string, { id: string, name: string, desc: string, icon?: string }>>} */
 const _registeredPerks = new Map();
@@ -253,6 +278,7 @@ export function getModStatusChipsVersion() {
  * @param {string} modId
  */
 export function cleanupModResources(modId) {
+  modSettingListeners().delete(modId);
   const cleanups = _modCleanups.get(modId);
   if (cleanups) {
     for (const fn of cleanups) {
@@ -761,6 +787,58 @@ export function createModApi(modId) {
       },
     },
 
+    settings: {
+      /**
+       * Read a declared mod setting value (with manifest default & coercion).
+       * @param {string} key
+       * @returns {any}
+       */
+      get: (key) => getModSetting(modId, key),
+      /**
+       * Update a declared mod setting value and notify listeners.
+       * @param {string} key
+       * @param {any} value
+       * @returns {any}
+       */
+      set: (key, value) => {
+        const next = setModSetting(modId, key, value);
+        notifyModSettingChanged(modId, key, next);
+        return next;
+      },
+      /**
+       * Return an object of all declared settings for this mod.
+       * @returns {Record<string, any>}
+       */
+      getAll: () => {
+        const out = {};
+        for (const s of getModSettingsSchema(modId)) {
+          if (s?.key) out[s.key] = getModSetting(modId, s.key);
+        }
+        return out;
+      },
+      /**
+       * Subscribe to live MCM setting changes for this mod.
+       * Supports `onChange(fn)` or `onChange(key, fn)`. Returns an unsubscribe function.
+       * @param {string|Function} keyOrFn
+       * @param {Function} [maybeFn]
+       * @returns {() => void}
+       */
+      onChange: (keyOrFn, maybeFn) => {
+        const hasKey = typeof keyOrFn === 'string';
+        const targetKey = hasKey ? keyOrFn : null;
+        const fn = hasKey ? maybeFn : keyOrFn;
+        if (typeof fn !== 'function') return () => {};
+        let set = modSettingListeners().get(modId);
+        if (!set) {
+          set = new Set();
+          modSettingListeners().set(modId, set);
+        }
+        const entry = { key: targetKey, fn };
+        set.add(entry);
+        return () => set.delete(entry);
+      },
+    },
+
     storage: {
       /**
        * Retrieve a value from the mod's persistent save data.
@@ -800,6 +878,7 @@ export function _resetModPluginApi() {
   _modStatusChipsVersion++;
   activeModCommands().clear();
   pendingModCommands().length = 0;
+  modSettingListeners().clear();
   clearModPreventRestConditions();
   _movementState = {
     crouching: false,
