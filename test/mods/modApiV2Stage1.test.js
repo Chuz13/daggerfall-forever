@@ -37,6 +37,7 @@ import { statusTiles } from '../../src/ui/hud/hudStatus.js';
 import { statusTip } from '../../src/ui/hud/statusTips.js';
 import { setLocale, t, currentLocale } from '../../src/systems/textManager.js';
 import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
+import { runMagicRoundsFor } from '../../src/systems/worldTick.js';
 
 import initArcaneOverload from '../../mods/examples/arcane-overload/plugin.js';
 import initStealthAutoSteal from '../../mods/examples/stealth-auto-steal/plugin.js';
@@ -315,6 +316,21 @@ test('Stealth Auto-Steal mod: crouch -> steal + chip, stand -> restore, manual F
   assert.equal(getModStatusChips().length, 0);
   setModMovementState({ crouching: false, sneaking: false });
   assert.equal(getInteractionMode(), 'dialogue');
+
+  resetAllModState();
+});
+
+test('Mod API v2: worldTick & consoleCommands boot-order cycle safety and magicRound emission', () => {
+  resetAllModState();
+  const api = createModApi('magic-round-boot-test');
+  let roundsHeard = 0;
+  api.events.on('magicRound', ({ entity }) => {
+    if (entity?.isPlayer) roundsHeard++;
+  });
+
+  const player = { isPlayer: true, health: 50, maxHealth: 50, fatigue: 6400, stats: { strength: 50, endurance: 50 } };
+  runMagicRoundsFor(player, 0, 1, {});
+  assert.equal(roundsHeard, 1);
 
   resetAllModState();
 });

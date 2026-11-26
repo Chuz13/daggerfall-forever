@@ -30,12 +30,10 @@ import { registerPlayerCastListener } from '../playerCasts.js';
 import { registerPlayerKillListener } from '../playerKills.js';
 import { registerPlayerStruckListener } from '../../combat/formulas.js';
 import { registerTakeListener, goldPiecesOf, addGoldPieces, addItem } from '../inventory.js';
-import { registerMagicRoundHook } from '../worldTick.js';
 import { getInteractionMode, setInteractionMode, interactionModeText, onInteractionModeChange } from '../../player/interactionMode.js';
 import { onMotorStep } from '../../player/motor.js';
 import { currentWeather, currentWeatherEnum } from '../weather/weatherSim.js';
 import { dateFromClassicMinutes } from '../gameDate.js';
-import { registerCommand, gateConsoleCommand } from '../consoleCommands.js';
 
 /** @type {Map<string, Record<string, any>>} */
 const _modStorageStore = new Map();
@@ -104,7 +102,34 @@ const _modStatusChips = new Map();
 let _modStatusChipsVersion = 0;
 
 /** @type {Set<string>} */
-const _activeModCommands = new Set();
+var _activeModCommands;
+function activeModCommands() {
+  return (_activeModCommands ??= new Set());
+}
+
+var _consoleBridge;
+/** @type {Array<{ name: string, description: string, usage: string, fn: Function, cmdKey: string }>} */
+var _pendingModCommands;
+function pendingModCommands() {
+  return (_pendingModCommands ??= []);
+}
+
+/**
+ * Late-bind consoleCommands registry to avoid circular TDZ on bundled boot.
+ * @param {{ registerCommand: Function, gateConsoleCommand?: Function }} bridge
+ */
+export function bindModConsoleBridge(bridge) {
+  if (!bridge || typeof bridge.registerCommand !== 'function') return;
+  _consoleBridge = bridge;
+  const pending = pendingModCommands();
+  const active = activeModCommands();
+  while (pending.length > 0) {
+    const entry = pending.shift();
+    if (!entry || !active.has(entry.cmdKey)) continue;
+    _consoleBridge.registerCommand(entry.name, entry.description, entry.usage, entry.fn);
+    _consoleBridge.gateConsoleCommand?.(entry.name, () => active.has(entry.cmdKey));
+  }
+}
 
 let _movementState = {
   crouching: false,
@@ -201,9 +226,6 @@ export function ensureModEngineBridges() {
   });
   registerTakeListener('__modBridge', (item) => {
     emitModEvent('itemTaken', { item });
-  });
-  registerMagicRoundHook('__modBridge', (entity, ctx) => {
-    emitModEvent('magicRound', { entity, ...ctx });
   });
 }
 
@@ -541,11 +563,16 @@ export function createModApi(modId) {
       register: (name, description, usage, fn) => {
         if (!name || typeof fn !== 'function') return;
         const cmdKey = String(name).toLowerCase();
-        registerCommand(name, description ?? '', usage ?? name, fn);
-        _activeModCommands.add(cmdKey);
-        gateConsoleCommand(name, () => _activeModCommands.has(cmdKey));
+        const active = activeModCommands();
+        active.add(cmdKey);
+        if (_consoleBridge) {
+          _consoleBridge.registerCommand(name, description ?? '', usage ?? name, fn);
+          _consoleBridge.gateConsoleCommand?.(name, () => active.has(cmdKey));
+        } else {
+          pendingModCommands().push({ name, description: description ?? '', usage: usage ?? name, fn, cmdKey });
+        }
         addModCleanup(modId, () => {
-          _activeModCommands.delete(cmdKey);
+          active.delete(cmdKey);
         });
       },
     },
@@ -771,7 +798,8 @@ export function _resetModPluginApi() {
   _modCleanups.clear();
   _modStatusChips.clear();
   _modStatusChipsVersion++;
-  _activeModCommands.clear();
+  activeModCommands().clear();
+  pendingModCommands().length = 0;
   clearModPreventRestConditions();
   _movementState = {
     crouching: false,

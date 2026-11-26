@@ -148,7 +148,7 @@ import {
   getApotheosisSiegeConfig,
 } from './apotheosis/apotheosisCore.js';
 import { getAllPerks, getUnlockedPerks } from './perks/perkRegistry.js';
-import { getAllRegisteredPerks } from './mods/modPluginApi.js';
+import { getAllRegisteredPerks, bindModConsoleBridge } from './mods/modPluginApi.js';
 import { weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { MATERIAL_NAMES } from './mods/modDataSync.js';
@@ -332,6 +332,7 @@ export function gateConsoleCommand(name, present) {
   const e = database.get(String(name).toLowerCase());
   if (e) e.present = typeof present === 'function' ? present : null;
 }
+bindModConsoleBridge({ registerCommand, gateConsoleCommand });
 const isPresent = (e) => !!e && (e.present == null || !!e.present());
 
 /** `commands` (:14-17): every command in alphabetical order. C#'s

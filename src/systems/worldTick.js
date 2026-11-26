@@ -470,6 +470,7 @@ export function runMagicRoundsFor(entity, from, to, { sinks, rolls = Math.random
     // maxMagickaModifier the accessor reads. Player-gated inside.
     passiveSpecialsMagicRound(entity, { nowMinutes: r + 1, clockMinutes: sky, sinks });   // DISC10-D V1: the cadence off the round, the sky off the clock (LIVED1: the world's)
     for (const fn of _roundHooks.values()) fn(entity, { nowMinutes: r + 1, sinks, say });   // RR1: EntityEffectBroker.OnNewMagicRound's other subscribers (a mod's, by name)
+    emitModEvent('magicRound', { entity, nowMinutes: r + 1, sinks, say });
     rounds++;
   }
   return rounds;
