@@ -1,6 +1,6 @@
 # Example Mods Walkthrough
 
-Daggerfall Forever ships with **8 example mods** in `mods/examples/` (automatically seeded into `<userData>/Mods/` in the packaged desktop app without overwriting existing folders). They demonstrate both pure JSON data overrides and scripted `plugin.js` gameplay systems.
+Daggerfall Forever ships with **11 bundled example mods** in `mods/examples/` (automatically seeded into `<userData>/Mods/` in the packaged desktop app without overwriting existing folders). Together they demonstrate JSON overrides, custom content (`items`, `spells`, `legendaries`), live modifiers, HUD status chips, Mini-MCM settings, and 26-language localization.
 
 ---
 
@@ -14,60 +14,72 @@ Daggerfall Forever ships with **8 example mods** in `mods/examples/` (automatica
 ## 2. `apothecary-elixirs` (JSON Potion Recipes)
 * **Files:** `manifest.json`, `potions.json`
 * **What it does:** Adds two new brewable potions: **Pure Vigor Elixir** (price `95`, magnitude `40–80`) and **Frostward Cordial** (price `85`, `100%` base chance).
-* **How it works:** Declares `"data": { "potions": "potions.json" }`. `potions.json` is an array of recipe objects specifying `name`, `displayName`, `price`, `ingredients` (template IDs), `effect`, `textureRecord`, and `settings`. On sync, `overridePotionRecipes` registers them into the alchemy table.
+* **How it works:** Declares `"data": { "potions": "potions.json" }`. On sync, `overridePotionRecipes` registers them into the alchemy table.
 
 ---
 
-## 3. `desert-frost` (Scripted Environmental Hazard)
+## 3. `desert-frost` (Environmental Hazard + MCM)
 * **Files:** `manifest.json`, `plugin.js`
 * **What it does:** Exposes outdoor adventurers in desert or mountain biomes at night to freezing winds that drain fatigue unless protected by frost resistance.
-* **How it works:** Subscribes to `api.events.on('worldTick', ...)`, checks `api.world.isNight()`, `!api.world.isInterior()`, and `api.world.getCurrentBiome()`. If the player lacks `api.player.hasEffect('resistFrost')`, it calls `api.player.damageFatigue(5)`, tracks ticks in `api.storage`, and warns the player via `api.ui.notify` every 6 ticks.
+* **How it works:** Subscribes to `worldTick`, checks `api.world.isNight()`, `!api.world.isInterior()`, and `api.world.getCurrentBiome()`, and reads `frostFatigueDrain` and `enableAlerts` from `api.settings`.
 
 ---
 
-## 4. `blood-tithe` (Scripted Unlockable Feat)
+## 4. `blood-tithe` (Unlockable Feat + MCM)
 * **Files:** `manifest.json`, `plugin.js`
-* **What it does:** Tracks melee kills; after slaying 5 enemies, unlocks the **Blood-Tithe** perk, which siphons `+15 HP` and `+30 SP` on every subsequent kill.
-* **How it works:** Registers the perk metadata via `api.perks.register`, listens to `combat:enemyKill`, increments `slainCount` in `api.storage`, calls `api.perks.unlock('blood-tithe')` at 5 kills, and heals/restores fatigue on future kills whenever `api.perks.has('blood-tithe')` is true.
+* **What it does:** Tracks melee kills; after reaching the kill milestone (default `5`), unlocks the **Blood-Tithe** perk, siphoning HP and Stamina on every subsequent kill.
+* **How it works:** Uses `api.perks.register` / `unlock`, `combat:enemyKill`, `api.storage`, and configurable `healOnKill`, `fatigueOnKill`, and `milestoneKills` in `manifest.json → settings`.
 
 ---
 
 ## 5. `heroic-feats` (Condition-Checked Milestone Perks)
 * **Files:** `manifest.json`, `plugin.js`
-* **What it does:** Introduces 5 milestone feats that automatically activate once character requirements are met:
-  1. **Blade Mastery** - `+15%` damage and `+10%` crit chance with Long Blades (Requires Long Blade `>= 50`).
-  2. **Arcane Reservoir** - `+25` Max Magicka (Requires Mysticism `>= 50`).
-  3. **Shadow Step** - `40%` quieter stealth movement and `+25%` backstab damage (Requires Stealth `>= 50`).
-  4. **Iron Constitution** - `-30%` disease/poison susceptibility and `+15` Max HP (Requires Level `>= 5`).
-  5. **Treasure Hunter** - `+20%` gold in dungeon chests and corpses (Requires Mercantile `>= 40`).
-* **How it works:** Each `api.perks.register` call includes a `check: (entity) => boolean` predicate evaluated against `entity.skills` / `entity.level`.
+* **What it does:** Introduces 5 milestone feats (**Blade Mastery**, **Arcane Reservoir**, **Shadow Step**, **Iron Constitution**, **Treasure Hunter**) evaluated dynamically via `check: (entity) => boolean` predicates against player skills and level.
 
 ---
 
-## 6. `duelists-flow` (Combo System + Perk + Localization)
-* **Files:** `manifest.json`, `plugin.js`
-* **What it does:** Adds a rhythmic combat combo system (active immediately whenever the mod is enabled). Consecutive landed hits within `6000 ms` build a combo streak:
-  * **3 hits (Flow State):** Restores `+12 FP`.
-  * **5 hits (Deadly Precision):** Restores `+5 HP`, `+25 FP`.
-  * **7+ hits (odd streaks, Master Duelist):** Restores `+10 HP` and `+35 FP`.
-  * **10 hits (Duelist's Trance):** Permanently unlocks the **Duelist's Trance** perk (`+5%` hit chance and halved combo-break fatigue penalty).
-  * **Missed swing (with streak >= 2):** Breaks flow and drains `10 FP` (`5 FP` with Duelist's Trance).
-* **How it works:** Keeps ephemeral `currentStreak` in memory (avoiding save bloat), persists `bestStreak` in `api.storage`, uses `api.ui.showMidScreen` for the live combo counter, and localizes all messages via `api.ui.t`.
+## 6. `duelists-flow` (Combo System + HUD Chip + MCM + 26 Locales)
+* **Files:** `manifest.json`, `locales.json`, `plugin.js`
+* **What it does:** Adds a rhythmic combat combo system. Consecutive landed hits build flow:
+  * **x1+:** Displays a live **Duelist's Flow** HUD chip with remaining combo timer.
+  * **x3 (Flow State):** `+12 FP`.
+  * **x5 (Deadly Precision):** `+5 HP`, `+25 FP`.
+  * **x7+ (odd streaks, Master Duelist):** `+10 HP`, `+35 FP`.
+  * **x10 (Duelist's Trance):** Permanently unlocks **Duelist's Trance** (`+5%` hit chance, halved miss penalty) and keeps a passive `+5%` HUD chip active even after the combo decays.
+* **Console & MCM:** Includes `flow_set <0..12>`, `flow_status`, 26-language `locales.json`, and MCM settings (`decaySeconds`, `tranceThreshold`, `showChip`).
 
 ---
 
 ## 7. `items-quality` (Quality Tiers + Material Rebalance)
 * **Files:** `manifest.json`, `quality.json`, `materials.json`, `plugin.js`
-* **What it does:** Adds 5 craftsmanship quality tiers (**Crude**, **Standard**, **Fine**, **Superior**, **Masterwork**) to weapons and armor, modifying damage/armor (`-1` to `+3`), durability loss, max condition, and trade value (`0.6x` to `4.0x`), alongside flattened material scaling.
-* **How it works:** Declares `"data": { "quality": "quality.json", "materials": "materials.json" }`. `modDataSync.js` reads these tables to enable quality rolls on loot and shop stock, while `plugin.js` logs initialization.
+* **What it does:** Adds 5 craftsmanship quality tiers (**Crude**, **Standard**, **Fine**, **Superior**, **Masterwork**) to weapons and armor alongside flattened material scaling.
 
 ---
 
 ## 8. `weapons-reforged` (Material JSON + On-Hit Script Effects)
 * **Files:** `manifest.json`, `materials.json`, `plugin.js`
-* **What it does:** Gives high-tier weapon materials distinct combat identities on top of stat rebalancing:
-  * **Adamantium (`6`):** `20%` chance on hit to sunder enemy armor (`-25` condition or `+2` armor penalty).
-  * **Ebony (`7`):** Siphons `10` fatigue from the target and restores `10` fatigue to the player.
-  * **Daedric (`9`):** Curses the wielder - missed swings drain `15` fatigue, and attacking below `25%` HP drains `5 HP`.
-  * **Wall Clank:** Notifies the player when a swing strikes a stone wall (`weaponWallClank`).
-* **How it works:** Combines `materials.json` data overrides with `combatAttackResolved` and `weaponWallClank` listeners in `plugin.js`.
+* **What it does:** Gives **Adamantium** (armor sunder), **Ebony** (fatigue siphon), and **Daedric** (cursed swing penalties) distinct combat identities on top of material stat rebalancing.
+
+---
+
+## 9. `arcane-overload` (Spellcasting Modifiers + HUD Chip + MCM)
+* **Files:** `manifest.json`, `locales.json`, `plugin.js`
+* **What it does:** Each spell cast builds **Arcane Overload** stacks (up to `maxStacks`, default `4`), increasing spell power and cast speed at higher magicka cost until max stacks make the next spell **FREE** (0 Magicka) before discharging.
+* **How it works:** Combines `api.modifiers.castSpeed`, `spellPower`, `spellCost`, and `spellFreeCast` with `playerCast`, `secondTick` decay, a live HUD chip (`FREE` blinking state), 26-language `locales.json`, MCM settings (`maxStacks`, `powerPerStack`, `showChip`), and `overload_set` / `overload_status` console commands.
+
+---
+
+## 10. `stealth-auto-steal` (Interaction Mode Hook + MCM)
+* **Files:** `manifest.json`, `locales.json`, `plugin.js`
+* **What it does:** Automatically switches the interaction mode to `steal` when crouching or sneaking, displays an **Auto-Steal** HUD chip, and restores the previous mode when standing up—while respecting manual `F1–F4` player overrides.
+* **How it works:** Uses `player:crouchChanged`, `player:sneakChanged`, `player:interactionModeChanged`, `api.player.setInteractionMode`, MCM toggles (`enabledOnCrouch`, `restoreMode`, `showChip`), and `autosteal_status`.
+
+---
+
+## 11. `wayfarers-kit` (Full Content Mod: Items, Spells, Legendaries + MCM)
+* **Files:** `manifest.json`, `items.json`, `spells.json`, `legendaries.json`, `locales.json`, `plugin.js`
+* **What it does:** End-to-end showcase of Stage 3 content APIs:
+  * **Wayfarer's Tonic** (`items.json` template `9101`): Usable inventory item (`api.items.onUse`) that consumes 1 charge (`ctx.consume()`), heals HP & Fatigue, grants `+15%` swing pace via `api.modifiers.swingPace`, and displays a timed HUD chip.
+  * **Wayfarer's Stride** (`spells.json` spell `9101`): Custom spell (Heal Fatigue + Fortify Speed) merged into `SPELLS.STD` and granted via `api.spells.grant`.
+  * **Wayfarer's Signet** (`legendaries.json` `wayfarers-signet`): Custom legendary ring with affixes, lore, and *Endless Road* haste power.
+* **Console & MCM:** Includes `wayfarer_give`, `wayfarer_status`, 26-language `locales.json`, and MCM settings (`tonicFatigue`, `tonicHeal`, `buffDuration`, `showChip`).

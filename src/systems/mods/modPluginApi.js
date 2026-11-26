@@ -34,7 +34,7 @@ import { getInteractionMode, setInteractionMode, interactionModeText, onInteract
 import { onMotorStep } from '../../player/motor.js';
 import { currentWeather, currentWeatherEnum } from '../weather/weatherSim.js';
 import { dateFromClassicMinutes } from '../gameDate.js';
-import { getModSetting, setModSetting, getModSettingsSchema } from './modRegistry.js';
+import { getModSetting, setModSetting, getModSettingsSchema, readModFile } from './modRegistry.js';
 import { registerItemUseHandler, setItemFields, mintCondition, templateByIndex } from '../item/itemTemplates.js';
 import { legendaryById, applyRarity } from '../loot/lootRarity.js';
 import { getModCustomItemMeta, getModSpellRecord, getModLegendaryRecord } from './modDataSync.js';
@@ -171,7 +171,7 @@ let _movementState = {
 let _secondAccum = 0;
 let _bridgesWired = false;
 
-function addModCleanup(modId, fn) {
+export function addModCleanup(modId, fn) {
   let set = _modCleanups.get(modId);
   if (!set) {
     set = new Set();
@@ -946,6 +946,41 @@ export function createModApi(modId) {
         const entry = { key: targetKey, fn };
         set.add(entry);
         return () => set.delete(entry);
+      },
+    },
+
+    onCleanup: (fn) => {
+      if (typeof fn === 'function') addModCleanup(modId, fn);
+    },
+
+    files: {
+      /**
+       * Read a UTF-8 file strictly inside this mod's folder.
+       * @param {string} relPath
+       * @returns {string|null}
+       */
+      read: (relPath) => {
+        if (typeof relPath !== 'string' || !relPath.trim()) return null;
+        const clean = relPath.replace(/\\/g, '/').trim();
+        if (clean.startsWith('/') || clean.split('/').includes('..')) return null;
+        return readModFile(modId, clean);
+      },
+      /**
+       * Read and parse a JSON file strictly inside this mod's folder.
+       * @param {string} relPath
+       * @returns {any}
+       */
+      readJson: (relPath) => {
+        if (typeof relPath !== 'string' || !relPath.trim()) return null;
+        const clean = relPath.replace(/\\/g, '/').trim();
+        if (clean.startsWith('/') || clean.split('/').includes('..')) return null;
+        const raw = readModFile(modId, clean);
+        if (raw == null) return null;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
       },
     },
 

@@ -292,3 +292,59 @@ test('Stage 3: file-backed plugin.js with named export const executes without Un
   const out = commands.get('wayfarer_give')([]);
   assert.ok(out.includes('tonic=x3'));
 });
+
+test('Stage 3+: returned cleanup(), api.onCleanup(), and api.files.read/readJson', async () => {
+  resetAll();
+  const cleanups = [];
+  let readText = null;
+  let readObj = null;
+  let traversalBlocked = false;
+
+  registerVirtualMod(
+    {
+      id: 'cleanup-files-mod',
+      name: 'Cleanup & Files',
+      enabled: true,
+      entry: 'plugin.js',
+    },
+    {
+      'data/note.txt': 'hello dff',
+      'data/cfg.json': JSON.stringify({ bonus: 7 }),
+      'plugin.js': `
+        export default function init(api) {
+          api.onCleanup(() => globalThis.__testCleanupLog.push('onCleanup'));
+          globalThis.__testRead = {
+            txt: api.files.read('data/note.txt'),
+            cfg: api.files.readJson('data/cfg.json'),
+            bad1: api.files.read('../secret.txt'),
+            bad2: api.files.read('/etc/passwd'),
+          };
+          return function cleanup() {
+            globalThis.__testCleanupLog.push('returnedCleanup');
+          };
+        }
+      `,
+    },
+  );
+
+  globalThis.__testCleanupLog = cleanups;
+  try {
+    discoverMods();
+    syncModData();
+    await loadActiveModPlugins();
+
+    assert.equal(getPluginError('cleanup-files-mod'), null);
+    readText = globalThis.__testRead.txt;
+    readObj = globalThis.__testRead.cfg;
+    traversalBlocked = globalThis.__testRead.bad1 === null && globalThis.__testRead.bad2 === null;
+    assert.equal(readText, 'hello dff');
+    assert.deepEqual(readObj, { bonus: 7 });
+    assert.equal(traversalBlocked, true);
+
+    unloadModPlugins();
+    assert.deepEqual(cleanups, ['onCleanup', 'returnedCleanup']);
+  } finally {
+    delete globalThis.__testCleanupLog;
+    delete globalThis.__testRead;
+  }
+});

@@ -5,7 +5,7 @@
 // Passes isolated `api` context to mod's `init(api)` function.
 
 import { getActiveMods, readModFile } from './modRegistry.js';
-import { createModApi, unregisterModPerks, cleanupModResources } from './modPluginApi.js';
+import { createModApi, unregisterModPerks, cleanupModResources, addModCleanup } from './modPluginApi.js';
 import { removeModListeners } from './modEventBus.js';
 import { unregisterPerk } from '../perks/perkRegistry.js';
 
@@ -63,7 +63,8 @@ export async function loadActiveModPlugins() {
     // 1. Virtual handler (tests)
     if (virtualHandler) {
       try {
-        await virtualHandler(api);
+        const cleanup = await virtualHandler(api);
+        if (typeof cleanup === 'function') addModCleanup(mod.id, cleanup);
         _loadedPluginIds.add(mod.id);
         _pluginErrors.delete(mod.id);
       } catch (err) {
@@ -99,7 +100,8 @@ export async function loadActiveModPlugins() {
             return init(api);
           }
         `);
-        await runner(api);
+        const cleanup = await runner(api);
+        if (typeof cleanup === 'function') addModCleanup(mod.id, cleanup);
         _loadedPluginIds.add(mod.id);
         _pluginErrors.delete(mod.id);
       } catch (err) {
