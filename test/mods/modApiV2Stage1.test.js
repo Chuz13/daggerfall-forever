@@ -41,6 +41,7 @@ import { runMagicRoundsFor } from '../../src/systems/worldTick.js';
 
 import initArcaneOverload from '../../mods/examples/arcane-overload/plugin.js';
 import initStealthAutoSteal from '../../mods/examples/stealth-auto-steal/plugin.js';
+import initDuelistsFlow from '../../mods/examples/duelists-flow/plugin.js';
 
 const ALL_26_LOCALES = [
   'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'fi', 'fr', 'hu', 'id', 'it', 'ja',
@@ -184,7 +185,7 @@ test('Mod API v2: Autonomous 26-language locales load cleanly and roll back on d
   resetAllModState();
   const prevLocale = currentLocale();
 
-  for (const modName of ['arcane-overload', 'stealth-auto-steal']) {
+  for (const modName of ['arcane-overload', 'stealth-auto-steal', 'duelists-flow']) {
     const raw = fs.readFileSync(path.join(process.cwd(), `mods/examples/${modName}/locales.json`), 'utf8');
     const parsed = JSON.parse(raw);
     for (const code of ALL_26_LOCALES) {
@@ -332,5 +333,43 @@ test('Mod API v2: worldTick & consoleCommands boot-order cycle safety and magicR
   runMagicRoundsFor(player, 0, 1, {});
   assert.equal(roundsHeard, 1);
 
+  resetAllModState();
+});
+
+test("Duelist's Flow HUD chip: shows at x1, updates via flow_set, and persists passive +5% chip after Trance unlock", () => {
+  resetAllModState();
+  const prevLocale = currentLocale();
+  setLocale('ru');
+
+  const dfLocales = fs.readFileSync(path.join(process.cwd(), 'mods/examples/duelists-flow/locales.json'), 'utf8');
+  registerVirtualMod(
+    { id: 'duelists-flow', name: "Duelist's Flow", enabled: true, locales: 'locales.json' },
+    { 'locales.json': dfLocales },
+  );
+  syncModData();
+
+  const player = { isPlayer: true, health: 50, maxHealth: 50, fatigue: 6400, stats: { strength: 50, endurance: 50 }, unlockedPerks: [] };
+  setModApiContext({ player });
+  const api = createModApi('duelists-flow');
+  initDuelistsFlow(api);
+
+  // Initially no chip
+  assert.equal(getModStatusChips().length, 0);
+
+  // Hit 1 -> chip appears at x1 in Russian
+  emitModEvent('combatAttackResolved', { attacker: player, hit: true });
+  assert.equal(getModStatusChips().length, 1);
+  assert.equal(getModStatusChips()[0].foot, 'x1');
+  assert.equal(getModStatusChips()[0].name, 'Поток дуэлянта');
+
+  // flow_set 10 unlocks Trance -> miss drops streak to 0 -> passive +5% chip remains
+  executeConsoleCommand('flow_set', ['10']);
+  assert.equal(getModStatusChips()[0].foot, 'x10');
+  emitModEvent('combatAttackResolved', { attacker: player, hit: false });
+  assert.equal(getModStatusChips().length, 1);
+  assert.equal(getModStatusChips()[0].foot, '+5%');
+  assert.equal(getModStatusChips()[0].name, 'Транс дуэлянта');
+
+  setLocale(prevLocale);
   resetAllModState();
 });

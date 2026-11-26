@@ -16,26 +16,58 @@ export default function init(api) {
   const COMBO_TIMEOUT_MS = 6000; // 6 seconds between swings to keep momentum
 
   function syncFlowChip() {
-    if (currentStreak < 2) {
-      api.ui.clearStatusChip?.('flow');
+    const hasPerk = api.perks.has('duelists_trance');
+    if (currentStreak >= 1) {
+      const remSec = Math.max(1, Math.ceil((COMBO_TIMEOUT_MS - (Date.now() - lastHitTimestamp)) / 1000));
+      api.ui.setStatusChip?.('flow', {
+        name: api.ui.t('df.chip.name', "Duelist's Flow"),
+        kind: hasPerk ? 'set' : 'buff',
+        glyph: 'wild',
+        foot: `x${currentStreak}`,
+        meta: api.ui.t('df.chip.meta', 'Combat combo'),
+        lines: [
+          api.ui.t('df.chip.line.streak', 'Active streak: {streak} consecutive hit(s) ({sec}s left).', {
+            streak: currentStreak,
+            sec: remSec,
+          }),
+          api.ui.t(
+            'df.chip.line.milestones',
+            'Milestones: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).',
+          ),
+          hasPerk
+            ? api.ui.t(
+                'df.chip.line.tranceOn',
+                "Duelist's Trance active: +5% hit chance, halved miss penalty (-5 FP).",
+              )
+            : api.ui.t('df.chip.line.tranceOff', "Reach x10 streak to unlock Duelist's Trance (+5% hit chance)."),
+        ],
+        tipFoot: `${remSec}s`,
+      });
       return;
     }
-    const hasPerk = api.perks.has('duelists_trance');
-    api.ui.setStatusChip?.('flow', {
-      name: "Duelist's Flow",
-      kind: hasPerk ? 'set' : 'buff',
-      glyph: 'wild',
-      foot: `x${currentStreak}`,
-      meta: 'Combat combo',
-      lines: [
-        `Active streak: ${currentStreak} consecutive hits.`,
-        'Milestones restore HP & Fatigue (x3: +12 FP, x5: +5 HP/+25 FP, x7+: +10 HP/+35 FP).',
-        hasPerk
-          ? "Duelist's Trance active: +5% hit chance, halved miss penalty (-5 FP)."
-          : 'Reach x10 streak to unlock Duelist\'s Trance (+5% hit chance).',
-      ],
-      tipFoot: '6s window',
-    });
+
+    if (hasPerk) {
+      api.ui.setStatusChip?.('flow', {
+        name: api.ui.t('df.chip.tranceName', "Duelist's Trance"),
+        kind: 'set',
+        glyph: 'wild',
+        foot: '+5%',
+        meta: api.ui.t('df.chip.tranceMeta', 'Combat feat'),
+        lines: [
+          api.ui.t(
+            'df.chip.line.tranceOn',
+            "Duelist's Trance active: +5% hit chance, halved miss penalty (-5 FP).",
+          ),
+          api.ui.t(
+            'df.chip.line.milestones',
+            'Milestones: x3 (+12 FP), x5 (+5 HP/+25 FP), x7+ (+10 HP/+35 FP).',
+          ),
+        ],
+      });
+      return;
+    }
+
+    api.ui.clearStatusChip?.('flow');
   }
 
   // 2. Listen to combat attack resolutions
@@ -102,14 +134,46 @@ export default function init(api) {
     }
   });
 
-  // 3. Reset combo on scene transitions, rests, or 6s inactivity
+  // 3. Reset combo on scene transitions, rests, or 6s inactivity; refresh live countdown each second
   const checkDecay = () => {
-    if (currentStreak > 0 && Date.now() - lastHitTimestamp > COMBO_TIMEOUT_MS) {
+    if (currentStreak <= 0) return;
+    if (Date.now() - lastHitTimestamp > COMBO_TIMEOUT_MS) {
       currentStreak = 0;
-      syncFlowChip();
     }
+    syncFlowChip();
   };
   api.events.on('worldTick', checkDecay);
   api.events.on('secondTick', checkDecay);
+
+  // Sync passive Duelist's Trance chip if already unlocked on loaded save
+  syncFlowChip();
+
+  // 4. Console test commands
+  api.console?.register?.(
+    'flow_set',
+    "Set Duelist's Flow combo streak (0..12): flow_set <n>",
+    'flow_set <0..12>',
+    (args = []) => {
+      const n = Number.parseInt(String(args[0] ?? ''), 10);
+      if (!Number.isFinite(n) || n < 0 || n > 12) {
+        return 'Usage: flow_set <0..12>';
+      }
+      currentStreak = n;
+      lastHitTimestamp = n > 0 ? Date.now() : 0;
+      if (n >= 10 && !api.perks.has('duelists_trance')) {
+        api.perks.unlock('duelists_trance');
+      }
+      syncFlowChip();
+      return `Duelist's Flow streak set to x${currentStreak} (tranceUnlocked=${api.perks.has('duelists_trance')}).`;
+    },
+  );
+
+  api.console?.register?.(
+    'flow_status',
+    "Show current Duelist's Flow combo streak and perk state",
+    'flow_status',
+    () =>
+      `Duelist's Flow: streak=x${currentStreak}, tranceUnlocked=${api.perks.has('duelists_trance')}, bestStreak=${api.storage.get('bestStreak', 0)}.`,
+  );
 }
 
