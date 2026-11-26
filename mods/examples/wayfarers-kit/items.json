@@ -1,0 +1,15 @@
+[
+  {
+    "index": 9101,
+    "name": "Wayfarer's Tonic",
+    "nameKey": "wk.item.tonic.name",
+    "lore": "A crisp spiced draught brewed by Iliac Bay couriers. Restores health and fatigue, and quickens your pace for a short time.",
+    "loreKey": "wk.item.tonic.lore",
+    "group": "MiscItems",
+    "baseWeight": 0.4,
+    "basePrice": 85,
+    "hitPoints": 100,
+    "worldTextureArchive": 205,
+    "worldTextureRecord": 1
+  }
+]

@@ -1,0 +1,54 @@
+{
+  "id": "wayfarers-kit",
+  "name": "Wayfarer's Kit",
+  "version": "1.0.0",
+  "author": "13",
+  "description": "Showcase content mod adding Wayfarer's Tonic (usable item + HUD buff), Wayfarer's Stride (spell), and Wayfarer's Signet (legendary ring), with MCM settings and 26-language support.",
+  "enabled": true,
+  "locales": "locales.json",
+  "entry": "plugin.js",
+  "data": {
+    "items": "items.json",
+    "spells": "spells.json",
+    "legendaries": "legendaries.json"
+  },
+  "settings": [
+    {
+      "key": "tonicFatigue",
+      "type": "number",
+      "label": "Tonic Fatigue Restore",
+      "labelKey": "wk.cfg.tonicFatigue",
+      "min": 10,
+      "max": 80,
+      "step": 5,
+      "default": 35
+    },
+    {
+      "key": "tonicHeal",
+      "type": "number",
+      "label": "Tonic Health Restore",
+      "labelKey": "wk.cfg.tonicHeal",
+      "min": 5,
+      "max": 40,
+      "step": 5,
+      "default": 15
+    },
+    {
+      "key": "buffDuration",
+      "type": "number",
+      "label": "Tonic Buff Duration (seconds)",
+      "labelKey": "wk.cfg.buffDuration",
+      "min": 15,
+      "max": 120,
+      "step": 15,
+      "default": 45
+    },
+    {
+      "key": "showChip",
+      "type": "boolean",
+      "label": "Show HUD Status Chip",
+      "labelKey": "wk.cfg.showChip",
+      "default": true
+    }
+  ]
+}

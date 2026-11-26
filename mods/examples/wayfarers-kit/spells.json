@@ -1,0 +1,28 @@
+[
+  {
+    "index": 9101,
+    "spellName": "Wayfarer's Stride",
+    "nameKey": "wk.spell.stride.name",
+    "element": 4,
+    "rangeType": 0,
+    "cost": 12,
+    "icon": 12,
+    "effects": [
+      {
+        "type": 10,
+        "subType": 0,
+        "durationBase": 1,
+        "durationMod": 0,
+        "durationPerLevel": 1,
+        "chanceBase": 100,
+        "chanceMod": 0,
+        "chancePerLevel": 1,
+        "magnitudeBaseLow": 15,
+        "magnitudeBaseHigh": 25,
+        "magnitudeLevelBase": 2,
+        "magnitudeLevelHigh": 4,
+        "magnitudePerLevel": 1
+      }
+    ]
+  }
+]

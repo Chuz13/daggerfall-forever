@@ -1,3 +1,5 @@
+import { registerModLegendaryBridge } from '../mods/modDataSync.js';
+
 // LR1-LR3 (2026-09-14, Mac: "building on unleveled loot. My goal is to
 // transform things into a diablo style system with rarity ... Make
 // this the most detailed and best that it can be"): LOOT RARITY - the
@@ -468,6 +470,17 @@ export function registerLegendary(record) {
   if (!_customLegendaries.some((l) => l.id === record.id)) _customLegendaries.push(Object.freeze(record));
   return _customLegendaries.length;
 }
+export function unregisterLegendary(id) {
+  if (!id) return _customLegendaries.length;
+  for (let i = _customLegendaries.length - 1; i >= 0; i--) {
+    if (_customLegendaries[i]?.id === id) _customLegendaries.splice(i, 1);
+  }
+  return _customLegendaries.length;
+}
+registerModLegendaryBridge({
+  registerLegendary,
+  unregisterLegendary,
+});
 
 // ── the affixes ─────────────────────────────────────────────────────
 /** The five elements a resistance affix names - the saving throw's own

@@ -35,6 +35,9 @@ import { onMotorStep } from '../../player/motor.js';
 import { currentWeather, currentWeatherEnum } from '../weather/weatherSim.js';
 import { dateFromClassicMinutes } from '../gameDate.js';
 import { getModSetting, setModSetting, getModSettingsSchema } from './modRegistry.js';
+import { registerItemUseHandler, setItemFields, mintCondition, templateByIndex } from '../item/itemTemplates.js';
+import { legendaryById, applyRarity } from '../loot/lootRarity.js';
+import { getModCustomItemMeta, getModSpellRecord, getModLegendaryRecord } from './modDataSync.js';
 
 /** @type {Map<string, Record<string, any>>} */
 const _modStorageStore = new Map();
@@ -784,6 +787,113 @@ export function createModApi(modId) {
           ...p,
           unlocked: unlocked.includes(p.id),
         }));
+      },
+    },
+
+    items: {
+      /**
+       * Register a custom Use handler for a templateIndex (auto-cleaned when mod disables).
+       * @param {number} templateIndex
+       * @param {Function} fn
+       */
+      onUse: (templateIndex, fn) => {
+        if (!Number.isInteger(templateIndex) || typeof fn !== 'function') return;
+        const wrapped = (item, collection, ctx = {}) => {
+          const consume = () => {
+            if ((item?.stackCount ?? 1) > 1) {
+              item.stackCount -= 1;
+            } else if (Array.isArray(collection)) {
+              const idx = collection.indexOf(item);
+              if (idx >= 0) collection.splice(idx, 1);
+            }
+          };
+          try {
+            const res = fn(item, collection, { ...ctx, consume });
+            if (typeof res === 'string') return { kind: 'text', text: res };
+            if (res && typeof res === 'object' && res.kind) return res;
+            return { kind: 'handled' };
+          } catch (err) {
+            console.warn(`[ModPluginApi] items.onUse error in '${modId}' for template ${templateIndex}:`, err?.message ?? err);
+            return { kind: 'text', text: 'Nothing happens.' };
+          }
+        };
+        registerItemUseHandler(templateIndex, wrapped);
+        addModCleanup(modId, () => registerItemUseHandler(templateIndex, null));
+      },
+      /**
+       * Mint and give a template-backed item (custom or vanilla) to the player.
+       * @param {number} templateIndex
+       * @param {{ count?: number, group?: string }} [opts]
+       */
+      give: (templateIndex, { count = 1, group } = {}) => {
+        if (!_playerRef || !templateByIndex(templateIndex)) return null;
+        const meta = getModCustomItemMeta(templateIndex);
+        const item = mintCondition(
+          setItemFields({
+            group: group || meta?.group || 'MiscItems',
+            templateIndex,
+            ...(count > 1 ? { stackCount: count } : {}),
+          }),
+        );
+        _playerRef.items = _playerRef.items || [];
+        addItem(_playerRef.items, item);
+        surfacePlayer?.();
+        return item;
+      },
+      /**
+       * Mint and give a specific legendary item (mod-defined or built-in) to the player.
+       * @param {string} legendaryId
+       * @param {{ templateIndex?: number, group?: string, material?: number }} [opts]
+       */
+      giveLegendary: (legendaryId, { templateIndex, group, material } = {}) => {
+        const rec = getModLegendaryRecord(legendaryId) ?? legendaryById(legendaryId);
+        if (!_playerRef || !rec) return null;
+        const tpl = templateIndex ?? rec.templates?.[0] ?? 135;
+        const base = mintCondition(
+          setItemFields({
+            group: group ?? rec.group,
+            templateIndex: tpl,
+            ...(material != null ? { material } : {}),
+          }),
+        );
+        applyRarity(base, 'legendary', Math.random, [rec]);
+        _playerRef.items = _playerRef.items || [];
+        addItem(_playerRef.items, base);
+        surfacePlayer?.();
+        return base;
+      },
+    },
+
+    spells: {
+      /**
+       * Look up a mod-registered spell record by index.
+       * @param {number} spellIndex
+       */
+      get: (spellIndex) => getModSpellRecord(spellIndex),
+      /**
+       * Check if the player's spellbook already contains a spell with this index.
+       * @param {number} spellIndex
+       */
+      has: (spellIndex) =>
+        Array.isArray(_playerRef?.spells) && _playerRef.spells.some((s) => s?.index === spellIndex),
+      /**
+       * Grant a mod-defined (or custom) spell to the player's spellbook.
+       * @param {number|Record<string, any>} spellIndexOrObj
+       */
+      grant: (spellIndexOrObj) => {
+        const rec =
+          typeof spellIndexOrObj === 'number' ? getModSpellRecord(spellIndexOrObj) : spellIndexOrObj;
+        if (!_playerRef || !rec) return false;
+        _playerRef.spells = _playerRef.spells || [];
+        const already = _playerRef.spells.some(
+          (s) =>
+            (Number.isInteger(rec.index) && rec.index >= 0 && s?.index === rec.index) ||
+            (rec.name && s?.name === rec.name),
+        );
+        if (already) return false;
+        _playerRef.spells.push(structuredClone(rec));
+        surfacePlayer?.();
+        return true;
       },
     },
 

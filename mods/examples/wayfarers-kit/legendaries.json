@@ -1,0 +1,26 @@
+[
+  {
+    "id": "wayfarers-signet",
+    "name": "Wayfarer's Signet",
+    "nameKey": "wk.legendary.signet.name",
+    "group": "Jewellery",
+    "templates": [135],
+    "affixes": [
+      { "id": "stat", "param": "speed", "value": 12 },
+      { "id": "weight", "value": 35 },
+      { "id": "resist", "param": "frost", "value": 40 }
+    ],
+    "found": "dungeon",
+    "power": {
+      "name": "Endless Road",
+      "kind": "haste",
+      "speed": 15,
+      "rounds": 3,
+      "recover": 12,
+      "brief": "Kills: +15 Speed (3 rounds)",
+      "text": "Each kill grants +15 Speed for 3 rounds. Recovers in 12 s"
+    },
+    "lore": "Worn by royal couriers who crossed the Dragontails before winter closed the passes.",
+    "loreKey": "wk.legendary.signet.lore"
+  }
+]
