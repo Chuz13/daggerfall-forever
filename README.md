@@ -151,3 +151,6 @@ I plan to set up something very simple in Nov 2026.
 Based on DFO which is based on DFU which is based on Daggerfall. It's a fan non-commercial project.
 Additional spell icons:
 J. W. Bjerk (eleazzaar) -- www.jwbjerk.com/art 
+
+Inspired by:
+* Smooth Weapon Animation by Seluje (https://www.nexusmods.com/daggerfallunity/mods/1422) — independent clean-room reimplementation of the 2D weapon smoothing concept for Daggerfall Forever (no original code or assets included).

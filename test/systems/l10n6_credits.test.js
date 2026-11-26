@@ -88,5 +88,5 @@ test('L10N6 the tree: every `locales/<tag>/translators.json` is a list of names,
 test('L10N6 by source: the About pane\'s credits render the translations as a third group, after the works and the mods, through the same row renderer - and only when a language is offered', () => {
   const menu = rd('src/ui/enhanced/enhancedMenu.js');
   const fn = menu.slice(menu.indexOf('function creditsCard()'), menu.indexOf('// ── SHELL'));
-  assert.match(fn, /group\(t\('menu\.credits\.mods', 'Mods'\), CREDITS\.mods\);\s*\n\s*const languages = translationCredits\(\);[^\n]*\n\s*if \(languages\.length\) group\(t\('menu\.credits\.translations', 'Translations'\), languages\);\s*\n\s*return c;/);
+  assert.match(fn, /group\(t\('menu\.credits\.mods', 'Mods'\), CREDITS\.mods\);\s*\n\s*(?:if \(CREDITS\.inspiredBy\?\.length\) group\(t\('menu\.credits\.inspiredBy', 'Inspired by'\), CREDITS\.inspiredBy\);\s*\n\s*)?const languages = translationCredits\(\);[^\n]*\n\s*if \(languages\.length\) group\(t\('menu\.credits\.translations', 'Translations'\), languages\);\s*\n\s*return c;/);
 });
