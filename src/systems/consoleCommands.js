@@ -3356,13 +3356,29 @@ registerCommand(
           entityName = 'Giant Spider';
           mobType = 6;
         } else if (spec === 'werewolf') {
-          entityType = 'beast';
+          entityType = 'humanoid';
           entityName = 'Werewolf';
           mobType = 9;
         } else if (spec === 'wereboar') {
-          entityType = 'beast';
+          entityType = 'humanoid';
           entityName = 'Wereboar';
           mobType = 14;
+        } else if (spec === 'harpy') {
+          entityType = 'humanoid';
+          entityName = 'Harpy';
+          mobType = 13;
+        } else if (spec === 'spriggan') {
+          entityType = 'monstrous';
+          entityName = 'Spriggan';
+          mobType = 2;
+        } else if (spec === 'gargoyle') {
+          entityType = 'monstrous';
+          entityName = 'Gargoyle';
+          mobType = 22;
+        } else if (spec === 'atronach' || spec === 'fire_atronach') {
+          entityType = 'construct';
+          entityName = 'Fire Atronach';
+          mobType = 35;
         } else if (spec === 'orc') {
           entityType = 'humanoid';
           entityName = 'Orc';

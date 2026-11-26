@@ -6,7 +6,7 @@
 // - Bone Armor (51,255) -> Alteration
 
 import { FORK_FLAGS } from '../../config/forkFlags.js';
-import { getCorpse, consumeCorpse, corpsesNear, CORPSE_STATE } from './corpseRegistry.js';
+import { getCorpse, consumeCorpse, corpsesNear, CORPSE_STATE, isHumanoidCorpse } from './corpseRegistry.js';
 import { canAffordUndead, removeUndeadMinion, calculateUndeadCapacity, usedUndeadPoints } from './undeadCapacity.js';
 import { spawnMinion, allSpawnedMinions, detonateMinion } from './minionController.js';
 import { skillValue, displaySkillValue, realSkillValue, SKILLS } from '../skills.js';
@@ -686,7 +686,14 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
   }
 
   let corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
-  if (!corpse || corpse.consumed || !corpse.corpseState) {
+  const hasExplicitCorpse = !!(corpse && !corpse.consumed && corpse.corpseState);
+  if (hasExplicitCorpse) {
+    if (!isHumanoidCorpse(corpse)) {
+      return { success: false, reason: 'Only humanoid corpses can be reanimated.' };
+    }
+  } else {
+    let sawNonHumanoid = false;
+    corpse = null;
     const pos =
       targetCorpse?.necroTargetPos ||
       targetCorpse?.pos ||
@@ -694,13 +701,20 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
       targetCorpse?.feet ||
       (Array.isArray(targetCorpse) ? targetCorpse : null);
     if (pos) {
-      corpse = corpsesNear(pos, 8)[0] ?? null;
+      const near = corpsesNear(pos, 8);
+      corpse = near.find((c) => isHumanoidCorpse(c)) ?? null;
+      if (!corpse && near.length > 0) sawNonHumanoid = true;
     }
     if (!corpse) {
       const casterPos = casterEntity?.position || casterEntity?.pos || casterEntity?.feet || null;
       if (casterPos) {
-        corpse = corpsesNear(casterPos, 10)[0] ?? null;
+        const nearCaster = corpsesNear(casterPos, 10);
+        corpse = nearCaster.find((c) => isHumanoidCorpse(c)) ?? null;
+        if (!corpse && nearCaster.length > 0) sawNonHumanoid = true;
       }
+    }
+    if (!corpse && sawNonHumanoid) {
+      return { success: false, reason: 'Only humanoid corpses can be reanimated.' };
     }
   }
 
@@ -1360,7 +1374,8 @@ export function castMassAnimateDead(caster, targetOrigin = null, options = {}) {
     };
   }
 
-  const candidates = corpsesNear(searchPos, radius).filter((c) => c && !c.consumed && c.corpseState);
+  const nearby = corpsesNear(searchPos, radius).filter((c) => c && !c.consumed && c.corpseState);
+  const candidates = nearby.filter((c) => isHumanoidCorpse(c));
   const raised = [];
   let failedChanceCount = 0;
   let stoppedByCapacity = false;
@@ -1397,7 +1412,9 @@ export function castMassAnimateDead(caster, targetOrigin = null, options = {}) {
         failedChanceCount: 0,
         radius,
         stoppedByCapacity: false,
-        reason: `No viable corpses within ${radius.toFixed(1)}m.`,
+        reason: nearby.length > 0
+          ? `No humanoid corpses within ${radius.toFixed(1)}m.`
+          : `No viable corpses within ${radius.toFixed(1)}m.`,
       };
     }
   } else {

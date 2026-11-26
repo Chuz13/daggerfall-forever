@@ -67,7 +67,7 @@ import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemy/enemyBasics.
 import { FlatAnim, isAnimatedFlat } from '../render/flatAnimation.js'; // AUDIT DEX B3: a corpse of more than one frame animates, as DFU's billboard does
 import { localizedText, getLocalizedEnemyName } from '../systems/textManager.js'; // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: and the enemy's name
 import { silverFindAt } from '../systems/silverFinds.js'; // SILVER-FINDS: a body opened holds silver now and then
-import { registerCorpse, getCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
+import { registerCorpse, getCorpse, canHarvestCorpseWithInventory, classifyCorpseEntityType } from '../systems/necromancy/corpseRegistry.js';
 import { hideOfFoe } from '../net/professionLaw.js';
 import { FORK_FLAGS } from '../config/forkFlags.js';
 
@@ -193,16 +193,7 @@ registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
   const pos = opts?.feet ?? entity.feet ?? entity.pos ?? [0, 0, 0];
   const rawType = opts?.mobileType ?? entity.mobileType ?? entity.career ?? 'humanoid';
   const mobType = typeof rawType === 'number' ? rawType : (typeof opts?.mobileType === 'number' ? opts.mobileType : null);
-  const entityType =
-    typeof rawType === 'number'
-      ? [15, 17, 18, 19, 23, 28, 30, 32, 33].includes(rawType)
-        ? 'undead'
-        : [1, 25, 26, 27, 29, 31].includes(rawType)
-          ? 'daedra'
-          : [0, 3, 4, 5, 6, 11, 20, 34, 40].includes(rawType)
-            ? 'beast'
-            : 'humanoid'
-      : String(rawType);
+  const entityType = classifyCorpseEntityType(rawType);
   const lvl = entity.level ?? 1;
   const maxHp = entity.maxHealth ?? entity.entity?.maxHealth ?? (lvl * 20 + 15);
   const entName = entity.name || entity.displayName || (mobType != null ? corpseEntityName(mobType) : 'Fallen Foe');

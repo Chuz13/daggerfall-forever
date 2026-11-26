@@ -711,7 +711,7 @@ export const PORT_EFFECT_DESCRIPTIONS = new Map([
     '47,255',
     Object.freeze([
       'Animate Dead',
-      'Binds a fallen corpse into an undead minion',
+      'Binds a fallen humanoid corpse into an undead minion',
       'that fights at your command, up to your',
       'current undead control capacity.',
     ]),
@@ -774,9 +774,9 @@ export const PORT_EFFECT_DESCRIPTIONS = new Map([
     '56,255',
     Object.freeze([
       'Mass Animate Dead',
-      'Binds every viable corpse within a Mysticism-scaled',
-      'radius (2m to 30m) into undead minions at once,',
-      'up to your current undead control capacity.',
+      'Binds every viable humanoid corpse within a',
+      'Mysticism-scaled radius (2m to 30m) into undead',
+      'minions at once, up to your control capacity.',
     ]),
   ],
 ]);
