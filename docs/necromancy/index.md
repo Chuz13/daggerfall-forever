@@ -89,8 +89,8 @@ Once you read the `Grimoire of the Worm` (or are already a Lich/Archlich), a ded
 
 | Spell | School / Range | Craftable | How It Works |
 | :--- | :--- | :---: | :--- |
-| **Animate Dead** | Mysticism / Touch | Yes | Consumes a corpse (or conjures a skeleton in `abstract` mode). Tier scales with `Willpower + Magnitude` (`0` Skeleton, `40` Zombie, `80` Ghost, `130` Mummy, `190` Lich) and upgrades 1 tier if carrying matching reagents (up to `Ancient Lich` with 2x Lich Dust/Wraith Essence). |
-| **Mass Animate Dead** | Mysticism / Caster Only | Yes | High-mana AoE (`280 SP` at Mysticism `100`). Raises all viable corpses within `clamp(Mysticism * 0.1, 2m, 30m)` (scales past `100`), rolling chance, tier, reagents, and capacity per corpse; in `abstract` mode with no corpses, conjures skeletons up to remaining capacity. |
+| **Animate Dead** | Mysticism / Touch | Yes | Consumes a **humanoid** corpse (or conjures a skeleton in `abstract` mode). Tier scales with `Willpower + Magnitude` (`0` Skeleton, `40` Zombie, `80` Ghost, `130` Mummy, `190` Lich) and upgrades 1 tier if carrying matching reagents (up to `Ancient Lich` with 2x Lich Dust/Wraith Essence). |
+| **Mass Animate Dead** | Mysticism / Caster Only | Yes | High-mana AoE (`280 SP` at Mysticism `100`). Raises all **humanoid** corpses within `clamp(Mysticism * 0.1, 2m, 30m)` (scales past `100`), rolling chance, tier, reagents, and capacity per corpse; in `abstract` mode with no humanoid corpses, conjures skeletons up to remaining capacity. |
 | **Corpse Explosion** | Destruction / Area at Range | Yes | Detonates nearest unconsumed corpse within `2m` for `maxHealth * 5` Poison AoE damage in a `6m` radius (hits hostiles only, never self/allies/minions). |
 | **Life Tap** | Restoration / Target at Range | Yes | Siphons HP from target to caster. Casting on self or an allied minion drains up to 100% of the minion's HP to heal you. |
 | **Bone Armor** | Alteration / Caster Only | Yes | Grants a damage-absorbing shield. If you have an active Skeleton minion, sacrifices it to set shield HP to `round(skeleton.maxHealth * 3)`. |

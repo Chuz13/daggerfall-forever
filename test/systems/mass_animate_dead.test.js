@@ -4,10 +4,17 @@ import assert from 'node:assert/strict';
 import {
   massAnimateDeadSpell,
   castMassAnimateDead,
+  castAnimateDead,
+  castSutureCadaver,
   calculateMassAnimateDeadRadius,
   isNonDisguiseNecroSpell,
 } from '../../src/systems/necromancy/necromanticSpells.js';
-import { registerCorpse, _resetCorpseRegistryForTests } from '../../src/systems/necromancy/corpseRegistry.js';
+import {
+  registerCorpse,
+  classifyCorpseEntityType,
+  isHumanoidCorpse,
+  _resetCorpseRegistryForTests,
+} from '../../src/systems/necromancy/corpseRegistry.js';
 import { _resetMinionControllerForTests, dismissAllMinions, allSpawnedMinions } from '../../src/systems/necromancy/minionController.js';
 import { _resetUndeadCapacityForTests, calculateUndeadCapacity } from '../../src/systems/necromancy/undeadCapacity.js';
 import { NecroConfig, CORPSE_REQ_MODES, resetNecroConfig } from '../../src/systems/necromancy/necroConfig.js';
@@ -248,4 +255,91 @@ test('Mass Animate Dead: isNonDisguiseNecroSpell, shownSpellName, and console ad
   playerEntity.spells = [];
   cmd.callback(['all_necro']);
   assert.ok(playerEntity.spells.some((s) => s.name === 'Mass Animate Dead'));
+});
+
+test('Humanoid-only reanimation: classifyCorpseEntityType & isHumanoidCorpse cover vanilla + DEX enemies', () => {
+  // Allowed: vanilla classes, DEX classes, Orcs, Giant, Lycanthropes, DFU semi-humanoids
+  const allowedIds = [
+    128, 144, 146, // Mage, Warrior, City Watch
+    384, 390, 395, // DEX Druid, Bounty Hunter, Dark Slayer
+    7, 12, 16, 21, 24, // Orcs & Giant
+    9, 14, // Werewolf, Wereboar
+    8, 10, 13, 41, 42, // Centaur, Nymph, Harpy, Dreugh, Lamia
+    256, 258, 259, 261, 268, 269, 272, 279, 282, // DEX Goblin, Lizard Man/Warrior, Medusa, Nymph, Minotaur, Troll, Land Dreugh, Ogre
+  ];
+  for (const id of allowedIds) {
+    assert.equal(classifyCorpseEntityType(id), 'humanoid', `mobileType ${id} must classify as humanoid`);
+    assert.equal(isHumanoidCorpse({ mobileType: id, entityType: 'humanoid', consumed: false }), true, `mobileType ${id} must be reanimatable`);
+  }
+
+  // Rejected: Beasts, Undead, Daedra, Constructs, and excluded magical/stone humanoids (C)
+  const rejectedCases = [
+    [0, 'beast'], [6, 'beast'], [39, 'beast'], [262, 'beast'], [281, 'beast'], // Rat, Spider, Horse, DEX Wolf, Mudcrab
+    [15, 'undead'], [17, 'undead'], [28, 'undead'], [32, 'undead'], [277, 'undead'], // Skeleton, Zombie, Vampire, Lich, DEX Ghoul
+    [25, 'daedra'], [31, 'daedra'], [285, 'daedra'], [288, 'daedra'], // Daedra, Dremora, Scamp
+    [35, 'construct'], [37, 'construct'], [270, 'construct'], [289, 'construct'], [283, 'construct'], // Atronachs, Golems, Centurion, Wisp
+    [1, 'daedra'], [2, 'monstrous'], [22, 'monstrous'], [257, 'monstrous'], [265, 'monstrous'], // Imp, Spriggan, Gargoyle, Homunculus, Grotesque
+  ];
+  for (const [id, expectedType] of rejectedCases) {
+    assert.equal(classifyCorpseEntityType(id), expectedType, `mobileType ${id} must classify as ${expectedType}`);
+    assert.equal(isHumanoidCorpse({ mobileType: id, entityType: expectedType, consumed: false }), false, `mobileType ${id} must NOT be reanimatable`);
+  }
+});
+
+test('Humanoid-only reanimation: Animate Dead rejects non-humanoids and skips closer beasts to raise humanoids', () => {
+  resetState();
+  const caster = makeCaster({ mysticism: 100, intelligence: 200, willpower: 50 });
+
+  // Direct non-humanoid corpses must fail without being consumed
+  for (const [id, et] of [[0, 'beast'], [15, 'undead'], [1, 'daedra'], [2, 'monstrous'], [35, 'construct']]) {
+    const c = registerCorpse({ id: `rej_${id}`, mobileType: id, entityType: et, position: [1, 0, 0] });
+    const res = castAnimateDead(caster, c);
+    assert.equal(res.success, false, `castAnimateDead must reject mobileType ${id}`);
+    assert.equal(c.consumed, false, `Rejected corpse ${id} must not be consumed`);
+  }
+
+  // Position lookup: Rat at 0.5m, Bandit at 2.0m -> skips Rat and raises Bandit
+  _resetCorpseRegistryForTests();
+  const rat = registerCorpse({ id: 'mix_rat', mobileType: 0, entityType: 'beast', position: [0.5, 0, 0] });
+  const bandit = registerCorpse({ id: 'mix_bandit', mobileType: 144, entityType: 'humanoid', position: [2.0, 0, 0] });
+  const resPos = castAnimateDead(caster, { position: [0, 0, 0] });
+  assert.equal(resPos.success, true);
+  assert.equal(rat.consumed, false, 'Closer rat corpse must stay untouched');
+  assert.equal(bandit.consumed, true, 'Humanoid bandit corpse must be raised');
+});
+
+test('Humanoid-only reanimation: Mass Animate Dead raises only humanoids in mixed pile & preserves Suture Cadaver', () => {
+  resetState();
+  const caster = makeCaster({ mysticism: 100, intelligence: 200, willpower: 50, level: 20 });
+  applyLichdom(caster, { nowMinutes: 100 });
+  applySpell({ element: 4, rangeType: 0, effects: [{ type: 54, subType: 255, durationBase: 20, durationMod: 0, durationPerLevel: 1 }] }, 25, caster, {}, () => 0.5, { entity: caster });
+
+  // Non-humanoid only -> fails, keeps disguise, leaves corpses intact
+  const rat = registerCorpse({ id: 'm_rat', mobileType: 0, entityType: 'beast', position: [1, 0, 0] });
+  const skel = registerCorpse({ id: 'm_skel', mobileType: 15, entityType: 'undead', position: [1.5, 0, 0] });
+  const imp = registerCorpse({ id: 'm_imp', mobileType: 1, entityType: 'daedra', position: [2, 0, 0] });
+  const atro = registerCorpse({ id: 'm_atro', mobileType: 35, entityType: 'construct', position: [2.5, 0, 0] });
+
+  const failRes = castMassAnimateDead(caster, null, { spellMagnitude: 5 });
+  assert.equal(failRes.success, false);
+  assert.match(failRes.reason, /No humanoid corpses/);
+  assert.equal(isPlayerDisguised(caster), true, 'Failed Mass Animate Dead on non-humanoids must not break disguise');
+
+  // Add 4 eligible humanoids (2 bandits, 1 werewolf, 1 harpy)
+  const b1 = registerCorpse({ id: 'm_b1', mobileType: 144, entityType: 'humanoid', position: [1, 0, 1] });
+  const b2 = registerCorpse({ id: 'm_b2', mobileType: 136, entityType: 'humanoid', position: [2, 0, 1] });
+  const ww = registerCorpse({ id: 'm_ww', mobileType: 9, entityType: 'humanoid', position: [3, 0, 1] });
+  const harpy = registerCorpse({ id: 'm_harpy', mobileType: 13, entityType: 'humanoid', position: [4, 0, 1] });
+
+  const okRes = castMassAnimateDead(caster, null, { spellMagnitude: 5 });
+  assert.equal(okRes.success, true);
+  assert.equal(okRes.raisedCount, 4, 'Must raise exactly the 4 humanoid corpses');
+  assert.equal(b1.consumed && b2.consumed && ww.consumed && harpy.consumed, true);
+  assert.equal(rat.consumed || skel.consumed || imp.consumed || atro.consumed, false, 'Non-humanoids must remain untouched');
+  assert.equal(isPlayerDisguised(caster), false, 'Successful raise must break disguise');
+
+  // Suture Cadaver still accepts the remaining 4 non-humanoid corpses
+  const sutRes = castSutureCadaver(caster, null, { radius: 8 });
+  assert.equal(sutRes.success, true);
+  assert.equal(sutRes.consumedCount, 4);
 });

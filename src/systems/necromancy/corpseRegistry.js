@@ -16,6 +16,8 @@ import { setItemFields, templateByIndex } from '../item/itemTemplates.js';
 import { addItem } from '../inventory.js';
 import { t } from '../textManager.js';
 import { rollHarvestReagents } from './necroDropTable.js';
+import { ENEMY_GROUPS, enemyEntityGroup } from '../../combat/enemyGroups.js';
+import { isClassEnemyId } from '../../characters/enemy/enemyBasics.js';
 
 export const HARVEST_BLADE_TEMPLATES = Object.freeze(new Set([
   603, // Skinning Knife
@@ -66,6 +68,69 @@ export const DECAY_THRESHOLDS = Object.freeze({
   FRESH_MINUTES: 360,      // 6 hours
   DECAYING_MINUTES: 1440,  // 24 hours
 });
+
+export const NON_REANIMATABLE_HUMANOID_MOBILE_TYPES = Object.freeze(new Set([1, 2, 22, 257, 265])); // Imp, Spriggan, Gargoyle, DEX Homunculus, DEX Grotesque
+export const KNOWN_HUMANOID_MONSTER_MOBILE_TYPES = Object.freeze(new Set([
+  7, 8, 9, 10, 12, 13, 14, 16, 21, 24, 41, 42,
+  256, 258, 259, 261, 268, 269, 272, 279, 282,
+]));
+export const KNOWN_UNDEAD_MOBILE_TYPES = Object.freeze(new Set([
+  15, 17, 18, 19, 23, 28, 30, 32, 33,
+  266, 273, 274, 275, 277, 287,
+]));
+export const KNOWN_DAEDRA_MOBILE_TYPES = Object.freeze(new Set([
+  1, 25, 26, 27, 29, 31,
+  264, 276, 285, 288,
+]));
+export const KNOWN_BEAST_MOBILE_TYPES = Object.freeze(new Set([
+  0, 3, 4, 5, 6, 11, 20, 34, 39, 40,
+  260, 262, 263, 267, 271, 278, 280, 281,
+]));
+export const KNOWN_CONSTRUCT_MOBILE_TYPES = Object.freeze(new Set([
+  35, 36, 37, 38,
+  270, 283, 284, 286, 289, 290,
+]));
+
+/**
+ * Classifies a corpse's entityType ('humanoid'|'undead'|'daedra'|'beast'|'construct'|'monstrous')
+ * from its MobileTypes ID (or string fallback) across both vanilla and DEX enemies.
+ * @param {number|string|null|undefined} rawType
+ * @returns {string}
+ */
+export function classifyCorpseEntityType(rawType) {
+  if (typeof rawType !== 'number' || !Number.isInteger(rawType)) {
+    return String(rawType || 'humanoid').toLowerCase();
+  }
+  if (KNOWN_UNDEAD_MOBILE_TYPES.has(rawType)) return 'undead';
+  if (KNOWN_DAEDRA_MOBILE_TYPES.has(rawType)) return 'daedra';
+  if (KNOWN_BEAST_MOBILE_TYPES.has(rawType)) return 'beast';
+  if (KNOWN_CONSTRUCT_MOBILE_TYPES.has(rawType)) return 'construct';
+  if (NON_REANIMATABLE_HUMANOID_MOBILE_TYPES.has(rawType)) return 'monstrous';
+  // Check class bit BEFORE enemyEntityGroup so vanilla classes (128..146) never collide with monsters 0..18
+  if (isClassEnemyId(rawType)) return 'humanoid';
+  if (KNOWN_HUMANOID_MONSTER_MOBILE_TYPES.has(rawType)) return 'humanoid';
+
+  const group = enemyEntityGroup(rawType);
+  if (group === ENEMY_GROUPS.Undead) return 'undead';
+  if (group === ENEMY_GROUPS.Daedra) return 'daedra';
+  if (group === ENEMY_GROUPS.Animals) return 'beast';
+  if (group === ENEMY_GROUPS.Humanoid) return 'humanoid';
+  return 'monstrous';
+}
+
+/**
+ * Returns true if the corpse is an unconsumed humanoid eligible for Animate Dead / Mass Animate Dead.
+ * @param {object|null} corpse
+ * @returns {boolean}
+ */
+export function isHumanoidCorpse(corpse) {
+  if (!corpse || corpse.consumed) return false;
+  if (typeof corpse.mobileType === 'number' && Number.isInteger(corpse.mobileType)) {
+    if (NON_REANIMATABLE_HUMANOID_MOBILE_TYPES.has(corpse.mobileType)) return false;
+    return classifyCorpseEntityType(corpse.mobileType) === 'humanoid';
+  }
+  return String(corpse.entityType || '').toLowerCase() === 'humanoid';
+}
 
 /** @type {Map<string, object>} */
 const _corpses = new Map();
