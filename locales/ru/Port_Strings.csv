@@ -11133,3 +11133,8 @@ item.starflight.lore,"Оперённая этериальным светом. П
 codex.legendary.starflightOffline,"Редкий трофей с боссов, лучников и сокровищниц подземелий (ур. 10+)."
 apotheosis.communion.hudName,"Причастие в Святилище"
 apotheosis.communion.hudTip,"+{pct}% к получению Веры и защита от Мифического угасания на следующий день (ост. {left})."
+apotheosis.orrery.noSave,"Нельзя сохраняться в Оррери."
+apotheosis.orrery.noMap,"Нельзя составлять карту в Оррери."
+apotheosis.orrery.noMark,"Нельзя поставить Метку в Оррери."
+apotheosis.orrery.noRecall,"В Оррери ничто не отвечает на Возврат."
+apotheosis.siege.noSave,"Нельзя сохраняться во время осады Башни Диренни."

@@ -11133,3 +11133,8 @@ item.starflight.lore,"Impiumata di luce eterica. Finché la porti nello zaino, i
 codex.legendary.starflightOffline,"Trofeo raro da boss, arcieri e tesori dei dungeon (Liv. 10+)."
 apotheosis.communion.hudName,"Comunione del Santuario"
 apotheosis.communion.hudTip,"+{pct}% guadagno di Fede e scudo contro il Declino Mitico per il giorno successivo ({left} rimanenti)."
+apotheosis.orrery.noSave,"Non puoi salvare nell’Orrery."
+apotheosis.orrery.noMap,"Non puoi mappare l’Orrery."
+apotheosis.orrery.noMark,"Non puoi impostare un Marchio nell’Orrery."
+apotheosis.orrery.noRecall,"Nulla risponde a un Richiamo nell’Orrery."
+apotheosis.siege.noSave,"Non puoi salvare durante l’assedio della Torre Direnni."

@@ -11133,3 +11133,8 @@ item.starflight.lore,"Empennée de lumière éthérée. Tant qu'elle se trouve d
 codex.legendary.starflightOffline,"Trophée rare sur les boss, archers et trésors de donjon (Niv. 10+)."
 apotheosis.communion.hudName,"Communion du Sanctuaire"
 apotheosis.communion.hudTip,"+{pct}% de gain de Foi et bouclier contre le Déclin Mythique pour le lendemain ({left} restant)."
+apotheosis.orrery.noSave,"Vous ne pouvez pas sauvegarder dans l’Orrery."
+apotheosis.orrery.noMap,"Vous ne pouvez pas cartografier l’Orrery."
+apotheosis.orrery.noMark,"Vous ne pouvez pas poser une Marque dans l’Orrery."
+apotheosis.orrery.noRecall,"Rien ne répond à un Rappel dans l’Orrery."
+apotheosis.siege.noSave,"Vous ne pouvez pas sauvegarder pendant le siège de la tour Direnni."

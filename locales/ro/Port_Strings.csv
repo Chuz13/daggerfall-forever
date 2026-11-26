@@ -11133,3 +11133,8 @@ item.starflight.lore,"Împănată cu lumină eterică. Cât timp o porți în ru
 codex.legendary.starflightOffline,"Trofeu rar de la șefi, arcași și comori din temnițe (Niv. 10+)."
 apotheosis.communion.hudName,"Împărtășania Sanctuarului"
 apotheosis.communion.hudTip,"+{pct}% câștig de Credință și scut împotriva Declinului Mitic pentru ziua următoare ({left} rămas)."
+apotheosis.orrery.noSave,"Nu poți salva în Orrery."
+apotheosis.orrery.noMap,"Nu poți cartografia Orrery."
+apotheosis.orrery.noMark,"Nu poți seta un Marcaj în Orrery."
+apotheosis.orrery.noRecall,"Nimic nu răspunde la Reîntoarcere în Orrery."
+apotheosis.siege.noSave,"Nu poți salva în timpul asediului Turnului Direnni."

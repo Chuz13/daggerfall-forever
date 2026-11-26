@@ -11133,3 +11133,8 @@ item.starflight.lore,"Opeřená éterickým světlem. Dokud ji máte v batohu, v
 codex.legendary.starflightOffline,"Vzácná trofej z bossů, lučištníků a pokladů v kobkách (úr. 10+)."
 apotheosis.communion.hudName,"Přijímání ve svatyni"
 apotheosis.communion.hudTip,"+{pct}% k zisku Víry a štít proti Mýtickému úpadku na další den (zbývá {left})."
+apotheosis.orrery.noSave,"V Orrery nelze ukládat hru."
+apotheosis.orrery.noMap,"V Orrery nelze mapovat."
+apotheosis.orrery.noMark,"V Orrery nelze umístit Značku."
+apotheosis.orrery.noRecall,"V Orrery nic neodpovídá na Návrat."
+apotheosis.siege.noSave,"Během obléhání Věže Direnni nelze ukládat hru."

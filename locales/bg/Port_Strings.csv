@@ -11133,3 +11133,8 @@ item.starflight.lore,"Оперена с етерична светлина. До�
 codex.legendary.starflightOffline,"Рядък трофей от босове, стрелци и съкровища в подземия (ур. 10+)."
 apotheosis.communion.hudName,"Причастие в Светилището"
 apotheosis.communion.hudTip,"+{pct}% получаване на Вяра и щит срещу Митичен упадък за следващия ден (ост. {left})."
+apotheosis.orrery.noSave,"Не можете да запазвате в Орери."
+apotheosis.orrery.noMap,"Не можете да картографирате Орери."
+apotheosis.orrery.noMark,"Не можете да поставите Белег в Орери."
+apotheosis.orrery.noRecall,"Нищо не отговаря на Връщане в Орери."
+apotheosis.siege.noSave,"Не можете да запазвате по време на обсадата на кулата Дирени."

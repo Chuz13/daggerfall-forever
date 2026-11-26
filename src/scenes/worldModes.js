@@ -403,7 +403,7 @@ import { HOME_ENTRIES, homePriceOk, homeOnlinePrice, rentCost, rentDaysLeft, HOM
 import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 import { isOfflineHouseOwned } from '../systems/offlineHomes.js';
 import { getTempleCultDoorSubtitle, createSanctuaryInteriorEntry, spawnCultInteriorGuardians, isPlayerCultSiteOwned, interiorCultAltarTargets, interiorCultAltarHoverName, activateInteriorCultAltar } from './apotheosisCultHost.js';
-import { getApotheosisTempleServiceBlock } from '../systems/apotheosis/apotheosisCult.js';
+import { getApotheosisTempleServiceBlock, getCultSite } from '../systems/apotheosis/apotheosisCult.js';
 import { homeListedPrice } from '../net/homeListingLaw.js';   // FOUNDATION F3: a row's price
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
@@ -2613,6 +2613,7 @@ export function createWorldModes(host) {
   // .cs:183-187). Cleared with interiorBuilding at every exit.
   let exteriorDoor = null;
   let interiorCabin = null;   // SAILING-CABINS: this boat's private room, never the bank's scene - WAGONS1: or the caravan's (systems/caravanRoom.js; isCaravanRoom tells them apart)
+  let interiorCultSanctuary = null;
   /** WAGONS1: the private room's scene-cache name - a ship cabin's by its boat, the caravan's one a character. */
   const privateRoomSceneName = (room) => (isCaravanRoom(room) ? CARAVAN_SCENE_NAME : cabinSceneName(room.uid));
   /** GetNameBankOfCurrentRegion (PlayerGPS.cs:421-427) - F016. An
@@ -4923,6 +4924,15 @@ export function createWorldModes(host) {
       ...(privateVisitRoom ? { privateRoom: privateVisitRoom, ...(privateVisitOwner ? { cabinOwner: privateVisitOwner } : {}) } : {}),
       ...(placeInstance ? { ins: instanceWord(placeInstance) } : {}),   // INSTANCES (the audit): the instance it was entered as - a load, an anchor and a staff landing go back in
       ...(interiorCabin ? (isCaravanRoom(interiorCabin) ? { caravanRoom: readCaravanRoom(interiorCabin) } : { sailingCabin: readSailingCabin(interiorCabin) }) : {}),   // WAGONS1: the caravan's own field
+      ...(interiorCultSanctuary && host.toNative ? {
+        cultSanctuary: {
+          siteKey: interiorCultSanctuary.siteKey,
+          mapId: interiorCultSanctuary.mapId,
+          regionIndex: interiorCultSanctuary.regionIndex,
+          origin: host.toNative(buildingOrigin()),
+          yaw: interiorCultSanctuary.yaw,
+        },
+      } : {}),
       door: {
         blockIndex: exteriorDoor.blockIndex,
         recordIndex: exteriorDoor.recordIndex,
@@ -8775,6 +8785,14 @@ export function createWorldModes(host) {
       privateVisitRoom = restore?.privateRoom ?? null;
       privateVisitOwner = restore?.cabinOwner ?? null;
       interiorCabin = hit.sailingCabin ?? null;
+      interiorCultSanctuary = hit.cultSanctuarySite
+        ? {
+            siteKey: hit.cultSanctuarySite.siteKey,
+            mapId: hit.cultSanctuarySite.mapId ?? building?.townMapId ?? 0,
+            regionIndex: hit.cultSanctuarySite.regionIndex ?? building?.regionIndex ?? 0,
+            yaw: Number.isFinite(hit.cultSanctuaryYaw) ? hit.cultSanctuaryYaw : 0,
+          }
+        : null;
       if (interiorCabin && !privateVisitRoom) addPermanentScene(sceneCache(), privateRoomSceneName(interiorCabin));
       _insideTavern = insideTavern;
       _insideResidence = insideResidence;
@@ -8812,7 +8830,9 @@ export function createWorldModes(host) {
       }
       interiorFoes = makeInteriorFoes(ctx);   // IF: the pool lives exactly as long as the interior does
       interiorGuards = makeInteriorGuards(ctx);   // ROAD-B: ...and so does the watch that can be called into it
-      spawnCultInteriorGuardians(playerEntity, interiorBuilding, homeTownOf(interiorBuilding), interiorFoes, ctx, { say, nowMinutes: Math.floor(worldMinutes()) });
+      if (!_enemyRestoreInProgress) {
+        spawnCultInteriorGuardians(playerEntity, interiorBuilding, homeTownOf(interiorBuilding), interiorFoes, ctx, { say, nowMinutes: Math.floor(worldMinutes()) });
+      }
       ownerFoes.pools(interiorFoes, interiorGuards);   // HOST-CLOCK (scenes/ownerCatchUp.js): online with anyone else in the building's room, both pools take my clamped frame in FOE-CATCHUP's steps on the page's one plan - my player's pace, never past it
       _intNetOn = false; ensureInteriorNet();   // QUEST-PARTY phase 3b: online, the building's foes ride the room's own lane
       // X1: an armed Open/Lock spell fires on this interior's doors
@@ -9282,6 +9302,7 @@ export function createWorldModes(host) {
     standFromChair();   // SIT1: nor on a chair
     standFromCardTable();   // CARDS2: and nobody stays seated in a room they left - CARDS4: the table cashed out
     interiorCabin = null;
+    interiorCultSanctuary = null;
     interiorHome = null;   // HOME1: and the visit's home with it
     interiorSeatHall = null;   // SEAT-HALL
     _seatHallVisit = false;   // AUDIT SEATS-3 C2: and the visit's latch
@@ -12586,6 +12607,7 @@ export function createWorldModes(host) {
     quickSave: host.quickSave,
     quickLoad: host.quickLoad,
     relock: host.relock,   // MAC1: the resume gesture relocks the pointer (ui/pauseDoor.js)
+    savingPrevented: host.savingPrevented,
     loadingPrevented: host.loadingPrevented,   // ONLINE-LOAD1: forwarded from the world host, same as quickLoad above
     timers: host.timers,   // TIMERS1: the hourglass's window, the world host's source
     post: host.post,   // SERVER-POST: the mailbox's box, the world host's
@@ -13907,7 +13929,7 @@ export function createWorldModes(host) {
         interiorWindows.clear((w) => w.dispose?.());
         standFromChair();   // SIT1: off a chair too
         standFromCardTable({ cashOut: !load });   // CARDS2b (AUDIT CARDS B1): the forced road out - a load, a quest teleport, Recall, a respawn, a sail - empties the seat as the door does; CARDS4: and cashes the table out
-        interiorCtx = null; interiorBuilding = null; interiorCabin = null; interiorHome = null; interiorSeatHall = null; interiorOverlay = null; exteriorDoor = null; _seatHallVisit = false;   // HOME1: the visit's home with the identity
+        interiorCtx = null; interiorBuilding = null; interiorCabin = null; interiorCultSanctuary = null; interiorHome = null; interiorSeatHall = null; interiorOverlay = null; exteriorDoor = null; _seatHallVisit = false;   // HOME1: the visit's home with the identity
         _insideTavern = false;   // ROAD-B B4: PlayerEnterExit.cs:874, the same latch on the teleport/load arm
         _insidePartyRestExempt = false;   // TAVERN-REST1/GUILD-REST1: cleared on the same teleport/load arm as the tavern latch above
       }
@@ -14033,6 +14055,7 @@ export function createWorldModes(host) {
     cardPressHeld: () => mode === 'interior' && !!cardSeat && !!(cardGame?.handPress || cardGame?.drag || gambitGame?.fingerHeld?.()),
     /** AUDIT KG II C4: a King's Gambit battle on the seat - the pad's bare d-pad is the board's cursor, not its world actions. */
     gambitBoardUp: () => mode === 'interior' && !!cardSeat && !!gambitGame?.boardUp?.(),
+    isPrivateVisit: () => mode === 'interior' && Boolean(privateVisitRoom),
     hover,
     wheel,
     /** A mode-owned window is up (the hosts' look gate reads this
@@ -14465,6 +14488,32 @@ export function createWorldModes(host) {
       if (saved?.caravanRoom) {
         if (mode !== 'exterior' || !host.caravanRoom?.canRestore(saved.caravanRoom, saved.caravanAt)) return false;
         try { await enterCaravanRoom(readCaravanRoom(saved.caravanRoom), pos); } catch (e) { console.error('[worldModes] restoreInterior (caravan) failed:', e); return false; }
+        return mode === 'interior';
+      }
+      if (saved?.cultSanctuary) {
+        if (mode !== 'exterior') return false;
+        const cs = saved.cultSanctuary;
+        const site = typeof cs.siteKey === 'string' ? getCultSite(playerEntity, cs.siteKey) : null;
+        const hatchWorldPos = site && Array.isArray(cs.origin) && cs.origin.length === 3 && host.fromNative ? host.fromNative(cs.origin) : null;
+        if (!site || !hatchWorldPos || !hatchWorldPos.every(Number.isFinite)) return false;
+        const e = createSanctuaryInteriorEntry(site, {
+          mapId: cs.mapId ?? site.mapId,
+          regionIndex: cs.regionIndex ?? site.regionIndex,
+          hatchWorldPos,
+          hatchYaw: Number.isFinite(cs.yaw) ? cs.yaw : 0,
+        });
+        if (!e) return false;
+        const hasEnemyRecord = saved.foes != null || saved.guards != null;
+        _enemyRestoreInProgress = hasEnemyRecord;
+        try {
+          await enterInteriorCore(e.hit, e.entries, { building: saved.building ?? e.building, pos });
+        } catch (err) {
+          console.error('[worldModes] restoreInterior (cultSanctuary) failed:', err);
+          return false;
+        } finally {
+          _enemyRestoreInProgress = false;
+        }
+        if (mode === 'interior' && hasEnemyRecord && fromNative) restoreInteriorPools(saved, fromNative, yOffset);
         return mode === 'interior';
       }
       const cabin = saved?.sailingCabin;

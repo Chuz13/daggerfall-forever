@@ -11133,3 +11133,8 @@ item.starflight.lore,"에테르 빛으로 깃을 단 화살. 가방에 지니고
 codex.legendary.starflightOffline,"우두머리, 궁수, 던전 보물에서 얻는 희귀 전리품 (Lv 10+)."
 apotheosis.communion.hudName,"성소 성찬"
 apotheosis.communion.hudTip,"신앙 획득 +{pct}% 및 다음 날 신화적 쇠퇴 보호막 ({left} 남음)."
+apotheosis.orrery.noSave,"오러리에서는 저장할 수 없습니다."
+apotheosis.orrery.noMap,"오러리에서는 지도를 작성할 수 없습니다."
+apotheosis.orrery.noMark,"오러리에서는 표식을 설정할 수 없습니다."
+apotheosis.orrery.noRecall,"오러리에서는 귀환에 응답하는 것이 없습니다."
+apotheosis.siege.noSave,"디레니 탑 공성전 중에는 저장할 수 없습니다."

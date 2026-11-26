@@ -11133,3 +11133,8 @@ item.starflight.lore,"Opierzona eterycznym światłem. Dopóki nosisz ją w plec
 codex.legendary.starflightOffline,"Rzadkie trofeum z bossów, łuczników i skarbców lochów (Poz. 10+)."
 apotheosis.communion.hudName,"Komunia w Sanktuarium"
 apotheosis.communion.hudTip,"+{pct}% do zdobywania Wiary i tarcza przed Mitycznym Zanikiem na następny dzień (pozostało {left})."
+apotheosis.orrery.noSave,"Nie możesz zapisać gry w Orrery."
+apotheosis.orrery.noMap,"Nie możesz tworzyć mapy w Orrery."
+apotheosis.orrery.noMark,"Nie możesz ustawić Znaku w Orrery."
+apotheosis.orrery.noRecall,"Nic nie odpowiada na Przywołanie w Orrery."
+apotheosis.siege.noSave,"Nie możesz zapisać gry podczas oblężenia Wieży Direnni."

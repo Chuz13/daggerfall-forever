@@ -11133,3 +11133,8 @@ item.starflight.lore,"Gắn lông vũ ánh sáng aether. Khi mang trong túi, cu
 codex.legendary.starflightOffline,"Chiến lợi phẩm hiếm từ trùm, cung thủ và kho báu hầm ngục (Cấp 10+)."
 apotheosis.communion.hudName,"Hiệp Thông Thánh Điện"
 apotheosis.communion.hudTip,"+{pct}% nhận Đức Tin & Khiên chống Suy Tàn Thần Thoại cho ngày hôm sau (còn {left})."
+apotheosis.orrery.noSave,"Bạn không thể lưu trong Orrery."
+apotheosis.orrery.noMap,"Bạn không thể lập bản đồ Orrery."
+apotheosis.orrery.noMark,"Bạn không thể đặt Dấu trong Orrery."
+apotheosis.orrery.noRecall,"Không có gì đáp lại Triệu Hồi trong Orrery."
+apotheosis.siege.noSave,"Bạn không thể lưu trong khi vây hãm Tháp Direnni."

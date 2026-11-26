@@ -265,6 +265,7 @@ export function createSanctuaryInteriorEntry(site, {
     climateBase,
     season,
     cultSanctuarySite: site,
+    cultSanctuaryYaw: hatchYaw,
   };
   return { hit, entries: [hit], building };
 }

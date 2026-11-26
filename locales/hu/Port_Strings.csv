@@ -11133,3 +11133,8 @@ item.starflight.lore,"Éteri fénnyel tollazva. Amíg a hátizsákodban hordod, 
 codex.legendary.starflightOffline,"Ritka trófea főellenségektől, íjászoktól és kazamaták kincseiből (10+ szint)."
 apotheosis.communion.hudName,"Szentélyi áldozás"
 apotheosis.communion.hudTip,"+{pct}% Hit-nyereség és pajzs a Mitikus hanyatlás ellen a következő napra ({left} van hátra)."
+apotheosis.orrery.noSave,"Nem menthetsz az Orreryban."
+apotheosis.orrery.noMap,"Nem térképezheted fel az Orreryt."
+apotheosis.orrery.noMark,"Nem helyezhetsz el Jelet az Orreryban."
+apotheosis.orrery.noRecall,"Semmi nem válaszol a Visszahívásra az Orreryban."
+apotheosis.siege.noSave,"Nem menthetsz a Direnni-torony ostroma alatt."

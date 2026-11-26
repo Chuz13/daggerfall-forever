@@ -15081,6 +15081,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function setRecallAnchor() {
     if (madeRuleHere('mark') === 'refused') { madeSay('mark'); return; }   // WB3b: a mark in a place that ends with the day; SD5a: nor in the Hour; EG-PLAY: nor in the Spire - EG-H2: the made level's law, each in its own words
     if (modes?.dungeonLocation?.superTier) { sdSay(SD_NO_MARK); return; }   // AUDIT SD IV (F2): nor in a Hollow - a later one may stand on its pixel
+    if (modes?.isApotheosisOrrery?.()) { townTalk.say(t('apotheosis.orrery.noMark', 'You cannot set a Mark in the Orrery.')); return; }
     const inside = modes?.anchorContext?.() ?? { worldContext: WORLD_CONTEXT.Exterior, local: null, buildingKey: 0, interior: null };
     const pf = walkMode && playerSpawned ? player.pos : cam.pos;
     // A DUNGEON's local frame is its own, so its world coordinates
@@ -15150,6 +15151,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // travel). Recall tore the floor down under a losing bout, which went unsaid: no loss, no run lost, the climb untouched.
     if (arenaBouts.holds()) { townTalk.say(ARENA_TEXT.refuse.travel); return; }
     if (madeRuleHere('recall') === 'refused') { madeSay('recall'); return; }   // SD5a (Super-Dungeons.md section 7): nothing answers a Recall in the Hour - its ways are the Rift's; EG-PLAY: the Spire holds you - EG-H2: the made level's law (the court refuses the Mark alone)
+    if (modes?.isApotheosisOrrery?.()) { townTalk.say(t('apotheosis.orrery.noRecall', 'Nothing answers a Recall in the Orrery.')); return; }
     const anchor = playerEntity.anchorPosition;
     const plan = teleportPlan(anchor, {
       ...(modes?.insideContext?.() ?? { insideBuilding: false, insideDungeon: false, buildingKey: 0 }),
@@ -16293,6 +16295,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk, walkMode, weaponRig,
     get magic() { return magic; },   // the seam's law: a name the host's scope writes (a shadow's spelling) is read live
     get _traveling() { return _traveling; },
+    get direnniSiege() { return direnniSiege; },
     get modes() { return modes; },
     get naval() { return naval; },
     get npcSession() { return npcSession; },
@@ -18087,7 +18090,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     quickSave: worldQuickSave,
     quickLoad: worldQuickLoad,
     relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
-    savingPrevented: () => !!naval?.saveRefused?.() || !!modes?.cardTableLive?.() || !!modes?.gambitStaked?.() || !!modes?.iliacStaked?.(),   // AUDIT NAV1 (B14): the pause's Save says why, as worldQuickSave refuses it; AUDIT CARDS-2 H1: and chips on a card table
+    savingPrevented: () => !!ohAbyss?.entering || !!_traveling || !!naval?.saveRefused?.() || !!direnniSiege?.active || !!modes?.cardTableLive?.() || !!modes?.gambitStaked?.() || !!modes?.iliacStaked?.() || !!modes?.isPrivateVisit?.(),   // AUDIT NAV1 (B14): the pause's Save says why, as worldQuickSave refuses it; AUDIT CARDS-2 H1: and chips on a card table
     // ONLINE-LOAD1: this host's own live-session flag (`online`,
     // not `onlineOn` - see worldQuickLoad's own header for why),
     // for the enhanced Load pane (enhancedMenu.js paneLoad) to
@@ -30425,6 +30428,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // pause menu greys the Load pane the same way - see
     // worldModes.js's togglePause for the door itself.
     loadingPrevented: () => !!online,
+    savingPrevented: () => !!ohAbyss?.entering || !!_traveling || !!naval?.saveRefused?.() || !!direnniSiege?.active || !!modes?.cardTableLive?.() || !!modes?.gambitStaked?.() || !!modes?.iliacStaked?.() || !!modes?.isPrivateVisit?.(),
+    toNative: (p) => { const w = state.worldCoords(p); return [w.x, p[1] - state.compensation[1], w.z]; },
+    fromNative: (p) => { const [x, z] = state.localFromWorld(p[0], p[2]); return [x, p[1] + state.compensation[1], z]; },
     timers: timersSource,   // TIMERS1: forwarded to a building's and a dungeon's pause face
     post: postSource,   // SERVER-POST: and the mailbox's box
     season: seasonBook.source,   // SEASON-BOOK: and the laurel's boards

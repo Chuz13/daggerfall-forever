@@ -11133,3 +11133,8 @@ item.starflight.lore,"Emplumada con luz etérica. Mientras esté en tu mochila, 
 codex.legendary.starflightOffline,"Trofeo raro de jefes, arqueros y tesoros de mazmorra (Niv. 10+)."
 apotheosis.communion.hudName,"Comunión del Santuario"
 apotheosis.communion.hudTip,"+{pct}% de ganancia de Fe y escudo contra el Declive Mítico para el día siguiente (quedan {left})."
+apotheosis.orrery.noSave,"No puedes guardar en el Orrery."
+apotheosis.orrery.noMap,"No puedes cartografiar el Orrery."
+apotheosis.orrery.noMark,"No puedes colocar una Marca en el Orrery."
+apotheosis.orrery.noRecall,"Nada responde a un Retorno en el Orrery."
+apotheosis.siege.noSave,"No puedes guardar durante el asedio de la Torre Direnni."

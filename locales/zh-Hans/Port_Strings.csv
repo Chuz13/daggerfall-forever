@@ -11133,3 +11133,8 @@ item.starflight.lore,"以以太微光为羽。只要带在行囊中，你的弓�
 codex.legendary.starflightOffline,"首领、弓箭手与地牢宝藏的稀有战利品（10级+）。"
 apotheosis.communion.hudName,"圣所圣餐"
 apotheosis.communion.hudTip,"信仰获取+{pct}%，并为次日提供神话衰减护盾（剩余{left}）。"
+apotheosis.orrery.noSave,"无法在浑天仪中保存。"
+apotheosis.orrery.noMap,"无法在浑天仪中绘制地图。"
+apotheosis.orrery.noMark,"无法在浑天仪中设置标记。"
+apotheosis.orrery.noRecall,"在浑天仪中没有任何事物回应召回。"
+apotheosis.siege.noSave,"在迪伦尼高塔围城期间无法保存。"

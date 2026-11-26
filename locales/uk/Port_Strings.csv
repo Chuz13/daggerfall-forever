@@ -11133,3 +11133,8 @@ item.starflight.lore,"Оперена етеріальним світлом. По
 codex.legendary.starflightOffline,"Рідкісний трофей із босів, лучників та скарбниць підземель (рів. 10+)."
 apotheosis.communion.hudName,"Причастя у Святилищі"
 apotheosis.communion.hudTip,"+{pct}% до отримання Віри та захист від Міфічного згасання на наступний день (зал. {left})."
+apotheosis.orrery.noSave,"Не можна зберігатися в Оррері."
+apotheosis.orrery.noMap,"Не можна складати мапу в Оррері."
+apotheosis.orrery.noMark,"Не можна поставити Мітку в Оррері."
+apotheosis.orrery.noRecall,"В Оррері ніщо не відповідає на Повернення."
+apotheosis.siege.noSave,"Не можна зберігатися під час облоги Вежі Діренні."

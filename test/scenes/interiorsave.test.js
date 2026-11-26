@@ -164,8 +164,10 @@ test("IS1: the load re-enters the building or takes DFU's reposition arm", () =>
 
 test('IS1: the interior pause and F9/F11 land on the world composer; the stopgap gate is GONE', () => {
   const modes = read('src/scenes/worldModes.js');
-  assert.ok(!modes.includes('savingPrevented'),
-    'RETIRING A FLAG DELETES THE SENTENCE: no interior cannot-save arm survives anywhere in the mode host');
+  assert.doesNotMatch(modes, /savingPrevented:\s*\(\)\s*=>\s*true/,
+    'RETIRING A FLAG DELETES THE SENTENCE: no hardcoded interior cannot-save arm survives anywhere in the mode host');
+  assert.match(modes, /savingPrevented:\s*host\.savingPrevented/,
+    'interior pause delegates savingPrevented to the world host');
   // PX26 gave togglePause its own options; the slice follows it. The
   // law here is unchanged - the interior pause hands the world's
   // composer through.

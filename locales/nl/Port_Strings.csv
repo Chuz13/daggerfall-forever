@@ -11133,3 +11133,8 @@ item.starflight.lore,"Bevederd met etherisch licht. Zolang je hem in je tas draa
 codex.legendary.starflightOffline,"Zeldzame trofee van bazen, boogschutters en kerkerschatten (Lv 10+)."
 apotheosis.communion.hudName,"Communie van het Heiligdom"
 apotheosis.communion.hudTip,"+{pct}% Geloofswinst en schild tegen Mythisch Verval voor de volgende dag ({left} over)."
+apotheosis.orrery.noSave,"Je kunt niet opslaan in het Orrery."
+apotheosis.orrery.noMap,"Je kunt het Orrery niet in kaart brengen."
+apotheosis.orrery.noMark,"Je kunt geen Markering plaatsen in het Orrery."
+apotheosis.orrery.noRecall,"Niets beantwoordt een Terugroep in het Orrery."
+apotheosis.siege.noSave,"Je kunt niet opslaan tijdens de belegering van de Direnni-toren."
