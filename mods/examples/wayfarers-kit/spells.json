@@ -10,7 +10,7 @@
     "effects": [
       {
         "type": 10,
-        "subType": 0,
+        "subType": 9,
         "durationBase": 1,
         "durationMod": 0,
         "durationPerLevel": 1,
@@ -22,6 +22,21 @@
         "magnitudeLevelBase": 2,
         "magnitudeLevelHigh": 4,
         "magnitudePerLevel": 1
+      },
+      {
+        "type": 9,
+        "subType": 6,
+        "durationBase": 3,
+        "durationMod": 1,
+        "durationPerLevel": 1,
+        "chanceBase": 100,
+        "chanceMod": 0,
+        "chancePerLevel": 1,
+        "magnitudeBaseLow": 10,
+        "magnitudeBaseHigh": 15,
+        "magnitudeLevelBase": 1,
+        "magnitudeLevelHigh": 2,
+        "magnitudePerLevel": 2
       }
     ]
   }

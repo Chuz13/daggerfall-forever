@@ -217,6 +217,13 @@ test("Stage 3 Showcase: wayfarers-kit end-to-end (items, spells, legendaries, co
   assert.ok(templateByIndex(WAYFARER_TONIC_TEMPLATE)?.index === WAYFARER_TONIC_TEMPLATE);
   assert.ok(legendaryById(WAYFARER_SIGNET_ID));
 
+  const strideRec = player.spells ? null : null;
+  const strideModRec = (await import('../../src/systems/mods/modDataSync.js')).getModSpellRecord(WAYFARER_STRIDE_SPELL);
+  assert.equal(strideModRec?.effects?.[0]?.type, 10);
+  assert.equal(strideModRec?.effects?.[0]?.subType, 9);
+  assert.equal(strideModRec?.effects?.[1]?.type, 9);
+  assert.equal(strideModRec?.effects?.[1]?.subType, 6);
+
   // Console command grants tonic (x3), spell, and legendary ring
   const giveFn = commands.get('wayfarer_give');
   assert.equal(typeof giveFn, 'function');
