@@ -247,6 +247,12 @@ export const SKIRMISH_REP_MATRIX = Object.freeze({
     f1: Object.freeze([FAC(FIGHTERS_GUILD_FACTION_ID)]),
     f2: Object.freeze([SG(SOCIAL_GROUPS.Scholars)]),
   }),
+
+  // ── 12. CRISIS-INDEPENDENT WORLD INVASIONS (1) ─────────────────────────────
+  EVT_UNDEAD_HORDE_INVASION: Object.freeze({
+    f1: Object.freeze([LOCAL_LAW, FAC(GENERIC_TEMPLE, 0.8), SG(SOCIAL_GROUPS.Commoners, 0.5)]),
+    f2: Object.freeze([SG(SOCIAL_GROUPS.SupernaturalBeings)]),
+  }),
 });
 
 /**

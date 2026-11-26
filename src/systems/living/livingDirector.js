@@ -38,6 +38,7 @@ class LivingDirectorState {
       nemesis: { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false },
       checkpoints: { passesByRegion: {} },
       crisisQuests: {},
+      undeadHorde: { lastHordeMinute: 0 },
     };
   }
 
@@ -52,6 +53,7 @@ class LivingDirectorState {
     this.subsystems.nemesis = { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false };
     this.subsystems.checkpoints = { passesByRegion: {} };
     this.subsystems.crisisQuests = {};
+    this.subsystems.undeadHorde = { lastHordeMinute: 0 };
     restoreLocationEventCooldownsSnapshot(null);
     restoreSettlementProsperitySnapshot(null);
   }
@@ -108,6 +110,7 @@ export function newLivingSaveData() {
       nemesis: { encounters: 0, escapedCount: 0, lastNemesisName: null, lastArchetype: null, hasGrudge: false },
       checkpoints: { passesByRegion: {} },
       crisisQuests: {},
+      undeadHorde: { lastHordeMinute: 0 },
     },
   };
 }
@@ -166,6 +169,11 @@ export function getLivingSaveData() {
         passesByRegion: { ...(_state.subsystems.checkpoints?.passesByRegion || {}) },
       },
       crisisQuests: { ...(_state.subsystems.crisisQuests || {}) },
+      undeadHorde: {
+        lastHordeMinute: Number.isFinite(Number(_state.subsystems.undeadHorde?.lastHordeMinute))
+          ? Number(_state.subsystems.undeadHorde?.lastHordeMinute)
+          : 0,
+      },
       locationCooldowns: getLocationEventCooldownsSnapshot(),
       settlementProsperity: getSettlementProsperitySnapshot(),
     },
@@ -273,6 +281,13 @@ export function restoreLivingSaveData(data) {
       if (data.subsystems.crisisQuests && typeof data.subsystems.crisisQuests === 'object') {
         _state.subsystems.crisisQuests = { ...data.subsystems.crisisQuests };
       }
+      if (data.subsystems.undeadHorde && typeof data.subsystems.undeadHorde === 'object') {
+        _state.subsystems.undeadHorde = {
+          lastHordeMinute: Number.isFinite(Number(data.subsystems.undeadHorde.lastHordeMinute))
+            ? Number(data.subsystems.undeadHorde.lastHordeMinute)
+            : 0,
+        };
+      }
       if (data.subsystems.locationCooldowns && typeof data.subsystems.locationCooldowns === 'object') {
         restoreLocationEventCooldownsSnapshot(data.subsystems.locationCooldowns);
       }
@@ -334,6 +349,25 @@ export function getLivingDirectorState() {
   return _state;
 }
 export const getDirectorState = getLivingDirectorState;
+
+/**
+ * Returns the world-minute timestamp of the last Undead Horde Invasion.
+ * @returns {number}
+ */
+export function getLastUndeadHordeMinute() {
+  return Number(_state.subsystems.undeadHorde?.lastHordeMinute ?? 0);
+}
+
+/**
+ * Records the world-minute timestamp of the latest Undead Horde Invasion.
+ * @param {number} minutes
+ */
+export function setLastUndeadHordeMinute(minutes) {
+  if (!_state.subsystems.undeadHorde) {
+    _state.subsystems.undeadHorde = { lastHordeMinute: 0 };
+  }
+  _state.subsystems.undeadHorde.lastHordeMinute = Number.isFinite(minutes) ? minutes : 0;
+}
 
 /**
  * Initializes the Living Tamriel system and registers it into DFF modSaveData.

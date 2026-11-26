@@ -162,6 +162,23 @@ import {
   setAdventurerLevel,
   setAdventurerTrait,
 } from './adventurerSim.js';
+import { getLastUndeadHordeMinute, setLastUndeadHordeMinute } from './livingDirector.js';
+import { hasReadGrimoire } from '../necromancy/necroGrimoire.js';
+import { isAnyLich } from '../necromancy/lichdomStatus.js';
+import { addNecroTaint } from '../necromancy/necroTaint.js';
+import {
+  UNDEAD_HORDE_EVENT_ID,
+  UNDEAD_HORDE_ACTIVE_CAP,
+  UNDEAD_HORDE_REFILL_THRESHOLD,
+  UNDEAD_HORDE_WAVE_INTERVAL_S,
+  UNDEAD_HORDE_MIN_WAVE_GAP_S,
+  computeUndeadHordeCounts,
+  buildUndeadHordeRoster,
+  buildNecromancerBossSpec,
+  buildNecromancerBossLoot,
+  shouldTriggerUndeadHorde,
+  selectUndeadToCrumble,
+} from './undeadHorde.js';
 import { LIVING_WORDS } from './livingWords.js';
 import { mobTraitChance } from '../bossTraits.js';
 import {
@@ -283,6 +300,7 @@ export const LIVING_SITE_KINDS = Object.freeze({
   ADVENTURER_MEETING: 'ADVENTURER_MEETING',
   WANDERING_ADVENTURER: 'WANDERING_ADVENTURER',
   NAVAL_SQUADRON: 'NAVAL_SQUADRON',
+  UNDEAD_HORDE: 'UNDEAD_HORDE',
 });
 
 /** Classic DAGGER.SND sound clip indices used for Living Tamriel audio accents. */
@@ -842,6 +860,34 @@ function buildPleaSceneConfig(pleaType, centerX, centerZ, snapY) {
   return { mobileType: cfg.mobileType, name: cfg.name, backupPool: cfg.backupPool, meshes, flats };
 }
 
+function buildUndeadHordeProps(centerX, centerZ, snapY) {
+  const m = (modelId, dx, dz, yawDeg, destructible = false) => ({
+    modelId,
+    feet: [centerX + dx, snapY(centerX + dx, centerZ + dz), centerZ + dz],
+    yawDeg,
+    ...(destructible ? { destructible: true } : {}),
+  });
+  const f = (flatDef, dx, dz, destructible = false) => ({
+    ...flatDef,
+    feet: [centerX + dx, snapY(centerX + dx, centerZ + dz), centerZ + dz],
+    ...(destructible ? { destructible: true } : {}),
+  });
+  return {
+    meshes: [
+      m(LIVING_MODELS.OBELISK, 0, 0, 0, true),
+      m(LIVING_MODELS.COFFIN, -2.1, 1.4, 25),
+      m(LIVING_MODELS.CASKET, 2.2, -1.3, -20),
+    ],
+    flats: [
+      f(LIVING_FLATS.RITUAL_BRAZIER, 0.8, 0.7, true),
+      f(LIVING_FLATS.SKULL_TORCH, -1.3, -0.8),
+      f(LIVING_FLATS.SKULL_TORCH, 1.4, 1.1),
+      f(LIVING_FLATS.REMAINS_BONES, -0.9, 1.6),
+      f(LIVING_FLATS.REMAINS_SKULL, 1.0, -1.5),
+    ],
+  };
+}
+
 function buildSkirmishThemeProps(theme, eventId, planProps, centerX, centerZ, y0, snapY) {
   const pt = (dx, dz) => ({ x: centerX + dx, z: centerZ + dz, y: snapY(centerX + dx, centerZ + dz) });
   const p0 = planProps?.[0] ?? pt(-1.8, 1.6);
@@ -863,6 +909,9 @@ function buildSkirmishThemeProps(theme, eventId, planProps, centerX, centerZ, y0
       meshes: [m(LIVING_MODELS.CRATES, pt(-0.6, 0.6), 20)],
       flats: [f(LIVING_FLATS.CAMPFIRE, 1.4, -1.0), f(LIVING_FLATS.REMAINS_BODY, -1.6, -0.4), f(LIVING_FLATS.REMAINS_BONES, 0.4, 1.3)],
     };
+  }
+  if (eventId === UNDEAD_HORDE_EVENT_ID) {
+    return buildUndeadHordeProps(centerX, centerZ, snapY);
   }
   if (theme === SKIRMISH_PROP_THEME.PRISONER_CAGE) {
     return {
@@ -1311,10 +1360,22 @@ export function buildLivingSiteBlueprint({
         ...(i === 0 && playerLevel >= 6 ? { eliteFoe: true } : {}),
       });
     }
+    const isUndeadHorde = Boolean(plan.event?.hordeEvent || plan.event?.id === UNDEAD_HORDE_EVENT_ID);
     const isSwarm = Boolean(plan.event?.swarmAttackers);
-    const attackerLevel = isSwarm
-      ? Math.max(1, Math.floor(playerLevel * 0.5))
-      : Math.max(3, playerLevel);
+    const hordeCounts = isUndeadHorde ? computeUndeadHordeCounts(getLivingEncounterScale()) : null;
+    if (isUndeadHorde) {
+      meta.isUndeadHorde = true;
+      meta.necromancer = plan.necromancer ?? buildNecromancerBossSpec({ playerLevel, rng });
+      meta.hordeReserve = Array.isArray(plan.hordeReserve) ? [...plan.hordeReserve] : [];
+      meta.hordeWaveBatchSize = plan.hordeWaveBatchSize ?? hordeCounts?.waveBatchSize ?? 6;
+      meta.hordeTotalUndead = plan.hordeTotalUndead ?? hordeCounts?.totalUndead ?? 15;
+      meta.hordeGoldReward = hordeCounts?.goldReward ?? 250;
+    }
+    const attackerLevel = isUndeadHorde
+      ? Math.max(1, Math.floor(playerLevel * 0.6))
+      : isSwarm
+        ? Math.max(1, Math.floor(playerLevel * 0.5))
+        : Math.max(3, playerLevel);
     for (let i = 0; i < plan.rebels.length; i++) {
       const rb = plan.rebels[i];
       const rx = centerX + rb.dx;
@@ -1331,6 +1392,7 @@ export function buildLivingSiteBlueprint({
         team: SKIRMISH_TEAMS.INSURGENTS,
         campId: 'skirmish_rebels',
         factionSide: 'rebels',
+        ...(isUndeadHorde ? { isHordeMinion: true } : {}),
         ...(isSwarm ? {} : {
           skirmishLeader: i === 0,
           allowThreatScaling: true,
@@ -1339,6 +1401,33 @@ export function buildLivingSiteBlueprint({
           eliteChance: i === 0 ? 0.2 : 0.1,
           ...(i === 0 && playerLevel >= 6 ? { eliteFoe: true } : {}),
         }),
+      });
+    }
+    if (isUndeadHorde && meta.necromancer) {
+      const nb = meta.necromancer;
+      const nbx = centerX + (nb.dx ?? 4.5);
+      const nbz = centerZ + (nb.dz ?? 4.5);
+      actors.push({
+        mobileType: nb.mobileType,
+        name: nb.name,
+        level: nb.level,
+        feet: [nbx, snapY(nbx, nbz), nbz],
+        yaw: Math.PI,
+        allied: false,
+        hostile: true,
+        role: 'skirmish_rebel',
+        team: SKIRMISH_TEAMS.INSURGENTS,
+        campId: 'skirmish_rebels',
+        factionSide: 'rebels',
+        isHordeNecromancer: true,
+        skirmishLeader: true,
+        allowThreatScaling: true,
+        allowEliteRoll: false,
+        allowChampionRoll: false,
+        eliteFoe: true,
+        forcedBossTraits: nb.forcedBossTraits,
+        hpMult: nb.hpMult,
+        damageMult: nb.damageMult,
       });
     }
   } else if (kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
@@ -1691,6 +1780,81 @@ export function buildLivingSiteBlueprint({
         suppressInfighting: true,
       });
     }
+  } else if (kind === LIVING_SITE_KINDS.UNDEAD_HORDE) {
+    const scale = getLivingEncounterScale();
+    const counts = computeUndeadHordeCounts(scale);
+    const vanguardRoster = buildUndeadHordeRoster(counts.vanguardCount, {
+      playerLevel,
+      regionIndex,
+      climateIndex,
+      rng,
+    });
+    const reserveRoster = buildUndeadHordeRoster(counts.reserveCount, {
+      playerLevel,
+      regionIndex,
+      climateIndex,
+      rng,
+    });
+    const bossSpec = buildNecromancerBossSpec({ playerLevel, rng });
+    const props = buildUndeadHordeProps(centerX, centerZ, snapY);
+    meshes.push(...props.meshes);
+    flats.push(...props.flats);
+
+    meta.isUndeadHorde = true;
+    meta.isWildernessHorde = true;
+    meta.necromancer = bossSpec;
+    meta.hordeReserve = reserveRoster;
+    meta.hordeWaveBatchSize = counts.waveBatchSize;
+    meta.hordeTotalUndead = counts.totalUndead;
+    meta.hordeGoldReward = counts.goldReward;
+
+    const minionLevel = Math.max(1, Math.floor(playerLevel * 0.6));
+    for (let i = 0; i < vanguardRoster.length; i++) {
+      const rank = Math.floor(i / 7);
+      const inRank = i % 7;
+      const rankTotal = Math.min(7, vanguardRoster.length - rank * 7);
+      const angle = (inRank / Math.max(1, rankTotal)) * Math.PI * 2 + rank * 0.35;
+      const dist = 2.6 + rank * 1.5 + (i % 2 === 0 ? 0.2 : -0.2);
+      const ux = centerX + Math.cos(angle) * dist;
+      const uz = centerZ + Math.sin(angle) * dist;
+      actors.push({
+        mobileType: vanguardRoster[i],
+        name: `${LIVING_WORDS.undeadHordeFaction()} Risen`,
+        level: minionLevel,
+        feet: [ux, snapY(ux, uz), uz],
+        yaw: Math.atan2(centerX - ux, centerZ - uz),
+        allied: false,
+        hostile: false,
+        role: 'horde_undead',
+        team: 'UndeadHorde',
+        factionSide: 'horde',
+        suppressInfighting: true,
+        isHordeMinion: true,
+      });
+    }
+
+    actors.push({
+      mobileType: bossSpec.mobileType,
+      name: bossSpec.name,
+      level: bossSpec.level,
+      feet: [centerX + 0.4, snapY(centerX + 0.4, centerZ + 1.8), centerZ + 1.8],
+      yaw: Math.PI,
+      allied: false,
+      hostile: false,
+      role: 'horde_necromancer',
+      team: 'UndeadHorde',
+      factionSide: 'horde',
+      suppressInfighting: true,
+      isHordeNecromancer: true,
+      skirmishLeader: true,
+      allowThreatScaling: true,
+      allowEliteRoll: false,
+      allowChampionRoll: false,
+      eliteFoe: true,
+      forcedBossTraits: bossSpec.forcedBossTraits,
+      hpMult: bossSpec.hpMult,
+      damageMult: bossSpec.damageMult,
+    });
   }
 
   return {
@@ -2461,11 +2625,125 @@ export function createLivingSceneHost(deps) {
     return best;
   }
 
+  function banishHordeMinions(site, list) {
+    if (!site || !Array.isArray(list)) return;
+    for (const f of list) {
+      if (!f) continue;
+      f._suppressLoot = true;
+      f.lootDropped = true;
+      f.dead = true;
+      if (f.entity) f.entity.currentHealth = 0;
+      if (deps.inPool(f)) deps.remove(f);
+    }
+  }
+
   function retargetSkirmishFoes(site) {
-    if (!site || (site.kind !== LIVING_SITE_KINDS.URBAN_SKIRMISH && site.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH)) return;
+    if (
+      !site ||
+      (site.kind !== LIVING_SITE_KINDS.URBAN_SKIRMISH &&
+        site.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH &&
+        site.kind !== LIVING_SITE_KINDS.UNDEAD_HORDE)
+    ) {
+      return;
+    }
     const player = deps.playerEntity?.();
+
+    if (site.kind === LIVING_SITE_KINDS.UNDEAD_HORDE) {
+      const hordeFoes = site.foes.filter((f) => f && !f.dead && deps.inPool(f));
+      if (site.skirmishStance === 'necromancer_duel') {
+        for (const f of hordeFoes) {
+          if (f.isHordeNecromancer) {
+            f.allied = false;
+            f.shipmate = false;
+            if (f.entity) {
+              f.entity.team = 'PlayerEnemy';
+              f.entity.mobileTeam = 'PlayerEnemy';
+              f.entity.skirmishNeutralToPlayer = false;
+              f.entity.skirmishForceInfighting = false;
+            }
+            if (f.ai) {
+              f.ai.isHostile = true;
+              f.ai.detected = true;
+              f.ai.target = player;
+              f.ai.targetSenses = player;
+            }
+          }
+        }
+        return;
+      }
+      if (site.skirmishStance === 'wild_fight') {
+        for (const f of hordeFoes) {
+          f.allied = false;
+          f.shipmate = false;
+          if (f.entity) {
+            f.entity.team = 'PlayerEnemy';
+            f.entity.mobileTeam = 'PlayerEnemy';
+            f.entity.skirmishNeutralToPlayer = false;
+            f.entity.skirmishForceInfighting = false;
+          }
+          if (f.ai) {
+            f.ai.isHostile = true;
+            f.ai.detected = true;
+            f.ai.target = player;
+            f.ai.targetSenses = player;
+          }
+        }
+        return;
+      }
+      for (const f of hordeFoes) {
+        f.allied = false;
+        f.shipmate = false;
+        if (f.ai) {
+          f.ai.isHostile = false;
+          f.ai.detected = false;
+          f.ai.target = null;
+          f.ai.targetSenses = null;
+          f.ai.idle = true;
+        }
+      }
+      return;
+    }
+
     const guards = site.foes.filter((f) => f?.livingRole === 'skirmish_guard' && !f.dead && deps.inPool(f));
     const rebels = site.foes.filter((f) => f?.livingRole === 'skirmish_rebel' && !f.dead && deps.inPool(f));
+
+    if (site.skirmishStance === 'necromancer_duel') {
+      for (const g of guards) {
+        g.allied = false;
+        g.shipmate = false;
+        if (g.entity) {
+          g.entity.skirmishNeutralToPlayer = true;
+          g.entity.skirmishForceInfighting = false;
+        }
+        if (g.ai) {
+          g.ai.isHostile = false;
+          g.ai.detected = false;
+          g.ai.target = null;
+          g.ai.secondaryTarget = null;
+          g.ai.targetSenses = null;
+          g.ai.idle = true;
+        }
+      }
+      for (const r of rebels) {
+        if (r.isHordeNecromancer) {
+          r.allied = false;
+          r.shipmate = false;
+          if (r.entity) {
+            r.entity.team = 'PlayerEnemy';
+            r.entity.mobileTeam = 'PlayerEnemy';
+            r.entity.skirmishNeutralToPlayer = false;
+            r.entity.skirmishForceInfighting = false;
+          }
+          if (r.ai) {
+            r.ai.isHostile = true;
+            r.ai.detected = true;
+            r.ai.target = player;
+            r.ai.targetSenses = player;
+          }
+        }
+      }
+      return;
+    }
 
     if (site.skirmishStance === 'both_hostile') {
       for (const f of [...guards, ...rebels]) {
@@ -3470,6 +3748,20 @@ export function createLivingSceneHost(deps) {
                 playerEntity: player,
                 rolls: rng,
               });
+              if (c.taintDelta && player) {
+                addNecroTaint(c.taintDelta, player);
+              }
+              if (evt?.id === UNDEAD_HORDE_EVENT_ID && player && (hasReadGrimoire(player) || isAnyLich(player))) {
+                const gift = buildNecromancerBossLoot({
+                  playerEntity: player,
+                  playerLevel: Number(player.level ?? 1),
+                  scale: getLivingEncounterScale(),
+                  rng,
+                }).find((it) => it && typeof it.templateIndex === 'number');
+                if (gift) {
+                  addItem(player, gift);
+                }
+              }
               if (evt?.id === 'EVT_NEW_RULER_STATUE_UNVEILING') {
                 destroySiteDestructibles(s);
                 deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
@@ -3489,6 +3781,16 @@ export function createLivingSceneHost(deps) {
                 evt?.id === 'EVT_PLAGUE_WATER_WELL_SCARE' ||
                 evt?.id === 'EVT_NEW_RULER_STATUE_UNVEILING';
               applyTownProsperityDelta(loc?.mapTableData?.mapId, loc?.name, ecoHurts ? -2 : -1, nowMin, deps.say);
+            } else if (c.duelBossOnSuccess && evt?.id === UNDEAD_HORDE_EVENT_ID) {
+              destroySiteDestructibles(s);
+              s.hordeReserve = [];
+              const livingMinions = s.foes.filter((f) => f?.isHordeMinion && !f.dead && deps.inPool(f));
+              banishHordeMinions(s, livingMinions);
+              s.skirmishStance = 'necromancer_duel';
+              retargetSkirmishFoes(s);
+              const bossName = s.blueprint.meta?.necromancer?.name ?? 'Necromancer';
+              deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
+              deps.say(LIVING_WORDS.hordeObeliskShatteredDuel(bossName), 6);
             } else if (
               c.stance === 'peace' ||
               c.stance === 'bribe' ||
@@ -3815,8 +4117,123 @@ export function createLivingSceneHost(deps) {
             },
           ],
         });
-      }
+      } else if (s.kind === LIVING_SITE_KINDS.UNDEAD_HORDE) {
+      const bossName = s.blueprint.meta?.necromancer?.name ?? 'Necromancer';
+      const totalUndead = s.blueprint.meta?.hordeTotalUndead ?? 15;
+      deps.playSound?.(LIVING_SOUNDS.DRAW_WEAPON);
+      deps.openChoice({
+        lines: [
+          LIVING_WORDS.hordeWildTitle(bossName, totalUndead),
+          LIVING_WORDS.hordeWildDesc(),
+        ],
+        options: [
+          {
+            code: 'Digit1',
+            label: LIVING_WORDS.hordeWildOptFight(),
+            action: () => {
+              s.skirmishStance = 'wild_fight';
+              s.hostile = true;
+              retargetSkirmishFoes(s);
+              deps.say(LIVING_WORDS.hordeWildAlert(bossName), 5);
+            },
+          },
+          {
+            code: 'Digit2',
+            label: LIVING_WORDS.hordeWildOptDuel(),
+            action: () => {
+              const checkRes = resolveCrisisChoiceCheck(
+                player,
+                {
+                  stance: 'peace',
+                  skillCheck: { skill: SKILLS.Restoration, altSkill: SKILLS.Mysticism, target: 55 },
+                  xp: 220,
+                  repF1: 5,
+                },
+                { regionIndex: regIdx, rng },
+              );
+              const score = checkRes.rollResult?.totalScore ?? 50;
+              const dc = checkRes.rollResult?.targetScore ?? 55;
+              if (checkRes.passed) {
+                destroySiteDestructibles(s);
+                s.hordeReserve = [];
+                const livingMinions = s.foes.filter((f) => f?.isHordeMinion && !f.dead && deps.inPool(f));
+                banishHordeMinions(s, livingMinions);
+                s.skirmishStance = 'necromancer_duel';
+                s.hostile = true;
+                retargetSkirmishFoes(s);
+                if (player) {
+                  applySkirmishReputationOutcome(player, {
+                    eventId: UNDEAD_HORDE_EVENT_ID,
+                    regionIndex: regIdx,
+                    repF1Delta: 5,
+                  });
+                }
+                deps.say(`${LIVING_WORDS.rollSuccess(score, dc)} ${LIVING_WORDS.hordeObeliskShatteredDuel(bossName)}`, 6);
+              } else {
+                s.skirmishStance = 'wild_fight';
+                s.hostile = true;
+                retargetSkirmishFoes(s);
+                deps.say(LIVING_WORDS.rollFailure(score, dc), 5);
+              }
+            },
+          },
+          {
+            code: 'Digit3',
+            label: LIVING_WORDS.hordeWildOptDarkArts(),
+            action: () => {
+              const isInitiate = Boolean(player && (hasReadGrimoire(player) || isAnyLich(player)));
+              let passed = isInitiate;
+              if (!passed) {
+                const checkRes = resolveCrisisChoiceCheck(
+                  player,
+                  {
+                    stance: 'peace',
+                    skillCheck: { skill: SKILLS.Mysticism, target: 50 },
+                    xp: 120,
+                  },
+                  { regionIndex: regIdx, rng },
+                );
+                passed = checkRes.passed;
+              }
+              if (passed) {
+                s.skirmishStance = 'peace';
+                s.hordeCleared = true;
+                s.hostile = false;
+                s.hordeReserve = [];
+                retargetSkirmishFoes(s);
+                if (player) {
+                  addNecroTaint(10, player);
+                  const gift = buildNecromancerBossLoot({
+                    playerEntity: player,
+                    playerLevel: Number(player.level ?? 1),
+                    scale: getLivingEncounterScale(),
+                    rng,
+                  }).find((it) => it && typeof it.templateIndex === 'number');
+                  if (gift) addItem(player, gift);
+                }
+                deps.say(LIVING_WORDS.hordeDarkPactSuccess(bossName), 6);
+              } else {
+                s.skirmishStance = 'wild_fight';
+                s.hostile = true;
+                retargetSkirmishFoes(s);
+                deps.say(LIVING_WORDS.hordeDarkPactFail(bossName), 5);
+              }
+            },
+          },
+          {
+            code: 'Digit4',
+            label: LIVING_WORDS.hordeWildOptFlee(),
+            action: () => {
+              s.skirmishStance = 'neutral';
+              s.hostile = false;
+              retargetSkirmishFoes(s);
+              deps.say(LIVING_WORDS.eventNeutral(), 4);
+            },
+          },
+        ],
+      });
     }
+  }
 
   function standSite(blueprint) {
     if (!blueprint) return null;
@@ -3835,6 +4252,13 @@ export function createLivingSceneHost(deps) {
       skirmishStance: blueprint.meta?.skirmishStance ?? null,
       _lastSyncedPlayerStance: blueprint.meta?.warDesc?.playerStance ?? null,
       interacted: false,
+      hordeReserve: Array.isArray(blueprint.meta?.hordeReserve) ? [...blueprint.meta.hordeReserve] : [],
+      hordeWaveBatchSize: blueprint.meta?.hordeWaveBatchSize ?? 6,
+      hordeWaveTimerS: UNDEAD_HORDE_WAVE_INTERVAL_S,
+      hordeMinWaveGapS: 0,
+      necromancerFoe: null,
+      necromancerDeathHandled: false,
+      hordeCleared: false,
     };
     stood = site;
 
@@ -3847,7 +4271,7 @@ export function createLivingSceneHost(deps) {
       site.navalSquadron = deps.spawnNavalSquadron(blueprint.meta?.squadron);
     }
 
-    for (const a of blueprint.actors) {
+    const spawnActorForSite = (a, allowCenterFallback = false) => {
       const actorCampId = a.factionSide ? `${siteCampId}_${a.factionSide}` : siteCampId;
       a.campId = actorCampId;
 
@@ -3872,13 +4296,15 @@ export function createLivingSceneHost(deps) {
           }
         }
       }
-      if (isRoofOrBlocked) {
-        // Recover closer to site center on clear terrain
-        const fallbackDist = 1.2 + (Math.random() - 0.5) * 1.8;
-        const fallbackAngle = Math.random() * Math.PI * 2;
-        actorFeet[0] = blueprint.center[0] + Math.cos(fallbackAngle) * fallbackDist;
-        actorFeet[2] = blueprint.center[2] + Math.sin(fallbackAngle) * fallbackDist;
-        actorFeet[1] = snapPropToGround(deps.heightAt, actorFeet[0], actorFeet[2]);
+      if (isRoofOrBlocked || allowCenterFallback) {
+        const isLodged = deps.lodgedIn?.(actorFeet) || (deps.collider && lodgedIn(deps.collider, actorFeet));
+        if (isRoofOrBlocked || isLodged) {
+          const fallbackDist = 1.2 + (Math.random() - 0.5) * 1.8;
+          const fallbackAngle = Math.random() * Math.PI * 2;
+          actorFeet[0] = blueprint.center[0] + Math.cos(fallbackAngle) * fallbackDist;
+          actorFeet[2] = blueprint.center[2] + Math.sin(fallbackAngle) * fallbackDist;
+          actorFeet[1] = snapPropToGround(deps.heightAt, actorFeet[0], actorFeet[2]);
+        }
       }
 
       if (deps.lodgedIn?.(actorFeet) || (deps.collider && lodgedIn(deps.collider, actorFeet))) {
@@ -3891,7 +4317,7 @@ export function createLivingSceneHost(deps) {
 
       // If still lodged in solid geometry (wall, rock, tree trunk), skip this extra mob to prevent clipping
       if (deps.lodgedIn?.(actorFeet) || (deps.collider && lodgedIn(deps.collider, actorFeet))) {
-        continue;
+        return;
       }
 
       Promise.resolve(
@@ -3924,6 +4350,11 @@ export function createLivingSceneHost(deps) {
           rec.livingSiteKind = blueprint.kind;
           rec.allied = Boolean(a.allied);
           rec.shipmate = Boolean(a.allied);
+          rec.isHordeMinion = Boolean(a.isHordeMinion);
+          rec.isHordeNecromancer = Boolean(a.isHordeNecromancer);
+          if (a.isHordeNecromancer) {
+            site.necromancerFoe = rec;
+          }
           if (rec.entity) {
             rec.entity.name = a.name;
             rec.entity.campId = a.campId;
@@ -3940,7 +4371,20 @@ export function createLivingSceneHost(deps) {
               rec.entity.skirmishForceInfighting = true;
             }
           }
-          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || (a.role?.startsWith('skirmish_') && blueprint.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH)) {
+          if (a.isHordeNecromancer) {
+            const pl = deps.playerEntity();
+            rec.lootDropped = false;
+            rec._suppressLoot = false;
+            if (rec.entity) {
+              delete rec.entity.lootCap;
+              rec.entity.items = buildNecromancerBossLoot({
+                playerEntity: pl,
+                playerLevel: Math.max(1, Number(pl?.level ?? 1)),
+                scale: getLivingEncounterScale(),
+                rng: blueprint.rng ?? Math.random,
+              });
+            }
+          } else if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || (a.role?.startsWith('skirmish_') && blueprint.kind !== LIVING_SITE_KINDS.WAR_SKIRMISH)) {
             const urbanLoot = LivingTamrielConfig.urbanLootMode;
             if (urbanLoot === LIVING_URBAN_LOOT.ZERO) {
               rec.lootDropped = true; // suppresses corpse loot generation to protect economy
@@ -4018,17 +4462,65 @@ export function createLivingSceneHost(deps) {
             }
           }
           site.foes.push(rec);
-          if (blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH || blueprint.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
+          if (
+            blueprint.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH ||
+            blueprint.kind === LIVING_SITE_KINDS.WAR_SKIRMISH ||
+            blueprint.kind === LIVING_SITE_KINDS.UNDEAD_HORDE
+          ) {
             retargetSkirmishFoes(site);
           }
         })
         .catch(() => {});
+    };
+
+    site._spawnActor = spawnActorForSite;
+    for (const a of blueprint.actors) {
+      spawnActorForSite(a, Boolean(a.isHordeMinion));
     }
 
     return site;
   }
 
-  function tryStandUrbanSkirmish({ dist, angle, nowMin, locKey, regIdx, loc, feet, player, allowMundaneOnly = false }) {
+  function spawnHordeMinionWave(site, count) {
+    if (!site || !site._spawnActor || !Array.isArray(site.hordeReserve) || site.hordeReserve.length === 0) return 0;
+    const toSpawn = Math.min(count, site.hordeReserve.length);
+    if (toSpawn <= 0) return 0;
+    const pl = deps.playerEntity?.();
+    const minionLevel = Math.max(1, Math.floor((Number(pl?.level ?? 1)) * 0.6));
+    const anchor = site.necromancerFoe?.ai?.feet ?? site.necromancerFoe?.feet ?? site.blueprint.center;
+    const cx = anchor[0] ?? site.blueprint.center[0];
+    const cz = anchor[2] ?? site.blueprint.center[2];
+    const isWild = site.kind === LIVING_SITE_KINDS.UNDEAD_HORDE;
+    const factionLabel = site.blueprint.meta?.faction2Name ?? LIVING_WORDS.undeadHordeFaction();
+    for (let i = 0; i < toSpawn; i++) {
+      const mobileType = site.hordeReserve.shift();
+      const angle = (i / Math.max(1, toSpawn)) * Math.PI * 2 + Math.random() * 0.4;
+      const dist = 2.0 + (i % 3) * 1.1;
+      const wx = cx + Math.cos(angle) * dist;
+      const wz = cz + Math.sin(angle) * dist;
+      const wy = snapPropToGround(deps.heightAt, wx, wz, 0.02, site.blueprint.center[1]);
+      site._spawnActor(
+        {
+          mobileType,
+          name: `${factionLabel} Risen`,
+          level: minionLevel,
+          feet: [wx, wy, wz],
+          yaw: Math.PI,
+          allied: false,
+          hostile: true,
+          role: isWild ? 'horde_undead' : 'skirmish_rebel',
+          team: isWild ? 'UndeadHorde' : SKIRMISH_TEAMS.INSURGENTS,
+          factionSide: isWild ? 'horde' : 'rebels',
+          suppressInfighting: isWild,
+          isHordeMinion: true,
+        },
+        true,
+      );
+    }
+    return toSpawn;
+  }
+
+  function tryStandUrbanSkirmish({ dist, angle, nowMin, locKey, regIdx, loc, feet, player, allowMundaneOnly = false, forcedEventId = null }) {
     const safe = findSafeSiteCenter(deps, feet, dist, angle, 4.0);
     if (!safe.suitable) return false;
     const bp = buildLivingSiteBlueprint({
@@ -4043,6 +4535,7 @@ export function createLivingSceneHost(deps) {
       locationType: loc?.mapTableData?.locationType ?? 0,
       climateIndex: deps.climateIndex?.() ?? null,
       allowMundaneOnly,
+      forcedEventId,
       rng,
     });
     if (!bp || bp.actors.length === 0) return false;
@@ -4050,13 +4543,15 @@ export function createLivingSceneHost(deps) {
     locationEventCooldowns.set(locKey, nowMin);
     lastSpawnMinute = nowMin;
     standSite(bp);
-    const alertText = bp.meta?.event
-      ? LIVING_WORDS.skirmishAlert(
-        getEventDisplayName(bp.meta.event),
-        bp.meta.faction1Name ?? LIVING_WORDS.factionDefendersGeneric(),
-        bp.meta.faction2Name ?? LIVING_WORDS.factionAttackersGeneric(),
-      )
-      : LIVING_WORDS.urbanSkirmishAlert();
+    const alertText = bp.meta?.isUndeadHorde
+      ? LIVING_WORDS.hordeUrbanAlert(bp.meta?.necromancer?.name ?? 'Necromancer')
+      : bp.meta?.event
+        ? LIVING_WORDS.skirmishAlert(
+          getEventDisplayName(bp.meta.event),
+          bp.meta.faction1Name ?? LIVING_WORDS.factionDefendersGeneric(),
+          bp.meta.faction2Name ?? LIVING_WORDS.factionAttackersGeneric(),
+        )
+        : LIVING_WORDS.urbanSkirmishAlert();
     deps.say(alertText, 5);
     return true;
   }
@@ -4099,6 +4594,39 @@ export function createLivingSceneHost(deps) {
             }),
           );
           deps.say(`${LIVING_WORDS.quarantineGateClosed()} ${LIVING_WORDS.quarantineReliefTent()}`, 6);
+          return;
+        }
+      }
+
+      // 1.5. Crisis-independent Undead Horde Invasion (can fire even at PEACE or political=OFF)
+      const skyTod = ((nowMin % 1440) + 1440) % 1440;
+      const isNightNow = skyTod < 360 || skyTod > 1080;
+      if (
+        shouldTriggerUndeadHorde({
+          nowMinutes: nowMin,
+          lastHordeMinute: getLastUndeadHordeMinute(),
+          presenceTier: Number(LivingTamrielConfig.urban),
+          isNight: isNightNow,
+          locationType: loc?.mapTableData?.locationType ?? 0,
+          climateIndex: deps.climateIndex?.() ?? null,
+          inWilderness: false,
+          rng,
+        })
+      ) {
+        if (
+          tryStandUrbanSkirmish({
+            dist: 28,
+            angle: rng() * Math.PI * 2,
+            nowMin,
+            locKey,
+            regIdx,
+            loc,
+            feet,
+            player,
+            forcedEventId: UNDEAD_HORDE_EVENT_ID,
+          })
+        ) {
+          setLastUndeadHordeMinute(nowMin);
           return;
         }
       }
@@ -4303,6 +4831,42 @@ export function createLivingSceneHost(deps) {
       }
     }
 
+    // 4.6 Crisis-independent Wilderness Undead Horde Invasion (land-only)
+    const wildTod = ((nowMin % 1440) + 1440) % 1440;
+    const isWildNight = wildTod < 360 || wildTod > 1080;
+    if (
+      !isOceanWild &&
+      shouldTriggerUndeadHorde({
+        nowMinutes: nowMin,
+        lastHordeMinute: getLastUndeadHordeMinute(),
+        presenceTier: Number(LivingTamrielConfig.wilderness),
+        isNight: isWildNight,
+        locationType: 0,
+        climateIndex: deps.climateIndex?.() ?? null,
+        inWilderness: true,
+        rng,
+      })
+    ) {
+      lastSpawnMinute = nowMin;
+      setLastUndeadHordeMinute(nowMin);
+      const hordeBp = buildLivingSiteBlueprint({
+        kind: LIVING_SITE_KINDS.UNDEAD_HORDE,
+        centerX: cx,
+        centerZ: cz,
+        heightAt: deps.heightAt,
+        regionIndex: regIdx,
+        playerEntity: player,
+        nowMinutes: nowMin,
+        climateIndex: deps.climateIndex?.() ?? null,
+        rng,
+      });
+      if (hordeBp) {
+        standSite(hordeBp);
+        deps.say(LIVING_WORDS.hordeWildAlert(hordeBp.meta?.necromancer?.name ?? 'Necromancer'), 5);
+        return;
+      }
+    }
+
     // 5. Non-seeking Wandering Road/Wilderness Adventurer
     const roadAdvSiteChance = getRoadAdventurerSiteChance(LivingTamrielConfig.roadAdventurers);
     if (roadAdvSiteChance > 0 && rng() < (onRoad ? roadAdvSiteChance * 1.35 : roadAdvSiteChance)) {
@@ -4433,7 +4997,10 @@ export function createLivingSceneHost(deps) {
             const guards = stood.foes.filter((f) => f?.livingRole === 'skirmish_guard');
             const rebels = stood.foes.filter((f) => f?.livingRole === 'skirmish_rebel');
             const guardsDead = guards.length > 0 && guards.every((g) => g.dead || !deps.inPool(g));
-            const rebelsDead = rebels.length > 0 && rebels.every((r) => r.dead || !deps.inPool(r));
+            const rebelsDead =
+              rebels.length > 0 &&
+              (!stood.hordeReserve || stood.hordeReserve.length === 0) &&
+              rebels.every((r) => r.dead || !deps.inPool(r));
             const calmUrbanSurvivors = (list) => {
               for (const u of list) {
                 if (!u || u.dead) continue;
@@ -4530,6 +5097,82 @@ export function createLivingSceneHost(deps) {
           }
         }
         if (
+          stood.blueprint.meta?.isUndeadHorde &&
+          stood.foes.length > 0
+        ) {
+          // 1. Necromancer Boss Death -> halt waves & crumble 50% of remaining living undead
+          if (
+            stood.necromancerFoe &&
+            !stood.necromancerDeathHandled &&
+            (stood.necromancerFoe.dead || !deps.inPool(stood.necromancerFoe))
+          ) {
+            stood.necromancerDeathHandled = true;
+            stood.hordeReserve = [];
+            const livingMinions = stood.foes.filter((f) => f?.isHordeMinion && !f.dead && deps.inPool(f));
+            const toCrumble = selectUndeadToCrumble(livingMinions, 0.5, rng);
+            banishHordeMinions(stood, toCrumble);
+            if (toCrumble.length > 0) {
+              deps.say(LIVING_WORDS.hordeBossFellHalf(toCrumble.length), 6);
+            }
+          }
+
+          // 2. Reserve Wave Spawning while Necromancer lives and combat is active
+          const waveCombatActive =
+            stood.skirmishStance !== 'peace' &&
+            stood.skirmishStance !== 'neutral' &&
+            stood.skirmishStance !== 'necromancer_duel' &&
+            !stood.orderRestored &&
+            !stood.hordeCleared &&
+            (stood.kind !== LIVING_SITE_KINDS.UNDEAD_HORDE || Boolean(stood.hostile));
+          if (
+            waveCombatActive &&
+            stood.hordeReserve.length > 0 &&
+            stood.necromancerFoe &&
+            !stood.necromancerFoe.dead &&
+            deps.inPool(stood.necromancerFoe)
+          ) {
+            stood.hordeWaveTimerS = (stood.hordeWaveTimerS ?? UNDEAD_HORDE_WAVE_INTERVAL_S) - 1;
+            stood.hordeMinWaveGapS = Math.max(0, (stood.hordeMinWaveGapS ?? 0) - 1);
+            const liveUndead = stood.foes.filter((f) => f?.isHordeMinion && !f.dead && deps.inPool(f)).length;
+            const room = Math.max(0, UNDEAD_HORDE_ACTIVE_CAP - liveUndead);
+            if (
+              room > 0 &&
+              stood.hordeMinWaveGapS <= 0 &&
+              (stood.hordeWaveTimerS <= 0 || liveUndead <= UNDEAD_HORDE_REFILL_THRESHOLD)
+            ) {
+              const spawned = spawnHordeMinionWave(stood, Math.min(stood.hordeWaveBatchSize ?? 6, room));
+              if (spawned > 0) {
+                stood.hordeWaveTimerS = UNDEAD_HORDE_WAVE_INTERVAL_S;
+                stood.hordeMinWaveGapS = UNDEAD_HORDE_MIN_WAVE_GAP_S;
+                deps.say(LIVING_WORDS.hordeWaveRaised(spawned, stood.hordeReserve.length), 4);
+              }
+            }
+          }
+
+          // 3. Wilderness Undead Horde victory check
+          if (
+            stood.kind === LIVING_SITE_KINDS.UNDEAD_HORDE &&
+            stood.hostile &&
+            !stood.hordeCleared &&
+            stood.hordeReserve.length === 0 &&
+            stood.foes.every((f) => f.dead || !deps.inPool(f))
+          ) {
+            stood.hordeCleared = true;
+            const goldReward = Number(stood.blueprint.meta?.hordeGoldReward ?? 250);
+            const pl = deps.playerEntity();
+            if (pl) {
+              pl.goldPieces = Number(pl.goldPieces ?? 0) + goldReward;
+              applySkirmishReputationOutcome(pl, {
+                eventId: UNDEAD_HORDE_EVENT_ID,
+                regionIndex: deps.regionIndex(),
+                repF1Delta: 5,
+              });
+            }
+            deps.playSound?.(LIVING_SOUNDS.GOLD_COINS);
+            deps.say(LIVING_WORDS.hordeWildCleared(goldReward), 6);
+          }
+        }
+        if (
           stood.kind === LIVING_SITE_KINDS.BANDIT_CAMP &&
           !stood.campCleared &&
           stood.foes.length > 0
@@ -4581,7 +5224,9 @@ export function createLivingSceneHost(deps) {
           ? 350
           : stood.kind === LIVING_SITE_KINDS.WAR_SKIRMISH
             ? 24
-            : SITE_INTERACT_DISTANCE_M;
+            : stood.kind === LIVING_SITE_KINDS.UNDEAD_HORDE
+              ? 22
+              : SITE_INTERACT_DISTANCE_M;
         if (
           !stood.interacted &&
           d <= interactDistance &&
@@ -4590,6 +5235,7 @@ export function createLivingSceneHost(deps) {
             stood.kind === LIVING_SITE_KINDS.CHECKPOINT ||
             stood.kind === LIVING_SITE_KINDS.URBAN_SKIRMISH ||
             stood.kind === LIVING_SITE_KINDS.WAR_SKIRMISH ||
+            stood.kind === LIVING_SITE_KINDS.UNDEAD_HORDE ||
             stood.kind === LIVING_SITE_KINDS.NEMESIS_AMBUSH ||
             stood.kind === LIVING_SITE_KINDS.ADVENTURER_MEETING ||
             stood.kind === LIVING_SITE_KINDS.WANDERING_ADVENTURER ||
@@ -4640,7 +5286,7 @@ export function createLivingSceneHost(deps) {
      */
     isCriminalTarget(foe) {
       if (!foe) return false;
-      if (stood?.kind === LIVING_SITE_KINDS.WAR_SKIRMISH) {
+      if (stood?.kind === LIVING_SITE_KINDS.WAR_SKIRMISH || stood?.kind === LIVING_SITE_KINDS.UNDEAD_HORDE) {
         return false;
       }
       if (stood?.kind === LIVING_SITE_KINDS.PLEA_ENCOUNTER && stood.hostile) {
@@ -4789,6 +5435,7 @@ export function createLivingSceneHost(deps) {
         interacted: stood.interacted,
       };
     },
+    getActiveSite: () => stood,
 
     /**
      * Immediately stands a Wilderness War Skirmish ahead of the player (strictly land-only, never at sea!).
@@ -6054,6 +6701,9 @@ export function executeLivingConsoleCommand(args, ctx) {
       adv: LIVING_SITE_KINDS.WANDERING_ADVENTURER,
       naval_squadron: LIVING_SITE_KINDS.NAVAL_SQUADRON,
       naval: LIVING_SITE_KINDS.NAVAL_SQUADRON,
+      horde: LIVING_SITE_KINDS.UNDEAD_HORDE,
+      undead_horde: LIVING_SITE_KINDS.UNDEAD_HORDE,
+      necromancer: LIVING_SITE_KINDS.UNDEAD_HORDE,
     };
     const pleaAliasMap = {
       drunk: PLEA_TYPE.DRUNKEN_BRAWLER,
@@ -6118,6 +6768,8 @@ export function executeLivingConsoleCommand(args, ctx) {
       detailTag = ` [${bp.meta?.plea?.type ?? 'default'}]`;
     } else if (validKind === LIVING_SITE_KINDS.WANDERING_ADVENTURER) {
       detailTag = ` [${bp.meta?.situation ?? 'default'}]`;
+    } else if (validKind === LIVING_SITE_KINDS.UNDEAD_HORDE) {
+      detailTag = ` [${bp.meta?.necromancer?.name ?? 'Necromancer'} / ${bp.meta?.hordeTotalUndead ?? 15} undead]`;
     }
     return `[Living Tamriel] Spawned ${validKind}${detailTag} (${bp.meshes.length} meshes, ${bp.flats.length} flats, ${bp.actors.length} actors).`;
   }

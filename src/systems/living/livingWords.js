@@ -638,5 +638,37 @@ export const LIVING_WORDS = Object.freeze({
     t('living.prosperity.genericImproved', 'Local trade improves (+{delta} Prosperity).', { delta }),
   prosperityGenericDeclined: (delta) =>
     t('living.prosperity.genericDeclined', 'Unrest hurts local trade ({delta} Prosperity).', { delta }),
+
+  // Undead Horde Invasion (crisis-independent)
+  undeadHordeFaction: () =>
+    t('living.horde.faction', 'Undead Horde'),
+  hordeUrbanAlert: (bossName) =>
+    t('living.horde.urbanAlert', 'An Undead Horde led by {boss} marches upon the settlement!', { boss: bossName }),
+  hordeWildAlert: (bossName) =>
+    t('living.horde.wildAlert', 'A necromantic horde led by {boss} blocks the wilds ahead!', { boss: bossName }),
+  hordeWildTitle: (bossName, total) =>
+    t('living.horde.wildTitle', '=== UNDEAD HORDE: {boss} ({total} undead) ===', { boss: bossName, total }),
+  hordeWildDesc: () =>
+    t('living.horde.wildDesc', 'Skeletal warriors and risen corpses surround a pulsing dark obelisk.'),
+  hordeWildOptFight: () =>
+    t('living.horde.wildOptFight', '1. Charge into the horde and slay the Necromancer'),
+  hordeWildOptDuel: () =>
+    t('living.horde.wildOptDuel', '2. Shatter the dark obelisk to banish the horde and duel the Necromancer 1-on-1 (Restoration / Mysticism)'),
+  hordeWildOptDarkArts: () =>
+    t('living.horde.wildOptDarkArts', '3. Invoke the Dark Arts and demand safe passage (Mysticism / Necromancer)'),
+  hordeWildOptFlee: () =>
+    t('living.horde.wildOptFlee', '4. Back away and leave the dead to their march'),
+  hordeWaveRaised: (count, left) =>
+    t('living.horde.waveRaised', 'The Necromancer raises {count} more undead from the earth! ({left} in reserve)', { count, left }),
+  hordeBossFellHalf: (crumbled) =>
+    t('living.horde.bossFellHalf', 'The Necromancer falls! {crumbled} undead crumble to dust as the dark binding snaps.', { crumbled }),
+  hordeObeliskShatteredDuel: (bossName) =>
+    t('living.horde.obeliskShatteredDuel', 'The ritual obelisk shatters! The horde turns to ash, leaving {boss} one-on-one!', { boss: bossName }),
+  hordeDarkPactSuccess: (bossName) =>
+    t('living.horde.darkPactSuccess', '{boss} recognizes a fellow master of death and bids the horde stand aside.', { boss: bossName }),
+  hordeDarkPactFail: (bossName) =>
+    t('living.horde.darkPactFail', '{boss} laughs at your feeble command and unleashes the horde!', { boss: bossName }),
+  hordeWildCleared: (gold) =>
+    t('living.horde.wildCleared', 'The Undead Horde is destroyed! (+{gold}g · +5 Rep)', { gold }),
 });
 
