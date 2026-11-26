@@ -11,7 +11,53 @@ import { POTION_RECIPES } from '../potionRecipes.js';
 import { overridePotionRecipes } from '../potions.js';
 import { isPlate, isChain, isLeather, plateMetal, registerMaterialArmorResolver, registerQualityArmorModifierResolver } from '../armorMaterials.js';
 import { ENEMY_GROUPS, enemyEntityGroup } from '../../combat/enemyGroups.js';
-import { setModLocaleStrings, clearModLocaleStrings } from '../textManager.js';
+import { setModLocaleStrings, clearModLocaleStrings, t } from '../textManager.js';
+import { registerSpellRecordsAsset, unregisterSpellRecordsAsset, spellRecordFromJson } from '../spell/standardSpells.js';
+
+export const MOD_ITEM_TEMPLATE_MIN = 9000;
+
+var _itemBridge;
+var _legendaryBridge;
+
+export function registerModItemBridge(bridge) {
+  _itemBridge = bridge;
+}
+
+export function registerModLegendaryBridge(bridge) {
+  _legendaryBridge = bridge;
+}
+
+const _modCustomItemIndices = new Set();
+const _modItemsByIndex = new Map();
+const _modSpellSources = new Set();
+const _modSpellsByIndex = new Map();
+const _modLegendaryIds = new Set();
+const _modLegendariesById = new Map();
+
+function clearModContentRegistrations() {
+  if (_modCustomItemIndices.size > 0) {
+    _itemBridge?.unregisterCustomTemplates?.([..._modCustomItemIndices]);
+    for (const idx of _modCustomItemIndices) _itemBridge?.registerTemplateLore?.(idx, null);
+    _modCustomItemIndices.clear();
+  }
+  _modItemsByIndex.clear();
+
+  for (const src of _modSpellSources) {
+    unregisterSpellRecordsAsset(src);
+  }
+  _modSpellSources.clear();
+  _modSpellsByIndex.clear();
+
+  for (const id of _modLegendaryIds) {
+    _legendaryBridge?.unregisterLegendary?.(id);
+  }
+  _modLegendaryIds.clear();
+  _modLegendariesById.clear();
+}
+
+export const getModCustomItemMeta = (index) => _modItemsByIndex.get(index) ?? null;
+export const getModSpellRecord = (index) => _modSpellsByIndex.get(index) ?? null;
+export const getModLegendaryRecord = (id) => _modLegendariesById.get(id) ?? null;
 
 export const VANILLA_WEAPON_MATERIAL_MODIFIER = Object.freeze([-1, 0, 0, 1, 2, 3, 3, 4, 5, 6]);
 export const REBALANCED_WEAPON_MATERIAL_MODIFIER = Object.freeze([0, 0, 0, 1, 1, 2, 2, 3, 3, 4]);
@@ -94,6 +140,7 @@ export function syncModData() {
     plate: [7, 8, 8, 9, 10, 11, 11, 12, 13, 14],
   };
   clearModLocaleStrings();
+  clearModContentRegistrations();
   const activeMods = getActiveMods();
 
   // 1. Sync Combat Overrides
@@ -207,6 +254,122 @@ export function syncModData() {
           console.error(`[ModDataSync] Failed to parse locales data in mod ${mod.id}:`, e);
         }
       }
+    }
+  }
+
+  // 6. Sync Custom Items (data.items)
+  for (const mod of activeMods) {
+    const itemsFile = mod.manifest?.data?.items;
+    if (!itemsFile) continue;
+    const raw = readModFile(mod.id, itemsFile);
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.items) ? parsed.items : []);
+      for (const row of list) {
+        if (!Number.isInteger(row?.index) || row.index < MOD_ITEM_TEMPLATE_MIN) {
+          console.warn(`[ModDataSync] Skipping item in '${mod.id}': index must be an integer >= ${MOD_ITEM_TEMPLATE_MIN}`);
+          continue;
+        }
+        const name = row.nameKey ? t(row.nameKey, row.name || `Mod Item ${row.index}`) : (row.name || `Mod Item ${row.index}`);
+        const normalizedRow = {
+          baseWeight: 0.5,
+          hitPoints: 100,
+          basePrice: 50,
+          rarity: 1,
+          worldTextureArchive: 205,
+          worldTextureRecord: 0,
+          ...row,
+          name,
+        };
+        _itemBridge?.registerCustomTemplates?.([normalizedRow]);
+        if (row.loreKey || row.lore) {
+          const lore = row.loreKey ? t(row.loreKey, row.lore || '') : String(row.lore);
+          if (lore) _itemBridge?.registerTemplateLore?.(row.index, lore);
+        }
+        _modCustomItemIndices.add(row.index);
+        _modItemsByIndex.set(row.index, {
+          ...normalizedRow,
+          modId: mod.id,
+          group: row.group || 'MiscItems',
+        });
+      }
+    } catch (e) {
+      console.error(`[ModDataSync] Failed to parse items data in mod ${mod.id}:`, e);
+    }
+  }
+
+  // 7. Sync Custom Spells (data.spells)
+  for (const mod of activeMods) {
+    const spellsFile = mod.manifest?.data?.spells;
+    if (!spellsFile) continue;
+    const raw = readModFile(mod.id, spellsFile);
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.spells) ? parsed.spells : []);
+      const normalizedList = list
+        .filter((item) => item && typeof item === 'object')
+        .map((item) => {
+          const fallbackName = item.spellName || item.name || (Number.isInteger(item.index) ? `Spell ${item.index}` : 'Mod Spell');
+          const spellName = item.nameKey ? t(item.nameKey, fallbackName) : fallbackName;
+          return { ...item, spellName };
+        });
+      if (normalizedList.length > 0) {
+        const source = `mod:${mod.id}`;
+        registerSpellRecordsAsset(source, normalizedList);
+        _modSpellSources.add(source);
+        for (const item of normalizedList) {
+          if (Number.isInteger(item.index)) {
+            _modSpellsByIndex.set(item.index, spellRecordFromJson(item));
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`[ModDataSync] Failed to parse spells data in mod ${mod.id}:`, e);
+    }
+  }
+
+  // 8. Sync Custom Legendaries (data.legendaries)
+  for (const mod of activeMods) {
+    const legFile = mod.manifest?.data?.legendaries;
+    if (!legFile) continue;
+    const raw = readModFile(mod.id, legFile);
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.legendaries) ? parsed.legendaries : []);
+      for (const rec of list) {
+        if (typeof rec?.id !== 'string' || !rec.id || typeof rec?.group !== 'string' || !Array.isArray(rec?.affixes)) {
+          console.warn(`[ModDataSync] Skipping invalid legendary record in '${mod.id}'`);
+          continue;
+        }
+        const name = rec.nameKey ? t(rec.nameKey, rec.name || rec.id) : (rec.name || rec.id);
+        const lore = rec.loreKey ? t(rec.loreKey, rec.lore || '') : rec.lore;
+        let power = rec.power;
+        if (power && typeof power === 'object') {
+          power = Object.freeze({
+            ...power,
+            ...(power.nameKey ? { name: t(power.nameKey, power.name || '') } : {}),
+            ...(power.briefKey ? { brief: t(power.briefKey, power.brief || '') } : {}),
+            ...(power.textKey ? { text: t(power.textKey, power.text || '') } : {}),
+          });
+        }
+        const record = Object.freeze({
+          ...rec,
+          name,
+          ...(lore ? { lore } : {}),
+          ...(Array.isArray(rec.templates) ? { templates: Object.freeze([...rec.templates]) } : {}),
+          affixes: Object.freeze(rec.affixes.map((a) => Object.freeze({ ...a }))),
+          ...(rec.enchantment && typeof rec.enchantment === 'object' ? { enchantment: Object.freeze({ ...rec.enchantment }) } : {}),
+          ...(power ? { power } : {}),
+        });
+        _legendaryBridge?.registerLegendary?.(record);
+        _modLegendaryIds.add(rec.id);
+        _modLegendariesById.set(rec.id, record);
+      }
+    } catch (e) {
+      console.error(`[ModDataSync] Failed to parse legendaries data in mod ${mod.id}:`, e);
     }
   }
 
@@ -638,4 +801,5 @@ export function _resetModDataSync() {
   _synced = false;
   overridePotionRecipes(null);
   clearModLocaleStrings();
+  clearModContentRegistrations();
 }

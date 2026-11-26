@@ -6,5 +6,34 @@
   "description": "Each spell cast builds Arcane Overload (1-4 stacks), boosting cast speed and spell power at higher mana cost until the 4th stack makes the next spell free. Includes live HUD status chip and console test commands.",
   "enabled": true,
   "locales": "locales.json",
-  "entry": "plugin.js"
+  "entry": "plugin.js",
+  "settings": [
+    {
+      "key": "maxStacks",
+      "type": "number",
+      "label": "Max Overload Stacks",
+      "labelKey": "ao.cfg.maxStacks",
+      "min": 2,
+      "max": 8,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "key": "powerPerStack",
+      "type": "number",
+      "label": "Spell Power % per Stack",
+      "labelKey": "ao.cfg.powerPerStack",
+      "min": 5,
+      "max": 25,
+      "step": 5,
+      "default": 10
+    },
+    {
+      "key": "showChip",
+      "type": "boolean",
+      "label": "Show HUD Status Chip",
+      "labelKey": "ao.cfg.showChip",
+      "default": true
+    }
+  ]
 }

@@ -7,6 +7,10 @@ export default function init(api) {
   let autoActive = false;
 
   function showChip() {
+    if (api.settings?.get?.('showChip') === false) {
+      api.ui.clearStatusChip('autosteal');
+      return;
+    }
     api.ui.setStatusChip('autosteal', {
       name: api.ui.t('sas.chip.name', 'Auto-Steal'),
       kind: 'buff',
@@ -22,6 +26,7 @@ export default function init(api) {
 
   function syncStealth(stealthy) {
     if (stealthy) {
+      if (api.settings?.get?.('enabledOnCrouch') === false) return;
       if (!autoActive) {
         const cur = api.player.getInteractionMode();
         if (cur !== 'steal') {
@@ -35,7 +40,7 @@ export default function init(api) {
     }
 
     if (autoActive) {
-      if (savedMode && api.player.getInteractionMode() === 'steal') {
+      if (api.settings?.get?.('restoreMode') !== false && savedMode && api.player.getInteractionMode() === 'steal') {
         api.player.setInteractionMode(savedMode, { notify: false });
       }
       savedMode = null;
@@ -43,6 +48,18 @@ export default function init(api) {
       api.ui.clearStatusChip('autosteal');
     }
   }
+
+  api.settings?.onChange?.(() => {
+    if (autoActive) {
+      if (api.settings?.get?.('enabledOnCrouch') === false) {
+        syncStealth(false);
+      } else {
+        showChip();
+      }
+    } else {
+      syncStealth(api.player.isCrouching() || api.player.isSneaking());
+    }
+  });
 
   api.events.on('player:crouchChanged', ({ crouching }) => {
     syncStealth(Boolean(crouching || api.player.isSneaking()));

@@ -26,7 +26,7 @@ import {
   rriStoredWeight,
   rriCustomItemsForGroup,
 } from '../roleplayRealismItems/rriItems.js'; // RRI1: DFU's custom-item dispatch, asked first   // DW3: GetItemImage's `color = (int)item.dyeColor` (ItemHelper.cs:402) rides the image
-import { getQualityPriceMultiplier, getQualityConditionMaxMultiplier } from '../mods/modDataSync.js';
+import { getQualityPriceMultiplier, getQualityConditionMaxMultiplier, registerModItemBridge } from '../mods/modDataSync.js';
 
 export { GROUP_TEMPLATE_INDICES };
 
@@ -72,6 +72,12 @@ export function registerCustomTemplates(rows) {
         worldTexRecord: t.worldTextureRecord,
       }),
     );
+  }
+  return _custom.size;
+}
+export function unregisterCustomTemplates(indices) {
+  for (const idx of indices ?? []) {
+    _custom.delete(idx);
   }
   return _custom.size;
 }
@@ -532,3 +538,9 @@ export function inventoryItemImage(item, identity = undefined) {
     return { archive, record, dye: _kitDye(item), dyeTarget: DYE_TARGETS.WeaponsAndArmor };
   return { archive, record, dye: itemDyeColor(item), dyeTarget: itemDyeTarget(item) };
 }
+
+registerModItemBridge({
+  registerCustomTemplates,
+  unregisterCustomTemplates,
+  registerTemplateLore,
+});

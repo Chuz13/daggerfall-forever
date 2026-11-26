@@ -13,12 +13,18 @@ export default function init(api) {
   // Ephemeral in-memory combo state (never bloats save files)
   let currentStreak = 0;
   let lastHitTimestamp = 0;
-  const COMBO_TIMEOUT_MS = 6000; // 6 seconds between swings to keep momentum
+  const getComboTimeoutMs = () => (Number(api.settings?.get?.('decaySeconds')) || 6) * 1000;
+  const getTranceThreshold = () => Number(api.settings?.get?.('tranceThreshold')) || 10;
+  const isChipVisible = () => api.settings?.get?.('showChip') !== false;
 
   function syncFlowChip() {
+    if (!isChipVisible()) {
+      api.ui.clearStatusChip?.('flow');
+      return;
+    }
     const hasPerk = api.perks.has('duelists_trance');
     if (currentStreak >= 1) {
-      const remSec = Math.max(1, Math.ceil((COMBO_TIMEOUT_MS - (Date.now() - lastHitTimestamp)) / 1000));
+      const remSec = Math.max(1, Math.ceil((getComboTimeoutMs() - (Date.now() - lastHitTimestamp)) / 1000));
       api.ui.setStatusChip?.('flow', {
         name: api.ui.t('df.chip.name', "Duelist's Flow"),
         kind: hasPerk ? 'set' : 'buff',
@@ -76,7 +82,7 @@ export default function init(api) {
     if (!attacker?.isPlayer) return;
 
     const now = Date.now();
-    if (currentStreak > 0 && now - lastHitTimestamp > COMBO_TIMEOUT_MS) {
+    if (currentStreak > 0 && now - lastHitTimestamp > getComboTimeoutMs()) {
       // Combo decayed naturally over time
       currentStreak = 0;
     }
@@ -114,8 +120,8 @@ export default function init(api) {
         api.ui.notify(api.ui.t('combo.master_duelist', 'Combo x7: Master Duelist! Flow perfected! (+10 HP, +35 FP)'));
       }
 
-      // Unlock feat milestone at 10-hit streak
-      if (currentStreak >= 10 && !api.perks.has('duelists_trance')) {
+      // Unlock feat milestone at configured streak (default 10)
+      if (currentStreak >= getTranceThreshold() && !api.perks.has('duelists_trance')) {
         api.perks.unlock('duelists_trance');
         api.ui.notify(api.ui.t('combo.feat_unlocked', 'FEAT ACCOMPLISHED: Duelist\'s Trance unlocked!'));
       }
@@ -134,16 +140,17 @@ export default function init(api) {
     }
   });
 
-  // 3. Reset combo on scene transitions, rests, or 6s inactivity; refresh live countdown each second
+  // 3. Reset combo on scene transitions, rests, or inactivity; refresh live countdown each second
   const checkDecay = () => {
     if (currentStreak <= 0) return;
-    if (Date.now() - lastHitTimestamp > COMBO_TIMEOUT_MS) {
+    if (Date.now() - lastHitTimestamp > getComboTimeoutMs()) {
       currentStreak = 0;
     }
     syncFlowChip();
   };
   api.events.on('worldTick', checkDecay);
   api.events.on('secondTick', checkDecay);
+  api.settings?.onChange?.(() => syncFlowChip());
 
   // Sync passive Duelist's Trance chip if already unlocked on loaded save
   syncFlowChip();

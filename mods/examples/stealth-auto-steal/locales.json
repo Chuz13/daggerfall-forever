@@ -4,181 +4,259 @@
     "sas.chip.meta": "Stealth mod",
     "sas.chip.foot": "STEAL",
     "sas.chip.line.active": "Interaction mode switched to Steal while crouching/sneaking.",
-    "sas.chip.line.restore": "Standing up will restore {mode} mode."
+    "sas.chip.line.restore": "Standing up will restore {mode} mode.",
+    "sas.cfg.enabledOnCrouch": "Auto-switch on Crouch/Sneak",
+    "sas.cfg.restoreMode": "Restore Previous Mode on Stand",
+    "sas.cfg.showChip": "Show HUD Status Chip"
   },
   "ru": {
     "sas.chip.name": "Авто-кража",
     "sas.chip.meta": "Мод скрытности",
     "sas.chip.foot": "КРАЖА",
     "sas.chip.line.active": "Режим взаимодействия переключён на Кражу в приседе/скрытности.",
-    "sas.chip.line.restore": "При вставании вернётся режим: {mode}."
+    "sas.chip.line.restore": "При вставании вернётся режим: {mode}.",
+    "sas.cfg.enabledOnCrouch": "Авто-кража в присяде/скрытности",
+    "sas.cfg.restoreMode": "Возвращать режим при вставании",
+    "sas.cfg.showChip": "Показывать HUD-чип"
   },
   "uk": {
     "sas.chip.name": "Авто-крадіжка",
     "sas.chip.meta": "Мод прихованості",
     "sas.chip.foot": "КРАДІЖКА",
     "sas.chip.line.active": "Режим взаємодії перемкнуто на Крадіжку в присіді/прихованості.",
-    "sas.chip.line.restore": "Після вставання повернеться режим: {mode}."
+    "sas.chip.line.restore": "Після вставання повернеться режим: {mode}.",
+    "sas.cfg.enabledOnCrouch": "Авто-крадіжка в присяді/скраданні",
+    "sas.cfg.restoreMode": "Відновлювати режим при вставанні",
+    "sas.cfg.showChip": "Показувати HUD-чип"
   },
   "bg": {
     "sas.chip.name": "Авто-кражба",
     "sas.chip.meta": "Мод за скритост",
     "sas.chip.foot": "КРАЖБА",
     "sas.chip.line.active": "Режимът на взаимодействие е превключен на Кражба при клякане/промъкване.",
-    "sas.chip.line.restore": "При изправяне ще се върне режим: {mode}."
+    "sas.chip.line.restore": "При изправяне ще се върне режим: {mode}.",
+    "sas.cfg.enabledOnCrouch": "Авто-кражба при приклякане",
+    "sas.cfg.restoreMode": "Възстанови режима при изправяне",
+    "sas.cfg.showChip": "Показвай HUD чип"
   },
   "cs": {
     "sas.chip.name": "Auto-krádež",
     "sas.chip.meta": "Mód plížení",
     "sas.chip.foot": "KRÁST",
     "sas.chip.line.active": "Režim interakce přepnut na Krádež při přikrčení/plížení.",
-    "sas.chip.line.restore": "Po postavení se obnoví režim: {mode}."
+    "sas.chip.line.restore": "Po postavení se obnoví režim: {mode}.",
+    "sas.cfg.enabledOnCrouch": "Auto-krádež při skrčení",
+    "sas.cfg.restoreMode": "Obnovit režim při vstání",
+    "sas.cfg.showChip": "Zobrazit HUD ikonu"
   },
   "da": {
     "sas.chip.name": "Auto-stjæl",
     "sas.chip.meta": "Snige-mod",
     "sas.chip.foot": "STJÆL",
     "sas.chip.line.active": "Interaktionstilstand skiftet til Stjæl under hug/snigen.",
-    "sas.chip.line.restore": "Når du rejser dig, gendannes {mode}-tilstand."
+    "sas.chip.line.restore": "Når du rejser dig, gendannes {mode}-tilstand.",
+    "sas.cfg.enabledOnCrouch": "Auto-stjæl ved snigen",
+    "sas.cfg.restoreMode": "Gendan tilstand ved rejsning",
+    "sas.cfg.showChip": "Vis HUD-chip"
   },
   "de": {
     "sas.chip.name": "Auto-Diebstahl",
     "sas.chip.meta": "Schleich-Mod",
     "sas.chip.foot": "STEHLEN",
     "sas.chip.line.active": "Interaktionsmodus beim Ducken/Schleichen auf Stehlen gestellt.",
-    "sas.chip.line.restore": "Beim Aufstehen wird der Modus {mode} wiederhergestellt."
+    "sas.chip.line.restore": "Beim Aufstehen wird der Modus {mode} wiederhergestellt.",
+    "sas.cfg.enabledOnCrouch": "Auto-Stehlen beim Schleichen",
+    "sas.cfg.restoreMode": "Modus beim Aufstehen wiederherstellen",
+    "sas.cfg.showChip": "HUD-Chip anzeigen"
   },
   "el": {
     "sas.chip.name": "Αυτόματη Κλοπή",
     "sas.chip.meta": "Mod απόκρυψης",
     "sas.chip.foot": "ΚΛΟΠΗ",
     "sas.chip.line.active": "Η λειτουργία αλληλεπίδρασης άλλαξε σε Κλοπή κατά το σκύψιμο.",
-    "sas.chip.line.restore": "Όταν σηκωθείτε θα επανέλθει η λειτουργία {mode}."
+    "sas.chip.line.restore": "Όταν σηκωθείτε θα επανέλθει η λειτουργία {mode}.",
+    "sas.cfg.enabledOnCrouch": "Αυτόματη κλοπή σε σκύψιμο",
+    "sas.cfg.restoreMode": "Επαναφορά λειτουργίας στην όρθια στάση",
+    "sas.cfg.showChip": "Εμφάνιση HUD chip"
   },
   "es": {
     "sas.chip.name": "Auto-Robo",
     "sas.chip.meta": "Mod de sigilo",
     "sas.chip.foot": "ROBAR",
     "sas.chip.line.active": "Modo de interacción cambiado a Robar al agacharse/sigilo.",
-    "sas.chip.line.restore": "Al levantarse se restaurará el modo {mode}."
+    "sas.chip.line.restore": "Al levantarse se restaurará el modo {mode}.",
+    "sas.cfg.enabledOnCrouch": "Auto-robar al agacharse",
+    "sas.cfg.restoreMode": "Restaurar modo al levantarse",
+    "sas.cfg.showChip": "Mostrar chip de HUD"
   },
   "fi": {
     "sas.chip.name": "Automaattivarkaus",
     "sas.chip.meta": "Hiipimismodi",
     "sas.chip.foot": "VARASTA",
     "sas.chip.line.active": "Vuorovaikutustila vaihdettu varkauteen kyykyssä/hiipiessä.",
-    "sas.chip.line.restore": "Seisomaan noustessa palautetaan tila: {mode}."
+    "sas.chip.line.restore": "Seisomaan noustessa palautetaan tila: {mode}.",
+    "sas.cfg.enabledOnCrouch": "Automaattinen varastus kyykistyessä",
+    "sas.cfg.restoreMode": "Palauta tila noustessa",
+    "sas.cfg.showChip": "Näytä HUD-siru"
   },
   "fr": {
     "sas.chip.name": "Vol automatique",
     "sas.chip.meta": "Mod discrétion",
     "sas.chip.foot": "VOLER",
     "sas.chip.line.active": "Mode d'interaction passé sur Voler en position accroupie/furtive.",
-    "sas.chip.line.restore": "En vous relevant, le mode {mode} sera rétabli."
+    "sas.chip.line.restore": "En vous relevant, le mode {mode} sera rétabli.",
+    "sas.cfg.enabledOnCrouch": "Vol auto en position accroupie",
+    "sas.cfg.restoreMode": "Restaurer le mode debout",
+    "sas.cfg.showChip": "Afficher la puce HUD"
   },
   "hu": {
     "sas.chip.name": "Auto-lopás",
     "sas.chip.meta": "Lopakodó mod",
     "sas.chip.foot": "LOPÁS",
     "sas.chip.line.active": "Az interakciós mód Lopásra váltott guggolás/lopakodás közben.",
-    "sas.chip.line.restore": "Felálláskor visszaáll a(z) {mode} mód."
+    "sas.chip.line.restore": "Felálláskor visszaáll a(z) {mode} mód.",
+    "sas.cfg.enabledOnCrouch": "Automata lopás guggoláskor",
+    "sas.cfg.restoreMode": "Mód visszaállítása felálláskor",
+    "sas.cfg.showChip": "HUD chip megjelenítése"
   },
   "id": {
     "sas.chip.name": "Auto-Curi",
     "sas.chip.meta": "Mod mengendap",
     "sas.chip.foot": "CURI",
     "sas.chip.line.active": "Mode interaksi diubah ke Curi saat berjongkok/mengendap.",
-    "sas.chip.line.restore": "Berdiri akan mengembalikan mode {mode}."
+    "sas.chip.line.restore": "Berdiri akan mengembalikan mode {mode}.",
+    "sas.cfg.enabledOnCrouch": "Otomatis mencuri saat jongkok",
+    "sas.cfg.restoreMode": "Pulihkan mode saat berdiri",
+    "sas.cfg.showChip": "Tampilkan Chip HUD"
   },
   "it": {
     "sas.chip.name": "Furto Automatico",
     "sas.chip.meta": "Mod furtività",
     "sas.chip.foot": "RUBA",
     "sas.chip.line.active": "Modalità interazione impostata su Ruba da accovacciato/furtivo.",
-    "sas.chip.line.restore": "Alzandoti verrà ripristinata la modalità {mode}."
+    "sas.chip.line.restore": "Alzandoti verrà ripristinata la modalità {mode}.",
+    "sas.cfg.enabledOnCrouch": "Furto auto da accovacciato",
+    "sas.cfg.restoreMode": "Ripristina modalità in piedi",
+    "sas.cfg.showChip": "Mostra chip HUD"
   },
   "ja": {
     "sas.chip.name": "自動スリ",
     "sas.chip.meta": "隠密MOD",
     "sas.chip.foot": "盗む",
     "sas.chip.line.active": "しゃがみ・隠密中は操作モードが「盗む」に切り替わります。",
-    "sas.chip.line.restore": "立ち上がると {mode} モードに戻ります。"
+    "sas.chip.line.restore": "立ち上がると {mode} モードに戻ります。",
+    "sas.cfg.enabledOnCrouch": "しゃがみ時に自動で盗むモード",
+    "sas.cfg.restoreMode": "立ち上がり時に元のモードへ戻す",
+    "sas.cfg.showChip": "HUDチップを表示"
   },
   "ko": {
     "sas.chip.name": "자동 훔치기",
     "sas.chip.meta": "은신 모드",
     "sas.chip.foot": "훔치기",
     "sas.chip.line.active": "앉기/은신 중에 상호작용 모드가 훔치기로 전환됩니다.",
-    "sas.chip.line.restore": "일어서면 {mode} 모드로 복원됩니다."
+    "sas.chip.line.restore": "일어서면 {mode} 모드로 복원됩니다.",
+    "sas.cfg.enabledOnCrouch": "은신/웅크리기 시 자동 훔치기",
+    "sas.cfg.restoreMode": "일어서면 이전 모드 복원",
+    "sas.cfg.showChip": "HUD 칩 표시"
   },
   "nb": {
     "sas.chip.name": "Auto-stjel",
     "sas.chip.meta": "Snike-mod",
     "sas.chip.foot": "STJEL",
     "sas.chip.line.active": "Interaksjonsmodus byttet til Stjel mens du huker/sniker.",
-    "sas.chip.line.restore": "Når du reiser deg, gjenopprettes {mode}-modus."
+    "sas.chip.line.restore": "Når du reiser deg, gjenopprettes {mode}-modus.",
+    "sas.cfg.enabledOnCrouch": "Auto-stjel ved sniking",
+    "sas.cfg.restoreMode": "Gjenopprett modus når du reiser deg",
+    "sas.cfg.showChip": "Vis HUD-brikke"
   },
   "nl": {
     "sas.chip.name": "Auto-Stelen",
     "sas.chip.meta": "Sluip-mod",
     "sas.chip.foot": "STEEL",
     "sas.chip.line.active": "Interactiemodus naar Stelen geschakeld tijdens bukken/sluipen.",
-    "sas.chip.line.restore": "Bij opstaan wordt modus {mode} hersteld."
+    "sas.chip.line.restore": "Bij opstaan wordt modus {mode} hersteld.",
+    "sas.cfg.enabledOnCrouch": "Auto-stelen bij sluipen",
+    "sas.cfg.restoreMode": "Vorige modus herstellen bij opstaan",
+    "sas.cfg.showChip": "HUD-chip tonen"
   },
   "pl": {
     "sas.chip.name": "Auto-Kradzież",
     "sas.chip.meta": "Mod skradania",
     "sas.chip.foot": "KRADZIEŻ",
     "sas.chip.line.active": "Tryb interakcji przełączony na Kradzież podczas kucania/skradania.",
-    "sas.chip.line.restore": "Po wstaniu zostanie przywrócony tryb {mode}."
+    "sas.chip.line.restore": "Po wstaniu zostanie przywrócony tryb {mode}.",
+    "sas.cfg.enabledOnCrouch": "Auto-kradzież przy skradaniu",
+    "sas.cfg.restoreMode": "Przywróć tryb po wstaniu",
+    "sas.cfg.showChip": "Pokaż ikonę HUD"
   },
   "pt-BR": {
     "sas.chip.name": "Furto Automático",
     "sas.chip.meta": "Mod de furtividade",
     "sas.chip.foot": "ROUBAR",
     "sas.chip.line.active": "Modo de interação alterado para Roubar ao agachar/furtivo.",
-    "sas.chip.line.restore": "Ao levantar, o modo {mode} será restaurado."
+    "sas.chip.line.restore": "Ao levantar, o modo {mode} será restaurado.",
+    "sas.cfg.enabledOnCrouch": "Auto-roubo ao agachar",
+    "sas.cfg.restoreMode": "Restaurar modo ao levantar",
+    "sas.cfg.showChip": "Mostrar chip no HUD"
   },
   "ro": {
     "sas.chip.name": "Furt Automat",
     "sas.chip.meta": "Mod furișare",
     "sas.chip.foot": "FURĂ",
     "sas.chip.line.active": "Modul de interacțiune a trecut pe Fură în ghemuit/furișare.",
-    "sas.chip.line.restore": "La ridicare va reveni modul {mode}."
+    "sas.chip.line.restore": "La ridicare va reveni modul {mode}.",
+    "sas.cfg.enabledOnCrouch": "Auto-furt la ghemuire",
+    "sas.cfg.restoreMode": "Restaurează modul la ridicare",
+    "sas.cfg.showChip": "Afișează chip HUD"
   },
   "sv": {
     "sas.chip.name": "Auto-stjäla",
     "sas.chip.meta": "Smyg-mod",
     "sas.chip.foot": "STJÄL",
     "sas.chip.line.active": "Interaktionsläget växlades till Stjäla vid hukning/smygande.",
-    "sas.chip.line.restore": "När du reser dig återställs {mode}-läget."
+    "sas.chip.line.restore": "När du reser dig återställs {mode}-läget.",
+    "sas.cfg.enabledOnCrouch": "Auto-stjäl vid smygande",
+    "sas.cfg.restoreMode": "Återställ läge när du reser dig",
+    "sas.cfg.showChip": "Visa HUD-bricka"
   },
   "tr": {
     "sas.chip.name": "Oto-Çalma",
     "sas.chip.meta": "Gizlilik modu",
     "sas.chip.foot": "ÇAL",
     "sas.chip.line.active": "Eğilirken/gizlenirken etkileşim modu Çalma olarak değiştirildi.",
-    "sas.chip.line.restore": "Ayağa kalkınca {mode} modu geri yüklenir."
+    "sas.chip.line.restore": "Ayağa kalkınca {mode} modu geri yüklenir.",
+    "sas.cfg.enabledOnCrouch": "Eğilince Otomatik Çalma",
+    "sas.cfg.restoreMode": "Kalkınca Önceki Modu Geri Yükle",
+    "sas.cfg.showChip": "HUD Çipini Göster"
   },
   "vi": {
     "sas.chip.name": "Tự Động Trộm",
     "sas.chip.meta": "Mod ẩn thân",
     "sas.chip.foot": "TRỘM",
     "sas.chip.line.active": "Chế độ tương tác đã chuyển sang Trộm khi cúi/lén lút.",
-    "sas.chip.line.restore": "Khi đứng dậy sẽ khôi phục chế độ {mode}."
+    "sas.chip.line.restore": "Khi đứng dậy sẽ khôi phục chế độ {mode}.",
+    "sas.cfg.enabledOnCrouch": "Tự chuyển trộm khi cúi/lén",
+    "sas.cfg.restoreMode": "Khôi phục chế độ khi đứng dậy",
+    "sas.cfg.showChip": "Hiện thẻ HUD"
   },
   "zh-Hans": {
     "sas.chip.name": "潜行自动偷窃",
     "sas.chip.meta": "潜行模组",
     "sas.chip.foot": "偷窃",
     "sas.chip.line.active": "蹲伏/潜行时交互模式已自动切换为偷窃。",
-    "sas.chip.line.restore": "站起后将恢复为 {mode} 模式。"
+    "sas.chip.line.restore": "站起后将恢复为 {mode} 模式。",
+    "sas.cfg.enabledOnCrouch": "潜行/下蹲时自动切换偷窃",
+    "sas.cfg.restoreMode": "起身时恢复原模式",
+    "sas.cfg.showChip": "显示 HUD 状态徽章"
   },
   "zh-Hant": {
     "sas.chip.name": "潛行自動偷竊",
     "sas.chip.meta": "潛行模組",
     "sas.chip.foot": "偷竊",
     "sas.chip.line.active": "蹲伏/潛行時互動模式已自動切換為偷竊。",
-    "sas.chip.line.restore": "站起後將恢復為 {mode} 模式。"
+    "sas.chip.line.restore": "站起後將恢復為 {mode} 模式。",
+    "sas.cfg.enabledOnCrouch": "潛行/下蹲時自動切換偷竊",
+    "sas.cfg.restoreMode": "起身時恢復原模式",
+    "sas.cfg.showChip": "顯示 HUD 狀態徽章"
   }
 }

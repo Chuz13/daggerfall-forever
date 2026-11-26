@@ -26,6 +26,11 @@ export function registerSpellRecordsAsset(source, items) {
   if (!Array.isArray(items)) throw new Error(`registerSpellRecordsAsset: ${source}'s SpellRecords.json is no list`);
   _assets.push({ source, items });
 }
+export function unregisterSpellRecordsAsset(source) {
+  for (let i = _assets.length - 1; i >= 0; i--) {
+    if (_assets[i].source === source) _assets.splice(i, 1);
+  }
+}
 /** The test seam. */
 export function _resetSpellRecordsAssets() { _assets.length = 0; }
 

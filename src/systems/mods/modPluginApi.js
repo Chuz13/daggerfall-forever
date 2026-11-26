@@ -34,9 +34,37 @@ import { getInteractionMode, setInteractionMode, interactionModeText, onInteract
 import { onMotorStep } from '../../player/motor.js';
 import { currentWeather, currentWeatherEnum } from '../weather/weatherSim.js';
 import { dateFromClassicMinutes } from '../gameDate.js';
+import { getModSetting, setModSetting, getModSettingsSchema, readModFile } from './modRegistry.js';
+import { registerItemUseHandler, setItemFields, mintCondition, templateByIndex } from '../item/itemTemplates.js';
+import { legendaryById, applyRarity } from '../loot/lootRarity.js';
+import { getModCustomItemMeta, getModSpellRecord, getModLegendaryRecord } from './modDataSync.js';
 
 /** @type {Map<string, Record<string, any>>} */
 const _modStorageStore = new Map();
+
+var _modSettingListeners;
+function modSettingListeners() {
+  return (_modSettingListeners ??= new Map());
+}
+
+/**
+ * Notify a mod's registered `api.settings.onChange` listeners when a setting changes.
+ * @param {string} modId
+ * @param {string} key
+ * @param {any} value
+ */
+export function notifyModSettingChanged(modId, key, value) {
+  const listeners = modSettingListeners().get(modId);
+  if (!listeners || listeners.size === 0) return;
+  for (const entry of [...listeners]) {
+    if (entry.key !== null && entry.key !== key) continue;
+    try {
+      entry.fn(value, key);
+    } catch (err) {
+      console.warn(`[ModPluginApi] Settings listener error for '${modId}.${key}':`, err?.message ?? err);
+    }
+  }
+}
 
 /** @type {Map<string, Map<string, { id: string, name: string, desc: string, icon?: string }>>} */
 const _registeredPerks = new Map();
@@ -143,7 +171,7 @@ let _movementState = {
 let _secondAccum = 0;
 let _bridgesWired = false;
 
-function addModCleanup(modId, fn) {
+export function addModCleanup(modId, fn) {
   let set = _modCleanups.get(modId);
   if (!set) {
     set = new Set();
@@ -253,6 +281,7 @@ export function getModStatusChipsVersion() {
  * @param {string} modId
  */
 export function cleanupModResources(modId) {
+  modSettingListeners().delete(modId);
   const cleanups = _modCleanups.get(modId);
   if (cleanups) {
     for (const fn of cleanups) {
@@ -761,6 +790,200 @@ export function createModApi(modId) {
       },
     },
 
+    items: {
+      /**
+       * Register a custom Use handler for a templateIndex (auto-cleaned when mod disables).
+       * @param {number} templateIndex
+       * @param {Function} fn
+       */
+      onUse: (templateIndex, fn) => {
+        if (!Number.isInteger(templateIndex) || typeof fn !== 'function') return;
+        const wrapped = (item, collection, ctx = {}) => {
+          const consume = () => {
+            if ((item?.stackCount ?? 1) > 1) {
+              item.stackCount -= 1;
+            } else if (Array.isArray(collection)) {
+              const idx = collection.indexOf(item);
+              if (idx >= 0) collection.splice(idx, 1);
+            }
+          };
+          try {
+            const res = fn(item, collection, { ...ctx, consume });
+            if (typeof res === 'string') return { kind: 'text', text: res };
+            if (res && typeof res === 'object' && res.kind) return res;
+            return { kind: 'handled' };
+          } catch (err) {
+            console.warn(`[ModPluginApi] items.onUse error in '${modId}' for template ${templateIndex}:`, err?.message ?? err);
+            return { kind: 'text', text: 'Nothing happens.' };
+          }
+        };
+        registerItemUseHandler(templateIndex, wrapped);
+        addModCleanup(modId, () => registerItemUseHandler(templateIndex, null));
+      },
+      /**
+       * Mint and give a template-backed item (custom or vanilla) to the player.
+       * @param {number} templateIndex
+       * @param {{ count?: number, group?: string }} [opts]
+       */
+      give: (templateIndex, { count = 1, group } = {}) => {
+        if (!_playerRef || !templateByIndex(templateIndex)) return null;
+        const meta = getModCustomItemMeta(templateIndex);
+        const item = mintCondition(
+          setItemFields({
+            group: group || meta?.group || 'MiscItems',
+            templateIndex,
+            ...(count > 1 ? { stackCount: count } : {}),
+          }),
+        );
+        _playerRef.items = _playerRef.items || [];
+        addItem(_playerRef.items, item);
+        surfacePlayer?.();
+        return item;
+      },
+      /**
+       * Mint and give a specific legendary item (mod-defined or built-in) to the player.
+       * @param {string} legendaryId
+       * @param {{ templateIndex?: number, group?: string, material?: number }} [opts]
+       */
+      giveLegendary: (legendaryId, { templateIndex, group, material } = {}) => {
+        const rec = getModLegendaryRecord(legendaryId) ?? legendaryById(legendaryId);
+        if (!_playerRef || !rec) return null;
+        const tpl = templateIndex ?? rec.templates?.[0] ?? 135;
+        const base = mintCondition(
+          setItemFields({
+            group: group ?? rec.group,
+            templateIndex: tpl,
+            ...(material != null ? { material } : {}),
+          }),
+        );
+        applyRarity(base, 'legendary', Math.random, [rec]);
+        _playerRef.items = _playerRef.items || [];
+        addItem(_playerRef.items, base);
+        surfacePlayer?.();
+        return base;
+      },
+    },
+
+    spells: {
+      /**
+       * Look up a mod-registered spell record by index.
+       * @param {number} spellIndex
+       */
+      get: (spellIndex) => getModSpellRecord(spellIndex),
+      /**
+       * Check if the player's spellbook already contains a spell with this index.
+       * @param {number} spellIndex
+       */
+      has: (spellIndex) =>
+        Array.isArray(_playerRef?.spells) && _playerRef.spells.some((s) => s?.index === spellIndex),
+      /**
+       * Grant a mod-defined (or custom) spell to the player's spellbook.
+       * @param {number|Record<string, any>} spellIndexOrObj
+       */
+      grant: (spellIndexOrObj) => {
+        const rec =
+          typeof spellIndexOrObj === 'number' ? getModSpellRecord(spellIndexOrObj) : spellIndexOrObj;
+        if (!_playerRef || !rec) return false;
+        _playerRef.spells = _playerRef.spells || [];
+        const already = _playerRef.spells.some(
+          (s) =>
+            (Number.isInteger(rec.index) && rec.index >= 0 && s?.index === rec.index) ||
+            (rec.name && s?.name === rec.name),
+        );
+        if (already) return false;
+        _playerRef.spells.push(structuredClone(rec));
+        surfacePlayer?.();
+        return true;
+      },
+    },
+
+    settings: {
+      /**
+       * Read a declared mod setting value (with manifest default & coercion).
+       * @param {string} key
+       * @returns {any}
+       */
+      get: (key) => getModSetting(modId, key),
+      /**
+       * Update a declared mod setting value and notify listeners.
+       * @param {string} key
+       * @param {any} value
+       * @returns {any}
+       */
+      set: (key, value) => {
+        const next = setModSetting(modId, key, value);
+        notifyModSettingChanged(modId, key, next);
+        return next;
+      },
+      /**
+       * Return an object of all declared settings for this mod.
+       * @returns {Record<string, any>}
+       */
+      getAll: () => {
+        const out = {};
+        for (const s of getModSettingsSchema(modId)) {
+          if (s?.key) out[s.key] = getModSetting(modId, s.key);
+        }
+        return out;
+      },
+      /**
+       * Subscribe to live MCM setting changes for this mod.
+       * Supports `onChange(fn)` or `onChange(key, fn)`. Returns an unsubscribe function.
+       * @param {string|Function} keyOrFn
+       * @param {Function} [maybeFn]
+       * @returns {() => void}
+       */
+      onChange: (keyOrFn, maybeFn) => {
+        const hasKey = typeof keyOrFn === 'string';
+        const targetKey = hasKey ? keyOrFn : null;
+        const fn = hasKey ? maybeFn : keyOrFn;
+        if (typeof fn !== 'function') return () => {};
+        let set = modSettingListeners().get(modId);
+        if (!set) {
+          set = new Set();
+          modSettingListeners().set(modId, set);
+        }
+        const entry = { key: targetKey, fn };
+        set.add(entry);
+        return () => set.delete(entry);
+      },
+    },
+
+    onCleanup: (fn) => {
+      if (typeof fn === 'function') addModCleanup(modId, fn);
+    },
+
+    files: {
+      /**
+       * Read a UTF-8 file strictly inside this mod's folder.
+       * @param {string} relPath
+       * @returns {string|null}
+       */
+      read: (relPath) => {
+        if (typeof relPath !== 'string' || !relPath.trim()) return null;
+        const clean = relPath.replace(/\\/g, '/').trim();
+        if (clean.startsWith('/') || clean.split('/').includes('..')) return null;
+        return readModFile(modId, clean);
+      },
+      /**
+       * Read and parse a JSON file strictly inside this mod's folder.
+       * @param {string} relPath
+       * @returns {any}
+       */
+      readJson: (relPath) => {
+        if (typeof relPath !== 'string' || !relPath.trim()) return null;
+        const clean = relPath.replace(/\\/g, '/').trim();
+        if (clean.startsWith('/') || clean.split('/').includes('..')) return null;
+        const raw = readModFile(modId, clean);
+        if (raw == null) return null;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      },
+    },
+
     storage: {
       /**
        * Retrieve a value from the mod's persistent save data.
@@ -800,6 +1023,7 @@ export function _resetModPluginApi() {
   _modStatusChipsVersion++;
   activeModCommands().clear();
   pendingModCommands().length = 0;
+  modSettingListeners().clear();
   clearModPreventRestConditions();
   _movementState = {
     crouching: false,

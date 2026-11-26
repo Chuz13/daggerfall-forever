@@ -13,13 +13,19 @@ import {
   setModEnabled,
   getModLoadOrder,
   setModLoadOrder,
+  getModSettingsSchema,
+  getModSetting,
+  setModSetting,
+  resetModSettings,
 } from '../../systems/mods/modRegistry.js';
 import { syncModData } from '../../systems/mods/modDataSync.js';
-import { unloadModPlugins, loadActiveModPlugins } from '../../systems/mods/modPluginLoader.js';
-import { getModPerks, getAllRegisteredPerks } from '../../systems/mods/modPluginApi.js';
+import { unloadModPlugins, loadActiveModPlugins, getPluginError } from '../../systems/mods/modPluginLoader.js';
+import { getModPerks, getAllRegisteredPerks, notifyModSettingChanged } from '../../systems/mods/modPluginApi.js';
 import { getAllPerks, getUnlockedPerks } from '../../systems/perks/perkRegistry.js';
 import { playerEntity } from '../../characters/playerEntity.js';
 import { t } from '../../systems/textManager.js';
+
+const _expandedSettingsMods = new Set();
 
 const el = (tag, cls, txt) => {
   const n = document.createElement(tag);
@@ -162,6 +168,13 @@ export function drawModsPane(body, rerender) {
       card.append(errLine);
     }
 
+    const runtimeErr = getPluginError(mod.id);
+    if (runtimeErr) {
+      const rtLine = el('p', 'meta mod-runtime-error', `${t('menu.mods.scriptError', 'Script error')}: ${runtimeErr}`);
+      rtLine.style.color = '#ff8787';
+      card.append(rtLine);
+    }
+
     // Perks / Milestones registered by mod
     const perks = getModPerks(mod.id);
     if (perks && perks.length > 0) {
@@ -227,7 +240,139 @@ export function drawModsPane(body, rerender) {
       actRow.append(downBtn);
     }
 
+    const schema = getModSettingsSchema(mod.id);
+    if (schema.length > 0) {
+      const settingsBtn = el('button', 'btn btn-secondary mod-settings-btn', `⚙ ${t('menu.mods.settings', 'Settings')}`);
+      settingsBtn.type = 'button';
+      settingsBtn.onclick = () => {
+        if (_expandedSettingsMods.has(mod.id)) _expandedSettingsMods.delete(mod.id);
+        else _expandedSettingsMods.add(mod.id);
+        rerender();
+      };
+      actRow.append(settingsBtn);
+    }
+
     card.append(actRow);
+
+    if (schema.length > 0 && _expandedSettingsMods.has(mod.id)) {
+      const settingsBox = el('div', 'mod-settings-box');
+      settingsBox.style.marginTop = '8px';
+      settingsBox.style.padding = '8px 10px';
+      settingsBox.style.borderRadius = '6px';
+      settingsBox.style.background = 'rgba(0,0,0,0.28)';
+      settingsBox.style.border = '1px solid rgba(255,255,255,0.12)';
+      settingsBox.style.display = 'flex';
+      settingsBox.style.flexDirection = 'column';
+      settingsBox.style.gap = '8px';
+
+      for (const setting of schema) {
+        if (!setting?.key) continue;
+        const row = el('div', 'mod-setting-row');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.justifyContent = 'space-between';
+        row.style.gap = '10px';
+
+        const labelWrap = el('div', 'mod-setting-label-wrap');
+        labelWrap.style.flex = '1';
+        const labelText = setting.labelKey
+          ? t(setting.labelKey, setting.label || setting.key)
+          : (setting.label || setting.key);
+        const labelEl = el('div', 'mod-setting-label', labelText);
+        labelEl.style.fontSize = '13px';
+        labelWrap.append(labelEl);
+
+        const descText = setting.descriptionKey
+          ? t(setting.descriptionKey, setting.description || '')
+          : (setting.description || '');
+        if (descText) {
+          const descEl = el('div', 'meta mod-setting-desc', descText);
+          descEl.style.fontSize = '11px';
+          descEl.style.opacity = '0.78';
+          labelWrap.append(descEl);
+        }
+        row.append(labelWrap);
+
+        const currentVal = getModSetting(mod.id, setting.key);
+        const ctrlWrap = el('div', 'mod-setting-control');
+        ctrlWrap.style.display = 'flex';
+        ctrlWrap.style.alignItems = 'center';
+        ctrlWrap.style.gap = '6px';
+
+        if (setting.type === 'boolean') {
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.className = 'mod-setting-checkbox';
+          input.checked = Boolean(currentVal);
+          input.onchange = () => {
+            const next = setModSetting(mod.id, setting.key, Boolean(input.checked));
+            notifyModSettingChanged(mod.id, setting.key, next);
+          };
+          ctrlWrap.append(input);
+        } else if (setting.type === 'number') {
+          const input = document.createElement('input');
+          input.type = 'range';
+          input.className = 'mod-setting-range';
+          if (setting.min !== undefined) input.min = String(setting.min);
+          if (setting.max !== undefined) input.max = String(setting.max);
+          if (setting.step !== undefined) input.step = String(setting.step);
+          input.value = String(currentVal);
+          const valSpan = el('span', 'mod-setting-val', String(currentVal));
+          valSpan.style.minWidth = '32px';
+          valSpan.style.textAlign = 'right';
+          valSpan.style.fontSize = '12px';
+          input.oninput = () => {
+            const next = setModSetting(mod.id, setting.key, Number(input.value));
+            valSpan.textContent = String(next);
+            notifyModSettingChanged(mod.id, setting.key, next);
+          };
+          input.onchange = () => {
+            const next = setModSetting(mod.id, setting.key, Number(input.value));
+            valSpan.textContent = String(next);
+            notifyModSettingChanged(mod.id, setting.key, next);
+          };
+          ctrlWrap.append(input, valSpan);
+        } else if (setting.type === 'select') {
+          const select = document.createElement('select');
+          select.className = 'mod-setting-select';
+          const opts = Array.isArray(setting.options) ? setting.options : [];
+          for (const opt of opts) {
+            const optVal = opt && typeof opt === 'object' ? opt.value : opt;
+            const optLabel = opt && typeof opt === 'object'
+              ? (opt.labelKey ? t(opt.labelKey, opt.label || String(optVal)) : (opt.label || String(optVal)))
+              : String(opt);
+            const optEl = document.createElement('option');
+            optEl.value = String(optVal);
+            optEl.textContent = optLabel;
+            select.append(optEl);
+          }
+          select.value = String(currentVal);
+          select.onchange = () => {
+            const next = setModSetting(mod.id, setting.key, select.value);
+            notifyModSettingChanged(mod.id, setting.key, next);
+          };
+          ctrlWrap.append(select);
+        }
+
+        row.append(ctrlWrap);
+        settingsBox.append(row);
+      }
+
+      const resetBtn = el('button', 'btn btn-secondary mod-settings-reset', t('menu.mods.resetDefaults', 'Reset to defaults'));
+      resetBtn.type = 'button';
+      resetBtn.style.alignSelf = 'flex-end';
+      resetBtn.style.fontSize = '12px';
+      resetBtn.onclick = () => {
+        const defaults = resetModSettings(mod.id);
+        for (const [k, v] of Object.entries(defaults)) {
+          notifyModSettingChanged(mod.id, k, v);
+        }
+        rerender();
+      };
+      settingsBox.append(resetBtn);
+      card.append(settingsBox);
+    }
+
     listContainer.append(card);
   });
 

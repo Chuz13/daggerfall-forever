@@ -6,5 +6,28 @@
   "description": "Automatically switches interaction mode to Steal when crouching or sneaking, and restores the previous interaction mode when standing back up. Respects manual F1-F4 mode overrides.",
   "enabled": false,
   "locales": "locales.json",
-  "entry": "plugin.js"
+  "entry": "plugin.js",
+  "settings": [
+    {
+      "key": "enabledOnCrouch",
+      "type": "boolean",
+      "label": "Auto-switch on Crouch/Sneak",
+      "labelKey": "sas.cfg.enabledOnCrouch",
+      "default": true
+    },
+    {
+      "key": "restoreMode",
+      "type": "boolean",
+      "label": "Restore Previous Mode on Stand",
+      "labelKey": "sas.cfg.restoreMode",
+      "default": true
+    },
+    {
+      "key": "showChip",
+      "type": "boolean",
+      "label": "Show HUD Status Chip",
+      "labelKey": "sas.cfg.showChip",
+      "default": true
+    }
+  ]
 }
