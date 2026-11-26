@@ -233,11 +233,33 @@ test('Mass Animate Dead: Abstract mode conjures skeletons up to capacity when no
   assert.equal(failRes.raisedCount, 0);
   assert.equal(failRes.failedChanceCount, 7);
 
-  // Success fills all 7 slots with skeletons
-  const okRes = castMassAnimateDead(caster, null, { chance: 100 });
+  // Success fills all 7 slots with skeletons even when chance < 100 and later rolls would fail
+  let riteRollIdx = 0;
+  const riteRolls = () => (riteRollIdx++ === 0 ? 0.1 : 0.9);
+  const okRes = castMassAnimateDead(caster, null, { chance: 50, rolls: riteRolls });
   assert.equal(okRes.success, true);
   assert.equal(okRes.raisedCount, 7);
   assert.ok(okRes.raised.every((m) => m.type === 'skeleton'));
+});
+
+test('Mass Animate Dead: finds corpses when __sceneContext.getPlayerPos() returns a Float32Array', () => {
+  resetState();
+  const prevCtx = globalThis.__sceneContext;
+  try {
+    globalThis.__sceneContext = {
+      getPlayerPos: () => new Float32Array([250, 12, -180]),
+    };
+    const caster = makeCaster({ mysticism: 100, intelligence: 200, willpower: 40 });
+    delete caster.position;
+    registerCorpse({ id: 'f32_1', entityType: 'humanoid', mobileType: 7, position: [252, 12, -180] });
+    registerCorpse({ id: 'f32_2', entityType: 'humanoid', mobileType: 7, position: [250, 12, -177] });
+
+    const res = castMassAnimateDead(caster, null, { spellMagnitude: 5 });
+    assert.equal(res.success, true);
+    assert.equal(res.raisedCount, 2);
+  } finally {
+    globalThis.__sceneContext = prevCtx;
+  }
 });
 
 test('Mass Animate Dead: isNonDisguiseNecroSpell, shownSpellName, and console addspell', () => {

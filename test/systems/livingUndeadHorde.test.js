@@ -259,3 +259,49 @@ test('Undead Horde: wave spawning, boss death 50% crumble, and Option 4 1-on-1 d
   assert.deepEqual(crumbleEmpty, []);
   resetLivingConfig();
 });
+
+test('Undead Horde: Urban Choice 2 & Wilderness Choice 3 grant reagent to player.items without crashing and omit Supernatural rep', async () => {
+  resetLivingConfig();
+  LivingTamrielConfig.encounterScale = LIVING_ENCOUNTER_SCALE.LOW;
+  const player = makeMockPlayer({ level: 12 });
+  player.NecroGrimoireRead = true;
+
+  const totalItems = () => player.items.reduce((sum, it) => sum + (it.stackCount ?? 1), 0);
+
+  // 1. Urban Choice 2 (attackers)
+  const urban = makeTestHost({ player, inLocationRect: true });
+  executeLivingConsoleCommand(['spawn', 'urban', UNDEAD_HORDE_EVENT_ID], {
+    playerEntity: player,
+    playerFeet: [0, 0, 0],
+    heightAt: () => 0,
+    regionIndex: 17,
+    sceneHost: urban.host,
+  });
+  await new Promise((r) => setTimeout(r, 20));
+  urban.host.frame(1.1);
+  const urbanChoice = urban.getOpenedChoice();
+  assert.ok(urbanChoice, 'Urban horde opens ChoiceWindow');
+  urbanChoice.options[1].action();
+  assert.equal(totalItems(), 1, 'Urban Choice 2 grants 1 reagent item');
+  assert.ok(player.legalRep[17] < 0, 'Living legal rep decreases');
+  assert.ok(player.sGroupReputations[0] < 0, 'Commoners rep decreases');
+  assert.equal(player.sGroupReputations[5] ?? 0, 0, 'SupernaturalBeings rep is untouched');
+
+  // 2. Wilderness Choice 3 (Dark Arts pact)
+  const wild = makeTestHost({ player, inLocationRect: false });
+  executeLivingConsoleCommand(['spawn', 'undead_horde'], {
+    playerEntity: player,
+    playerFeet: [0, 0, 0],
+    heightAt: () => 0,
+    regionIndex: 17,
+    sceneHost: wild.host,
+  });
+  await new Promise((r) => setTimeout(r, 20));
+  wild.host.frame(1.1);
+  const wildChoice = wild.getOpenedChoice();
+  assert.ok(wildChoice, 'Wilderness horde opens ChoiceWindow');
+  wildChoice.options[2].action();
+  assert.equal(totalItems(), 2, 'Wilderness Choice 3 grants 1 reagent item without crashing');
+  assert.equal(wild.host.getActiveSite().skirmishStance, 'peace');
+  resetLivingConfig();
+});

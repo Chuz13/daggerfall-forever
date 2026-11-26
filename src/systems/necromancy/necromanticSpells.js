@@ -575,6 +575,17 @@ export const MASS_ANIMATE_DEAD_MIN_RADIUS = 2;
 export const MASS_ANIMATE_DEAD_MAX_RADIUS = 30;
 export const MASS_ANIMATE_DEAD_RADIUS_PER_MYSTICISM = 0.1;
 
+function toVec3(v) {
+  if (!v || typeof v !== 'object') return null;
+  if ((Array.isArray(v) || ArrayBuffer.isView(v)) && v.length >= 3) {
+    const x = Number(v[0]);
+    const y = Number(v[1]);
+    const z = Number(v[2]);
+    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) return [x, y, z];
+  }
+  return null;
+}
+
 /**
  * Calculates Mass Animate Dead search radius in meters from uncompressed Mysticism.
  * Scales linearly at 0.1m per point (1m per 10 points), clamped to [2m, 30m],
@@ -659,13 +670,13 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
     if (!canAffordUndead(casterEntity, 'skeleton')) {
       return { success: false, reason: 'Insufficient undead control capacity' };
     }
-    const rawPos =
-      casterEntity?.position ||
-      casterEntity?.pos ||
-      casterEntity?.feet ||
-      globalThis.__sceneContext?.getPlayerPos?.() ||
-      [0, 0, 0];
-    const spawnPos = Array.isArray(rawPos) ? [...rawPos] : [0, 0, 0];
+    const spawnPos =
+      toVec3(
+        casterEntity?.position ||
+        casterEntity?.pos ||
+        casterEntity?.feet ||
+        globalThis.__sceneContext?.getPlayerPos?.(),
+      ) ?? [0, 0, 0];
     const minion = spawnMinion({
       type: 'skeleton',
       position: spawnPos,
@@ -695,11 +706,11 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
     let sawNonHumanoid = false;
     corpse = null;
     const pos =
-      targetCorpse?.necroTargetPos ||
-      targetCorpse?.pos ||
-      targetCorpse?.position ||
-      targetCorpse?.feet ||
-      (Array.isArray(targetCorpse) ? targetCorpse : null);
+      toVec3(targetCorpse?.necroTargetPos) ||
+      toVec3(targetCorpse?.pos) ||
+      toVec3(targetCorpse?.position) ||
+      toVec3(targetCorpse?.feet) ||
+      toVec3(targetCorpse);
     if (pos) {
       const near = corpsesNear(pos, 8);
       corpse = near.find((c) => isHumanoidCorpse(c)) ?? null;
@@ -854,12 +865,12 @@ export function castCorpseExplosion(caster, targetCorpse, options = {}) {
 
   const casterEntity = caster?.entity || caster;
   const searchOrigin =
-    targetCorpse?.pos ||
-    targetCorpse?.position ||
-    targetCorpse?.feet ||
-    (Array.isArray(targetCorpse) ? targetCorpse : null) ||
-    casterEntity?.position ||
-    casterEntity?.pos ||
+    toVec3(targetCorpse?.pos) ||
+    toVec3(targetCorpse?.position) ||
+    toVec3(targetCorpse?.feet) ||
+    toVec3(targetCorpse) ||
+    toVec3(casterEntity?.position) ||
+    toVec3(casterEntity?.pos) ||
     [0, 0, 0];
 
   // Priority 1: Direct corpse record or ID
@@ -1179,7 +1190,7 @@ export function castControlUndead(
 
   const minion = spawnMinion({
     type: resolved.type,
-    position: Array.isArray(pos) ? [...pos] : [0, 0, 0],
+    position: toVec3(pos) ?? [0, 0, 0],
     masterEntity: casterEntity,
     name: resolved.name,
     controlled: true,
@@ -1250,15 +1261,15 @@ export function castSutureCadaver(caster, targetCorpse = null, options = {}) {
   const radius = Number(opts?.radius) > 0 ? Number(opts.radius) : 8;
 
   const searchPos =
-    targetCorpse?.necroTargetPos ||
-    targetCorpse?.position ||
-    targetCorpse?.pos ||
-    targetCorpse?.feet ||
-    (Array.isArray(targetCorpse) ? targetCorpse : null) ||
-    casterEntity?.position ||
-    casterEntity?.pos ||
-    casterEntity?.feet ||
-    globalThis.__sceneContext?.getPlayerPos?.() ||
+    toVec3(targetCorpse?.necroTargetPos) ||
+    toVec3(targetCorpse?.position) ||
+    toVec3(targetCorpse?.pos) ||
+    toVec3(targetCorpse?.feet) ||
+    toVec3(targetCorpse) ||
+    toVec3(casterEntity?.position) ||
+    toVec3(casterEntity?.pos) ||
+    toVec3(casterEntity?.feet) ||
+    toVec3(globalThis.__sceneContext?.getPlayerPos?.()) ||
     [0, 0, 0];
 
   const viable = corpsesNear(searchPos, radius);
@@ -1294,8 +1305,7 @@ export function castSutureCadaver(caster, targetCorpse = null, options = {}) {
   }
 
   const maxHealth = Math.max(250, Math.round(totalCorpseHp * 0.8));
-  const firstPos = toConsume[0]?.position || searchPos;
-  const spawnPos = Array.isArray(firstPos) ? [...firstPos] : [0, 0, 0];
+  const spawnPos = toVec3(toConsume[0]?.position) ?? searchPos;
 
   const minion = spawnMinion({
     type: 'cadaver',
@@ -1349,15 +1359,18 @@ export function castMassAnimateDead(caster, targetOrigin = null, options = {}) {
   const casterEntity = caster?.entity || caster;
   const radius = Number(opts?.radius) > 0 ? Number(opts.radius) : calculateMassAnimateDeadRadius(casterEntity);
 
-  const rawPos =
-    opts?.position ||
-    (Array.isArray(targetOrigin) ? targetOrigin : (targetOrigin?.position || targetOrigin?.pos || targetOrigin?.feet)) ||
-    casterEntity?.position ||
-    casterEntity?.pos ||
-    casterEntity?.feet ||
-    globalThis.__sceneContext?.getPlayerPos?.() ||
+  const searchPos =
+    toVec3(opts?.position) ||
+    toVec3(targetOrigin) ||
+    toVec3(targetOrigin?.position) ||
+    toVec3(targetOrigin?.pos) ||
+    toVec3(targetOrigin?.feet) ||
+    toVec3(casterEntity?.position) ||
+    toVec3(casterEntity?.pos) ||
+    toVec3(casterEntity?.feet) ||
+    toVec3(globalThis.__sceneContext?.getPlayerPos?.()) ||
+    toVec3(casterEntity?.necroTargetPos) ||
     [0, 0, 0];
-  const searchPos = Array.isArray(rawPos) ? [...rawPos] : [0, 0, 0];
 
   const chance = opts?.chance != null ? Math.max(0, Math.min(100, Number(opts.chance))) : 100;
   const saySink = opts?.say ?? opts?.sinks?.say;
@@ -1384,24 +1397,24 @@ export function castMassAnimateDead(caster, targetOrigin = null, options = {}) {
     if (NecroConfig.corpseRequirement === CORPSE_REQ_MODES.ABSTRACT) {
       const remainingSlots = Math.max(0, calculateUndeadCapacity(casterEntity) - usedUndeadPoints());
       const limit = Math.min(remainingSlots, 256);
-      for (let i = 0; i < limit; i++) {
-        if (!canAffordUndead(casterEntity, 'skeleton')) {
-          stoppedByCapacity = true;
-          break;
-        }
-        if (chance < 100 && !dice100(chance, rolls())) {
-          failedChanceCount++;
-          continue;
-        }
-        const res = castAnimateDead(casterEntity, null, {
-          rolls,
-          say: raised.length === 0 ? saySink : null,
-        });
-        if (res?.success && res.minion) {
-          raised.push(res.minion);
-        } else {
-          stoppedByCapacity = true;
-          break;
+      if (limit > 0 && chance < 100 && !dice100(chance, rolls())) {
+        failedChanceCount = limit;
+      } else {
+        for (let i = 0; i < limit; i++) {
+          if (!canAffordUndead(casterEntity, 'skeleton')) {
+            stoppedByCapacity = true;
+            break;
+          }
+          const res = castAnimateDead(casterEntity, null, {
+            rolls,
+            say: raised.length === 0 ? saySink : null,
+          });
+          if (res?.success && res.minion) {
+            raised.push(res.minion);
+          } else {
+            stoppedByCapacity = true;
+            break;
+          }
         }
       }
     } else {

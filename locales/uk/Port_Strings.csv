@@ -11162,3 +11162,4 @@ living.horde.obeliskShatteredDuel,"Ритуальний обеліск розб�
 living.horde.darkPactSuccess,"{boss} впізнає у вас майстра смерті та наказує орді розступитися."
 living.horde.darkPactFail,"{boss} сміється з вашого кволого наказу й кидає орду в бій!"
 living.horde.wildCleared,"Орду нежиті знищено! (+{gold} зол. · +5 Реп.)"
+living.horde.reagentReceived,"Отримано темний реагент: {item}."

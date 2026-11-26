@@ -2625,6 +2625,26 @@ export function createLivingSceneHost(deps) {
     return best;
   }
 
+  function grantHordeReagent(player, rngFn = Math.random) {
+    if (!player) return null;
+    if (!Array.isArray(player.items)) player.items = [];
+    const lootList = buildNecromancerBossLoot({
+      playerEntity: player,
+      playerLevel: Number(player.level ?? 1),
+      scale: getLivingEncounterScale(),
+      rng: rngFn,
+    });
+    const gift =
+      lootList.find(
+        (it) => it && !isGoldPieces(it) && typeof it.templateIndex === 'number' && !it.potionRecipeKey,
+      ) ?? lootList.find((it) => it && !isGoldPieces(it));
+    if (!gift) return null;
+    addItem(player.items, gift);
+    deps.surfacePlayer?.();
+    deps.say(LIVING_WORDS.hordeReagentReceived(gift.shortName || gift.name || 'Dark Reagent'), 5);
+    return gift;
+  }
+
   function banishHordeMinions(site, list) {
     if (!site || !Array.isArray(list)) return;
     for (const f of list) {
@@ -3748,19 +3768,8 @@ export function createLivingSceneHost(deps) {
                 playerEntity: player,
                 rolls: rng,
               });
-              if (c.taintDelta && player) {
-                addNecroTaint(c.taintDelta, player);
-              }
-              if (evt?.id === UNDEAD_HORDE_EVENT_ID && player && (hasReadGrimoire(player) || isAnyLich(player))) {
-                const gift = buildNecromancerBossLoot({
-                  playerEntity: player,
-                  playerLevel: Number(player.level ?? 1),
-                  scale: getLivingEncounterScale(),
-                  rng,
-                }).find((it) => it && typeof it.templateIndex === 'number');
-                if (gift) {
-                  addItem(player, gift);
-                }
+              if (evt?.id === UNDEAD_HORDE_EVENT_ID && player) {
+                grantHordeReagent(player, rng);
               }
               if (evt?.id === 'EVT_NEW_RULER_STATUE_UNVEILING') {
                 destroySiteDestructibles(s);
@@ -4203,13 +4212,7 @@ export function createLivingSceneHost(deps) {
                 retargetSkirmishFoes(s);
                 if (player) {
                   addNecroTaint(10, player);
-                  const gift = buildNecromancerBossLoot({
-                    playerEntity: player,
-                    playerLevel: Number(player.level ?? 1),
-                    scale: getLivingEncounterScale(),
-                    rng,
-                  }).find((it) => it && typeof it.templateIndex === 'number');
-                  if (gift) addItem(player, gift);
+                  grantHordeReagent(player, rng);
                 }
                 deps.say(LIVING_WORDS.hordeDarkPactSuccess(bossName), 6);
               } else {

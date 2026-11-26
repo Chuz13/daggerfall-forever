@@ -11162,3 +11162,4 @@ living.horde.obeliskShatteredDuel,"Ритуальный обелиск раск�
 living.horde.darkPactSuccess,"{boss} признаёт в вас собрата по искусству смерти и велит орде расступиться."
 living.horde.darkPactFail,"{boss} смеётся над вашим слабым приказом и спускает орду!"
 living.horde.wildCleared,"Орда нежити уничтожена! (+{gold} зол. · +5 Реп.)"
+living.horde.reagentReceived,"Получен тёмный реагент: {item}."

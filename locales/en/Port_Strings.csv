@@ -11212,3 +11212,4 @@ living.horde.obeliskShatteredDuel,"The ritual obelisk shatters! The horde turns 
 living.horde.darkPactSuccess,"{boss} recognizes a fellow master of death and bids the horde stand aside."
 living.horde.darkPactFail,"{boss} laughs at your feeble command and unleashes the horde!"
 living.horde.wildCleared,"The Undead Horde is destroyed! (+{gold}g · +5 Rep)"
+living.horde.reagentReceived,"Received dark reagent: {item}."

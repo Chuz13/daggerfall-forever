@@ -1056,9 +1056,7 @@ export const CRISIS_EVENTS = Object.freeze([
           text: t('living.choice.EVT_UNDEAD_HORDE_INVASION.2', '2. Side with [{f2}] and slaughter the defenders', { f2 }),
           stance: 'attackers',
           repF1: -15,
-          repF2: 10,
           bountyHostile: true,
-          taintDelta: 10,
         },
         {
           text: t('living.choice.EVT_UNDEAD_HORDE_INVASION.3', '3. Stay out of the slaughter and watch'),

@@ -670,5 +670,7 @@ export const LIVING_WORDS = Object.freeze({
     t('living.horde.darkPactFail', '{boss} laughs at your feeble command and unleashes the horde!', { boss: bossName }),
   hordeWildCleared: (gold) =>
     t('living.horde.wildCleared', 'The Undead Horde is destroyed! (+{gold}g · +5 Rep)', { gold }),
+  hordeReagentReceived: (item) =>
+    t('living.horde.reagentReceived', 'Received dark reagent: {item}.', { item }),
 });
 

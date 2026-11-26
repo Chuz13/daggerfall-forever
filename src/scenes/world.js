@@ -11524,7 +11524,10 @@ export async function bootWorld(canvas, renderer, params, status) {
 
   globalThis.__sceneContext = {
     say: (msg) => townTalk?.say?.(msg),
-    getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
+    getPlayerPos: () => {
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      return p ? [p[0], p[1], p[2]] : null;
+    },
     openUndeadCommandMenu,
     applyUndeadCommand,
     reportHarvestCrime: (entity = playerEntity) => {
@@ -12166,7 +12169,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   direnniSiege = createDirenniSiegeController({
     playerEntity,
-    getPlayerPos: () => (walkMode && playerSpawned ? player.pos : cam.pos),
+    getPlayerPos: () => {
+      const p = walkMode && playerSpawned ? player.pos : cam.pos;
+      return p ? [p[0], p[1], p[2]] : null;
+    },
     getPlayerMode: () => modes?.mode ?? 'exterior',
     groundAt: (x, z) => collider?.heightAt?.(x, z) ?? heightAt(x, z),
     raycastHit: (o, d, m) => collider?.raycastHit?.(o, d, m),
