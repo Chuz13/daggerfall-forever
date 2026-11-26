@@ -64,8 +64,8 @@ import { THE_THIEVES_GUILD } from '../../src/systems/faction/factionRep.js';
 import { LivingTamrielConfig, PRESENCE } from '../../src/systems/living/livingConfig.js';
 import { executeConsoleCommand } from '../../src/systems/consoleCommands.js';
 
-test('LT-39-Matrix: Exactly 41 crisis and exploration encounters defined with valid pools', () => {
-  assert.equal(CRISIS_EVENTS.length, 41, 'Must define exactly 41 core events');
+test('LT-39-Matrix: Exactly 42 crisis and exploration encounters defined with valid pools', () => {
+  assert.equal(CRISIS_EVENTS.length, 42, 'Must define exactly 42 core events');
 
   const validMobileIds = new Set(Object.values(MOBILE_TYPES));
   const validThemes = new Set(Object.values(SKIRMISH_PROP_THEME));

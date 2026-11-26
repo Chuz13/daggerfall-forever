@@ -71,8 +71,8 @@ function targetSignature(t) {
   return `faction:${t.factionId}`;
 }
 
-test('Block 5: SKIRMISH_REP_MATRIX covers all 41 CRISIS_EVENTS without f1/f2 target collisions', () => {
-  assert.equal(CRISIS_EVENTS.length, 41);
+test('Block 5: SKIRMISH_REP_MATRIX covers all 42 CRISIS_EVENTS without f1/f2 target collisions', () => {
+  assert.equal(CRISIS_EVENTS.length, 42);
   for (const evt of CRISIS_EVENTS) {
     assert.ok(
       Object.prototype.hasOwnProperty.call(SKIRMISH_REP_MATRIX, evt.id),

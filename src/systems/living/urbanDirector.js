@@ -23,6 +23,12 @@ import {
 import { MOBILE_TYPES } from '../../characters/mobile/mobileTypes.js';
 import { snapPropToGround } from './campInjector.js';
 import { enrichHumanoidSkirmishPool } from './tacticalPacks.js';
+import {
+  UNDEAD_HORDE_EVENT_ID,
+  computeUndeadHordeCounts,
+  buildUndeadHordeRoster,
+  buildNecromancerBossSpec,
+} from './undeadHorde.js';
 
 export const URBAN_PROP_LIMIT = 2;
 export const MIN_DOORWAY_CLEARANCE_M = 10.0;
@@ -119,6 +125,8 @@ export function planUrbanSkirmish({
 
   const prosperity = calculateLocationProsperity(dfLocation);
   const scale = getLivingEncounterScale();
+  const isUndeadHorde = Boolean(event && (event.hordeEvent || event.id === UNDEAD_HORDE_EVENT_ID));
+  const hordeCounts = isUndeadHorde ? computeUndeadHordeCounts(scale) : null;
   const isSingleDefender = Boolean(event && event.baseDefenders === 1);
   const isSingleAttacker = Boolean(event && event.baseAttackers === 1);
   const isSwarmAttackers = Boolean(event && event.swarmAttackers);
@@ -129,7 +137,12 @@ export function planUrbanSkirmish({
   let atkMin = 2;
   let atkMax = 3;
 
-  if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
+  if (hordeCounts) {
+    defMin = hordeCounts.defenderCount;
+    defMax = hordeCounts.defenderCount;
+    atkMin = hordeCounts.vanguardCount;
+    atkMax = hordeCounts.vanguardCount;
+  } else if (scale === LIVING_ENCOUNTER_SCALE.LOW) {
     defMin = 1;
     defMax = isSingleDefender ? 1 : 2;
     atkMin = isSingleAttacker ? 1 : (isSwarmAttackers ? 5 : 2);
@@ -146,13 +159,13 @@ export function planUrbanSkirmish({
     atkMax = isSingleAttacker ? 1 : (isSwarmAttackers ? 18 : 14);
   }
 
-  let guardCount = rollEncounterRange(defMin, defMax, rng);
-  let rebelCount = rollEncounterRange(atkMin, atkMax, rng);
+  let guardCount = hordeCounts ? hordeCounts.defenderCount : rollEncounterRange(defMin, defMax, rng);
+  let rebelCount = hordeCounts ? hordeCounts.vanguardCount : rollEncounterRange(atkMin, atkMax, rng);
 
   // Prosperity adjustment (affects symmetric town guards only)
   if (!isSingleDefender) {
     if (prosperity === PROSPERITY_TIER.HIGH) guardCount = Math.min(defMax + 1, guardCount + 1);
-    else if (prosperity === PROSPERITY_TIER.LOW) guardCount = Math.max(defMin, guardCount - 1);
+    else if (prosperity === PROSPERITY_TIER.LOW) guardCount = Math.max(2, Math.max(defMin - (hordeCounts ? 1 : 0), guardCount - 1));
   }
 
   const playerLevel = Number(playerEntity?.level ?? 1);
@@ -186,23 +199,34 @@ export function planUrbanSkirmish({
   }
 
   // Generate rebel/attacker positions in compact multi-rank or tight swarm formations
-  const resolvedPool = event
-    ? resolveEventAttackersPool(event, {
-      regionIndex,
-      climateIndex,
-      playerLevel,
-    })
-    : [];
+  const resolvedPool = isUndeadHorde
+    ? buildUndeadHordeRoster(rebelCount, { playerLevel, regionIndex, climateIndex, rng })
+    : (event
+      ? resolveEventAttackersPool(event, {
+        regionIndex,
+        climateIndex,
+        playerLevel,
+      })
+      : []);
   const atkPool = resolvedPool.length ? resolvedPool : [MOBILE_TYPES.Rogue, MOBILE_TYPES.Nightblade, MOBILE_TYPES.Warrior];
-  const atkRoster = (isSingleAttacker || isSwarmAttackers)
-    ? Array.from({ length: rebelCount }, (_, i) => atkPool[i % atkPool.length])
-    : enrichHumanoidSkirmishPool(atkPool, rebelCount, { side: 'rebels', playerLevel });
+  const atkRoster = isUndeadHorde
+    ? atkPool
+    : (isSingleAttacker || isSwarmAttackers)
+      ? Array.from({ length: rebelCount }, (_, i) => atkPool[i % atkPool.length])
+      : enrichHumanoidSkirmishPool(atkPool, rebelCount, { side: 'rebels', playerLevel });
   const rebels = [];
   const baseAtkAngle = Math.PI * 0.25;
   for (let i = 0; i < rebelCount; i++) {
     let angle;
     let dist;
-    if (isSwarmAttackers) {
+    if (isUndeadHorde) {
+      const rank = Math.floor(i / 7);
+      const inRankIdx = i % 7;
+      const rankTotal = Math.min(7, rebelCount - rank * 7);
+      const spread = Math.PI * 1.05;
+      angle = baseAtkAngle + (rankTotal > 1 ? (inRankIdx / (rankTotal - 1) - 0.5) * spread : 0);
+      dist = 2.0 + rank * 1.45 + (i % 2 === 0 ? -0.2 : 0.2);
+    } else if (isSwarmAttackers) {
       const spread = Math.PI * 0.85;
       angle = baseAtkAngle + (rebelCount > 1 ? (i / (rebelCount - 1) - 0.5) * spread : 0);
       dist = 1.6 + (i % 3) * 0.9;
@@ -229,6 +253,34 @@ export function planUrbanSkirmish({
     });
   }
 
+  let necromancer = null;
+  let hordeReserve = null;
+  let hordeWaveBatchSize = null;
+  let hordeTotalUndead = null;
+  if (isUndeadHorde && hordeCounts) {
+    const bossSpec = buildNecromancerBossSpec({ playerLevel, rng });
+    let bx = Math.cos(baseAtkAngle) * 6.2;
+    let bz = Math.sin(baseAtkAngle) * 6.2;
+    const yBoss = heightSampler(centerX + bx, centerZ + bz);
+    if (!Number.isFinite(yBoss) || Math.abs(yBoss - yCenter) > MAX_URBAN_SLOPE_DELTA_M) {
+      bx *= 0.7;
+      bz *= 0.7;
+    }
+    necromancer = {
+      ...bossSpec,
+      dx: bx,
+      dz: bz,
+    };
+    hordeReserve = buildUndeadHordeRoster(hordeCounts.reserveCount, {
+      playerLevel,
+      regionIndex,
+      climateIndex,
+      rng,
+    });
+    hordeWaveBatchSize = hordeCounts.waveBatchSize;
+    hordeTotalUndead = hordeCounts.totalUndead;
+  }
+
   // Faction naming & enemy province identity
   const enemyProv = pickEnemyProvince(regionIndex, rng);
   const factionNames = event ? event.getFactionNames(regionIndex, enemyProv.name) : { f1: 'City Watch', f2: 'Rebels' };
@@ -253,6 +305,7 @@ export function planUrbanSkirmish({
     props: propList,
     propTheme: event?.propTheme ?? SKIRMISH_PROP_THEME.MILITARY_BARRICADE,
     civiliansShouldPanic: true,
+    ...(necromancer ? { necromancer, hordeReserve, hordeWaveBatchSize, hordeTotalUndead } : {}),
   };
 }
 

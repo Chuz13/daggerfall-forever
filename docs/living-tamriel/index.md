@@ -17,8 +17,8 @@
 
 ## What Players Should Expect
 
-### 1. Regional Crises & 41-Event Matrix
-* **41 dynamic encounters** spanning 11 categories: `WAR` (5), `FAMINE` (5), `PLAGUE` (5, including `EVT_PLAGUE_RAT_SWARM` swarms), `OCCULT` (5, including `EVT_WITCH_COVEN_ASSAULT`), `CRIME` (4), `FAITH` (4), `POLITICS` (3), `COMMERCE` (2), `HOLIDAY` (4), `ARCANE` (1), and `MUNDANE` (3).
+### 1. Regional Crises & 42-Event Matrix
+* **42 dynamic encounters** spanning 12 categories: `WAR` (5), `FAMINE` (5), `PLAGUE` (5, including `EVT_PLAGUE_RAT_SWARM` swarms), `OCCULT` (5, including `EVT_WITCH_COVEN_ASSAULT`), `CRIME` (4), `FAITH` (4), `POLITICS` (3), `COMMERCE` (2), `HOLIDAY` (4), `ARCANE` (1), `MUNDANE` (3), and the crisis-independent **`UNDEAD_HORDE`** (`EVT_UNDEAD_HORDE_INVASION` in settlements + wilderness hordes: base `15` undead scaled `15 / 30 / 60` by `livingEncounterScale` in waves of up to `20` active led by a Necromancer boss, with obelisk-shatter 1-on-1 duel and 50% crumble on boss death).
 * **Climate/Region & Level-Gated Attacker Pools:** Encounter monsters scale dynamically with player level and regional climate (`isSouthernDesertRegion`) - e.g. Sabertooth Tigers / Giant Scorpions in southern deserts vs. Grizzly Bears / Wereboars / Giants elsewhere, and escalating undead/occult/Daedra tiers at levels `6+`, `11+`, and `14+`.
 * **12 Thematic Prop Sets & Destructible Props:** Urban skirmishes spawn themed 3D/flat props (`MILITARY_BARRICADE`, `PRISONER_CAGE`, `GRANARY_MARKET`, `CAULDRON_STATION`, `PLAGUE_PYRE`, `WATER_WELL_SITE`, `MONUMENT_STATUE`, `OCCULT_RITUAL`, `CRIME_HEIST`, `FARM_HOMESTEAD`, `GRAVEYARD_CRYPT`, `TEMPLE_SANCTUARY`) plus solid tent/pavilion colliders (`41606`/`41607`). Siding with attackers in events like `EVT_NEW_RULER_STATUE_UNVEILING` or `EVT_PLAGUE_WATER_WELL_SCARE` physically topples or smashes those scene props.
 * Encounters match your location type, active regional crises, and settlement prosperity (`LOW`, `MID`, `HIGH` based on building quality).

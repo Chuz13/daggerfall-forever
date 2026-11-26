@@ -35,7 +35,7 @@ const TO_PORT_SETTINGS = Object.freeze({
 });
 
 test('Stage2-Fix1: EVT_WAR_ORSINIUM_RAID restricted to Iliac Bay + High Rock + Hammerfell (0..63), excluded in Skyrim & far provinces', () => {
-  assert.equal(CRISIS_EVENTS.length, 41);
+  assert.equal(CRISIS_EVENTS.length, 42);
   const regs = [17, 20, 62, 63, 64, 65, 66, 69, 70];
   clearCrises(regs);
   try {

@@ -17,8 +17,14 @@ import { REGION_NAMES, REGION_RACES, CLIMATES } from '../../formats/mapsTables.j
 import { getLocalizedRegionName, t } from '../textManager.js';
 import { LIVING_WORDS } from './livingWords.js';
 import { getRegionNeighbors } from './tamrielNeighbors.js';
-import { SKILLS } from '../skills.js';
+import { SKILLS, skillValue } from '../skills.js';
 import { REGION_FLAGS } from '../region/regionConditions.js';
+import { getLivingEncounterScale } from './livingConfig.js';
+import {
+  UNDEAD_HORDE_EVENT_ID,
+  computeUndeadHordeCounts,
+  buildUndeadHordeRoster,
+} from './undeadHorde.js';
 import {
   CRISIS_TYPE,
   getActiveCrises,
@@ -995,6 +1001,83 @@ export const CRISIS_EVENTS = Object.freeze([
       { text: t('living.choice.EVT_TAVERN_CHESS_WAGER.4', '4. Propose a friendly stalemate and buy a pitcher of wine (20 gold)'), stance: 'peace', goldCost: 20, repF1: 5, repF2: 5, xp: 60 },
     ],
   },
+
+  // ── 12. CRISIS-INDEPENDENT WORLD INVASIONS (1) ─────────────────────────────
+  {
+    id: UNDEAD_HORDE_EVENT_ID,
+    name: 'Undead Horde Invasion',
+    category: 'UNDEAD_HORDE',
+    propTheme: SKIRMISH_PROP_THEME.OCCULT_RITUAL,
+    crisisIndependent: true,
+    hordeEvent: true,
+    swarmAttackers: true,
+    crisisTypes: [],
+    regionFlags: [],
+    locationTypes: [
+      LOCATION_TYPES.TownCity,
+      LOCATION_TYPES.TownVillage,
+      LOCATION_TYPES.TownHamlet,
+      LOCATION_TYPES.Graveyard,
+      LOCATION_TYPES.ReligionTemple,
+      LOCATION_TYPES.HomeFarms,
+    ],
+    baseDefenders: 4,
+    baseAttackers: 15,
+    defendersPool: [
+      MOBILE_TYPES.Knight_CityWatch,
+      MOBILE_TYPES.Knight,
+      MOBILE_TYPES.Monk,
+      MOBILE_TYPES.Healer,
+      MOBILE_TYPES.Battlemage,
+    ],
+    attackersPool: [
+      MOBILE_TYPES.SkeletalWarrior,
+      MOBILE_TYPES.Zombie,
+      MOBILE_TYPES.Ghost,
+      MOBILE_TYPES.Mummy,
+      MOBILE_TYPES.Wraith,
+      MOBILE_TYPES.FleshAtronach,
+    ],
+    getFactionNames: (reg) => {
+      const r = Number.isInteger(reg) ? getLocalizedRegionName(reg, () => REGION_NAMES[reg] ?? '') : (reg || 'Town');
+      return { f1: LIVING_WORDS.factionDefenders(r), f2: LIVING_WORDS.undeadHordeFaction() };
+    },
+    getChoices: (f1, f2) => {
+      const counts = computeUndeadHordeCounts(getLivingEncounterScale());
+      return [
+        {
+          text: t('living.choice.EVT_UNDEAD_HORDE_INVASION.1', '1. Hold the line with [{f1}] against the horde', { f1 }),
+          stance: 'defenders',
+          goldReward: counts.goldReward,
+          repF1: 10,
+          xp: 200,
+        },
+        {
+          text: t('living.choice.EVT_UNDEAD_HORDE_INVASION.2', '2. Side with [{f2}] and slaughter the defenders', { f2 }),
+          stance: 'attackers',
+          repF1: -15,
+          repF2: 10,
+          bountyHostile: true,
+          taintDelta: 10,
+        },
+        {
+          text: t('living.choice.EVT_UNDEAD_HORDE_INVASION.3', '3. Stay out of the slaughter and watch'),
+          stance: 'neutral',
+        },
+        {
+          text: t(
+            'living.choice.EVT_UNDEAD_HORDE_INVASION.4',
+            '4. Shatter the ritual obelisk to banish the horde & duel the Necromancer (Restoration / Mysticism)',
+          ),
+          stance: 'peace',
+          duelBossOnSuccess: true,
+          skillCheck: { skill: SKILLS.Restoration, altSkill: SKILLS.Mysticism, target: 55 },
+          repF1: 8,
+          xp: 220,
+        },
+      ];
+    },
+  },
 ]);
 
 /**
@@ -1071,6 +1154,10 @@ export function resolveEventAttackersPool(
     const pool = [MOBILE_TYPES.Mage, MOBILE_TYPES.Imp, MOBILE_TYPES.FireAtronach, MOBILE_TYPES.IronAtronach];
     if (lvl >= 11) pool.push(MOBILE_TYPES.IceAtronach, MOBILE_TYPES.FleshAtronach, MOBILE_TYPES.Gargoyle);
     return pool;
+  }
+
+  if (id === UNDEAD_HORDE_EVENT_ID) {
+    return buildUndeadHordeRoster(12, { playerLevel: lvl, regionIndex, climateIndex });
   }
 
   return base;
@@ -1229,7 +1316,22 @@ export function resolveCrisisChoiceCheck(
     };
   }
 
-  const skillId = choice.skillCheck.skill;
+  let skillId = choice.skillCheck.skill;
+  if (choice.skillCheck.altSkill != null && playerEntity) {
+    let primaryVal = 0;
+    let altVal = 0;
+    try {
+      primaryVal = Number(skillValue(playerEntity, skillId) ?? 0);
+    } catch {
+      primaryVal = 0;
+    }
+    try {
+      altVal = Number(skillValue(playerEntity, choice.skillCheck.altSkill) ?? 0);
+    } catch {
+      altVal = 0;
+    }
+    if (altVal > primaryVal) skillId = choice.skillCheck.altSkill;
+  }
   const target = Number(choice.skillCheck.target ?? 45);
   let formulaId = 'CRISIS_SPECIALIST';
   if (skillId === SKILLS.Etiquette) formulaId = 'SOCIAL_DIPLOMACY';
