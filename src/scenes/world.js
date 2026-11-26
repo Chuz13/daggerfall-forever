@@ -16,6 +16,7 @@ import { FORK_FLAGS } from '../config/forkFlags.js';
 import { discoverMods } from '../systems/mods/modRegistry.js';
 import { syncModData } from '../systems/mods/modDataSync.js';
 import { loadActiveModPlugins } from '../systems/mods/modPluginLoader.js';
+import { setModApiContext } from '../systems/mods/modPluginApi.js';
 import { resetPlayerGpsState } from '../world/playerGps.js';   // AUDIT DEX C1: PlayerGPS.ResetState, the jump core's
 import { restAilmentLines } from '../systems/rest/restWarning.js';   // REST-WARN
 import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
@@ -1416,6 +1417,7 @@ export const BOSS_COUNT_FELL_TEXT = 'The fight counts you fallen.';
 export async function bootWorld(canvas, renderer, params, status) {
   if (FORK_FLAGS.ENABLE_MODS) {
     try {
+      setModApiContext({ player: playerEntity });
       discoverMods();
       syncModData();
       void loadActiveModPlugins();

@@ -607,12 +607,64 @@ export const STATUS_GLYPHS = Object.freeze({
     ],
   }),
 });
+
+export const MOD_STATUS_GLYPHS = Object.freeze({
+  arcane: Object.freeze({
+    pal: { a: '#62e0ff', b: '#e8fbff', c: '#8d5cff', d: '#3b1e8a' },
+    rows: [
+      '.......kk.......',
+      '......kbbk......',
+      '......kaak......',
+      '.....kcbbck.....',
+      '....kcaaaack....',
+      '..kkccabbacckk..',
+      '.kbbaabbbbaabbk.',
+      'kbaaabbbbbbaaabk',
+      '.kbbaabbbbaabbk.',
+      '..kkccabbacckk..',
+      '....kcaaaack....',
+      '.....kcbbck.....',
+      '......kaak......',
+      '......kddk......',
+      '.......kk.......',
+      '................',
+    ],
+  }),
+  stealth: Object.freeze({
+    pal: { a: '#9aa4c2', b: '#e2e8ff', c: '#5e4b8b', d: '#2b2242' },
+    rows: [
+      '.....kkkkkk.....',
+      '...kkcccccckk...',
+      '..kccddddddcck..',
+      '.kcddddddddddck.',
+      '.kcddkkkkkkddck.',
+      'kcdkk......kkdck',
+      'kcdk.kbbk....dck',
+      'kcdk.kbaak...dck',
+      'kcdk..kbbk...dck',
+      '.kcdk.......dck.',
+      '.kccdkkkkkkdcck.',
+      '..kccddddddcck..',
+      '...kkcccccckk...',
+      '.....kcccck.....',
+      '......kkkk......',
+      '................',
+    ],
+  }),
+});
+
+const resolveGlyph = (name) =>
+  Object.hasOwn(STATUS_GLYPHS, name)
+    ? STATUS_GLYPHS[name]
+    : Object.hasOwn(MOD_STATUS_GLYPHS, name)
+      ? MOD_STATUS_GLYPHS[name]
+      : null;
 /** The kit's outline black (ui/enhanced/enhancedFrame.js FRAME_TONES.outline). */
 const OUTLINE = '#050608';
 
 /** A glyph as an SVG on its 16px grid - one rect a run of a colour along a row - or null for a name there is none of. */
 export function statusGlyphSvg(name) {
-  const g = Object.hasOwn(STATUS_GLYPHS, name) ? STATUS_GLYPHS[name] : null;
+  const g = resolveGlyph(name);
   if (!g) return null;
   let body = '';
   g.rows.forEach((row, y) => {
@@ -630,7 +682,7 @@ export function statusGlyphSvg(name) {
 /** TELL9: a glyph as Color32 pixels on its 16px grid (`{ width, height, colors }`, RGBA, '.' clear) - the classic row's
  *  texture (ui/hud/hudActiveSpells.js), or null for a name there is none of. */
 export function statusGlyphColor32(name) {
-  const g = Object.hasOwn(STATUS_GLYPHS, name) ? STATUS_GLYPHS[name] : null;
+  const g = resolveGlyph(name);
   if (!g) return null;
   const colors = new Uint32Array(16 * 16);
   const u8 = new Uint8Array(colors.buffer);
@@ -741,6 +793,7 @@ export function statusTiles({
   mentor = null,
   blessing = null,
   roadIntel = null,
+  modChips = [],
 } = {}) {
   /** @type {StatusTile[]} */
   const out = [];
@@ -847,6 +900,22 @@ export function statusTiles({
   // beside Boons' Well rested, a bank of sleep and not a countdown; this is the wait until a night can pass again
   if (rested?.minutes > 0)
     tile({ key: 'rested', kind: 'buff', name: 'Next night', foot: `${rested.minutes}m`, glyph: 'rested' });
+  for (const c of modChips) {
+    if (!c) continue;
+    const glyph = typeof c.glyph === 'string' && resolveGlyph(c.glyph) ? c.glyph : 'blessing';
+    tile({
+      key: String(c.key ?? `mod:${c.id ?? 'chip'}`),
+      kind: ['buff', 'debuff', 'set', 'warn', 'danger'].includes(c.kind) ? c.kind : 'buff',
+      name: String(c.name ?? ''),
+      glyph,
+      foot: c.foot != null && c.foot !== '' ? String(c.foot) : null,
+      blink: !!c.blink,
+      say: c.say != null ? String(c.say) : null,
+      modMeta: c.meta != null ? String(c.meta) : null,
+      modLines: Array.isArray(c.lines) ? c.lines.map(String) : null,
+      modFoot: c.tipFoot != null ? String(c.tipFoot) : null,
+    });
+  }
   return out;
 }
 

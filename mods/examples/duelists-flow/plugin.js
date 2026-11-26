@@ -15,6 +15,29 @@ export default function init(api) {
   let lastHitTimestamp = 0;
   const COMBO_TIMEOUT_MS = 6000; // 6 seconds between swings to keep momentum
 
+  function syncFlowChip() {
+    if (currentStreak < 2) {
+      api.ui.clearStatusChip?.('flow');
+      return;
+    }
+    const hasPerk = api.perks.has('duelists_trance');
+    api.ui.setStatusChip?.('flow', {
+      name: "Duelist's Flow",
+      kind: hasPerk ? 'set' : 'buff',
+      glyph: 'wild',
+      foot: `x${currentStreak}`,
+      meta: 'Combat combo',
+      lines: [
+        `Active streak: ${currentStreak} consecutive hits.`,
+        'Milestones restore HP & Fatigue (x3: +12 FP, x5: +5 HP/+25 FP, x7+: +10 HP/+35 FP).',
+        hasPerk
+          ? "Duelist's Trance active: +5% hit chance, halved miss penalty (-5 FP)."
+          : 'Reach x10 streak to unlock Duelist\'s Trance (+5% hit chance).',
+      ],
+      tipFoot: '6s window',
+    });
+  }
+
   // 2. Listen to combat attack resolutions
   api.events.on('combatAttackResolved', (evt) => {
     const { attacker, hit } = evt;
@@ -64,6 +87,7 @@ export default function init(api) {
         api.perks.unlock('duelists_trance');
         api.ui.notify(api.ui.t('combo.feat_unlocked', 'FEAT ACCOMPLISHED: Duelist\'s Trance unlocked!'));
       }
+      syncFlowChip();
     } else {
       // Missed swing: break flow if combo was active
       if (currentStreak >= 2) {
@@ -74,14 +98,18 @@ export default function init(api) {
         api.ui.notify(api.ui.t('combo.broken_drain', 'Rhythm lost! (-{drain} FP)', { drain }));
       }
       currentStreak = 0;
+      syncFlowChip();
     }
   });
 
-  // 3. Reset combo on scene transitions or rests
-  api.events.on('worldTick', () => {
+  // 3. Reset combo on scene transitions, rests, or 6s inactivity
+  const checkDecay = () => {
     if (currentStreak > 0 && Date.now() - lastHitTimestamp > COMBO_TIMEOUT_MS) {
       currentStreak = 0;
+      syncFlowChip();
     }
-  });
+  };
+  api.events.on('worldTick', checkDecay);
+  api.events.on('secondTick', checkDecay);
 }
 

@@ -1,0 +1,10 @@
+{
+  "id": "arcane-overload",
+  "name": "Arcane Overload",
+  "version": "1.0.0",
+  "author": "13",
+  "description": "Each spell cast builds Arcane Overload (1-4 stacks), boosting cast speed and spell power at higher mana cost until the 4th stack makes the next spell free. Includes live HUD status chip and console test commands.",
+  "enabled": true,
+  "locales": "locales.json",
+  "entry": "plugin.js"
+}

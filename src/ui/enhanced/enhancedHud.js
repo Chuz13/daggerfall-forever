@@ -119,6 +119,7 @@ import { getInteractionMode } from '../../player/interactionMode.js';
 import { tickHudLayout, hudArranging } from '../hud/hudLayout.js';
 import { bindHudTips, showHudTip, hideHudTip, hudTipShowing } from '../hud/hudTip.js';   // HUD-TIP: the status tiles' hover cards, the pack's own card
 import { statusTip, madeRulesTile } from '../hud/statusTips.js';
+import { getModStatusChips, getModStatusChipsVersion } from '../../systems/mods/modPluginApi.js';
 import { mentorHudTile } from '../../systems/mentorText.js';   // MENTOR2: mentoring's tile, read off the entity
 import { madeLevelHere } from '../../systems/madeLevel.js';   // EVENT-RULES: the made level under the player - its rules' tile
 import { regenPausedMs } from '../../systems/courtRules.js';
@@ -1565,6 +1566,10 @@ function drawStatus(vitals, opts, live = null) {
   if (roadIntelChip) {
     all.unshift(...statusTiles({ roadIntel: roadIntelChip }));
   }
+  const modChips = getModStatusChips();
+  if (modChips.length) {
+    all.unshift(...statusTiles({ modChips }));
+  }
   // a new window size or HUD scale is a new band at once (AUDIT UI C: a rotation left the old band for half a second)
   const vp = `${globalThis.innerWidth}x${globalThis.innerHeight}x${last.scale ?? 1}`;
   if (last.statVp !== vp) { last.statVp = vp; last.statTick = -1; }
@@ -1582,7 +1587,7 @@ function drawStatus(vitals, opts, live = null) {
   const top = side ? `${last.statSideOffset ?? 0}px` : '';   // beside the diamond: from under what stands above
   if (last.statTop !== top) { last.statTop = top; parts.stat.style.top = top; }
   const dpr = clampDpr(screenDpr() * (last.scale ?? 1));   // the block rides the HUD's scale: a spell's icon is fitted at it
-  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.shield ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}:${t.endable ? t.bundle : ''}`).join('|')}#${dpr}#${metrics.pic}`;   // BUFF-END: a tile's bundle rides the key - it is what a right-click ends   // AUDIT UI C: the ratio, not the scale alone - a zoom or a new monitor refits
+  const key = `${tiles.map((t) => `${t.key}:${t.kind}:${t.name}:${t.foot ?? ''}:${t.shield ?? ''}:${t.blink ? 1 : 0}:${t.item ? 1 : 0}:${t.recovering ? 1 : 0}:${t.spell ?? ''}:${t.glyph ?? ''}:${t.set ?? ''}:${t.endable ? t.bundle : ''}`).join('|')}#${dpr}#${metrics.pic}#m${getModStatusChipsVersion()}`;   // BUFF-END: a tile's bundle rides the key - it is what a right-click ends   // AUDIT UI C: the ratio, not the scale alone - a zoom or a new monitor refits
   if (last.stat === key) return;
   last.stat = key;
   parts.stat.replaceChildren(...tiles.map((t) => statTile(t, dpr, metrics.pic)));

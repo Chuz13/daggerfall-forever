@@ -170,9 +170,31 @@ export function unregisterPreventRestCondition(handler) {
 
 /** GetPreventedRestMessage (:641-653) - the FIRST condition that
  *  answers true speaks; null when none do. */
+const _modPreventRestConditions = new Map(); // key -> { handler, message }
+
+export function registerModPreventRestCondition(key, handler, message) {
+  if (!key) return;
+  if (typeof handler === 'function') {
+    _modPreventRestConditions.set(String(key), { handler, message: message == null ? '' : String(message) });
+  } else {
+    _modPreventRestConditions.delete(String(key));
+  }
+}
+
+export function clearModPreventRestConditions() {
+  _modPreventRestConditions.clear();
+}
+
 export function getPreventedRestMessage() {
   for (const [handler, message] of preventRestConditions) {
     if (handler()) return message;
+  }
+  for (const { handler, message } of _modPreventRestConditions.values()) {
+    try {
+      if (handler()) return message;
+    } catch {
+      /* a mod rest gate must not break resting */
+    }
   }
   return null;
 }

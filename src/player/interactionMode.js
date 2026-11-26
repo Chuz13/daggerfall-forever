@@ -49,11 +49,29 @@ export const MODE_ACTIONS = Object.freeze({
 });
 
 let _mode = 'grab'; // PlayerActivate.cs:70 - PlayerActivateModes.Grab
+const _modeListeners = new Set();
+
+export function onInteractionModeChange(fn) {
+  if (typeof fn !== 'function') return () => {};
+  _modeListeners.add(fn);
+  return () => _modeListeners.delete(fn);
+}
 
 export const getInteractionMode = () => _mode;
-export function setInteractionMode(m) {
+export function setInteractionMode(m, meta = undefined) {
   if (!MODES.includes(m)) return false;
+  const prev = _mode;
   _mode = m;
+  if (m !== prev && _modeListeners.size > 0) {
+    const evt = { mode: m, prev, source: meta?.source ?? 'player' };
+    for (const fn of [..._modeListeners]) {
+      try {
+        fn(evt);
+      } catch (e) {
+        console.warn('[interactionMode] listener threw:', e?.message ?? e);
+      }
+    }
+  }
   return true;
 }
 

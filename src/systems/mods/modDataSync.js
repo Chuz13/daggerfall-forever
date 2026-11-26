@@ -11,6 +11,7 @@ import { POTION_RECIPES } from '../potionRecipes.js';
 import { overridePotionRecipes } from '../potions.js';
 import { isPlate, isChain, isLeather, plateMetal, registerMaterialArmorResolver, registerQualityArmorModifierResolver } from '../armorMaterials.js';
 import { ENEMY_GROUPS, enemyEntityGroup } from '../../combat/enemyGroups.js';
+import { setModLocaleStrings, clearModLocaleStrings } from '../textManager.js';
 
 export const VANILLA_WEAPON_MATERIAL_MODIFIER = Object.freeze([-1, 0, 0, 1, 2, 3, 3, 4, 5, 6]);
 export const REBALANCED_WEAPON_MATERIAL_MODIFIER = Object.freeze([0, 0, 0, 1, 1, 2, 2, 3, 3, 4]);
@@ -92,6 +93,7 @@ export function syncModData() {
     chain: 6,
     plate: [7, 8, 8, 9, 10, 11, 11, 12, 13, 14],
   };
+  clearModLocaleStrings();
   const activeMods = getActiveMods();
 
   // 1. Sync Combat Overrides
@@ -185,6 +187,28 @@ export function syncModData() {
 
   registerMaterialArmorResolver(getEffectiveMaterialArmorValue);
   registerQualityArmorModifierResolver(getQualityArmorModifier);
+
+  // 5. Sync Autonomous Mod Locales
+  for (const mod of activeMods) {
+    const localesFile = mod.manifest?.locales;
+    if (localesFile) {
+      const raw = readModFile(mod.id, localesFile);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            for (const [lang, dict] of Object.entries(parsed)) {
+              if (dict && typeof dict === 'object') {
+                setModLocaleStrings(lang, dict);
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`[ModDataSync] Failed to parse locales data in mod ${mod.id}:`, e);
+        }
+      }
+    }
+  }
 
   _synced = true;
 }
@@ -613,4 +637,5 @@ export function _resetModDataSync() {
   registerQualityArmorModifierResolver(getQualityArmorModifier);
   _synced = false;
   overridePotionRecipes(null);
+  clearModLocaleStrings();
 }

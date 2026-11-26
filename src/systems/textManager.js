@@ -219,10 +219,48 @@ export function localeDocument(kind, name, code = _locale) {
   return null;
 }
 
+const _modPortTables = new Map(); // locale -> Map<key, value>
+
+/** Overlay autonomous mod translations onto Port_Strings without mutating core _tables. */
+export function setModLocaleStrings(locale, entries) {
+  if (!locale) return 0;
+  let map = _modPortTables.get(locale);
+  if (!map) {
+    map = new Map();
+    _modPortTables.set(locale, map);
+  }
+  let n = 0;
+  for (const [k, v] of entries instanceof Map ? entries : Object.entries(entries ?? {})) {
+    if (v != null) {
+      map.set(String(k), String(v));
+      n++;
+    }
+  }
+  if (n) {
+    _listCache.clear();
+    _revision++;
+  }
+  return n;
+}
+
+export function clearModLocaleStrings() {
+  if (_modPortTables.size) {
+    _modPortTables.clear();
+    _listCache.clear();
+    _revision++;
+  }
+}
+
 /** TextProvider.GetLocalizedString's table read, over the locale chain: the first locale whose table `name` holds
  *  `key`. Answers undefined when none does. */
 function readTable(name, key, chain = localeChain()) {
   const k = String(key);
+  if (name === DEFAULT_COLLECTION_NAMES.Port && _modPortTables.size > 0) {
+    for (const loc of chain) {
+      const mv = _modPortTables.get(loc)?.get(k);
+      if (mv !== undefined) return mv;
+    }
+  }
   for (const loc of chain) {
     const v = _tables.get(loc)?.get(name)?.get(k);
     if (v !== undefined) return v;

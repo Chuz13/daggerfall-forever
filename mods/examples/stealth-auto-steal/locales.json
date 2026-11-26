@@ -1,0 +1,184 @@
+{
+  "en": {
+    "sas.chip.name": "Auto-Steal",
+    "sas.chip.meta": "Stealth mod",
+    "sas.chip.foot": "STEAL",
+    "sas.chip.line.active": "Interaction mode switched to Steal while crouching/sneaking.",
+    "sas.chip.line.restore": "Standing up will restore {mode} mode."
+  },
+  "ru": {
+    "sas.chip.name": "Авто-кража",
+    "sas.chip.meta": "Мод скрытности",
+    "sas.chip.foot": "КРАЖА",
+    "sas.chip.line.active": "Режим взаимодействия переключён на Кражу в приседе/скрытности.",
+    "sas.chip.line.restore": "При вставании вернётся режим: {mode}."
+  },
+  "uk": {
+    "sas.chip.name": "Авто-крадіжка",
+    "sas.chip.meta": "Мод прихованості",
+    "sas.chip.foot": "КРАДІЖКА",
+    "sas.chip.line.active": "Режим взаємодії перемкнуто на Крадіжку в присіді/прихованості.",
+    "sas.chip.line.restore": "Після вставання повернеться режим: {mode}."
+  },
+  "bg": {
+    "sas.chip.name": "Авто-кражба",
+    "sas.chip.meta": "Мод за скритост",
+    "sas.chip.foot": "КРАЖБА",
+    "sas.chip.line.active": "Режимът на взаимодействие е превключен на Кражба при клякане/промъкване.",
+    "sas.chip.line.restore": "При изправяне ще се върне режим: {mode}."
+  },
+  "cs": {
+    "sas.chip.name": "Auto-krádež",
+    "sas.chip.meta": "Mód plížení",
+    "sas.chip.foot": "KRÁST",
+    "sas.chip.line.active": "Režim interakce přepnut na Krádež při přikrčení/plížení.",
+    "sas.chip.line.restore": "Po postavení se obnoví režim: {mode}."
+  },
+  "da": {
+    "sas.chip.name": "Auto-stjæl",
+    "sas.chip.meta": "Snige-mod",
+    "sas.chip.foot": "STJÆL",
+    "sas.chip.line.active": "Interaktionstilstand skiftet til Stjæl under hug/snigen.",
+    "sas.chip.line.restore": "Når du rejser dig, gendannes {mode}-tilstand."
+  },
+  "de": {
+    "sas.chip.name": "Auto-Diebstahl",
+    "sas.chip.meta": "Schleich-Mod",
+    "sas.chip.foot": "STEHLEN",
+    "sas.chip.line.active": "Interaktionsmodus beim Ducken/Schleichen auf Stehlen gestellt.",
+    "sas.chip.line.restore": "Beim Aufstehen wird der Modus {mode} wiederhergestellt."
+  },
+  "el": {
+    "sas.chip.name": "Αυτόματη Κλοπή",
+    "sas.chip.meta": "Mod απόκρυψης",
+    "sas.chip.foot": "ΚΛΟΠΗ",
+    "sas.chip.line.active": "Η λειτουργία αλληλεπίδρασης άλλαξε σε Κλοπή κατά το σκύψιμο.",
+    "sas.chip.line.restore": "Όταν σηκωθείτε θα επανέλθει η λειτουργία {mode}."
+  },
+  "es": {
+    "sas.chip.name": "Auto-Robo",
+    "sas.chip.meta": "Mod de sigilo",
+    "sas.chip.foot": "ROBAR",
+    "sas.chip.line.active": "Modo de interacción cambiado a Robar al agacharse/sigilo.",
+    "sas.chip.line.restore": "Al levantarse se restaurará el modo {mode}."
+  },
+  "fi": {
+    "sas.chip.name": "Automaattivarkaus",
+    "sas.chip.meta": "Hiipimismodi",
+    "sas.chip.foot": "VARASTA",
+    "sas.chip.line.active": "Vuorovaikutustila vaihdettu varkauteen kyykyssä/hiipiessä.",
+    "sas.chip.line.restore": "Seisomaan noustessa palautetaan tila: {mode}."
+  },
+  "fr": {
+    "sas.chip.name": "Vol automatique",
+    "sas.chip.meta": "Mod discrétion",
+    "sas.chip.foot": "VOLER",
+    "sas.chip.line.active": "Mode d'interaction passé sur Voler en position accroupie/furtive.",
+    "sas.chip.line.restore": "En vous relevant, le mode {mode} sera rétabli."
+  },
+  "hu": {
+    "sas.chip.name": "Auto-lopás",
+    "sas.chip.meta": "Lopakodó mod",
+    "sas.chip.foot": "LOPÁS",
+    "sas.chip.line.active": "Az interakciós mód Lopásra váltott guggolás/lopakodás közben.",
+    "sas.chip.line.restore": "Felálláskor visszaáll a(z) {mode} mód."
+  },
+  "id": {
+    "sas.chip.name": "Auto-Curi",
+    "sas.chip.meta": "Mod mengendap",
+    "sas.chip.foot": "CURI",
+    "sas.chip.line.active": "Mode interaksi diubah ke Curi saat berjongkok/mengendap.",
+    "sas.chip.line.restore": "Berdiri akan mengembalikan mode {mode}."
+  },
+  "it": {
+    "sas.chip.name": "Furto Automatico",
+    "sas.chip.meta": "Mod furtività",
+    "sas.chip.foot": "RUBA",
+    "sas.chip.line.active": "Modalità interazione impostata su Ruba da accovacciato/furtivo.",
+    "sas.chip.line.restore": "Alzandoti verrà ripristinata la modalità {mode}."
+  },
+  "ja": {
+    "sas.chip.name": "自動スリ",
+    "sas.chip.meta": "隠密MOD",
+    "sas.chip.foot": "盗む",
+    "sas.chip.line.active": "しゃがみ・隠密中は操作モードが「盗む」に切り替わります。",
+    "sas.chip.line.restore": "立ち上がると {mode} モードに戻ります。"
+  },
+  "ko": {
+    "sas.chip.name": "자동 훔치기",
+    "sas.chip.meta": "은신 모드",
+    "sas.chip.foot": "훔치기",
+    "sas.chip.line.active": "앉기/은신 중에 상호작용 모드가 훔치기로 전환됩니다.",
+    "sas.chip.line.restore": "일어서면 {mode} 모드로 복원됩니다."
+  },
+  "nb": {
+    "sas.chip.name": "Auto-stjel",
+    "sas.chip.meta": "Snike-mod",
+    "sas.chip.foot": "STJEL",
+    "sas.chip.line.active": "Interaksjonsmodus byttet til Stjel mens du huker/sniker.",
+    "sas.chip.line.restore": "Når du reiser deg, gjenopprettes {mode}-modus."
+  },
+  "nl": {
+    "sas.chip.name": "Auto-Stelen",
+    "sas.chip.meta": "Sluip-mod",
+    "sas.chip.foot": "STEEL",
+    "sas.chip.line.active": "Interactiemodus naar Stelen geschakeld tijdens bukken/sluipen.",
+    "sas.chip.line.restore": "Bij opstaan wordt modus {mode} hersteld."
+  },
+  "pl": {
+    "sas.chip.name": "Auto-Kradzież",
+    "sas.chip.meta": "Mod skradania",
+    "sas.chip.foot": "KRADZIEŻ",
+    "sas.chip.line.active": "Tryb interakcji przełączony na Kradzież podczas kucania/skradania.",
+    "sas.chip.line.restore": "Po wstaniu zostanie przywrócony tryb {mode}."
+  },
+  "pt-BR": {
+    "sas.chip.name": "Furto Automático",
+    "sas.chip.meta": "Mod de furtividade",
+    "sas.chip.foot": "ROUBAR",
+    "sas.chip.line.active": "Modo de interação alterado para Roubar ao agachar/furtivo.",
+    "sas.chip.line.restore": "Ao levantar, o modo {mode} será restaurado."
+  },
+  "ro": {
+    "sas.chip.name": "Furt Automat",
+    "sas.chip.meta": "Mod furișare",
+    "sas.chip.foot": "FURĂ",
+    "sas.chip.line.active": "Modul de interacțiune a trecut pe Fură în ghemuit/furișare.",
+    "sas.chip.line.restore": "La ridicare va reveni modul {mode}."
+  },
+  "sv": {
+    "sas.chip.name": "Auto-stjäla",
+    "sas.chip.meta": "Smyg-mod",
+    "sas.chip.foot": "STJÄL",
+    "sas.chip.line.active": "Interaktionsläget växlades till Stjäla vid hukning/smygande.",
+    "sas.chip.line.restore": "När du reser dig återställs {mode}-läget."
+  },
+  "tr": {
+    "sas.chip.name": "Oto-Çalma",
+    "sas.chip.meta": "Gizlilik modu",
+    "sas.chip.foot": "ÇAL",
+    "sas.chip.line.active": "Eğilirken/gizlenirken etkileşim modu Çalma olarak değiştirildi.",
+    "sas.chip.line.restore": "Ayağa kalkınca {mode} modu geri yüklenir."
+  },
+  "vi": {
+    "sas.chip.name": "Tự Động Trộm",
+    "sas.chip.meta": "Mod ẩn thân",
+    "sas.chip.foot": "TRỘM",
+    "sas.chip.line.active": "Chế độ tương tác đã chuyển sang Trộm khi cúi/lén lút.",
+    "sas.chip.line.restore": "Khi đứng dậy sẽ khôi phục chế độ {mode}."
+  },
+  "zh-Hans": {
+    "sas.chip.name": "潜行自动偷窃",
+    "sas.chip.meta": "潜行模组",
+    "sas.chip.foot": "偷窃",
+    "sas.chip.line.active": "蹲伏/潜行时交互模式已自动切换为偷窃。",
+    "sas.chip.line.restore": "站起后将恢复为 {mode} 模式。"
+  },
+  "zh-Hant": {
+    "sas.chip.name": "潛行自動偷竊",
+    "sas.chip.meta": "潛行模組",
+    "sas.chip.foot": "偷竊",
+    "sas.chip.line.active": "蹲伏/潛行時互動模式已自動切換為偷竊。",
+    "sas.chip.line.restore": "站起後將恢復為 {mode} 模式。"
+  }
+}
