@@ -2,6 +2,8 @@
 // edge extension, soft rigid-weapon PCA rotation, and multi-tap motion blur
 // for all 2D first-person weapon lanes (classic, Weapon Widget, Two-Hands,
 // Diverse Weapons). Preserves classic frame timing and hit frames 1:1.
+// Inspired by "Smooth Weapon Animation" by Seluje (https://www.nexusmods.com/daggerfallunity/mods/1422);
+// independent clean-room implementation written from scratch for Daggerfall Forever.
 
 import { getPref } from '../../systems/uiPrefs.js';
 import { pageParam } from '../../systems/pageQuery.js';

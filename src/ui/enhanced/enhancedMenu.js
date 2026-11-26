@@ -4871,6 +4871,7 @@ function creditsCard() {
   };
   group(t('menu.credits.builtOn', 'Built on'), CREDITS.builtOn);
   group(t('menu.credits.mods', 'Mods'), CREDITS.mods);
+  if (CREDITS.inspiredBy?.length) group(t('menu.credits.inspiredBy', 'Inspired by'), CREDITS.inspiredBy);
   const languages = translationCredits();   // L10N6: whose words each language's are, a bundled pack's terms
   if (languages.length) group(t('menu.credits.translations', 'Translations'), languages);
   return c;

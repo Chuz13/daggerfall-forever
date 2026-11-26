@@ -151,3 +151,13 @@ test('WM3: the Windmills row is a real switch the mill draw reads', () => {
   }
   assert.match(read('src/world/locationLayout.js'), /layoutRmbBlock\(dfBlock, \{ enhanced, windmills \}\)/, 'and it rides through the location layout');
 });
+
+test('Inspired by: clean-room reimplementations credit the original mod author without requiring vendor/', () => {
+  assert.ok(Array.isArray(CREDITS.inspiredBy) && CREDITS.inspiredBy.length >= 1);
+  const swa = CREDITS.inspiredBy.find((m) => m.title === 'Smooth Weapon Animation' && m.author === 'Seluje');
+  assert.ok(swa, 'Smooth Weapon Animation by Seluje must be credited in CREDITS.inspiredBy');
+  for (const k of ['title', 'author', 'what', 'terms', 'link']) assert.ok(swa[k], `inspiredBy entry lacks ${k}`);
+  assert.match(swa.link, /nexusmods\.com\/daggerfallunity\/mods\/1422/);
+  const menu = read('src/ui/enhanced/enhancedMenu.js');
+  assert.match(menu, /group\(t\('menu\.credits\.inspiredBy', 'Inspired by'\), CREDITS\.inspiredBy\)/);
+});

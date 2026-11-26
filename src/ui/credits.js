@@ -1109,6 +1109,31 @@ export const CREDITS = Object.freeze({
       link: 'https://github.com/Ralzar81/MUDEX',
     }),
   ]),
+  inspiredBy: Object.freeze([
+    Object.freeze({
+      title: 'Smooth Weapon Animation',
+      author: 'Seluje',
+      get what() {
+        return t(
+          'credits.smoothWeaponAnim.what',
+          'Inspired Daggerfall Forever\u2019s Smooth weapon animation feature: continuous sub-frame sliding between 2D first-person weapon swing frames, smooth start from idle, procedural screen-edge extension, and optional motion blur while keeping classic hit timing.',
+        );
+      },
+      get terms() {
+        return t(
+          'credits.smoothWeaponAnim.terms',
+          'Independent clean-room reimplementation of the concept for Daggerfall Forever. No code or assets from the original mod are included.',
+        );
+      },
+      get contact() {
+        return t('credits.contact.nexus', '{author}, through the Nexus page ({page})', {
+          author: 'Seluje',
+          page: 'daggerfallunity mod 1422',
+        });
+      },
+      link: 'https://www.nexusmods.com/daggerfallunity/mods/1422',
+    }),
+  ]),
 });
 
 /** Names as the player's language lists them ("A, B and C"). */

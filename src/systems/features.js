@@ -860,7 +860,7 @@ export const FEATURES = Object.freeze([
     id: 'smooth-weapon-anim',
     group: 'sight',
     get title() { return t('features.smoothWeaponAnim.title', 'Smooth weapon animation'); },
-    get note() { return t('features.smoothWeaponAnim.note', 'Smoothly slides 2D first-person weapons between swing frames with soft start, optional motion blur and extended screen edges. Keeps classic hit timing. Off restores stepped frames.'); },
+    get note() { return t('features.smoothWeaponAnim.note', 'Smoothly slides 2D first-person weapons between swing frames with soft start, optional motion blur and extended screen edges. Keeps classic hit timing. Off restores stepped frames. Inspired by Seluje\u2019s Smooth Weapon Animation.'); },
     get effect() { return t('features.effect.atOnce', 'Takes effect at once.'); },
     kinds: Object.freeze(['enhanced', 'classic']),
     control: Object.freeze({
