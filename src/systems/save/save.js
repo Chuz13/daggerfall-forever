@@ -560,7 +560,7 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // back out UNCHANGED beside them. Without this the holding in
   // `restorePlayer` would only postpone the loss by one save.
   snap.spells = [
-    ...(entity.spells ?? []).map((sp) => ((sp?.custom || sp?.rri || sp?.necro || sp?.tag === 'некро' || sp?.tag === 'necro' || sp?.tags?.includes('некро')) ? JSON.parse(JSON.stringify(sp)) : sp.index)),   // AUDIT-RR F9: a mod's spell (RRI's nine, past SPELLS.STD) is serialised whole, as DFU serialises every EffectBundleSettings - an index no file answers would be held forever
+    ...(entity.spells ?? []).map((sp) => ((sp?.custom || sp?.rri || sp?.necro || sp?.modSpell || sp?.tag === 'некро' || sp?.tag === 'necro' || sp?.tags?.includes('некро')) ? JSON.parse(JSON.stringify(sp)) : sp.index)),   // AUDIT-RR F9: a mod's spell (RRI's nine, past SPELLS.STD) is serialised whole, as DFU serialises every EffectBundleSettings - an index no file answers would be held forever
     ...(entity.spellsPending ?? []),
   ];
   // E2: ITEM-PINNED entries (held enchantments) are NOT serialized -

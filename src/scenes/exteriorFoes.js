@@ -14,6 +14,7 @@
 // 13 fixed-list casters do not cast up here yet.
 
 import { ENEMY_BASICS, enemyEntityType, isClassEnemyId } from '../characters/enemy/enemyBasics.js';
+import { registerNecroCorpse } from './corpseMarker.js';
 import { setupFoeLook } from '../characters/enemy/foeLook.js';   // DEX2: SetupDemoEnemy.cs:129-151, the mobile's renderer
 import { KNIGHT_CITY_WATCH } from '../characters/mobile/mobileTypes.js';   // HALT-ONE: a peer's watchman, silent in the living watch's lane
 import { foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: what a revenant, a champion or an elite is called
@@ -1195,6 +1196,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           f.entity.goldPieces = 0;
         }
         f.lootDropped = true;
+        registerNecroCorpse(f.entity, { feet: f.ai?.feet ?? f.pos, mobileType: f.mobileType });
       } else {
         rollCorpseKit(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // KIT-ROLL: a plain foe's kit, worn by nobody now, on its ladder - before the sigils and the chime read the body
         stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds

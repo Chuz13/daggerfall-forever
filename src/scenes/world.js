@@ -782,7 +782,7 @@ import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
 import { undeadParty, initUndeadCompanionAdapter, clearAllUndeadMinions, getUndeadCapacityEntry, usedUndeadPoints, calculateUndeadCapacity, activeUndeadUpkeep } from '../systems/necromancy/undeadCapacity.js';
 import { MINION_STANCES, MINION_PROFILES, allSpawnedMinions, setAllMinionsStance, orderRecall, dismissAllMinions, detonateMinion, registerControlledReleaseHook, releaseAllControlledUndead } from '../systems/necromancy/minionController.js';
-import { corpsesNear, harvestAllFromCorpse, canHarvestCorpseWithInventory } from '../systems/necromancy/corpseRegistry.js';
+import { corpsesNear, harvestAllFromCorpse, canHarvestCorpseWithInventory, offsetCorpses, clearAllCorpses } from '../systems/necromancy/corpseRegistry.js';
 import { castCorpseExplosion } from '../systems/necromancy/necromanticSpells.js';
 import { checkRestWitchHunterAmbush, checkTravelWitchHunterAmbush, generatePurifierParty, HUNTER_TYPES } from '../systems/necromancy/witchHunters.js';
 import { getTaintTier } from '../systems/necromancy/necroTaint.js';
@@ -6990,6 +6990,19 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       playerTicker.advance(APOTHEOSIS_REBIRTH_MINUTES);
       _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
+      if (playerEntity.survival && typeof playerEntity.survival === 'object') {
+        const nowMin = Math.floor(playerTicker.ownMinutes);
+        const s = playerEntity.survival;
+        s.lastAte = nowMin;
+        s.awakeSince = nowMin;
+        s.thirst = 0;
+        s.sleepDebt = 0;
+        s.wet = 0;
+        s.exposure = 0;
+        s.stiffUntil = 0;
+        delete s.borrowed;
+        delete s.loanPool;
+      }
     } catch (e) {
       console.error('[apotheosis] ticker advance error on divine rebirth:', e);
     }
@@ -11652,12 +11665,19 @@ export async function bootWorld(canvas, renderer, params, status) {
         }
       }
     },
+    adoptControlledUndead: (minion, foe) => adoptControlledUndeadInScene(minion, foe),
     killMinionBody: (body) => {
-      if (body) {
-        body.dead = true;
-        body.corpse = false;
-        body.corpseDisabled = true;
-        body.corpseDestroyed = true;
+      if (!body) return;
+      body.dead = true;
+      body.corpse = false;
+      body.corpseDisabled = true;
+      body.corpseDestroyed = true;
+      _undeadMinionFoes.delete(body);
+      const activePool = modes?.mode === 'dungeon' ? modes?.dungeonCtx : modes?.mode === 'interior' ? modes?.interiorFoes : exteriorFoes;
+      if (activePool?.damageFoe) {
+        activePool.damageFoe(body, 99999, null, null, { fromPlayer: false, bypassShield: true });
+      } else if (exteriorFoes?.damageFoe) {
+        exteriorFoes.damageFoe(body, 99999, null, null, { fromPlayer: false, bypassShield: true });
       }
     },
   };
@@ -14723,6 +14743,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT LW-II-2 H9: AND A BAND'S HIDEOUT STOOD, let go beside the camps - its tents, fire and pile in the old frame, its
     // people the old place's. The open-world frame let it go a second later, the camp stood in the new frame meanwhile
     _livingHideoutsHost?.clear();
+    _livingSceneHost?.clear();
+    clearAllCorpses();
     // AUDIT SURV-TIERS (the third pass): AND THE CAMPS, the same frame's. A camp stands in scene space too, spared by
     // the pixel sweep (AUDIT SURV B: the pool outlives the streaming), and `state.init` below moved the origin under it
     // with no offset to ride: a tent pitched by Daggerfall stood beside the traveller in Wayrest, and the next save
@@ -16160,11 +16182,10 @@ export async function bootWorld(canvas, renderer, params, status) {
           const interruptKind = interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH
             ? LIVING_SITE_KINDS.BANDIT_CAMP
             : LIVING_SITE_KINDS.TRAVELER_REST;
-        const stealthSkill = Number(playerEntity?.skills?.stealth ?? playerEntity?.skills?.Stealth ?? 25);
         const playerLuck = liveStat(playerEntity, 'luck') || 50;
         const ambushDetectedByStealth =
           interruptedEventType === TRAVEL_EVENT_TYPE.AMBUSH &&
-          canEvadeAmbushWithStealth(stealthSkill, playerLuck, Math.random, { nowMinutes: worldMinutes() });
+          canEvadeAmbushWithStealth(playerEntity, playerLuck, Math.random, { nowMinutes: worldMinutes() });
         livingSceneHostOf().standBlueprint(buildLivingSiteBlueprint({
           kind: interruptKind,
           centerX: pf[0] + Math.sin(cam.yaw) * 14,
@@ -16670,6 +16691,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       // above), and DFU's load path deregisters rather than
       // serializes it (:464).
       if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior({ cacheScene: false, load: true });   // AUDIT REST II H1: a load, said - a Recall out of a dungeon passes cacheScene false too
+      _livingSceneHost?.clear();
+      dismissAllMinions();
+      clearAllUndeadMinions();
+      _undeadMinionFoes.clear();
+      clearAllCorpses();
       setWorldMinutes(extras.classicMinutes ?? worldMinutes());
       magic.setReadiedByIndex(extras.readiedSpellIndex ?? null, spellsByIndex);
       // Q4-v: the quest envelope rides the same slot; a pre-Q4-v save
@@ -30753,6 +30779,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');
   if (!_loadedGame) hccRuntime.handleNewGame();   // HCC: StartGameBehaviour.OnNewGame [IL_98c0]
   if (!_loadedGame) upkeep.reset();   // AUDIT STEED1: a new character, no keep to catch up
+  if (!_loadedGame) {
+    dismissAllMinions();
+    clearAllUndeadMinions();
+    _undeadMinionFoes.clear();
+    clearAllCorpses();
+  }
   if (!_loadedGame) newGameModSaveRecords();   // WA1: a new character starts from every mod's NewSaveData (systems/modSaveData.js - a recorded departure)
   legacyHost?.afterBoot();   // LEGACY1 (D9): a loaded character with no family founded offline into its own answer or its Features tile's model - online never (LEGACY-CHOICE); a born or new one's is its own
   if (legacyRealmLine) legacyOnlineHomesRead();   // LEGACY7 part five: the account's online homes (ACCOUNT-HOMES), for the line's houses
@@ -31196,8 +31228,25 @@ export async function bootWorld(canvas, renderer, params, status) {
       return count;
     },
     tele2loc: tele2locHelper,
-    enterCultSanctuary: (site, opts) => {
-      const h = cultHost?.locateSite(site?.siteKey);
+    canTeleportCultSanctuary: () => {
+      if (arenaBouts.holds()) return { ok: false, reason: ARENA_TEXT.refuse.travel };
+      if (madeRuleHere('recall') === 'refused') return { ok: false, reason: madeSaysHere('recall') || t('apotheosis.orrery.noRecall', 'Nothing answers a Recall here.') };
+      if (modes?.isApotheosisOrrery?.()) return { ok: false, reason: t('apotheosis.orrery.noRecall', 'Nothing answers a Recall in the Orrery.') };
+      return { ok: true };
+    },
+    enterCultSanctuary: async (site, opts) => {
+      if (arenaBouts.holds()) { townTalk?.say?.(ARENA_TEXT.refuse.travel); return false; }
+      if (madeRuleHere('recall') === 'refused') { madeSay('recall'); return false; }
+      if (modes?.isApotheosisOrrery?.()) { townTalk?.say?.(t('apotheosis.orrery.noRecall', 'Nothing answers a Recall in the Orrery.')); return false; }
+      if (modes?.mode === 'dungeon') modes.forceExitToExterior({ cacheScene: false });
+      let h = cultHost?.locateSite(site?.siteKey);
+      if (!h && site?.mapId != null) {
+        const town = _townOfMapId.get(Number(site.mapId) >>> 0);
+        if (town && Number.isFinite(town.px) && Number.isFinite(town.py)) {
+          await _teleportToPixel(town.px, town.py);
+          h = cultHost?.locateSite(site?.siteKey);
+        }
+      }
       return modes?.enterCultSanctuary?.(site, h ? { worldPos: h.worldPos, yaw: h.yaw, ...opts } : opts);
     },
     isNearCultHatch: (siteKey) => cultHost?.isNearSiteHatch?.(siteKey) ?? false,
@@ -34867,6 +34916,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       _livingHideoutsHost?.offsetAll(r.offset);   // AUDIT LW-II-2 H2: a band's hideout stood - its tents and its fire stood 819.2 behind every crossing
       camps.offsetAll(r.offset);   // SURV3: and the camps
       _livingSceneHost?.offsetAll(r.offset);   // LIVING-TAMRIEL: shift active 3D camp/checkpoint/skirmish meshes, flats, and lights with floating origin
+      offsetCorpses(r.offset);
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
       csaPeers.rebase(r.offset);   // CSA-J: the peers' eased places with the world

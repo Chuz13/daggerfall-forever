@@ -35,7 +35,7 @@ import { onMotorStep } from '../../player/motor.js';
 import { currentWeather, currentWeatherEnum } from '../weather/weatherSim.js';
 import { dateFromClassicMinutes } from '../gameDate.js';
 import { getModSetting, setModSetting, getModSettingsSchema, readModFile } from './modRegistry.js';
-import { registerItemUseHandler, setItemFields, mintCondition, templateByIndex } from '../item/itemTemplates.js';
+import { registerItemUseHandler, itemUseHandler, setItemFields, mintCondition, templateByIndex } from '../item/itemTemplates.js';
 import { legendaryById, applyRarity } from '../loot/lootRarity.js';
 import { getModCustomItemMeta, getModSpellRecord, getModLegendaryRecord } from './modDataSync.js';
 
@@ -817,8 +817,13 @@ export function createModApi(modId) {
             return { kind: 'text', text: 'Nothing happens.' };
           }
         };
+        const prevHandler = itemUseHandler(templateIndex);
         registerItemUseHandler(templateIndex, wrapped);
-        addModCleanup(modId, () => registerItemUseHandler(templateIndex, null));
+        addModCleanup(modId, () => {
+          if (itemUseHandler(templateIndex) === wrapped) {
+            registerItemUseHandler(templateIndex, prevHandler);
+          }
+        });
       },
       /**
        * Mint and give a template-backed item (custom or vanilla) to the player.
@@ -891,7 +896,9 @@ export function createModApi(modId) {
             (rec.name && s?.name === rec.name),
         );
         if (already) return false;
-        _playerRef.spells.push(structuredClone(rec));
+        const copy = structuredClone(rec);
+        copy.modSpell = true;
+        _playerRef.spells.push(copy);
         surfacePlayer?.();
         return true;
       },

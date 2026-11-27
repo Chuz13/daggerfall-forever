@@ -136,7 +136,7 @@ export function buildRoadIntelHudChip(nowMinutes = 0) {
  * @param {boolean} [params.sailing=false] Whether traveling by sea
  * @param {number} [params.maxInterrupts=1] Maximum interruption roll cap for the journey
  * @param {() => number} [params.rng]
- * @returns {{ shouldInterrupt: boolean, eventType: string|null, reason: string, rolls: number }}
+ * @returns {{ shouldInterrupt: boolean, eventType: string|null, reason: string, rolls: number, roadIntelActive?: boolean }}
  */
 export function evaluateTravelInterruption({
   regionIndex,
@@ -159,7 +159,7 @@ export function evaluateTravelInterruption({
 
   const root = getLivingDirectorState();
   if (!root.subsystems.travel) {
-    root.subsystems.travel = { lastInterruptMinute: -999999 };
+    root.subsystems.travel = { lastInterruptMinute: -999999, roadIntelUntilMinute: 0, roadIntelRegion: null };
   }
 
   // 1. Cooldown Failsafe Check (12 game hours)

@@ -5,9 +5,8 @@ import { Arch3dFile } from '../formats/arch3dFile.js';
 import { TextureFile, texName } from '../formats/textureFile.js';
 import { DFPalette } from '../formats/dfPalette.js';
 import { bitmapToColor32 } from '../formats/color32Order.js';
-import { dfMeshToModel, DOOR_TYPE, GLOBAL_SCALE } from '../world/meshReader.js';
+import { dfMeshToModel, GLOBAL_SCALE } from '../world/meshReader.js';
 import { meshHasDungeonEntrance } from '../systems/travel/travelDungeonModels.js';
-import { billboardSize } from '../world/rmbFlats.js';
 import {
   CURATED_ARCH3D_CATALOG,
   MINI_DUNGEON_SAMPLE_BLUEPRINTS,
@@ -15,6 +14,17 @@ import {
   resolveRemappedArchive,
   validateMiniDungeonBlueprint,
 } from '../world/miniDungeons/miniDungeonBlueprint.js';
+
+function calcBillboardSize(tf, record) {
+  const sz = tf.getSize(record);
+  const sc = tf.getScale(record);
+  const cw = Math.trunc((sz.width * sc.x) / 256);
+  const ch = Math.trunc((sz.height * sc.y) / 256);
+  return {
+    w: (sz.width + cw) * GLOBAL_SCALE,
+    h: (sz.height + ch) * GLOBAL_SCALE,
+  };
+}
 
 const DEG2RAD = Math.PI / 180;
 
@@ -103,6 +113,8 @@ class Arena2Store {
   constructor() {
     /** @type {Map<string, any>} */
     this.localFiles = new Map();
+    /** @type {Map<string, any>} */
+    this.localHandles = new Map();
     this.devMode = false;
     /** @type {DFPalette | null} */
     this.palette = null;
@@ -128,6 +140,11 @@ class Arena2Store {
 
   async readBytes(name) {
     const upper = String(name).toUpperCase();
+    const handle = this.localHandles.get(upper);
+    if (handle) {
+      const f = await handle.getFile();
+      return new Uint8Array(await f.arrayBuffer());
+    }
     const file = this.localFiles.get(upper);
     if (file) {
       return new Uint8Array(await file.arrayBuffer());
@@ -140,34 +157,49 @@ class Arena2Store {
     throw new Error(`${upper} not found in ARENA2`);
   }
 
-  async loadCoreFromLocal(fileList) {
+  async loadCoreFromHandles(handleMap, onProgress = null) {
+    this.localFiles.clear();
+    this.localHandles = new Map(handleMap);
+    this.devMode = false;
+    this.resetCaches();
+    await this._initCore(onProgress);
+  }
+
+  async loadCoreFromLocal(fileList, onProgress = null) {
+    this.localHandles.clear();
     this.localFiles.clear();
     this.devMode = false;
     this.resetCaches();
+    onProgress?.(10, `Indexing ${fileList.length} files...`);
     for (const f of fileList) {
       const n = (f.name || '').toUpperCase();
       if (n) this.localFiles.set(n, f);
     }
-    await this._initCore();
+    await this._initCore(onProgress);
   }
 
-  async loadCoreFromDev() {
+  async loadCoreFromDev(onProgress = null) {
+    this.localHandles.clear();
     this.localFiles.clear();
     this.devMode = true;
     this.resetCaches();
-    await this._initCore();
+    await this._initCore(onProgress);
   }
 
-  async _initCore() {
+  async _initCore(onProgress = null) {
+    onProgress?.(20, 'Reading ART_PAL.COL...');
     const palBytes = await this.readBytes('ART_PAL.COL');
     const pal = new DFPalette();
     pal.load(palBytes, 'ART_PAL.COL');
     this.palette = pal;
 
+    onProgress?.(45, 'Reading ARCH3D.BSA...');
     const archBytes = await this.readBytes('ARCH3D.BSA');
+    onProgress?.(85, 'Parsing ARCH3D.BSA...');
     const arch = new Arch3dFile();
     arch.load(archBytes);
     this.arch3d = arch;
+    onProgress?.(100, 'Ready!');
   }
 
   async getTexture(archive) {
@@ -693,6 +725,10 @@ const state = {
 
 const dom = {
   arenaStatus: document.getElementById('arenaStatus'),
+  errBanner: document.getElementById('errBanner'),
+  loadProgWrap: document.getElementById('loadProgWrap'),
+  loadProgBar: document.getElementById('loadProgBar'),
+  loadProgText: document.getElementById('loadProgText'),
   hudStats: document.getElementById('hudStats'),
   presetSel: /** @type {any} */ (document.getElementById('presetSel')),
   climateSel: /** @type {any} */ (document.getElementById('climateSel')),
@@ -1058,7 +1094,7 @@ async function buildBlueprintScene(buildId) {
     let w = 1.0;
     let h = 1.0;
     if (tf && fl.record >= 0 && fl.record < tf.recordCount) {
-      const sz = billboardSize(tf, fl.record);
+      const sz = calcBillboardSize(tf, fl.record);
       w = sz.w || 1.0;
       h = sz.h || 1.0;
     }
@@ -1346,28 +1382,103 @@ document.getElementById('btnScanEntrances').addEventListener('click', () => {
   dom.catInfo.textContent = `Scanned ${count} ARCH3D records: found ${found.length} models with DOOR_TYPE.DUNGEON_ENTRANCE.`;
 });
 
-// ARENA2 Loaders (Folder picker, Dev /arena2/, Drag & Drop)
+function showError(msg) {
+  if (!dom.errBanner) return;
+  if (!msg) {
+    dom.errBanner.classList.remove('on');
+    dom.errBanner.textContent = '';
+    return;
+  }
+  dom.errBanner.classList.add('on');
+  dom.errBanner.textContent = String(msg);
+}
+
+function setProgress(pct, text) {
+  if (!dom.loadProgWrap || !dom.loadProgBar || !dom.loadProgText) return;
+  if (pct == null) {
+    dom.loadProgWrap.classList.remove('on');
+    return;
+  }
+  dom.loadProgWrap.classList.add('on');
+  dom.loadProgBar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  dom.loadProgText.textContent = text || `${pct}%`;
+}
+
+window.addEventListener('error', (e) => {
+  showError(`Runtime error: ${e.message || e.error || 'Unknown error'}`);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  showError(`Async error: ${e.reason?.message || e.reason || 'Unhandled rejection'}`);
+});
+
+async function indexDirHandle(dirHandle) {
+  const handles = new Map();
+  let count = 0;
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind === 'file') {
+      handles.set(entry.name.toUpperCase(), entry);
+      count++;
+    }
+  }
+  return { handles, count };
+}
+
+// ARENA2 Loaders (Fast File System Access API, fallback folder picker, Dev /arena2/, Drag & Drop)
+document.getElementById('btnSelectArena').addEventListener('click', async () => {
+  showError('');
+  const showDir = /** @type {any} */ (window).showDirectoryPicker;
+  if (typeof showDir === 'function') {
+    try {
+      const dirHandle = await showDir({ mode: 'read' });
+      setProgress(5, 'Scanning ARENA2 folder...');
+      dom.arenaStatus.textContent = 'Scanning ARENA2 folder...';
+      const { handles, count } = await indexDirHandle(dirHandle);
+      await store.loadCoreFromHandles(handles, setProgress);
+      dom.arenaStatus.textContent = `ARENA2 ready (${store.arch3d.count} ARCH3D models from ${count} indexed files).`;
+      setTimeout(() => setProgress(null, ''), 600);
+      rebuildScene();
+      return;
+    } catch (err) {
+      setProgress(null, '');
+      if (err?.name === 'AbortError') return;
+      showError(`Folder picker error: ${err.message}`);
+      return;
+    }
+  }
+  /** @type {any} */ (document.getElementById('arenaPick')).click();
+});
+
 document.getElementById('arenaPick').addEventListener('change', async (e) => {
+  showError('');
   const files = /** @type {any} */ (e.target).files;
   if (!files?.length) return;
+  setProgress(5, `Indexing ${files.length} files...`);
   dom.arenaStatus.textContent = `Loading ${files.length} files...`;
   try {
-    await store.loadCoreFromLocal(files);
+    await store.loadCoreFromLocal(files, setProgress);
     dom.arenaStatus.textContent = `ARENA2 ready (${store.arch3d.count} ARCH3D models, local files).`;
+    setTimeout(() => setProgress(null, ''), 600);
     rebuildScene();
   } catch (err) {
+    setProgress(null, '');
+    showError(`Load error: ${err.message}`);
     dom.arenaStatus.textContent = `Error: ${err.message}`;
   }
 });
 
 document.getElementById('btnDevArena2').addEventListener('click', async () => {
+  showError('');
+  setProgress(10, 'Fetching from ./arena2/...');
   dom.arenaStatus.textContent = 'Fetching ART_PAL.COL & ARCH3D.BSA from ./arena2/...';
   try {
-    await store.loadCoreFromDev();
+    await store.loadCoreFromDev(setProgress);
     dom.arenaStatus.textContent = `ARENA2 ready via /arena2/ (${store.arch3d.count} ARCH3D models).`;
+    setTimeout(() => setProgress(null, ''), 600);
     rebuildScene();
   } catch (err) {
-    dom.arenaStatus.textContent = `Dev /arena2/ unavailable (${err.message}). Use "Select ARENA2 Folder" or drop folder.`;
+    setProgress(null, '');
+    showError(`Dev /arena2/ unavailable: ${err.message}`);
+    dom.arenaStatus.textContent = 'Dev /arena2/ unavailable. Use "Select ARENA2 Folder" or drop folder.';
   }
 });
 
@@ -1382,8 +1493,29 @@ window.addEventListener('dragleave', (e) => {
 window.addEventListener('drop', async (e) => {
   e.preventDefault();
   dropOverlay.classList.remove('on');
+  showError('');
   const items = e.dataTransfer?.items;
   if (!items?.length) return;
+
+  // Prefer FileSystemHandle for instant zero-upload folder drop in Chrome/Edge
+  const firstItem = /** @type {any} */ (items[0]);
+  if (typeof firstItem?.getAsFileSystemHandle === 'function') {
+    try {
+      const handle = await firstItem.getAsFileSystemHandle();
+      if (handle?.kind === 'directory') {
+        setProgress(5, 'Scanning dropped ARENA2 folder...');
+        const { handles, count } = await indexDirHandle(handle);
+        await store.loadCoreFromHandles(handles, setProgress);
+        dom.arenaStatus.textContent = `ARENA2 ready (${store.arch3d.count} ARCH3D models from ${count} dropped files).`;
+        setTimeout(() => setProgress(null, ''), 600);
+        rebuildScene();
+        return;
+      }
+    } catch {
+      // Fall through to webkitGetAsEntry / FileList
+    }
+  }
+
   const collected = [];
   const walk = async (entry) => {
     if (!entry) return;
@@ -1417,12 +1549,16 @@ window.addEventListener('drop', async (e) => {
     return;
   }
   if (collected.length > 0) {
+    setProgress(5, `Indexing ${collected.length} dropped files...`);
     dom.arenaStatus.textContent = `Loading ${collected.length} dropped files...`;
     try {
-      await store.loadCoreFromLocal(collected);
+      await store.loadCoreFromLocal(collected, setProgress);
       dom.arenaStatus.textContent = `ARENA2 ready (${store.arch3d.count} ARCH3D models, dropped folder).`;
+      setTimeout(() => setProgress(null, ''), 600);
       rebuildScene();
     } catch (err) {
+      setProgress(null, '');
+      showError(`Drop error: ${err.message}`);
       dom.arenaStatus.textContent = `Drop error: ${err.message}`;
     }
   }
@@ -1555,4 +1691,5 @@ function frame(now) {
 populatePresetSelect();
 renderCatalogList();
 loadBlueprintIntoEditor(MINI_DUNGEON_SAMPLE_BLUEPRINTS[0], true);
+dom.arenaStatus.textContent = 'Viewer ready (WebGL2). Select or drop ARENA2 folder, or click Load /arena2 (dev).';
 requestAnimationFrame(frame);

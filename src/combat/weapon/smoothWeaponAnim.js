@@ -85,6 +85,11 @@ export function analyzeWeaponFrame(c32) {
   if (!(w > 0) || !(h > 0) || !colors?.length) {
     return { cx: 0.5, cy: 0.5, minX: 0, maxX: 1, minY: 0, maxY: 1, cutL: false, cutR: false, cutB: false, axisAngle: 0, elongation: 0 };
   }
+  const isBytes = colors instanceof Uint8Array || colors instanceof Uint8ClampedArray || colors.length === w * h * 4;
+  if (!isBytes && colors.length < w * h) {
+    return { cx: 0.5, cy: 0.5, minX: 0, maxX: 1, minY: 0, maxY: 1, cutL: false, cutR: false, cutB: false, axisAngle: 0, elongation: 0 };
+  }
+  const alphaAt = isBytes ? (idx) => colors[idx * 4 + 3] : (idx) => (colors[idx] >>> 24) & 0xff;
   const stride = Math.max(1, Math.floor(Math.max(w, h) / 160));
   let count = 0;
   let sumX = 0,
@@ -97,7 +102,7 @@ export function analyzeWeaponFrame(c32) {
   for (let y = 0; y < h; y += stride) {
     const row = y * w;
     for (let x = 0; x < w; x += stride) {
-      if (((colors[row + x] >>> 24) & 0xff) < ALPHA_THRESHOLD) continue;
+      if (alphaAt(row + x) < ALPHA_THRESHOLD) continue;
       count++;
       sumX += x;
       sumY += y;
@@ -113,12 +118,12 @@ export function analyzeWeaponFrame(c32) {
     bR = 0,
     bB = 0;
   for (let y = 0; y < h; y++) {
-    if (((colors[y * w] >>> 24) & 0xff) >= ALPHA_THRESHOLD) bL++;
-    if (((colors[y * w + (w - 1)] >>> 24) & 0xff) >= ALPHA_THRESHOLD) bR++;
+    if (alphaAt(y * w) >= ALPHA_THRESHOLD) bL++;
+    if (alphaAt(y * w + (w - 1)) >= ALPHA_THRESHOLD) bR++;
   }
   const botRow = (h - 1) * w;
   for (let x = 0; x < w; x++) {
-    if (((colors[botRow + x] >>> 24) & 0xff) >= ALPHA_THRESHOLD) bB++;
+    if (alphaAt(botRow + x) >= ALPHA_THRESHOLD) bB++;
   }
   const cutL = bL >= 2;
   const cutR = bR >= 2;
@@ -137,7 +142,7 @@ export function analyzeWeaponFrame(c32) {
     const row = y * w;
     const dy = y - meanY;
     for (let x = 0; x < w; x += stride) {
-      if (((colors[row + x] >>> 24) & 0xff) < ALPHA_THRESHOLD) continue;
+      if (alphaAt(row + x) < ALPHA_THRESHOLD) continue;
       const dx = x - meanX;
       mxx += dx * dx;
       myy += dy * dy;
@@ -424,12 +429,16 @@ export function drawSmoothedWeapon(
   const useExtended = !!(cfg.enabled && cfg.extendEdges && extendedTex && pad && origSize);
   let drawTex = tex;
   let drawRect = rect;
+  let drawUv = uv;
   if (useExtended) {
     drawTex = extendedTex;
     drawRect = expandedRectForPad(rect, pad, origSize[0], origSize[1], mirror);
-    // Keep bottom padding above docked Large HUD strip when offsetHeight > 0
-    if (offsetHeight > 0 && drawRect.y + drawRect.h > canvas.height - offsetHeight) {
-      drawRect = { ...drawRect, h: Math.max(1, canvas.height - offsetHeight - drawRect.y) };
+    // Keep bottom padding above docked Large HUD strip when offsetHeight > 0 and crop UV proportionally
+    if (offsetHeight > 0 && drawRect.y + drawRect.h > canvas.height - offsetHeight && drawRect.h > 0) {
+      const clampedH = Math.max(1, canvas.height - offsetHeight - drawRect.y);
+      const frac = Math.max(0, Math.min(1, clampedH / drawRect.h));
+      drawUv = { ...uv, v1: uv.v0 + (uv.v1 - uv.v0) * frac };
+      drawRect = { ...drawRect, h: clampedH };
     }
   }
 
@@ -451,10 +460,10 @@ export function drawSmoothedWeapon(
         s.rotate ? { blend: true, rotate: s.rotate } : { blend: true },
       );
     });
-    tracker.pushTrail(drawTex, drawRect, uv, rotate, dt);
+    tracker.pushTrail(drawTex, drawRect, drawUv, rotate, dt);
   }
 
-  renderer.drawScreenQuad(drawTex, drawRect, uv, tint ?? undefined, rotate ? { rotate } : undefined);
+  renderer.drawScreenQuad(drawTex, drawRect, drawUv, tint ?? undefined, rotate ? { rotate } : undefined);
 
   if (glow) {
     renderer.drawScreenQuadGlow?.(tex, rect, uv, glow, {

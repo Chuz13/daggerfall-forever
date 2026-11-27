@@ -484,3 +484,54 @@ test('Regression: Weapon Widget extended-edge textures key by custom texture nam
     _resetForTests();
   }
 });
+
+test('Regression: analyzeWeaponFrame and extendFrameEdges handle Uint8ClampedArray (toScreenOrder) identically to Uint32Array', () => {
+  const w = 16, h = 16;
+  const u32 = new Uint32Array(w * h);
+  const u8 = new Uint8ClampedArray(w * h * 4);
+  for (let y = 4; y < h; y++) {
+    for (let x = 6; x <= 10; x++) {
+      const i = y * w + x;
+      const o = i * 4;
+      u8[o] = 0x11; u8[o + 1] = 0x22; u8[o + 2] = 0x33; u8[o + 3] = 0xff;
+      u32[i] = (0x11 | (0x22 << 8) | (0x33 << 16) | (0xff << 24)) >>> 0;
+    }
+  }
+  const meta32 = analyzeWeaponFrame({ width: w, height: h, colors: u32 });
+  const meta8 = analyzeWeaponFrame({ width: w, height: h, colors: u8 });
+  assert.equal(meta8.cutB, true);
+  assert.deepEqual(meta8, meta32);
+
+  const ext32 = extendFrameEdges({ width: w, height: h, colors: u32 }, meta32, { artWidth: w, artHeight: h });
+  const ext8 = extendFrameEdges({ width: w, height: h, colors: u8 }, meta8, { artWidth: w, artHeight: h });
+  assert.ok(ext8 && ext32);
+  assert.equal(ext8.width, ext32.width);
+  assert.equal(ext8.height, ext32.height);
+  assert.deepEqual(ext8.colors, ext32.colors);
+});
+
+test('Regression: drawSmoothedWeapon crops UV v1 proportionally when offsetHeight clamps bottom edge padding', () => {
+  const calls = [];
+  const renderer = {
+    drawScreenQuad: (tex, rect, uv) => calls.push({ tex, rect, uv }),
+  };
+  const canvas = { width: 320, height: 200 };
+  const rect = { x: 100, y: 120, w: 64, h: 48 };
+  // canvas.height - offsetHeight = 168, rect ends at 168, extended rect adds 20px -> 188, clamped to 48px
+  drawSmoothedWeapon(renderer, canvas, {
+    tex: 'orig',
+    extendedTex: 'ext',
+    pad: { l: 0, t: 0, r: 0, b: 20 },
+    origSize: [64, 48],
+    rect,
+    baseRect: rect,
+    uv: { u0: 0, v0: 0, u1: 1, v1: 1 },
+    offsetHeight: 32,
+    attacking: false,
+    config: { enabled: true, extendEdges: true, blurTaps: 0, blurAlpha: 0, slideStrength: 1, maxShiftFrac: 0.25, rotateDeg: 6 },
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].tex, 'ext');
+  assert.equal(calls[0].rect.h, 48);
+  assert.ok(Math.abs(calls[0].uv.v1 - 48 / 68) < 1e-6, `Expected cropped v1 ~ ${48 / 68}, got ${calls[0].uv.v1}`);
+});

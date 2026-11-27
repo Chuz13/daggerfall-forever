@@ -196,7 +196,7 @@ export const isQuickConsumable = (item) => isPotion(item) || isDrug(item);
  *  equipped one is refused - swapping to what is in your hand is a
  *  no-op the tooltip should not offer. */
 export const canSwapTo = (item) =>
-  !!item && item.group === 'Weapons' && item.templateIndex !== ARROW && !isEquipped(item);
+  !!item && item.group === 'Weapons' && item.templateIndex !== ARROW && !isAmmunition(item) && !isEquipped(item);
 
 const assertSlot = (slot) => {
   if (!QUICKSLOTS.includes(slot)) throw new Error(`quickslots: no slot ${slot}`);

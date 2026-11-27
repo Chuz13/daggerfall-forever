@@ -38,8 +38,12 @@ export function castRate(entity) {
   if (!entity) return 1;
   let r = speedCastRate(liveStat(entity, 'speed'));
   for (const fn of _mods.values()) {
-    const pct = fn(entity);
-    if (Number.isFinite(pct)) r += pct / 100;
+    try {
+      const pct = fn(entity);
+      if (Number.isFinite(pct)) r += pct / 100;
+    } catch {
+      /* a mod castSpeed modifier must not break casting */
+    }
   }
   return Math.min(CAST_RATE_MAX, Math.max(CAST_RATE_MIN, r));
 }

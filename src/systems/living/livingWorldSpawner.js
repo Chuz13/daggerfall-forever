@@ -1634,15 +1634,16 @@ export function buildLivingSiteBlueprint({
       nowMinutes,
       rng,
     });
+    if (!passedAdv && !wandering?.adv) return null;
     const adv = passedAdv ?? wandering.adv;
     const validForcedSit =
       forcedSituation && Object.values(ROAD_ADVENTURER_SITUATION).includes(forcedSituation)
         ? forcedSituation
         : null;
-    const situation = validForcedSit ?? (passedAdv ? ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP : wandering.situation);
+    const situation = validForcedSit ?? (passedAdv ? ROAD_ADVENTURER_SITUATION.ROADSIDE_CAMP : (wandering?.situation ?? ROAD_ADVENTURER_SITUATION.TRAVELING_ON_ROAD));
     const displayName = getAdventurerDisplayName(adv);
     adv.name = displayName;
-    meta = { ...meta, ...wandering, adv, displayName, situation };
+    meta = { ...meta, ...(wandering ?? {}), adv, displayName, situation };
 
     const advType = CLASS_TO_MOBILE_TYPE[adv.className] ?? MOBILE_TYPES.Warrior;
 
@@ -2355,9 +2356,14 @@ export function createLivingSceneHost(deps) {
       return;
     }
 
-    if (companionFoe?.dead) {
+    if (companionFoe?.dead || companionFoe?._knockedOut) {
       const fallenName = companionFoe.entity?.name || companionDisplayName || 'Adventurer';
+      const old = companionFoe;
+      old.dead = true;
       companionFoe = null;
+      try {
+        deps.remove?.(old);
+      } catch (_e) {}
       companionId = null;
       companionDisplayName = 'Adventurer';
       dismissAdventurerCompanion();

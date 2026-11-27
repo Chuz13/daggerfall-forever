@@ -6,10 +6,13 @@
 
 'use strict';
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
+const BUNDLED_MARKER = '.dff-bundled.json';
+
+function createModsStorage(userDataRoot, { seedExamples = false, bundledExamplesDir = null } = {}) {
   const modsDir = path.join(userDataRoot, 'Mods');
 
   function ensureDir() {
@@ -23,6 +26,7 @@ function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
   }
 
   function findBundledExamplesDir() {
+    if (bundledExamplesDir) return bundledExamplesDir;
     const candidates = [
       ...(process.resourcesPath
         ? [
@@ -54,22 +58,111 @@ function createModsStorage(userDataRoot, { seedExamples = false } = {}) {
     }
   }
 
+  function collectModFiles(dir) {
+    const out = [];
+    const walk = (rel) => {
+      const abs = rel ? path.join(dir, rel) : dir;
+      for (const ent of fs.readdirSync(abs, { withFileTypes: true })) {
+        const relPath = rel ? `${rel}/${ent.name}` : ent.name;
+        if (ent.isDirectory()) {
+          walk(relPath);
+        } else if (ent.isFile() && relPath !== BUNDLED_MARKER) {
+          out.push(relPath);
+        }
+      }
+    };
+    walk('');
+    return out.sort();
+  }
+
+  function hashDirFiles(dir, files) {
+    const h = crypto.createHash('sha256');
+    for (const relPath of files) {
+      h.update(relPath, 'utf8');
+      h.update('\0');
+      h.update(fs.readFileSync(path.join(dir, relPath)));
+      h.update('\0');
+    }
+    return h.digest('hex');
+  }
+
+  function writeBundledMarker(targetPath, sha256, files) {
+    fs.writeFileSync(
+      path.join(targetPath, BUNDLED_MARKER),
+      JSON.stringify({ schema: 1, sha256, files }, null, 2) + '\n',
+      'utf8',
+    );
+  }
+
+  function readBundledMarker(targetPath) {
+    const markerPath = path.join(targetPath, BUNDLED_MARKER);
+    try {
+      if (!fs.existsSync(markerPath)) return null;
+      const parsed = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
+      if (
+        parsed &&
+        parsed.schema === 1 &&
+        typeof parsed.sha256 === 'string' &&
+        Array.isArray(parsed.files)
+      ) {
+        return parsed;
+      }
+    } catch {
+      // treat corrupt marker as missing
+    }
+    return null;
+  }
+
   function seedBundledExamples() {
     if (!seedExamples) return;
     try {
       const examplesDir = findBundledExamplesDir();
-      if (!examplesDir) return;
+      if (!examplesDir || !fs.existsSync(examplesDir)) return;
 
       const bundled = fs.readdirSync(examplesDir, { withFileTypes: true });
       for (const ent of bundled) {
         if (!ent.isDirectory()) continue;
+        const srcDir = path.join(examplesDir, ent.name);
         const targetPath = path.join(modsDir, ent.name);
-        if (!fs.existsSync(targetPath)) {
-          try {
-            copyDirSync(path.join(examplesDir, ent.name), targetPath);
-          } catch (err) {
-            console.warn(`[ModsStorage] Failed to seed mod ${ent.name}:`, err?.message ?? err);
+        try {
+          const bundledFiles = collectModFiles(srcDir);
+          const bundledHash = hashDirFiles(srcDir, bundledFiles);
+
+          if (!fs.existsSync(targetPath)) {
+            copyDirSync(srcDir, targetPath);
+            writeBundledMarker(targetPath, bundledHash, bundledFiles);
+            continue;
           }
+
+          const marker = readBundledMarker(targetPath);
+          if (!marker) {
+            copyDirSync(srcDir, targetPath);
+            writeBundledMarker(targetPath, bundledHash, bundledFiles);
+            continue;
+          }
+
+          if (marker.sha256 === bundledHash) continue;
+
+          const currentFiles = collectModFiles(targetPath);
+          const currentHash = hashDirFiles(targetPath, currentFiles);
+          if (currentHash === marker.sha256) {
+            const bundledSet = new Set(bundledFiles);
+            const targetRoot = path.resolve(targetPath);
+            for (const oldRel of marker.files) {
+              if (!bundledSet.has(oldRel)) {
+                const candidate = path.resolve(targetRoot, oldRel);
+                if (candidate.startsWith(targetRoot + path.sep) && fs.existsSync(candidate)) {
+                  fs.unlinkSync(candidate);
+                }
+              }
+            }
+            copyDirSync(srcDir, targetPath);
+            writeBundledMarker(targetPath, bundledHash, bundledFiles);
+          } else {
+            console.info(`[ModsStorage] Preserving local edits in bundled mod ${ent.name}`);
+          }
+        } catch (err) {
+          console.warn(`[ModsStorage] Failed to sync mod ${ent.name}:`, err?.message ?? err);
         }
       }
     } catch (e) {

@@ -10,6 +10,19 @@ const MAX_SLOPE = 1.5;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const alphaOf = (px) => (px >>> 24) & 0xff;
 
+function toUint32Colors(colors, w, h) {
+  const n = w * h;
+  if (colors instanceof Uint32Array) return colors.length >= n ? colors : null;
+  if ((colors instanceof Uint8Array || colors instanceof Uint8ClampedArray) && colors.length >= n * 4) {
+    const u32 = new Uint32Array(n);
+    for (let i = 0, o = 0; i < n; i++, o += 4) {
+      u32[i] = (colors[o] | (colors[o + 1] << 8) | (colors[o + 2] << 16) | (colors[o + 3] << 24)) >>> 0;
+    }
+    return u32;
+  }
+  return null;
+}
+
 /**
  * Estimate median slope (dx per row) of opaque spans across the last few rows
  * near the bottom edge, or (dy per col) near the left/right edges.
@@ -77,8 +90,10 @@ function estimateSideSlope(colors, w, h, xEdge, inwardSign) {
  */
 export function extendFrameEdges(c32, meta, { padNative = 20, artWidth = c32?.width ?? 1, artHeight = c32?.height ?? 1 } = {}) {
   if (!c32?.colors || !meta) return null;
-  const { width: w, height: h, colors } = c32;
+  const { width: w, height: h } = c32;
   if (!(w > 0) || !(h > 0)) return null;
+  const colors = toUint32Colors(c32.colors, w, h);
+  if (!colors) return null;
   const cutL = !!meta.cutL,
     cutR = !!meta.cutR,
     cutB = !!meta.cutB;

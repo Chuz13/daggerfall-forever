@@ -270,6 +270,77 @@ export function createSanctuaryInteriorEntry(site, {
   return { hit, entries: [hit], building };
 }
 
+const isFoeAlive = (f) => Boolean(f && !f.dead && !(f.entity ? f.entity.health <= 0 : (f.health ?? 1) <= 0));
+const _guardianTimers = new Map();
+
+function watchCultInteriorGuardians(entity, site, interiorFoes, foesToWatch, { say = null, nowMinutes = 0, getPending = /** @type {() => number} */ (() => 0) } = {}) {
+  if (!entity || !site || !interiorFoes || interiorFoes.onRemovedOrDead != null) return;
+  const curMin = Math.max(0, Math.trunc(Number(nowMinutes) || 0));
+  const checkDone = () => {
+    if (getPending() > 0) return false;
+    if (foesToWatch.length === 0) {
+      if (site.consecrationPending && site.ownerId !== 'player') {
+        clearSiteGuardians(entity, site.siteKey);
+        const cRes = consecrateSiteByForce(entity, site.siteKey, { nowMinutes: curMin, alreadyPaid: true });
+        if (cRes.ok) {
+          say?.(t('apotheosis.cult.consecrateVictoryHud', 'All defenders of {god} have fallen! {site} is now consecrated to your Cult (+10% Regional Influence)!', {
+            god: getPantheonDeity(cRes.site?.formerOwnerId ?? site.ownerId)?.name ?? site.ownerId,
+            site: site.name,
+          }));
+        }
+      }
+      return true;
+    }
+    if (foesToWatch.every((f) => !isFoeAlive(f))) {
+      clearSiteGuardians(entity, site.siteKey);
+      if (site.consecrationPending && site.ownerId !== 'player') {
+        const cRes = consecrateSiteByForce(entity, site.siteKey, { nowMinutes: curMin, alreadyPaid: true });
+        if (cRes.ok) {
+          say?.(t('apotheosis.cult.consecrateVictoryHud', 'All defenders of {god} have fallen! {site} is now consecrated to your Cult (+10% Regional Influence)!', {
+            god: getPantheonDeity(cRes.site?.formerOwnerId ?? site.ownerId)?.name ?? site.ownerId,
+            site: site.name,
+          }));
+          return true;
+        }
+      }
+      say?.(t('apotheosis.cult.guardiansSlainHud', 'All Sanctuary Guardians defeated! Activate the Altar or Cult Menu to consecrate.'));
+      return true;
+    }
+    if (Array.isArray(interiorFoes.foes) && !foesToWatch.some((f) => interiorFoes.foes.includes(f))) {
+      // Player exited the interior before defeating all Guardians; stop polling without falsely conquering
+      return true;
+    }
+    return false;
+  };
+  const prevTimer = _guardianTimers.get(site.siteKey);
+  if (prevTimer) clearInterval(prevTimer);
+  if (site._guardianCheckTimer != null) delete site._guardianCheckTimer;
+  const timer = setInterval(() => {
+    if (checkDone()) {
+      clearInterval(timer);
+      if (_guardianTimers.get(site.siteKey) === timer) _guardianTimers.delete(site.siteKey);
+    }
+  }, 600);
+  _guardianTimers.set(site.siteKey, timer);
+}
+
+/**
+ * Re-attaches the guardian completion watcher after loading an interior save
+ * inside a hostile temple or sanctuary where foes were restored from the save.
+ */
+export function reattachCultInteriorGuardians(entity, building, mapId, interiorFoes, { say = null, nowMinutes = 0 } = {}) {
+  if (!entity?.apotheosis?.ascended || !building || !interiorFoes) return false;
+  const mid = (Number(mapId ?? building.townMapId ?? 0) >>> 0);
+  const bk = Math.trunc(Number(building.buildingKey) || 0);
+  const site = building.cultSiteKey ? getCultSite(entity, building.cultSiteKey) : getCultSiteByBuilding(entity, mid, bk);
+  if (!site || site.ownerId === 'player' || site.guardiansCleared) return false;
+  const living = (interiorFoes.foes ?? []).filter((f) => isFoeAlive(f));
+  if (living.length === 0) return false;
+  for (const f of living) f._cultSiteKey = site.siteKey;
+  watchCultInteriorGuardians(entity, site, interiorFoes, living, { say, nowMinutes });
+  return true;
+}
+
 /** Spawns Cult Guardians inside a Temple or Daedric Sanctuary.
  * @param {any} entity @param {any} building @param {any} mapId
  * @param {any} interiorFoes @param {any} ctx
@@ -302,7 +373,6 @@ export function spawnCultInteriorGuardians(entity, building, mapId, interiorFoes
     }
   }
 
-  const isFoeAlive = (f) => Boolean(f && !f.dead && !(f.entity ? f.entity.health <= 0 : (f.health ?? 1) <= 0));
   if (site.guardiansCleared) return [];
   if (interiorFoes.foes?.some((f) => isFoeAlive(f) && f._cultSiteKey === site.siteKey)) return [];
 
@@ -366,51 +436,11 @@ export function spawnCultInteriorGuardians(entity, building, mapId, interiorFoes
   }
 
   if ((resolvedFoes.length > 0 || pendingRemaining > 0) && interiorFoes.onRemovedOrDead == null) {
-    const checkDone = () => {
-      if (pendingRemaining > 0) return false;
-      if (resolvedFoes.length === 0) {
-        if (site.consecrationPending && site.ownerId !== 'player') {
-          clearSiteGuardians(entity, site.siteKey);
-          const cRes = consecrateSiteByForce(entity, site.siteKey, { nowMinutes: curMin, alreadyPaid: true });
-          if (cRes.ok) {
-            say?.(t('apotheosis.cult.consecrateVictoryHud', 'All defenders of {god} have fallen! {site} is now consecrated to your Cult (+10% Regional Influence)!', {
-              god: getPantheonDeity(cRes.site?.formerOwnerId ?? site.ownerId)?.name ?? site.ownerId,
-              site: site.name,
-            }));
-          }
-        }
-        return true;
-      }
-      if (resolvedFoes.every((f) => !isFoeAlive(f))) {
-        clearSiteGuardians(entity, site.siteKey);
-        if (site.consecrationPending && site.ownerId !== 'player') {
-          const cRes = consecrateSiteByForce(entity, site.siteKey, { nowMinutes: curMin, alreadyPaid: true });
-          if (cRes.ok) {
-            say?.(t('apotheosis.cult.consecrateVictoryHud', 'All defenders of {god} have fallen! {site} is now consecrated to your Cult (+10% Regional Influence)!', {
-              god: getPantheonDeity(cRes.site?.formerOwnerId ?? site.ownerId)?.name ?? site.ownerId,
-              site: site.name,
-            }));
-            return true;
-          }
-        }
-        say?.(t('apotheosis.cult.guardiansSlainHud', 'All Sanctuary Guardians defeated! Activate the Altar or Cult Menu to consecrate.'));
-        return true;
-      }
-      if (Array.isArray(interiorFoes.foes) && !resolvedFoes.some((f) => interiorFoes.foes.includes(f))) {
-        // Player exited the interior before defeating all Guardians; stop polling without falsely conquering
-        return true;
-      }
-      return false;
-    };
-    const origClear = site._guardianCheckTimer;
-    if (origClear) clearInterval(origClear);
-    const timer = setInterval(() => {
-      if (checkDone()) {
-        clearInterval(timer);
-        site._guardianCheckTimer = null;
-      }
-    }, 600);
-    site._guardianCheckTimer = timer;
+    watchCultInteriorGuardians(entity, site, interiorFoes, resolvedFoes, {
+      say,
+      nowMinutes: curMin,
+      getPending: () => pendingRemaining,
+    });
   }
 
   return resolvedFoes;

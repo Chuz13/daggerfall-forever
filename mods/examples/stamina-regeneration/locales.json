@@ -1,0 +1,236 @@
+{
+  "bg": {
+    "sr.chip.name": "Реген. на умора",
+    "sr.chip.meta": "Пасивен реген",
+    "sr.chip.line.rate": "Възстановява +{rate} умора/сек.",
+    "sr.chip.line.pool": "Умора: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Умора / сек",
+    "sr.cfg.pauseWhileRunning": "Пауза при бягане",
+    "sr.cfg.showChip": "Показвай HUD-чип"
+  },
+  "cs": {
+    "sr.chip.name": "Regen. výdrže",
+    "sr.chip.meta": "Pasivní regen",
+    "sr.chip.line.rate": "Obnovuje +{rate} výdrže/s.",
+    "sr.chip.line.pool": "Výdrž: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Výdrž / sek",
+    "sr.cfg.pauseWhileRunning": "Pozastavit při běhu",
+    "sr.cfg.showChip": "Zobrazit HUD ikonu"
+  },
+  "da": {
+    "sr.chip.name": "Udholdenheds-regen",
+    "sr.chip.meta": "Passiv regen",
+    "sr.chip.line.rate": "Genskaber +{rate} udholdenhed/sek.",
+    "sr.chip.line.pool": "Udholdenhed: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Udholdenhed / sek",
+    "sr.cfg.pauseWhileRunning": "Pause under løb",
+    "sr.cfg.showChip": "Vis HUD-chip"
+  },
+  "de": {
+    "sr.chip.name": "Ausdauer-Regen",
+    "sr.chip.meta": "Passive Regen",
+    "sr.chip.line.rate": "Stellt +{rate} Ausdauer/Sek wieder her.",
+    "sr.chip.line.pool": "Ausdauer: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Ausdauer / Sek",
+    "sr.cfg.pauseWhileRunning": "Beim Laufen pausieren",
+    "sr.cfg.showChip": "HUD-Chip anzeigen"
+  },
+  "el": {
+    "sr.chip.name": "Αναπλ. Αντοχής",
+    "sr.chip.meta": "Παθητική αναπλ.",
+    "sr.chip.line.rate": "Αναπληρώνει +{rate} Αντοχή/δευτ.",
+    "sr.chip.line.pool": "Αντοχή: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Αντοχή / δευτ.",
+    "sr.cfg.pauseWhileRunning": "Παύση στο τρέξιμο",
+    "sr.cfg.showChip": "Εμφάνιση HUD chip"
+  },
+  "en": {
+    "sr.chip.name": "Stamina Regen",
+    "sr.chip.meta": "Passive regen",
+    "sr.chip.line.rate": "Restoring +{rate} Fatigue/sec.",
+    "sr.chip.line.pool": "Fatigue: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Fatigue Regen / sec",
+    "sr.cfg.pauseWhileRunning": "Pause While Running",
+    "sr.cfg.showChip": "Show HUD Status Chip"
+  },
+  "es": {
+    "sr.chip.name": "Regen. de fatiga",
+    "sr.chip.meta": "Regen. pasiva",
+    "sr.chip.line.rate": "Restaura +{rate} Fatiga/seg.",
+    "sr.chip.line.pool": "Fatiga: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Fatiga / seg",
+    "sr.cfg.pauseWhileRunning": "Pausar al correr",
+    "sr.cfg.showChip": "Mostrar chip de HUD"
+  },
+  "fi": {
+    "sr.chip.name": "Kestävyyden palautus",
+    "sr.chip.meta": "Passiivinen palautus",
+    "sr.chip.line.rate": "Palauttaa +{rate} kestävyyttä/s.",
+    "sr.chip.line.pool": "Kestävyys: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Kestävyys / s",
+    "sr.cfg.pauseWhileRunning": "Tauko juostessa",
+    "sr.cfg.showChip": "Näytä HUD-siru"
+  },
+  "fr": {
+    "sr.chip.name": "Régén. Endurance",
+    "sr.chip.meta": "Régén. passive",
+    "sr.chip.line.rate": "Restaure +{rate} Fatigue/sec.",
+    "sr.chip.line.pool": "Fatigue : {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Fatigue / sec",
+    "sr.cfg.pauseWhileRunning": "Pause en courant",
+    "sr.cfg.showChip": "Afficher la puce HUD"
+  },
+  "hu": {
+    "sr.chip.name": "Állóképesség-regen",
+    "sr.chip.meta": "Passzív regen",
+    "sr.chip.line.rate": "Visszaállít +{rate} fáradtság/mp.",
+    "sr.chip.line.pool": "Fáradtság: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Fáradtság / mp",
+    "sr.cfg.pauseWhileRunning": "Szünet futás közben",
+    "sr.cfg.showChip": "HUD chip megjelenítése"
+  },
+  "id": {
+    "sr.chip.name": "Regen Stamina",
+    "sr.chip.meta": "Regen pasif",
+    "sr.chip.line.rate": "Memulihkan +{rate} Stamina/dtk.",
+    "sr.chip.line.pool": "Stamina: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Stamina / dtk",
+    "sr.cfg.pauseWhileRunning": "Jeda Saat Berlari",
+    "sr.cfg.showChip": "Tampilkan Chip HUD"
+  },
+  "it": {
+    "sr.chip.name": "Rig. Fatica",
+    "sr.chip.meta": "Rig. passiva",
+    "sr.chip.line.rate": "Ripristina +{rate} Fatica/sec.",
+    "sr.chip.line.pool": "Fatica: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Fatica / sec",
+    "sr.cfg.pauseWhileRunning": "Pausa durante la corsa",
+    "sr.cfg.showChip": "Mostra chip HUD"
+  },
+  "ja": {
+    "sr.chip.name": "スタミナ自然回復",
+    "sr.chip.meta": "パッシブ回復",
+    "sr.chip.line.rate": "毎秒 +{rate} 疲労回復。",
+    "sr.chip.line.pool": "疲労: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "疲労回復 / 秒",
+    "sr.cfg.pauseWhileRunning": "走行中は一時停止",
+    "sr.cfg.showChip": "HUDチップを表示"
+  },
+  "ko": {
+    "sr.chip.name": "스태미나 재생",
+    "sr.chip.meta": "지속 재생",
+    "sr.chip.line.rate": "초당 +{rate} 피로도 회복.",
+    "sr.chip.line.pool": "피로도: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "피로도 회복 / 초",
+    "sr.cfg.pauseWhileRunning": "달리는 중 일시정지",
+    "sr.cfg.showChip": "HUD 칩 표시"
+  },
+  "nb": {
+    "sr.chip.name": "Utholdenhets-regen",
+    "sr.chip.meta": "Passiv regen",
+    "sr.chip.line.rate": "Gjenoppretter +{rate} utholdenhet/sek.",
+    "sr.chip.line.pool": "Utholdenhet: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Utholdenhet / sek",
+    "sr.cfg.pauseWhileRunning": "Pause under løping",
+    "sr.cfg.showChip": "Vis HUD-brikke"
+  },
+  "nl": {
+    "sr.chip.name": "Stamina-regen",
+    "sr.chip.meta": "Passieve regen",
+    "sr.chip.line.rate": "Herstelt +{rate} Uithouding/sec.",
+    "sr.chip.line.pool": "Uithouding: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Uithouding / sec",
+    "sr.cfg.pauseWhileRunning": "Pauzeren tijdens rennen",
+    "sr.cfg.showChip": "HUD-chip tonen"
+  },
+  "pl": {
+    "sr.chip.name": "Regen. Kondycji",
+    "sr.chip.meta": "Pasywna regen.",
+    "sr.chip.line.rate": "Przywraca +{rate} Kondycji/sek.",
+    "sr.chip.line.pool": "Kondycja: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Kondycja / sek",
+    "sr.cfg.pauseWhileRunning": "Wstrzymaj podczas biegu",
+    "sr.cfg.showChip": "Pokaż ikonę HUD"
+  },
+  "pt-BR": {
+    "sr.chip.name": "Regen. de Fadiga",
+    "sr.chip.meta": "Regen. passiva",
+    "sr.chip.line.rate": "Restaura +{rate} Fadiga/seg.",
+    "sr.chip.line.pool": "Fadiga: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Fadiga / seg",
+    "sr.cfg.pauseWhileRunning": "Pausar ao correr",
+    "sr.cfg.showChip": "Mostrar chip no HUD"
+  },
+  "ro": {
+    "sr.chip.name": "Regen. Oboseală",
+    "sr.chip.meta": "Regen. pasivă",
+    "sr.chip.line.rate": "Reface +{rate} Oboseală/sec.",
+    "sr.chip.line.pool": "Oboseală: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Oboseală / sec",
+    "sr.cfg.pauseWhileRunning": "Pauză la alergare",
+    "sr.cfg.showChip": "Afișează chip HUD"
+  },
+  "ru": {
+    "sr.chip.name": "Реген. выносливости",
+    "sr.chip.meta": "Пассивный реген",
+    "sr.chip.line.rate": "Восстанавливает +{rate} выносливости/сек.",
+    "sr.chip.line.pool": "Выносливость: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Выносливость / сек",
+    "sr.cfg.pauseWhileRunning": "Пауза при беге",
+    "sr.cfg.showChip": "Показывать HUD-чип"
+  },
+  "sv": {
+    "sr.chip.name": "Ork-regen",
+    "sr.chip.meta": "Passiv regen",
+    "sr.chip.line.rate": "Återställer +{rate} Ork/sek.",
+    "sr.chip.line.pool": "Ork: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Ork / sek",
+    "sr.cfg.pauseWhileRunning": "Pausa vid löpning",
+    "sr.cfg.showChip": "Visa HUD-bricka"
+  },
+  "tr": {
+    "sr.chip.name": "Dayanıklılık Yenileme",
+    "sr.chip.meta": "Pasif yenileme",
+    "sr.chip.line.rate": "Saniyede +{rate} Yorgunluk yeniler.",
+    "sr.chip.line.pool": "Yorgunluk: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Yorgunluk / sn",
+    "sr.cfg.pauseWhileRunning": "Koşarken Duraklat",
+    "sr.cfg.showChip": "HUD Çipini Göster"
+  },
+  "uk": {
+    "sr.chip.name": "Реген. витривалості",
+    "sr.chip.meta": "Пасивний реген",
+    "sr.chip.line.rate": "Відновлює +{rate} витривалості/сек.",
+    "sr.chip.line.pool": "Витривалість: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Витривалість / сек",
+    "sr.cfg.pauseWhileRunning": "Пауза під час бігу",
+    "sr.cfg.showChip": "Показувати HUD-чип"
+  },
+  "vi": {
+    "sr.chip.name": "Hồi Thể Lực",
+    "sr.chip.meta": "Hồi bị động",
+    "sr.chip.line.rate": "Hồi +{rate} Thể lực/giây.",
+    "sr.chip.line.pool": "Thể lực: {cur}/{max}",
+    "sr.cfg.regenPerSecond": "Thể lực / giây",
+    "sr.cfg.pauseWhileRunning": "Tạm dừng khi chạy",
+    "sr.cfg.showChip": "Hiện thẻ HUD"
+  },
+  "zh-Hans": {
+    "sr.chip.name": "耐力再生",
+    "sr.chip.meta": "被动再生",
+    "sr.chip.line.rate": "每秒恢复 +{rate} 耐力。",
+    "sr.chip.line.pool": "耐力：{cur}/{max}",
+    "sr.cfg.regenPerSecond": "耐力恢复 / 秒",
+    "sr.cfg.pauseWhileRunning": "奔跑时暂停",
+    "sr.cfg.showChip": "显示 HUD 状态徽章"
+  },
+  "zh-Hant": {
+    "sr.chip.name": "耐力再生",
+    "sr.chip.meta": "被動再生",
+    "sr.chip.line.rate": "每秒恢復 +{rate} 耐力。",
+    "sr.chip.line.pool": "耐力：{cur}/{max}",
+    "sr.cfg.regenPerSecond": "耐力恢復 / 秒",
+    "sr.cfg.pauseWhileRunning": "奔跑時暫停",
+    "sr.cfg.showChip": "顯示 HUD 狀態徽章"
+  }
+}

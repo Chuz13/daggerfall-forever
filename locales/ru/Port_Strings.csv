@@ -11163,3 +11163,7 @@ living.horde.darkPactSuccess,"{boss} признаёт в вас собрата �
 living.horde.darkPactFail,"{boss} смеётся над вашим слабым приказом и спускает орду!"
 living.horde.wildCleared,"Орда нежити уничтожена! (+{gold} зол. · +5 Реп.)"
 living.horde.reagentReceived,"Получен тёмный реагент: {item}."
+features.aoeSelfFriendlyFire.title,"Огонь по себе от заклинаний (AoE)"
+features.aoeSelfFriendlyFire.note,"Позволяет вашим собственным заклинаниям по области (например, Fireball) наносить вам урон, если вы стоите в радиусе взрыва."
+features.aoeAllyFriendlyFire.title,"Огонь по союзникам от заклинаний (AoE)"
+features.aoeAllyFriendlyFire.note,"Позволяет вашим атакующим заклинаниям по области наносить урон союзникам в радиусе взрыва без провокации агрессии и преступлений."

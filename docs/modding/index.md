@@ -6,7 +6,7 @@ Daggerfall Forever (DFF) includes a **native JavaScript & JSON modding system (M
 
 ## What Native DFF Mods Can Do
 
-Native mods live in `<userData>/Mods/<modId>/` in the packaged desktop app (or `mods/` in source checkouts) and are built from plain JSON files and standard ES JavaScript (`plugin.js`). On desktop launch, the **11 bundled example mods** are automatically seeded into `<userData>/Mods/` without overwriting any user edits:
+Native mods live in `<userData>/Mods/<modId>/` in the packaged desktop app (or `mods/` in source checkouts) and are built from plain JSON files and standard ES JavaScript (`plugin.js`). On desktop launch, the **13 bundled mods** are automatically seeded into `<userData>/Mods/` and unmodified bundled mods are automatically updated when the client updates (preserving any local user edits and third-party mods):
 
 * **Data-Driven JSON Overrides & Content (`data` in `manifest.json`):**
   * `combat` (`combat.json`) - Tune armor-class fatigue multipliers (`heavyArmorFatigueMultiplier`, `mediumArmorFatigueMultiplier`, `lightArmorFatigueMultiplier`).
@@ -50,4 +50,4 @@ Native mods live in `<userData>/Mods/<modId>/` in the packaged desktop app (or `
 ## Next Steps
 
 * **[How to Start Modding](/modding/getting-started)** - Folder structure, `manifest.json` (`settings`, `locales`, `data`), and full Sandbox API v2 reference.
-* **[Example Mods](/modding/examples)** - Detailed walkthrough of all 11 bundled example mods in `mods/examples/`.
+* **[Example Mods](/modding/examples)** - Detailed walkthrough of all 13 bundled mods in `mods/examples/`.

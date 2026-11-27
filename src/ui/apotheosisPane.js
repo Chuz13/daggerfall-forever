@@ -546,7 +546,7 @@ function renderOverview(detail, entity, trackerShown, repaint) {
   if (state.stage === APOTHEOSIS_STAGES.QUESTLINE_ACTIVE) {
     const stepText = state.questStep === APOTHEOSIS_QUEST_STEPS.TOWER_SIEGE
       ? t('apotheosis.quest.stepTowerSiege', 'Repel the 13-wave Siege outside Direnni Tower and shatter the Aspect of the Tower (Current Wave: {wave}/13).', {
-        wave: Math.max(1, state.siegeWave || 1),
+        wave: Math.max(1, state.towerSiegeWave || state.siegeWave || 1),
       })
       : state.questStep === APOTHEOSIS_QUEST_STEPS.TOWER_INTERIOR
         ? t('apotheosis.quest.stepTowerInterior', 'Direnni Tower is unsealed and swarming with empowered guardians. Fight through the interior and touch the Zero Stone.')

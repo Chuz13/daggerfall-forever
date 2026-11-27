@@ -329,3 +329,39 @@ test('Phase 4.0 Fix: Sanctum Communion shields next-day Mythic Decay & statusTip
   assert.equal(roadTip.foot, '2h');
   assert.deepEqual(roadTip.lines, ['Blessing of Mara: +3/min Fatigue, +10° Weather Resist, +10% Elemental Resist (2h left)']);
 });
+
+test('Ascended God rebirth keeps 100% Fatigue even after 24h survival advance', async () => {
+  const { reconstituteAscendedGod, getApotheosisFlashState } = await import('../../src/systems/apotheosis/apotheosisLive.js');
+  const { maxFatigue } = await import('../../src/systems/statMods.js');
+  const { createPlayerTicker } = await import('../../src/scenes/shared.js');
+  const { setPref } = await import('../../src/systems/uiPrefs.js');
+  const { SURVIVAL_PREF } = await import('../../src/systems/survival/switch.js');
+  const { setWorldMinutes } = await import('../../src/systems/worldTick.js');
+
+  setWorldMinutes(10000);
+  setPref(SURVIVAL_PREF, 'hard');
+  const god = {
+    name: 'Tester',
+    isPlayer: true,
+    health: 0,
+    maxHealth: 600,
+    magicka: 0,
+    maxMagicka: 600,
+    fatigue: 500,
+    stats: { strength: 100, endurance: 100, intelligence: 100, willpower: 100, agility: 100, speed: 100, personality: 100, luck: 100 },
+    skills: new Array(35).fill(50),
+    activeEffects: [],
+    apotheosis: { ascended: true, stage: 'ascended', portfolio: 'war', faith: 500, rebirthCount: 0 },
+  };
+  const ticker = createPlayerTicker(god, {
+    survivalEnv: () => ({ insideBuilding: false, sheltered: false, byFire: false, climate: 231, regionIndex: 17, weather: 0, hour: 12, month: 4 }),
+  });
+  ticker.tick(0.1);
+  const res = reconstituteAscendedGod(god, {
+    onRebirth: () => ticker.advance(1440),
+  });
+  assert.equal(res.reconstituted, true);
+  assert.equal(god.fatigue, maxFatigue(god));
+  assert.ok(Array.isArray(getApotheosisFlashState().rgba));
+  setPref(SURVIVAL_PREF, 'off');
+});

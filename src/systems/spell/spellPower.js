@@ -94,8 +94,12 @@ export function spellPowerMult(caster, target, opts = {}) {
   if (!ownSpellAt(caster, target)) return 1;
   let pct = 0;
   for (const fn of _power.values()) {
-    const v = fn(caster, target, opts);
-    if (Number.isFinite(v) && v !== 0) pct += v; // FIRM1: a keystone's price may be a percent LESS (Martyr's Vow)
+    try {
+      const v = fn(caster, target, opts);
+      if (Number.isFinite(v) && v !== 0) pct += v; // FIRM1: a keystone's price may be a percent LESS (Martyr's Vow)
+    } catch {
+      /* a mod spellPower modifier must not break casting */
+    }
   }
   return schoolPotency(caster, opts) * Math.max(SPELL_POWER_FLOOR, 1 + pct / 100);
 }
@@ -129,8 +133,12 @@ export function spellPierce(caster, target) {
   if (!ownSpellAt(caster, target)) return 0;
   let n = 0;
   for (const fn of _pierce.values()) {
-    const v = fn(caster, target);
-    if (Number.isFinite(v) && v > 0) n += v;
+    try {
+      const v = fn(caster, target);
+      if (Number.isFinite(v) && v > 0) n += v;
+    } catch {
+      /* a mod spellPierce modifier must not break casting */
+    }
   }
   return n;
 }

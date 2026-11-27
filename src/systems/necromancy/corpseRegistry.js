@@ -463,6 +463,31 @@ export function clearSceneCorpses(sceneKey) {
 }
 
 /**
+ * Shifts world-space corpse positions when the floating origin recenters.
+ * @param {[number, number, number]} offset
+ */
+export function offsetCorpses(offset) {
+  if (!offset || offset.length < 3) return;
+  const ox = Number(offset[0]) || 0;
+  const oy = Number(offset[1]) || 0;
+  const oz = Number(offset[2]) || 0;
+  for (const c of _corpses.values()) {
+    if (c.sceneKey === 'world' && Array.isArray(c.position) && c.position.length >= 3) {
+      c.position[0] += ox;
+      c.position[1] += oy;
+      c.position[2] += oz;
+    }
+  }
+}
+
+/**
+ * Clears all tracked corpses (e.g. on save load, new game, or pixel teleport).
+ */
+export function clearAllCorpses() {
+  _corpses.clear();
+}
+
+/**
  * Test helper to clear entire registry.
  */
 export function _resetCorpseRegistryForTests() {

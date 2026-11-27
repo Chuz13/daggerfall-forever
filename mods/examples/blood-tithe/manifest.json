@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "13",
   "description": "Martial feat: slaying 5 enemies in melee combat unlocks the Blood-Tithe perk (+15 HP, +30 SP life siphon on kills).",
-  "enabled": true,
+  "enabled": false,
   "entry": "plugin.js",
   "settings": [
     {

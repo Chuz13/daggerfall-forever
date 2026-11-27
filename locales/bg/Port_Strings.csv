@@ -11163,3 +11163,7 @@ living.horde.darkPactSuccess,"{boss} recognizes a fellow master of death and bid
 living.horde.darkPactFail,"{boss} laughs at your feeble command and unleashes the horde!"
 living.horde.wildCleared,"The Undead Horde is destroyed! (+{gold}g · +5 Rep)"
 living.horde.reagentReceived,"Received dark reagent: {item}."
+features.aoeSelfFriendlyFire.title,"Приятелски огън по себе си (AoE)"
+features.aoeSelfFriendlyFire.note,"Позволява на вашите собствени заклинания с обхват по площ (като Fireball) да ви нанасят щети, ако стоите в радиуса на взрива."
+features.aoeAllyFriendlyFire.title,"Приятелски огън по съюзници (AoE)"
+features.aoeAllyFriendlyFire.note,"Позволява на вашите вредни заклинания по площ да нанасят щети на съюзниците в радиуса на взрива, без да предизвикват агресия или престъпления."

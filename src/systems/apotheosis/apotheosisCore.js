@@ -19,7 +19,7 @@ import { GROUP_TEMPLATE_INDICES } from '../item/itemTemplates.js';
 import { SKILLS, SKILL_COUNT, realSkillValue } from '../skills.js';
 import { pathOf } from '../arcanePaths.js';
 import { martialPathOf } from '../martialPaths.js';
-import { liveStat, STAT_KEYS_ORDER } from '../statMods.js';
+import { liveStat, maxFatigue, STAT_KEYS_ORDER } from '../statMods.js';
 import { isAnyLich } from '../necromancy/lichdomStatus.js';
 import { liveVampirism } from '../racialLive.js';
 import { liveLycanthropy } from '../lycanthropy.js';
@@ -1908,8 +1908,11 @@ export function selectApotheosisPortfolio(entity, portfolioId, { nowMinutes = nu
     if (Object.getOwnPropertyDescriptor(entity, 'maxMagicka')?.get && Number.isFinite(entity.magicka)) {
       entity.magicka = entity.maxMagicka;
     }
-    if (Number.isFinite(entity.maxFatigue) && entity.maxFatigue > 0 && Number.isFinite(entity.fatigue)) {
-      entity.fatigue = entity.maxFatigue;
+    const fullFatigue = Number.isFinite(entity.maxFatigue) && entity.maxFatigue > 0
+      ? entity.maxFatigue
+      : maxFatigue(entity);
+    if (Number.isFinite(fullFatigue) && fullFatigue > 0 && Number.isFinite(entity.fatigue)) {
+      entity.fatigue = fullFatigue;
     }
   }
   const def = APOTHEOSIS_PORTFOLIOS.find((p) => p.id === portfolioId);
