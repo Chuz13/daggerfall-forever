@@ -13,7 +13,7 @@ import { skillValue, displaySkillValue, realSkillValue, SKILLS } from '../skills
 import { liveStat } from '../statMods.js';
 import { NecroConfig, CORPSE_REQ_MODES } from './necroConfig.js';
 import { breakMortalDisguise } from './lichdomStatus.js';
-import { dice100 } from '../../combat/formulas.js';
+const dice100 = (chance, roll01 = Math.random()) => Math.floor(roll01 * 100) < chance;
 
 export const UNDEAD_LADDER = Object.freeze([
   'skeleton',
