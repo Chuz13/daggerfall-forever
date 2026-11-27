@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>DFF Mini-Dungeon 3D Viewer &amp; Modder Tool</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #0f1116; color: #d6dae2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; font-size: 13px; overflow: hidden; }
+  #app { display: flex; width: 100vw; height: 100vh; }
+  #sidebar { width: 380px; min-width: 320px; max-width: 44vw; height: 100vh; background: #161922; border-right: 1px solid #272c3a; display: flex; flex-direction: column; overflow: hidden; z-index: 2; }
+  #head { padding: 12px 14px 10px; border-bottom: 1px solid #272c3a; background: #12151c; }
+  #head h1 { font-size: 14px; font-weight: 600; color: #f0d48a; letter-spacing: 0.2px; }
+  #head p { font-size: 11px; color: #8c93a4; margin-top: 3px; }
+  #dataBar { padding: 10px 14px; border-bottom: 1px solid #272c3a; display: flex; flex-direction: column; gap: 7px; background: #181c26; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .row-between { display: flex; gap: 6px; align-items: center; justify-content: space-between; }
+  button, select, input[type=text], input[type=number] {
+    background: #232836; color: #d6dae2; border: 1px solid #343b4e; border-radius: 6px;
+    padding: 5px 9px; font-size: 12px; font-family: inherit;
+  }
+  button { cursor: pointer; transition: background 0.12s; }
+  button:hover { background: #2d3446; }
+  button.primary { background: #3b4b6b; border-color: #556b96; color: #fff; }
+  button.primary:hover { background: #485b82; }
+  button.on { background: #c08a3e; border-color: #e0a958; color: #111; font-weight: 600; }
+  label.filebtn {
+    display: inline-block; background: #2a3142; color: #e8ecf4; border: 1px solid #3f4963;
+    border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+  }
+  label.filebtn:hover { background: #363f54; }
+  input[type=file] { display: none; }
+  #arenaStatus { font-size: 11px; color: #96a0b5; white-space: pre-wrap; }
+  #tabs { display: flex; border-bottom: 1px solid #272c3a; background: #12151c; }
+  #tabs button { flex: 1; border: none; border-radius: 0; padding: 9px 6px; background: transparent; color: #8c93a4; border-bottom: 2px solid transparent; font-weight: 500; }
+  #tabs button.active { color: #f0d48a; border-bottom-color: #c08a3e; background: #161922; }
+  #panelScroll { flex: 1; overflow-y: auto; padding: 12px 14px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .sec { background: #1c202b; border: 1px solid #292f3f; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .sec-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #95a0b8; }
+  .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  label.chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #c7ccd8; cursor: pointer; }
+  #minimap { width: 100%; height: 190px; background: #0c0e13; border: 1px solid #2a3040; border-radius: 6px; display: block; }
+  #jsonEditor { width: 100%; height: 170px; background: #0c0e13; color: #b7d7a8; border: 1px solid #2a3040; border-radius: 6px; padding: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; resize: vertical; }
+  #valBox { font-size: 11px; line-height: 1.4; padding: 6px 8px; border-radius: 6px; display: none; white-space: pre-wrap; }
+  #valBox.ok { display: block; background: #16291e; border: 1px solid #2d6241; color: #9ce0b2; }
+  #valBox.err { display: block; background: #2f171a; border: 1px solid #753038; color: #f4a4ad; }
+  .swatch-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .swatch { width: 74px; background: #12151c; border: 1px solid #282e3d; border-radius: 6px; padding: 4px; text-align: center; }
+  .swatch canvas { image-rendering: pixelated; width: 48px; height: 48px; object-fit: contain; background: #08090c; border-radius: 3px; }
+  .swatch .sid { font-size: 10px; color: #b7becd; margin-top: 2px; }
+  .swatch .srem { font-size: 9px; color: #7e8699; }
+  .model-list { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+  .model-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; background: #12151c; border: 1px solid #252b38; border-radius: 5px; cursor: pointer; font-size: 11px; }
+  .model-item:hover { border-color: #c08a3e; }
+  .model-item.selected { border-color: #f0d48a; background: #232735; }
+  .badge { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #2b3346; color: #b5c3e0; }
+  .badge.door { background: #3b2d18; color: #f0c26d; }
+  #stageWrap { flex: 1; position: relative; height: 100vh; overflow: hidden; background: #0c0e13; }
+  #viewport { width: 100%; height: 100%; display: block; outline: none; }
+  #hud { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; gap: 10px; }
+  .hud-pill { background: rgba(16, 19, 27, 0.84); border: 1px solid #2c3344; border-radius: 8px; padding: 7px 11px; font-size: 11px; color: #c7ccd8; backdrop-filter: blur(4px); pointer-events: auto; }
+  #dropOverlay { position: fixed; inset: 0; background: rgba(18, 22, 32, 0.86); border: 3px dashed #c08a3e; display: none; align-items: center; justify-content: center; z-index: 50; font-size: 18px; color: #f0d48a; pointer-events: none; }
+  #dropOverlay.on { display: flex; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="dropOverlay">Drop ARENA2 folder or Blueprint .json file here</div>
+<div id="app">
+  <aside id="sidebar">
+    <div id="head">
+      <h1>Mini-Dungeon 3D Viewer</h1>
+      <p>Zero-CDN WebGL2 preview for DFF Blueprint v1 &amp; ARCH3D</p>
+    </div>
+    <div id="dataBar">
+      <div class="row">
+        <label class="filebtn" for="arenaPick">Select ARENA2 Folder</label>
+        <input id="arenaPick" type="file" webkitdirectory directory multiple>
+        <button id="btnDevArena2" class="primary" title="Fetch from ./arena2/ when running npm run dev">Load /arena2 (dev)</button>
+      </div>
+      <div id="arenaStatus">Drop your ARENA2 folder anywhere or click Load /arena2 (dev). Files stay 100% local.</div>
+    </div>
+    <div id="tabs">
+      <button id="tabBlueprint" class="active">Blueprint 3D</button>
+      <button id="tabCatalog">ARCH3D Catalog</button>
+    </div>
+    <div id="panelScroll">
+      <!-- TAB 1: BLUEPRINT 3D -->
+      <div id="paneBlueprint" class="pane" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="sec">
+          <div class="sec-title">Preset &amp; Blueprint JSON</div>
+          <div class="row">
+            <select id="presetSel" style="flex:1;"></select>
+            <label class="filebtn" for="jsonPick">Import .json</label>
+            <input id="jsonPick" type="file" accept=".json,application/json">
+            <button id="btnExportJson">Export</button>
+          </div>
+          <div class="row">
+            <button id="btnViewExt" class="on">Exterior</button>
+            <button id="btnViewInt">Interior</button>
+            <button id="btnViewOw">Overworld (15m)</button>
+          </div>
+          <div class="row">
+            <button id="btnCamOrbit" class="on">Cam: Orbit</button>
+            <button id="btnCamWalk">Cam: Walk (WASD)</button>
+            <button id="btnCamReset">Reset</button>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-title">Environment &amp; Overlays</div>
+          <div class="ctrl-grid">
+            <select id="climateSel">
+              <option value="300">Temperate (300)</option>
+              <option value="100">Mountain (100)</option>
+              <option value="0">Desert (0)</option>
+              <option value="400">Swamp (400)</option>
+            </select>
+            <select id="seasonSel">
+              <option value="0">Summer (0)</option>
+              <option value="1">Winter (1)</option>
+            </select>
+            <select id="groundSel">
+              <option value="flat">Ground: Flat</option>
+              <option value="slope">Ground: Slope</option>
+              <option value="sea">Ground: Sea Island</option>
+            </select>
+            <div class="row" style="gap:4px;">
+              <span style="font-size:11px; color:#95a0b8;">Slope</span>
+              <input id="slopeDeg" type="range" min="0" max="40" value="25" style="flex:1;">
+              <span id="slopeVal" style="width:28px; text-align:right; font-size:11px;">25&deg;</span>
+            </div>
+          </div>
+          <div class="ctrl-grid">
+            <label class="chk"><input id="chkCutaway" type="checkbox" checked> Hide Ceilings</label>
+            <label class="chk"><input id="chkMarkers" type="checkbox" checked> Show Markers</label>
+            <label class="chk"><input id="chkWire" type="checkbox"> Wireframe</label>
+            <label class="chk"><input id="chkMinimap" type="checkbox" checked> 2D Minimap</label>
+          </div>
+        </div>
+
+        <div class="sec" id="minimapSec">
+          <div class="row-between">
+            <div class="sec-title">2D Topology (Red=Foe, Gold=Main, Cyan=Side, Yellow=Light)</div>
+          </div>
+          <canvas id="minimap" width="320" height="190"></canvas>
+        </div>
+
+        <div class="sec">
+          <div class="row-between">
+            <div class="sec-title">Blueprint JSON Editor</div>
+            <button id="btnApplyJson" class="primary">Apply &amp; Validate</button>
+          </div>
+          <textarea id="jsonEditor" spellcheck="false"></textarea>
+          <div id="valBox"></div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-title">Used Models &amp; Remapped Textures</div>
+          <div id="modelSummary" style="font-size:11px; color:#aeb5c5; white-space:pre-line;"></div>
+          <div id="bpSwatches" class="swatch-list"></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: ARCH3D CATALOG -->
+      <div id="paneCatalog" class="pane hidden" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="sec">
+          <div class="sec-title">ARCH3D Model Inspector</div>
+          <div class="row">
+            <select id="catSel" style="flex:1;">
+              <option value="entrances">Entrances &amp; Ruins</option>
+              <option value="campsAndProps">Camps, Altars &amp; Props</option>
+              <option value="rocks">Rocks &amp; Boulders</option>
+              <option value="containersAndFurniture">Containers &amp; Furniture</option>
+              <option value="scannedEntrances">Scanned Dungeon Entrances</option>
+            </select>
+          </div>
+          <div class="row">
+            <input id="modelIdInput" type="number" placeholder="Model ID (e.g. 43514)" style="flex:1;">
+            <button id="btnInspectId" class="primary">Inspect</button>
+          </div>
+          <button id="btnScanEntrances">Scan ARCH3D for Dungeon Entrances</button>
+          <div id="catList" class="model-list"></div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-title">Selected Model Info &amp; Textures</div>
+          <div id="catInfo" style="font-size:11px; color:#aeb5c5; white-space:pre-line;">Select a model to inspect.</div>
+          <div id="catSwatches" class="swatch-list"></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main id="stageWrap">
+    <canvas id="viewport" tabindex="0"></canvas>
+    <div id="hud">
+      <div class="hud-pill" id="hudControls">Orbit: Drag rotate &middot; Shift/Right-drag pan &middot; Wheel zoom | Walk: WASD + Drag look</div>
+      <div class="hud-pill" id="hudStats">Ready</div>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/src/tools/miniDungeonViewer.js"></script>
+</body>
+</html>
