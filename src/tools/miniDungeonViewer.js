@@ -1498,9 +1498,10 @@ window.addEventListener('drop', async (e) => {
   if (!items?.length) return;
 
   // Prefer FileSystemHandle for instant zero-upload folder drop in Chrome/Edge
-  if (typeof items[0]?.getAsFileSystemHandle === 'function') {
+  const firstItem = /** @type {any} */ (items[0]);
+  if (typeof firstItem?.getAsFileSystemHandle === 'function') {
     try {
-      const handle = await items[0].getAsFileSystemHandle();
+      const handle = await firstItem.getAsFileSystemHandle();
       if (handle?.kind === 'directory') {
         setProgress(5, 'Scanning dropped ARENA2 folder...');
         const { handles, count } = await indexDirHandle(handle);

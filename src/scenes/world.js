@@ -6990,6 +6990,19 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       playerTicker.advance(APOTHEOSIS_REBIRTH_MINUTES);
       _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
+      if (playerEntity.survival && typeof playerEntity.survival === 'object') {
+        const nowMin = Math.floor(playerTicker.ownMinutes);
+        const s = playerEntity.survival;
+        s.lastAte = nowMin;
+        s.awakeSince = nowMin;
+        s.thirst = 0;
+        s.sleepDebt = 0;
+        s.wet = 0;
+        s.exposure = 0;
+        s.stiffUntil = 0;
+        delete s.borrowed;
+        delete s.loanPool;
+      }
     } catch (e) {
       console.error('[apotheosis] ticker advance error on divine rebirth:', e);
     }

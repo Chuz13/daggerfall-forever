@@ -292,12 +292,12 @@ export function buildMiniDungeonInteriorRecord(bp, seed = 0) {
       const [ci, cj] = key.split(',').map(Number);
       const vx = cellX(ci) - KIT_CELL / 2;
       const vz = cellZ(cj) - KIT_CELL / 2;
-      const spokes = [
+      const spokes = /** @type {Array<[number, [number, number], [number, number]]>} */ ([
         [0, [ci - 1, cj - 1], [ci, cj - 1]],
         [1, [ci, cj - 1], [ci, cj]],
         [2, [ci - 1, cj], [ci, cj]],
         [3, [ci - 1, cj - 1], [ci - 1, cj]],
-      ];
+      ]);
       const hasAnyWall = spokes.some(([, a, b]) => hasCell(a[0], a[1]) !== hasCell(b[0], b[1]));
       if (!hasAnyWall) continue;
       for (const [s, a, b] of spokes) {
