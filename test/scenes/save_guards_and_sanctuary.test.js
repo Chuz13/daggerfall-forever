@@ -95,6 +95,56 @@ test('Underground Sanctuary (Daedra & player-founded) identity & restore wiring'
   assert.match(wm, /cultSanctuary:\s*\{[\s\S]*?siteKey:\s*interiorCultSanctuary\.siteKey/);
   assert.match(wm, /if \(saved\?\.cultSanctuary\) \{[\s\S]*?createSanctuaryInteriorEntry\(site,/);
   assert.match(wm, /if \(!_enemyRestoreInProgress\)\s*\{\s*spawnCultInteriorGuardians\(/);
+  assert.match(wm, /reattachCultInteriorGuardians\(/);
+});
+
+test('Enemy Cult Sanctuary guardian timer never breaks structuredClone(cult) and reattach completes on death', async () => {
+  const { spawnCultInteriorGuardians, reattachCultInteriorGuardians } = await import('../../src/scenes/apotheosisCultHost.js');
+
+  const entity = {
+    apotheosis: { ascended: true, stage: 'ascended', portfolio: 'war', faith: 500 },
+  };
+  ensureCityCultSites(entity, { mapId: 7777, regionIndex: 17, locationName: 'TestCity', temples: [] });
+  const site = getCityCultSites(entity, 7777).find((s) => s.kind === 'sanctuary' && !s.isPlayerFounded);
+  assert.ok(site, 'enemy sanctuary seeded');
+  site.unlocked = true;
+
+  const foes = [];
+  const interiorFoes = {
+    foes,
+    onRemovedOrDead: null,
+    spawnFoe: () => {
+      const f = { dead: false, entity: { health: 100 } };
+      foes.push(f);
+      return f;
+    },
+  };
+  const building = { buildingKey: site.buildingKey, buildingType: 0, cultSiteKey: site.siteKey };
+  const ctx = { landing: [0, 0, 0], spawnPoints: [[1, 0, 1]] };
+
+  const spawned = spawnCultInteriorGuardians(entity, building, 7777, interiorFoes, ctx, { nowMinutes: 100 });
+  assert.ok(spawned.length > 0);
+  assert.doesNotThrow(() => structuredClone(entity.apotheosis.cult), 'cult state must remain structuredClone-safe');
+  assert.equal(site._guardianCheckTimer, undefined);
+
+  // Simulate save/load restore: foes come back without _cultSiteKey
+  for (const f of foes) delete f._cultSiteKey;
+  const messages = [];
+  const attached = reattachCultInteriorGuardians(entity, building, 7777, interiorFoes, {
+    say: (m) => messages.push(m),
+    nowMinutes: 105,
+  });
+  assert.equal(attached, true);
+  assert.equal(foes[0]._cultSiteKey, site.siteKey);
+
+  // Kill all restored foes and wait one poll tick
+  for (const f of foes) {
+    f.dead = true;
+    f.entity.health = 0;
+  }
+  await new Promise((r) => setTimeout(r, 700));
+  assert.equal(site.guardiansCleared, true);
+  assert.ok(messages.length > 0);
 });
 
 test('All 26 locales contain the new Orrery and Direnni Siege strings', () => {

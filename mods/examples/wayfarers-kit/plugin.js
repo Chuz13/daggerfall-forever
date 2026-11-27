@@ -33,7 +33,7 @@ export default function init(api) {
     });
   }
 
-  api.modifiers.swingPace('wayfarer_tonic', () => (remainingSec > 0 ? 1.15 : 1.0));
+  api.modifiers.swingPace('wayfarer_tonic', () => (remainingSec > 0 ? 15 : 0));
 
   api.items.onUse(WAYFARER_TONIC_TEMPLATE, (_item, _list, ctx) => {
     const hp = getHeal();
@@ -55,7 +55,6 @@ export default function init(api) {
       fp,
       sec: dur,
     });
-    api.ui.notify?.(msg);
     return msg;
   });
 

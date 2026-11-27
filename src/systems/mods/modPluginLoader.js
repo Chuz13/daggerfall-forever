@@ -12,11 +12,26 @@ import { unregisterPerk } from '../perks/perkRegistry.js';
 /** @type {Set<string>} */
 const _loadedPluginIds = new Set();
 
+/** @type {Set<string>} */
+const _loadingPluginIds = new Set();
+
+/** @type {Set<string>} */
+const _failedPluginIds = new Set();
+
+let _loadGeneration = 0;
+
 /** @type {Map<string, Function>} */
 const _virtualInitHandlers = new Map();
 
 /** @type {Map<string, string>} */
 const _pluginErrors = new Map();
+
+function cleanupModPartialState(modId) {
+  removeModListeners(modId);
+  unregisterPerk(modId);
+  unregisterModPerks(modId);
+  cleanupModResources(modId);
+}
 
 /**
  * Get the last runtime/load error message for a mod plugin, if any.
@@ -48,10 +63,12 @@ export function registerVirtualPluginHandler(modId, initFn) {
  * Load and execute all active scripted mod plugins.
  */
 export async function loadActiveModPlugins() {
+  const gen = _loadGeneration;
   const activeMods = getActiveMods();
 
   for (const mod of activeMods) {
-    if (_loadedPluginIds.has(mod.id)) continue;
+    if (gen !== _loadGeneration) return;
+    if (_loadedPluginIds.has(mod.id) || _loadingPluginIds.has(mod.id) || _failedPluginIds.has(mod.id)) continue;
 
     const entryFile = mod.manifest?.entry;
     const virtualHandler = _virtualInitHandlers.get(mod.id);
@@ -62,15 +79,27 @@ export async function loadActiveModPlugins() {
 
     // 1. Virtual handler (tests)
     if (virtualHandler) {
+      _loadingPluginIds.add(mod.id);
       try {
         const cleanup = await virtualHandler(api);
+        if (gen !== _loadGeneration) {
+          if (typeof cleanup === 'function') {
+            try { cleanup(); } catch {}
+          }
+          cleanupModPartialState(mod.id);
+          return;
+        }
         if (typeof cleanup === 'function') addModCleanup(mod.id, cleanup);
         _loadedPluginIds.add(mod.id);
         _pluginErrors.delete(mod.id);
       } catch (err) {
+        cleanupModPartialState(mod.id);
+        _failedPluginIds.add(mod.id);
         const msg = err?.message ? String(err.message) : String(err);
         _pluginErrors.set(mod.id, msg);
         console.error(`[ModPluginLoader] Error initializing virtual plugin '${mod.id}':`, err);
+      } finally {
+        _loadingPluginIds.delete(mod.id);
       }
       continue;
     }
@@ -83,14 +112,16 @@ export async function loadActiveModPlugins() {
         continue;
       }
 
+      _loadingPluginIds.add(mod.id);
       try {
         // Strip ES module syntax if present (default & named exports)
         let executableCode = code
+          .replace(/^\s*export\s+default\s+(async\s+)?function\s*\(/gm, '$1function init(')
           .replace(/^\s*export\s+default\s+(async\s+)?function\s+/gm, '$1function ')
           .replace(/^\s*export\s+(async\s+)?function\s+/gm, '$1function ')
           .replace(/^\s*export\s+(const|let|var|class)\s+/gm, '$1 ')
           .replace(/^\s*export\s+default\s+/gm, '')
-          .replace(/^\s*export\s*\{[^}]*\}\s*;?\s*$/gm, '');
+          .replace(/^\s*export\s*\{[\s\S]*?\}\s*;?\s*$/gm, '');
 
         // Execute plugin function safely passing api
         const runner = new Function('api', `
@@ -101,13 +132,24 @@ export async function loadActiveModPlugins() {
           }
         `);
         const cleanup = await runner(api);
+        if (gen !== _loadGeneration) {
+          if (typeof cleanup === 'function') {
+            try { cleanup(); } catch {}
+          }
+          cleanupModPartialState(mod.id);
+          return;
+        }
         if (typeof cleanup === 'function') addModCleanup(mod.id, cleanup);
         _loadedPluginIds.add(mod.id);
         _pluginErrors.delete(mod.id);
       } catch (err) {
+        cleanupModPartialState(mod.id);
+        _failedPluginIds.add(mod.id);
         const msg = err?.message ? String(err.message) : String(err);
         _pluginErrors.set(mod.id, msg);
         console.error(`[ModPluginLoader] Error executing plugin '${mod.id}':`, err);
+      } finally {
+        _loadingPluginIds.delete(mod.id);
       }
     }
   }
@@ -117,13 +159,15 @@ export async function loadActiveModPlugins() {
  * Unload all running plugins and detach their event bus listeners and registered perks.
  */
 export function unloadModPlugins() {
+  _loadGeneration++;
   for (const modId of _loadedPluginIds) {
-    removeModListeners(modId);
-    unregisterPerk(modId);
-    unregisterModPerks(modId);
-    cleanupModResources(modId);
+    cleanupModPartialState(modId);
+  }
+  for (const modId of _failedPluginIds) {
+    cleanupModPartialState(modId);
   }
   _loadedPluginIds.clear();
+  _failedPluginIds.clear();
   _pluginErrors.clear();
 }
 

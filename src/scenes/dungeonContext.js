@@ -2167,10 +2167,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     return true;
   }
   function tickDungeonLivingAdventurer(playerFeet) {
-    if (_livingDungeonCompanion?.dead) {
-      const fallenName = _livingDungeonCompanion.entity?.name || _livingDungeonCompanionName || 'Adventurer';
+    if (_livingDungeonCompanion?.dead || _livingDungeonCompanion?._knockedOut) {
+      const fallen = _livingDungeonCompanion;
+      const fallenName = fallen.entity?.name || _livingDungeonCompanionName || 'Adventurer';
+      fallen.dead = true;
       _livingDungeonCompanion = null;
       _livingDungeonCompanionName = 'Adventurer';
+      removeLooseFoe(fallen);
       dismissAdventurerCompanion();
       hudText.add(LIVING_WORDS.roadAdvCompFallen(fallenName), 6);
     } else if (_livingDungeonCompanion && !getActiveAdventurerCompanion(skyMinutes())) {

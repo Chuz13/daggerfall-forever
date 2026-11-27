@@ -8,7 +8,7 @@
 import { getActiveMods, readModFile } from './modRegistry.js';
 import { deepMerge } from './jsonMerge.js';
 import { POTION_RECIPES } from '../potionRecipes.js';
-import { overridePotionRecipes } from '../potions.js';
+import { overrideModPotionRecipes, potionRecipeKey } from '../potions.js';
 import { isPlate, isChain, isLeather, plateMetal, registerMaterialArmorResolver, registerQualityArmorModifierResolver } from '../armorMaterials.js';
 import { ENEMY_GROUPS, enemyEntityGroup } from '../../combat/enemyGroups.js';
 import { setModLocaleStrings, clearModLocaleStrings, t } from '../textManager.js';
@@ -159,9 +159,9 @@ export function syncModData() {
     }
   }
 
-  // 2. Sync Potion Recipes
-  /** @type {any[]} */
-  let aggregatedPotions = [...POTION_RECIPES];
+  // 2. Sync Potion Recipes (only mod-added/overridden recipes; never clobber Roleplay Realism or vanilla getters)
+  /** @type {Map<number, any>} */
+  const modPotionsByKey = new Map();
   let customPotionsAdded = false;
 
   for (const mod of activeMods) {
@@ -172,8 +172,24 @@ export function syncModData() {
         try {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            aggregatedPotions = deepMerge(aggregatedPotions, parsed);
-            customPotionsAdded = true;
+            for (const entry of parsed) {
+              if (!entry || typeof entry !== 'object') continue;
+              const vanilla = entry.name ? POTION_RECIPES.find((r) => r.name === entry.name) : null;
+              const existing = vanilla
+                ? modPotionsByKey.get(potionRecipeKey(vanilla.ingredients))
+                : Array.isArray(entry.ingredients)
+                  ? modPotionsByKey.get(potionRecipeKey(entry.ingredients))
+                  : null;
+              const merged = existing
+                ? deepMerge([existing], [entry])[0]
+                : vanilla
+                  ? deepMerge([{ ...vanilla, displayName: vanilla.displayName }], [entry])[0]
+                  : structuredClone(entry);
+              if (merged && Array.isArray(merged.ingredients)) {
+                modPotionsByKey.set(potionRecipeKey(merged.ingredients), merged);
+                customPotionsAdded = true;
+              }
+            }
           }
         } catch (e) {
           console.error(`[ModDataSync] Failed to parse potion data in mod ${mod.id}:`, e);
@@ -183,9 +199,9 @@ export function syncModData() {
   }
 
   if (customPotionsAdded) {
-    overridePotionRecipes(aggregatedPotions);
+    overrideModPotionRecipes([...modPotionsByKey.values()]);
   } else {
-    overridePotionRecipes(null);
+    overrideModPotionRecipes(null);
   }
 
   // 3. Sync Materials Overrides
@@ -799,7 +815,7 @@ export function _resetModDataSync() {
   registerMaterialArmorResolver(getEffectiveMaterialArmorValue);
   registerQualityArmorModifierResolver(getQualityArmorModifier);
   _synced = false;
-  overridePotionRecipes(null);
+  overrideModPotionRecipes(null);
   clearModLocaleStrings();
   clearModContentRegistrations();
 }

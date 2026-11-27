@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import '../../src/characters/enemy/enemyMotor.js';
 import {
   CLIMATE_BASES,
   MINI_DUNGEON_SAMPLE_BLUEPRINTS,

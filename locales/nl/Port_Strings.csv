@@ -11163,3 +11163,7 @@ living.horde.darkPactSuccess,"{boss} recognizes a fellow master of death and bid
 living.horde.darkPactFail,"{boss} laughs at your feeble command and unleashes the horde!"
 living.horde.wildCleared,"The Undead Horde is destroyed! (+{gold}g · +5 Rep)"
 living.horde.reagentReceived,"Received dark reagent: {item}."
+features.aoeSelfFriendlyFire.title,"AoE self friendly fire"
+features.aoeSelfFriendlyFire.note,"Allows your own Area at Range spells (such as Fireball) to damage you if you stand inside the blast radius."
+features.aoeAllyFriendlyFire.title,"AoE ally friendly fire"
+features.aoeAllyFriendlyFire.note,"Allows your harmful area spells to damage allies in the blast without provoking aggro or crimes."

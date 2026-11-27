@@ -6,20 +6,74 @@
 import { getWorldClimateSettings } from '../../formats/mapsFile.js';
 import { applyClimate } from '../climateSwaps.js';
 import { GLOBAL_SCALE } from '../meshReader.js';
-import { INTERIOR_MARKER } from '../interior/interiorLayout.js';
 import {
-  FABRIC_SIDES,
-  fabricCellMiddle,
-  fabricInteriorPlan,
-  fabricInteriorRecord,
-} from '../interior/fabricInterior.js';
-import {
+  KIT_CELL,
+  KIT_INSET,
+  KIT_MEASURE,
   KIT_PIECE,
   KIT_SET_ARCHIVES,
+  KIT_SHIFT,
+  KIT_STOREY,
   kitModel,
 } from '../interior/fabricInteriorKit.js';
 
 const EDITOR_FLATS_ARCHIVE = 199;
+const ENTER_MARKER_RECORD = 8;
+const FLOOR_MODEL_TYPE = 9;
+const PROP_MODEL_TYPE = 13;
+const FABRIC_SIDES = Object.freeze([
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+]);
+const FABRIC_SIDE_TURN = Object.freeze([1536, 0, 512, 1024]);
+const FABRIC_DOOR_CELL_X = -KIT_MEASURE.exitDoorMid;
+const FABRIC_WALL_SCALE = 130 / 126;
+const POST_OUT = KIT_INSET + KIT_MEASURE.postFace;
+
+const mod = (a, n) => ((a % n) + n) % n;
+const cellX = (i) => i * KIT_CELL + FABRIC_DOOR_CELL_X;
+const cellZ = (j) => j * KIT_CELL + KIT_CELL / 2;
+const fabricCellMiddle = (i, j) => [cellX(i), cellZ(j)];
+
+function fabricTurned(turn, x, z) {
+  switch (mod(Math.round(turn / 512), 4)) {
+    case 1:
+      return [-z, x];
+    case 2:
+      return [-x, -z];
+    case 3:
+      return [z, -x];
+    default:
+      return [x, z];
+  }
+}
+
+function kitPiece(piece, set, objectType, x, up, z, turn, sy = 1, sx = 1, sz = 1) {
+  const id = kitModel(piece, set);
+  const [hx, hy, hz] = KIT_SHIFT[id] ?? [0, 0, 0];
+  const [ox, oz] = fabricTurned(turn, hx * sx, hz * sz);
+  const scale = sx === 1 && sy === 1 && sz === 1
+    ? null
+    : {
+        ...(sx === 1 ? {} : { xScale: sx }),
+        ...(sy === 1 ? {} : { yScale: sy }),
+        ...(sz === 1 ? {} : { zScale: sz }),
+      };
+  return {
+    modelId: String(id),
+    modelIdNum: id,
+    objectType,
+    xPos: Math.round((x - ox) * 2) / 2,
+    yPos: Math.round(-(up - hy * sy) * 2) / 2,
+    zPos: Math.round((z - oz) * 2) / 2,
+    xRotation: 0,
+    yRotation: mod(Math.round(turn), 2048),
+    zRotation: 0,
+    ...(scale ?? {}),
+  };
+}
 
 export const MINI_DUNGEON_SCHEMA_VERSION = 1;
 
@@ -178,28 +232,6 @@ export function validateMiniDungeonBlueprint(bp) {
   return { ok: errors.length === 0, errors, warnings };
 }
 
-function buildAllBlindEdges(cells) {
-  const set = new Set(cells.map(([i, j]) => `${i},${j}`));
-  const blind = [];
-  for (const [i, j] of cells) {
-    for (let s = 0; s < 4; s++) {
-      const [dx, dz] = FABRIC_SIDES[s];
-      if (!set.has(`${i + dx},${j + dz}`)) {
-        blind.push(`${i},${j},${s}`);
-      }
-    }
-  }
-  return blind;
-}
-
-function isWindowModelId(modelIdNum) {
-  const n = Number(modelIdNum) || 0;
-  const mod = n % 100;
-  if (mod !== KIT_PIECE.window % 100) return false;
-  const setIdx = Math.floor((n - KIT_PIECE.window) / 100);
-  return setIdx >= 0 && setIdx < KIT_SET_ARCHIVES.length;
-}
-
 function toClassicCoords(entry) {
   if (Array.isArray(entry.cell) && entry.cell.length >= 2) {
     const [mx, mz] = fabricCellMiddle(entry.cell[0], entry.cell[1]);
@@ -225,48 +257,66 @@ function toClassicCoords(entry) {
 export function buildMiniDungeonInteriorRecord(bp, seed = 0) {
   const spec = bp?.interior ?? {};
   const cells = Array.isArray(spec.cells) && spec.cells.length ? spec.cells.map(([i, j]) => [i, j]) : [[0, 0]];
-  const blind = buildAllBlindEdges(cells);
   const storeys = Math.max(1, Math.min(2, Math.trunc(Number(spec.storeys) || 1)));
-  const fabricPool = typeof spec.fabricPool === 'string' ? spec.fabricPool : 'temple';
+  const set = Number.isInteger(spec.wallSet) && spec.wallSet >= 0 && spec.wallSet < KIT_SET_ARCHIVES.length
+    ? spec.wallSet
+    : 6;
+  const cellSet = new Set(cells.map(([i, j]) => `${i},${j}`));
+  const hasCell = (i, j) => cellSet.has(`${i},${j}`);
 
-  const plan = fabricInteriorPlan({
-    key: Number(seed) >>> 0,
-    pool: fabricPool,
-    cells,
-    blind,
-    storeys,
-  });
-  if (Number.isInteger(spec.wallSet)) {
-    plan.set = spec.wallSet;
+  const objs = [];
+  const wallHalf = KIT_MEASURE.wallHalf;
+  for (let k = 0; k < storeys; k++) {
+    const y0 = k * KIT_STOREY;
+    const wy = y0 + KIT_CELL / 2;
+    for (const [i, j] of cells) {
+      const x = cellX(i);
+      const z = cellZ(j);
+      if (k === 0) objs.push(kitPiece(KIT_PIECE.floor, set, FLOOR_MODEL_TYPE, x, y0, z, 0));
+      if (k === storeys - 1) objs.push(kitPiece(KIT_PIECE.ceiling, set, PROP_MODEL_TYPE, x, y0 + KIT_CELL, z, 0));
+      for (let s = 0; s < 4; s++) {
+        const [dx, dz] = FABRIC_SIDES[s];
+        if (hasCell(i + dx, j + dz)) continue;
+        const isExit = k === 0 && i === 0 && j === 0 && s === 0;
+        const piece = isExit ? KIT_PIECE.exit : KIT_PIECE.wall;
+        objs.push(kitPiece(piece, set, PROP_MODEL_TYPE, x + dx * wallHalf, wy, z + dz * wallHalf, FABRIC_SIDE_TURN[s], FABRIC_WALL_SCALE));
+      }
+    }
+    const corners = new Set();
+    for (const [i, j] of cells) {
+      for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        corners.add(`${i + a},${j + b}`);
+      }
+    }
+    for (const key of corners) {
+      const [ci, cj] = key.split(',').map(Number);
+      const vx = cellX(ci) - KIT_CELL / 2;
+      const vz = cellZ(cj) - KIT_CELL / 2;
+      const spokes = [
+        [0, [ci - 1, cj - 1], [ci, cj - 1]],
+        [1, [ci, cj - 1], [ci, cj]],
+        [2, [ci - 1, cj], [ci, cj]],
+        [3, [ci - 1, cj - 1], [ci - 1, cj]],
+      ];
+      const hasAnyWall = spokes.some(([, a, b]) => hasCell(a[0], a[1]) !== hasCell(b[0], b[1]));
+      if (!hasAnyWall) continue;
+      for (const [s, a, b] of spokes) {
+        if (!hasCell(a[0], a[1]) || !hasCell(b[0], b[1])) continue;
+        const d = FABRIC_SIDES[s];
+        const turn = FABRIC_SIDE_TURN[s] - FABRIC_SIDE_TURN[0];
+        objs.push(kitPiece(KIT_PIECE.post, set, PROP_MODEL_TYPE, vx + d[0] * POST_OUT, wy, vz + d[1] * POST_OUT, turn, FABRIC_WALL_SCALE));
+      }
+    }
   }
 
-  const interior = fabricInteriorRecord(plan, null);
-  const wallId = kitModel(KIT_PIECE.wall, plan.set);
-
-  // Strip windows (x018 -> blind wall) and optionally strip random procedural furniture
-  const keepRandomFurniture = spec.keepRandomFurniture === true;
-  const cleaned3d = [];
-  for (const obj of interior.block3dObjectRecords ?? []) {
-    const mid = Number(obj.modelIdNum);
-    if (isWindowModelId(mid)) {
-      cleaned3d.push({ ...obj, modelIdNum: wallId, modelId: String(wallId) });
-      continue;
-    }
-    if (!keepRandomFurniture && mid >= 41000 && mid <= 43999 && mid !== 41409) {
-      continue;
-    }
-    cleaned3d.push(obj);
-  }
-
-  // Place explicit props from blueprint
   for (const prop of spec.props ?? []) {
     const c = toClassicCoords(prop);
     const yawDeg = Number(prop.yawDeg) || 0;
     const yRotation = (((Math.round((yawDeg / 360) * 2048) % 2048) + 2048) % 2048);
-    cleaned3d.push({
+    objs.push({
       modelId: String(prop.modelId),
       modelIdNum: Number(prop.modelId),
-      objectType: 13,
+      objectType: PROP_MODEL_TYPE,
       xPos: c.x,
       yPos: c.y,
       zPos: c.z,
@@ -277,17 +327,16 @@ export function buildMiniDungeonInteriorRecord(bp, seed = 0) {
     });
   }
 
-  // Place interior containers from blueprint
   const containersMeta = [];
   for (const cont of bp?.containers ?? []) {
     if (cont.where !== 'interior') continue;
     const c = toClassicCoords(cont);
     const yawDeg = Number(cont.yawDeg) || 0;
     const yRotation = (((Math.round((yawDeg / 360) * 2048) % 2048) + 2048) % 2048);
-    cleaned3d.push({
+    objs.push({
       modelId: String(cont.modelId),
       modelIdNum: Number(cont.modelId),
-      objectType: 13,
+      objectType: PROP_MODEL_TYPE,
       xPos: c.x,
       yPos: c.y,
       zPos: c.z,
@@ -300,27 +349,24 @@ export function buildMiniDungeonInteriorRecord(bp, seed = 0) {
       role: cont.role || 'side',
       modelIdNum: Number(cont.modelId),
       lootBias: Number(cont.lootBias) || 1,
-      x: (c.x) * GLOBAL_SCALE,
-      y: -(c.y) * GLOBAL_SCALE,
-      z: (c.z) * GLOBAL_SCALE,
+      x: c.x * GLOBAL_SCALE,
+      y: -c.y * GLOBAL_SCALE,
+      z: c.z * GLOBAL_SCALE,
     });
   }
 
-  // Flats: ensure Enter marker at [0, 0], add blueprint lights & flats
-  const flats = [...(interior.blockFlatObjectRecords ?? [])];
-  if (!flats.some((f) => f.textureArchive === EDITOR_FLATS_ARCHIVE && f.textureRecord === INTERIOR_MARKER.ENTER)) {
-    const [ex, ez] = fabricCellMiddle(0, 0);
-    flats.push({
-      xPos: Math.round(ex),
-      yPos: 0,
-      zPos: Math.round(ez),
-      textureArchive: EDITOR_FLATS_ARCHIVE,
-      textureRecord: INTERIOR_MARKER.ENTER,
-      textureBitfield: (EDITOR_FLATS_ARCHIVE << 7) | INTERIOR_MARKER.ENTER,
-      factionID: 0,
-      flags: 0,
-    });
-  }
+  const flats = [];
+  const [ex, ez] = fabricCellMiddle(0, 0);
+  flats.push({
+    xPos: Math.round(ex),
+    yPos: 0,
+    zPos: Math.round(ez),
+    textureArchive: EDITOR_FLATS_ARCHIVE,
+    textureRecord: ENTER_MARKER_RECORD,
+    textureBitfield: (EDITOR_FLATS_ARCHIVE << 7) | ENTER_MARKER_RECORD,
+    factionID: 0,
+    flags: 0,
+  });
   for (const fl of spec.flats ?? []) {
     const c = toClassicCoords(fl);
     const arch = Number(fl.archive) || 210;
@@ -337,57 +383,38 @@ export function buildMiniDungeonInteriorRecord(bp, seed = 0) {
     });
   }
 
-  // Spawn points
   const spawns = [];
   const spawnPointsMeta = [];
   for (const sp of spec.spawnPoints ?? []) {
     const c = toClassicCoords(sp);
-    spawns.push({
-      xPos: c.x,
-      yPos: c.y,
-      zPos: c.z,
-      unknown1: 0,
-      unknown2: 10,
-      unknown3: 0,
-    });
-    spawnPointsMeta.push({
-      x: c.x * GLOBAL_SCALE,
-      y: -c.y * GLOBAL_SCALE,
-      z: c.z * GLOBAL_SCALE,
-    });
+    spawns.push({ xPos: c.x, yPos: c.y, zPos: c.z, unknown1: 0, unknown2: 10, unknown3: 0 });
+    spawnPointsMeta.push({ x: c.x * GLOBAL_SCALE, y: -c.y * GLOBAL_SCALE, z: c.z * GLOBAL_SCALE });
   }
   if (spawns.length === 0) {
     const farCell = cells[cells.length - 1];
     const [sx, sz] = fabricCellMiddle(farCell[0], farCell[1]);
-    spawns.push({
-      xPos: Math.round(sx),
-      yPos: 0,
-      zPos: Math.round(sz),
-      unknown1: 0,
-      unknown2: 10,
-      unknown3: 0,
-    });
+    spawns.push({ xPos: Math.round(sx), yPos: 0, zPos: Math.round(sz), unknown1: 0, unknown2: 10, unknown3: 0 });
     spawnPointsMeta.push({ x: sx * GLOBAL_SCALE, y: 0, z: sz * GLOBAL_SCALE });
   }
 
   const finalInterior = {
-    ...interior,
     header: {
-      ...(interior.header ?? {}),
-      num3dObjectRecords: cleaned3d.length,
+      num3dObjectRecords: objs.length,
       numFlatObjectRecords: flats.length,
       numSection3Records: spawns.length,
     },
-    block3dObjectRecords: cleaned3d,
+    block3dObjectRecords: objs,
     blockFlatObjectRecords: flats,
     blockSection3Records: spawns,
+    blockPeopleRecords: [],
+    blockDoorRecords: [],
   };
 
   return {
-    plan,
+    plan: { key: Number(seed) >>> 0, set, cells, storeys },
     interior: finalInterior,
     restyleSet: Number.isInteger(spec.restyleSet) ? spec.restyleSet : null,
-    wallSet: plan.set,
+    wallSet: set,
     containersMeta,
     spawnPointsMeta,
     dfBlock: {

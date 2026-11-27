@@ -188,8 +188,8 @@ export function raiseEnemyDeath(entity, opts = {}) {
 }
 
 // NECROMANCY: Register fallen foes in the real-time corpse lifecycle registry
-registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
-  if (!FORK_FLAGS.ENABLE_NECROMANCY) return;
+export function registerNecroCorpse(entity, opts = {}) {
+  if (!FORK_FLAGS.ENABLE_NECROMANCY || !entity) return;
   const pos = opts?.feet ?? entity.feet ?? entity.pos ?? [0, 0, 0];
   const rawType = opts?.mobileType ?? entity.mobileType ?? entity.career ?? 'humanoid';
   const mobType = typeof rawType === 'number' ? rawType : (typeof opts?.mobileType === 'number' ? opts.mobileType : null);
@@ -227,7 +227,8 @@ registerEnemyDeathHandler('necromancy', (entity, opts = {}) => {
       }
     };
   }
-});
+}
+registerEnemyDeathHandler('necromancy', registerNecroCorpse);
 
 /**
  * DEX5 (bible/04-Characters/Enemy-Expansion.md section 11): A MOD'S CORPSE PREFAB. DFU stands a corpse's billboard

@@ -402,7 +402,7 @@ import { bannerKeyOf } from './hallBanners.js';   // CROWN-HALL: the throne room
 import { HOME_ENTRIES, homePriceOk, homeOnlinePrice, rentCost, rentDaysLeft, HOME_PRICE_STEP, HOME_PRICE_MIN, HOME_PRICE_MAX } from '../net/homeLaw.js';   // HOME-PRICE: what a home costs online
 import { isOfflineHousingActive } from '../systems/uiPrefs.js';
 import { isOfflineHouseOwned } from '../systems/offlineHomes.js';
-import { getTempleCultDoorSubtitle, createSanctuaryInteriorEntry, spawnCultInteriorGuardians, isPlayerCultSiteOwned, interiorCultAltarTargets, interiorCultAltarHoverName, activateInteriorCultAltar } from './apotheosisCultHost.js';
+import { getTempleCultDoorSubtitle, createSanctuaryInteriorEntry, spawnCultInteriorGuardians, reattachCultInteriorGuardians, isPlayerCultSiteOwned, interiorCultAltarTargets, interiorCultAltarHoverName, activateInteriorCultAltar } from './apotheosisCultHost.js';
 import { getApotheosisTempleServiceBlock, getCultSite } from '../systems/apotheosis/apotheosisCult.js';
 import { homeListedPrice } from '../net/homeListingLaw.js';   // FOUNDATION F3: a row's price
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
@@ -14513,7 +14513,10 @@ export function createWorldModes(host) {
         } finally {
           _enemyRestoreInProgress = false;
         }
-        if (mode === 'interior' && hasEnemyRecord && fromNative) restoreInteriorPools(saved, fromNative, yOffset);
+        if (mode === 'interior' && hasEnemyRecord && fromNative) {
+          restoreInteriorPools(saved, fromNative, yOffset);
+          reattachCultInteriorGuardians(playerEntity, interiorBuilding, homeTownOf(interiorBuilding), interiorFoes, { say, nowMinutes: Math.floor(worldMinutes()) });
+        }
         return mode === 'interior';
       }
       const cabin = saved?.sailingCabin;
@@ -14566,13 +14569,17 @@ export function createWorldModes(host) {
       } finally {
         _enemyRestoreInProgress = false;
       }
-      if (mode === 'interior' && hasEnemyRecord && fromNative) restoreInteriorPools(saved, fromNative, yOffset);
+      if (mode === 'interior' && hasEnemyRecord && fromNative) {
+        restoreInteriorPools(saved, fromNative, yOffset);
+        reattachCultInteriorGuardians(playerEntity, interiorBuilding, homeTownOf(interiorBuilding), interiorFoes, { say, nowMinutes: Math.floor(worldMinutes()) });
+      }
       return mode === 'interior';
     },
     enterSailingCabin,
     enterCaravanRoom,   // WAGONS1
-    enterCultSanctuary: async (site, opts = {}) => {
-      if (mode === 'interior') exitInteriorNow();
+    async enterCultSanctuary(site, opts = {}) {
+      if (mode === 'dungeon') this.forceExitToExterior({ cacheScene: false });
+      else if (mode === 'interior') exitInteriorNow();
       const e = createSanctuaryInteriorEntry(site, { mapId: site?.mapId, regionIndex: site?.regionIndex, hatchWorldPos: opts.worldPos ?? [...player.pos], hatchYaw: opts.yaw ?? cam.yaw });
       return e ? enterInteriorCore(e.hit, e.entries, { building: e.building }) : false;
     },

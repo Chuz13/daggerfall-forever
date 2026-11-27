@@ -15,7 +15,7 @@ import {
 import { getDivine } from '../guild/guildVariants.js';
 import { inheritOfflineHome } from '../offlineHomes.js';
 import { SKILLS, skillValue } from '../skills.js';
-import { liveStat } from '../statMods.js';
+import { liveStat, maxFatigue } from '../statMods.js';
 import {
   isAscendedGod,
   APOTHEOSIS_COMMUNION_DURATION_MINUTES,
@@ -941,7 +941,7 @@ export function consecrateSiteByForce(entity, siteKey, { nowMinutes = 0, force =
   const cost = force || paidAlready ? 0 : CULT_CONSECRATE_FORCE_FAITH_COST;
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `consecrate_force:${site.siteKey}` });
-    if (!spend.ok) return { ok: false, reason: spend.reason };
+    if (!spend.ok) return { ok: false, reason: spend.error ?? spend.reason };
   }
 
   const hadBreakInPenalty = !!site.breakInPenalized;
@@ -1001,7 +1001,7 @@ export function initiateForceConsecrationAssault(entity, siteKey, { nowMinutes =
   let faithSpent = 0;
   if (!site.consecrationPaid) {
     const spend = spendApotheosisFaith(entity, CULT_CONSECRATE_FORCE_FAITH_COST, { reason: `consecrate_force:${site.siteKey}` });
-    if (!spend.ok) return { ok: false, reason: spend.reason };
+    if (!spend.ok) return { ok: false, reason: spend.error ?? spend.reason };
     site.consecrationPaid = true;
     faithSpent = CULT_CONSECRATE_FORCE_FAITH_COST;
   }
@@ -1071,7 +1071,7 @@ export function dedicateSitePeacefully(entity, siteKey, { nowMinutes = 0, force 
   const cost = force ? 0 : CULT_CONSECRATE_PEACEFUL_FAITH_COST;
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `consecrate_peaceful:${site.siteKey}` });
-    if (!spend.ok) return { ok: false, reason: spend.reason };
+    if (!spend.ok) return { ok: false, reason: spend.error ?? spend.reason };
   }
 
   site.formerOwnerId = oldOwnerId;
@@ -1164,7 +1164,7 @@ export function foundPlayerUndergroundSanctuary(entity, {
   }
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `found_sanctuary:${mid}` });
-    if (!spend.ok) return { ok: false, reason: spend.reason };
+    if (!spend.ok) return { ok: false, reason: spend.error ?? spend.reason };
   }
   if (goldCost > 0) {
     entity.goldPieces = Math.max(0, curGold - goldCost);
@@ -1251,7 +1251,7 @@ export function upgradeCultSite(entity, siteKey, { nowMinutes = 0, force = false
   }
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `upgrade_cult:${site.siteKey}` });
-    if (!spend.ok) return { ok: false, reason: spend.reason };
+    if (!spend.ok) return { ok: false, reason: spend.error ?? spend.reason };
   }
   if (goldCost > 0) {
     entity.goldPieces = Math.max(0, curGold - goldCost);
@@ -1312,7 +1312,7 @@ export function selectCultSiteBranch(entity, siteKey, branchId, { nowMinutes = 0
   const cost = force || !isSwitch ? 0 : CULT_BRANCH_SWITCH_COST;
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `branch:${site.siteKey}:${bid}` });
-    if (!spend.ok) return { ok: false, reason: spend.reason };
+    if (!spend.ok) return { ok: false, reason: spend.error ?? spend.reason };
   }
   site.branch = bid;
   if (isSwitch && !force) {
@@ -1343,7 +1343,7 @@ export function teleportToCultSanctuary(entity, siteKey, { isNearHatch = false, 
   const cost = force || isNearHatch ? 0 : CULT_TELEPORT_SANCTUARY_FAITH_COST;
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `tp_sanctuary:${site.siteKey}` });
-    if (!spend.ok) return { ok: false, reason: spend.reason };
+    if (!spend.ok) return { ok: false, reason: spend.error ?? spend.reason };
   }
   return { ok: true, faithSpent: cost, site };
 }
@@ -1427,7 +1427,7 @@ export function proclaimRegionalEdict(entity, regionIndex, edictId, { nowMinutes
   const cost = force ? 0 : REGIONAL_EDICT_COST;
   if (cost > 0) {
     const spend = spendApotheosisFaith(entity, cost, { reason: `edict:${reg}:${eid}` });
-    if (!spend.ok) return { ok: false, reason: spend.reason };
+    if (!spend.ok) return { ok: false, reason: spend.error ?? spend.reason };
   }
 
   const issuedAt = Math.max(0, Math.trunc(Number(nowMinutes) || 0));
@@ -1697,8 +1697,11 @@ export function communeAtCultAltar(entity, siteKey, { nowMinutes = 0 } = {}) {
   if (Number.isFinite(entity.maxMagicka) && entity.maxMagicka > 0) {
     entity.magicka = entity.maxMagicka;
   }
-  if (Number.isFinite(entity.maxFatigue) && entity.maxFatigue > 0) {
-    entity.fatigue = entity.maxFatigue;
+  const fullFatigue = Number.isFinite(entity.maxFatigue) && entity.maxFatigue > 0
+    ? entity.maxFatigue
+    : maxFatigue(entity);
+  if (Number.isFinite(fullFatigue) && fullFatigue > 0) {
+    entity.fatigue = fullFatigue;
   }
   if ('bleeding' in entity) entity.bleeding = 0;
   if (Array.isArray(entity.activeEffects)) {

@@ -31,6 +31,13 @@
   label.filebtn:hover { background: #363f54; }
   input[type=file] { display: none; }
   #arenaStatus { font-size: 11px; color: #96a0b5; white-space: pre-wrap; }
+  #errBanner { display: none; background: #3b171b; border: 1px solid #8c333c; color: #ffb4bc; border-radius: 6px; padding: 6px 8px; font-size: 11px; white-space: pre-wrap; }
+  #errBanner.on { display: block; }
+  #loadProgWrap { display: none; flex-direction: column; gap: 3px; }
+  #loadProgWrap.on { display: flex; }
+  #loadProgTrack { width: 100%; height: 6px; background: #0c0e13; border-radius: 999px; overflow: hidden; border: 1px solid #2a3040; }
+  #loadProgBar { width: 0%; height: 100%; background: #c08a3e; transition: width 0.15s ease; }
+  #loadProgText { font-size: 10px; color: #c0b492; }
   #tabs { display: flex; border-bottom: 1px solid #272c3a; background: #12151c; }
   #tabs button { flex: 1; border: none; border-radius: 0; padding: 9px 6px; background: transparent; color: #8c93a4; border-bottom: 2px solid transparent; font-weight: 500; }
   #tabs button.active { color: #f0d48a; border-bottom-color: #c08a3e; background: #161922; }
@@ -74,11 +81,16 @@
     </div>
     <div id="dataBar">
       <div class="row">
-        <label class="filebtn" for="arenaPick">Select ARENA2 Folder</label>
+        <button id="btnSelectArena" type="button">Select ARENA2 Folder</button>
         <input id="arenaPick" type="file" webkitdirectory directory multiple>
         <button id="btnDevArena2" class="primary" title="Fetch from ./arena2/ when running npm run dev">Load /arena2 (dev)</button>
       </div>
-      <div id="arenaStatus">Drop your ARENA2 folder anywhere or click Load /arena2 (dev). Files stay 100% local.</div>
+      <div id="loadProgWrap">
+        <div id="loadProgTrack"><div id="loadProgBar"></div></div>
+        <div id="loadProgText">Loading...</div>
+      </div>
+      <div id="errBanner"></div>
+      <div id="arenaStatus">Initializing viewer...</div>
     </div>
     <div id="tabs">
       <button id="tabBlueprint" class="active">Blueprint 3D</button>

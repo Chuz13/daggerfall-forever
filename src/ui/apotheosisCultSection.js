@@ -607,6 +607,12 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
         blockedReason: tpBlocked,
         setFeedback,
         onRun: () => {
+          const tpGate = sceneCtx?.canTeleportCultSanctuary?.();
+          if (tpGate && !tpGate.ok) {
+            setFeedback(tpGate.reason || t('apotheosis.orrery.noRecall', 'You cannot teleport from here.'), true);
+            repaint();
+            return;
+          }
           const res = teleportToCultSanctuary(entity, site.siteKey, { isNearHatch });
           if (!res.ok) {
             setFeedback(res.reason, true);
@@ -619,8 +625,8 @@ function renderSiteCard(container, entity, pantheon, site, nowMin, repaint, setF
               cost: res.faithSpent,
             }), false);
           }
-          sceneCtx.enterCultSanctuary(site);
           if (closePause) closePause();
+          void sceneCtx.enterCultSanctuary(site);
         },
       }));
     } else {

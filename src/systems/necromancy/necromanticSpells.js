@@ -665,8 +665,7 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
   const rolls = opts.rolls || Math.random;
   const casterEntity = caster?.entity || caster;
 
-  // In Abstract mode, can conjure from thin air if no corpse provided
-  if (!targetCorpse && NecroConfig.corpseRequirement === CORPSE_REQ_MODES.ABSTRACT) {
+  const conjureAbstractSkeleton = () => {
     if (!canAffordUndead(casterEntity, 'skeleton')) {
       return { success: false, reason: 'Insufficient undead control capacity' };
     }
@@ -694,6 +693,11 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
     }
     breakMortalDisguise(casterEntity, { say: opts?.say ?? opts?.sinks?.say });
     return { success: true, minion };
+  };
+
+  // In Abstract mode, can conjure from thin air if no corpse provided
+  if (!targetCorpse && NecroConfig.corpseRequirement === CORPSE_REQ_MODES.ABSTRACT) {
+    return conjureAbstractSkeleton();
   }
 
   let corpse = typeof targetCorpse === 'string' ? getCorpse(targetCorpse) : targetCorpse;
@@ -717,12 +721,19 @@ export function castAnimateDead(caster, targetCorpse, options = {}) {
       if (!corpse && near.length > 0) sawNonHumanoid = true;
     }
     if (!corpse) {
-      const casterPos = casterEntity?.position || casterEntity?.pos || casterEntity?.feet || null;
+      const casterPos =
+        toVec3(casterEntity?.position) ||
+        toVec3(casterEntity?.pos) ||
+        toVec3(casterEntity?.feet) ||
+        toVec3(globalThis.__sceneContext?.getPlayerPos?.());
       if (casterPos) {
         const nearCaster = corpsesNear(casterPos, 10);
         corpse = nearCaster.find((c) => isHumanoidCorpse(c)) ?? null;
         if (!corpse && nearCaster.length > 0) sawNonHumanoid = true;
       }
+    }
+    if (!corpse && !sawNonHumanoid && NecroConfig.corpseRequirement === CORPSE_REQ_MODES.ABSTRACT) {
+      return conjureAbstractSkeleton();
     }
     if (!corpse && sawNonHumanoid) {
       return { success: false, reason: 'Only humanoid corpses can be reanimated.' };

@@ -105,12 +105,19 @@ const _customByKey = new Map([[ELIXIR_OF_UNLIFE_KEY, ELIXIR_OF_UNLIFE_RECIPE]]);
 // The rows are keyed by their ingredients as the built ones are, so a
 // replaced recipe answers the same key.
 const _recipeOverrides = new Map();
+const _modRecipeOverrides = new Map();
 export function overridePotionRecipes(rows) {
   _recipeOverrides.clear();
   for (const r of rows ?? [])
     _recipeOverrides.set(potionRecipeKey(r.ingredients), Object.isFrozen(r) ? r : Object.freeze(r));
 }
-export const potionRecipeByKey = (key) => _recipeOverrides.get(key) ?? _byKey.get(key) ?? _customByKey.get(key) ?? null;
+export function overrideModPotionRecipes(rows) {
+  _modRecipeOverrides.clear();
+  for (const r of rows ?? [])
+    _modRecipeOverrides.set(potionRecipeKey(r.ingredients), Object.isFrozen(r) ? r : Object.freeze(r));
+}
+export const potionRecipeByKey = (key) =>
+  _modRecipeOverrides.get(key) ?? _recipeOverrides.get(key) ?? _byKey.get(key) ?? _customByKey.get(key) ?? null;
 
 export function makePotion(recipeKey) {
   const recipe = potionRecipeByKey(recipeKey);

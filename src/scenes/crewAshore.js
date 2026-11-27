@@ -316,7 +316,7 @@ export function createCrewAshore(deps) {
           }
           if (rec.ai) {
             const idx = Math.max(0, party.party.indexOf(c));
-            rec.ai.follow = deps.follow ? deps.follow(c, idx, followOf(idx)) : followOf(idx);
+            rec.ai.follow = deps.follow ? deps.follow(c, rec, idx, followOf(idx)) : followOf(idx);
           }
           stood.set(k, { c, rec, remove: place.remove, has: place.has ?? null, fx: place.fx ?? null });
           try {
@@ -347,7 +347,7 @@ export function createCrewAshore(deps) {
         const party = deps.party?.();
         const list = party?.party ?? [];
         const idx = Math.max(0, list.indexOf(c));
-        rec.ai.follow = deps.follow ? deps.follow(c, idx, followOf(idx)) : followOf(idx);
+        rec.ai.follow = deps.follow ? deps.follow(c, rec, idx, followOf(idx)) : followOf(idx);
         rec.ai.isHostile = false;
         rec.ai.target = null;
         rec.ai.secondaryTarget = null;

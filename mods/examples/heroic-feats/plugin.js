@@ -8,7 +8,7 @@ function init(api) {
     id: 'blade_mastery',
     name: 'Blade Mastery',
     desc: '+15% damage and +10% crit chance with Long Blades (Requires 50 Long Blade skill).',
-    check: (e) => (e?.skills?.[22] ?? 0) >= 50 || (e?.skillValues?.[22] ?? 0) >= 50,
+    check: (e) => (e?.skills?.[29] ?? 0) >= 50 || (e?.skillValues?.[29] ?? 0) >= 50,
   });
 
   // 2. Arcane Reservoir
@@ -16,7 +16,7 @@ function init(api) {
     id: 'arcane_reservoir',
     name: 'Arcane Reservoir',
     desc: 'Increases maximum Magicka by +25 (Requires 50 Mysticism).',
-    check: (e) => (e?.skills?.[25] ?? 0) >= 50 || (e?.skillValues?.[25] ?? 0) >= 50,
+    check: (e) => (e?.skills?.[27] ?? 0) >= 50 || (e?.skillValues?.[27] ?? 0) >= 50,
   });
 
   // 3. Shadow Step
@@ -24,7 +24,7 @@ function init(api) {
     id: 'shadow_step',
     name: 'Shadow Step',
     desc: 'Movement in stealth makes 40% less noise and backstabs deal +25% bonus damage (Requires 50 Stealth).',
-    check: (e) => (e?.skills?.[20] ?? 0) >= 50 || (e?.skillValues?.[20] ?? 0) >= 50,
+    check: (e) => (e?.skills?.[16] ?? 0) >= 50 || (e?.skillValues?.[16] ?? 0) >= 50,
   });
 
   // 4. Iron Constitution
@@ -40,6 +40,6 @@ function init(api) {
     id: 'treasure_hunter',
     name: 'Treasure Hunter',
     desc: 'Increases gold found in dungeon chests and corpses by 20% (Requires 40 Mercantile).',
-    check: (e) => (e?.skills?.[27] ?? 0) >= 40 || (e?.skillValues?.[27] ?? 0) >= 40,
+    check: (e) => (e?.skills?.[14] ?? 0) >= 40 || (e?.skillValues?.[14] ?? 0) >= 40,
   });
 }

@@ -11163,3 +11163,7 @@ living.horde.darkPactSuccess,"{boss} впізнає у вас майстра с�
 living.horde.darkPactFail,"{boss} сміється з вашого кволого наказу й кидає орду в бій!"
 living.horde.wildCleared,"Орду нежиті знищено! (+{gold} зол. · +5 Реп.)"
 living.horde.reagentReceived,"Отримано темний реагент: {item}."
+features.aoeSelfFriendlyFire.title,"Вогонь по собі від заклять (AoE)"
+features.aoeSelfFriendlyFire.note,"Дозволяє вашим власним закляттям по площі (наприклад, Fireball) завдавати вам шкоди, якщо ви стоїте в радіусі вибуху."
+features.aoeAllyFriendlyFire.title,"Вогонь по союзниках від заклять (AoE)"
+features.aoeAllyFriendlyFire.note,"Дозволяє вашим шкідливим закляттям по площі завдавати шкоди союзникам у радіусі вибуху без агресії та злочинів."

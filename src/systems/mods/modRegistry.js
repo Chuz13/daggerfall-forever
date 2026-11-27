@@ -17,6 +17,7 @@ import { appStorage } from '../appStorage.js';
  * @property {boolean} [enabled] - Default enabled flag in manifest
  * @property {Record<string, string>} [data] - Map of data category to relative JSON path (e.g. { combat: "combat.json" })
  * @property {string} [entry] - Relative path to plugin entrypoint (e.g. "plugin.js")
+ * @property {string} [locales] - Relative path to mod localization JSON (e.g. "locales.json")
  */
 
 /**

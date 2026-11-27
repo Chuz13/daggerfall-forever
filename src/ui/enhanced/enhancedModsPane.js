@@ -71,8 +71,9 @@ export function drawModsPane(body, rerender) {
     discoverMods();
     syncModData();
     unloadModPlugins();
-    void loadActiveModPlugins();
-    if (typeof rerender === 'function') rerender();
+    void loadActiveModPlugins().finally(() => {
+      if (typeof rerender === 'function') rerender();
+    });
   };
   topActs.append(openFolderBtn, rescanBtn);
   topCard.append(topActs);
@@ -116,8 +117,9 @@ export function drawModsPane(body, rerender) {
       setModEnabled(mod.id, toggle.checked);
       syncModData();
       unloadModPlugins();
-      void loadActiveModPlugins();
-      if (typeof rerender === 'function') rerender();
+      void loadActiveModPlugins().finally(() => {
+        if (typeof rerender === 'function') rerender();
+      });
     };
 
     const titleText = `${mod.manifest?.name || mod.id}${mod.manifest?.version ? ` v${mod.manifest.version}` : ''}`;
@@ -217,8 +219,9 @@ export function drawModsPane(body, rerender) {
         setModLoadOrder(order);
         syncModData();
         unloadModPlugins();
-        void loadActiveModPlugins();
-        if (typeof rerender === 'function') rerender();
+        void loadActiveModPlugins().finally(() => {
+          if (typeof rerender === 'function') rerender();
+        });
       };
       actRow.append(upBtn);
     }
@@ -234,8 +237,9 @@ export function drawModsPane(body, rerender) {
         setModLoadOrder(order);
         syncModData();
         unloadModPlugins();
-        void loadActiveModPlugins();
-        if (typeof rerender === 'function') rerender();
+        void loadActiveModPlugins().finally(() => {
+          if (typeof rerender === 'function') rerender();
+        });
       };
       actRow.append(downBtn);
     }

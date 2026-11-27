@@ -224,7 +224,7 @@ export function createTwoHands({ audio = null, envHit = null, missEffect = null,
       tracker.checkAttackKey(`${art.weaponType}:${v.state}:${hand}`);
       const m = st.machine;
       const nextF = nextSwingFrame({
-        state: v.state,
+        state: m?.state ?? v.state,
         frame: f,
         numFrames: q.rec.frames.length,
         isBow: !!m?.isBow,

@@ -4,7 +4,7 @@
 // effects, and playerEntity consume god vitals and rebirth without ESM cycles.
 
 import { SKILLS, realSkillValue } from '../skills.js';
-import { FATIGUE_MULTIPLIER } from '../statMods.js';
+import { FATIGUE_MULTIPLIER, maxFatigue } from '../statMods.js';
 
 export const APOTHEOSIS_BASE_HP_BONUS = 500;
 export const APOTHEOSIS_BASE_MP_BONUS = 500;
@@ -342,6 +342,7 @@ export function getApotheosisFlashState() {
     alpha: _screenFlash.alpha,
     elapsed: _screenFlash.elapsed,
     rgb: APOTHEOSIS_FLASH_RGB,
+    rgba: [APOTHEOSIS_FLASH_RGB[0], APOTHEOSIS_FLASH_RGB[1], APOTHEOSIS_FLASH_RGB[2], _screenFlash.alpha],
   };
 }
 
@@ -394,7 +395,8 @@ export function reconstituteAscendedGod(entity, options = {}) {
   if (typeof entity.currentHealth === 'number') entity.currentHealth = maxHp;
   entity.magicka = Math.max(0, Number(entity.maxMagicka ?? 100));
   const rawMaxFatigue = Number(entity.maxFatigue);
-  const fullFatigue = Number.isFinite(rawMaxFatigue) && rawMaxFatigue > 0 ? rawMaxFatigue : 1000;
+  const computedMaxFatigue = Number.isFinite(rawMaxFatigue) && rawMaxFatigue > 0 ? rawMaxFatigue : maxFatigue(entity);
+  const fullFatigue = Number.isFinite(computedMaxFatigue) && computedMaxFatigue > 0 ? computedMaxFatigue : 1000;
   entity.fatigue = fullFatigue;
   if (typeof entity.bleeding === 'number') entity.bleeding = 0;
 

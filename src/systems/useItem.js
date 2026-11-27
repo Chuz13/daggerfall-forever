@@ -391,7 +391,7 @@ export function useItem(item, collection, {
   else if ([603, 113, 114].includes(item.templateIndex)) {
     const hEntity = entity ?? { items: collection };
     if (collection && !Array.isArray(hEntity.items)) hEntity.items = collection;
-    const pos = hEntity?.position || hEntity?.pos || [0, 0, 0];
+    const pos = hEntity?.position || hEntity?.pos || hEntity?.feet || globalThis.__sceneContext?.getPlayerPos?.() || [0, 0, 0];
     const nearby = corpsesNear(pos, 8);
     if (nearby.length > 0) {
       const res = harvestAllFromCorpse(nearby[0], hEntity);
