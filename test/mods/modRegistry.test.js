@@ -13,6 +13,16 @@ import {
   _resetModRegistry,
 } from '../../src/systems/mods/modRegistry.js';
 import { createModsStorage } from '../../app/lib/modsStorage.cjs';
+import {
+  createModApi,
+  _resetModPluginApi,
+  setModApiContext,
+  getModStatusChips,
+} from '../../src/systems/mods/modPluginApi.js';
+import { emitModEvent, _resetModEventBus } from '../../src/systems/mods/modEventBus.js';
+import { syncModData, _resetModDataSync } from '../../src/systems/mods/modDataSync.js';
+import initMagickaRegen from '../../mods/examples/magicka-regeneration/plugin.js';
+import initStaminaRegen from '../../mods/examples/stamina-regeneration/plugin.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -196,6 +206,173 @@ test('ModRegistry: persists mod enabled flags and load order via daggerShell.sto
     else delete globalThis.daggerShell;
     if (prevLsDesc) Object.defineProperty(globalThis, 'localStorage', prevLsDesc);
     else delete globalThis.localStorage;
+  }
+});
+
+test('Bundled mods: 13 mods ship with expected 8 ON / 5 OFF defaults and Osmicnosap mods initialize cleanly', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dff-mods-13-test-'));
+  const expectedDisabled = new Set([
+    'blood-tithe',
+    'duelists-flow',
+    'heroic-feats',
+    'magicka-regeneration',
+    'stamina-regeneration',
+  ]);
+  const all26 = [
+    'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'fi', 'fr', 'hu', 'id', 'it', 'ja',
+    'ko', 'nb', 'nl', 'pl', 'pt-BR', 'ro', 'ru', 'sv', 'tr', 'uk', 'vi', 'zh-Hans', 'zh-Hant',
+  ];
+
+  try {
+    const storage = createModsStorage(tmpDir, { seedExamples: true });
+    const list = storage.listMods();
+    assert.equal(list.length, 13);
+
+    for (const item of list) {
+      const shouldBeDisabled = expectedDisabled.has(item.id);
+      assert.equal(
+        item.manifest.enabled,
+        !shouldBeDisabled,
+        `${item.id} manifest.enabled should be ${!shouldBeDisabled}`,
+      );
+    }
+
+    for (const id of ['magicka-regeneration', 'stamina-regeneration']) {
+      const item = list.find((m) => m.id === id);
+      assert.ok(item, `${id} should be seeded`);
+      assert.equal(item.manifest.author, 'Osmicnosap');
+      const locales = JSON.parse(fs.readFileSync(path.join('mods', 'examples', id, 'locales.json'), 'utf8'));
+      for (const code of all26) {
+        assert.ok(locales[code] && typeof locales[code] === 'object', `${id} missing locale ${code}`);
+      }
+    }
+
+    _resetModPluginApi();
+    _resetModEventBus();
+    _resetModDataSync();
+    _resetModRegistry();
+
+    const player = {
+      isPlayer: true,
+      health: 100,
+      maxHealth: 100,
+      magicka: 10,
+      maxMagicka: 100,
+      fatigue: 10,
+      maxFatigue: 100,
+      stats: { willpower: 80, endurance: 50 },
+    };
+    setModApiContext({ player });
+
+    const mrManifest = JSON.parse(fs.readFileSync('mods/examples/magicka-regeneration/manifest.json', 'utf8'));
+    const srManifest = JSON.parse(fs.readFileSync('mods/examples/stamina-regeneration/manifest.json', 'utf8'));
+    registerVirtualMod(mrManifest);
+    registerVirtualMod(srManifest);
+    syncModData();
+
+    const mrApi = createModApi('magicka-regeneration');
+    const srApi = createModApi('stamina-regeneration');
+    initMagickaRegen(mrApi);
+    initStaminaRegen(srApi);
+
+    emitModEvent('secondTick', { dt: 2 });
+    assert.ok(player.magicka > 10, 'magicka-regeneration should restore magicka on secondTick');
+    assert.ok(player.fatigue > 10, 'stamina-regeneration should restore fatigue on secondTick');
+    assert.equal(getModStatusChips().length, 2);
+  } finally {
+    _resetModPluginApi();
+    _resetModEventBus();
+    _resetModDataSync();
+    _resetModRegistry();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('ModsStorage: updates legacy and unmodified bundled mods on client upgrade while preserving local edits and 3rd-party mods', () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dff-mods-upgrade-test-'));
+  const bundledDir = path.join(tmpRoot, 'bundled');
+  const userDataDir = path.join(tmpRoot, 'userData');
+  const modsDir = path.join(userDataDir, 'Mods');
+
+  try {
+    // Prepare bundled v1
+    const writeBundledMod = (id, files) => {
+      const dir = path.join(bundledDir, id);
+      fs.mkdirSync(dir, { recursive: true });
+      for (const [rel, content] of Object.entries(files)) {
+        const full = path.join(dir, rel);
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, content, 'utf8');
+      }
+    };
+
+    writeBundledMod('auto-mod', {
+      'manifest.json': JSON.stringify({ id: 'auto-mod', name: 'Auto', version: '1.0.0', enabled: true }),
+      'plugin.js': 'export default function() { return 1; }\n',
+      'obsolete.txt': 'remove me in v2\n',
+    });
+    writeBundledMod('edited-mod', {
+      'manifest.json': JSON.stringify({ id: 'edited-mod', name: 'Edited', version: '1.0.0', enabled: true }),
+      'plugin.js': 'export default function() { return 1; }\n',
+    });
+
+    // Legacy pre-marker mod (simulates 0.6.9 userData without .dff-bundled.json)
+    fs.mkdirSync(path.join(modsDir, 'legacy-mod'), { recursive: true });
+    fs.writeFileSync(
+      path.join(modsDir, 'legacy-mod', 'manifest.json'),
+      JSON.stringify({ id: 'legacy-mod', name: 'Legacy', version: '0.9.0', enabled: true }),
+    );
+    fs.writeFileSync(path.join(modsDir, 'legacy-mod', 'plugin.js'), '// old 0.6.9 code\n');
+
+    // Third-party user mod (not in bundledDir)
+    fs.mkdirSync(path.join(modsDir, 'third-party-mod'), { recursive: true });
+    fs.writeFileSync(
+      path.join(modsDir, 'third-party-mod', 'manifest.json'),
+      JSON.stringify({ id: 'third-party-mod', name: 'Custom', version: '1.0.0', enabled: true }),
+    );
+
+    // First launch seeds auto-mod and edited-mod with .dff-bundled.json
+    createModsStorage(userDataDir, { seedExamples: true, bundledExamplesDir: bundledDir });
+    assert.ok(fs.existsSync(path.join(modsDir, 'auto-mod', '.dff-bundled.json')));
+    assert.ok(fs.existsSync(path.join(modsDir, 'edited-mod', '.dff-bundled.json')));
+
+    // User locally edits 'edited-mod/plugin.js'
+    fs.writeFileSync(path.join(modsDir, 'edited-mod', 'plugin.js'), '// user custom tweak\n');
+
+    // Client updates to v2: auto-mod & edited-mod change, legacy-mod is now bundled too
+    fs.rmSync(path.join(bundledDir, 'auto-mod', 'obsolete.txt'));
+    writeBundledMod('auto-mod', {
+      'manifest.json': JSON.stringify({ id: 'auto-mod', name: 'Auto', version: '2.0.0', enabled: false }),
+      'plugin.js': 'export default function() { return 2; }\n',
+    });
+    writeBundledMod('edited-mod', {
+      'manifest.json': JSON.stringify({ id: 'edited-mod', name: 'Edited', version: '2.0.0', enabled: true }),
+      'plugin.js': 'export default function() { return 2; }\n',
+    });
+    writeBundledMod('legacy-mod', {
+      'manifest.json': JSON.stringify({ id: 'legacy-mod', name: 'Legacy', version: '1.0.0', enabled: true }),
+      'plugin.js': '// new 0.7.0 code\n',
+    });
+
+    createModsStorage(userDataDir, { seedExamples: true, bundledExamplesDir: bundledDir });
+
+    // 1. Unmodified bundled mod updated + obsolete file removed
+    assert.equal(fs.readFileSync(path.join(modsDir, 'auto-mod', 'plugin.js'), 'utf8'), 'export default function() { return 2; }\n');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(modsDir, 'auto-mod', 'manifest.json'), 'utf8')).enabled, false);
+    assert.equal(fs.existsSync(path.join(modsDir, 'auto-mod', 'obsolete.txt')), false);
+
+    // 2. Legacy pre-marker mod updated + marker written
+    assert.equal(fs.readFileSync(path.join(modsDir, 'legacy-mod', 'plugin.js'), 'utf8'), '// new 0.7.0 code\n');
+    assert.ok(fs.existsSync(path.join(modsDir, 'legacy-mod', '.dff-bundled.json')));
+
+    // 3. Locally edited bundled mod preserved
+    assert.equal(fs.readFileSync(path.join(modsDir, 'edited-mod', 'plugin.js'), 'utf8'), '// user custom tweak\n');
+
+    // 4. Third-party mod untouched
+    assert.ok(fs.existsSync(path.join(modsDir, 'third-party-mod', 'manifest.json')));
+    assert.equal(fs.existsSync(path.join(modsDir, 'third-party-mod', '.dff-bundled.json')), false);
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 });
 

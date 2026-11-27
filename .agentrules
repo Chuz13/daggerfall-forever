@@ -67,6 +67,10 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
     - **Mandatory verification (Definition of Done)**:
       1. Run `node --test test/systems/org2_options.test.js` (verifies `checkFeatures(FEATURES)` and strict bijection with `settingsMap.js` for all DFU keys, `FEATURES`, and `portPool()` rows).
       2. In the feature's unit test, assert: (a) `whereIs('feat:<id>' | 'port:<id>')` returns the expected `tab.id` and `section.id`; (b) `checkFeature(entry)` returns `[]` (for `feat:*`) or `portPool({ pause: true }).has('<id>') === true` (for in-game `port:*`); and (c) toggling via `setPref` changes the actual runtime behavior.
+13. **TAMRIEL-WIDE REGIONAL PARITY (Паритет Илиак Бей и остального Тамриэля)**:
+    - All new features, world events, encounters, dungeons, travel mechanics, settlement/tavern/harbour hooks, UI integrations, and modifications MUST immediately maintain full parity between regions inside the Iliac Bay and the rest of Tamriel (all 71 regions). Never restrict new gameplay features solely to Iliac Bay regions unless explicitly required by classic lore/quests.
+14. **LOCAL ARENA2 RESOURCE PATH**:
+    - The lead's local classic Daggerfall `ARENA2` folder for inspecting binary assets, textures, flats, models, and running live probes (`ARENA2_PATH=...`) is `D:\Games\DFO\DaggerfallGameFiles\arena2`.
    
    
    Also always add any new text in all languages currently present in the game. 
@@ -94,7 +98,7 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
 3. **Dynamic "Doors" Boot Isolation**: `src/main.js` avoids static imports for scene hosts (`bootExterior`, `bootInterior`, `bootDungeon`, `bootWorld`) and heavy subsystems, loading them dynamically on demand to keep the initial boot graph under strict performance ceilings.
 4. **`FORK_FLAGS` Master Switch**: `src/config/forkFlags.js` houses fork-level toggles (`ENABLE_ARMORY`, `ENABLE_SHOP`, `ENABLE_ACCOUNT`, `ENABLE_ONLINE_PLAY`, `TEXT_BRAND_MARK`). All fork-specific feature silencing must respect these flags.
 5. **Completely Isolated Fork AppData**: The desktop application uses appId `dev.chuz13.daggerfallforever`, isolating its saves, preferences, and caches from original DFO installs.
-6. **Direct ARENA2 Binary Parsers**: `src/formats/` and `src/scenes/dataSource.js` natively read original MS-DOS Daggerfall binary assets directly (BSA archives, FLATS, TEXTURE.*, BLOCKS.BSA, MAPS.BSA, WOODS.WLD).
+6. **Direct ARENA2 Binary Parsers**: `src/formats/` and `src/scenes/dataSource.js` natively read original MS-DOS Daggerfall binary assets directly (BSA archives, FLATS, TEXTURE.*, BLOCKS.BSA, MAPS.BSA, WOODS.WLD). Local `ARENA2` path on this machine: `D:\Games\DFO\DaggerfallGameFiles\arena2`.
 7. **Extensive DFU Mod Vendor Vault**: Over 50 original C# Daggerfall Unity mods reside in `vendor/` (World of Daggerfall, Warm Ashes, Travel Options, Climates & Calories, Roads, etc.), serving as ground-truth specifications for JS/TS ports.
 8. **Strict Branding Gates (`BR1`, `BR4`, `BR5`)**: The test suite (`test/ui/brand.test.js`) strictly verifies that all player-facing strings say "Daggerfall Forever" while ensuring classic Bethesda legacy attributions remain intact without drift.
 9. **Architectural Guardrails (Bible & Drift Tests)**: The test suite includes `mutantdrift.test.js`, `citedrift.test.js`, and `manifest.test.js` in `test/bible/` and `test/tooling/`, validating structural integrity, citation anchors, and comment tags.
@@ -113,7 +117,7 @@ Primary focus: Native desktop clients (Windows, macOS, Linux) prioritizing offli
 22. **Classic Entity & Monster AI**: `src/ai/` implements Daggerfall's classic enemy behavior tables, aggression checks, patrol routines, and combat maneuvers alongside DFU enhancements.
 23. **Classic Quest Engine**: `src/systems/quests/` and `vendor/dfu-quests/` decode and execute Bethesda's classic QBN/QRC quest scripts, maintaining compatibility with vanilla quests and custom DFU additions.
 24. **Daggerfall Character & Combat Math**: Authentic skill progression, attribute calculations, armor penetration, hit checks, and fatigue depletion are centralized in `src/characters/` and `src/combat/`.
-25. **Automated Probe Harness (Playwright)**: Standalone test pages (`cards.html`, `chargen.html`, `enhanced.html`, `delve.html`) pair with headless probes in `tools/*Probe.mjs` for visual regression and gameplay subsystem auditing. Live-world E2E probes reuse `tools/lib/liveE2e.mjs` (requiring `ARENA2_PATH=<dir>` in the shell environment; e.g. `tools/saveVitalsProbe.mjs` / `npm run savevitals`) to drive real browser clicks against `/play/?world`.
+25. **Automated Probe Harness (Playwright)**: Standalone test pages (`cards.html`, `chargen.html`, `enhanced.html`, `delve.html`) pair with headless probes in `tools/*Probe.mjs` for visual regression and gameplay subsystem auditing. Live-world E2E probes reuse `tools/lib/liveE2e.mjs` (requiring `ARENA2_PATH=D:\Games\DFO\DaggerfallGameFiles\arena2` in the shell environment; e.g. `tools/saveVitalsProbe.mjs` / `npm run savevitals`) to drive real browser clicks against `/play/?world`.
 26. **Fork Auto-Updater**: `app/lib/autoUpdate.cjs` and `app/lib/updateCheck.cjs` connect directly to GitHub releases for `Chuz13/daggerfall-forever`, supporting background downloads and safe self-swapping on restart.
 
 ---

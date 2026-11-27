@@ -1,0 +1,210 @@
+{
+  "bg": {
+    "mr.chip.name": "Реген. на магия",
+    "mr.chip.meta": "Пасивен реген",
+    "mr.chip.line.rate": "Възстановява +{rate} магия/сек (Воля {wp}, x{mult}).",
+    "mr.chip.line.pool": "Магия: {cur}/{max}",
+    "mr.cfg.multiplier": "Множител на реген.",
+    "mr.cfg.showChip": "Показвай HUD-чип"
+  },
+  "cs": {
+    "mr.chip.name": "Regen. magicky",
+    "mr.chip.meta": "Pasivní regen",
+    "mr.chip.line.rate": "Obnovuje +{rate} magicky/s (Vůle {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Násobič regenerace",
+    "mr.cfg.showChip": "Zobrazit HUD ikonu"
+  },
+  "da": {
+    "mr.chip.name": "Magicka-regen",
+    "mr.chip.meta": "Passiv regen",
+    "mr.chip.line.rate": "Genskaber +{rate} Magicka/sek (Vilje {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Regen-multiplikator",
+    "mr.cfg.showChip": "Vis HUD-chip"
+  },
+  "de": {
+    "mr.chip.name": "Magicka-Regen",
+    "mr.chip.meta": "Passive Regen",
+    "mr.chip.line.rate": "Stellt +{rate} Magicka/Sek wieder her (Willenskraft {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Regen-Multiplikator",
+    "mr.cfg.showChip": "HUD-Chip anzeigen"
+  },
+  "el": {
+    "mr.chip.name": "Αναπλ. Μάγιας",
+    "mr.chip.meta": "Παθητική αναπλ.",
+    "mr.chip.line.rate": "Αναπληρώνει +{rate} Μάγια/δευτ (Θέληση {wp}, x{mult}).",
+    "mr.chip.line.pool": "Μάγια: {cur}/{max}",
+    "mr.cfg.multiplier": "Πολλαπλασιαστής",
+    "mr.cfg.showChip": "Εμφάνιση HUD chip"
+  },
+  "en": {
+    "mr.chip.name": "Magicka Regen",
+    "mr.chip.meta": "Passive regen",
+    "mr.chip.line.rate": "Restoring +{rate} Magicka/sec (Willpower {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Regen Multiplier",
+    "mr.cfg.showChip": "Show HUD Status Chip"
+  },
+  "es": {
+    "mr.chip.name": "Regen. de magia",
+    "mr.chip.meta": "Regen. pasiva",
+    "mr.chip.line.rate": "Restaura +{rate} Magia/seg (Voluntad {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magia: {cur}/{max}",
+    "mr.cfg.multiplier": "Multiplicador de regen.",
+    "mr.cfg.showChip": "Mostrar chip de HUD"
+  },
+  "fi": {
+    "mr.chip.name": "Magikan palautus",
+    "mr.chip.meta": "Passiivinen palautus",
+    "mr.chip.line.rate": "Palauttaa +{rate} Magikaa/s (Tahdonvoima {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magika: {cur}/{max}",
+    "mr.cfg.multiplier": "Palautuskerroin",
+    "mr.cfg.showChip": "Näytä HUD-siru"
+  },
+  "fr": {
+    "mr.chip.name": "Régén. Magie",
+    "mr.chip.meta": "Régén. passive",
+    "mr.chip.line.rate": "Restaure +{rate} Magie/sec (Volonté {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magie : {cur}/{max}",
+    "mr.cfg.multiplier": "Multiplicateur de régén.",
+    "mr.cfg.showChip": "Afficher la puce HUD"
+  },
+  "hu": {
+    "mr.chip.name": "Magicka-regen",
+    "mr.chip.meta": "Passzív regen",
+    "mr.chip.line.rate": "Visszaállít +{rate} Magicka/mp (Akaraterő {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Regen szorzó",
+    "mr.cfg.showChip": "HUD chip megjelenítése"
+  },
+  "id": {
+    "mr.chip.name": "Regen Magicka",
+    "mr.chip.meta": "Regen pasif",
+    "mr.chip.line.rate": "Memulihkan +{rate} Magicka/dtk (Tekad {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Pengali Regen",
+    "mr.cfg.showChip": "Tampilkan Chip HUD"
+  },
+  "it": {
+    "mr.chip.name": "Rig. Magicka",
+    "mr.chip.meta": "Rig. passiva",
+    "mr.chip.line.rate": "Ripristina +{rate} Magicka/sec (Volontà {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Moltiplicatore rig.",
+    "mr.cfg.showChip": "Mostra chip HUD"
+  },
+  "ja": {
+    "mr.chip.name": "マジカ自然回復",
+    "mr.chip.meta": "パッシブ回復",
+    "mr.chip.line.rate": "毎秒 +{rate} マジカ回復（意志力 {wp}, x{mult}）。",
+    "mr.chip.line.pool": "マジカ: {cur}/{max}",
+    "mr.cfg.multiplier": "回復倍率",
+    "mr.cfg.showChip": "HUDチップを表示"
+  },
+  "ko": {
+    "mr.chip.name": "매지카 재생",
+    "mr.chip.meta": "지속 재생",
+    "mr.chip.line.rate": "초당 +{rate} 매지카 회복 (의지력 {wp}, x{mult}).",
+    "mr.chip.line.pool": "매지카: {cur}/{max}",
+    "mr.cfg.multiplier": "재생 배율",
+    "mr.cfg.showChip": "HUD 칩 표시"
+  },
+  "nb": {
+    "mr.chip.name": "Magicka-regen",
+    "mr.chip.meta": "Passiv regen",
+    "mr.chip.line.rate": "Gjenoppretter +{rate} Magicka/sek (Vilje {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Regen-multiplikator",
+    "mr.cfg.showChip": "Vis HUD-brikke"
+  },
+  "nl": {
+    "mr.chip.name": "Magicka-regen",
+    "mr.chip.meta": "Passieve regen",
+    "mr.chip.line.rate": "Herstelt +{rate} Magicka/sec (Wilskracht {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Regen-multiplier",
+    "mr.cfg.showChip": "HUD-chip tonen"
+  },
+  "pl": {
+    "mr.chip.name": "Regen. Many",
+    "mr.chip.meta": "Pasywna regen.",
+    "mr.chip.line.rate": "Przywraca +{rate} Many/sek (Siła Woli {wp}, x{mult}).",
+    "mr.chip.line.pool": "Mana: {cur}/{max}",
+    "mr.cfg.multiplier": "Mnożnik regeneracji",
+    "mr.cfg.showChip": "Pokaż ikonę HUD"
+  },
+  "pt-BR": {
+    "mr.chip.name": "Regen. de Magicka",
+    "mr.chip.meta": "Regen. passiva",
+    "mr.chip.line.rate": "Restaura +{rate} Magicka/seg (Vontade {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Multiplicador de regen.",
+    "mr.cfg.showChip": "Mostrar chip no HUD"
+  },
+  "ro": {
+    "mr.chip.name": "Regen. Magicka",
+    "mr.chip.meta": "Regen. pasivă",
+    "mr.chip.line.rate": "Reface +{rate} Magicka/sec (Voință {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Multiplicator regen.",
+    "mr.cfg.showChip": "Afișează chip HUD"
+  },
+  "ru": {
+    "mr.chip.name": "Реген. магии",
+    "mr.chip.meta": "Пассивный реген",
+    "mr.chip.line.rate": "Восстанавливает +{rate} магии/сек (Сила воли {wp}, x{mult}).",
+    "mr.chip.line.pool": "Магия: {cur}/{max}",
+    "mr.cfg.multiplier": "Множитель регенерации",
+    "mr.cfg.showChip": "Показывать HUD-чип"
+  },
+  "sv": {
+    "mr.chip.name": "Magicka-regen",
+    "mr.chip.meta": "Passiv regen",
+    "mr.chip.line.rate": "Återställer +{rate} Magicka/sek (Viljestyrka {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Regen-multiplikator",
+    "mr.cfg.showChip": "Visa HUD-bricka"
+  },
+  "tr": {
+    "mr.chip.name": "Magicka Yenileme",
+    "mr.chip.meta": "Pasif yenileme",
+    "mr.chip.line.rate": "Saniyede +{rate} Magicka yeniler (İrade {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Yenileme Çarpanı",
+    "mr.cfg.showChip": "HUD Çipini Göster"
+  },
+  "uk": {
+    "mr.chip.name": "Реген. магії",
+    "mr.chip.meta": "Пасивний реген",
+    "mr.chip.line.rate": "Відновлює +{rate} магії/сек (Сила волі {wp}, x{mult}).",
+    "mr.chip.line.pool": "Магія: {cur}/{max}",
+    "mr.cfg.multiplier": "Множник регенерації",
+    "mr.cfg.showChip": "Показувати HUD-чип"
+  },
+  "vi": {
+    "mr.chip.name": "Hồi Magicka",
+    "mr.chip.meta": "Hồi bị động",
+    "mr.chip.line.rate": "Hồi +{rate} Magicka/giây (Ý chí {wp}, x{mult}).",
+    "mr.chip.line.pool": "Magicka: {cur}/{max}",
+    "mr.cfg.multiplier": "Hệ số hồi phục",
+    "mr.cfg.showChip": "Hiện thẻ HUD"
+  },
+  "zh-Hans": {
+    "mr.chip.name": "法力再生",
+    "mr.chip.meta": "被动再生",
+    "mr.chip.line.rate": "每秒恢复 +{rate} 法力（意志 {wp}, x{mult}）。",
+    "mr.chip.line.pool": "法力：{cur}/{max}",
+    "mr.cfg.multiplier": "再生倍率",
+    "mr.cfg.showChip": "显示 HUD 状态徽章"
+  },
+  "zh-Hant": {
+    "mr.chip.name": "法力再生",
+    "mr.chip.meta": "被動再生",
+    "mr.chip.line.rate": "每秒恢復 +{rate} 法力（意志 {wp}, x{mult}）。",
+    "mr.chip.line.pool": "法力：{cur}/{max}",
+    "mr.cfg.multiplier": "再生倍率",
+    "mr.cfg.showChip": "顯示 HUD 狀態徽章"
+  }
+}

@@ -1,6 +1,6 @@
 # Example Mods Walkthrough
 
-Daggerfall Forever ships with **11 bundled example mods** in `mods/examples/` (automatically seeded into `<userData>/Mods/` in the packaged desktop app without overwriting existing folders). Together they demonstrate JSON overrides, custom content (`items`, `spells`, `legendaries`), live modifiers, HUD status chips, Mini-MCM settings, and 26-language localization.
+Daggerfall Forever ships with **13 bundled mods** in `mods/examples/` (automatically seeded into `<userData>/Mods/` in the packaged desktop app, and auto-updated on client updates unless locally modified). Together they demonstrate JSON overrides, custom content (`items`, `spells`, `legendaries`), live modifiers, HUD status chips, Mini-MCM settings, and 26-language localization.
 
 ---
 
@@ -83,3 +83,19 @@ Daggerfall Forever ships with **11 bundled example mods** in `mods/examples/` (a
   * **Wayfarer's Stride** (`spells.json` spell `9101`): Custom spell (Heal Fatigue + Fortify Speed) merged into `SPELLS.STD` and granted via `api.spells.grant`.
   * **Wayfarer's Signet** (`legendaries.json` `wayfarers-signet`): Custom legendary ring with affixes, lore, and *Endless Road* haste power.
 * **Console & MCM:** Includes `wayfarer_give`, `wayfarer_status`, 26-language `locales.json`, and MCM settings (`tonicFatigue`, `tonicHeal`, `buffDuration`, `showChip`).
+
+---
+
+## 12. `magicka-regeneration` (Community Mod by Osmicnosap — Disabled by Default)
+* **Files:** `manifest.json`, `locales.json`, `plugin.js`
+* **Author:** **Osmicnosap** (upgraded for DFF Mod API v2; ships disabled by default so players can opt in from the Mods menu).
+* **What it does:** Adds passive Magicka regeneration scaled exponentially by effective Willpower (`(1.019^Willpower - 1) * multiplier` MP/sec) and displays a live **Magicka Regen** HUD status chip when below full Magicka.
+* **Console & MCM:** Includes `mregen_status`, `mregen_drain`, 26-language `locales.json`, and MCM settings (`multiplier` `0.25–3.0`, `showChip`).
+
+---
+
+## 13. `stamina-regeneration` (Community Mod by Osmicnosap — Disabled by Default)
+* **Files:** `manifest.json`, `locales.json`, `plugin.js`
+* **Author:** **Osmicnosap** (upgraded for DFF Mod API v2; ships disabled by default so players can opt in from the Mods menu).
+* **What it does:** Adds continuous passive Fatigue regeneration (`regenPerSecond` FP/sec), with an option to pause regeneration while running, plus a live **Stamina Regen** HUD status chip.
+* **Console & MCM:** Includes `sregen_status`, `sregen_drain`, 26-language `locales.json`, and MCM settings (`regenPerSecond` `0.5–10`, `pauseWhileRunning`, `showChip`).

@@ -1,0 +1,29 @@
+{
+  "id": "magicka-regeneration",
+  "name": "Magicka Regeneration",
+  "version": "2.0.0",
+  "author": "Osmicnosap",
+  "description": "Adds passive magicka regeneration based on effective Willpower, with MCM multiplier, HUD status chip, and 26-language support.",
+  "enabled": false,
+  "locales": "locales.json",
+  "entry": "plugin.js",
+  "settings": [
+    {
+      "key": "multiplier",
+      "type": "number",
+      "label": "Regen Multiplier",
+      "labelKey": "mr.cfg.multiplier",
+      "min": 0.25,
+      "max": 3,
+      "step": 0.25,
+      "default": 1
+    },
+    {
+      "key": "showChip",
+      "type": "boolean",
+      "label": "Show HUD Status Chip",
+      "labelKey": "mr.cfg.showChip",
+      "default": true
+    }
+  ]
+}

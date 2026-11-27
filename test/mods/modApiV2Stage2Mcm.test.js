@@ -269,6 +269,7 @@ test('Stage 2 MCM reactivity: Arcane Overload, Stealth Auto-Steal, Duelist Flow 
   const dfManifest = JSON.parse(fs.readFileSync('mods/examples/duelists-flow/manifest.json', 'utf8'));
 
   sasManifest.enabled = true;
+  dfManifest.enabled = true;
   registerVirtualMod(aoManifest);
   registerVirtualPlugin('arcane-overload', arcaneInit);
   registerVirtualMod(sasManifest);
