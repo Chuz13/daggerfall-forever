@@ -305,6 +305,8 @@ export default defineConfig({
         // an item template points at. The player's own ARENA2 through
         // a picker, like mw-inspect - nothing baked in.
         archiveSheet: 'archive-sheet.html',
+        // Zero-CDN WebGL2 3D viewer for Mini-Dungeon Blueprint v1 & ARCH3D catalog.
+        miniDungeonViewer: 'mini-dungeon-viewer.html',
         // STUDIO1: THE STUDIO - every picture the port paints itself, as worn, each with its template to download, and the
         // artists' own pictures beside them (src/tools/studioLab.js; public/art/studio/README.md). No game data.
         studio: 'studio.html',
